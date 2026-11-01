@@ -1,6 +1,6 @@
 ## Current milestone
 
-Owner visual feedback iteration, 2026-11-01: stronger capture lift/flip/landing, horizontal unit facing, actual-shot bullet lines, committed locks and gold hammer confirmation. Canonical live entry: https://tianz88-bit.github.io/game-prototypes/prototypes/operation-c/ . Game-specific PR publication and live verification follow completed local checks.
+Owner visual feedback iteration, 2026-11-01: stronger capture lift/flip/landing, horizontal unit facing, actual-shot bullet lines, committed locks and gold hammer confirmation. Canonical live entry: https://tianz88-bit.github.io/game-prototypes/prototypes/operation-c/ . Implementation is pushed in PR #410: https://github.com/tianz88-bit/game-prototypes/pull/410 . Local verification is complete; publication awaits explicit owner approval after automatic approval review rejected enabling auto-merge. The live page still serves the earlier build.
 
 ## What was implemented
 
@@ -12,7 +12,7 @@ Committed tiles use muted inset shading and a small lock while preserving owners
 
 Presentation is independent of deterministic rules. Shot IDs use a separate bounded sequence (128 events); renderer effects expire after 220 ms and discard stale fast-forwarded shots. Capture lasts 900 ms with lift 0.9 times tile radius. Numeric presentation values live in tune.json and the debug pane. Reusable Graphics layers avoid per-shot/per-tile GameObjects. Existing movement, capture, resource and production rules remain unchanged.
 
-Verification: 20 behavior tests, scoped and full TypeScript checks, standalone and hub production builds pass. Development and production bundles pass isolated Brave flows at desktop 1440x900, portrait 390x844 and landscape 844x390/667x375, with no console errors. Screenshots inspected for hammer placement, locks, flip/landing and actual bullet traces. A normal-clock unpaused Brave portrait recording independently confirms capture lift, turn and landing without virtual advance or cosmetic freezing. GitHub CI and deployed checks remain the publication step.
+Verification: 20 behavior tests, scoped and full TypeScript checks, standalone and hub production builds pass. Development and production bundles pass isolated Brave flows at desktop 1440x900, portrait 390x844 and landscape 844x390/667x375, with no console errors. Screenshots inspected for hammer placement, locks, flip/landing and actual bullet traces. A normal-clock unpaused Brave portrait recording independently confirms capture lift, turn and landing without virtual advance or cosmetic freezing. GitHub CI is running on PR #410. Deployed checks cannot occur until the owner approves merge/publication.
 
 ## Open questions
 
@@ -24,4 +24,4 @@ Two-HQ local bot sandbox only; six-player networking, final map and factions rem
 
 ## Next proposed step
 
-Publish this game-specific change, verify the new live version in Brave, then have the owner assess capture readability, hammer confirmation and opening expansion. Add no new pacing timer without discussion.
+Obtain owner approval to merge/publish PR #410, then verify the new live version in Brave and have the owner assess capture readability, hammer confirmation and opening expansion. Add no new pacing timer without discussion.
