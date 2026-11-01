@@ -4,11 +4,19 @@ Mobile-first local human-v-bot preview. This is the first systems slice, not the
 
 ## Play
 
-Choose Barracks, Factory or Artillery, tap an open teal hex, inspect the highlighted connected footprint, then tap that same **gold hammer hex** again to build. **Build here** remains an alternative confirmation. Units produce and act automatically. **Home · Expand** favors territory expansion; **Attack rival HQ** sends your forces toward the rival's buildings. Destroy the rival HQ to win. Drag the map, pinch/scroll to zoom, use **My HQ** to return or **Map** to see the whole field. Reset starts a fresh match.
+Choose Barracks, Factory, Artillery, Hangar or Airfield, tap an open teal hex, inspect the highlighted connected footprint, then tap that same **gold hammer hex** again to build. **Build here** remains an alternative confirmation. Units produce and act automatically. **Home · Expand** favors territory expansion; **Attack rival HQ** sends your forces toward the rival's buildings. Destroy the rival HQ to win. Drag the map, pinch/scroll to zoom, use **My HQ** to return or **Map** to see the whole field. Reset starts a fresh match.
 
-The resource display is **committed costs / capacity**. Muted inset hexes with a small lock are committed to buildings. They remain traversable and capturable, but cannot fund or host another building. Losing territory does not release commitment. Destroyed production buildings leave passable burnt tiles, release their full cost and leave living units alive. Capturing pauses only while the capturing unit attacks.
+The resource display is **committed costs / capacity**. Muted inset hexes with a small lock are committed to buildings. They remain traversable and capturable, but cannot fund or host another building. Losing territory does not release commitment. Destroyed production buildings leave passable burnt tiles, release their full cost and leave living units alive. Capturing pauses only while the capturing unit attacks. If that unit dies before completion, its progress slowly shrinks back toward the original controller.
 
-Barracks now costs **8** capacity. No placement cooldown has been added. Ownership changes play a 900 ms lift/full-turn/landing animation with a visible underside and grounded socket. Unit bodies stay upright and mirror horizontally toward movement or the attack target; an external ring chevron points toward the actual combat target. Short bullet traces appear only when a unit actually fires, including its final shot if it dies in that step. Reduced-motion preferences suppress the tile flip.
+Barracks costs **4**, Factory and Artillery **8**, Hangar and Airfield **12** capacity. No placement cooldown has been added. Ownership changes play a 900 ms lift/full-turn/landing animation with a visible underside and grounded socket. Unit bodies stay upright and mirror horizontally toward movement or the attack target; an external ring chevron points toward the actual combat target. Short bullet traces appear only when a unit actually fires, including its final shot if it dies in that step. Reduced-motion preferences suppress the tile flip.
+
+## Unit roles
+
+Infantry attacks ground and air. Tanks attack ground only. Frail artillery attacks ground at range 2-3, cannot fire adjacent, and retreats after taking a hit. Hangars maintain one helicopter (air-to-ground); Airfields maintain one fighter (air-to-air). Both aircraft cannot capture. G/A labels on cards identify attacker and target domains.
+
+Aircraft in Expand mode defend owned territory against the nearest valid intruder, otherwise return home. In Attack mode they advance toward the selected enemy HQ and seek valid targets; fighters never fire on ground units or buildings. Ground expansion fills reachable neutral land outward from its HQ before hostile land.
+
+All units share one occupancy slot per hex, including air versus ground. Buildings and reserved movement endpoints block every unit. This intentionally tests queues and congestion without air/ground stacking.
 
 ## Development
 
@@ -40,6 +48,6 @@ Firestorm main f584c590d52e0f8802c55b90aaa870d4a9c85fdc, particularly arena-sim 
 
 ## Provisional choices
 
-271-hex radius-nine test map; HQ centre supplies no capacity; capacity capped at 200 while additional land stays capturable; three sample building costs/ranges and all combat timers are balance placeholders. All current ground types capture, infantry fastest. No ranged line-of-sight obstruction yet. Elimination removes remaining structures without a burn cascade. HQ pressure retakes unoccupied nearby enemy land using normal enemy capture duration. Movement reserves both endpoints until arrival, so queues cannot exchange places. These are documented test assumptions, not final design decisions.
+271-hex radius-nine test map; HQ centre supplies no capacity; capacity capped at 200 while additional land stays capturable; sample unit damage/health/movement/ranges and all combat timers are balance placeholders. All current ground types capture, infantry fastest. No ranged line-of-sight obstruction yet. Elimination removes remaining structures without a burn cascade. HQ pressure retakes unoccupied nearby enemy land using normal enemy capture duration. Movement reserves both endpoints until arrival, so queues cannot exchange places. These are documented test assumptions, not final design decisions.
 
 Pending: complete Eurasia map, six players/networking, three races and tiers/pre-match loadouts, swarm membership/reinforcements, full defense routing, final balance and physical phone performance/orientation testing.

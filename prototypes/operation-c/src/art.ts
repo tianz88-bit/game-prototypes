@@ -11,7 +11,7 @@ export const PALETTE = {
   valid: 0x81b960, invalid: 0xd85e53,
 } as const;
 type Graphics = Phaser.GameObjects.Graphics;
-export type UnitKind = 'infantry' | 'tank' | 'artillery';
+export type UnitKind = 'infantry' | 'tank' | 'artillery' | 'helicopter' | 'fighter';
 export type BuildingKind = 'hq' | UnitKind;
 export interface HexOptions {
   owner: number | null; burnt: boolean; committed: boolean;
@@ -188,8 +188,9 @@ export function drawBulletTrace(g: Graphics, fromX: number, fromY: number, toX: 
   const dx = toX - fromX, dy = toY - fromY, length = Math.hypot(dx, dy);
   if (p >= 1 || length < 0.01) return;
   const arrival = 0.7, head = Math.min(1, p / arrival);
-  const width = kind === 'infantry' ? 1.8 : kind === 'tank' ? 2.8 : 3.4;
-  const segment = Math.min(length * 0.3, kind === 'infantry' ? 12 : 18);
+  const lightTrace = kind === 'infantry' || kind === 'helicopter';
+  const width = lightTrace ? 1.8 : kind === 'fighter' ? 2.4 : kind === 'tank' ? 2.8 : 3.4;
+  const segment = Math.min(length * 0.3, lightTrace ? 12 : 18);
   const tail = Math.max(0, head - segment / length);
   // Artillery traces follow a shallow cosmetic arc; no gameplay trajectory implied.
   const lift = kind === 'artillery' ? Math.min(18, length * 0.13) : 0;
@@ -200,7 +201,7 @@ export function drawBulletTrace(g: Graphics, fromX: number, fromY: number, toX: 
     g.lineStyle(width, 0xf1bc50).lineBetween(tx, ty, hx, hy);
     g.fillStyle(PALETTE.cream).fillCircle(hx, hy, width * 0.6);
   } else {
-    const hit = (p - arrival) / (1 - arrival), radius = 2 + hit * (kind === 'infantry' ? 4 : 7);
+    const hit = (p - arrival) / (1 - arrival), radius = 2 + hit * (lightTrace ? 4 : 7);
     g.lineStyle(1.5, 0xf1bc50, 1 - hit).strokeCircle(toX, toY, radius);
     g.fillStyle(PALETTE.cream, 1 - hit).fillCircle(toX, toY, radius * 0.45);
   }
@@ -255,6 +256,25 @@ export function drawBuilding(g: Graphics, x: number, y: number, size: number, ow
     g.fillStyle(PALETTE.ink).fillRoundedRect(-0.43, -0.11, 0.86, 0.48, 0.03);
     g.lineStyle(0.035, PALETTE.metal);
     for (let i = 0; i < 3; i++) g.lineBetween(-0.37, 0.02 + i * 0.1, 0.37, 0.02 + i * 0.1);
+  } else if (kind === 'helicopter') {
+    // Hangar: broad curved roof, open bay and unmistakable rooftop helipad.
+    g.fillStyle(color).fillRoundedRect(-0.57, -0.68, 1.14, 0.53, 0.23);
+    g.fillStyle(PALETTE.metal).fillEllipse(0, -0.51, 0.77, 0.32);
+    g.lineStyle(0.035, PALETTE.cream).strokeEllipse(0, -0.51, 0.66, 0.25);
+    g.lineStyle(0.045, PALETTE.cream).lineBetween(-0.1, -0.59, -0.1, -0.43)
+      .lineBetween(0.1, -0.59, 0.1, -0.43).lineBetween(-0.1, -0.51, 0.1, -0.51);
+    g.fillStyle(PALETTE.ink).fillRoundedRect(-0.43, -0.08, 0.86, 0.45, 0.06);
+    g.fillStyle(PALETTE.cream).fillRect(-0.38, 0.29, 0.76, 0.045);
+  } else if (kind === 'fighter') {
+    // Airfield: runway apron, swept-wing roof emblem and short control tower.
+    g.fillStyle(PALETTE.ink).fillRoundedRect(-0.54, -0.37, 0.72, 0.69, 0.04);
+    g.lineStyle(0.035, PALETTE.cream);
+    for (let i = 0; i < 3; i++) g.lineBetween(-0.18, -0.29 + i * 0.2, -0.18, -0.19 + i * 0.2);
+    g.fillStyle(color).fillTriangle(-0.34, -0.16, 0.04, -0.16, -0.15, -0.46);
+    g.fillStyle(PALETTE.metal).fillRect(0.27, -0.81, 0.22, 0.88);
+    g.fillStyle(color).fillRoundedRect(0.14, -0.97, 0.48, 0.3, 0.04);
+    g.fillStyle(PALETTE.ink).fillRect(0.19, -0.91, 0.38, 0.11);
+    g.fillStyle(PALETTE.cream).fillRect(0.14, -1.01, 0.48, 0.065);
   } else {
     // Artillery works: ammunition shed with a raised, angled test barrel.
     g.fillStyle(color).fillTriangle(-0.62, -0.44, 0, -0.82, 0.62, -0.44);
@@ -281,6 +301,9 @@ export function drawUnit(g: Graphics, x: number, y: number, size: number, owner:
   g.lineStyle(0.055, color).strokeEllipse(0, 0.23, 1.16, 0.46);
   badge(g, owner, -0.44, 0.23, 0.055);
   g.save().scaleCanvas(o.facingX === -1 ? -1 : 1, 1);
+  const airborne = kind === 'helicopter' || kind === 'fighter';
+  // x/y always identify the ground hex. Only the air body floats; UI stays grounded.
+  if (airborne) g.translateCanvas(0, -0.42 - Math.sin(phase) * 0.035);
   if (kind === 'infantry') {
     const stride = o.moving && !o.attacking ? Math.sin(phase) * 0.14 : 0;
     const bob = o.attacking ? kick * 0.3 : o.moving ? Math.abs(Math.sin(phase)) * 0.035 : 0;
@@ -294,6 +317,41 @@ export function drawUnit(g: Graphics, x: number, y: number, size: number, owner:
     g.fillStyle(PALETTE.ink).fillRect(0.03 - kick, -0.6 - bob, 0.19, 0.065);
     g.lineStyle(0.11, PALETTE.ink).lineBetween(0.06 - kick, -0.21, 0.58 - kick, -0.33);
     g.fillStyle(0xe7bf90).fillCircle(0.24 - kick, -0.26, 0.085);
+  } else if (kind === 'helicopter') {
+    // Side-on toy helicopter: tail boom, rounded cabin, skids and projected rotor.
+    g.lineStyle(0.1, PALETTE.metal).lineBetween(-0.22, -0.21, -0.76, -0.34);
+    g.fillStyle(color).fillTriangle(-0.82, -0.33, -0.63, -0.33, -0.8, -0.59);
+    g.lineStyle(0.045, PALETTE.ink).lineBetween(-0.81, -0.42, -0.63, -0.23)
+      .lineBetween(-0.81, -0.23, -0.63, -0.42);
+    g.lineStyle(0.045, PALETTE.ink).lineBetween(-0.2, 0.02, -0.24, 0.22)
+      .lineBetween(0.22, 0.02, 0.26, 0.22).lineBetween(-0.38, 0.22, 0.46, 0.22);
+    g.fillStyle(PALETTE.metal).fillRoundedRect(-0.38, -0.43, 0.94, 0.52, 0.23);
+    g.fillStyle(color).fillRoundedRect(-0.38, -0.47, 0.94, 0.43, 0.2);
+    g.fillStyle(PALETTE.ink).fillRoundedRect(0.13, -0.42, 0.35, 0.24, 0.09);
+    g.fillStyle(PALETTE.cream, 0.7).fillRect(0.18, -0.39, 0.16, 0.035);
+    g.lineStyle(0.06, PALETTE.ink).lineBetween(-0.04, -0.47, -0.04, -0.65);
+    const rotor = phase * 4, rx = Math.cos(rotor) * 0.83, ry = Math.sin(rotor) * 0.15;
+    const sx = Math.cos(rotor + Math.PI / 2) * 0.83, sy = Math.sin(rotor + Math.PI / 2) * 0.15;
+    g.lineStyle(0.055, PALETTE.ink).lineBetween(-0.04 - rx, -0.65 - ry, -0.04 + rx, -0.65 + ry)
+      .lineBetween(-0.04 - sx, -0.65 - sy, -0.04 + sx, -0.65 + sy);
+    g.fillStyle(PALETTE.cream).fillCircle(-0.04, -0.65, 0.055);
+  } else if (kind === 'fighter') {
+    // Swept wings and tail distinguish the jet without rotating its silhouette.
+    if (o.moving || o.attacking) {
+      const exhaust = 0.12 + (Math.sin(phase * 3) + 1) * 0.025;
+      g.fillStyle(0xf1bc50, 0.65).fillTriangle(-0.51, -0.17, -0.51, -0.04, -0.65 - exhaust, -0.105);
+    }
+    g.fillStyle(PALETTE.metal).fillTriangle(0.21, -0.13, -0.38, -0.66, -0.23, -0.1)
+      .fillTriangle(0.21, -0.08, -0.38, 0.46, -0.23, -0.1);
+    g.fillStyle(color).fillTriangle(0.15, -0.16, -0.32, -0.57, -0.19, -0.14)
+      .fillTriangle(0.15, -0.04, -0.32, 0.37, -0.19, -0.05);
+    g.fillStyle(PALETTE.ink).fillTriangle(-0.32, -0.15, -0.66, -0.4, -0.56, -0.07)
+      .fillTriangle(-0.32, -0.04, -0.66, 0.23, -0.56, -0.14);
+    g.fillStyle(PALETTE.metal).fillRoundedRect(-0.56, -0.23, 1.03, 0.25, 0.09);
+    g.fillStyle(color).fillTriangle(0.14, -0.23, 0.81, -0.11, 0.14, 0.02);
+    g.fillStyle(PALETTE.cream).fillRoundedRect(-0.43, -0.24, 0.64, 0.07, 0.025);
+    g.fillStyle(PALETTE.ink).fillEllipse(0.19, -0.15, 0.37, 0.13);
+    g.fillStyle(PALETTE.cream, 0.65).fillEllipse(0.2, -0.17, 0.2, 0.035);
   } else {
     const artillery = kind === 'artillery';
     g.fillStyle(PALETTE.ink).fillRoundedRect(-0.57, -0.35, 1.07, 0.23, 0.08)
@@ -331,7 +389,7 @@ export function drawUnit(g: Graphics, x: number, y: number, size: number, owner:
       .strokeTriangle(tipX, tipY, leftX, leftY, rightX, rightY);
   }
   g.restore();
-  health(g, x, y - size * 1.02, size * 0.9, o.hp, o.maxHp);
+  health(g, x, y - size * (airborne ? 1.45 : 1.02), size * 0.9, o.hp, o.maxHp);
 }
 
 /** Caller supplies normalized lifetime; can be culled/pooled without timers. */

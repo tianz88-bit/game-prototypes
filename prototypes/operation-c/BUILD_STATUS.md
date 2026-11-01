@@ -1,27 +1,29 @@
 ## Current milestone
 
-Owner visual feedback iteration, 2026-11-01: stronger capture lift/flip/landing, horizontal unit facing, actual-shot bullet lines, committed locks and gold hammer confirmation. Canonical live entry: https://tianz88-bit.github.io/game-prototypes/prototypes/operation-c/ . Implementation is pushed in PR #410: https://github.com/tianz88-bit/game-prototypes/pull/410 . Local verification is complete; publication awaits explicit owner approval after automatic approval review rejected enabling auto-merge. The live page still serves the earlier build.
+Combined-arms local playtest, 2026-11-01. Existing local preview http://127.0.0.1:5188/ serves the new standalone production build. PR #410 will be updated with the complete iteration. Hosted Pages remains on the earlier build; merge/publication awaits explicit owner approval following the prior automatic approval review rejection.
 
 ## What was implemented
 
-Capture transitions lift higher, complete a full turn with visible underside/edge, and land with squash and a pulse over a grounded socket. Units remain upright and mirror only their body horizontally; health, ownership rings and target direction stay unmirrored. Actual firing emits short bullet traces; aiming or reloading does not emit phantom shots.
+Barracks 4, Factory 8, Artillery 8, Hangar 12 and Airfield 12. Helicopters attack ground only; fighters attack air only; neither captures. Infantry can attack both domains; tanks and artillery attack ground only. Artillery retains frail 38 HP, has a minimum range of 2 (maximum 3), and retreats after actual damage. Five vector building/unit silhouettes, rotor animation, floating aircraft and attack-domain labels fit desktop and phone layouts.
 
-Committed tiles use muted inset shading and a small lock while preserving ownership colour. The selected build hex shows a gold hammer; other supporting hexes stay subdued. A second tap/click on the same hex builds, with Build Here retained as an alternative. Barracks remains 8 resources; no gameplay tuning or construction cooldown changes.
+Capturer death starts slow reversal of incomplete progress toward the unchanged original controller. A replacement capturer can resume it; a living unit attacking or merely leaving does not trigger reversal. Ground expansion fills reachable neutral land in rings from the HQ before hostile land. Aircraft in Expand mode seek nearest valid intruders on owned land, otherwise return home; Attack mode seeks valid targets toward the enemy HQ. Owner confirmed one shared occupancy slot: air, ground and buildings block each other, with shared movement reservations and queues.
+
+Earlier capture flips, horizontal-only unit mirroring, actual-shot traces, committed locks and gold hammer two-tap confirmation remain included. No construction cooldown added.
 
 ## Key technical decisions
 
-Presentation is independent of deterministic rules. Shot IDs use a separate bounded sequence (128 events); renderer effects expire after 220 ms and discard stale fast-forwarded shots. Capture lasts 900 ms with lift 0.9 times tile radius. Numeric presentation values live in tune.json and the debug pane. Reusable Graphics layers avoid per-shot/per-tile GameObjects. Existing movement, capture, resource and production rules remain unchanged.
+Deterministic fixed-step rules remain separate from rendering. Card data declares domain, valid target domains and minimum range. Buildings are ground targets. Shot records carry target domain for altitude-aware traces. Aircraft cannot add capture pressure. No separate air occupancy layer. Casualty rollback tracks the responsible capturer; progress shrinks without changing ownership. Provisional rollback is 0.25 times baseline capture speed, artillery retreat memory 2200 ms, and new aircraft stats are in tune.json/debug controls.
 
-Verification: 20 behavior tests, scoped and full TypeScript checks, standalone and hub production builds pass. Development and production bundles pass isolated Brave flows at desktop 1440x900, portrait 390x844 and landscape 844x390/667x375, with no console errors. Screenshots inspected for hammer placement, locks, flip/landing and actual bullet traces. A normal-clock unpaused Brave portrait recording independently confirms capture lift, turn and landing without virtual advance or cosmetic freezing. GitHub CI is running on PR #410. Deployed checks cannot occur until the owner approves merge/publication.
+Verification: 31 behavior tests pass, including target matrix, non-capture, defensive pursuit/return, fighter HQ approach without ground fire, spawn/movement blockages, casualty reversal and artillery screening. Full/scoped TypeScript and hub/standalone production builds pass. Brave development checks pass desktop 1440x900, portrait 390x844 and landscapes 844x390/667x375, with all five producer costs/spawns verified and no console errors. Inspected phone helicopter/fighter silhouettes and five-card layouts. Standalone production bundle passes the same four Brave profiles, all five producer placements/costs, capture/landing and actual-shot checks, with no console errors.
 
 ## Open questions
 
-Assess opening expansion with Barracks cost 8 before discussing another construction timer. Full-game questions remain in BRIEF.md (capacity cap, HQ exceptions, factions/loadouts, swarm reinforcements, geography and match duration). Owner confirmed Brave as the affected browser; this implementation was tested in Brave.
+Owner answered Airfield cost 12 and no air/ground stacking; BRIEF.md now records both. Evaluate congestion from shared occupancy and the provisional aircraft stats/rollback/retreat timings through play. Ground expansion was interpreted as neutral HQ-ring filling before hostile land, stated to the owner and recorded. Full-game geography, factions/loadouts and networking remain later discussions.
 
 ## Known issues
 
-Two-HQ local bot sandbox only; six-player networking, final map and factions remain outside scope. Physical phones and sustained mobile performance are unverified. OS reduced-motion preferences intentionally suppress capture flips. Existing provisional rules are listed in README.md. Legacy hub publication still builds multiple games; this change does not modify other games, deployment configuration or pending account-migration PRs.
+Two-HQ local bot sandbox; no six-player networking/final map/factions. Physical phone performance and balance remain unverified. Shared occupancy intentionally lets aircraft be blocked by ground traffic/buildings. Reduced-motion preference suppresses capture flips. Existing hub build warnings concern legacy chunk size/Punchies imports; builds pass. Publication is not authorized yet; do not merge PR #410 or unrelated migration PRs without approval.
 
 ## Next proposed step
 
-Obtain owner approval to merge/publish PR #410, then verify the new live version in Brave and have the owner assess capture readability, hammer confirmation and opening expansion. Add no new pacing timer without discussion.
+Update PR #410 with the verified combined-arms iteration. Owner can refresh the local preview to assess the new rules, then explicitly approve merge/publication if ready. Revisit shared occupancy only after this playtest.

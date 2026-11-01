@@ -33,9 +33,12 @@ try {
       const b = await page.evaluate(id => window.__operationC.targets().buttons.find(b => b.id === id), id);
       assert(b, `button ${id}`); await tap(b.x, b.y); await page.waitForTimeout(80);
     };
+    const ui = await page.evaluate(() => window.__operationC.targets());
+    for (const b of ui.buttons) { assert(b.left >= 0 && b.top >= 0 && b.left+b.w <= profile.viewport.width+1 && b.top+b.h <= profile.viewport.height+1, `${profile.name}: ${b.id} fits viewport`); }
+    assert.equal(ui.buttons.filter(b=>b.id.startsWith('card-')).length, 5);
     await page.screenshot({ path: path.join(outDir, `${profile.name}-start.png`) });
     await press('card-infantry');
-    const candidate = await page.evaluate(() => window.__operationC.targets().hexes.find(h => h.valid && h.x > 25 && h.x < innerWidth - 25 && h.y > 145 && h.y < innerHeight - 205));
+    const candidate = await page.evaluate(() => { const {hexes,board}=window.__operationC.targets(); return hexes.find(h => h.valid && h.x > 25 && h.x < innerWidth - 25 && h.y > board.top + 24 && h.y < board.bottom - 24); });
     assert(candidate, `${profile.name}: visible legal building location`);
     await tap(candidate.x, candidate.y); await page.waitForTimeout(100);
     let state = await page.evaluate(() => window.__operationC.snapshot());
@@ -48,10 +51,10 @@ try {
     } else await press('build');
     state = await page.evaluate(() => window.__operationC.snapshot());
     assert.equal(state.buildings.filter(b => b.owner === 0 && b.kind !== 'hq').length, 1);
-    assert.equal(state.resources.committed, 8);
+    assert.equal(state.resources.committed, 4);
     assert.equal(state.units.filter(u => u.owner === 0).length, 1);
     assert.equal(state.selectedBuild, null);
-    assert.equal(state.hexes.filter(h => h.lockedBy && state.buildings.some(b => b.id === h.lockedBy && b.owner === 0)).length, 8);
+    assert.equal(state.hexes.filter(h => h.lockedBy && state.buildings.some(b => b.id === h.lockedBy && b.owner === 0)).length, 4);
     await press('cancel');
     if (profile.name === 'desktop' || profile.name === 'phone-portrait') {
       // Observe a real ownership transition, not a fabricated visual fixture.
@@ -120,6 +123,18 @@ try {
     state = await page.evaluate(() => window.__operationC.snapshot());
     assert.equal(state.resources.committed, 0);
     console.log(`PASS ${profile.name}: canvas placement, production, order, 45s simulation, exclusive occupancy, restart; objects=${state.objects}, textures=${state.textures}`);
+    for (const [kind,cost] of [['tank',8],['artillery',8],['helicopter',12],['fighter',12]]) {
+      await press('restart'); await press(`card-${kind}`);
+      const target = await page.evaluate(() => { const {hexes,board}=window.__operationC.targets(); return hexes.find(h=>h.valid && h.x>25 && h.x<innerWidth-25 && h.y>board.top+24 && h.y<board.bottom-24); });
+      assert(target, `${profile.name}: legal ${kind} placement`);
+      await tap(target.x,target.y); await page.waitForTimeout(80); await press('build');
+      const s=await page.evaluate(()=>window.__operationC.snapshot());
+      assert.equal(s.resources.committed,cost); assert.equal(s.units.filter(u=>u.owner===0 && u.kind===kind).length,1);
+      assert.equal(new Set(s.units.map(u=>u.hexId)).size,s.units.length);
+      await press('cancel');
+      await page.screenshot({path:path.join(outDir,`${profile.name}-${kind}.png`)});
+    }
+    console.log(`PASS ${profile.name}: all five producers and confirmed costs`);
     await context.close();
   }
 } finally { await browser.close(); }

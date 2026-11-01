@@ -1,6 +1,6 @@
 import tuneJson from '../tune.json';
-import type { Building, CardKind, Hex, Placement, Player, Shot, Tune, Unit } from './model';
-export type { Building, CardKind, Hex, Placement, Player, Shot, Tune, Unit } from './model';
+import type { Building, CardKind, Hex, Placement, Player, Shot, Tune, Unit, UnitDomain } from './model';
+export type { Building, CardKind, Hex, Placement, Player, Shot, Tune, Unit, UnitDomain } from './model';
 
 export const DEFAULT_TUNE: Tune = tuneJson as Tune;
 // Axial direction order is also the deterministic BFS tie-break.
@@ -165,11 +165,13 @@ export class OperationSim {
     this.bot();
     for (const b of [...this.buildings]) this.spawn(b);
     const damage = new Map<Building | Unit, number>();
+    const damageSources = new Map<Unit, Unit[]>();
     // Decide all attacks first, so damage does not grant first-iteration survival.
     for (const u of this.units) {
       u.attacking = false;
       delete u.attackTargetHexId;
       if ((u.movingUntilMs ?? 0) > this.timeMs) continue;
+      if ((u.retreatUntilMs ?? 0) > this.timeMs) continue;
       const target = this.attackTarget(u);
       if (!target) continue;
       u.attacking = true;
@@ -177,23 +179,37 @@ export class OperationSim {
       if (this.timeMs < u.nextAttackAtMs) continue;
       u.nextAttackAtMs = this.timeMs + this.tune.cards[u.kind].attackMs;
       damage.set(target, (damage.get(target) ?? 0) + this.tune.cards[u.kind].damage);
+      if ('buildingId' in target && this.tune.cards[u.kind].damage > 0) {
+        const sources = damageSources.get(target) ?? []; sources.push(u); damageSources.set(target, sources);
+      }
       this.shots.push({ id: ++this.shotSerial, unitId: u.id, owner: u.owner, kind: u.kind,
-        fromHexId: u.hexId, targetHexId: target.hexId, timeMs: this.timeMs });
+        fromHexId: u.hexId, targetHexId: target.hexId,
+        targetDomain: 'buildingId' in target ? this.tune.cards[target.kind].domain : 'ground', timeMs: this.timeMs });
       const cap = Math.max(0, Math.floor(this.tune.presentation.maxShotEvents));
       if (this.shots.length > cap) this.shots.splice(0, this.shots.length - cap);
     }
     // Capture before damage: being hit alone never cancels that step's progress.
     this.capture();
     for (const [target, amount] of damage) target.hp -= amount;
+    for (const [target, sources] of damageSources) if (target.kind === 'artillery') {
+      const here = this.byHex.get(target.hexId)!;
+      sources.sort((a, b) => distance(here, this.byHex.get(a.hexId)!) - distance(here, this.byHex.get(b.hexId)!));
+      target.retreatFromHexId = sources[0].hexId;
+      target.retreatUntilMs = this.timeMs + (this.tune.cards.artillery.retreatMs ?? 0);
+    }
     this.cleanDead();
     if (this.winner !== null) return;
     const blocked = this.occupied();
     for (const u of this.units) {
-      if (u.attacking || (u.movingUntilMs ?? 0) > this.timeMs) continue;
+      if ((u.movingUntilMs ?? 0) > this.timeMs) continue;
+      const retreating = (u.retreatUntilMs ?? 0) > this.timeMs;
+      if (u.attacking && !retreating) continue;
       // Hold non-owned land until capture finishes, including under unanswered fire.
-      if (this.byHex.get(u.hexId)!.owner !== u.owner) continue;
-      const next = this.nextMove(u, blocked);
+      if (!retreating && this.tune.cards[u.kind].domain === 'ground' &&
+        this.byHex.get(u.hexId)!.owner !== u.owner && !this.byHex.get(u.hexId)!.burnt) continue;
+      const next = retreating ? this.retreatMove(u, blocked) : this.nextMove(u, blocked);
       if (!next) continue;
+      if (retreating) { u.attacking = false; delete u.attackTargetHexId; }
       const from = u.hexId;
       // Reserve destination and origin for the entire animation; no crossing/swap.
       blocked.add(next); blocked.add(from);
@@ -205,11 +221,15 @@ export class OperationSim {
   private attackTarget(u: Unit): Building | Unit | undefined {
     const here = this.byHex.get(u.hexId)!, range = this.tune.cards[u.kind].range;
     const player = this.players.find(p => p.id === u.owner)!;
+    const airDefense = this.tune.cards[u.kind].domain === 'air' && player.targetId === player.id;
     const targets: (Building | Unit)[] = [...this.units, ...this.buildings].filter(t =>
-      t.owner !== u.owner && t.hp > 0 && distance(here, this.byHex.get(t.hexId)!) <= range);
+      t.owner !== u.owner && t.hp > 0 && this.canTarget(u, t) &&
+      (!airDefense || this.byHex.get(t.hexId)!.owner === u.owner) &&
+      distance(here, this.byHex.get(t.hexId)!) <= range && distance(here, this.byHex.get(t.hexId)!) >= this.tune.cards[u.kind].minRange);
     // An attack order prioritizes the selected faction's structures. Defense
     // retains troop-first reactions instead of ignoring a nearby attacker.
     return targets.sort((a, b) => {
+      if (airDefense) return distance(here, this.byHex.get(a.hexId)!) - distance(here, this.byHex.get(b.hexId)!);
       const score = (t: Building | Unit) => {
         const isUnit = 'buildingId' in t;
         if (player.targetId === player.id) return isUnit ? 0 : 1;
@@ -219,7 +239,20 @@ export class OperationSim {
     })[0];
   }
 
+  private canTarget(u: Unit, target: Building | Unit): boolean {
+    const domain = 'buildingId' in target ? this.tune.cards[target.kind].domain : 'ground';
+    return this.tune.cards[u.kind].targets.includes(domain);
+  }
+
+  private retreatMove(u: Unit, blocked: Set<string>): string | undefined {
+    const threat = this.byHex.get(u.retreatFromHexId ?? ''), here = this.byHex.get(u.hexId)!;
+    if (!threat) return;
+    return this.neighbors(u.hexId).filter(h => !blocked.has(h.id) && distance(h, threat) > distance(here, threat))
+      .sort((a, b) => distance(b, threat) - distance(a, threat))[0]?.id;
+  }
+
   private nextMove(u: Unit, blocked: Set<string>): string | undefined {
+    if (this.tune.cards[u.kind].domain === 'air') return this.airMove(u, blocked);
     const player = this.players.find(p => p.id === u.owner)!;
     const here = this.byHex.get(u.hexId)!;
     const enemy = this.buildings.filter(b => b.owner === player.targetId && b.owner !== u.owner);
@@ -229,30 +262,71 @@ export class OperationSim {
     const goals = new Set<string>();
     if (enemy.length) {
       // Search for free attack positions rather than pathing into a blocked HQ.
-      for (const h of this.hexes) if (!blocked.has(h.id) && enemy.some(b => distance(h, this.byHex.get(b.hexId)!) <= range)) goals.add(h.id);
+      for (const h of this.hexes) if (!blocked.has(h.id) && enemy.some(b => this.canTarget(u, b) &&
+        distance(h, this.byHex.get(b.hexId)!) <= range && distance(h, this.byHex.get(b.hexId)!) >= this.tune.cards[u.kind].minRange)) goals.add(h.id);
     }
     const queue = [here.id], first = new Map<string, string>(), seen = new Set(queue);
     let expansion: string | undefined;
+    const home = this.buildings.find(b => b.owner === u.owner && b.kind === 'hq');
+    const homeHex = home ? this.byHex.get(home.hexId)! : here;
+    let expansionRank = [Infinity, Infinity];
     for (let i = 0; i < queue.length; i++) {
       const id = queue[i], h = this.byHex.get(id)!;
       if (i > 0 && goals.has(id)) return first.get(id);
-      if (i > 0 && h.owner !== u.owner && !expansion) expansion = first.get(id);
+      if (i > 0 && h.owner !== u.owner && !h.burnt) {
+        const rank = [h.owner === null ? 0 : 1, distance(h, homeHex)];
+        if (!enemy.length && (rank[0] < expansionRank[0] || rank[0] === expansionRank[0] && rank[1] < expansionRank[1])) {
+          expansion = first.get(id); expansionRank = rank;
+        } else if (enemy.length && !expansion) expansion = first.get(id);
+      }
       const neighbors = this.neighbors(id);
       if (targetHex) neighbors.sort((a, b) => distance(a, targetHex) - distance(b, targetHex));
       for (const n of neighbors) {
         if (seen.has(n.id) || blocked.has(n.id)) continue;
         seen.add(n.id); first.set(n.id, first.get(id) ?? n.id); queue.push(n.id);
       }
-      // Defense mode searches only as far as its first expansion tile.
-      if (!enemy.length && expansion) return expansion;
     }
     return expansion;
   }
 
+  private airMove(u: Unit, blocked: Set<string>): string | undefined {
+    const player = this.players.find(p => p.id === u.owner)!, here = this.byHex.get(u.hexId)!;
+    const defense = player.targetId === player.id;
+    const targets: (Building | Unit)[] = [...this.units, ...this.buildings].filter(t => t.owner !== u.owner && t.hp > 0 &&
+      this.canTarget(u, t) && (defense ? this.byHex.get(t.hexId)!.owner === u.owner : t.owner === player.targetId));
+    // Passive defense chooses a single nearest intruder in owned territory.
+    targets.sort((a, b) => distance(here, this.byHex.get(a.hexId)!) - distance(here, this.byHex.get(b.hexId)!));
+    const sought = defense ? targets.slice(0, 1) : targets;
+    const card = this.tune.cards[u.kind];
+    const goals = new Set<string>();
+    if (sought.length) {
+      for (const h of this.hexes) if (!blocked.has(h.id) && sought.some(t => {
+        const d = distance(h, this.byHex.get(t.hexId)!); return d >= card.minRange && d <= card.range;
+      })) goals.add(h.id);
+    } else {
+      const hq = this.buildings.find(b => b.owner === (defense ? u.owner : player.targetId) && b.kind === 'hq');
+      if (!hq) return;
+      const centre = this.byHex.get(hq.hexId)!;
+      // With no eligible enemy aircraft, fighters approach the HQ but never fire at it.
+      const holdRange = defense ? 1 : card.range;
+      if (distance(here, centre) <= holdRange) return;
+      for (const h of this.hexes) if (!blocked.has(h.id) && distance(h, centre) >= 1 && distance(h, centre) <= holdRange) goals.add(h.id);
+    }
+    const queue = [u.hexId], seen = new Set(queue), first = new Map<string, string>();
+    for (let i = 0; i < queue.length; i++) {
+      const id = queue[i];
+      if (i > 0 && goals.has(id)) return first.get(id);
+      for (const n of this.neighbors(id)) {
+        if (seen.has(n.id) || blocked.has(n.id)) continue;
+        seen.add(n.id); first.set(n.id, first.get(id) ?? n.id); queue.push(n.id);
+      }
+    }
+  }
+
   private capture(): void {
-    const pressure = new Map<string, { owner: number; rate: number }>();
-    for (const u of this.units) if (!u.attacking && (u.movingUntilMs ?? 0) <= this.timeMs) {
-      pressure.set(u.hexId, { owner: u.owner, rate: this.tune.cards[u.kind].captureRate });
+    const pressure = new Map<string, { owner: number; rate: number; unitId?: string }>();
+    for (const u of this.units) if (this.tune.cards[u.kind].domain === 'ground' && !u.attacking && (u.movingUntilMs ?? 0) <= this.timeMs) {
+      if (!this.byHex.get(u.hexId)!.burnt) pressure.set(u.hexId, { owner: u.owner, rate: this.tune.cards[u.kind].captureRate, unitId: u.id });
     }
     for (const b of this.buildings) if (b.kind === 'hq') {
       const centre = this.byHex.get(b.hexId)!;
@@ -267,11 +341,18 @@ export class OperationSim {
       const h = this.byHex.get(id)!;
       if (h.owner === p.owner || p.rate <= 0) continue;
       if (h.capturePlayer !== p.owner) { h.capture = 0; h.capturePlayer = p.owner; }
+      h.captureUnitId = p.unitId; delete h.captureReversing;
       const duration = this.tune.capture.neutralMs * (h.owner === null ? 1 : this.tune.capture.ownedMultiplier);
       h.capture += this.tune.stepMs * p.rate / duration;
       if (h.capture + Number.EPSILON >= 1) {
         h.owner = p.owner; h.lockedBy = null; h.capture = 0; h.capturePlayer = null;
+        delete h.captureUnitId; delete h.captureReversing;
       }
+    }
+    for (const h of this.hexes) if (h.captureReversing && h.capture > 0) {
+      const duration = this.tune.capture.neutralMs * (h.owner === null ? 1 : this.tune.capture.ownedMultiplier);
+      h.capture = Math.max(0, h.capture - this.tune.stepMs * this.tune.capture.rollbackRate / duration);
+      if (h.capture < Number.EPSILON) { h.capture = 0; h.capturePlayer = null; delete h.captureUnitId; delete h.captureReversing; }
     }
   }
 
@@ -289,12 +370,15 @@ export class OperationSim {
     for (let i = this.units.length - 1; i >= 0; i--) {
       const u = this.units[i];
       if (u.hp > 0 && !eliminated.has(u.owner)) continue;
+      // Casualty triggers reversal; attacking, retreating or mere absence does not.
+      for (const h of this.hexes) if (h.captureUnitId === u.id && h.capture > 0) h.captureReversing = true;
       const b = this.buildings.find(x => x.id === u.buildingId);
       if (b) b.unitId = null;
       this.units.splice(i, 1);
     }
     for (const h of this.hexes) if (h.owner !== null && eliminated.has(h.owner)) {
       h.owner = null; h.lockedBy = null; h.capture = 0; h.capturePlayer = null;
+      delete h.captureUnitId; delete h.captureReversing;
     }
     if (eliminated.size) {
       const survivors = this.players.filter(p => p.alive);

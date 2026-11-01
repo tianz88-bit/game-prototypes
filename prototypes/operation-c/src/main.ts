@@ -6,8 +6,9 @@ import { drawHex, drawBuilding, drawUnit, drawExplosion, drawCaptureFlip, drawBu
 import { Intents } from './input';
 import { VERSION_STAMP } from './version.generated';
 
-const CARDS: CardKind[] = ['infantry', 'tank', 'artillery'];
-const NAMES: Record<CardKind, string> = { infantry: 'BARRACKS', tank: 'FACTORY', artillery: 'ARTILLERY' };
+const CARDS: CardKind[] = ['infantry', 'tank', 'artillery', 'helicopter', 'fighter'];
+const NAMES: Record<CardKind, string> = { infantry: 'BARRACKS', tank: 'FACTORY', artillery: 'ARTILLERY', helicopter: 'HANGAR', fighter: 'AIRFIELD' };
+const ROLES: Record<CardKind, string> = { infantry: 'G > G/A', tank: 'G > G', artillery: 'G > G', helicopter: 'A > G', fighter: 'A > A' };
 const INK = '#203d46', MUTED = '#60767a', CREAM = 0xfff7e5;
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
 type Button = { id: string; x: number; y: number; w: number; h: number; run: () => void };
@@ -38,7 +39,7 @@ class Battlefield extends Phaser.Scene {
   private spawns = new Map<string, { x: number; y: number; born: number }>();
   private facingX = new Map<string, 1 | -1>();
   private lastShotId = 0;
-  private traces: { id: number; fromHexId: string; targetHexId: string; kind: CardKind; born: number }[] = [];
+  private traces: { id: number; fromHexId: string; targetHexId: string; kind: CardKind; targetDomain: 'ground' | 'air'; born: number }[] = [];
   private effects: { x: number; y: number; born: number }[] = [];
   private previousOwners = new Map<string, number | null>();
   private captureFlips = new Map<string, { previousOwner: number | null; born: number }>();
@@ -74,7 +75,7 @@ class Battlefield extends Phaser.Scene {
             flips: [...this.captureFlips].map(([hexId, flip]) => ({ hexId,
             progress: Phaser.Math.Clamp((this.captureNow() - flip.born) / this.sim.tune.presentation.captureFlipMs, 0, 1) })),
             attackIndicators: this.sim.units.filter(u => u.attacking && u.attackTargetHexId).map(u => ({ unitId: u.id, hexId: u.hexId, targetHexId: u.attackTargetHexId })) } }),
-        targets: () => ({ buttons: this.buttons.map(({ id, x, y, w, h }) => ({ id, x: (x + w / 2) * this.uiScale, y: (y + h / 2) * this.uiScale })),
+        targets: () => ({ board: { top: this.top * this.uiScale, bottom: (this.h - this.bottom) * this.uiScale }, buttons: this.buttons.map(({ id, x, y, w, h }) => ({ id, x: (x + w / 2) * this.uiScale, y: (y + h / 2) * this.uiScale, left: x * this.uiScale, top: y * this.uiScale, w: w * this.uiScale, h: h * this.uiScale })),
           hexes: this.sim.hexes.map(h => { const p = this.toScreen(h); return { id: h.id, x: p.x * this.uiScale, y: p.y * this.uiScale, owner: h.owner,
             valid: this.selected ? this.sim.placement(0, h.id, this.selected).ok : false }; }) }),
         advance: ms => this.sim.tick(ms),
@@ -96,14 +97,16 @@ class Battlefield extends Phaser.Scene {
     const capture = this.pane.addFolder({ title: 'Capture', expanded: false });
     capture.addBinding(values.capture, 'neutralMs', { min: 500, max: 10000, step: 100 });
     capture.addBinding(values.capture, 'ownedMultiplier', { min: 1, max: 4, step: 0.1 });
+    capture.addBinding(values.capture, 'rollbackRate', { min: 0.05, max: 1, step: 0.05 });
     const presentation = this.pane.addFolder({ title: 'Capture animation', expanded: false });
     presentation.addBinding(values.presentation, 'captureFlipMs', { min: 100, max: 1500, step: 50 });
     presentation.addBinding(values.presentation, 'captureLift', { min: 0.1, max: 1.4, step: 0.02 });
     presentation.addBinding(values.presentation, 'shotTraceMs', { min: 100, max: 600, step: 20 });
     for (const kind of CARDS) {
       const folder = this.pane.addFolder({ title: NAMES[kind], expanded: false });
-      for (const key of ['cost', 'damage', 'unitHp', 'moveMs', 'productionMs', 'attackMs', 'captureRate'] as const)
+      for (const key of ['cost', 'damage', 'unitHp', 'moveMs', 'productionMs', 'attackMs', 'captureRate', 'minRange', 'range'] as const)
         folder.addBinding(values.cards[kind], key, { min: key.endsWith('Ms') ? 100 : 0.1, max: key.endsWith('Ms') ? 30000 : 300 });
+      if (values.cards[kind].retreatMs !== undefined) folder.addBinding(values.cards[kind], 'retreatMs', { min: 100, max: 10000, step: 100 });
     }
     this.pane.addButton({ title: 'Apply and restart sandbox' }).on('click', () => this.restart(values));
     this.pane.addButton({ title: 'Copy tuning JSON' }).on('click', () => {
@@ -122,13 +125,13 @@ class Battlefield extends Phaser.Scene {
     // This prevents the two command buttons colliding with the capacity display.
     this.uiScale = window.innerHeight < 520 && window.innerWidth >= 640 && window.innerWidth < 840 ? window.innerWidth / 840 : 1;
     this.w = Math.max(320, window.innerWidth) / this.uiScale; this.h = Math.max(320, window.innerHeight) / this.uiScale;
-    this.top = this.h < 520 ? 76 : this.w < 640 ? 132 : 101;
-    this.bottom = this.h < 520 ? 122 : this.w < 640 ? 192 : 170;
+    this.top = this.h < 520 ? 76 : this.w < 760 ? 132 : 101;
+    this.bottom = this.h < 520 ? 122 : this.w < 760 ? 266 : 170;
     this.scale.resize(Math.round(this.w * this.uiScale * DPR), Math.round(this.h * this.uiScale * DPR));
     this.cameras.main.setZoom(DPR * this.uiScale).centerOn(this.w / 2, this.h / 2);
     if (first) {
-      this.zoomLevel = this.w < 640 || this.h < 520 ? 0.95 : Math.min(1.18, this.fitZoom());
-      if (this.w < 640 || this.h < 520) this.home();
+      this.zoomLevel = this.w < 760 || this.h < 520 ? 0.95 : Math.min(1.18, this.fitZoom());
+      if (this.w < 760 || this.h < 520) this.home();
     }
     this.terrainSignature = '';
   }
@@ -195,7 +198,7 @@ class Battlefield extends Phaser.Scene {
         if (event.key === ' ') this.paused = !this.paused;
         if (event.key === 'h') this.home();
         if (event.key === 'escape') { this.selected = null; this.chosenHex = null; }
-        const index = Number(event.key) - 1; if (index >= 0 && index < 3) this.selected = CARDS[index];
+        const index = Number(event.key) - 1; if (index >= 0 && index < CARDS.length) this.selected = CARDS[index];
       }
     }
     if (!this.paused) this.sim.tick(Math.min(delta, 100) * this.speed);
@@ -244,12 +247,20 @@ class Battlefield extends Phaser.Scene {
     }
     for (const h of this.sim.hexes) if (h.capture > 0) {
       const p = this.position(h);
-      this.overlay.lineStyle(3.5, playerColor(h.capturePlayer), 1).beginPath().arc(p.x, p.y, this.radius * 0.48, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * h.capture, false).strokePath();
+      this.overlay.lineStyle(3.5, playerColor(h.capturePlayer), h.captureReversing ? 0.5 : 1).beginPath().arc(p.x, p.y, this.radius * 0.48, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * h.capture, false).strokePath();
+      if (h.captureReversing) {
+        const cx = p.x + Math.cos(-Math.PI / 2 + Math.PI * 2 * h.capture) * this.radius * 0.48;
+        const cy = p.y + Math.sin(-Math.PI / 2 + Math.PI * 2 * h.capture) * this.radius * 0.48;
+        this.overlay.fillStyle(playerColor(h.owner), 1).fillCircle(cx, cy, 2.8);
+      }
     }
     const newBuildings = new Map<string, { x: number; y: number }>();
     if (this.lastSimTime !== this.sim.timeMs) { this.lastSimTime = this.sim.timeMs; this.lastSimFrame = now; }
     const visualMs = this.sim.timeMs + (this.paused ? 0 : Math.min(this.sim.tune.stepMs, (now - this.lastSimFrame) * this.speed));
-    const entities = [...this.sim.buildings, ...this.sim.units].sort((a, b) => this.position(this.byHex.get(a.hexId)!).y - this.position(this.byHex.get(b.hexId)!).y);
+    const entities = [...this.sim.buildings, ...this.sim.units].sort((a, b) => {
+      const layer = (e: typeof a) => 'buildingId' in e && this.sim.tune.cards[e.kind].domain === 'air' ? 1 : 0;
+      return layer(a) - layer(b) || this.position(this.byHex.get(a.hexId)!).y - this.position(this.byHex.get(b.hexId)!).y;
+    });
     for (const e of entities) {
       const p = this.position(this.byHex.get(e.hexId)!);
       if ('unitId' in e) {
@@ -297,12 +308,13 @@ class Battlefield extends Phaser.Scene {
       this.lastShotId = shot.id;
       // A resumed/fast-forwarded view must not replay old shots as a burst.
       if (this.sim.timeMs - shot.timeMs > this.sim.tune.stepMs * 2) continue;
-      this.traces.push({ id: shot.id, fromHexId: shot.fromHexId, targetHexId: shot.targetHexId, kind: shot.kind, born: captureNow });
+      this.traces.push({ id: shot.id, fromHexId: shot.fromHexId, targetHexId: shot.targetHexId, kind: shot.kind, targetDomain: shot.targetDomain, born: captureNow });
     }
     this.traces = this.traces.filter(t => captureNow - t.born < this.sim.tune.presentation.shotTraceMs).slice(-this.sim.tune.presentation.maxShotEvents);
     for (const t of this.traces) {
       const from = this.position(this.byHex.get(t.fromHexId)!), to = this.position(this.byHex.get(t.targetHexId)!);
-      drawBulletTrace(this.feedback, from.x, from.y - this.radius * 0.2, to.x, to.y - this.radius * 0.2, t.kind,
+      const sourceAir = this.sim.tune.cards[t.kind].domain === 'air';
+      drawBulletTrace(this.feedback, from.x, from.y - this.radius * (sourceAir ? 0.42 : 0.2), to.x, to.y - this.radius * (t.targetDomain === 'air' ? 0.42 : 0.2), t.kind,
         (captureNow - t.born) / this.sim.tune.presentation.shotTraceMs);
     }
     if (this.selected && this.chosenHex) {
@@ -326,7 +338,7 @@ class Battlefield extends Phaser.Scene {
   private drawHud() {
     this.hud.clear(); this.buttons = [];
     for (const text of this.texts.values()) text.setVisible(false);
-    const mobile = this.w < 640, compact = this.h < 520, pad = mobile || compact ? 12 : 24, resource = this.sim.resources(0);
+    const mobile = this.w < 760, compact = this.h < 520, pad = mobile || compact ? 12 : 24, resource = this.sim.resources(0);
     const deficit = resource.committed > resource.capacity;
     this.hud.fillStyle(CREAM, 0.98).fillRect(0, 0, this.w, this.top);
     this.hud.lineStyle(1, 0xbfc8b6).lineBetween(0, this.top, this.w, this.top);
@@ -346,16 +358,17 @@ class Battlefield extends Phaser.Scene {
     this.hud.lineStyle(1, 0xbfc8b6).lineBetween(0, y, this.w, y);
     this.label('status', this.message, pad, y + 10, mobile ? 11 : 13).setWordWrapWidth(this.w - pad * 2);
     const cardY = y + (mobile ? 48 : compact ? 29 : 38), gap = 8;
-    const cardW = mobile ? (this.w - pad * 2 - gap * 2) / 3 : Math.min(175, (this.w - 400) / 3);
+    const columns = mobile ? 3 : 5, cardH = mobile ? 62 : compact ? 67 : 78;
+    const cardW = mobile ? (this.w - pad * 2 - gap * 2) / 3 : Math.min(175, (this.w - pad * 2 - 254 - gap * 4) / 5);
     CARDS.forEach((kind, i) => {
-      const x = pad + i * (cardW + gap), c = this.sim.tune.cards[kind], active = this.selected === kind;
-      this.button(`card-${kind}`, '', x, cardY, cardW, compact ? 67 : 78, () => { this.selected = this.selected === kind ? null : kind; this.chosenHex = null; this.message = this.selected ? 'Tap an open teal hex to preview its connected footprint.' : 'Select a building or tap an HQ to change your order.'; }, active);
-      drawBuilding(this.hud, x + 24, cardY + (compact ? 36 : 41), 18, 0, kind);
-      this.label(`cardName${i}`, NAMES[kind], x + (mobile ? 8 : 49), cardY + (mobile ? 8 : 12), mobile ? 10 : 12, active ? '#fff7e5' : INK).setFontStyle('bold');
-      this.label(`cardCost${i}`, `${c.cost} HEXES`, x + (mobile ? 48 : 49), cardY + 33, mobile ? 10 : 12, active ? '#fff7e5' : '#187e88');
-      this.label(`cardRange${i}`, `R${c.range} · ${c.productionMs / 1000}s`, x + (mobile ? 48 : 49), cardY + (compact ? 48 : 52), 10, active ? '#d0f4e9' : MUTED);
+      const x = pad + (i % columns) * (cardW + gap), cy = cardY + Math.floor(i / columns) * (cardH + gap), c = this.sim.tune.cards[kind], active = this.selected === kind;
+      this.button(`card-${kind}`, '', x, cy, cardW, cardH, () => { this.selected = this.selected === kind ? null : kind; this.chosenHex = null; this.message = this.selected ? `${NAMES[kind]} · ${ROLES[kind]}${kind === 'helicopter' || kind === 'fighter' ? ' · cannot capture' : ''}. Choose an open teal hex.` : 'Select a building or tap an HQ to change your order.'; }, active);
+      drawBuilding(this.hud, x + 21, cy + (mobile ? 32 : compact ? 34 : 38), mobile ? 15 : 18, 0, kind);
+      this.label(`cardName${i}`, NAMES[kind], x + 8, cy + 7, mobile || cardW < 130 ? 10 : 12, active ? '#fff7e5' : INK).setFontStyle('bold');
+      this.label(`cardCost${i}`, `${c.cost} HEXES`, x + 43, cy + (mobile ? 27 : 30), mobile || cardW < 130 ? 10 : 12, active ? '#fff7e5' : '#187e88');
+      this.label(`cardRange${i}`, `${ROLES[kind]} R${c.minRange > 1 ? `${c.minRange}-` : ''}${c.range}`, x + 8, cy + cardH - 15, 9, active ? '#d0f4e9' : MUTED);
     });
-    const controlsY = mobile ? cardY + 88 : cardY + 3, controlsX = mobile ? pad : pad + 3 * (cardW + gap) + 16;
+    const controlsY = mobile ? cardY + 2 * (cardH + gap) + 3 : cardY + 3, controlsX = mobile ? pad : pad + 5 * (cardW + gap) + 8;
     if (this.selected) {
       const valid = this.chosenHex ? this.sim.placement(0, this.chosenHex, this.selected).ok : false;
       this.button('build', 'BUILD HERE', controlsX, controlsY, mobile ? 122 : 136, 38, () => this.build(), true, !valid);
@@ -369,7 +382,7 @@ class Battlefield extends Phaser.Scene {
       this.button('speed', `${this.speed}×`, controlsX, controlsY + (compact ? 42 : 46), 60, compact ? 26 : 32, () => { this.speed = this.speed === 4 ? 1 : this.speed * 2; });
       this.button('restart', 'RESTART', controlsX + 68, controlsY + (compact ? 42 : 46), 100, compact ? 26 : 32, () => this.restart());
     } else this.button('restart', 'RESET', this.w - pad - 67, controlsY, 67, 38, () => this.restart());
-    this.label('hint', this.selected ? 'Tap the hammer hex again to build · Lock = committed' : mobile ? 'Drag · pinch to zoom · Lock = committed' : 'Drag to pan · Scroll to zoom · Lock = committed · Space pauses', pad, this.h - 18, 10, MUTED);
+    this.label('hint', this.selected ? 'Tap the hammer hex again to build · Lock = committed' : mobile ? 'Drag · pinch · G ground / A air · Lock committed' : 'Drag to pan · Scroll zoom · 1-5 cards · G ground / A air · Lock committed · Space pauses', pad, this.h - 18, 10, MUTED);
     if (this.sim.winner !== null) {
       const width = Math.min(390, this.w - 32), x = (this.w - width) / 2, mid = (this.top + this.h - this.bottom) / 2;
       this.hud.fillStyle(0x153d4b, 0.45).fillRect(0, this.top, this.w, this.h - this.top - this.bottom);
