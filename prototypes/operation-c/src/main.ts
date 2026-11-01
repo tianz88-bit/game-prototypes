@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { Pane } from 'tweakpane';
 import { OperationSim, DEFAULT_TUNE } from './sim';
 import type { CardKind, Hex, Tune } from './model';
-import { drawHex, drawBuilding, drawUnit, drawExplosion, drawCaptureFlip, playerColor, hexPoints } from './art';
+import { drawHex, drawBuilding, drawUnit, drawExplosion, drawCaptureFlip, drawBuildConfirmation, drawBulletTrace, playerColor, hexPoints } from './art';
 import { Intents } from './input';
 import { VERSION_STAMP } from './version.generated';
 
@@ -22,6 +22,7 @@ class Battlefield extends Phaser.Scene {
   private terrain!: Phaser.GameObjects.Graphics;
   private live!: Phaser.GameObjects.Graphics;
   private overlay!: Phaser.GameObjects.Graphics;
+  private feedback!: Phaser.GameObjects.Graphics;
   private hud!: Phaser.GameObjects.Graphics;
   private texts = new Map<string, Phaser.GameObjects.Text>();
   private buttons: Button[] = [];
@@ -35,6 +36,9 @@ class Battlefield extends Phaser.Scene {
   private seenUnits = new Set<string>();
   private seenBuildings = new Map<string, { x: number; y: number }>();
   private spawns = new Map<string, { x: number; y: number; born: number }>();
+  private facingX = new Map<string, 1 | -1>();
+  private lastShotId = 0;
+  private traces: { id: number; fromHexId: string; targetHexId: string; kind: CardKind; born: number }[] = [];
   private effects: { x: number; y: number; born: number }[] = [];
   private previousOwners = new Map<string, number | null>();
   private captureFlips = new Map<string, { previousOwner: number | null; born: number }>();
@@ -47,8 +51,8 @@ class Battlefield extends Phaser.Scene {
   create() {
     document.getElementById('loading')?.remove();
     this.world = this.add.container();
-    this.terrain = this.add.graphics(); this.overlay = this.add.graphics(); this.live = this.add.graphics();
-    this.world.add([this.terrain, this.overlay, this.live]);
+    this.terrain = this.add.graphics(); this.overlay = this.add.graphics(); this.live = this.add.graphics(); this.feedback = this.add.graphics();
+    this.world.add([this.terrain, this.overlay, this.live, this.feedback]);
     this.hud = this.add.graphics();
     this.indexHexes(); this.resize(true);
     this.inputs = new Intents(this.game.canvas, () => ({ w: this.w, h: this.h }));
@@ -61,7 +65,12 @@ class Battlefield extends Phaser.Scene {
         snapshot: () => ({ timeMs: this.sim.timeMs, buildings: this.sim.buildings, units: this.sim.units,
           hexes: this.sim.hexes, resources: this.sim.resources(0), winner: this.sim.winner, target: this.sim.players[0].targetId,
           objects: this.children.length, textures: this.textures.getTextureKeys().length,
+          selectedBuild: this.selected && this.chosenHex ? { hexId: this.chosenHex, valid: this.sim.placement(0, this.chosenHex, this.selected).ok } : null,
+          shots: this.sim.shots,
           presentation: { durationMs: this.sim.tune.presentation.captureFlipMs, reducedMotion: this.reducedMotion,
+            shotTraceMs: this.sim.tune.presentation.shotTraceMs,
+            traces: this.traces.map(t => ({ ...t, progress: Phaser.Math.Clamp((this.captureNow() - t.born) / this.sim.tune.presentation.shotTraceMs, 0, 1) })),
+            facings: [...this.facingX].map(([unitId, facingX]) => ({ unitId, facingX })),
             flips: [...this.captureFlips].map(([hexId, flip]) => ({ hexId,
             progress: Phaser.Math.Clamp((this.captureNow() - flip.born) / this.sim.tune.presentation.captureFlipMs, 0, 1) })),
             attackIndicators: this.sim.units.filter(u => u.attacking && u.attackTargetHexId).map(u => ({ unitId: u.id, hexId: u.hexId, targetHexId: u.attackTargetHexId })) } }),
@@ -89,7 +98,8 @@ class Battlefield extends Phaser.Scene {
     capture.addBinding(values.capture, 'ownedMultiplier', { min: 1, max: 4, step: 0.1 });
     const presentation = this.pane.addFolder({ title: 'Capture animation', expanded: false });
     presentation.addBinding(values.presentation, 'captureFlipMs', { min: 100, max: 1500, step: 50 });
-    presentation.addBinding(values.presentation, 'captureLift', { min: 0.1, max: 0.8, step: 0.02 });
+    presentation.addBinding(values.presentation, 'captureLift', { min: 0.1, max: 1.4, step: 0.02 });
+    presentation.addBinding(values.presentation, 'shotTraceMs', { min: 100, max: 600, step: 20 });
     for (const kind of CARDS) {
       const folder = this.pane.addFolder({ title: NAMES[kind], expanded: false });
       for (const key of ['cost', 'damage', 'unitHp', 'moveMs', 'productionMs', 'attackMs', 'captureRate'] as const)
@@ -103,6 +113,7 @@ class Battlefield extends Phaser.Scene {
   private restart(tune?: Tune) {
     this.sim = new OperationSim({ tune }); this.indexHexes(); this.terrainSignature = '';
     this.seenUnits.clear(); this.seenBuildings.clear(); this.spawns.clear(); this.effects = [];
+    this.facingX.clear(); this.traces = []; this.lastShotId = 0;
     this.selected = null; this.chosenHex = null; this.inspected = null; this.paused = false;
     this.message = 'Fresh battlefield. Choose a building card to begin.';
   }
@@ -160,7 +171,7 @@ class Battlefield extends Phaser.Scene {
     const hex = this.at(x, y); if (!hex) return;
     if (this.selected) {
       if (this.chosenHex === hex.id) this.build();
-      else { this.chosenHex = hex.id; const p = this.sim.placement(0, hex.id, this.selected); this.message = p.ok ? `${p.hexes.length} connected hexes reserved · tap BUILD HERE to confirm.` : p.reason ?? 'Invalid placement.'; }
+      else { this.chosenHex = hex.id; const p = this.sim.placement(0, hex.id, this.selected); this.message = p.ok ? `${p.hexes.length} connected hexes · tap the hammer hex again to build.` : p.reason ?? 'Invalid placement.'; }
       return;
     }
     const b = this.sim.buildings.find(b => b.hexId === hex.id);
@@ -215,7 +226,7 @@ class Battlefield extends Phaser.Scene {
       }
       this.terrainSignature = signature;
     }
-    this.overlay.clear(); this.live.clear();
+    this.overlay.clear(); this.live.clear(); this.feedback.clear();
     for (const [id, flip] of this.captureFlips) {
       const h = this.byHex.get(id)!, p = this.position(h);
       drawCaptureFlip(this.overlay, p.x, p.y, this.radius, { owner: h.owner, previousOwner: flip.previousOwner,
@@ -227,8 +238,8 @@ class Battlefield extends Phaser.Scene {
       for (const id of placement.ok ? placement.hexes : [previewId]) {
         const hex = this.byHex.get(id); if (!hex) continue;
         const p = this.position(hex);
-        this.overlay.fillStyle(placement.ok ? 0x92cd7a : 0xe67463, 0.44).fillPoints(hexPoints(p.x, p.y, this.radius * 0.84), true);
-        this.overlay.lineStyle(2, placement.ok ? 0xe8ffcc : 0xffb5a8).strokePoints(hexPoints(p.x, p.y, this.radius * 0.84), true);
+        this.overlay.fillStyle(placement.ok ? 0x92cd7a : 0xe67463, 0.22).fillPoints(hexPoints(p.x, p.y, this.radius * 0.84), true);
+        this.overlay.lineStyle(1.5, placement.ok ? 0xb4d8a1 : 0xffb5a8).strokePoints(hexPoints(p.x, p.y, this.radius * 0.84), true);
       }
     }
     for (const h of this.sim.hexes) if (h.capture > 0) {
@@ -250,11 +261,12 @@ class Battlefield extends Phaser.Scene {
           this.seenUnits.add(e.id); const b = this.sim.buildings.find(b => b.id === e.buildingId);
           if (b) this.spawns.set(e.id, { ...this.position(this.byHex.get(b.hexId)!), born: now });
         }
-        let x = p.x, y = p.y;
+        let x = p.x, y = p.y, movementX = 0;
         if (e.fromHexId && e.movingUntilMs && e.movedAtMs !== undefined) {
           const from = this.position(this.byHex.get(e.fromHexId)!);
           const t = Phaser.Math.Clamp((visualMs - e.movedAtMs) / (e.movingUntilMs - e.movedAtMs), 0, 1);
           x = Phaser.Math.Linear(from.x, p.x, t); y = Phaser.Math.Linear(from.y, p.y, t);
+          if ((e.movingUntilMs ?? 0) > this.sim.timeMs) movementX = p.x - from.x;
         }
         const spawn = this.spawns.get(e.id);
         if (spawn && now - spawn.born < 450) {
@@ -264,17 +276,39 @@ class Battlefield extends Phaser.Scene {
         const attackHex = e.attackTargetHexId ? this.byHex.get(e.attackTargetHexId) : undefined;
         const target = attackHex ? this.position(attackHex) : undefined;
         const angle = target ? Math.atan2(target.y - p.y, target.x - p.x) : undefined;
+        let facingX: 1 | -1 = this.facingX.get(e.id) ?? (e.owner === 0 ? 1 : -1);
+        const facingDelta = e.attacking && target ? target.x - p.x : movementX;
+        if (Math.abs(facingDelta) > 0.001) facingX = facingDelta < 0 ? -1 : 1;
+        this.facingX.set(e.id, facingX);
         drawUnit(this.live, x, y, this.radius * (e.kind === 'infantry' ? 0.58 : 0.69), e.owner, e.kind,
           { hp: e.hp, maxHp: e.maxHp, attacking: e.attacking, moving: (e.movingUntilMs ?? 0) > this.sim.timeMs,
-            phase: now / (e.attacking ? 100 : 130), angle });
+            phase: now / (e.attacking ? 100 : 130), angle, facingX });
       }
     }
     for (const [id, p] of this.seenBuildings) if (!newBuildings.has(id)) this.effects.push({ ...p, born: now });
     this.seenBuildings = newBuildings;
     this.seenUnits = new Set(this.sim.units.map(u => u.id));
     for (const id of this.spawns.keys()) if (!this.seenUnits.has(id)) this.spawns.delete(id);
+    for (const id of this.facingX.keys()) if (!this.seenUnits.has(id)) this.facingX.delete(id);
     this.effects = this.effects.filter(e => now - e.born < 700).slice(-24);
     for (const e of this.effects) drawExplosion(this.live, e.x, e.y, this.radius, (now - e.born) / 700);
+    for (const shot of this.sim.shots) {
+      if (shot.id <= this.lastShotId) continue;
+      this.lastShotId = shot.id;
+      // A resumed/fast-forwarded view must not replay old shots as a burst.
+      if (this.sim.timeMs - shot.timeMs > this.sim.tune.stepMs * 2) continue;
+      this.traces.push({ id: shot.id, fromHexId: shot.fromHexId, targetHexId: shot.targetHexId, kind: shot.kind, born: captureNow });
+    }
+    this.traces = this.traces.filter(t => captureNow - t.born < this.sim.tune.presentation.shotTraceMs).slice(-this.sim.tune.presentation.maxShotEvents);
+    for (const t of this.traces) {
+      const from = this.position(this.byHex.get(t.fromHexId)!), to = this.position(this.byHex.get(t.targetHexId)!);
+      drawBulletTrace(this.feedback, from.x, from.y - this.radius * 0.2, to.x, to.y - this.radius * 0.2, t.kind,
+        (captureNow - t.born) / this.sim.tune.presentation.shotTraceMs);
+    }
+    if (this.selected && this.chosenHex) {
+      const hex = this.byHex.get(this.chosenHex)!; const p = this.position(hex);
+      drawBuildConfirmation(this.feedback, p.x, p.y, this.radius, { valid: this.sim.placement(0, hex.id, this.selected).ok, time: now });
+    }
   }
   private label(id: string, text: string, x: number, y: number, size = 14, color = INK, origin = 0) {
     let object = this.texts.get(id);
@@ -335,7 +369,7 @@ class Battlefield extends Phaser.Scene {
       this.button('speed', `${this.speed}×`, controlsX, controlsY + (compact ? 42 : 46), 60, compact ? 26 : 32, () => { this.speed = this.speed === 4 ? 1 : this.speed * 2; });
       this.button('restart', 'RESTART', controlsX + 68, controlsY + (compact ? 42 : 46), 100, compact ? 26 : 32, () => this.restart());
     } else this.button('restart', 'RESET', this.w - pad - 67, controlsY, 67, 38, () => this.restart());
-    this.label('hint', mobile ? 'Drag to pan · pinch to zoom · tap HQ for orders' : 'Drag to pan   ·   Scroll to zoom   ·   1 / 2 / 3 choose card   ·   Space pauses', pad, this.h - 18, 10, MUTED);
+    this.label('hint', this.selected ? 'Tap the hammer hex again to build · Lock = committed' : mobile ? 'Drag · pinch to zoom · Lock = committed' : 'Drag to pan · Scroll to zoom · Lock = committed · Space pauses', pad, this.h - 18, 10, MUTED);
     if (this.sim.winner !== null) {
       const width = Math.min(390, this.w - 32), x = (this.w - width) / 2, mid = (this.top + this.h - this.bottom) / 2;
       this.hud.fillStyle(0x153d4b, 0.45).fillRect(0, this.top, this.w, this.h - this.top - this.bottom);

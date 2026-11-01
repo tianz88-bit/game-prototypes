@@ -23,13 +23,15 @@ export interface BuildingOptions {
 }
 export interface UnitOptions {
   attacking?: boolean; moving?: boolean; phase?: number; hp?: number; maxHp?: number;
+  /** Horizontal body facing only. Ring, health and target direction stay unmirrored. */
+  facingX?: 1 | -1;
   /** Actual attack-target direction in projected screen radians; never turns the body. */
   angle?: number;
 }
 export interface CaptureFlipOptions {
   owner: number | null; previousOwner: number | null; committed: boolean;
   progress: number;
-  /** Maximum lift in world pixels; defaults to half the hex radius. */
+  /** Maximum lift in world pixels; defaults to 0.9 times the hex radius. */
   lift?: number;
 }
 const DEFAULT_BUILDING_OPTIONS: BuildingOptions = {};
@@ -77,12 +79,14 @@ export function drawHex(g: Graphics, x: number, y: number, r: number, o: HexOpti
     g.lineBetween(x + r * 0.33, y + r * 0.18, x + r * 0.7, y + r * 0.28);
     g.lineBetween(x + r * 0.55, y + r * 0.24, x + r * 0.61, y + r * 0.46);
   } else if (o.committed) {
-    // Short parallel grooves deliberately stay inside the pointy hex.
-    g.lineStyle(Math.max(1.5, r * 0.075), PALETTE.ink, 0.18);
-    for (let i = -2; i <= 2; i++) {
-      const dx = i * r * 0.19, h = r * (0.31 - Math.abs(i) * 0.045);
-      g.lineBetween(x + dx - r * 0.13, y + h, x + dx + r * 0.13, y - h);
-    }
+    g.fillStyle(PALETTE.ink, 0.12).fillPoints(hexPoints(x, y + r * 0.025, r * 0.77), true);
+    g.lineStyle(edge, PALETTE.ink, 0.18).strokePoints(hexPoints(x, y, r * 0.77), true);
+    // Small lock near the lower edge remains visible beside occupying buildings.
+    const ly = y + r * 0.34;
+    g.lineStyle(Math.max(1.2, r * 0.05), PALETTE.ink, 0.8)
+      .strokeRoundedRect(x - r * 0.075, ly - r * 0.135, r * 0.15, r * 0.17, r * 0.06);
+    g.fillStyle(PALETTE.ink, 0.8).fillRoundedRect(x - r * 0.13, ly - r * 0.04, r * 0.26, r * 0.18, r * 0.025);
+    g.fillStyle(PALETTE.cream).fillCircle(x, ly + r * 0.035, r * 0.025);
   } else {
     g.lineStyle(edge * 0.7, PALETTE.cream, 0.55).strokePoints(hexPoints(x, y, r * 0.77), true);
   }
@@ -99,7 +103,7 @@ export function drawHex(g: Graphics, x: number, y: number, r: number, o: HexOpti
 }
 
 /** Cosmetic ownership transition only. Draw below entities, in place of the
- * cached tile. Caller owns lifetime (suggested 650ms) and reduced-motion policy.
+ * cached tile. Caller owns lifetime (suggested 900ms) and reduced-motion policy.
  * Both endpoints exactly match drawHex; no shadow remains after landing. */
 export function drawCaptureFlip(g: Graphics, x: number, y: number, r: number, o: CaptureFlipOptions): void {
   if (!(r > 0)) return;
@@ -109,30 +113,97 @@ export function drawCaptureFlip(g: Graphics, x: number, y: number, r: number, o:
     drawHex(g, x, y, r, { owner, burnt: false, committed: o.committed });
     return;
   }
-  let sx = 1, sy = 1, height = 0, tilt = 0;
-  if (p < 0.15) {
-    const press = Math.sin(p / 0.15 * Math.PI);
+  let sx = 1, sy = 1, height = 0, tilt = 0, underside = false;
+  if (p < 0.1) {
+    const press = Math.sin(p / 0.1 * Math.PI);
     sx += press * 0.08; sy -= press * 0.13; height = -press * r * 0.035;
-  } else if (p < 0.85) {
-    const flight = (p - 0.15) / 0.7;
+  } else if (p < 0.82) {
+    const flight = (p - 0.1) / 0.72;
     const arc = Math.sin(flight * Math.PI);
-    height = arc * Math.max(0, o.lift ?? r * 0.5);
-    sx += arc * 0.1;
-    // Positive scale avoids mirrored hatching; owner changes at the edge-on pose.
-    sy = Math.max(0.045, Math.abs(Math.cos(flight * Math.PI)));
-    tilt = Math.sin(flight * TAU) * 0.13;
+    height = arc * Math.max(0, o.lift ?? r * 0.9);
+    sx += arc * 0.14;
+    const turn = Math.cos(flight * TAU);
+    sy = Math.max(0.025, Math.abs(turn));
+    underside = turn < 0;
+    tilt = Math.sin(flight * TAU) * 0.2;
   } else {
-    const settle = (p - 0.85) / 0.15;
+    const settle = (p - 0.82) / 0.18;
     const squash = Math.sin(settle * Math.PI) * (1 - settle);
     sx += squash * 0.22; sy -= squash * 0.28; height = -squash * r * 0.04;
   }
-  g.fillStyle(PALETTE.shadow, 0.13 + Math.max(0, height) / r * 0.12)
-    .fillEllipse(x, y + r * 0.055, r * 1.6, r * 0.9);
+  // Empty socket stays on the board, separating the airborne tile from terrain.
+  g.fillStyle(PALETTE.side).fillPoints(hexPoints(x, y, r * 0.98), true);
+  g.fillStyle(PALETTE.shadow, 0.23).fillPoints(hexPoints(x, y, r * 0.83), true);
+  g.fillStyle(PALETTE.shadow, 0.22).fillEllipse(x, y + r * 0.08, r * (1.65 - Math.max(0, height) / r * 0.25), r * 0.78);
+  // Unscaled thickness prevents the edge-on tile from vanishing into a hairline.
+  g.lineStyle(Math.max(2, r * 0.1), PALETTE.metal)
+    .lineBetween(x - r * 0.85 * sx, y - height + r * 0.03, x + r * 0.85 * sx, y - height + r * 0.03);
   g.save().translateCanvas(x, y - height);
   // Anisotropic scaling between opposite rotations gives a cheap affine skew.
   g.rotateCanvas(tilt).scaleCanvas(sx, sy).rotateCanvas(-tilt);
-  drawHex(g, 0, 0, r, { owner, burnt: false, committed: o.committed });
+  if (underside) {
+    g.fillStyle(PALETTE.metal).fillPoints(hexPoints(0, r * 0.075, r * 0.98), true);
+    g.fillStyle(PALETTE.side).fillPoints(hexPoints(0, 0, r * 0.98), true);
+    perimeter(g, 0, 0, r * 0.9, 1, PALETTE.ink, Math.max(1, r * 0.04));
+    g.lineStyle(Math.max(1, r * 0.055), PALETTE.metal);
+    g.lineBetween(-r * 0.4, -r * 0.24, r * 0.4, r * 0.24);
+    g.lineBetween(-r * 0.4, r * 0.24, r * 0.4, -r * 0.24);
+  } else drawHex(g, 0, 0, r, { owner, burnt: false, committed: o.committed });
   g.restore();
+  if (p >= 0.82) {
+    const settle = (p - 0.82) / 0.18;
+    g.lineStyle(Math.max(1, r * 0.045), playerColor(o.owner), (1 - settle) * 0.65)
+      .strokeEllipse(x, y + r * 0.07, r * (1.7 + settle * 0.5), r * (0.9 + settle * 0.3));
+  }
+}
+
+export interface BuildConfirmationOptions { valid: boolean; /** Real-time milliseconds. */ time?: number }
+/** Draw last over the selected build hex; supporting footprint tiles stay separate. */
+export function drawBuildConfirmation(g: Graphics, x: number, y: number, r: number, o: BuildConfirmationOptions): void {
+  if (!(r > 0)) return;
+  const pulse = 0.5 + Math.sin((o.time ?? 0) / 230) * 0.5;
+  const color = o.valid ? 0xe6b641 : PALETTE.invalid;
+  g.fillStyle(color, 0.22 + pulse * 0.08).fillPoints(hexPoints(x, y, r * 0.89), true);
+  perimeter(g, x, y, r * 0.88, 1, PALETTE.ink, Math.max(3, r * 0.11));
+  perimeter(g, x, y, r * 0.88, 1, color, Math.max(2, r * 0.065));
+  // Cream medallion keeps the icon legible over units and footprint overlays.
+  g.fillStyle(PALETTE.cream, 0.97).fillCircle(x, y, r * 0.32);
+  if (!o.valid) {
+    g.lineStyle(Math.max(2, r * 0.08), PALETTE.invalid);
+    g.lineBetween(x - r * 0.15, y - r * 0.15, x + r * 0.15, y + r * 0.15);
+    g.lineBetween(x - r * 0.15, y + r * 0.15, x + r * 0.15, y - r * 0.15);
+    return;
+  }
+  g.save().translateCanvas(x, y).rotateCanvas(Math.PI / 4);
+  g.fillStyle(PALETTE.ink).fillRoundedRect(-r * 0.045, -r * 0.04, r * 0.09, r * 0.28, r * 0.015);
+  g.fillStyle(PALETTE.metal).fillRoundedRect(-r * 0.2, -r * 0.15, r * 0.4, r * 0.15, r * 0.025);
+  g.fillStyle(color).fillRect(-r * 0.2, -r * 0.15, r * 0.09, r * 0.15);
+  g.restore();
+}
+
+/** Event-driven shot, not a persistent link. Coordinates are world pixels,
+ * progress is normalized over the caller's lifetime (about 220ms). */
+export function drawBulletTrace(g: Graphics, fromX: number, fromY: number, toX: number, toY: number, kind: UnitKind, progress: number): void {
+  const p = clamp(progress);
+  const dx = toX - fromX, dy = toY - fromY, length = Math.hypot(dx, dy);
+  if (p >= 1 || length < 0.01) return;
+  const arrival = 0.7, head = Math.min(1, p / arrival);
+  const width = kind === 'infantry' ? 1.8 : kind === 'tank' ? 2.8 : 3.4;
+  const segment = Math.min(length * 0.3, kind === 'infantry' ? 12 : 18);
+  const tail = Math.max(0, head - segment / length);
+  // Artillery traces follow a shallow cosmetic arc; no gameplay trajectory implied.
+  const lift = kind === 'artillery' ? Math.min(18, length * 0.13) : 0;
+  if (p < arrival) {
+    const hx = fromX + dx * head, hy = fromY + dy * head - Math.sin(head * Math.PI) * lift;
+    const tx = fromX + dx * tail, ty = fromY + dy * tail - Math.sin(tail * Math.PI) * lift;
+    g.lineStyle(width + 1.8, PALETTE.ink, 0.65).lineBetween(tx, ty, hx, hy);
+    g.lineStyle(width, 0xf1bc50).lineBetween(tx, ty, hx, hy);
+    g.fillStyle(PALETTE.cream).fillCircle(hx, hy, width * 0.6);
+  } else {
+    const hit = (p - arrival) / (1 - arrival), radius = 2 + hit * (kind === 'infantry' ? 4 : 7);
+    g.lineStyle(1.5, 0xf1bc50, 1 - hit).strokeCircle(toX, toY, radius);
+    g.fillStyle(PALETTE.cream, 1 - hit).fillCircle(toX, toY, radius * 0.45);
+  }
 }
 
 function health(g: Graphics, x: number, y: number, w: number, hp?: number, maxHp?: number) {
@@ -209,6 +280,7 @@ export function drawUnit(g: Graphics, x: number, y: number, size: number, owner:
   // Body and ownership marker always remain upright in this 2D view.
   g.lineStyle(0.055, color).strokeEllipse(0, 0.23, 1.16, 0.46);
   badge(g, owner, -0.44, 0.23, 0.055);
+  g.save().scaleCanvas(o.facingX === -1 ? -1 : 1, 1);
   if (kind === 'infantry') {
     const stride = o.moving && !o.attacking ? Math.sin(phase) * 0.14 : 0;
     const bob = o.attacking ? kick * 0.3 : o.moving ? Math.abs(Math.sin(phase)) * 0.035 : 0;
@@ -243,8 +315,8 @@ export function drawUnit(g: Graphics, x: number, y: number, size: number, owner:
       g.lineStyle(0.07, PALETTE.ink).lineBetween(-0.43, 0.14, -0.7, 0.42);
       g.lineBetween(-0.43, -0.19, -0.7, -0.45);
     }
-    badge(g, owner, -0.34 - kick, -0.06, 0.065);
   }
+  g.restore();
   if (o.attacking) {
     const angle = Number.isFinite(o.angle) ? o.angle! : 0;
     const dx = Math.cos(angle), dy = Math.sin(angle);
@@ -257,11 +329,6 @@ export function drawUnit(g: Graphics, x: number, y: number, size: number, owner:
     const rightX = ax - dx * 0.04 + dy * 0.1, rightY = ay - dy * 0.04 - dx * 0.1;
     g.fillTriangle(tipX, tipY, leftX, leftY, rightX, rightY)
       .strokeTriangle(tipX, tipY, leftX, leftY, rightX, rightY);
-    if (Math.cos(phase) > 0.65) {
-      // External firing cue follows the target; the upright gun art stays fixed.
-      g.lineStyle(0.045, 0xf3bf55).lineBetween(ax + dx * 0.23, ay + dy * 0.23, ax + dx * 0.42, ay + dy * 0.42);
-      g.fillStyle(PALETTE.cream).fillCircle(ax + dx * 0.3, ay + dy * 0.3, 0.055);
-    }
   }
   g.restore();
   health(g, x, y - size * 1.02, size * 0.9, o.hp, o.maxHp);

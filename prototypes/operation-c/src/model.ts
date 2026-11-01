@@ -1,4 +1,9 @@
 export type CardKind = 'infantry' | 'tank' | 'artillery';
+/** Presentation-only record of a shot actually fired, independent of entity IDs. */
+export interface Shot {
+  id: number; unitId: string; owner: number; kind: CardKind;
+  fromHexId: string; targetHexId: string; timeMs: number;
+}
 export interface Hex {
   id: string; q: number; r: number; owner: number | null; burnt: boolean;
   lockedBy: string | null; capture: number; capturePlayer: number | null;
@@ -21,7 +26,7 @@ export interface Tune {
   stepMs: number; map: { radius: number; hqQ: number; hqR: number };
   resources: { capacityCap: number }; hq: { hp: number; captureRings: number };
   capture: { neutralMs: number; ownedMultiplier: number; hqRate: number };
-  presentation: { captureFlipMs: number; captureLift: number };
+  presentation: { captureFlipMs: number; captureLift: number; shotTraceMs: number; maxShotEvents: number };
   bot: { buildEveryMs: number; attackAtMs: number; cardCycle: CardKind[] };
   cards: Record<CardKind, CardTune>;
 }

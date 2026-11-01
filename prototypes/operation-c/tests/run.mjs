@@ -212,11 +212,16 @@ test('attack order prioritizes selected faction buildings over troops; defense r
     assert(attacker.attacking);
     assert.equal(attacker.attackTargetHexId, attackOrder ? building.hexId : encountered.hexId,
       'indicator uses the actual decision, even when a troop is closer than the prioritized building');
+    assert.deepEqual(s.shots.filter(x => x.unitId === attacker.id).map(x => ({
+      unitId: x.unitId, owner: x.owner, kind: x.kind, fromHexId: x.fromHexId, targetHexId: x.targetHexId, timeMs: x.timeMs,
+    })), [{ unitId: attacker.id, owner: 0, kind: 'infantry', fromHexId: '0,0',
+      targetHexId: attackOrder ? building.hexId : encountered.hexId, timeMs: 100 }]);
     assert.equal(building.hp, attackOrder ? 1000 - s.tune.cards.infantry.damage : 1000);
     assert.equal(encountered.hp, attackOrder ? 1000 : 1000 - s.tune.cards.infantry.damage);
     const buildingHp = building.hp, troopHp = encountered.hp;
     advance(s, 100);
     assert(attacker.attacking); assert.equal(attacker.attackTargetHexId, attackOrder ? building.hexId : encountered.hexId);
+    assert.equal(s.shots.filter(x => x.unitId === attacker.id).length, 1, 'aiming during reload creates no phantom shot');
     assert.equal(building.hp, buildingHp); assert.equal(encountered.hp, troopHp, 'reload timing is unchanged');
     building.hp = 0; encountered.hp = 0;
     advance(s, 100);
@@ -236,12 +241,56 @@ test('default Barracks costs eight, opening capacity stays eighteen, and placeme
   assert.equal(s.units.length, 2, 'both affordable connected placements spawn immediately at the same simulation time');
 });
 
-test('capture presentation settings do not influence authoritative simulation', () => {
-  const normal = fixture(), exaggerated = fixture(t => { t.presentation.captureFlipMs = 99999; t.presentation.captureLift = 10; });
-  assert.deepEqual(DEFAULT_TUNE.presentation, { captureFlipMs: 650, captureLift: 0.34 });
-  for (const s of [normal, exaggerated]) { unit(s, '0,0', 0); advance(s, 10000); }
-  const state = s => JSON.stringify({ hexes: s.hexes, units: s.units, buildings: s.buildings, timeMs: s.timeMs });
-  assert.equal(state(normal), state(exaggerated));
+test('all presentation settings, including event capacity, leave authoritative state and entity IDs identical', () => {
+  assert.deepEqual(DEFAULT_TUNE.presentation, { captureFlipMs: 900, captureLift: 0.9, shotTraceMs: 220, maxShotEvents: 128 });
+  const normal = fixture();
+  const variants = [normal, ...[0, 2].map(cap => fixture(t => {
+    t.presentation = { captureFlipMs: 99999, captureLift: 10, shotTraceMs: 1, maxShotEvents: cap };
+  }))];
+  for (const s of variants) {
+    unit(s, '0,0', 0); unit(s, '1,0', 1); unit(s, '-1,3', 0);
+    advance(s, 10000);
+    assert(s.place(0, '-4,0', 'infantry').ok);
+    assert(s.buildings.some(b => b.id === 'b1'), 'shot IDs must not consume building IDs');
+    assert(s.units.some(u => u.id === 'u2'), 'shot IDs must not consume unit IDs');
+  }
+  const state = s => JSON.stringify({ hexes: s.hexes, units: s.units, buildings: s.buildings, players: s.players, timeMs: s.timeMs, winner: s.winner });
+  for (const s of variants.slice(1)) assert.equal(state(normal), state(s));
+  assert(normal.shots.length > 2); assert.equal(variants[1].shots.length, 0); assert.equal(variants[2].shots.length, 2);
+});
+
+test('shots follow actual weapon cadence and retain a final shot when the shooter dies simultaneously', () => {
+  const s = fixture(); const shooter = unit(s, '0,0', 0), enemy = unit(s, '1,0', 1);
+  advance(s, 100);
+  assert.deepEqual(s.shots.map(x => x.id), [1, 2]);
+  assert.deepEqual(s.shots[0], { id: 1, unitId: shooter.id, owner: 0, kind: 'infantry', fromHexId: '0,0', targetHexId: '1,0', timeMs: 100 });
+  advance(s, 800); assert.equal(s.shots.length, 2, 'no shots between firing instants');
+  advance(s, 100); assert.equal(s.shots.length, 4);
+  assert.equal(s.shots[2].timeMs, 1000); assert.equal(s.shots[3].timeMs, 1000);
+  assert.equal(enemy.hp, 1000 - 2 * s.tune.cards.infantry.damage);
+  assert.equal(shooter.hp, 1000 - 2 * s.tune.cards.infantry.damage);
+  const lethal = fixture(); const doomed = unit(lethal, '0,0', 0, 'infantry', 1);
+  const other = unit(lethal, '1,0', 1, 'infantry', 1); advance(lethal, 100);
+  assert.equal(lethal.units.length, 0);
+  assert.deepEqual(lethal.shots.map(x => x.unitId), [doomed.id, other.id], 'death cleanup preserves shots already fired');
+});
+
+test('shot storage drops oldest events at cap and a fresh simulation resets events and sequence', () => {
+  const s = fixture(t => { t.presentation.maxShotEvents = 3; });
+  unit(s, '0,0', 0); unit(s, '1,0', 1); advance(s, 1900);
+  assert.equal(s.shots.length, 3); assert.deepEqual(s.shots.map(x => x.id), [4, 5, 6]);
+  assert.deepEqual(s.shots.map(x => x.timeMs), [1000, 1900, 1900]);
+  const fresh = fixture(); assert.deepEqual(fresh.shots, []);
+  unit(fresh, '0,0', 0); unit(fresh, '1,0', 1); advance(fresh, 100);
+  assert.equal(fresh.shots[0].id, 1);
+});
+
+test('movement and blocked movement do not emit shots', () => {
+  const s = fixture(); ownAll(s); const mover = unit(s, '0,0', 0); h(s, '2,0').owner = null;
+  advance(s, 100); assert(mover.movingUntilMs > s.timeMs); assert.equal(s.shots.length, 0);
+  const blocked = fixture(); ownAll(blocked); const waiting = unit(blocked, '0,0', 0);
+  for (const n of blocked.neighbors('0,0')) unit(blocked, n.id, 0);
+  advance(blocked, 100); assert.equal(waiting.hexId, '0,0'); assert.equal(blocked.shots.length, 0);
 });
 
 test('ten-minute virtual playtests progress through contested frontlines to an HQ victory', () => {

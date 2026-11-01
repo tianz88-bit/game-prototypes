@@ -1,6 +1,6 @@
 import tuneJson from '../tune.json';
-import type { Building, CardKind, Hex, Placement, Player, Tune, Unit } from './model';
-export type { Building, CardKind, Hex, Placement, Player, Tune, Unit } from './model';
+import type { Building, CardKind, Hex, Placement, Player, Shot, Tune, Unit } from './model';
+export type { Building, CardKind, Hex, Placement, Player, Shot, Tune, Unit } from './model';
 
 export const DEFAULT_TUNE: Tune = tuneJson as Tune;
 // Axial direction order is also the deterministic BFS tie-break.
@@ -19,6 +19,7 @@ export class OperationSim {
   readonly hexes: Hex[] = [];
   readonly buildings: Building[] = [];
   readonly units: Unit[] = [];
+  readonly shots: Shot[] = [];
   readonly players: Player[] = [
     { id: 0, name: 'You', alive: true, targetId: 0 },
     { id: 1, name: 'Rival', alive: true, targetId: 1 },
@@ -27,6 +28,7 @@ export class OperationSim {
   winner: number | null = null;
   private accumulatorMs = 0;
   private serial = 0;
+  private shotSerial = 0;
   private readonly byHex = new Map<string, Hex>();
   private readonly botEnabled: boolean;
   private nextBotBuildMs: number;
@@ -175,6 +177,10 @@ export class OperationSim {
       if (this.timeMs < u.nextAttackAtMs) continue;
       u.nextAttackAtMs = this.timeMs + this.tune.cards[u.kind].attackMs;
       damage.set(target, (damage.get(target) ?? 0) + this.tune.cards[u.kind].damage);
+      this.shots.push({ id: ++this.shotSerial, unitId: u.id, owner: u.owner, kind: u.kind,
+        fromHexId: u.hexId, targetHexId: target.hexId, timeMs: this.timeMs });
+      const cap = Math.max(0, Math.floor(this.tune.presentation.maxShotEvents));
+      if (this.shots.length > cap) this.shots.splice(0, this.shots.length - cap);
     }
     // Capture before damage: being hit alone never cancels that step's progress.
     this.capture();

@@ -38,12 +38,20 @@ try {
     const candidate = await page.evaluate(() => window.__operationC.targets().hexes.find(h => h.valid && h.x > 25 && h.x < innerWidth - 25 && h.y > 145 && h.y < innerHeight - 205));
     assert(candidate, `${profile.name}: visible legal building location`);
     await tap(candidate.x, candidate.y); await page.waitForTimeout(100);
-    await page.screenshot({ path: path.join(outDir, `${profile.name}-placement.png`) });
-    await press('build');
     let state = await page.evaluate(() => window.__operationC.snapshot());
+    assert.equal(state.buildings.filter(b => b.owner === 0 && b.kind !== 'hq').length, 0, 'first tap previews without spending');
+    assert.equal(state.selectedBuild?.hexId, candidate.id);
+    assert.equal(state.selectedBuild?.valid, true);
+    await page.screenshot({ path: path.join(outDir, `${profile.name}-placement.png`) });
+    if (profile.name === 'desktop' || profile.name === 'phone-portrait') {
+      await tap(candidate.x, candidate.y); await page.waitForTimeout(100);
+    } else await press('build');
+    state = await page.evaluate(() => window.__operationC.snapshot());
     assert.equal(state.buildings.filter(b => b.owner === 0 && b.kind !== 'hq').length, 1);
     assert.equal(state.resources.committed, 8);
     assert.equal(state.units.filter(u => u.owner === 0).length, 1);
+    assert.equal(state.selectedBuild, null);
+    assert.equal(state.hexes.filter(h => h.lockedBy && state.buildings.some(b => b.id === h.lockedBy && b.owner === 0)).length, 8);
     await press('cancel');
     if (profile.name === 'desktop' || profile.name === 'phone-portrait') {
       // Observe a real ownership transition, not a fabricated visual fixture.
@@ -83,6 +91,30 @@ try {
     state = await page.evaluate(() => window.__operationC.snapshot());
     assert.equal(new Set(state.units.map(u => u.hexId)).size, state.units.length);
     assert(state.hexes.some(h => h.owner === 1), 'bot territory visible');
+    if (profile.name === 'desktop') {
+      const shot = await page.evaluate(async () => {
+        const qa = window.__operationC, anchor = performance.now();
+        qa.captureClock(anchor);
+        for (let frame = 0; frame < 240; frame++) {
+          qa.advance(100); await new Promise(requestAnimationFrame);
+          const state = qa.snapshot(), trace = state.presentation.traces[0];
+          if (trace) {
+            qa.captureClock(trace.born + state.presentation.shotTraceMs * 0.45);
+            await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame);
+            return { trace, event: qa.snapshot().shots.find(s => s.id === trace.id) };
+          }
+        }
+        throw new Error('No actual fired-shot trace observed');
+      });
+      assert(shot.event, 'trace is backed by a real shot');
+      assert.equal(shot.event.fromHexId, shot.trace.fromHexId);
+      assert.equal(shot.event.targetHexId, shot.trace.targetHexId);
+      const facings = await page.evaluate(() => window.__operationC.snapshot().presentation.facings);
+      assert(facings.every(f => f.facingX === 1 || f.facingX === -1), 'horizontal-only unit facing');
+      await page.screenshot({ path: path.join(outDir, 'desktop-bullet-traces.png') });
+      await page.evaluate(() => window.__operationC.captureClock(null));
+      console.log('PASS desktop: actual-shot traces and horizontal-only unit facing');
+    }
     await page.screenshot({ path: path.join(outDir, `${profile.name}-battle.png`) });
     await press('restart');
     state = await page.evaluate(() => window.__operationC.snapshot());
