@@ -16,7 +16,7 @@ on:
       itch_target:
         description: itch.io project:channel to push to
         type: string
-        default: polsia/digger:html5
+        default: daily-daily-games/digger:html5
 
 permissions:
   contents: write
