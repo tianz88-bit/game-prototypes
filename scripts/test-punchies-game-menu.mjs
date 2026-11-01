@@ -21,12 +21,21 @@ calls.length=0;const menu=new exports.GameMenuScene();menu.create({source:'Train
 calls.length=0;const survivalMenu=new exports.GameMenuScene();survivalMenu.create({source:'Survival',multiplayer:false});buttons.get('RETURN TO MAIN MENU')();modalBack();assert.ok(buttons.has('RESUME'),'B cancels confirmation');modalBack();assert.ok(calls.includes('resume'),'B resumes solo combat');
 console.log('Menu: foreground overlay, solo pause/resume, live multiplayer, settings, cancel, confirmed forfeit, and input restoration passed');
 // The remote end must finish a forfeited series even while a round splash is running.
-const netCalls=[];class Scene {constructor(){this.events={};this.time={removeAllEvents:()=>netCalls.push('cancelTimers')};this.add={text:(_x,_y,label)=>{netCalls.push(label);const t={setOrigin:()=>t,setDepth:()=>t};return t;}};}}
-const matchExports={};const netMocks={'../i18n':i18nStub,'../portal/gameplay':{setGameplay(){},trackFightScene(){}},'../portal/analytics':{track(){}},phaser:{default:{Scene}},'./FightStage':{makeButton:()=>{}},'../ui/menuNav':{getNav:()=>({engage:()=>{}})},'../render/pixelRatio':{VIEW:{cx:422,cy:195},PIXEL_RATIO:1},'../ui/presentation':{startScreen:()=>netCalls.push('menu')},'../sim/tune':{restoreTune:()=>{},TICK_RATE:60}};
+const netCalls=[];class Scene {constructor(){this.events={};this.time={removeAllEvents:()=>netCalls.push('cancelTimers')};this.add={text:(_x,_y,label)=>{netCalls.push(label,'overlay');const t={setOrigin:()=>t,setDepth:()=>t};return t;}};}}
+const matchExports={};const netMocks={'../i18n':i18nStub,'../portal/gameplay':{setGameplay(){},trackFightScene(){}},'../portal/analytics':{track(){}},phaser:{default:{Scene}},'./FightStage':{makeButton:()=>{}},'../ui/menuNav':{getNav:()=>({engage:()=>{}})},'../render/pixelRatio':{VIEW:{cx:422,cy:195},PIXEL_RATIO:1},'../ui/presentation':{startScreen:(_scene,_key,data)=>{netCalls.push('menu');if(data?.message)netCalls.push(data.message);}},'../sim/tune':{restoreTune:()=>{},TICK_RATE:60}};
 vm.runInNewContext(ts.transpileModule(fs.readFileSync('prototypes/punchies/src/scenes/MatchScene.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:matchExports,require:id=>netMocks[id]??{},performance:{}});
-const match=new matchExports.MatchScene();match.showRating=async()=>{};match.over=true;match.nextSeries={};match.cancelSplash=()=>netCalls.push('cancelSplash');match.waiting={setVisible:()=>{}};
-match.opponentLeft(true);assert.ok(netCalls.includes('cancelSplash'));assert.ok(netCalls.includes(i18nStub.t('match.victory_opponent_forfeited')));assert.equal(match.rematchLocal,false);assert.equal(match.advancing,true);
+const match=new matchExports.MatchScene();match.showRating=async()=>{};match.stageReady=true;match.over=true;match.nextSeries={};match.cancelSplash=()=>netCalls.push('cancelSplash');match.waiting={setVisible:()=>{}};
+match.opponentLeft(true);assert.ok(netCalls.includes('overlay'));assert.ok(netCalls.includes('cancelSplash'));assert.ok(netCalls.includes(i18nStub.t('match.victory_opponent_forfeited')));assert.equal(match.rematchLocal,false);assert.equal(match.advancing,true);
 const count=netCalls.length;match.opponentLeft(false);assert.equal(netCalls.length,count);
 netCalls.length=0;match.match={round:2,session:{forfeit:async()=>netCalls.push('forfeit'),leave:()=>netCalls.push('disconnect')}};await match.leave();assert.deepEqual(netCalls,['disconnect','menu'],'returning after an opponent departure must not report a voluntary quit');
-netCalls.length=0;match.over=false;await match.leave();assert.deepEqual(netCalls,['forfeit','disconnect','menu'],'leaving active combat reports own quit before disconnecting');
+netCalls.length=0;const active=new matchExports.MatchScene();active.match=match.match;active.over=false;await active.leave();assert.deepEqual(netCalls,['forfeit','disconnect','menu'],'leaving active combat reports own quit before disconnecting');
+const once=netCalls.length;await active.leave();assert.equal(netCalls.length,once,'repeated exit must reuse the completed leave operation');
 console.log('Online forfeit: between-round cancellation, opponent victory, duplicate disconnect protection and send-before-leave passed');
+
+// Before stage creation, route the same departure message to Menu without drawing an overlay.
+for(const forfeited of [false,true]) {
+ netCalls.length=0;const early=new matchExports.MatchScene();early.over=true;early.stageReady=false;early.opponentLeft(forfeited);
+ assert.ok(netCalls.includes('menu'));assert.ok(netCalls.includes(i18nStub.t(forfeited?'match.victory_opponent_forfeited':'match.victory_opponent_disconnected')));assert.ok(!netCalls.includes('overlay'));
+ const before=netCalls.length;early.opponentLeft(forfeited);assert.equal(netCalls.length,before);
+}
+console.log('Pre-stage departure: Menu message, no overlay, duplicate disconnect protection passed');
