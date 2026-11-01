@@ -7,7 +7,7 @@ import { join } from 'node:path';
 // that follow the documented APIs; nothing here talks to a real portal.
 const load = async (portalId, ads = true) => {
   const out = await build({
-    stdin: { contents: `export * from './prototypes/punchies/src/portal/index'; export { setGameplay } from './prototypes/punchies/src/portal/gameplay'; export { KEYS } from './prototypes/punchies/src/portal/keys'; export { track, getEventLog, clearEventLog } from './prototypes/punchies/src/portal/analytics';`, resolveDir: process.cwd(), loader: 'ts' },
+    stdin: { contents: `export * from './prototypes/punchies/src/portal/index'; export { setGameplay } from './prototypes/punchies/src/portal/gameplay'; export { KEYS, MASTER_KEYS, DEV_KEYS } from './prototypes/punchies/src/portal/keys'; export { track, getEventLog, clearEventLog } from './prototypes/punchies/src/portal/analytics';`, resolveDir: process.cwd(), loader: 'ts' },
     bundle: true, platform: 'node', format: 'esm', write: false,
     define: { __PUNCHIES_PORTAL__: JSON.stringify(portalId), __PUNCHIES_PORTAL_ADS__: JSON.stringify(ads) },
   });
@@ -176,8 +176,9 @@ for (const [id, text] of Object.entries(bundles)) {
 
 // ---- every save goes through the portal store, with a registered key ----
 const walk = (dir) => readdirSync(dir).flatMap((f) => { const p = join(dir, f); return statSync(p).isDirectory() ? walk(p) : p.endsWith('.ts') ? [p] : []; });
-const KEYS = readFileSync('prototypes/punchies/src/portal/keys.ts', 'utf8');
-const keyValues = [...KEYS.matchAll(/'(punchies:[^']+)'/g)].map((x) => x[1]);
+const registry = await load('web');
+const keyValues = [...Object.values(registry.KEYS), ...Object.values(registry.DEV_KEYS)];
+assert.deepEqual(registry.KEYS, registry.MASTER_KEYS, 'production aliases preserve existing player saves');
 assert.equal(new Set(keyValues).size, keyValues.length, 'storage keys are unique');
 for (const file of walk('prototypes/punchies/src')) {
   if (file.replaceAll('\\','/').includes('/portal/') || file.replaceAll('\\','/').includes('/debug/')) continue; // debug tools keep their own local flag on purpose
