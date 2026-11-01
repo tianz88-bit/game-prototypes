@@ -18,7 +18,7 @@ Verification: 31 behavior tests pass, including target matrix, non-capture, defe
 
 ## Open questions
 
-Latest owner decisions: loadouts select only base building cards; upgrades are options on selected placed buildings. New selling direction introduces construction time for every building, superseding instant completion and remaining separate from unit-production cooldown. Add persistent entity details when selecting hex occupants (unit movement does not switch the inspector), Warcraft/StarCraft-style building commands, and move all building cards to the right panel. These remain design work, not implemented. Selling/unit/tile outcomes and construction lifecycle rules need decisions; BRIEF.md records them.
+Latest owner decisions: loadouts select only base building cards; upgrades are options on selected placed buildings. New selling direction introduces construction time for every building, superseding instant completion and remaining separate from unit-production cooldown. Add persistent entity details when selecting hex occupants (unit movement does not switch the inspector), Warcraft/StarCraft-style building commands, and move all building cards to the right panel. These remain design work, not implemented. Selling retires the unit/squad and incoming reinforcements, restores its tile to open owned territory and excludes HQs. Owner changed selling release to only support tiles still assigned to the building; captured assignments discount it. The resulting unreleased debt is being clarified explicitly. Construction lifecycle and sale timing/interruption remain open; BRIEF.md records them.
 
 BRIEF.md is now the consolidated permanent design reference, reconciled 2026-11-02. It restores the previously discussed cooldown-based squad reinforcement rule (faster travelling reinforcements can continue a wiped squad) instead of asking the owner to choose again. Slower Missile Infantry build means unit production cooldown, not construction time.
 
@@ -30,4 +30,4 @@ Two-HQ local bot sandbox; no six-player networking/final map/factions. Physical 
 
 ## Next proposed step
 
-Loadout-slot and permanent upgrade rules are settled. Resolve selling outcomes and construction lifecycle using BRIEF.md before implementing the expanded milestone. Existing preview remains available for combined-arms playtesting. Publication of PR #410 still requires explicit approval.
+Loadout-slot and permanent upgrade rules are settled. Confirm discounted-sale debt handling and resolve construction lifecycle using BRIEF.md before implementing the expanded milestone. Existing preview remains available for combined-arms playtesting. Publication of PR #410 still requires explicit approval.

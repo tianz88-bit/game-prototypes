@@ -106,7 +106,13 @@ Reviewed 2026-11-02. Permanence is settled and must not be re-asked. These are r
 
 Owner requests selling buildings and introduces construction time for EVERY building as the tradeoff. This supersedes instant placement/completion. Building construction time and unit-production cooldown are separate values and systems; the slower Missile Infantry production request still stands.
 
-Selling is accepted as a new design direction, but its exact rules remain unresolved: treatment of the produced unit/squad and in-flight reinforcements; whether the sold tile becomes open or burnt; sale duration/interruptibility; whether HQs are excluded; sale of an unfinished/upgrading building; and release of the building's total committed cost. Resource costs represent capacity commitments rather than spent currency, so define release of commitment rather than an unrelated cash refund.
+Confirmed selling rules:
+- Retire the building's unit/squad and incoming reinforcements with retreat/fade.
+- Return the building tile to open owned territory; selling does not burn it. HQs cannot be sold.
+- Release ONLY the resource tiles still tied to that building at sale time. Previously captured support tiles discount the release; do not refund the full original/upgraded cost on sale. This supersedes the full-release selling recommendation, but does not change the earlier full-cost release rule for enemy destruction unless the owner says otherwise.
+- Example for clarification: cost 8, with 3 support assignments lost, releases only the remaining 5 on sale. Whether the unreleased 3 remains as permanent match debt is being explicitly confirmed; do not silently clear it by deleting the building from a summed-cost ledger.
+
+Sale duration/interruptibility and sale of an unfinished/upgrading building remain unresolved. Resource costs represent capacity commitments rather than spent currency.
 
 Construction still needs start/completion rules: when commitment is reserved; when the building begins blocking a hex; vulnerability/health while building; first spawn and production cooldown timing; interruption/cancellation/destruction outcomes; and numerical build times. Do not silently implement defaults.
 
