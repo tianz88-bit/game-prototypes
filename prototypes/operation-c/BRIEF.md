@@ -113,9 +113,16 @@ Confirmed selling rules:
 - Release ONLY the resource tiles still tied to that building at sale time. Previously captured support tiles discount the release; do not refund the full original/upgraded cost on sale. Owner explicitly extended the same discounted release to enemy destruction. This supersedes both the full-release selling recommendation and the older full-cost destruction rule.
 - Example: cost 8, with 3 support assignments lost, releases only the remaining 5 on sale OR enemy destruction. The unreleased 3 remains as match debt; do not silently clear it by deleting the building from a summed-cost ledger.
 
-Sale duration/interruptibility and sale of an unfinished/upgrading building remain unresolved. Resource costs represent capacity commitments rather than spent currency.
+Sale duration/interruptibility and sale of an upgrading building remain unresolved. Selling unfinished construction is confirmed as cancellation under the lifecycle below. Resource costs represent capacity commitments rather than spent currency.
 
-Construction still needs start/completion rules: when commitment is reserved; when the building begins blocking a hex; vulnerability/health while building; first spawn and production cooldown timing; interruption/cancellation/destruction outcomes; and numerical build times. Do not silently implement defaults.
+Confirmed construction lifecycle:
+- Placement immediately reserves the building's full resource cost and blocks its hex.
+- A building under construction can be attacked and produces no units.
+- Completion spawns the first unit, then starts its normal production cooldown. If no legal spawn cell exists, spawning waits.
+- Selling an unfinished building cancels construction, releases only its remaining assigned support cells and returns its tile to open owned territory.
+- Enemy destruction during construction releases only remaining assignments and permanently burns the tile.
+
+Individual construction durations and construction health/progression values remain unspecified. No automatic healing or partial-health curve is confirmed.
 
 ## Persistent selection and right-side interface
 
