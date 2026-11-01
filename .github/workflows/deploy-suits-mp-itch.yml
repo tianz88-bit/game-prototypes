@@ -96,7 +96,7 @@ jobs:
       - name: Push to itch.io
         env:
           BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
-        run: butler push dist polsia/suits-mp:html5
+        run: butler push dist daily-daily-games/suits-mp:html5
 
       - name: Commit version stamp bump
         run: |

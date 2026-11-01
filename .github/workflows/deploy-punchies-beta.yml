@@ -69,7 +69,7 @@ jobs:
       - name: Upload only Beta
         env:
           BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
-        run: butler push dist/punchies-itchbeta-compact-web polsia/punchies-beta-test:html5
+        run: butler push dist/punchies-itchbeta-compact-web daily-daily-games/punchies-beta-test:html5
       - name: Write successful upload receipt
         env:
           SOURCE_SHA: ${{ inputs.source_sha }}
@@ -77,7 +77,7 @@ jobs:
           mkdir -p beta-receipt
           cp prototypes/punchies/version.json beta-receipt/version.json
           cp dist/punchies-itchbeta-compact-web/prototypes/punchies/asset-profile.json beta-receipt/asset-profile.json
-          node -e 'require("fs").writeFileSync("beta-receipt/release.json",JSON.stringify({source:process.env.SOURCE_SHA,run:process.env.GITHUB_RUN_ID,destination:"polsia/punchies-beta-test:html5",uploaded:true},null,2))'
+          node -e 'require("fs").writeFileSync("beta-receipt/release.json",JSON.stringify({source:process.env.SOURCE_SHA,run:process.env.GITHUB_RUN_ID,destination:"daily-daily-games/punchies-beta-test:html5",uploaded:true},null,2))'
       - uses: actions/upload-artifact@v4
         with:
           name: punchies-beta-release

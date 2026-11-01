@@ -97,7 +97,7 @@ jobs:
         # retry never bumps it twice.
         run: |
           for attempt in 1 2 3 4 5 6; do
-            if butler push dist polsia/firestorm-arena:html5 > push.log 2>&1; then
+            if butler push dist daily-daily-games/firestorm-arena:html5 > push.log 2>&1; then
               cat push.log
               exit 0
             fi

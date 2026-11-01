@@ -334,7 +334,7 @@ jobs:
         if: steps.relevant.outputs.run == 'true'
         env:
           BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
-        run: butler push "$ITCH_UPLOAD_DIR" polsia/suits:html5
+        run: butler push "$ITCH_UPLOAD_DIR" daily-daily-games/suits:html5
 
       - name: Commit version stamp bump
         if: steps.relevant.outputs.run == 'true'
