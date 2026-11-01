@@ -1,27 +1,27 @@
 ## Current milestone
 
-Owner playtest feedback iteration, 2026-11-01: visible capture flips, upright units with actual attack-direction UI, and Barracks cost 8. The live entry remains https://zitian-ff.github.io/game-prototypes/prototypes/operation-c/ with its existing hub shortcut. Publication of this iteration follows its game-specific PR validation.
+Owner visual feedback iteration, 2026-11-01: stronger capture lift/flip/landing, horizontal unit facing, actual-shot bullet lines, committed locks and gold hammer confirmation. Canonical live entry: https://tianz88-bit.github.io/game-prototypes/prototypes/operation-c/ . Game-specific PR publication and live verification follow completed local checks.
 
 ## What was implemented
 
-Capture ownership transitions now use a cosmetic lift, edge-on flip, owner-face change and squash/landing. Flipping tiles temporarily leave the cached terrain layer, render in a reusable dynamic Graphics layer, and return to the cache when finished. Capture/resources change immediately; animation does not delay simulation. Reduced-motion preferences suppress flips.
+Capture transitions lift higher, complete a full turn with visible underside/edge, and land with squash and a pulse over a grounded socket. Units remain upright and mirror only their body horizontally; health, ownership rings and target direction stay unmirrored. Actual firing emits short bullet traces; aiming or reloading does not emit phantom shots.
 
-Infantry, tank and artillery bodies no longer rotate with movement or attack direction. Attacking units use an external ring wedge and directional firing trace, driven by the actual selected target hex reported by the simulation. Idle infantry no longer walk in place. Barracks resource cost increases from 4 to 8; every other gameplay tuning number is unchanged. No global placement cooldown was added, as the owner chose cost-only testing.
+Committed tiles use muted inset shading and a small lock while preserving ownership colour. The selected build hex shows a gold hammer; other supporting hexes stay subdued. A second tap/click on the same hex builds, with Build Here retained as an alternative. Barracks remains 8 resources; no gameplay tuning or construction cooldown changes.
 
 ## Key technical decisions
 
-Keep presentation timing independent of authoritative fixed-step rules. Real-time flip state is bounded by visible changed tiles and cleaned after completion/reset; no per-capture GameObjects or tweens are allocated. A derived attackTargetHexId supplies presentation metadata throughout weapon reload and clears when not attacking. It does not change target selection or combat/capture rules. Presentation duration/lift live in tune.json and the debug pane.
+Presentation is independent of deterministic rules. Shot IDs use a separate bounded sequence (128 events); renderer effects expire after 220 ms and discard stale fast-forwarded shots. Capture lasts 900 ms with lift 0.9 times tile radius. Numeric presentation values live in tune.json and the debug pane. Reusable Graphics layers avoid per-shot/per-tile GameObjects. Existing movement, capture, resource and production rules remain unchanged.
+
+Verification: 20 behavior tests, scoped and full TypeScript checks, standalone and hub production builds pass. Development and production bundles pass isolated Brave flows at desktop 1440x900, portrait 390x844 and landscape 844x390/667x375, with no console errors. Screenshots inspected for hammer placement, locks, flip/landing and actual bullet traces. A normal-clock unpaused Brave portrait recording independently confirms capture lift, turn and landing without virtual advance or cosmetic freezing. GitHub CI and deployed checks remain the publication step.
 
 ## Open questions
 
-Assess whether the cost increase alone sufficiently slows initial expansion before discussing a separate construction timer. Other full-game design questions remain in BRIEF.md: 200-cap meaning, HQ capture exceptions, races/tiers/loadouts, swarm reinforcement details, Eurasia topology and match duration. These are outside this feedback iteration.
+Assess opening expansion with Barracks cost 8 before discussing another construction timer. Full-game questions remain in BRIEF.md (capacity cap, HQ exceptions, factions/loadouts, swarm reinforcements, geography and match duration). Owner confirmed Brave as the affected browser; this implementation was tested in Brave.
 
 ## Known issues
 
-Still the two-HQ local bot sandbox, not six-player multiplayer or the final map/factions. Physical phones and long-session balance remain unverified. Existing full-game provisional rules are documented in README.md. Operating-system reduced motion intentionally suppresses the tile flip. The legacy hub publishing workflow retains its existing multi-game build; the Operation C validation workflow remains game-scoped.
+Two-HQ local bot sandbox only; six-player networking, final map and factions remain outside scope. Physical phones and sustained mobile performance are unverified. OS reduced-motion preferences intentionally suppress capture flips. Existing provisional rules are listed in README.md. Legacy hub publication still builds multiple games; this change does not modify other games, deployment configuration or pending account-migration PRs.
 
 ## Next proposed step
 
-Complete the game-specific PR/Pages publication, verify real capture flips and updated cost in the live game, then ask the owner to playtest opening expansion again. No new pacing timer should be added without that discussion.
-
-Verification so far: 17 simulation behavior tests and full/scoped TypeScript checks pass; standalone and hub production builds pass. Brave checks pass desktop 1440x900, phone portrait 390x844 and landscape 844x390/667x375. Desktop and phone screenshots observe a real capture flip through landing and confirm owner state remains authoritative. Screenshots inspected; actual-attack indicator state is covered by regression tests. Production-bundle, GitHub CI and live checks follow before delivery.
+Publish this game-specific change, verify the new live version in Brave, then have the owner assess capture readability, hammer confirmation and opening expansion. Add no new pacing timer without discussion.

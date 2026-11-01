@@ -4,11 +4,11 @@ Mobile-first local human-v-bot preview. This is the first systems slice, not the
 
 ## Play
 
-Choose Barracks, Factory or Artillery, tap an open teal hex, inspect the highlighted connected footprint, then tap **Build here**. Units produce and act automatically. **Home · Expand** favors territory expansion; **Attack rival HQ** sends your forces toward the rival's buildings. Destroy the rival HQ to win. Drag the map, pinch/scroll to zoom, use **My HQ** to return or **Map** to see the whole field. Reset starts a fresh match.
+Choose Barracks, Factory or Artillery, tap an open teal hex, inspect the highlighted connected footprint, then tap that same **gold hammer hex** again to build. **Build here** remains an alternative confirmation. Units produce and act automatically. **Home · Expand** favors territory expansion; **Attack rival HQ** sends your forces toward the rival's buildings. Destroy the rival HQ to win. Drag the map, pinch/scroll to zoom, use **My HQ** to return or **Map** to see the whole field. Reset starts a fresh match.
 
-The resource display is **committed costs / capacity**. Hatched hexes are committed to buildings. Losing territory does not release commitment. Destroyed production buildings leave passable burnt tiles, release their full cost and leave living units alive. Capturing pauses only while the capturing unit attacks.
+The resource display is **committed costs / capacity**. Muted inset hexes with a small lock are committed to buildings. They remain traversable and capturable, but cannot fund or host another building. Losing territory does not release commitment. Destroyed production buildings leave passable burnt tiles, release their full cost and leave living units alive. Capturing pauses only while the capturing unit attacks.
 
-Barracks now costs **8** capacity. No placement cooldown has been added. Ownership changes play a short lift/flip/landing animation; unit bodies stay upright and an external ring chevron points toward the actual combat target. Reduced-motion preferences suppress the tile flip.
+Barracks now costs **8** capacity. No placement cooldown has been added. Ownership changes play a 900 ms lift/full-turn/landing animation with a visible underside and grounded socket. Unit bodies stay upright and mirror horizontally toward movement or the attack target; an external ring chevron points toward the actual combat target. Short bullet traces appear only when a unit actually fires, including its final shot if it dies in that step. Reduced-motion preferences suppress the tile flip.
 
 ## Development
 
@@ -24,7 +24,7 @@ npx vite build --config prototypes/operation-c/vite.config.ts
 
 The root hub build also discovers this entry automatically. The game-specific preview workflow builds/tests only Operation C; the established root Pages workflow publishes the hub and its existing multi-game output. Firestorm's dedicated itch and Worker workflows are untouched.
 
-Browser checks use `scripts/screenshot-operation-c.mjs <url> <output-dir>`. Set `OPERATION_C_BROWSER_PACKAGE` to an installed Playwright package.json if the tool is not locally resolvable. On Windows this script launches an isolated headless Brave process and closes it after testing; it never touches existing user tabs. CI Linux uses isolated Chromium. `?test=1` exposes read-only state/coordinates plus a virtual-time advance hook for testing. Normal play has no test hook.
+Browser checks use `scripts/screenshot-operation-c.mjs <url> <output-dir>`. Set `OPERATION_C_BROWSER_PACKAGE` to an installed Playwright package.json if the tool is not locally resolvable. On Windows this script launches an isolated headless Brave process and closes it after testing; it never touches existing user tabs. CI Linux uses isolated Chromium. `?test=1` exposes read-only state/coordinates plus virtual-time and cosmetic-clock hooks for testing. Browser checks cover two-tap confirmation, capture through landing, actual-shot traces and horizontal facing. A separate normal-clock Brave phone-sized recording verified capture without advancing or freezing time. Normal play has no test hook.
 
 `?debug=1` opens the existing Tweakpane tool with provisional tuning and JSON copying. Apply tuning restarts the sandbox. All numeric gameplay values live in tune.json.
 

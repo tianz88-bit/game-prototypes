@@ -21,12 +21,15 @@ Owner authorized implementation and a shortcut on the prototypes page on 2026-10
 
 Small fully visible hex map, two HQs, human versus deterministic bot, three explicitly provisional building cards demonstrating infantry/tank/ranged roles, resource placement previews, cooldown production, autonomous expansion/attack, exclusive occupancy, queues/surrounding, capture, burnt tiles, HQ elimination, restart, touch/mouse input and scripted visual movement/combat. No production server or credentials required.
 
-Friendly vector-authored military miniatures in an angled top-down view. Teal/coral ownership plus patterns/labels; committed hatching and cracked burnt tiles. Static terrain can be cached; dynamic feedback is scripted geometry. The generated mockup is direction only, not a fidelity requirement. Portrait and landscape must remain usable.
+Friendly vector-authored military miniatures in an angled top-down view. Teal/coral ownership plus patterns/labels; muted committed tiles with lock markers and cracked burnt tiles. Static terrain can be cached; dynamic feedback is scripted geometry. The generated mockup is direction only, not a fidelity requirement. Portrait and landscape must remain usable.
 
 ## Owner playtest feedback — 2026-11-01
 
 - Captured tiles must visibly lift, flip and land when ownership changes. This is cosmetic; capture and resource state update immediately. Respect reduced-motion preferences.
 - All unit bodies stay upright in this 2D presentation. A separate UI ring chevron indicates the actual attack target direction; movement or firing must not rotate the entire miniature.
+- Follow-up: make the lift/full-turn/landing unmistakable in Brave; bodies may mirror horizontally for X-facing, with UI direction cues unmirrored. Short bullet lines must correspond to actual weapon fire.
+- Committed hexes use muted inset shading and a small lock. Preserve ownership colour and distinguish them from open and burnt tiles.
+- Preserve two-tap/click construction. The selected confirmation tile has a distinct gold rim and hammer; supporting hexes remain subdued. Invalid placement uses red and an X.
 - Barracks cost increases from 4 to 8 resources for this playtest. All other gameplay tuning stays unchanged.
 - A proposed shared placement cooldown is explicitly deferred. Do not add a new construction/expansion timer yet; first assess the cost increase on its own. Existing per-building unit-production cooldown remains unchanged.
 
