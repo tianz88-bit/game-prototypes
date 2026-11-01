@@ -96,14 +96,14 @@ Confirmed upgrade lifecycle:
 
 Presentation implementation recommendation: remove retired forces from combat/capture/occupancy when accepted, then render retreat/fade cosmetically. Exact retirement timing relative to the short visual remains a presentation detail; do not permit it to restore a retired force.
 
-Remaining decisions: timer lengths, support connectivity for Barracks' added 2, base-production restart timing after upgrade cancellation and upgrade prerequisites. Base-only loadouts and building-selected upgrade options are confirmed; upgraded variants are not loadout cards. Airfield's zero-surcharge conversion is under exploration, not a universal upgrade-cost rule; permanent one-way behavior is confirmed. No gameplay implementation until the relevant rules are settled.
+Conversion times are approved for the first playtest: Armoury 5 seconds and Bomber Airfield 8 seconds. Remaining decisions: support connectivity for Barracks' added 2, base-production restart timing after upgrade cancellation and upgrade prerequisites. Base-only loadouts and building-selected upgrade options are confirmed; upgraded variants are not loadout cards. Airfield's zero-surcharge conversion is under exploration, not a universal upgrade-cost rule; permanent one-way behavior is confirmed. No gameplay implementation until the relevant rules are settled.
 
 ## Design review pending decisions
 
 Reviewed 2026-11-02. Permanence is settled and must not be re-asked. These are remaining implementation decisions, not changes to confirmed rules:
 
 1. Base-only loadout eligibility is SETTLED: upgrades are building-selected options, not loadout cards. Show base cards with their tier/stats; decide how to preview upgrade stats without making upgrades selectable.
-2. Research timing is SETTLED: T1-to-T2 20 cells/30 seconds; T2-to-T3 20 cells/60 seconds. Building upgrade durations still need values. Enforce Bomber's T3 prerequisite independently of its zero resource surcharge.
+2. Research timing is SETTLED: T1-to-T2 20 cells/30 seconds; T2-to-T3 20 cells/60 seconds. First-playtest building upgrade durations are settled: Armoury 5 seconds, Bomber Airfield 8 seconds. Enforce Bomber's T3 prerequisite independently of its zero resource surcharge.
 3. Additional support: define whether Barracks' added 2 cells must connect to the building or its existing support footprint. Research explicitly has no connectivity requirement; do not silently apply that exception to building upgrades.
 4. Upgrade interruption is SETTLED by the confirmed upgrade lifecycle below: unfinished cancellation allowed, retired forces not restored, discounted upgrade-support release, and combined discounted release/burn on destruction. Still define base-production restart timing after cancellation and retired capturer progress behavior. Completed upgrades cannot be reversed.
 5. Reinforcement integration: define dispatch count per cooldown, merge/arrival behavior while the target squad occupies its hex, blocked routes, detached/in-flight members when a producer is destroyed, and base-production restart after cancellation. Starting an upgrade retires incoming reinforcements and pauses production, as confirmed below. Reinforcement itself is already confirmed.
@@ -128,7 +128,18 @@ Confirmed construction lifecycle:
 - Selling an unfinished building cancels construction, releases only its remaining assigned support cells and returns its tile to open owned territory.
 - Enemy destruction during construction releases only remaining assignments and permanently burns the tile.
 
-Individual construction durations and construction health/progression values remain unspecified. No automatic healing or partial-health curve is confirmed.
+Owner-approved first-playtest construction durations:
+
+| Base building | Construction time |
+| --- | --- |
+| Barracks | 3 seconds |
+| Factory | 5 seconds |
+| Artillery | 5 seconds |
+| Hangar | 6 seconds |
+| Airfield | 6 seconds |
+| MLRS | 8 seconds |
+
+Owner-approved conversion durations: Barracks to Armoury 5 seconds; Airfield to Bomber Airfield 8 seconds. Construction and conversion times remain separate from unit-production cooldowns. These timings are provisional for the first playtest. Construction health/progression values remain unspecified; no automatic healing or partial-health curve is confirmed.
 
 ## Persistent selection and right-side interface
 

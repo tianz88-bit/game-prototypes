@@ -18,6 +18,8 @@ Verification: 31 behavior tests pass, including target matrix, non-capture, defe
 
 ## Open questions
 
+Owner approved provisional build times: Barracks 3s, Factory/Artillery 5s, Hangar/Airfield 6s, MLRS 8s. Upgrades: Armoury 5s, Bomber Airfield 8s. Separate from unit production. Recorded in BRIEF.md; not yet implemented. Construction-health behavior remains open.
+
 Latest T2-to-T3 playtest setting: 20 open uncommitted owned tiles for 60 seconds, superseding 30 tiles/45 seconds. T1-to-T2 remains 20 tiles/30 seconds. Same research/debt/release/cancellation rules apply.
 
 Upgrade lifecycle is now confirmed: reserve added support, retire current forces/incoming reinforcements and pause production on start; unfinished cancellation loses progress/releases only remaining upgrade supports and leaves the base building without restoring its retired unit; destruction burns and releases remaining base+upgrade supports; completion permanently changes production, spawns when legal and starts the new production cooldown. Base-production restart after cancellation and numerical timings remain open.
