@@ -22,7 +22,15 @@ export interface BuildingOptions {
   hp?: number; maxHp?: number; progress?: number; selected?: boolean; time?: number;
 }
 export interface UnitOptions {
-  attacking?: boolean; phase?: number; hp?: number; maxHp?: number; angle?: number;
+  attacking?: boolean; moving?: boolean; phase?: number; hp?: number; maxHp?: number;
+  /** Actual attack-target direction in projected screen radians; never turns the body. */
+  angle?: number;
+}
+export interface CaptureFlipOptions {
+  owner: number | null; previousOwner: number | null; committed: boolean;
+  progress: number;
+  /** Maximum lift in world pixels; defaults to half the hex radius. */
+  lift?: number;
 }
 const DEFAULT_BUILDING_OPTIONS: BuildingOptions = {};
 const DEFAULT_UNIT_OPTIONS: UnitOptions = {};
@@ -88,6 +96,43 @@ export function drawHex(g: Graphics, x: number, y: number, r: number, o: HexOpti
     g.fillStyle(highlight, o.valid === false ? 0.2 : 0.12).fillPoints(hexPoints(x, y, r * 0.88), true);
     perimeter(g, x, y, r * 0.87, 1, highlight, edge * 2);
   }
+}
+
+/** Cosmetic ownership transition only. Draw below entities, in place of the
+ * cached tile. Caller owns lifetime (suggested 650ms) and reduced-motion policy.
+ * Both endpoints exactly match drawHex; no shadow remains after landing. */
+export function drawCaptureFlip(g: Graphics, x: number, y: number, r: number, o: CaptureFlipOptions): void {
+  if (!(r > 0)) return;
+  const p = clamp(o.progress);
+  const owner = p < 0.5 ? o.previousOwner : o.owner;
+  if (p === 0 || p === 1) {
+    drawHex(g, x, y, r, { owner, burnt: false, committed: o.committed });
+    return;
+  }
+  let sx = 1, sy = 1, height = 0, tilt = 0;
+  if (p < 0.15) {
+    const press = Math.sin(p / 0.15 * Math.PI);
+    sx += press * 0.08; sy -= press * 0.13; height = -press * r * 0.035;
+  } else if (p < 0.85) {
+    const flight = (p - 0.15) / 0.7;
+    const arc = Math.sin(flight * Math.PI);
+    height = arc * Math.max(0, o.lift ?? r * 0.5);
+    sx += arc * 0.1;
+    // Positive scale avoids mirrored hatching; owner changes at the edge-on pose.
+    sy = Math.max(0.045, Math.abs(Math.cos(flight * Math.PI)));
+    tilt = Math.sin(flight * TAU) * 0.13;
+  } else {
+    const settle = (p - 0.85) / 0.15;
+    const squash = Math.sin(settle * Math.PI) * (1 - settle);
+    sx += squash * 0.22; sy -= squash * 0.28; height = -squash * r * 0.04;
+  }
+  g.fillStyle(PALETTE.shadow, 0.13 + Math.max(0, height) / r * 0.12)
+    .fillEllipse(x, y + r * 0.055, r * 1.6, r * 0.9);
+  g.save().translateCanvas(x, y - height);
+  // Anisotropic scaling between opposite rotations gives a cheap affine skew.
+  g.rotateCanvas(tilt).scaleCanvas(sx, sy).rotateCanvas(-tilt);
+  drawHex(g, 0, 0, r, { owner, burnt: false, committed: o.committed });
+  g.restore();
 }
 
 function health(g: Graphics, x: number, y: number, w: number, hp?: number, maxHp?: number) {
@@ -161,13 +206,12 @@ export function drawUnit(g: Graphics, x: number, y: number, size: number, owner:
   const kick = o.attacking ? Math.max(0, Math.cos(phase)) * 0.1 : 0;
   g.save().translateCanvas(x, y).scaleCanvas(size, size);
   g.fillStyle(PALETTE.shadow, 0.2).fillEllipse(0, 0.25, 1.2, 0.42);
-  // Ownership marker stays aligned to the board while the miniature turns.
+  // Body and ownership marker always remain upright in this 2D view.
   g.lineStyle(0.055, color).strokeEllipse(0, 0.23, 1.16, 0.46);
   badge(g, owner, -0.44, 0.23, 0.055);
-  g.rotateCanvas(o.angle ?? 0);
   if (kind === 'infantry') {
-    const stride = o.attacking ? 0 : Math.sin(phase) * 0.14;
-    const bob = o.attacking ? kick * 0.3 : Math.abs(Math.sin(phase)) * 0.035;
+    const stride = o.moving && !o.attacking ? Math.sin(phase) * 0.14 : 0;
+    const bob = o.attacking ? kick * 0.3 : o.moving ? Math.abs(Math.sin(phase)) * 0.035 : 0;
     g.lineStyle(0.16, PALETTE.ink);
     g.lineBetween(-0.13, 0.02, -0.19 - stride, 0.31);
     g.lineBetween(0.13, 0.02, 0.19 + stride, 0.31);
@@ -201,11 +245,23 @@ export function drawUnit(g: Graphics, x: number, y: number, size: number, owner:
     }
     badge(g, owner, -0.34 - kick, -0.06, 0.065);
   }
-  if (o.attacking && Math.cos(phase) > 0.65) {
-    const mx = kind === 'infantry' ? 0.65 : kind === 'tank' ? 0.91 : 1.1;
-    const my = kind === 'infantry' ? -0.35 : kind === 'tank' ? -0.14 : -0.43;
-    g.fillStyle(0xf3bf55).fillTriangle(mx - 0.08, my - 0.15, mx + 0.25, my, mx - 0.08, my + 0.15);
-    g.fillStyle(PALETTE.cream).fillCircle(mx + 0.025, my, 0.075);
+  if (o.attacking) {
+    const angle = Number.isFinite(o.angle) ? o.angle! : 0;
+    const dx = Math.cos(angle), dy = Math.sin(angle);
+    // Intersect the actual screen-space ray with the elliptical ownership ring.
+    const distance = 1 / Math.hypot(dx / 0.58, dy / 0.23);
+    const ax = dx * distance, ay = 0.23 + dy * distance;
+    g.lineStyle(0.035, PALETTE.ink).fillStyle(color);
+    const tipX = ax + dx * 0.17, tipY = ay + dy * 0.17;
+    const leftX = ax - dx * 0.04 - dy * 0.1, leftY = ay - dy * 0.04 + dx * 0.1;
+    const rightX = ax - dx * 0.04 + dy * 0.1, rightY = ay - dy * 0.04 - dx * 0.1;
+    g.fillTriangle(tipX, tipY, leftX, leftY, rightX, rightY)
+      .strokeTriangle(tipX, tipY, leftX, leftY, rightX, rightY);
+    if (Math.cos(phase) > 0.65) {
+      // External firing cue follows the target; the upright gun art stays fixed.
+      g.lineStyle(0.045, 0xf3bf55).lineBetween(ax + dx * 0.23, ay + dy * 0.23, ax + dx * 0.42, ay + dy * 0.42);
+      g.fillStyle(PALETTE.cream).fillCircle(ax + dx * 0.3, ay + dy * 0.3, 0.055);
+    }
   }
   g.restore();
   health(g, x, y - size * 1.02, size * 0.9, o.hp, o.maxHp);

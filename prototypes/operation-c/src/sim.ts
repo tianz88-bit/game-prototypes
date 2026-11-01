@@ -166,10 +166,12 @@ export class OperationSim {
     // Decide all attacks first, so damage does not grant first-iteration survival.
     for (const u of this.units) {
       u.attacking = false;
+      delete u.attackTargetHexId;
       if ((u.movingUntilMs ?? 0) > this.timeMs) continue;
       const target = this.attackTarget(u);
       if (!target) continue;
       u.attacking = true;
+      u.attackTargetHexId = target.hexId;
       if (this.timeMs < u.nextAttackAtMs) continue;
       u.nextAttackAtMs = this.timeMs + this.tune.cards[u.kind].attackMs;
       damage.set(target, (damage.get(target) ?? 0) + this.tune.cards[u.kind].damage);

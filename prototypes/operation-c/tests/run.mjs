@@ -19,6 +19,11 @@ function fixture(edit = () => {}) {
   edit(tune);
   return new OperationSim({ tune, bot: false });
 }
+// These fixtures exercise general economy invariants with a known cost, rather
+// than prescribing the live Barracks balance value.
+function costFourFixture(edit = () => {}) {
+  return fixture(t => { t.cards.infantry.cost = 4; edit(t); });
+}
 function h(sim, id) { return sim.hexes.find(x => x.id === id); }
 function ownAll(sim, owner = 0) { for (const x of sim.hexes) x.owner = owner; }
 function inertProducers(sim) { sim.units.splice(0); for (const b of sim.buildings) if (b.kind !== 'hq') b.unitId = 'fixture'; }
@@ -42,7 +47,7 @@ function assertOccupancy(sim) {
 }
 
 test('initial HQ capacity excludes centres; previews BFS connected supports including tile', () => {
-  const s = fixture(); assert.equal(s.resources(0).capacity, 18);
+  const s = costFourFixture(); assert.equal(s.resources(0).capacity, 18);
   const p = s.placement(0, '-4,0', 'infantry'); assert(p.ok); assert.equal(p.hexes.length, 4); assert.equal(p.hexes[0], '-4,0');
   const seen = new Set([p.hexes[0]]);
   for (const id of p.hexes.slice(1)) { assert(s.neighbors(id).some(n => seen.has(n.id))); seen.add(id); }
@@ -54,7 +59,7 @@ test('initial HQ capacity excludes centres; previews BFS connected supports incl
 
 test('local supports cannot cross neutral, enemy, locked or burnt bridges', () => {
   for (const blocker of ['neutral', 'enemy', 'locked', 'burnt']) {
-    const s = fixture(); for (const x of s.hexes) x.owner = null;
+    const s = costFourFixture(); for (const x of s.hexes) x.owner = null;
     for (const id of ['0,0', '1,0', '2,0', '3,0', '-7,0', '-7,1', '-7,2', '-7,3']) h(s, id).owner = 0;
     const bridge = h(s, '1,0');
     if (blocker === 'neutral') bridge.owner = null;
@@ -66,7 +71,7 @@ test('local supports cannot cross neutral, enemy, locked or burnt bridges', () =
 });
 
 test('enemy capture permanently clears local lock, preserves global debt; destruction releases full cost and burns', () => {
-  const s = fixture(t => { t.cards.infantry.range = 0; t.capture.neutralMs = 100; }); ownAll(s);
+  const s = costFourFixture(t => { t.cards.infantry.range = 0; t.capture.neutralMs = 100; }); ownAll(s);
   assert(s.place(0, '0,0', 'infantry').ok); inertProducers(s);
   const b = s.buildings.find(x => x.kind === 'infantry');
   const support = s.hexes.find(x => x.lockedBy === b.id && x.id !== b.hexId);
@@ -183,7 +188,7 @@ test('attackers surround a building using distinct reachable adjacent hexes and 
 });
 
 test('global cap and debt are separate from connected supports', () => {
-  const s = fixture(t => { t.resources.capacityCap = 4; }); ownAll(s);
+  const s = costFourFixture(t => { t.resources.capacityCap = 4; }); ownAll(s);
   assert(s.place(0, '0,0', 'infantry').ok);
   assert.equal(s.resources(0).capacity, 4);
   const denied = s.placement(0, '3,0', 'infantry');
@@ -196,18 +201,47 @@ test('global cap and debt are separate from connected supports', () => {
 
 test('attack order prioritizes selected faction buildings over troops; defense responds to troops', () => {
   for (const attackOrder of [true, false]) {
-    const s = fixture();
+    const s = fixture(t => { t.cards.infantry.range = 2; });
     const attacker = unit(s, '0,0', 0);
     const encountered = unit(s, '0,1', 1);
-    const building = { id: 'priority-target', owner: 1, hexId: '1,0', kind: 'infantry', hp: 1000, maxHp: 1000,
+    const building = { id: 'priority-target', owner: 1, hexId: '2,0', kind: 'infantry', hp: 1000, maxHp: 1000,
       readyAtMs: 0, unitId: 'fixture-no-spawn' };
     s.buildings.push(building);
     s.setTarget(0, attackOrder ? 1 : 0);
     advance(s, 100);
     assert(attacker.attacking);
+    assert.equal(attacker.attackTargetHexId, attackOrder ? building.hexId : encountered.hexId,
+      'indicator uses the actual decision, even when a troop is closer than the prioritized building');
     assert.equal(building.hp, attackOrder ? 1000 - s.tune.cards.infantry.damage : 1000);
     assert.equal(encountered.hp, attackOrder ? 1000 : 1000 - s.tune.cards.infantry.damage);
+    const buildingHp = building.hp, troopHp = encountered.hp;
+    advance(s, 100);
+    assert(attacker.attacking); assert.equal(attacker.attackTargetHexId, attackOrder ? building.hexId : encountered.hexId);
+    assert.equal(building.hp, buildingHp); assert.equal(encountered.hp, troopHp, 'reload timing is unchanged');
+    building.hp = 0; encountered.hp = 0;
+    advance(s, 100);
+    assert.equal(attacker.attacking, false); assert.equal(attacker.attackTargetHexId, undefined, 'clear stale indicator after engagement ends');
   }
+});
+
+test('default Barracks costs eight, opening capacity stays eighteen, and placement has no global timer', () => {
+  const opening = new OperationSim({ bot: false });
+  assert.equal(DEFAULT_TUNE.cards.infantry.cost, 8); assert.equal(opening.resources(0).capacity, 18);
+  assert(opening.place(0, '-4,0', 'infantry').ok); assert.equal(opening.resources(0).committed, 8);
+  const b = opening.buildings.find(x => x.kind === 'infantry');
+  assert.equal(opening.hexes.filter(x => x.lockedBy === b.id).length, 8);
+  const s = new OperationSim({ bot: false }); ownAll(s);
+  assert(s.place(0, '0,0', 'infantry').ok); assert(s.place(0, '4,0', 'infantry').ok);
+  assert.equal(s.timeMs, 0); assert.equal(s.resources(0).committed, 16);
+  assert.equal(s.units.length, 2, 'both affordable connected placements spawn immediately at the same simulation time');
+});
+
+test('capture presentation settings do not influence authoritative simulation', () => {
+  const normal = fixture(), exaggerated = fixture(t => { t.presentation.captureFlipMs = 99999; t.presentation.captureLift = 10; });
+  assert.deepEqual(DEFAULT_TUNE.presentation, { captureFlipMs: 650, captureLift: 0.34 });
+  for (const s of [normal, exaggerated]) { unit(s, '0,0', 0); advance(s, 10000); }
+  const state = s => JSON.stringify({ hexes: s.hexes, units: s.units, buildings: s.buildings, timeMs: s.timeMs });
+  assert.equal(state(normal), state(exaggerated));
 });
 
 test('ten-minute virtual playtests progress through contested frontlines to an HQ victory', () => {

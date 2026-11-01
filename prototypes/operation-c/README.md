@@ -8,6 +8,8 @@ Choose Barracks, Factory or Artillery, tap an open teal hex, inspect the highlig
 
 The resource display is **committed costs / capacity**. Hatched hexes are committed to buildings. Losing territory does not release commitment. Destroyed production buildings leave passable burnt tiles, release their full cost and leave living units alive. Capturing pauses only while the capturing unit attacks.
 
+Barracks now costs **8** capacity. No placement cooldown has been added. Ownership changes play a short lift/flip/landing animation; unit bodies stay upright and an external ring chevron points toward the actual combat target. Reduced-motion preferences suppress the tile flip.
+
 ## Development
 
 From repository root, after `npm ci`:

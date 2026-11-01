@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { Pane } from 'tweakpane';
 import { OperationSim, DEFAULT_TUNE } from './sim';
 import type { CardKind, Hex, Tune } from './model';
-import { drawHex, drawBuilding, drawUnit, drawExplosion, playerColor, hexPoints } from './art';
+import { drawHex, drawBuilding, drawUnit, drawExplosion, drawCaptureFlip, playerColor, hexPoints } from './art';
 import { Intents } from './input';
 import { VERSION_STAMP } from './version.generated';
 
@@ -36,6 +36,9 @@ class Battlefield extends Phaser.Scene {
   private seenBuildings = new Map<string, { x: number; y: number }>();
   private spawns = new Map<string, { x: number; y: number; born: number }>();
   private effects: { x: number; y: number; born: number }[] = [];
+  private previousOwners = new Map<string, number | null>();
+  private captureFlips = new Map<string, { previousOwner: number | null; born: number }>();
+  private readonly reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   private pane?: Pane;
   private radius = 31;
   private lastSimTime = 0; private lastSimFrame = 0;
@@ -56,7 +59,10 @@ class Battlefield extends Phaser.Scene {
       window.__operationC = {
         snapshot: () => ({ timeMs: this.sim.timeMs, buildings: this.sim.buildings, units: this.sim.units,
           hexes: this.sim.hexes, resources: this.sim.resources(0), winner: this.sim.winner, target: this.sim.players[0].targetId,
-          objects: this.children.length, textures: this.textures.getTextureKeys().length }),
+          objects: this.children.length, textures: this.textures.getTextureKeys().length,
+          presentation: { flips: [...this.captureFlips].map(([hexId, flip]) => ({ hexId,
+            progress: Phaser.Math.Clamp((performance.now() - flip.born) / this.sim.tune.presentation.captureFlipMs, 0, 1) })),
+            attackIndicators: this.sim.units.filter(u => u.attacking && u.attackTargetHexId).map(u => ({ unitId: u.id, hexId: u.hexId, targetHexId: u.attackTargetHexId })) } }),
         targets: () => ({ buttons: this.buttons.map(({ id, x, y, w, h }) => ({ id, x: (x + w / 2) * this.uiScale, y: (y + h / 2) * this.uiScale })),
           hexes: this.sim.hexes.map(h => { const p = this.toScreen(h); return { id: h.id, x: p.x * this.uiScale, y: p.y * this.uiScale, owner: h.owner,
             valid: this.selected ? this.sim.placement(0, h.id, this.selected).ok : false }; }) }),
@@ -64,7 +70,11 @@ class Battlefield extends Phaser.Scene {
       };
     }
   }
-  private indexHexes() { this.byHex = new Map(this.sim.hexes.map(h => [h.id, h])); }
+  private indexHexes() {
+    this.byHex = new Map(this.sim.hexes.map(h => [h.id, h]));
+    this.previousOwners = new Map(this.sim.hexes.map(h => [h.id, h.owner]));
+    this.captureFlips.clear();
+  }
   private async debugPanel() {
     const { Pane } = await import('tweakpane');
     const values = structuredClone(DEFAULT_TUNE);
@@ -72,6 +82,9 @@ class Battlefield extends Phaser.Scene {
     const capture = this.pane.addFolder({ title: 'Capture', expanded: false });
     capture.addBinding(values.capture, 'neutralMs', { min: 500, max: 10000, step: 100 });
     capture.addBinding(values.capture, 'ownedMultiplier', { min: 1, max: 4, step: 0.1 });
+    const presentation = this.pane.addFolder({ title: 'Capture animation', expanded: false });
+    presentation.addBinding(values.presentation, 'captureFlipMs', { min: 100, max: 1500, step: 50 });
+    presentation.addBinding(values.presentation, 'captureLift', { min: 0.1, max: 0.8, step: 0.02 });
     for (const kind of CARDS) {
       const folder = this.pane.addFolder({ title: NAMES[kind], expanded: false });
       for (const key of ['cost', 'damage', 'unitHp', 'moveMs', 'productionMs', 'attackMs', 'captureRate'] as const)
@@ -174,13 +187,35 @@ class Battlefield extends Phaser.Scene {
   }
   private drawWorld() {
     this.world.setPosition(this.w / 2 + this.panX, (this.top + this.h - this.bottom) / 2 + this.panY).setScale(this.zoomLevel);
-    const signature = this.sim.hexes.map(h => `${h.owner}:${h.burnt}:${h.lockedBy}`).join('|');
+    const now = performance.now(), duration = this.sim.tune.presentation.captureFlipMs;
+    for (const h of this.sim.hexes) {
+      const oldOwner = this.previousOwners.get(h.id);
+      if (oldOwner !== undefined && oldOwner !== h.owner && h.owner !== null && !h.burnt && !this.reducedMotion) {
+        const p = this.toScreen(h), margin = this.radius * this.zoomLevel * 2;
+        if (p.x > -margin && p.x < this.w + margin && p.y > this.top - margin && p.y < this.h - this.bottom + margin)
+          this.captureFlips.set(h.id, { previousOwner: oldOwner, born: now });
+      }
+      this.previousOwners.set(h.id, h.owner);
+    }
+    for (const [id, flip] of this.captureFlips) {
+      const h = this.byHex.get(id)!;
+      if (now - flip.born >= duration || h.burnt || h.owner === null) this.captureFlips.delete(id);
+    }
+    const signature = this.sim.hexes.map(h => `${h.owner}:${h.burnt}:${h.lockedBy}`).join('|') + [...this.captureFlips.keys()].join(';');
     if (signature !== this.terrainSignature) {
       this.terrain.clear();
-      for (const h of this.sim.hexes) { const p = this.position(h); drawHex(this.terrain, p.x, p.y, this.radius, { owner: h.owner, burnt: h.burnt, committed: !!h.lockedBy }); }
+      for (const h of this.sim.hexes) {
+        if (this.captureFlips.has(h.id)) continue;
+        const p = this.position(h); drawHex(this.terrain, p.x, p.y, this.radius, { owner: h.owner, burnt: h.burnt, committed: !!h.lockedBy });
+      }
       this.terrainSignature = signature;
     }
     this.overlay.clear(); this.live.clear();
+    for (const [id, flip] of this.captureFlips) {
+      const h = this.byHex.get(id)!, p = this.position(h);
+      drawCaptureFlip(this.overlay, p.x, p.y, this.radius, { owner: h.owner, previousOwner: flip.previousOwner,
+        committed: !!h.lockedBy, progress: (now - flip.born) / duration, lift: this.radius * this.sim.tune.presentation.captureLift });
+    }
     const previewId = this.chosenHex ?? this.hover;
     if (this.selected && previewId) {
       const placement = this.sim.placement(0, previewId, this.selected);
@@ -195,7 +230,7 @@ class Battlefield extends Phaser.Scene {
       const p = this.position(h);
       this.overlay.lineStyle(3.5, playerColor(h.capturePlayer), 1).beginPath().arc(p.x, p.y, this.radius * 0.48, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * h.capture, false).strokePath();
     }
-    const now = performance.now(), newBuildings = new Map<string, { x: number; y: number }>();
+    const newBuildings = new Map<string, { x: number; y: number }>();
     if (this.lastSimTime !== this.sim.timeMs) { this.lastSimTime = this.sim.timeMs; this.lastSimFrame = now; }
     const visualMs = this.sim.timeMs + (this.paused ? 0 : Math.min(this.sim.tune.stepMs, (now - this.lastSimFrame) * this.speed));
     const entities = [...this.sim.buildings, ...this.sim.units].sort((a, b) => this.position(this.byHex.get(a.hexId)!).y - this.position(this.byHex.get(b.hexId)!).y);
@@ -210,20 +245,23 @@ class Battlefield extends Phaser.Scene {
           this.seenUnits.add(e.id); const b = this.sim.buildings.find(b => b.id === e.buildingId);
           if (b) this.spawns.set(e.id, { ...this.position(this.byHex.get(b.hexId)!), born: now });
         }
-        let x = p.x, y = p.y, angle = e.owner === 0 ? 0 : Math.PI;
+        let x = p.x, y = p.y;
         if (e.fromHexId && e.movingUntilMs && e.movedAtMs !== undefined) {
           const from = this.position(this.byHex.get(e.fromHexId)!);
           const t = Phaser.Math.Clamp((visualMs - e.movedAtMs) / (e.movingUntilMs - e.movedAtMs), 0, 1);
           x = Phaser.Math.Linear(from.x, p.x, t); y = Phaser.Math.Linear(from.y, p.y, t);
-          angle = Math.atan2(p.y - from.y, p.x - from.x);
         }
         const spawn = this.spawns.get(e.id);
         if (spawn && now - spawn.born < 450) {
           const t = Phaser.Math.Easing.Cubic.Out((now - spawn.born) / 450);
           x = Phaser.Math.Linear(spawn.x, x, t); y = Phaser.Math.Linear(spawn.y, y, t);
         } else this.spawns.delete(e.id);
+        const attackHex = e.attackTargetHexId ? this.byHex.get(e.attackTargetHexId) : undefined;
+        const target = attackHex ? this.position(attackHex) : undefined;
+        const angle = target ? Math.atan2(target.y - p.y, target.x - p.x) : undefined;
         drawUnit(this.live, x, y, this.radius * (e.kind === 'infantry' ? 0.58 : 0.69), e.owner, e.kind,
-          { hp: e.hp, maxHp: e.maxHp, attacking: e.attacking, phase: now / (e.attacking ? 100 : 130), angle });
+          { hp: e.hp, maxHp: e.maxHp, attacking: e.attacking, moving: (e.movingUntilMs ?? 0) > this.sim.timeMs,
+            phase: now / (e.attacking ? 100 : 130), angle });
       }
     }
     for (const [id, p] of this.seenBuildings) if (!newBuildings.has(id)) this.effects.push({ ...p, born: now });

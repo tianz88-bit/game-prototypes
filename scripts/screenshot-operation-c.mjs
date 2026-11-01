@@ -42,9 +42,23 @@ try {
     await press('build');
     let state = await page.evaluate(() => window.__operationC.snapshot());
     assert.equal(state.buildings.filter(b => b.owner === 0 && b.kind !== 'hq').length, 1);
-    assert.equal(state.resources.committed, 4);
+    assert.equal(state.resources.committed, 8);
     assert.equal(state.units.filter(u => u.owner === 0).length, 1);
     await press('cancel');
+    if (profile.name === 'desktop' || profile.name === 'phone-portrait') {
+      // Observe a real ownership transition, not a fabricated visual fixture.
+      await page.waitForFunction(() => window.__operationC.snapshot().presentation.flips.some(f => f.progress > 0.2 && f.progress < 0.5), null, { timeout: 18000, polling: 'raf' });
+      const capture = await page.evaluate(() => {
+        const state = window.__operationC.snapshot();
+        const flip = state.presentation.flips.find(f => f.progress > 0.15 && f.progress < 0.65);
+        return { id: flip.hexId, owner: state.hexes.find(h => h.id === flip.hexId).owner };
+      });
+      await page.screenshot({ path: path.join(outDir, `${profile.name}-capture-flip.png`) });
+      await page.waitForFunction(id => !window.__operationC.snapshot().presentation.flips.some(f => f.hexId === id), capture.id);
+      assert.equal(await page.evaluate(id => window.__operationC.snapshot().hexes.find(h => h.id === id).owner, capture.id), capture.owner);
+      await page.screenshot({ path: path.join(outDir, `${profile.name}-capture-landed.png`) });
+      console.log(`PASS ${profile.name}: real capture flip completes without changing its authoritative owner`);
+    }
     await press('attack');
     state = await page.evaluate(() => window.__operationC.snapshot());
     assert.equal(state.target, 1);
