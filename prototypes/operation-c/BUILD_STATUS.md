@@ -18,6 +18,8 @@ Verification: 31 behavior tests pass, including target matrix, non-capture, defe
 
 ## Open questions
 
+Reinforcement quantity is confirmed: each eligible cooldown dispatches only 5 minus living squad members minus members already travelling (minimum zero), avoiding overfill. Member travel/arrival/merge and damage allocation still need definition.
+
 Upgrade resource support is confirmed disconnected: any open, owned, unburnt, uncommitted owned tiles can supply an upgrade surcharge, with sufficient global capacity. Mark those permanent support assignments with an up arrow over darkened owner colour; research keeps flasks. New buildings still need connected support. This prevents enclosed producers from being unable to upgrade. Recorded in BRIEF.md; not implemented.
 
 Owner approved provisional build times: Barracks 3s, Factory/Artillery 5s, Hangar/Airfield 6s, MLRS 8s. Upgrades: Armoury 5s, Bomber Airfield 8s. Separate from unit production. Recorded in BRIEF.md; not yet implemented. Construction-health behavior is confirmed: full building HP at placement, vulnerable/inactive during construction; completion does not heal. Upgrading preserves current HP and does not heal on completion.
