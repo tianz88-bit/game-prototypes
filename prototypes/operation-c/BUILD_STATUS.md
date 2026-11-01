@@ -18,7 +18,9 @@ Verification: 31 behavior tests pass, including target matrix, non-capture, defe
 
 ## Open questions
 
-Owner answered Airfield cost 12 and no air/ground stacking; BRIEF.md now records both. Evaluate congestion from shared occupancy and the provisional aircraft stats/rollback/retreat timings through play. Ground expansion was interpreted as neutral HQ-ring filling before hostile land, stated to the owner and recorded. Full-game geography, factions/loadouts and networking remain later discussions.
+BRIEF.md is now the consolidated permanent design reference, reconciled 2026-11-02. It restores the previously discussed cooldown-based squad reinforcement rule (faster travelling reinforcements can continue a wiped squad) instead of asking the owner to choose again. Slower Missile Infantry build means unit production cooldown, not construction time.
+
+Current design discussion: Barracks to Barracks+/Armoury for Missile Infantry and Airfield to Airfield+ for Bombers, replacing the old unit with a new one on conversion. Two additional resource cells and a timer were proposed; permanence/connectivity, Airfield surcharge, timer, slot treatment and interruption handling need confirmation. Loadout/research/squads/T3 and upgrades remain unimplemented. See BRIEF.md for confirmed tiers, costs, 8-unique loadout, research debt/cancellation and remaining decisions.
 
 ## Known issues
 
@@ -26,4 +28,4 @@ Two-HQ local bot sandbox; no six-player networking/final map/factions. Physical 
 
 ## Next proposed step
 
-Update PR #410 with the verified combined-arms iteration. Owner can refresh the local preview to assess the new rules, then explicitly approve merge/publication if ready. Revisit shared occupancy only after this playtest.
+Resolve building upgrade commitment and loadout-slot rules using BRIEF.md as the reference before implementing the loadout/research/squad milestone. Existing preview remains available for combined-arms playtesting. Publication of PR #410 still requires explicit approval.

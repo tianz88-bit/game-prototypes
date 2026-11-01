@@ -1,62 +1,116 @@
-# Operation C — first playable
+# Operation C permanent design reference
 
-Owner authorized implementation and a shortcut on the prototypes page on 2026-10-31. This playable is a small, local human-versus-bot systems sandbox, not the finished six-player game. Phaser 3 + strict TypeScript is used following the lightweight-browser recommendation and the owner's instruction to start the proposed core loop. The earlier Godot planning worktree remains preserved.
+Last reconciled: 2026-11-02, Asia/Singapore. This is the canonical design reference for main, logic and art discussions. Check it before re-asking an answered question. Update the relevant section when a decision changes; keep proposals distinct from confirmed rules. BUILD_STATUS.md records implementation and verification, not design authority. Git history preserves superseded decisions.
 
-## Confirmed design
+## Design versus implementation
 
-- Mobile-first real-time deterministic hex war game. Full game: six-player FFA, fully visible Eurasia-shaped map, last surviving HQ wins. HQ destruction eliminates its owner, removes their units and neutralizes their territory.
-- Player chooses building-card loadout before play; in match they place buildings and target their own HQ (expansion/defense) or an enemy HQ (faction-wide attack). Units act autonomously.
-- Three races and three card tiers are planned; expensive advanced, low-tech swarm and balanced identities were discussed. Detailed cards, tier access and composition are not specified.
-- Each productive owned hex supplies one capacity. Resources display committed building cost / total capacity. Territory loss does not reduce commitment; buildings keep operating under resource deficit, but construction cannot exceed global capacity.
-- New buildings also need their full cost in adjacent connected OPEN OWNED UNBURNT hexes, including their own tile. Reserve the closest connected eligible hexes. Locked supporting hexes cannot host or fund another building, or carry another building's resource connection. Neutral, enemy, burnt and locked hexes break a new placement's connection.
-- Capturing a locked hex permanently removes its assignment, but never releases global commitment. Building destruction releases its FULL cost and permanently burns its own tile. Burnt hexes provide no capacity/construction/connections but allow ground movement.
-- Each building maintains one unit: immediate first spawn, cooldown starts on EVERY spawn, replacement only when both cooldown complete and prior unit dead. Building loss leaves its living unit alive with no further replacements.
-- One unit occupies one hex; NO shared occupancy. Buildings block movement by all unit types. Units queue and seek positions around attack targets. Range 1 means adjacent; range 2+ is rare ranged fire. Engagement resolves from hexes.
-- Spawn registers on an unoccupied reachable hex, searching rings outward without a distance cap. Committed tiles eligible. Cannot jump a blockade; if no reachable free hex exists, production waits. Visually emerge from producer.
-- Ground units capture, infantry most effective. Owned territory takes twice neutral capture time. Capture pauses ONLY while the unit itself is ATTACKING; taking damage without retaliating does not pause it. Paused progress is retained.
-- Living HQ starts with two surrounding rings (18 hexes) and applies capture pressure there like invisible infantry, subject to enemy occupation exceptions.
-- Swarm exception for later: a unit is a troop squad, missing troops can be reinforced after production cooldown, reinforcements move faster and can continue a wiped squad. Detailed member targeting/production remains open.
+The current Phaser 3 / strict TypeScript preview is a two-HQ human-versus-bot sandbox with five producers. It implements the core territory/economy, exclusive occupancy, capture rollback and ground/air roles. Loadout selection, technology progression, infantry members/reinforcements, Missile Infantry, Bombers, MLRS and building upgrades are design work; they are not implemented in the preview. Multiplayer follows this design milestone.
 
-## First-playable scope
+## Match and player control
 
-Small fully visible hex map, two HQs, human versus deterministic bot, five building cards demonstrating infantry/tank/artillery/helicopter/fighter roles, resource placement previews, cooldown production, autonomous expansion/attack, exclusive occupancy, queues/surrounding, capture, burnt tiles, HQ elimination, restart, touch/mouse input and scripted visual movement/combat. No production server or credentials required.
+- Mobile-first, deterministic real-time hex war. Full-game direction: six-player FFA, fully visible Eurasia-shaped map, last surviving HQ wins.
+- HQ destruction eliminates its owner, removes their units and neutralizes their territory.
+- Players choose their building-card loadout before the match. During play they place buildings and issue faction-wide orders by selecting their own HQ (Expand/defend) or an enemy HQ (Attack). Units act autonomously.
+- Three races are planned, with expensive advanced, low-tech swarm and balanced identities discussed. Race-specific catalogs and detailed tier access still need design.
 
-Friendly vector-authored military miniatures in an angled top-down view. Teal/coral ownership plus patterns/labels; muted committed tiles with lock markers and cracked burnt tiles. Static terrain can be cached; dynamic feedback is scripted geometry. The generated mockup is direction only, not a fidelity requirement. Portrait and landscape must remain usable.
+## Territory and committed resources
 
-## Owner playtest feedback — 2026-11-01
+- Each productive owned hex supplies 1 capacity. Display committed resources / total capacity; debt can exceed capacity, such as 100 / 50.
+- New buildings need enough global free capacity and their full cost in connected OPEN OWNED UNBURNT hexes, including the building tile. Reserve the nearest connected eligible cells.
+- Supporting cells cannot host/fund another building or carry its resource connection. Neutral, enemy, burnt and already committed cells break a NEW building's support connection.
+- Losing supporting territory removes its local assignment permanently, including after recapture, but does not release the building's committed cost. Existing buildings continue functioning in debt. New construction requires sufficient capacity again.
+- Destroyed production buildings release their full committed cost and permanently burn their own hex. Burnt cells give no resources, building space or support connectivity, but remain traversable. The building's living unit survives without replacements.
+- No shared building-placement cooldown. Earlier Barracks-8 experiment is superseded by the current Barracks-4 cost.
 
-- Captured tiles must visibly lift, flip and land when ownership changes. This is cosmetic; capture and resource state update immediately. Respect reduced-motion preferences.
-- All unit bodies stay upright in this 2D presentation. A separate UI ring chevron indicates the actual attack target direction; movement or firing must not rotate the entire miniature.
-- Follow-up: make the lift/full-turn/landing unmistakable in Brave; bodies may mirror horizontally for X-facing, with UI direction cues unmirrored. Short bullet lines must correspond to actual weapon fire.
-- Committed hexes use muted inset shading and a small lock. Preserve ownership colour and distinguish them from open and burnt tiles.
-- Preserve two-tap/click construction. The selected confirmation tile has a distinct gold rim and hammer; supporting hexes remain subdued. Invalid placement uses red and an X.
-- Barracks cost increases from 4 to 8 resources for this playtest. All other gameplay tuning stays unchanged.
-- A proposed shared placement cooldown is explicitly deferred. Do not add a new construction/expansion timer yet; first assess the cost increase on its own. Existing per-building unit-production cooldown remains unchanged.
+## Occupancy, movement and spawning
 
-All new numeric balance/movement/capture/bot values are provisional and belong in tune.json. Existing Firestorm values must not be changed. Reuse its architecture lessons (pure rules separate from presentation, explicit commands, deterministic time) rather than pretending its node/march rules implement this new occupancy game.
+- One registered unit per hex, with no air/ground stacking. Buildings block every unit type. Units queue and seek distinct positions around targets; visual movement may pass without creating shared logical occupancy.
+- A squad is a unit under the existing one-hex occupancy rule; its members do not each reserve a separate hex. Exact member visual arrangement remains presentation work.
+- Spawn into an unoccupied reachable cell, searching outward without a distance cap. Committed cells are eligible. A full blockade prevents spawn; do not jump occupied barriers. Visually emerge from the producer and travel to the registered tile.
+- Range 1 means adjacent, range 2+ ranged. Engagement resolves from registered hexes.
+- Ground Expand mode prioritizes reachable neutral land outward in rings from its HQ before hostile land. The current interpretation was stated during discussion and remains subject to playtest feedback.
+- Aircraft in Expand mode prioritize nearest valid intruders on owned territory, otherwise defend/return home. Attack mode advances toward the selected enemy HQ seeking valid targets. Fighters never attack ground units or buildings.
+- Prototype choice: movement reserves both origin and destination until arrival, preventing swaps. This is a documented implementation choice, not a separate full-game design mandate.
 
-## Combined-arms playtest feedback — 2026-11-01
+## Capture and HQ pressure
 
-This iteration supersedes earlier sample-card costs and all-ground-only assumptions.
+- Most ground units capture; infantry is most effective. Owned cells take twice neutral capture duration. Aircraft do not capture.
+- Capture pauses only while the capturing unit itself attacks. Taking damage without retaliating does not pause it; paused progress is retained.
+- When the responsible capturer dies, incomplete progress slowly reverses toward the unchanged original controller. A replacement capturer can resume progress. Merely attacking or leaving while alive does not trigger casualty rollback.
+- HQ starts with the two surrounding rings (18 cells) captured and applies pressure like invisible infantry, subject to hostile occupation exceptions. Exact full-game exceptions remain open.
 
-- Barracks costs 4, Factory 8, Artillery 8, Hangar 12. Airfield costs 12. No shared construction cooldown.
-- When a capturing unit dies, its incomplete capture reverses slowly toward the original controller. Ownership remains with that controller until capture completes; rollback is a progress change, not an ownership flip. Exact rollback speed is provisional tuning.
-- Artillery remains frail, fires only at ground targets at range 2 through 3, and retreats when attacked. It cannot shoot adjacent enemies and benefits from a screening unit.
-- Tanks attack ground only. Infantry attacks ground and air.
-- Hangar produces one helicopter: air-to-ground only, cannot capture. Airfield produces one fighter: air-to-air only, cannot capture or attack buildings. Existing one-living-unit and production-cooldown rules apply to both.
-- Aircraft in Expand mode prioritize nearest valid intruders in owned territory; without one they defend home. In Attack mode they travel toward the selected enemy HQ and seek targets their weapons can attack.
-- Ground expansion prioritizes reachable neutral land by distance/ring from its own HQ before advancing into enemy territory, rather than extending a distant capture trail. Deterministic pathing and exclusive occupancy remain required.
-- Owner confirmed Airfield 12 and one shared occupancy slot for ground units, aircraft and buildings. Aircraft cannot share registered hexes, bypass a full occupied blockade, or overlap movement reservations. Test this constraint before revisiting it.
+## Production and infantry reinforcements
 
-## Delivery and acceptance
+- Non-squad producer: immediate first unit; production cooldown starts on every spawn. Replacement requires both the previous unit to be dead and cooldown to be complete. This prevents repeated defensive spawning.
+- Both regular and Missile Infantry are squads of 5. Each living member contributes 20 percent of full squad attack power. Casualties reduce damage. Owner requests weaker health; exact member/squad health and damage allocation remain open.
+- Reinforcement rule already discussed and retained: missing squad members can be reinforced after the producer's production cooldown. Reinforcements travel faster and can continue a squad even if it was wiped before they arrive. Do not re-ask whether squads can reinforce or require complete death before replacement.
+- The earlier swarm/squad reinforcement rule now informs both infantry types, following the owner's reminder to retain the prior decision. Exact dispatch quantities, member targeting and travel/reservation details still need specification.
+- Missile Infantry has slower movement and a longer UNIT PRODUCTION cooldown. Buildings still place instantly; this is not a new construction-duration system.
 
-- Entry at prototypes/operation-c/ with hub shortcut labelled local prototype / bot sandbox.
-- Isolated Operation C Vite build and path-filtered validation workflow; existing hub Pages publishing supplies the requested shortcut. Do not retarget the Current WIP itch slot or deploy Firestorm's itch/Worker targets.
-- Deterministic behavior tests for economy, capture, production and occupancy; scoped and repository typecheck/build; Brave desktop and touch smoke captures inspected and console clean. Report any pre-existing repo failures separately.
-- Show small build stamp. Debug tuning via ?debug=1. No generated art/build binaries/secrets committed. BUILD_STATUS.md records actual results and limitations.
+## Confirmed tier roster and costs
 
-## Out of scope and open design
+| Tier | Building or unit role | Cost | Targeting and behavior |
+| --- | --- | --- | --- |
+| T1 | Barracks / regular infantry squad | 4 | Ground to ground/air; 5 members |
+| T1 | Factory / tank | 8 | Ground to ground |
+| T1 | Artillery | 8 | Frail; ground to ground; range 2-3; retreats after damage |
+| T1 | Missile Infantry squad | 6 total | Ground anti-ground; 5 members; slower movement/production |
+| T2 | Hangar / helicopter | 12 | Air to ground; cannot capture |
+| T2 | Airfield / fighter | 12 | Air to air; cannot capture |
+| T3 | Bomber | Unspecified | Heavy air-to-ground damage |
+| T3 | MLRS | Unspecified | Long-range ground vehicle; splash; slow fire; minimum range 3 |
 
-No six-human networking, private R2 pack, full Eurasia geography, complete three-race/tier/loadout system, swarm reinforcements, water mechanics, accounts or paid services in this slice. No Steam/console promises.
+Missile Infantry and Bomber producer forms may change to the upgrade proposal below. Current sandbox health, damage and timing values are provisional tuning, not confirmed final balance.
 
-The meaning of the owner's '200 resource cap' (capacity vs committed cost), full match duration/map size, exact HQ recapture exceptions, simultaneous movement conflict tie-breaks, terrain effects and eliminated buildings need later decisions. Use small documented deterministic provisional rules to exercise this slice; do not represent them as owner-confirmed full-game decisions.
+## Loadout page
+
+- Up to 8 UNIQUE building cards, mixing T1-T3. At least one selected T1 ground-unit producer. No duplicate selections.
+- Simple cards show building cost, building health, unit production time, unit health, speed, attack range, damage and type.
+- Owner initially described T1-T2 catalog visibility while allowing T1-T3 selections; final T3 presentation needs clarification.
+- Race restrictions, upgraded-card slot treatment and newly available upgrades need definition before implementation.
+
+## Technology research
+
+- T1 to T2: temporarily commit 20 OPEN UNCOMMITTED OWNED cells for 30 seconds. No adjacency/connectivity requirement. Creates deliberate rush vulnerability.
+- Research keeps the full 20 commitment in the shared resource pool after territory loss and continues counting down. This blocks other construction/expansion when capacity is insufficient.
+- Completion releases research commitment and remaining reservations. Clicking active research cancels it, releases that commitment/reservations, and loses all progress. Territory ownership is unaffected by release.
+- Top-of-screen research control is both the click target to advance technology and the progress-bar location.
+- Research cells show faded conical flasks with subtle vertical bobbing. All committed cells use a darker shade of the owner's colour instead of lock icons. The flask distinguishes temporary research support from building support.
+- T2 to T3 research cost/time remains unspecified. The UI control does not by itself establish a destructible HQ-upgrade mechanic.
+
+## Building upgrade proposal under discussion
+
+Owner proposed upgrading existing producers instead of adding separate Missile Infantry and Bomber buildings:
+- Barracks to Barracks+ (possible display name Armoury), adding 2 resource cells and an upgrade timer. Upgraded Barracks produces Missile Infantry instead of regular infantry. Barracks 4 plus 2 matches the specified total Missile Infantry cost 6.
+- Airfield to Airfield+ produces Bombers instead of Fighters. Bomber remains T3; Fighter remains T2.
+- On conversion, delete the previous produced unit and spawn the new unit. This deliberately differs from ordinary building destruction, which leaves its unit alive.
+
+Still decisions, not confirmed rules: whether the extra 2 remains committed permanently or only during the timer; whether the same surcharge applies to Airfield+; upgrade duration(s), support connectivity, research prerequisites, cancellation/interruption, handling reinforcements in transit, production while upgrading, and whether upgrade variants consume loadout slots. No gameplay implementation until these are settled.
+
+## Multiplayer direction
+
+Private-room WebSocket multiplayer with a server-authoritative simulation is recommended, adapting Firestorm room/connection/reconnect architecture. First milestone recommendation is two humans completing a match, then FFA. Hosting and final multiplayer scope remain proposals, not deployed features.
+
+Confirmed disconnect behavior: match continues, units retain current orders, and the player can reconnect to the same seat.
+
+## Presentation and controls
+
+- Welcoming procedural/vector military miniatures, distinct owner colours plus non-colour cues, responsive portrait/landscape. Generated mockup is direction only.
+- Capture visibly lifts, flips and lands; state updates immediately. Respect reduced-motion preferences.
+- Units stay upright and may mirror horizontally. UI indicates actual target direction; short bullet traces occur only on real firing events.
+- Two taps/clicks to build: first previews the connected footprint and distinct gold hammer cell; second confirms. Keep alternate Build Here control. Invalid placement is red with an X.
+- Latest committed-cell visual rule is darkened player colour, replacing the older lock-marker design.
+
+## Prototype choices and remaining design
+
+Current test map is 271 cells, radius 9. HQ centre gives no capacity. Capacity is provisionally capped at 200 while further land remains capturable. Exact cap meaning, full match length/map size, HQ pressure exceptions, terrain, LOS, eliminated buildings, numerical balance, splash footprint/falloff/friendly fire and member damage allocation remain open. Do not promote these test assumptions into confirmed design.
+
+Loadout/tech/squads/upgrades are the current design milestone. Six-human networking, full Eurasia geography, full race catalogs, water mechanics, accounts and paid infrastructure are not part of the existing playable slice. No Steam/console commitment.
+
+## Delivery and verification
+
+- Phaser 3, strict TypeScript, Vite, canvas UI and tune.json values/debug pane; no new dependencies without discussion. Existing Godot planning work remains preserved.
+- Keep changes game-specific. Reuse Firestorm's pure-rules/commands/authoritative-presentation architecture lessons, without connecting to or changing its live server.
+- Entry prototypes/operation-c/ and hub shortcut remain. Game-specific validation workflow; existing hub Pages publishing. Do not retarget Current WIP itch or unrelated deployments.
+- Verify meaningful deterministic behavior, scoped/full TypeScript/build, Brave desktop/touch flows and inspected screenshots. Report physical-phone/performance limits honestly. Keep small automatic version stamp.
+- Save implementation/results in BUILD_STATUS.md. Do not merge/publish pending PR #410 without explicit owner approval following the existing approval-review rejection.
