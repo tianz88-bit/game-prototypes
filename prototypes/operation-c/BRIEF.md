@@ -86,11 +86,17 @@ All building upgrades are PERMANENT and ONE-WAY, including Airfield to Bomber Ai
 - Barracks to Barracks+/Armoury: permanently add 2 resource cells, for total commitment 6. Requires an upgrade timer. New production is Missile Infantry instead of regular infantry. Missile Infantry remains a T1 role.
 - Airfield to Airfield+/Bomber Airfield: explore a FREE permanent upgrade with a conversion timer, not a +2 surcharge. No extra resource commitment; the existing Airfield commitment of 12 remains. Fighter is T2, Bomber T3. Cannot switch back to Fighters.
 - Latest timing supersedes the earlier delete-at-completion proposal: when the player starts upgrading/converting the building, its previous unit or squad retreats briefly and fades from the map. The lost field presence is an additional upgrade penalty. Do not retain the old unit until upgrade completion.
-- Earlier new-unit-on-completion intent remains: upgraded production becomes available when the timer finishes, subject to legal spawn occupancy. Exact cooldown interaction needs specification.
+- Upgraded production becomes available when the timer finishes, subject to legal spawn occupancy; completion starts the new type's production cooldown when it spawns.
 
-Recommended simulation/presentation interpretation, not separately confirmed: retire the old unit from combat/capture/occupancy immediately on accepted conversion; play retreat/fade as a cosmetic visual. Pause production/reinforcements during conversion and spawn the new type on completion. This avoids a retreating visual continuing to affect gameplay.
+Confirmed upgrade lifecycle:
+- Starting reserves any additional resource support, retires the current unit/squad AND incoming reinforcements, and pauses production. Retired forces use the brief retreat/fade; they do not return if cancelled.
+- Player may cancel an UNFINISHED upgrade. All upgrade progress is lost. Release only the upgrade's remaining assigned support tiles; lost assignments remain debt. The base building remains. The retired unit is not restored.
+- Enemy destruction while upgrading burns the building tile and releases only the remaining support assignments from both base and upgrade.
+- Completion permanently changes production, spawns the new type when a legal cell is available, then starts that type's production cooldown. Completed upgrades remain irreversible.
 
-Remaining decisions: timer lengths, support connectivity for Barracks' added 2, cancellation/interruption during an unfinished upgrade, in-flight reinforcements, production/cooldown timing and upgrade prerequisites. Base-only loadouts and building-selected upgrade options are confirmed; upgraded variants are not loadout cards. Airfield's zero-surcharge conversion is under exploration, not a universal upgrade-cost rule; permanent one-way behavior is confirmed. No gameplay implementation until the relevant rules are settled.
+Presentation implementation recommendation: remove retired forces from combat/capture/occupancy when accepted, then render retreat/fade cosmetically. Exact retirement timing relative to the short visual remains a presentation detail; do not permit it to restore a retired force.
+
+Remaining decisions: timer lengths, support connectivity for Barracks' added 2, base-production restart timing after upgrade cancellation and upgrade prerequisites. Base-only loadouts and building-selected upgrade options are confirmed; upgraded variants are not loadout cards. Airfield's zero-surcharge conversion is under exploration, not a universal upgrade-cost rule; permanent one-way behavior is confirmed. No gameplay implementation until the relevant rules are settled.
 
 ## Design review pending decisions
 
@@ -99,8 +105,8 @@ Reviewed 2026-11-02. Permanence is settled and must not be re-asked. These are r
 1. Base-only loadout eligibility is SETTLED: upgrades are building-selected options, not loadout cards. Show base cards with their tier/stats; decide how to preview upgrade stats without making upgrades selectable.
 2. Technology gates and timing: define T2-to-T3 resource/time cost, building upgrade durations, and enforce Bomber's T3 prerequisite independently of its zero resource surcharge.
 3. Additional support: define whether Barracks' added 2 cells must connect to the building or its existing support footprint. Research explicitly has no connectivity requirement; do not silently apply that exception to building upgrades.
-4. Upgrade interruption: define cancellation of an unfinished upgrade, refund of any added commitment, destruction during conversion, and the handling of the retired unit's capture progress. Completed upgrades cannot be reversed.
-5. Reinforcement integration: define dispatch count per cooldown, merge/arrival behavior while the target squad occupies its hex, blocked routes, detached/in-flight members when a producer upgrades or is destroyed, and cooldown interaction with conversion. Reinforcement itself is already confirmed.
+4. Upgrade interruption is SETTLED by the confirmed upgrade lifecycle below: unfinished cancellation allowed, retired forces not restored, discounted upgrade-support release, and combined discounted release/burn on destruction. Still define base-production restart timing after cancellation and retired capturer progress behavior. Completed upgrades cannot be reversed.
+5. Reinforcement integration: define dispatch count per cooldown, merge/arrival behavior while the target squad occupies its hex, blocked routes, detached/in-flight members when a producer is destroyed, and base-production restart after cancellation. Starting an upgrade retires incoming reinforcements and pauses production, as confirmed below. Reinforcement itself is already confirmed.
 6. Combat details: member health/damage allocation and splash footprint, falloff, friendly fire, maximum MLRS range and provisional new-unit stats. Clarify whether fewer surviving infantry also reduce capture strength.
 
 ## Selling and building construction
