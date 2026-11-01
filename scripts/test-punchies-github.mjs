@@ -8,12 +8,12 @@ let remote=model.defaults(),sha='file-1',branch='trunk',writes=0,race=false,fail
 delete remote.balanceWorkshop?.baseHistory;
 const api=async(endpoint,body)=>{
   if(endpoint==='')return{default_branch:branch};
-  if(endpoint.startsWith('actions/runs?'))return{workflow_runs:[{name:'Deploy Pages',status:'completed',conclusion:'success',html_url:'https://github.com/zitian-FF/game-prototypes/actions/runs/123'}]};
+  if(endpoint.startsWith('actions/runs?'))return{workflow_runs:[{name:'Deploy Pages',status:'completed',conclusion:'success',html_url:'https://github.com/tianz88-bit/game-prototypes/actions/runs/123'}]};
   if(!body){assert.equal(endpoint,`contents/${TUNE_PATH}?ref=${encodeURIComponent(branch)}`);return{sha,encoding:'base64',content:Buffer.from(JSON.stringify(remote)).toString('base64')};}
   assert.equal(endpoint,`contents/${TUNE_PATH}`);assert.equal(body.branch,branch);assert.equal(body.sha,sha);
   if(race||failWrite)throw Object.assign(Error(race?'GitHub changed during Save':'Authentication failed'),{status:race?409:502});
   writes++;remote=JSON.parse(Buffer.from(body.content,'base64'));sha=`file-${writes+1}`;
-  return{content:{sha},commit:{sha:`commit-${writes}`,html_url:'https://github.com/zitian-FF/game-prototypes/commit/mock'}};
+  return{content:{sha},commit:{sha:`commit-${writes}`,html_url:'https://github.com/tianz88-bit/game-prototypes/commit/mock'}};
 };
 const server=createCompanion({api,model,staticDir:'.local/punchies-tuner'});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));

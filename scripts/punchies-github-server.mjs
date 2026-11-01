@@ -4,7 +4,7 @@ import {execFile} from 'node:child_process';
 import {readFile} from 'node:fs/promises';
 import path from 'node:path';
 
-export const REPO='zitian-FF/game-prototypes';
+export const REPO='tianz88-bit/game-prototypes';
 export const TUNE_PATH='prototypes/punchies/tune.json';
 export function githubCli(gh='gh') {
   return async (endpoint,body) => {
