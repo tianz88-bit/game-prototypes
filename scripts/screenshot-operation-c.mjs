@@ -22,7 +22,7 @@ try {
     { name: 'phone-landscape', viewport: { width: 844, height: 390 }, touch: true },
     { name: 'phone-small-landscape', viewport: { width: 667, height: 375 }, touch: true },
   ]) {
-    const context = await browser.newContext({ viewport: profile.viewport, deviceScaleFactor: 2, hasTouch: profile.touch });
+    const context = await browser.newContext({ viewport: profile.viewport, deviceScaleFactor: 2, hasTouch: profile.touch, reducedMotion: 'no-preference' });
     const page = await context.newPage();
     page.on('console', m => { if (m.type() === 'error') errors.push(`${profile.name}: ${m.text()}`); });
     page.on('pageerror', e => errors.push(`${profile.name}: ${e.message}`));
@@ -47,16 +47,31 @@ try {
     await press('cancel');
     if (profile.name === 'desktop' || profile.name === 'phone-portrait') {
       // Observe a real ownership transition, not a fabricated visual fixture.
-      await page.waitForFunction(() => window.__operationC.snapshot().presentation.flips.some(f => f.progress > 0.2 && f.progress < 0.5), null, { timeout: 18000, polling: 'raf' });
-      const capture = await page.evaluate(() => {
-        const state = window.__operationC.snapshot();
-        const flip = state.presentation.flips.find(f => f.progress > 0.15 && f.progress < 0.65);
-        return { id: flip.hexId, owner: state.hexes.find(h => h.id === flip.hexId).owner };
+      const capture = await page.evaluate(async () => {
+        const qa = window.__operationC;
+        // Hold only the cosmetic clock: simulation still reaches capture through
+        // ordinary fixed-step rules. This works even on a slow CI software GPU.
+        qa.captureClock(0);
+        for (let frame = 0; frame < 120; frame++) {
+          qa.advance(100);
+          await new Promise(requestAnimationFrame);
+          const state = qa.snapshot(), flip = state.presentation.flips[0];
+          if (flip) {
+            qa.captureClock(state.presentation.durationMs * 0.35);
+            await new Promise(requestAnimationFrame); await new Promise(requestAnimationFrame);
+            return { id: flip.hexId, owner: state.hexes.find(h => h.id === flip.hexId).owner, duration: state.presentation.durationMs };
+          }
+        }
+        const state = qa.snapshot();
+        throw new Error(`No real capture flip after ${state.timeMs}ms sim time; reducedMotion=${state.presentation.reducedMotion}`);
       });
       await page.screenshot({ path: path.join(outDir, `${profile.name}-capture-flip.png`) });
+      assert(await page.evaluate(id => window.__operationC.snapshot().presentation.flips.some(f => f.hexId === id && f.progress > 0.3 && f.progress < 0.4), capture.id));
+      await page.evaluate(duration => window.__operationC.captureClock(duration + 1), capture.duration);
       await page.waitForFunction(id => !window.__operationC.snapshot().presentation.flips.some(f => f.hexId === id), capture.id);
       assert.equal(await page.evaluate(id => window.__operationC.snapshot().hexes.find(h => h.id === id).owner, capture.id), capture.owner);
       await page.screenshot({ path: path.join(outDir, `${profile.name}-capture-landed.png`) });
+      await page.evaluate(() => window.__operationC.captureClock(null));
       console.log(`PASS ${profile.name}: real capture flip completes without changing its authoritative owner`);
     }
     await press('attack');

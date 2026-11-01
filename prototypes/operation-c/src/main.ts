@@ -11,7 +11,7 @@ const NAMES: Record<CardKind, string> = { infantry: 'BARRACKS', tank: 'FACTORY',
 const INK = '#203d46', MUTED = '#60767a', CREAM = 0xfff7e5;
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
 type Button = { id: string; x: number; y: number; w: number; h: number; run: () => void };
-type QA = { snapshot: () => unknown; targets: () => unknown; advance: (ms: number) => void };
+type QA = { snapshot: () => unknown; targets: () => unknown; advance: (ms: number) => void; captureClock: (ms: number | null) => void };
 declare global { interface Window { __operationC?: QA } }
 
 class Battlefield extends Phaser.Scene {
@@ -38,6 +38,7 @@ class Battlefield extends Phaser.Scene {
   private effects: { x: number; y: number; born: number }[] = [];
   private previousOwners = new Map<string, number | null>();
   private captureFlips = new Map<string, { previousOwner: number | null; born: number }>();
+  private captureClockOverride: number | null = null;
   private readonly reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   private pane?: Pane;
   private radius = 31;
@@ -60,20 +61,24 @@ class Battlefield extends Phaser.Scene {
         snapshot: () => ({ timeMs: this.sim.timeMs, buildings: this.sim.buildings, units: this.sim.units,
           hexes: this.sim.hexes, resources: this.sim.resources(0), winner: this.sim.winner, target: this.sim.players[0].targetId,
           objects: this.children.length, textures: this.textures.getTextureKeys().length,
-          presentation: { flips: [...this.captureFlips].map(([hexId, flip]) => ({ hexId,
-            progress: Phaser.Math.Clamp((performance.now() - flip.born) / this.sim.tune.presentation.captureFlipMs, 0, 1) })),
+          presentation: { durationMs: this.sim.tune.presentation.captureFlipMs, reducedMotion: this.reducedMotion,
+            flips: [...this.captureFlips].map(([hexId, flip]) => ({ hexId,
+            progress: Phaser.Math.Clamp((this.captureNow() - flip.born) / this.sim.tune.presentation.captureFlipMs, 0, 1) })),
             attackIndicators: this.sim.units.filter(u => u.attacking && u.attackTargetHexId).map(u => ({ unitId: u.id, hexId: u.hexId, targetHexId: u.attackTargetHexId })) } }),
         targets: () => ({ buttons: this.buttons.map(({ id, x, y, w, h }) => ({ id, x: (x + w / 2) * this.uiScale, y: (y + h / 2) * this.uiScale })),
           hexes: this.sim.hexes.map(h => { const p = this.toScreen(h); return { id: h.id, x: p.x * this.uiScale, y: p.y * this.uiScale, owner: h.owner,
             valid: this.selected ? this.sim.placement(0, h.id, this.selected).ok : false }; }) }),
         advance: ms => this.sim.tick(ms),
+        captureClock: ms => { this.captureClockOverride = ms; },
       };
     }
   }
+  private captureNow() { return this.captureClockOverride ?? performance.now(); }
   private indexHexes() {
     this.byHex = new Map(this.sim.hexes.map(h => [h.id, h]));
     this.previousOwners = new Map(this.sim.hexes.map(h => [h.id, h.owner]));
     this.captureFlips.clear();
+    this.captureClockOverride = null;
   }
   private async debugPanel() {
     const { Pane } = await import('tweakpane');
@@ -187,19 +192,19 @@ class Battlefield extends Phaser.Scene {
   }
   private drawWorld() {
     this.world.setPosition(this.w / 2 + this.panX, (this.top + this.h - this.bottom) / 2 + this.panY).setScale(this.zoomLevel);
-    const now = performance.now(), duration = this.sim.tune.presentation.captureFlipMs;
+    const now = performance.now(), captureNow = this.captureNow(), duration = this.sim.tune.presentation.captureFlipMs;
     for (const h of this.sim.hexes) {
       const oldOwner = this.previousOwners.get(h.id);
       if (oldOwner !== undefined && oldOwner !== h.owner && h.owner !== null && !h.burnt && !this.reducedMotion) {
         const p = this.toScreen(h), margin = this.radius * this.zoomLevel * 2;
         if (p.x > -margin && p.x < this.w + margin && p.y > this.top - margin && p.y < this.h - this.bottom + margin)
-          this.captureFlips.set(h.id, { previousOwner: oldOwner, born: now });
+          this.captureFlips.set(h.id, { previousOwner: oldOwner, born: captureNow });
       }
       this.previousOwners.set(h.id, h.owner);
     }
     for (const [id, flip] of this.captureFlips) {
       const h = this.byHex.get(id)!;
-      if (now - flip.born >= duration || h.burnt || h.owner === null) this.captureFlips.delete(id);
+      if (captureNow - flip.born >= duration || h.burnt || h.owner === null) this.captureFlips.delete(id);
     }
     const signature = this.sim.hexes.map(h => `${h.owner}:${h.burnt}:${h.lockedBy}`).join('|') + [...this.captureFlips.keys()].join(';');
     if (signature !== this.terrainSignature) {
@@ -214,7 +219,7 @@ class Battlefield extends Phaser.Scene {
     for (const [id, flip] of this.captureFlips) {
       const h = this.byHex.get(id)!, p = this.position(h);
       drawCaptureFlip(this.overlay, p.x, p.y, this.radius, { owner: h.owner, previousOwner: flip.previousOwner,
-        committed: !!h.lockedBy, progress: (now - flip.born) / duration, lift: this.radius * this.sim.tune.presentation.captureLift });
+        committed: !!h.lockedBy, progress: (captureNow - flip.born) / duration, lift: this.radius * this.sim.tune.presentation.captureLift });
     }
     const previewId = this.chosenHex ?? this.hover;
     if (this.selected && previewId) {
