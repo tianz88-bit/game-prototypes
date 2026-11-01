@@ -52,7 +52,7 @@ jobs:
           if [ "$edition" = crazygames ]; then
             expected=$(node -p 'JSON.parse(require("fs").readFileSync("prototypes/punchies/production-promotion.json")).masterStageSha')
           else expected="$REVIEWED_SHA"; fi
-          live=$(curl -fsS "https://zitian-ff.github.io/game-prototypes/staging/punchies/stage.json?promotion=$REVIEWED_SHA" | jq -r .sha)
+          live=$(curl -fsS "https://tianz88-bit.github.io/game-prototypes/staging/punchies/stage.json?promotion=$REVIEWED_SHA" | jq -r .sha)
           [ "$live" = "$expected" ] || { echo "Master staging provenance mismatch"; exit 1; }
           git fetch origin main
           git merge-base --is-ancestor "$REVIEWED_SHA" "$PRODUCTION_SHA" || { echo "Production source must descend from reviewed source"; exit 1; }
