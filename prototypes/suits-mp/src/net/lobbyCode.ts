@@ -2,7 +2,7 @@
 // 6/G and 8/B. Codes are read aloud and entered on phone screens.
 export const LOBBY_CODE_CHARS = 'ACDEFHJKMNPQRTUVWXY23456789';
 export const LOBBY_CODE_LENGTH = 3;
-const PUBLISHED_GAME_URL = 'https://polsia.itch.io/suits-mp';
+const PUBLISHED_GAME_URL = 'https://daily-daily-games.itch.io/suits-mp';
 
 // Invite links must point to the published game even when a host opens a
 // GitHub Pages or local preview build.

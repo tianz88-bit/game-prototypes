@@ -61,7 +61,7 @@ jobs:
           const p=JSON.parse(fs.readFileSync('prototypes/punchies/production-promotion.json'));
           if(p.reviewedStageSha!==process.env.REVIEWED_SHA||p.ownerApproved!==true||!p.features.kai||!p.features.teeIndexedPortrait)throw Error('Approval provenance/features incorrect');
           const cg=p.edition==='crazygames';
-          if(cg&&(p.destination?.replace(/^polsia\//,'daily-daily-games/')!=='daily-daily-games/suits:html5'||p.masterStageSha!=='1abdc04b059a81907ef73c252056f5ca7880f050'||JSON.parse(fs.readFileSync('prototypes/punchies/editions.json')).editions.crazygames.runtimeReady!==true))throw Error('CG destination/MASTER provenance/readiness incorrect');
+          if(cg&&(!['polsia/suits:html5','polsia/wip:html5','daily-daily-games/suits:html5','daily-daily-games/wip:html5'].includes(p.destination)||p.masterStageSha!=='1abdc04b059a81907ef73c252056f5ca7880f050'||JSON.parse(fs.readFileSync('prototypes/punchies/editions.json')).editions.crazygames.runtimeReady!==true))throw Error('CG destination/MASTER provenance/readiness incorrect');
           const extra=cg?['.github/punchies-wip-edition','.github/workflows/promote-punchies-reviewed.yml','.github/workflows/deploy-wip-itch.yml','.github/workflows/deploy.yml','vite.config.ts','prototypes/punchies/src/portal/editionMigration.ts','prototypes/punchies/src/portal/index.ts','prototypes/punchies/src/portal/keys.ts','prototypes/punchies/BUILD_STATUS.md']:[];
           const allowed=new Set([...extra,'prototypes/punchies/production-promotion.json','prototypes/punchies/src/sim/character.ts','prototypes/punchies/src/shop/draft.ts','prototypes/punchies/src/render/indexedPortraitMask.ts','prototypes/punchies/src/render/puppet.ts','prototypes/punchies/src/render/punchMotion.ts','scripts/build-punchies-profile.mjs','scripts/build-punchies-staging.mjs','scripts/overlay-punchies-staging-art.mjs']);
           const files=execFileSync('git',['diff','--name-only',process.env.REVIEWED_SHA,'HEAD'],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
@@ -279,7 +279,7 @@ jobs:
         if: steps.relevant.outputs.run == 'true'
         env:
           BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
-        run: butler push "$ITCH_UPLOAD_DIR" daily-daily-games/suits:html5
+        run: butler push "$ITCH_UPLOAD_DIR" daily-daily-games/wip:html5
 
       - name: Record promoted source and commit version counter only
         env:
