@@ -4,7 +4,7 @@ Last reconciled: 2026-11-02, Asia/Singapore. This is the canonical design refere
 
 ## Design versus implementation
 
-The current Phaser 3 / strict TypeScript preview is a two-HQ human-versus-bot sandbox with five producers. It implements the core territory/economy, exclusive occupancy, capture rollback and ground/air roles. Loadout selection, technology progression, infantry members/reinforcements, Missile Infantry, Bombers, MLRS, building upgrades/selling/construction time and the persistent selection/right-panel interface are design work; they are not implemented in the preview. Multiplayer follows this design milestone.
+The current Phaser 3 / strict TypeScript preview is a two-HQ human-versus-bot sandbox with five producers. It implements the core territory/economy, exclusive occupancy, capture rollback and ground/air roles. Loadout selection, technology progression, infantry members/reinforcements, Missile Infantry, Bombers, MLRS, building upgrades/selling/construction time and the persistent selection/right-panel interface are design work; they are not implemented in the preview. Multiplayer follows this design milestone. The latest discounted release on sale/destruction is also a design change awaiting implementation; the current sandbox still releases full cost on destruction.
 
 ## Match and player control
 
@@ -19,7 +19,8 @@ The current Phaser 3 / strict TypeScript preview is a two-HQ human-versus-bot sa
 - New buildings need enough global free capacity and their full cost in connected OPEN OWNED UNBURNT hexes, including the building tile. Reserve the nearest connected eligible cells.
 - Supporting cells cannot host/fund another building or carry its resource connection. Neutral, enemy, burnt and already committed cells break a NEW building's support connection.
 - Losing supporting territory removes its local assignment permanently, including after recapture, but does not release the building's committed cost. Existing buildings continue functioning in debt. New construction requires sufficient capacity again.
-- Destroyed production buildings release their full committed cost and permanently burn their own hex. Burnt cells give no resources, building space or support connectivity, but remain traversable. The building's living unit survives without replacements.
+- Selling OR enemy destruction releases only the cells still assigned to that building. Previously captured support assignments are discounted from the release; their unreleased commitment remains as match debt after the building is gone. Example: cost 8, lose 3 assigned support cells, then sell or lose the building: release 5 and retain 3 debt. Recapturing a formerly assigned cell does not restore the lost assignment or clear this debt.
+- Enemy destruction permanently burns the building hex. Burnt cells give no resources, building space or support connectivity, but remain traversable. Its living unit survives without replacements. Selling instead returns the building tile to open owned territory and retires its forces, as specified below.
 - No shared building-placement cooldown. Earlier Barracks-8 experiment is superseded by the current Barracks-4 cost.
 
 ## Occupancy, movement and spawning
@@ -109,8 +110,8 @@ Owner requests selling buildings and introduces construction time for EVERY buil
 Confirmed selling rules:
 - Retire the building's unit/squad and incoming reinforcements with retreat/fade.
 - Return the building tile to open owned territory; selling does not burn it. HQs cannot be sold.
-- Release ONLY the resource tiles still tied to that building at sale time. Previously captured support tiles discount the release; do not refund the full original/upgraded cost on sale. This supersedes the full-release selling recommendation, but does not change the earlier full-cost release rule for enemy destruction unless the owner says otherwise.
-- Example for clarification: cost 8, with 3 support assignments lost, releases only the remaining 5 on sale. Whether the unreleased 3 remains as permanent match debt is being explicitly confirmed; do not silently clear it by deleting the building from a summed-cost ledger.
+- Release ONLY the resource tiles still tied to that building at sale time. Previously captured support tiles discount the release; do not refund the full original/upgraded cost on sale. Owner explicitly extended the same discounted release to enemy destruction. This supersedes both the full-release selling recommendation and the older full-cost destruction rule.
+- Example: cost 8, with 3 support assignments lost, releases only the remaining 5 on sale OR enemy destruction. The unreleased 3 remains as match debt; do not silently clear it by deleting the building from a summed-cost ledger.
 
 Sale duration/interruptibility and sale of an unfinished/upgrading building remain unresolved. Resource costs represent capacity commitments rather than spent currency.
 
