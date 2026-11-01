@@ -4,9 +4,10 @@
   "resources": { "capacityCap": 200 },
   "hq": { "hp": 420, "captureRings": 2 },
   "capture": { "neutralMs": 2600, "ownedMultiplier": 2, "hqRate": 1 },
+  "presentation": { "captureFlipMs": 650, "captureLift": 0.34 },
   "bot": { "buildEveryMs": 5000, "attackAtMs": 22000, "cardCycle": ["infantry", "infantry", "tank", "artillery"] },
   "cards": {
-    "infantry": { "cost": 4, "buildingHp": 110, "unitHp": 48, "damage": 10, "range": 1, "attackMs": 900, "moveMs": 650, "productionMs": 6500, "captureRate": 1 },
+    "infantry": { "cost": 8, "buildingHp": 110, "unitHp": 48, "damage": 10, "range": 1, "attackMs": 900, "moveMs": 650, "productionMs": 6500, "captureRate": 1 },
     "tank": { "cost": 8, "buildingHp": 180, "unitHp": 130, "damage": 23, "range": 1, "attackMs": 1300, "moveMs": 1100, "productionMs": 11000, "captureRate": 0.5 },
     "artillery": { "cost": 10, "buildingHp": 100, "unitHp": 38, "damage": 19, "range": 3, "attackMs": 1800, "moveMs": 1400, "productionMs": 14000, "captureRate": 0.25 }
   }

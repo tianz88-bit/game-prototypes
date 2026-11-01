@@ -23,6 +23,13 @@ Small fully visible hex map, two HQs, human versus deterministic bot, three expl
 
 Friendly vector-authored military miniatures in an angled top-down view. Teal/coral ownership plus patterns/labels; committed hatching and cracked burnt tiles. Static terrain can be cached; dynamic feedback is scripted geometry. The generated mockup is direction only, not a fidelity requirement. Portrait and landscape must remain usable.
 
+## Owner playtest feedback — 2026-11-01
+
+- Captured tiles must visibly lift, flip and land when ownership changes. This is cosmetic; capture and resource state update immediately. Respect reduced-motion preferences.
+- All unit bodies stay upright in this 2D presentation. A separate UI ring chevron indicates the actual attack target direction; movement or firing must not rotate the entire miniature.
+- Barracks cost increases from 4 to 8 resources for this playtest. All other gameplay tuning stays unchanged.
+- A proposed shared placement cooldown is explicitly deferred. Do not add a new construction/expansion timer yet; first assess the cost increase on its own. Existing per-building unit-production cooldown remains unchanged.
+
 All new numeric balance/movement/capture/bot values are provisional and belong in tune.json. Existing Firestorm values must not be changed. Reuse its architecture lessons (pure rules separate from presentation, explicit commands, deterministic time) rather than pretending its node/march rules implement this new occupancy game.
 
 ## Delivery and acceptance

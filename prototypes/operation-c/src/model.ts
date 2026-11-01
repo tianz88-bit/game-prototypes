@@ -10,7 +10,7 @@ export interface Building {
 export interface Unit {
   id: string; hexId: string; owner: number; kind: CardKind; hp: number; maxHp: number;
   fromHexId?: string; movedAtMs?: number; movingUntilMs?: number;
-  attacking: boolean; buildingId: string | null; nextAttackAtMs: number;
+  attacking: boolean; attackTargetHexId?: string; buildingId: string | null; nextAttackAtMs: number;
 }
 export interface Player { id: number; name: string; alive: boolean; targetId: number }
 export interface CardTune {
@@ -21,6 +21,7 @@ export interface Tune {
   stepMs: number; map: { radius: number; hqQ: number; hqR: number };
   resources: { capacityCap: number }; hq: { hp: number; captureRings: number };
   capture: { neutralMs: number; ownedMultiplier: number; hqRate: number };
+  presentation: { captureFlipMs: number; captureLift: number };
   bot: { buildEveryMs: number; attackAtMs: number; cardCycle: CardKind[] };
   cards: Record<CardKind, CardTune>;
 }
