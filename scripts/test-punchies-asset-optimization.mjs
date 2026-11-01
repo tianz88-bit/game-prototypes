@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import sharp from 'sharp';
 import mirroredParts from '../prototypes/punchies/art/mirror-parts.mjs';
+import {overlayStagingArt} from './overlay-punchies-staging-art.mjs';
 const root='prototypes/punchies/assets-src', out='public/prototypes/punchies/assets';
 // Read the real catalogs without launching esbuild or loading gameplay/portal services.
 function catalog(file, require = () => { throw new Error(`Unexpected catalog import in ${file}`); }) {
@@ -15,9 +16,13 @@ function catalog(file, require = () => { throw new Error(`Unexpected catalog imp
   vm.runInNewContext(code, { exports, require });
   return exports;
 }
-const { CHARACTER_IDS } = catalog('prototypes/punchies/src/sim/character.ts', () => ({}));
+const edition = catalog('prototypes/punchies/src/edition.ts');
+const { CHARACTER_IDS } = catalog('prototypes/punchies/src/sim/character.ts', id => id === '../edition' ? edition : {});
 const palettes = catalog('prototypes/punchies/src/render/paletteCatalog.ts');
-const buildFlags = catalog('prototypes/punchies/src/buildFlags.ts');
+const buildFlags = catalog('prototypes/punchies/src/buildFlags.ts', id => {
+  if (id === './edition') return edition;
+  throw new Error(`Unexpected build flags import: ${id}`);
+});
 const stagingCurrency = catalog('prototypes/punchies/src/shop/stagingCurrency.ts', id => {
   if (id === '../buildFlags') return buildFlags;
   throw new Error(`Unexpected staging currency import: ${id}`);
@@ -59,14 +64,21 @@ for(const [name,alias] of Object.entries(aliases)){
     if (source.data[i+3]>0) for (let channel=0;channel<3;channel++) assert.equal(target.data[i+channel], source.data[i+channel], `visible mirrored pixels preserved: ${name}`);
   }
 }
+// Validate the same approved derived payload used by the profile builder, while
+// leaving the base archive checks and packed output untouched.
+const validationRoot=fs.mkdtempSync(path.resolve('.cache/punchies-art-check-'));
+try {
+ const prepared=path.join(validationRoot,'assets');fs.cpSync(out,prepared,{recursive:true});
+ await overlayStagingArt(prepared,validationRoot,null,'web','standard');
+ const preparedAliases=JSON.parse(fs.readFileSync(path.join(prepared,'loose/part-mirrors.json')));
 for(const char of rigs){
   for(const part of ['head','torso','glove_left','glove_right','boot_left','boot_right']){
     const key=`part_${char}_${part}`;
-    assert(aliases[key]||fs.existsSync(path.join(out,'loose',`${key}.webp`)),`complete rig: ${key}`);
+    assert(preparedAliases[key]||fs.existsSync(path.join(prepared,'loose',`${key}.webp`)),`complete rig: ${key}`);
   }
 }
 for (const key of [...CHARACTER_IDS.map(char => `portrait_${char}`), ...uniqueSkins.map(item => item.portraitKey)]) {
-  assert(fs.existsSync(path.join(out,'loose',`${key}.webp`)), `catalog portrait shipped: ${key}`);
+  assert(fs.existsSync(path.join(prepared,'loose',`${key}.webp`)), `catalog portrait shipped: ${key}`);
 }
 for(const file of fs.readdirSync(path.join(out,'loose')).filter(f=>f.startsWith('portrait_'))){
   const image=await sharp(path.join(out,'loose',file)).metadata();
@@ -95,3 +107,5 @@ for(const file of fs.readdirSync(path.join(out,'atlas')).filter(f=>/^atlas.*\.js
   }
 }
 console.log(`PASS: ${CHARACTER_IDS.length} fighter and ${uniqueSkins.length} approved unique-skin rigs/portraits, ${Object.keys(aliases).length} approved aliases with lossless mirror pixels, portrait budget, registered lossless ring and portable WebP atlases`);
+
+} finally {fs.rmSync(validationRoot,{recursive:true,force:true});}
