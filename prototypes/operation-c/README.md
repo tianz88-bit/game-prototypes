@@ -4,19 +4,21 @@ Mobile-first local human-v-bot preview. This is the first systems slice, not the
 
 ## Play
 
-Choose Barracks, Factory, Artillery, Hangar or Airfield, tap an open teal hex, inspect the highlighted connected footprint, then tap that same **gold hammer hex** again to build. **Build here** remains an alternative confirmation. Units produce and act automatically. **Home · Expand** favors territory expansion; **Attack rival HQ** sends your forces toward the rival's buildings. Destroy the rival HQ to win. Drag the map, pinch/scroll to zoom, use **My HQ** to return or **Map** to see the whole field. Reset starts a fresh match.
+Choose up to eight unique BASE cards on the loadout page (six currently available), including a T1 ground producer, then Start Match. View Upgrade previews Armoury/Bomber stats without selecting a separate card. T1 starts unlocked; use the TOP RESEARCH BAR to reserve 20 free territory cells for 30 seconds to T2, then 20 cells for 60 seconds to T3. Click active research to cancel and lose progress.
 
-The resource display is **committed costs / capacity**. Muted inset hexes with a small lock are committed to buildings. They remain traversable and capturable, but cannot fund or host another building. Losing territory does not release commitment. Destroyed production buildings leave passable burnt tiles, release their full cost and leave living units alive. Capturing pauses only while the capturing unit attacks. If that unit dies before completion, its progress slowly shrinks back toward the original controller.
+Building cards are in the RIGHT panel. Select one, tap an open owned hex, inspect the gold hammer, then tap again or Build Here. Construction reserves resources and blocks immediately, but the first unit waits for completion and a legal spawn hex. The subsequent production cooldown starts when it spawns. My HQ and Map recenter the view; drag and pinch/scroll navigate. Loadout returns to pre-match selection; Start Match creates a fresh game.
 
-Barracks costs **4**, Factory and Artillery **8**, Hangar and Airfield **12** capacity. No placement cooldown has been added. Ownership changes play a 900 ms lift/full-turn/landing animation with a visible underside and grounded socket. Unit bodies stay upright and mirror horizontally toward movement or the attack target; an external ring chevron points toward the actual combat target. Short bullet traces appear only when a unit actually fires, including its final shot if it dies in that step. Reduced-motion preferences suppress the tile flip.
+Click a unit/building hex for DETAILS. Selection follows the entity ID when it moves. Your buildings expose permanent Upgrade and Sell commands. Armoury costs +2 resources/5 seconds; Bomber Airfield needs T3 and 8 seconds, with no surcharge. Upgrading recalls current forces and incoming reinforcements immediately. Cancellation loses progress and starts a fresh full base production cooldown. Conversion does not heal the building.
 
-## Unit roles
+Resources display committed / capacity, including stranded debt. Dark owner-colour cells support buildings; arrows mark permanent upgrade support and bobbing flasks mark temporary research support. New buildings need connected open support, while upgrade and research allocations may be disconnected. Selling or destruction releases only still-assigned support; lost assignments leave debt for the match. Sale leaves an open tile and retires its forces; destruction burns its tile and leaves a living orphan. Research releases its full temporary commitment on completion/cancellation, even after territory loss.
 
-Infantry attacks ground and air. Tanks attack ground only. Frail artillery attacks ground at range 2-3, cannot fire adjacent, and retreats after taking a hit. Hangars maintain one helicopter (air-to-ground); Airfields maintain one fighter (air-to-air). Both aircraft cannot capture. G/A labels on cards identify attacker and target domains.
+## Units and squads
 
-Aircraft in Expand mode defend owned territory against the nearest valid intruder, otherwise return home. In Attack mode they advance toward the selected enemy HQ and seek valid targets; fighters never fire on ground units or buildings. Ground expansion fills reachable neutral land outward from its HQ before hostile land.
+Infantry attacks ground/air; tanks and Artillery ground; helicopters ground; fighters air. Aircraft never capture and share the same exclusive hex occupancy as ground units/buildings. Artillery fires at range 2-3 and retreats after actual damage. T3 adds heavy ground-attacking Bombers and radius-one splash MLRS (range 3-5).
 
-All units share one occupancy slot per hex, including air versus ground. Buildings and reserved movement endpoints block every unit. This intentionally tests queues and congestion without air/ground stacking.
+Regular and Missile Infantry occupy one hex as five-member squads. Members have individual HP/damage and focus one target. Single hits affect one member with no damage spillover; splash can damage multiple members. Producers dispatch only missing members after cooldown, counting members already travelling. Reinforcements are visual/non-interactable until arrival, add full-HP members without healing survivors, and vanish if their target squad dies.
+
+The provisional stats and remaining full-game design are in BRIEF.md and tune.json. The current bot can research/upgrade; this is still a local systems preview, not six-player multiplayer.
 
 ## Development
 
@@ -32,7 +34,7 @@ npx vite build --config prototypes/operation-c/vite.config.ts
 
 The root hub build also discovers this entry automatically. The game-specific preview workflow builds/tests only Operation C; the established root Pages workflow publishes the hub and its existing multi-game output. Firestorm's dedicated itch and Worker workflows are untouched.
 
-Browser checks use `scripts/screenshot-operation-c.mjs <url> <output-dir>`. Set `OPERATION_C_BROWSER_PACKAGE` to an installed Playwright package.json if the tool is not locally resolvable. On Windows this script launches an isolated headless Brave process and closes it after testing; it never touches existing user tabs. CI Linux uses isolated Chromium. `?test=1` exposes read-only state/coordinates plus virtual-time and cosmetic-clock hooks for testing. Browser checks cover two-tap confirmation, capture through landing, actual-shot traces and horizontal facing. A separate normal-clock Brave phone-sized recording verified capture without advancing or freezing time. Normal play has no test hook.
+Browser checks use `scripts/screenshot-operation-c.mjs <url> <output-dir>`. Set `OPERATION_C_BROWSER_PACKAGE` to an installed Playwright package.json if the tool is not locally resolvable. On Windows this script launches an isolated headless Brave process and closes it after testing; it never touches existing user tabs. CI Linux uses isolated Chromium. `?test=1` exposes state/coordinates and virtual-time/cosmetic-clock hooks. Add `&bot=0` only with test mode for peaceful progression verification; normal play always keeps the bot. Browser checks exercise loadout validity, construction, squads, persistent selection, upgrade/cancel/cooldown, territory earned by actual autonomous capture, research/cancel/T2/T3, Bomber conversion/sale and MLRS. Simulation tests separately cover combat, debt and reinforcements. Normal play has no test hook.
 
 `?debug=1` opens the existing Tweakpane tool with provisional tuning and JSON copying. Apply tuning restarts the sandbox. All numeric gameplay values live in tune.json.
 
@@ -50,4 +52,4 @@ Firestorm main f584c590d52e0f8802c55b90aaa870d4a9c85fdc, particularly arena-sim 
 
 271-hex radius-nine test map; HQ centre supplies no capacity; capacity capped at 200 while additional land stays capturable; sample unit damage/health/movement/ranges and all combat timers are balance placeholders. All current ground types capture, infantry fastest. No ranged line-of-sight obstruction yet. Elimination removes remaining structures without a burn cascade. HQ pressure retakes unoccupied nearby enemy land using normal enemy capture duration. Movement reserves both endpoints until arrival, so queues cannot exchange places. These are documented test assumptions, not final design decisions.
 
-Pending: complete Eurasia map, six players/networking, three races and tiers/pre-match loadouts, swarm membership/reinforcements, full defense routing, final balance and physical phone performance/orientation testing.
+Pending: complete Eurasia map, six players/networking, three races and tiers/pre-match loadouts, full race catalogs, final balance and physical phone performance/orientation testing.

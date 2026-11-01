@@ -2,15 +2,20 @@
   "stepMs": 100,
   "map": { "radius": 9, "hqQ": 5, "hqR": 0 },
   "resources": { "capacityCap": 200 },
+  "research": { "cost": 20, "tier2Ms": 30000, "tier3Ms": 60000 },
+  "reinforcements": { "msPerHex": 250, "minTravelMs": 500 },
   "hq": { "hp": 420, "captureRings": 2 },
   "capture": { "neutralMs": 2600, "ownedMultiplier": 2, "hqRate": 1, "rollbackRate": 0.25 },
-  "presentation": { "captureFlipMs": 900, "captureLift": 0.9, "shotTraceMs": 220, "maxShotEvents": 128 },
-  "bot": { "buildEveryMs": 5000, "attackAtMs": 22000, "cardCycle": ["infantry", "infantry", "tank", "artillery", "helicopter", "fighter"] },
+  "presentation": { "captureFlipMs": 900, "captureLift": 0.9, "shotTraceMs": 220, "retreatMs": 650, "maxShotEvents": 128 },
+  "bot": { "buildEveryMs": 5000, "attackAtMs": 22000, "cardCycle": ["infantry", "infantry", "tank", "artillery", "helicopter", "fighter", "mlrs"] },
   "cards": {
-    "infantry": { "cost": 4, "buildingHp": 110, "unitHp": 48, "damage": 10, "range": 1, "minRange": 1, "domain": "ground", "targets": ["ground", "air"], "attackMs": 900, "moveMs": 650, "productionMs": 6500, "captureRate": 1 },
-    "tank": { "cost": 8, "buildingHp": 180, "unitHp": 130, "damage": 23, "range": 1, "minRange": 1, "domain": "ground", "targets": ["ground"], "attackMs": 1300, "moveMs": 1100, "productionMs": 11000, "captureRate": 0.5 },
-    "artillery": { "cost": 8, "buildingHp": 100, "unitHp": 38, "damage": 19, "range": 3, "minRange": 2, "domain": "ground", "targets": ["ground"], "attackMs": 1800, "moveMs": 1400, "productionMs": 14000, "captureRate": 0.25, "retreatMs": 2200 },
-    "helicopter": { "cost": 12, "buildingHp": 100, "unitHp": 70, "damage": 14, "range": 2, "minRange": 1, "domain": "air", "targets": ["ground"], "attackMs": 1000, "moveMs": 550, "productionMs": 12000, "captureRate": 0 },
-    "fighter": { "cost": 12, "buildingHp": 100, "unitHp": 60, "damage": 18, "range": 2, "minRange": 1, "domain": "air", "targets": ["air"], "attackMs": 900, "moveMs": 450, "productionMs": 11000, "captureRate": 0 }
+    "infantry": { "cost": 4, "tier": 1, "buildMs": 3000, "upgradeTo": "missile", "upgradeMs": 5000, "squadSize": 5, "buildingHp": 110, "unitHp": 8, "damage": 2, "range": 1, "minRange": 1, "domain": "ground", "targets": ["ground", "air"], "attackMs": 900, "moveMs": 650, "productionMs": 6500, "captureRate": 1 },
+    "tank": { "cost": 8, "tier": 1, "buildMs": 5000, "buildingHp": 180, "unitHp": 130, "damage": 23, "range": 1, "minRange": 1, "domain": "ground", "targets": ["ground"], "attackMs": 1300, "moveMs": 1100, "productionMs": 11000, "captureRate": 0.5 },
+    "artillery": { "cost": 8, "tier": 1, "buildMs": 5000, "buildingHp": 100, "unitHp": 38, "damage": 19, "range": 3, "minRange": 2, "domain": "ground", "targets": ["ground"], "attackMs": 1800, "moveMs": 1400, "productionMs": 14000, "captureRate": 0.25, "retreatMs": 2200 },
+    "helicopter": { "cost": 12, "tier": 2, "buildMs": 6000, "buildingHp": 100, "unitHp": 70, "damage": 14, "range": 2, "minRange": 1, "domain": "air", "targets": ["ground"], "attackMs": 1000, "moveMs": 550, "productionMs": 12000, "captureRate": 0 },
+    "fighter": { "cost": 12, "tier": 2, "buildMs": 6000, "upgradeTo": "bomber", "upgradeMs": 8000, "buildingHp": 100, "unitHp": 60, "damage": 18, "range": 2, "minRange": 1, "domain": "air", "targets": ["air"], "attackMs": 900, "moveMs": 450, "productionMs": 11000, "captureRate": 0 },
+    "missile": { "cost": 6, "tier": 1, "buildMs": 5000, "squadSize": 5, "buildingHp": 110, "unitHp": 7, "damage": 4, "range": 2, "minRange": 1, "domain": "ground", "targets": ["ground"], "attackMs": 1200, "moveMs": 1000, "productionMs": 9000, "captureRate": 1 },
+    "bomber": { "cost": 12, "tier": 3, "buildMs": 8000, "buildingHp": 100, "unitHp": 100, "damage": 45, "range": 2, "minRange": 1, "domain": "air", "targets": ["ground"], "attackMs": 2400, "moveMs": 800, "productionMs": 16000, "captureRate": 0 },
+    "mlrs": { "cost": 16, "tier": 3, "buildMs": 8000, "buildingHp": 100, "unitHp": 80, "damage": 30, "range": 5, "minRange": 3, "domain": "ground", "targets": ["ground"], "attackMs": 3000, "moveMs": 1500, "productionMs": 16000, "captureRate": 0.25, "splashRadius": 1, "splashDamageFraction": 0.5 }
   }
 }

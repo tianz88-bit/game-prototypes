@@ -4,7 +4,7 @@ Last reconciled: 2026-11-02, Asia/Singapore. This is the canonical design refere
 
 ## Design versus implementation
 
-The current Phaser 3 / strict TypeScript preview is a two-HQ human-versus-bot sandbox with five producers. It implements the core territory/economy, exclusive occupancy, capture rollback and ground/air roles. Loadout selection, technology progression, infantry members/reinforcements, Missile Infantry, Bombers, MLRS, building upgrades/selling/construction time and the persistent selection/right-panel interface are design work; they are not implemented in the preview. Multiplayer follows this design milestone. The latest discounted release on sale/destruction is also a design change awaiting implementation; the current sandbox still releases full cost on destruction.
+The current Phaser 3 / strict TypeScript local preview is a two-HQ human-versus-bot progression sandbox. It implements base-card loadouts, T1/T2/T3 research, timed construction/selling, permanent Armoury/Bomber conversions, six base producers/eight unit forms, infantry squads/reinforcements, discounted support release with stranded debt, and the persistent inspector/right card panel. Full multiplayer, six-player map and three race catalogs remain later work. BUILD_STATUS.md records verification and limitations; all unspecified tuning choices below are provisional for playtesting.
 
 ## Match and player control
 
@@ -42,10 +42,11 @@ The current Phaser 3 / strict TypeScript preview is a two-HQ human-versus-bot sa
 
 ## Production and infantry reinforcements
 
-- Non-squad producer: immediate first unit; production cooldown starts on every spawn. Replacement requires both the previous unit to be dead and cooldown to be complete. This prevents repeated defensive spawning.
+- Non-squad producer: first unit on completed construction when a legal spawn cell is available; production cooldown starts on every spawn. Replacement requires both the previous unit to be dead and cooldown to be complete. This prevents repeated defensive spawning.
 - Both regular and Missile Infantry are squads of 5. Each member is an individual combat unit with its own attack power; balance the complete squad as a group. Derive squad damage from the living members rather than applying an arbitrary fixed 20-percent squad modifier. Identical members naturally contribute equal shares, but per-member combat stats are the design source of truth. Losing a member removes that member's attacks. All squad members FOCUS ONE SHARED TARGET; members do not independently choose different targets. Single-target incoming attacks damage ONE member at a time; excess damage does NOT spill into another member. Splash can damage multiple members. Owner requests weaker health; exact member health, member hit selection, splash allocation and attack timing remain open.
 - Missing squad members can be reinforced after the producer's production cooldown; reinforcements travel faster. Reinforcements are tied to a LIVING target squad: if that squad is destroyed, ALL incoming reinforcements vanish. They never recreate a wiped squad or become an independent replacement squad. The previous reference incorrectly said they could continue a wiped squad; that statement is superseded and must not be used.
 - The earlier swarm/squad reinforcement rule now informs both infantry types, following the owner's reminder to retain the prior decision. On each eligible production cooldown, dispatch only enough missing members to restore the squad to 5, counting living members AND members already travelling. Example: 2 living/0 travelling dispatches 3; 2 living/1 travelling dispatches 2. Never over-dispatch beyond the five-member total.
+- New reinforcement members arrive at full individual HP; surviving members retain their existing HP and are not healed.
 - Reinforcement travel is mostly visual until merge: incoming members occupy no hex, cause no blocking, and cannot attack, capture, be targeted or take damage. They visually approach the moving target squad and add their members on arrival, without a separate battlefield occupancy/merge exception. Selling/upgrading retires incoming reinforcements under the established rules. Member damage allocation, numeric travel speed and timing remain to be specified.
 - Missile Infantry has slower movement and a longer UNIT PRODUCTION cooldown. This remains distinct from the newly requested building construction time below; the earlier instant-construction rule is superseded.
 
@@ -97,7 +98,7 @@ Confirmed upgrade lifecycle:
 
 Presentation implementation recommendation: remove retired forces from combat/capture/occupancy when accepted, then render retreat/fade cosmetically. Exact retirement timing relative to the short visual remains a presentation detail; do not permit it to restore a retired force.
 
-Conversion times are approved for the first playtest: Armoury 5 seconds and Bomber Airfield 8 seconds. Base production restart after cancellation is confirmed as a fresh full base-type cooldown. Upgrade prerequisites remain to be fully specified. Base-only loadouts and building-selected upgrade options are confirmed; upgraded variants are not loadout cards. Airfield's zero-surcharge conversion is under exploration, not a universal upgrade-cost rule; permanent one-way behavior is confirmed. No gameplay implementation until the relevant rules are settled.
+Conversion times are approved for the first playtest: Armoury 5 seconds and Bomber Airfield 8 seconds. Base production restart after cancellation is confirmed as a fresh full base-type cooldown. Upgrade prerequisites remain to be fully specified. Base-only loadouts and building-selected upgrade options are confirmed; upgraded variants are not loadout cards. Airfield's zero-surcharge conversion is under exploration, not a universal upgrade-cost rule; permanent one-way behavior is confirmed. Implement the settled rules for the next playtest; remaining numerical balance and minor integration defaults must be documented as provisional rather than prompting for every edge case.
 
 ### Additional resource support for upgrades
 
@@ -115,7 +116,7 @@ Reviewed 2026-11-02. Permanence is settled and must not be re-asked. These are r
 3. Upgrade support is SETTLED: additional resources may come from ANY open, owned, unburnt, uncommitted cells, without connectivity to the building or its original footprint. This prevents established producers being blocked from upgrades by surrounding development. New buildings still require connected support.
 4. Upgrade interruption is SETTLED by the confirmed upgrade lifecycle below: unfinished cancellation allowed, retired forces not restored, discounted upgrade-support release, and combined discounted release/burn on destruction. Base-production restart is settled as a fresh full cooldown after cancellation. Retired capturer progress behavior remains to be defined. Completed upgrades cannot be reversed.
 5. Reinforcement integration: quantity, visual-only travel/arrival and vanishing on target-squad destruction are settled. Do not create independently occupying reinforcement units or replacement squads from incoming members after a wipe. Still define incoming members when only their producer is destroyed, numeric travel speed and remaining cooldown/dispatch timing. Base-production restart after upgrade cancellation is a fresh full base-type cooldown; starting an upgrade retires incoming reinforcements and pauses production.
-6. Combat details: each squad member has individual attack power and the whole squad is balanced together. Shared focus targeting is confirmed. Member health/hit selection, attack timing, splash footprint/member allocation/falloff/friendly fire, maximum MLRS range and new-unit stats remain open. Clarify whether fewer surviving infantry also reduce capture strength. Single-target damage to one member without spillover and splash affecting multiple members are confirmed. Full-HP reinforcement and no-healing rules remain proposals.
+6. Combat details: each squad member has individual attack power and the whole squad is balanced together. Shared focus targeting is confirmed. Member health/hit selection, attack timing, splash footprint/member allocation/falloff/friendly fire, maximum MLRS range and new-unit stats remain open. Clarify whether fewer surviving infantry also reduce capture strength. Single-target damage to one member without spillover and splash affecting multiple members are confirmed. New reinforcement members arrive at full individual HP; surviving members retain their current HP and are not healed. Owner confirmed this rule.
 
 ## Selling and building construction
 
@@ -176,6 +177,19 @@ Confirmed disconnect behavior: match continues, units retain current orders, and
 Current test map is 271 cells, radius 9. HQ centre gives no capacity. Capacity is provisionally capped at 200 while further land remains capturable. Exact cap meaning, full match length/map size, HQ pressure exceptions, terrain, LOS, eliminated buildings, numerical balance, splash footprint/falloff/friendly fire and member damage allocation remain open. Do not promote these test assumptions into confirmed design.
 
 Loadout/tech/squads/upgrades are the current design milestone. Six-human networking, full Eurasia geography, full race catalogs, water mechanics, accounts and paid infrastructure are not part of the existing playable slice. No Steam/console commitment.
+
+## Provisional defaults used for the progression playtest
+
+To keep the next build moving without further rule-by-rule questions, these are implementation defaults for review through play:
+- Six base cards are available: Barracks, Factory, Artillery, Hangar, Airfield and MLRS Works. The loadout limit remains eight unique, ready for a larger future catalog. Upgrade stats can be previewed within their base card; variants are not selectable cards. All tiers are shown.
+- Regular infantry: five members, 8 HP and 2 damage each (40 squad HP, 10 full volley damage); Missile Infantry: five members, 7 HP and 4 damage each, range 1-2, move 1000 ms/hex, production 9000 ms, attack 1200 ms. Member attack clocks are synchronized on one shared target; single hits choose the first living member. Capture strength stays constant as members die.
+- Bomber: total producer commitment 12, unit HP 100, damage 45, range 1-2, move 800 ms/hex, attack 2400 ms, production 16000 ms. No splash on Bombers in this slice.
+- MLRS: cost 16, unit HP 80, damage 30, range 3-5, move 1500 ms/hex, attack 3000 ms, production 16000 ms. Radius-one enemy-only splash: full damage on the target hex, half on adjacent hexes, applied to every squad member in an affected hex. No friendly damage.
+- Reinforcements take 250 ms per dispatch-distance hex with a 500 ms minimum. The visual follows the current squad location; arrival is scheduled at dispatch. They vanish on squad death; producer destruction alone permits already dispatched members to reach a living orphan. Upgrading/selling retires them.
+- Selling is immediate, including an upgrading building, using the combined base-plus-pending-upgrade surviving support count. Retiring a capturer triggers capture rollback. Fresh production cooldown after cancelled upgrade is the base type's full interval.
+- Retired forces stop gameplay immediately; a 650 ms retreat/fade is cosmetic. Inspector keeps the selected entity ID while it moves and retains its last details marked destroyed after loss. BUILD/DETAILS tabs share the right panel on narrow screens.
+
+These numbers live in tune.json; they are not final race balance or changes to the owner's confirmed lifecycle rules.
 
 ## Delivery and verification
 

@@ -10,14 +10,17 @@ const tuneJson = await readFile(new URL('../tune.json', import.meta.url), 'utf8'
 const compiled = ts.transpileModule(source.replace("import tuneJson from '../tune.json';", `const tuneJson = ${tuneJson};`), {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
 }).outputText;
-const { OperationSim, DEFAULT_TUNE, distance } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
+const { OperationSim, DEFAULT_TUNE, BASE_CARDS, distance } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 let passed = 0;
 function test(name, run) { run(); passed++; console.log(`PASS ${name}`); }
 function fixture(edit = () => {}) {
   const tune = structuredClone(DEFAULT_TUNE);
   tune.capture.hqRate = 0;
+  // Legacy movement/combat fixtures isolate those rules from construction/tier timing.
+  for (const card of Object.values(tune.cards)) card.buildMs = 0;
   edit(tune);
-  return new OperationSim({ tune, bot: false });
+  const s = new OperationSim({ tune, bot: false }); for (const p of s.players) p.techTier = 3;
+  return s;
 }
 // These fixtures exercise general economy invariants with a known cost, rather
 // than prescribing the live Barracks balance value.
@@ -33,6 +36,16 @@ function unit(sim, id, owner, kind = 'infantry', hp = 1000) {
   sim.units.push(u); return u;
 }
 function advance(sim, ms) { sim.tick(ms); }
+function milestone(edit = () => {}, options = {}) {
+  const tune = structuredClone(DEFAULT_TUNE); tune.capture.hqRate = 0; edit(tune);
+  return new OperationSim({ tune, bot: false, ...options });
+}
+function loseSupports(s, ids) {
+  for (const id of ids) { const tile = h(s, id); tile.owner = 1; tile.lockedBy = null; delete tile.commitment; }
+}
+function producer(s, id = '0,0', kind = 'infantry') {
+  assert(s.place(0, id, kind).ok); return s.buildings.find(b => b.hexId === id);
+}
 function assertOccupancy(sim) {
   assert.equal(new Set(sim.units.map(u => u.hexId)).size, sim.units.length, 'unique unit destinations');
   const reserved = new Set();
@@ -70,7 +83,7 @@ test('local supports cannot cross neutral, enemy, locked or burnt bridges', () =
   }
 });
 
-test('enemy capture permanently clears local lock, preserves global debt; destruction releases full cost and burns', () => {
+test('enemy capture permanently clears local lock; destruction discounts release and strands lost support debt', () => {
   const s = costFourFixture(t => { t.cards.infantry.range = 0; t.capture.neutralMs = 100; }); ownAll(s);
   assert(s.place(0, '0,0', 'infantry').ok); inertProducers(s);
   const b = s.buildings.find(x => x.kind === 'infantry');
@@ -81,10 +94,10 @@ test('enemy capture permanently clears local lock, preserves global debt; destru
   assert.equal(support.owner, 0); assert.equal(support.lockedBy, null, 'recapture cannot restore assignment');
   for (const x of s.hexes) x.owner = null;
   h(s, b.hexId).owner = 0;
-  assert.deepEqual(s.resources(0), { committed: 4, capacity: 1 });
+  assert.deepEqual(s.resources(0), { committed: 4, capacity: 1, stranded: 0 });
   assert(!s.placement(0, '2,0', 'infantry').ok, 'capacity debt cannot fund another producer');
   s.units.splice(0); b.hp = 0; advance(s, 100);
-  assert.equal(s.resources(0).committed, 0); assert(h(s, b.hexId).burnt);
+  assert.equal(s.resources(0).committed, 1); assert.equal(s.resources(0).stranded, 1); assert(h(s, b.hexId).burnt);
   assert.equal(s.resources(0).capacity, 0); assert(!s.placement(0, b.hexId, 'infantry').ok);
 });
 
@@ -239,11 +252,12 @@ test('confirmed building costs, opening capacity eighteen, and no global placeme
   const s = new OperationSim({ bot: false }); ownAll(s);
   assert(s.place(0, '0,0', 'infantry').ok); assert(s.place(0, '4,0', 'infantry').ok);
   assert.equal(s.timeMs, 0); assert.equal(s.resources(0).committed, 8);
-  assert.equal(s.units.length, 2, 'both affordable connected placements spawn immediately at the same simulation time');
+  assert.equal(s.units.length, 0, 'both placements begin construction without a global timer');
+  advance(s, s.tune.cards.infantry.buildMs); assert.equal(s.units.length, 2, 'both complete at the same simulation time');
 });
 
 test('all presentation settings, including event capacity, leave authoritative state and entity IDs identical', () => {
-  assert.deepEqual(DEFAULT_TUNE.presentation, { captureFlipMs: 900, captureLift: 0.9, shotTraceMs: 220, maxShotEvents: 128 });
+  assert.deepEqual(DEFAULT_TUNE.presentation, { captureFlipMs: 900, captureLift: 0.9, shotTraceMs: 220, retreatMs: 650, maxShotEvents: 128 });
   const normal = fixture();
   const variants = [normal, ...[0, 2].map(cap => fixture(t => {
     t.presentation = { captureFlipMs: 99999, captureLift: 10, shotTraceMs: 1, maxShotEvents: cap };
@@ -337,7 +351,7 @@ test('artillery retreats only after actual damage; a frontline screen prevents t
   const threat = unit(exposed, '1,0', 1); threat.nextAttackAtMs = 100000;
   advance(exposed, 100); assert.equal(gun.hexId, '0,0'); assert.equal(gun.retreatUntilMs, undefined);
   threat.nextAttackAtMs = exposed.timeMs; advance(exposed, 100);
-  assert.equal(gun.hp, 28); assert(gun.retreatUntilMs > exposed.timeMs);
+  assert.equal(gun.hp, 38 - exposed.tune.cards.infantry.damage); assert(gun.retreatUntilMs > exposed.timeMs);
   assert(distance(h(exposed, gun.hexId), h(exposed, threat.hexId)) > 1); assertOccupancy(exposed);
   const screened = fixture(); const supported = unit(screened, '0,0', 0, 'artillery', 38);
   const screen = unit(screened, '1,0', 0); unit(screened, '2,0', 1); advance(screened, 100);
@@ -451,6 +465,205 @@ test('ten-minute virtual playtests progress through contested frontlines to an H
     console.log(`  ${scenario}: winner=${s.winner}, elapsed=${s.timeMs / 1000}s, peakUnits=${peakUnits}`);
     assert.notEqual(s.winner, null, `${scenario} should resolve within ten virtual minutes`);
   }
+});
+
+test('default construction reserves and blocks immediately, starts full HP, never heals, then starts spawn cooldown', () => {
+  const s = milestone(); ownAll(s); const b = producer(s);
+  assert.equal(b.hp, 110); assert.equal(b.completeAtMs, 3000); assert.equal(b.unitId, null);
+  assert.equal(s.resources(0).committed, 4); assert.equal(h(s, b.hexId).commitment, 'building');
+  assert(!s.placement(0, b.hexId, 'tank').ok);
+  b.hp = 65; advance(s, 2900); assert.equal(b.unitId, null);
+  advance(s, 100); assert.equal(b.hp, 65); assert(b.unitId);
+  const squad = s.units.find(u => u.id === b.unitId);
+  assert.deepEqual(squad.members, [8, 8, 8, 8, 8]); assert.equal(squad.hp, 40); assert.equal(squad.maxHp, 40);
+  assert.equal(b.readyAtMs, s.timeMs + 6500); assertOccupancy(s);
+});
+
+test('unfinished construction is vulnerable and selling/destruction strand only lost assignments', () => {
+  for (const sell of [true, false]) {
+    const s = milestone(); ownAll(s); const b = producer(s, '0,0', 'tank');
+    const supports = s.hexes.filter(x => x.lockedBy === b.id);
+    loseSupports(s, supports.filter(x => x.id !== b.hexId).slice(0, 3).map(x => x.id));
+    if (sell) assert(s.sell(0, b.id).ok);
+    else { b.hp = 0; advance(s, 100); }
+    assert(!s.buildings.includes(b)); assert.equal(s.units.length, 0);
+    assert.equal(s.resources(0).committed, 3); assert.equal(s.resources(0).stranded, 3);
+    assert.equal(h(s, b.hexId).burnt, !sell); assert.equal(h(s, b.hexId).lockedBy, null);
+    assert(!s.sell(0, 'hq0').ok);
+  }
+  const attacked = milestone(); ownAll(attacked); const b = producer(attacked);
+  const enemy = unit(attacked, '2,0', 1, 'artillery'); enemy.nextAttackAtMs = attacked.timeMs;
+  advance(attacked, 100); assert(b.hp < b.maxHp); assert.equal(b.unitId, null);
+});
+
+test('research reserves twenty disconnected cells and releases full commitment after losses on cancel or completion', () => {
+  for (const complete of [false, true]) {
+    const s = milestone(); for (const x of s.hexes) x.owner = null;
+    const cells = s.hexes.filter(x => !s.buildings.some(b => b.hexId === x.id) && ((x.q - x.r) % 3 + 3) % 3 === 0).slice(0, 20);
+    assert.equal(cells.length, 20); for (const x of cells) x.owner = 0;
+    assert(s.startResearch(0).ok); assert.equal(s.resources(0).committed, 20);
+    assert.equal(s.players[0].research.completeAtMs, 30000);
+    assert(cells.every(x => x.commitment === 'research' && x.lockedBy === 'research-0'));
+    loseSupports(s, cells.slice(0, 7).map(x => x.id)); advance(s, 1000);
+    assert.equal(s.resources(0).committed, 20); assert.equal(s.resources(0).capacity, 13);
+    if (complete) { advance(s, 29000); assert.equal(s.players[0].techTier, 2); }
+    else { assert(s.cancelResearch(0).ok); assert.equal(s.players[0].techTier, 1); }
+    assert.equal(s.resources(0).committed, 0); assert.equal(s.resources(0).stranded, 0);
+    assert.equal(s.players[0].research, null); assert(!s.hexes.some(x => x.lockedBy === 'research-0'));
+  }
+});
+
+test('research cancellation loses progress; T3 costs twenty for a fresh sixty-second interval', () => {
+  const s = milestone(); ownAll(s);
+  assert(s.startResearch(0).ok); advance(s, 10000); assert(s.cancelResearch(0).ok);
+  assert(s.startResearch(0).ok); assert.equal(s.players[0].research.completeAtMs, 40000);
+  advance(s, 30000); assert.equal(s.players[0].techTier, 2); assert(s.startResearch(0).ok);
+  assert.equal(s.players[0].research.completeAtMs, 100000); assert.equal(s.resources(0).committed, 20);
+  advance(s, 59900); assert.equal(s.players[0].techTier, 2); advance(s, 100);
+  assert.equal(s.players[0].techTier, 3); assert.equal(s.resources(0).committed, 0); assert(!s.startResearch(0).ok);
+});
+
+test('placement validates base-only loadouts and technology; conversions consume no loadout slots', () => {
+  for (const cards of [[], ['infantry', 'infantry'], ['fighter'], ['infantry', 'missile'], ['infantry', 'bomber'], ['unknown']]) {
+    assert.throws(() => milestone(() => {}, { loadouts: [cards] }), /Invalid loadout/);
+  }
+  const s = milestone(() => {}, { loadouts: [['infantry', 'fighter', 'mlrs']] }); ownAll(s);
+  assert.deepEqual(BASE_CARDS, ['infantry', 'tank', 'artillery', 'helicopter', 'fighter', 'mlrs']);
+  assert(!s.place(0, '0,0', 'tank').ok); assert(!s.place(0, '0,0', 'fighter').ok);
+  assert(!s.place(0, '0,0', 'missile').ok); assert(!s.place(0, '0,0', 'bomber').ok);
+  s.players[0].techTier = 2; assert(s.place(0, '0,0', 'fighter').ok);
+  assert(!s.place(0, '4,0', 'mlrs').ok); s.players[0].techTier = 3; assert(s.place(0, '4,0', 'mlrs').ok);
+});
+
+test('Armoury reserves disconnected extra supports, retires squad, preserves HP, completes once without healing', () => {
+  const s = milestone(); ownAll(s); const b = producer(s); advance(s, 3000);
+  const oldId = b.unitId; b.hp = 51;
+  // All immediately surrounding land can be locked; surcharge deliberately uses arbitrary distant cells.
+  const openBefore = s.hexes.filter(x => x.lockedBy === null && x.owner === 0 && !s.buildings.some(v => v.hexId === x.id));
+  assert(s.upgrade(0, b.id).ok); assert.equal(b.upgradeKind, 'missile'); assert.equal(b.upgradeCompleteAtMs, s.timeMs + 5000);
+  assert.equal(s.resources(0).committed, 6); assert.equal(s.units.some(x => x.id === oldId), false);
+  assert.equal(s.retirements.at(-1).unitId, oldId); assert.equal(s.reinforcements.length, 0);
+  assert(openBefore.slice(0, 2).every(x => x.lockedBy === b.id && x.commitment === 'upgrade'));
+  advance(s, 4900); assert.equal(b.unitId, null); assert.equal(b.kind, 'infantry');
+  advance(s, 100); assert.equal(b.kind, 'missile'); assert.equal(b.hp, 51); assert.equal(s.resources(0).committed, 6);
+  const squad = s.units.find(x => x.id === b.unitId); assert.deepEqual(squad.members, [7, 7, 7, 7, 7]);
+  assert.equal(b.readyAtMs, s.timeMs + 9000); assert(!s.canUpgrade(0, b.id).ok); assert(!s.cancelUpgrade(0, b.id).ok);
+});
+
+test('cancelled conversion strands captured upgrade supports and starts full base cooldown without restoring retired forces', () => {
+  const s = milestone(); ownAll(s); const b = producer(s); advance(s, 3000); const oldId = b.unitId;
+  assert(s.upgrade(0, b.id).ok); const extra = s.hexes.filter(x => x.lockedBy === b.id && x.commitment === 'upgrade');
+  loseSupports(s, [extra[0].id]); advance(s, 1000); assert(s.cancelUpgrade(0, b.id).ok);
+  assert.equal(b.kind, 'infantry'); assert.equal(b.unitId, null); assert.equal(b.readyAtMs, s.timeMs + 6500);
+  assert.equal(s.resources(0).committed, 5); assert.equal(s.resources(0).stranded, 1);
+  assert.equal(extra[1].lockedBy, null); assert.equal(extra[1].commitment, undefined);
+  advance(s, 6400); assert.equal(b.unitId, null); advance(s, 100); assert(b.unitId && b.unitId !== oldId);
+  assert.equal(b.readyAtMs, s.timeMs + 6500);
+});
+
+test('free Bomber conversion requires T3 and is permanent; sale/destroy during upgrade discounts combined support release', () => {
+  const s = milestone(); ownAll(s); s.players[0].techTier = 2; const airfield = producer(s, '0,0', 'fighter'); advance(s, 6000);
+  assert(!s.upgrade(0, airfield.id).ok); s.players[0].techTier = 3; airfield.hp = 47;
+  assert(s.upgrade(0, airfield.id).ok); assert.equal(s.resources(0).committed, 12); assert.equal(airfield.upgradeCost, 0);
+  advance(s, 8000); assert.equal(airfield.kind, 'bomber'); assert.equal(airfield.hp, 47);
+  assert(s.units.some(x => x.id === airfield.unitId && x.kind === 'bomber')); assert(!s.canUpgrade(0, airfield.id).ok);
+  for (const sell of [true, false]) {
+    const t = milestone(); ownAll(t); const b = producer(t); advance(t, 3000); assert(t.upgrade(0, b.id).ok);
+    const supports = t.hexes.filter(x => x.lockedBy === b.id); loseSupports(t, supports.filter(x => x.id !== b.hexId).slice(0, 3).map(x => x.id));
+    if (sell) assert(t.sell(0, b.id).ok); else { b.hp = 0; advance(t, 100); }
+    assert.equal(t.resources(0).committed, 3); assert.equal(t.resources(0).stranded, 3);
+    assert.equal(h(t, b.hexId).burnt, !sell); assert.equal(t.units.length, 0);
+  }
+});
+
+test('squad members focus one target; each single-target hit damages one member without spillover', () => {
+  const s = fixture(t => { t.cards.tank.damage = 100; t.cards.tank.range = 0; });
+  const squad = unit(s, '0,0', 0); squad.members = [8, 8, 8, 8, 8]; squad.hp = 40; squad.maxHp = 40;
+  const target = unit(s, '1,0', 1, 'tank'), second = unit(s, '0,1', 1, 'tank'); advance(s, 100);
+  assert.equal(target.hp, 990); assert.equal(second.hp, 1000); assert.equal(s.shots.filter(x => x.unitId === squad.id).length, 1);
+  squad.members = [8, 8]; squad.hp = 16; squad.nextAttackAtMs = s.timeMs;
+  advance(s, 100); assert.equal(target.hp, 986, 'losing three members removes exactly three members of damage');
+  assert.equal(second.hp, 1000, 'surviving members retain the same shared focus');
+  const t = fixture(); const victim = unit(t, '0,0', 0); victim.members = [3, 8, 8, 8, 8]; victim.hp = 35; victim.maxHp = 40;
+  victim.nextAttackAtMs = 100000; unit(t, '1,0', 1, 'tank'); advance(t, 100);
+  assert.deepEqual(victim.members, [8, 8, 8, 8]); assert.equal(victim.hp, 32, 'tank overkill does not spill into another member');
+});
+
+test('MLRS respects minimum range and splashes multiple enemy members with no friendly damage', () => {
+  const s = fixture(); const gun = unit(s, '0,0', 0, 'mlrs');
+  const centre = unit(s, '3,0', 1, 'tank'); centre.movingUntilMs = 100000;
+  const adjacent = unit(s, '3,1', 1); adjacent.members = [8, 8, 8, 8, 8]; adjacent.hp = 40; adjacent.movingUntilMs = 100000;
+  const friend = unit(s, '2,1', 0); friend.movingUntilMs = 100000; advance(s, 100);
+  assert.equal(centre.hp, 970); assert.equal(adjacent.hp, 0); assert(!s.units.includes(adjacent)); assert.equal(friend.hp, 1000);
+  assert(s.shots.some(x => x.unitId === gun.id));
+  const close = fixture(); const nearGun = unit(close, '0,0', 0, 'mlrs'); unit(close, '2,0', 1, 'tank').movingUntilMs = 100000;
+  advance(close, 100); assert(!close.shots.some(x => x.unitId === nearGun.id && x.targetHexId === '2,0'));
+});
+
+test('reinforcement counts include in-flight members, restart cooldown, and merge full HP without healing survivors', () => {
+  const s = milestone(t => { t.reinforcements.minTravelMs = 2000; }); ownAll(s); const b = producer(s); advance(s, 3000);
+  const squad = s.units.find(x => x.id === b.unitId); squad.members = [3, 8]; squad.hp = 11; squad.movingUntilMs = 100000;
+  b.readyAtMs = s.timeMs; advance(s, 100);
+  assert.equal(s.reinforcements.length, 1); assert.equal(s.reinforcements[0].count, 3); assert.equal(b.readyAtMs, s.timeMs + 6500);
+  b.readyAtMs = s.timeMs; advance(s, 100); assert.equal(s.reinforcements.length, 1, 'existing in-flight members prevent over-dispatch');
+  advance(s, 1900); assert.deepEqual(squad.members, [3, 8, 8, 8, 8]); assert.equal(squad.hp, 35); assert.equal(s.reinforcements.length, 0);
+  squad.members = [3, 8]; squad.hp = 11;
+  s.reinforcements.push({ id: 'fixture-arrival', unitId: squad.id, buildingId: b.id, owner: 0, count: 1, fromHexId: b.hexId, startedAtMs: s.timeMs, arriveAtMs: s.timeMs + 10000 });
+  b.readyAtMs = s.timeMs; advance(s, 100);
+  assert.equal(s.reinforcements.reduce((n, r) => n + r.count, 0), 3, 'two living plus one incoming dispatches only two');
+  assert.equal(s.units.length, 1); assertOccupancy(s);
+});
+
+test('squad wipe deletes every incoming member permanently; producer death still permits merge into a living orphan', () => {
+  for (const wipe of [true, false]) {
+    const s = milestone(t => { t.reinforcements.minTravelMs = 1000; }); ownAll(s); const b = producer(s); advance(s, 3000);
+    const squad = s.units.find(x => x.id === b.unitId); squad.members = [4, 8]; squad.hp = 12; squad.movingUntilMs = 100000;
+    b.readyAtMs = s.timeMs; advance(s, 100); assert.equal(s.reinforcements[0].count, 3);
+    if (wipe) { b.readyAtMs = 100000; squad.hp = 0; }
+    else b.hp = 0;
+    advance(s, 1000);
+    assert.equal(s.reinforcements.length, 0);
+    if (wipe) { assert(!s.units.some(x => x.id === squad.id)); assert.equal(s.units.length, 0); }
+    else { assert.equal(squad.buildingId, null); assert.deepEqual(squad.members, [4, 8, 8, 8, 8]); assert.equal(squad.hp, 36); }
+  }
+});
+
+test('upgrade/sale retire current squads and incoming reinforcements, with casualty rollback and bounded cosmetic events', () => {
+  for (const sell of [true, false]) {
+    const s = milestone(); ownAll(s); const b = producer(s); advance(s, 3000);
+    const squad = s.units.find(x => x.id === b.unitId); squad.members = [8]; squad.hp = 8;
+    const tile = h(s, squad.hexId); tile.owner = null; tile.capture = 0.5; tile.capturePlayer = 0; tile.captureUnitId = squad.id;
+    b.readyAtMs = s.timeMs; squad.movingUntilMs = 100000; advance(s, 100); assert(s.reinforcements.length);
+    if (sell) assert(s.sell(0, b.id).ok); else assert(s.upgrade(0, b.id).ok);
+    assert.equal(s.units.length, 0); assert.equal(s.reinforcements.length, 0); assert(tile.captureReversing);
+    assert.equal(s.retirements.at(-1).unitId, squad.id); assert.deepEqual(s.retirements.at(-1).members, [8]);
+  }
+  const s = fixture(); ownAll(s);
+  for (let i = 0; i < 130; i++) { const b = producer(s); assert(s.sell(0, b.id).ok); }
+  assert.equal(s.retirements.length, 128); assert.equal(s.retirements[0].id, 3);
+  const fresh = milestone(); assert.equal(fresh.retirements.length, 0); assert.equal(fresh.reinforcements.length, 0);
+});
+
+test('bot advances technology, skips locked cards, and eventually uses conversions and T3 base cards', () => {
+  const tune = structuredClone(DEFAULT_TUNE); tune.hq.hp = 1000000;
+  const s = new OperationSim({ tune }); ownAll(s, 1); const seen = new Set();
+  for (let i = 0; i < 1800; i++) { advance(s, 100); for (const b of s.buildings) seen.add(b.kind); assertOccupancy(s); }
+  assert.equal(s.players[1].techTier, 3); assert(seen.has('missile')); assert(seen.has('helicopter'));
+  assert(seen.has('fighter')); assert(seen.has('bomber')); assert(seen.has('mlrs'));
+});
+
+test('construction, research, conversion, debt, squads, reinforcements and events remain tick-partition deterministic', () => {
+  const run = dt => {
+    const tune = structuredClone(DEFAULT_TUNE); tune.hq.hp = 1000000;
+    const s = new OperationSim({ tune }); ownAll(s, 1);
+    for (let t = 0; t < 180000; t += dt) s.tick(dt);
+    return JSON.stringify({ hexes: s.hexes, buildings: s.buildings, units: s.units, players: s.players,
+      reinforcements: s.reinforcements, retirements: s.retirements, shots: s.shots,
+      resources: s.players.map(p => s.resources(p.id)), timeMs: s.timeMs, winner: s.winner });
+  };
+  assert.equal(run(100), run(500));
+  const fresh = new OperationSim(); assert.equal(fresh.players[0].techTier, 1); assert.equal(fresh.players[0].research, null);
+  assert.equal(fresh.resources(0).stranded, 0); assert.equal(fresh.resources(0).committed, 0);
 });
 
 console.log(`${passed} Operation C simulation behavior tests passed.`);
