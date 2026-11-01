@@ -77,7 +77,7 @@ Missile Infantry and Bomber producer forms may change to the upgrade proposal be
 - Completion releases research commitment and remaining reservations. Clicking active research cancels it, releases that commitment/reservations, and loses all progress. Territory ownership is unaffected by release.
 - Top-of-screen research control is both the click target to advance technology and the progress-bar location.
 - Research cells show faded conical flasks with subtle vertical bobbing. All committed cells use a darker shade of the owner's colour instead of lock icons. The flask distinguishes temporary research support from building support.
-- T2 to T3: temporarily commit 30 OPEN UNCOMMITTED OWNED cells for 45 seconds (1.5 times T1-to-T2 cost and duration). Apply the same no-connectivity, continue-through-territory-loss, full retained research commitment, completion release and cancellation-with-progress-loss rules. Owner chose 1.5x to avoid stalling the match. The UI control does not by itself establish a destructible HQ-upgrade mechanic.
+- T2 to T3: current playtest setting is temporarily commit 20 OPEN UNCOMMITTED OWNED cells for 60 seconds. This supersedes the earlier 30-cell/45-second setting. Apply the same no-connectivity, continue-through-territory-loss, full retained research commitment, completion release and cancellation-with-progress-loss rules. The UI control does not by itself establish a destructible HQ-upgrade mechanic.
 
 ## Building upgrades and timed conversions
 
@@ -103,7 +103,7 @@ Remaining decisions: timer lengths, support connectivity for Barracks' added 2, 
 Reviewed 2026-11-02. Permanence is settled and must not be re-asked. These are remaining implementation decisions, not changes to confirmed rules:
 
 1. Base-only loadout eligibility is SETTLED: upgrades are building-selected options, not loadout cards. Show base cards with their tier/stats; decide how to preview upgrade stats without making upgrades selectable.
-2. Research timing is SETTLED: T1-to-T2 20 cells/30 seconds; T2-to-T3 30 cells/45 seconds. Building upgrade durations still need values. Enforce Bomber's T3 prerequisite independently of its zero resource surcharge.
+2. Research timing is SETTLED: T1-to-T2 20 cells/30 seconds; T2-to-T3 20 cells/60 seconds. Building upgrade durations still need values. Enforce Bomber's T3 prerequisite independently of its zero resource surcharge.
 3. Additional support: define whether Barracks' added 2 cells must connect to the building or its existing support footprint. Research explicitly has no connectivity requirement; do not silently apply that exception to building upgrades.
 4. Upgrade interruption is SETTLED by the confirmed upgrade lifecycle below: unfinished cancellation allowed, retired forces not restored, discounted upgrade-support release, and combined discounted release/burn on destruction. Still define base-production restart timing after cancellation and retired capturer progress behavior. Completed upgrades cannot be reversed.
 5. Reinforcement integration: define dispatch count per cooldown, merge/arrival behavior while the target squad occupies its hex, blocked routes, detached/in-flight members when a producer is destroyed, and base-production restart after cancellation. Starting an upgrade retires incoming reinforcements and pauses production, as confirmed below. Reinforcement itself is already confirmed.
