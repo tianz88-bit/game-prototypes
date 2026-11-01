@@ -18,6 +18,8 @@ Verification: 31 behavior tests pass, including target matrix, non-capture, defe
 
 ## Open questions
 
+Latest owner decisions: loadouts select only base building cards; upgrades are options on selected placed buildings. New selling direction introduces construction time for every building, superseding instant completion and remaining separate from unit-production cooldown. Add persistent entity details when selecting hex occupants (unit movement does not switch the inspector), Warcraft/StarCraft-style building commands, and move all building cards to the right panel. These remain design work, not implemented. Selling/unit/tile outcomes and construction lifecycle rules need decisions; BRIEF.md records them.
+
 BRIEF.md is now the consolidated permanent design reference, reconciled 2026-11-02. It restores the previously discussed cooldown-based squad reinforcement rule (faster travelling reinforcements can continue a wiped squad) instead of asking the owner to choose again. Slower Missile Infantry build means unit production cooldown, not construction time.
 
 Current design discussion: Barracks to Barracks+/Armoury for Missile Infantry and Airfield to Airfield+ for Bombers, replacing the old unit with a new one on conversion. Owner confirmed upgrade surcharges stay committed for the building lifetime and vary by upgrade: Barracks+ adds 2 (total 6); Airfield+ is being explored as a zero-surcharge timed permanent upgrade retaining base cost 12. Latest unit-removal timing is conversion START with brief retreat/fade, superseding removal at completion. All upgrades are confirmed permanent and one-way, including Fighter-to-Bomber. Timer/connectivity, slots, unfinished-upgrade interruption and reinforcement handling remain open. BRIEF.md contains the consolidated design review checklist. Loadout/research/squads/T3 and upgrades remain unimplemented. See BRIEF.md for confirmed tiers, costs, 8-unique loadout, research debt/cancellation and remaining decisions.
@@ -28,4 +30,4 @@ Two-HQ local bot sandbox; no six-player networking/final map/factions. Physical 
 
 ## Next proposed step
 
-Resolve building upgrade commitment and loadout-slot rules using BRIEF.md as the reference before implementing the loadout/research/squad milestone. Existing preview remains available for combined-arms playtesting. Publication of PR #410 still requires explicit approval.
+Loadout-slot and permanent upgrade rules are settled. Resolve selling outcomes and construction lifecycle using BRIEF.md before implementing the expanded milestone. Existing preview remains available for combined-arms playtesting. Publication of PR #410 still requires explicit approval.
