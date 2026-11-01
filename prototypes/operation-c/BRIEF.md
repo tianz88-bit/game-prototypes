@@ -96,7 +96,14 @@ Confirmed upgrade lifecycle:
 
 Presentation implementation recommendation: remove retired forces from combat/capture/occupancy when accepted, then render retreat/fade cosmetically. Exact retirement timing relative to the short visual remains a presentation detail; do not permit it to restore a retired force.
 
-Conversion times are approved for the first playtest: Armoury 5 seconds and Bomber Airfield 8 seconds. Remaining decisions: support connectivity for Barracks' added 2, base-production restart timing after upgrade cancellation and upgrade prerequisites. Base-only loadouts and building-selected upgrade options are confirmed; upgraded variants are not loadout cards. Airfield's zero-surcharge conversion is under exploration, not a universal upgrade-cost rule; permanent one-way behavior is confirmed. No gameplay implementation until the relevant rules are settled.
+Conversion times are approved for the first playtest: Armoury 5 seconds and Bomber Airfield 8 seconds. Remaining decisions: base-production restart timing after upgrade cancellation and upgrade prerequisites. Base-only loadouts and building-selected upgrade options are confirmed; upgraded variants are not loadout cards. Airfield's zero-surcharge conversion is under exploration, not a universal upgrade-cost rule; permanent one-way behavior is confirmed. No gameplay implementation until the relevant rules are settled.
+
+### Additional resource support for upgrades
+
+- Owner confirmed that resource-consuming upgrades reserve additional support from ANY open, owned, unburnt, uncommitted tiles. No adjacency or connection to the building or its original support footprint is required. Barracks+ still needs two free global resources and two eligible support cells somewhere in owned territory.
+- These upgrade-support assignments remain committed for the upgraded building's lifetime, unlike temporary research support. Capturing them permanently loses their assignment, retains their commitment as debt, and discounts release on sale/destruction under the same support rules.
+- Mark upgrade-support tiles with an UP ARROW over the darkened player-colour fill. Research support keeps the conical flask. Ordinary building support uses darkened player colour. Do not reintroduce locks.
+- This replaces the previously suggested connected-extra-support rule. New building placement still requires connected support.
 
 ## Design review pending decisions
 
@@ -104,7 +111,7 @@ Reviewed 2026-11-02. Permanence is settled and must not be re-asked. These are r
 
 1. Base-only loadout eligibility is SETTLED: upgrades are building-selected options, not loadout cards. Show base cards with their tier/stats; decide how to preview upgrade stats without making upgrades selectable.
 2. Research timing is SETTLED: T1-to-T2 20 cells/30 seconds; T2-to-T3 20 cells/60 seconds. First-playtest building upgrade durations are settled: Armoury 5 seconds, Bomber Airfield 8 seconds. Enforce Bomber's T3 prerequisite independently of its zero resource surcharge.
-3. Additional support: define whether Barracks' added 2 cells must connect to the building or its existing support footprint. Research explicitly has no connectivity requirement; do not silently apply that exception to building upgrades.
+3. Upgrade support is SETTLED: additional resources may come from ANY open, owned, unburnt, uncommitted cells, without connectivity to the building or its original footprint. This prevents established producers being blocked from upgrades by surrounding development. New buildings still require connected support.
 4. Upgrade interruption is SETTLED by the confirmed upgrade lifecycle below: unfinished cancellation allowed, retired forces not restored, discounted upgrade-support release, and combined discounted release/burn on destruction. Still define base-production restart timing after cancellation and retired capturer progress behavior. Completed upgrades cannot be reversed.
 5. Reinforcement integration: define dispatch count per cooldown, merge/arrival behavior while the target squad occupies its hex, blocked routes, detached/in-flight members when a producer is destroyed, and base-production restart after cancellation. Starting an upgrade retires incoming reinforcements and pauses production, as confirmed below. Reinforcement itself is already confirmed.
 6. Combat details: member health/damage allocation and splash footprint, falloff, friendly fire, maximum MLRS range and provisional new-unit stats. Clarify whether fewer surviving infantry also reduce capture strength.

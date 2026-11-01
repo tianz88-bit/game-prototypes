@@ -18,6 +18,8 @@ Verification: 31 behavior tests pass, including target matrix, non-capture, defe
 
 ## Open questions
 
+Upgrade resource support is confirmed disconnected: any open, owned, unburnt, uncommitted owned tiles can supply an upgrade surcharge, with sufficient global capacity. Mark those permanent support assignments with an up arrow over darkened owner colour; research keeps flasks. New buildings still need connected support. This prevents enclosed producers from being unable to upgrade. Recorded in BRIEF.md; not implemented.
+
 Owner approved provisional build times: Barracks 3s, Factory/Artillery 5s, Hangar/Airfield 6s, MLRS 8s. Upgrades: Armoury 5s, Bomber Airfield 8s. Separate from unit production. Recorded in BRIEF.md; not yet implemented. Construction-health behavior is confirmed: full building HP at placement, vulnerable/inactive during construction; completion does not heal. Upgrading preserves current HP and does not heal on completion.
 
 Latest T2-to-T3 playtest setting: 20 open uncommitted owned tiles for 60 seconds, superseding 30 tiles/45 seconds. T1-to-T2 remains 20 tiles/30 seconds. Same research/debt/release/cancellation rules apply.
@@ -36,4 +38,4 @@ Two-HQ local bot sandbox; no six-player networking/final map/factions. Physical 
 
 ## Next proposed step
 
-Loadout-slot and permanent upgrade rules are settled. Construction lifecycle is confirmed. Upgrade interruption is confirmed. Resolve remaining squad/combat/support integration and cancellation production restart before implementing the expanded milestone; include discounted sale/destruction debt accounting. Existing preview remains available for combined-arms playtesting. Publication of PR #410 still requires explicit approval.
+Loadout-slot and permanent upgrade rules are settled. Construction lifecycle is confirmed. Upgrade interruption is confirmed. Resolve remaining squad/combat integration and cancellation production restart before implementing the expanded milestone; include discounted sale/destruction debt accounting. Existing preview remains available for combined-arms playtesting. Publication of PR #410 still requires explicit approval.
