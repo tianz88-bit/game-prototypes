@@ -139,7 +139,7 @@ Owner-approved first-playtest construction durations:
 | Airfield | 6 seconds |
 | MLRS | 8 seconds |
 
-Owner-approved conversion durations: Barracks to Armoury 5 seconds; Airfield to Bomber Airfield 8 seconds. Construction and conversion times remain separate from unit-production cooldowns. These timings are provisional for the first playtest. Construction health/progression values remain unspecified; no automatic healing or partial-health curve is confirmed.
+Owner-approved conversion durations: Barracks to Armoury 5 seconds; Airfield to Bomber Airfield 8 seconds. Construction and conversion times remain separate from unit-production cooldowns. These timings are provisional for the first playtest. Confirmed construction health: a new building starts at full building HP, remains vulnerable and inactive during construction, and completing construction does not heal damage taken. Upgrading preserves current building HP and completion does not heal it. No progressive construction-health curve or upgrade healing.
 
 ## Persistent selection and right-side interface
 
