@@ -1,6 +1,6 @@
 ## Current milestone
 
-Owner playtest feedback iteration, 2026-11-01: visible capture flips, upright units with actual attack-direction UI, and Barracks cost 8. The live entry remains https://zitian-ff.github.io/game-prototypes/prototypes/operation-c/ with its existing hub shortcut. Publication of this iteration follows its game-specific PR validation.
+Owner playtest feedback iteration is live, 2026-11-01: visible capture flips, upright units with actual attack-direction UI, and Barracks cost 8. Play https://zitian-ff.github.io/game-prototypes/prototypes/operation-c/?v=011126r0002 or use the existing hub shortcut. PR #407 merged as 0814b07; Pages run 41306641504 succeeded and published build 011126r0002. Validation run 41306434096 passed. Current WIP deployment was correctly skipped. Final publication evidence is recorded on the task branch after merge.
 
 ## What was implemented
 
@@ -22,6 +22,6 @@ Still the two-HQ local bot sandbox, not six-player multiplayer or the final map/
 
 ## Next proposed step
 
-Complete the game-specific PR/Pages publication, verify real capture flips and updated cost in the live game, then ask the owner to playtest opening expansion again. No new pacing timer should be added without that discussion.
+Owner playtest opening expansion again with the cost change alone. No new pacing timer should be added without that discussion.
 
-Verification so far: 17 simulation behavior tests and full/scoped TypeScript checks pass; standalone and hub production builds pass. Brave checks pass desktop 1440x900, phone portrait 390x844 and landscape 844x390/667x375. Desktop and phone screenshots observe a real capture flip through landing and confirm owner state remains authoritative. Screenshots inspected; actual-attack indicator state is covered by regression tests. Production-bundle, GitHub CI and live checks follow before delivery.
+Verification: 17 simulation behavior tests and full/scoped TypeScript checks pass; standalone and hub production builds pass. Brave desktop 1440x900, phone portrait 390x844 and landscape 844x390/667x375 checks pass against local and live production output, with no game-page console errors. Desktop and phone screenshots observe real capture events, hold only the cosmetic clock at mid-flip, verify landing and unchanged ownership, and restore normal animation timing. This avoids a short real-time screenshot window on slow CI renderers. Normal play does not expose the test clock. Real combat was additionally inspected at close zoom for upright bodies and target-direction cues. Physical phone performance remains unverified.
