@@ -51,7 +51,7 @@ export interface Tune {
   stepMs: number; map: { radius: number; hqQ: number; hqR: number };
   resources: { capacityCap: number; destroyReleaseMs: number }; hq: { hp: number; captureRings: number };
   capture: { neutralMs: number; ownedMultiplier: number; hqRate: number; rollbackRate: number };
-  presentation: { captureFlipMs: number; captureLift: number; shotTraceMs: number; retreatMs: number; maxShotEvents: number };
+  presentation: { captureFlipMs: number; captureLift: number; shotTraceMs: number; retreatMs: number; maxShotEvents: number; commandPulseMs: number; upgradeBobMs: number; upgradeBobLift: number };
   bot: { buildEveryMs: number; attackAtMs: number; cardCycle: CardKind[] };
   research: { cost: number; tier2Ms: number; tier3Ms: number };
   reinforcements: { msPerHex: number; minTravelMs: number };

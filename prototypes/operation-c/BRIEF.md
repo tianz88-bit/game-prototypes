@@ -83,7 +83,7 @@ Names are shared by the loadout, deck and contextual panel. Costs for the eight 
 - Three scrollable catalog sections by BASE tier, with a pinned top tray of eight selected-card sockets. Clicking a populated socket removes that base card. A Buildings / Units toggle changes the mini portraits in the tray and match deck.
 - Every catalog card has separate BUILDING and UNIT sections and matching procedural pictures. Show building name, cost, health, construction and production time; unit name, health, speed, range, damage and targeting type, plus a short role/weakness note.
 - An up-arrow button flips eligible cards to their upgrade preview with a scripted flip animation; the reverse arrow restores the base face. Previewing changes neither loadout membership nor base-tier grouping. The selected socket continues to represent the base card.
-- Deck/socket mini cards use the same unit/building art factories as battlefield entities. In-match cards are concise: name, resource cost, construction time.
+- Deck/socket mini cards use the same unit/building art factories as battlefield entities. In-match cards are concise: name, resource cost, construction time. All card menus and selected sockets are ordered by tier first, then ascending cost, with stable catalog order for ties. In-match cards above current technology are visibly disabled, including keyboard shortcuts; pre-match cards remain selectable across tiers.
 ## Utility buildings and nuclear silo — design discussion
 
 Confirmed 2026-11-03. These are recorded design decisions, NOT implemented in the current roster/UI playtest. Continue systems discussion here before assigning execution.
@@ -94,10 +94,10 @@ Confirmed 2026-11-03. These are recorded design decisions, NOT implemented in th
 - The silo holds ONE ready nuke. It does not stockpile or start another production cycle while that nuke is ready. Launching consumes the ready nuke and starts producing the next one.
 - Select the silo on the map and use its contextual menu to launch. Targeting/confirmation details still need discussion; launch is a player command rather than autonomous unit behaviour.
 - Launch and impact are separated by actual elapsed flight time. The nuke in flight is INVISIBLE to defenders. Fixed versus distance-based flight duration, attacker-side presentation, warnings and interception are not yet settled. Do not assume a defender-visible projectile/path or carry forward the earlier warning proposal as confirmed.
-- The blast targets SEVEN hexes: one centre hex and its six adjacent neighbours. The centre takes the most damage; exact centre/outer damage, squad-member allocation, ground/air eligibility and friendly fire remain undecided.
+- The blast targets SEVEN hexes: one centre hex and its six adjacent neighbours. The centre takes the most damage; friendly fire is CONFIRMED: the blast damages the attacker's own units and buildings too. Exact centre/outer damage, squad-member allocation and ground/air eligibility remain undecided.
 - Owner explicitly requests a visually satisfying MUSHROOM CLOUD at impact. Art direction proposal: scripted flash, expanding ground shockwave, rising stem and billowing mushroom cap, consistent with the procedural/vector style. Exact animation remains art work for a later execution milestone.
 - Proposed, not confirmed: T3 access; ordinary building support/construction/sale/destruction rules for utilities; launched missiles surviving silo destruction; blasts not directly burning empty terrain. Existing destruction burns building tiles, but direct nuclear terrain effects have not been decided.
-- Still to settle: friendly fire and damage eligibility, HQ lethality, terrain effects, post-launch silo/owner destruction behaviour, targeting confirmation, utility catalog, tier access, costs, production/flight times and damage falloff.
+- Still to settle: damage eligibility, HQ lethality, terrain effects, post-launch silo/owner destruction behaviour, targeting confirmation, utility catalog, tier access, costs, production/flight times and damage falloff.
 ## Technology research
 
 - T1 to T2: temporarily commit 20 OPEN UNCOMMITTED OWNED cells for 30 seconds. No adjacency/connectivity requirement. Creates deliberate rush vulnerability.
@@ -181,13 +181,20 @@ Owner-approved conversion durations: Barracks to Armoury 5 seconds; Airbase to B
 - Resources are at the TOP RIGHT; technology control/progress stays at the top. The bottom contains building cards on the left and contextual commands on the right half. No separate global expand/attack buttons.
 - Selecting a card clears contextual entity selection and enters building mode. First tap on eligible open owned terrain shows a hammer and connected support preview; tapping that hex again confirms construction.
 - Selecting a non-empty hex exits building mode and deselects the card. Units/buildings on it become the contextual selection; committed/burnt hexes also exit building mode rather than pretending to be valid construction.
+- Default faction order is Expand/defend. Draw a conspicuous pulsing ground ring with inward-pointing arrows beneath the currently commanded HQ: your own HQ for Expand/defend, the selected enemy HQ for Attack. Include a clear mode label and move the indicator when the command changes; entity selection alone must not move it. Draw a tiny bobbing up-arrow over owned buildings whose upgrade is currently available (construction complete, technology and resource requirements satisfied). Respect reduced motion.
 - Tapping YOUR HQ immediately orders Expand/defend; tapping an ENEMY HQ immediately orders Attack against that HQ. The selected HQ's contextual panel also exposes that same command.
 - Selecting a building or unit shows its details and available commands in the right half of the bottom panel. Own buildings expose Sell and permanent Upgrade/Cancel Upgrade as applicable. Entity selection follows its stable ID as it moves, never whatever later occupies the clicked hex.
 - In-match cards/context avoid catalog-level stat overload. Retain name/cost/construction, health/progress and actionable commands; detailed combat stats remain in the pre-match catalog.
 - Portrait and landscape remain playable; deck cards never shrink the board into the previous narrow right-sidebar layout. The portrait deck uses two columns on its left half, landscape/desktop four.
+## Multiplayer delivery request
+
+On 2026-11-03 the owner requested a 1v1 version by tomorrow, 2026-11-04 Singapore time, and asked for clarifications immediately. TWO HUMAN ONLINE PRIVATE ROOMS are confirmed. Pending answers: whether first delivery includes utilities/nukes versus the current roster and latest UI; exact deadline and two-device versus two-tab test. Existing architecture recommendation remains authoritative WebSockets, below. Utility/nuke mechanics remain design-only until scope is confirmed.
+
 ## Multiplayer direction
 
-Private-room WebSocket multiplayer with a server-authoritative simulation is recommended, adapting Firestorm room/connection/reconnect architecture. First milestone recommendation is two humans completing a match, then FFA. Hosting and final multiplayer scope remain proposals, not deployed features.
+Private-room WebSocket multiplayer uses a server-authoritative simulation, adapting Firestorm's separation of rules, commands and presentation without sharing its server. First milestone is two humans completing a match, then FFA. The isolated Operation C Worker was deployed on 2026-11-03 to the existing verified Workers Free account, with no plan upgrade. Client publication remains separate from server deployment; see BUILD_STATUS.md for current verification/publication status.
+
+Implementation defaults: five-character private invite code/link; two authenticated tab seats; separate loadouts and Ready; three-second countdown; fixed 100 ms server steps and 200 ms record deltas. No online pause, bots, accounts, matchmaking or spectators. Tab session storage retains each seat token; invite links omit tokens. Original-tab reload reconnects; disconnected seats cannot be stolen. New matches use new rooms. Lobby expiry is 30 minutes of inactivity, ended-match retention one hour. These networking/lobby defaults are provisional for playtesting.
 
 Confirmed disconnect behavior: match continues, units retain current orders, and the player can reconnect to the same seat.
 

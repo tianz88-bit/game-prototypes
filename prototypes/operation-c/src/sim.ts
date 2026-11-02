@@ -11,6 +11,15 @@ export const hexId = (q: number, r: number): string => `${q},${r}`;
 export const distance = (a: Pick<Hex, 'q' | 'r'>, b: Pick<Hex, 'q' | 'r'>): number =>
   (Math.abs(a.q - b.q) + Math.abs(a.r - b.r) + Math.abs(a.q + a.r - b.q - b.r)) / 2;
 
+/** Private persistence format; never accept a checkpoint from a game client. */
+export interface OperationCheckpoint {
+  version: 1; tune: Tune; loadouts: CardKind[][]; hexes: Hex[]; buildings: Building[]; units: Unit[];
+  shots: Shot[]; reinforcements: Reinforcement[]; retirements: Retirement[]; pendingReleases: PendingRelease[]; players: Player[];
+  timeMs: number; winner: number | null; accumulatorMs: number; serial: number; shotSerial: number;
+  reinforcementSerial: number; retirementSerial: number; strandedDebt: [number, number][];
+  botEnabled: boolean; nextBotBuildMs: number; botCard: number;
+}
+
 /** Renderer-independent deterministic rules. Public DTOs are mutable for dev fixtures;
  * the game should issue place/setTarget commands rather than mutate them directly.
  * Provisional slice rules: no terrain obstacles/LOS; capture strength does not scale
@@ -80,6 +89,31 @@ export class OperationSim {
     return DIRECTIONS.flatMap(([q, r]) => {
       const n = this.byHex.get(hexId(h.q + q, h.r + r)); return n ? [n] : [];
     });
+  }
+
+  checkpoint(): OperationCheckpoint {
+    return structuredClone({ version: 1, tune: this.tune, loadouts: this.loadouts,
+      hexes: this.hexes, buildings: this.buildings, units: this.units, shots: this.shots,
+      reinforcements: this.reinforcements, retirements: this.retirements, pendingReleases: this.pendingReleases, players: this.players,
+      timeMs: this.timeMs, winner: this.winner, accumulatorMs: this.accumulatorMs, serial: this.serial,
+      shotSerial: this.shotSerial, reinforcementSerial: this.reinforcementSerial, retirementSerial: this.retirementSerial,
+      strandedDebt: [...this.strandedDebt], botEnabled: this.botEnabled, nextBotBuildMs: this.nextBotBuildMs, botCard: this.botCard });
+  }
+
+  static restore(checkpoint: OperationCheckpoint): OperationSim {
+    if (checkpoint.version !== 1) throw new Error('Unsupported Operation C checkpoint');
+    const data = structuredClone(checkpoint);
+    const sim = new OperationSim({ tune: data.tune, loadouts: data.loadouts, bot: data.botEnabled });
+    const replace = <T>(target: T[], source: T[]) => { target.splice(0, target.length, ...source); };
+    replace(sim.hexes, data.hexes); replace(sim.buildings, data.buildings); replace(sim.units, data.units);
+    replace(sim.shots, data.shots); replace(sim.reinforcements, data.reinforcements); replace(sim.retirements, data.retirements);
+    replace(sim.pendingReleases, data.pendingReleases); replace(sim.players, data.players);
+    sim.byHex.clear(); for (const h of sim.hexes) sim.byHex.set(h.id, h);
+    for (const [owner, debt] of data.strandedDebt) sim.strandedDebt.set(owner, debt);
+    sim.timeMs = data.timeMs; sim.winner = data.winner; sim.accumulatorMs = data.accumulatorMs; sim.serial = data.serial;
+    sim.shotSerial = data.shotSerial; sim.reinforcementSerial = data.reinforcementSerial; sim.retirementSerial = data.retirementSerial;
+    sim.nextBotBuildMs = data.nextBotBuildMs; sim.botCard = data.botCard;
+    return sim;
   }
 
   resources(playerId: number): { committed: number; capacity: number; stranded: number } {

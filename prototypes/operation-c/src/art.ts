@@ -53,6 +53,28 @@ export function playerColor(owner: number | null): number {
   return owner === null || !Number.isFinite(owner) ? PALETTE.seam : COLORS[((Math.trunc(owner) % COLORS.length) + COLORS.length) % COLORS.length];
 }
 
+/** One active faction order, drawn under the commanded HQ rather than the selection. */
+export function drawHqCommand(g:Graphics,x:number,y:number,r:number,attack:boolean,phase:number):void {
+  const color=attack?0xf3ac3f:0x19b9be,pulse=(1-Math.cos(phase*TAU))/2,cy=y+r*0.18;
+  g.fillStyle(color,0.1+0.08*pulse).fillEllipse(x,cy,r*2.85,r*1.9);
+  g.lineStyle(5,PALETTE.ink,0.65).strokeEllipse(x,cy,r*2.65,r*1.76);
+  g.lineStyle(3,color,1).strokeEllipse(x,cy,r*2.65,r*1.76);
+  g.lineStyle(2,color,0.65*(1-phase)).strokeEllipse(x,cy,r*(2.65+phase*0.6),r*(1.76+phase*0.4));
+  for(let i=0;i<6;i++) {
+    const angle=i*TAU/6,dx=Math.cos(angle),dy=Math.sin(angle),distance=r*(1.42-phase*0.25);
+    const tip={x:x+dx*(distance-r*0.19),y:cy+dy*(distance-r*0.19)*0.66};
+    const points=[tip,{x:x+dx*distance-dy*r*0.12,y:cy+(dy*distance+dx*r*0.12)*0.66},{x:x+dx*distance+dy*r*0.12,y:cy+(dy*distance-dx*r*0.12)*0.66}];
+    g.lineStyle(2,PALETTE.ink,0.85).strokePoints(points,true);
+    g.fillStyle(0xfff6db,1).fillPoints(points,true);
+  }
+}
+
+export function drawUpgradeReady(g:Graphics,x:number,y:number,r:number,bob:number):void {
+  const cy=y-r*0.98-bob,points=[{x:x,y:cy-r*0.22},{x:x+r*0.2,y:cy},{x:x+r*0.08,y:cy},{x:x+r*0.08,y:cy+r*0.2},{x:x-r*0.08,y:cy+r*0.2},{x:x-r*0.08,y:cy},{x:x-r*0.2,y:cy}];
+  g.lineStyle(3,PALETTE.ink,0.95).strokePoints(points,true);
+  g.fillStyle(0xffe59a,1).fillPoints(points,true);
+}
+
 function committedColor(owner: number | null): number {
   const c = playerColor(owner);
   return (Math.round((c >> 16 & 255) * 0.66) << 16)

@@ -1,6 +1,12 @@
-# Operation C — RTS roster sandbox
+# Operation C — private-room 1v1 prototype
 
-Mobile-first local human-v-bot preview. This is the first systems slice, not the full six-player Eurasia game.
+Mobile-first RTS with online two-human private rooms and a local human-versus-bot mode. The current map and roster are a systems slice of the eventual FFA game.
+
+## Online play
+
+Choose your eight-card loadout, click HOST 1V1, then COPY INVITE and share that link with one opponent. Each player chooses their loadout and clicks READY; both ready starts a three-second countdown. No account is required. Rooms hold two authenticated seats, including disconnected players; a third visitor cannot take one. Reload the original tab to reconnect to the same seat. The match continues during disconnects and cannot be paused. NEW MATCH returns to loadout; host a fresh room for a rematch.
+
+The client uses the isolated `operation-c-online.tianz-88.workers.dev` server. Local development defaults to port 8789; `?server=https://operation-c-online.tianz-88.workers.dev` allows a local client to use the public server. Both invite recipients need access to the client URL: a localhost invite cannot be opened on another person's device. Seat tokens remain in tab session storage and are absent from invite links; closing the tab or clearing storage can lose the seat. Rooms are for small private playtests, with no matchmaking, spectators or saved account progression. See [server setup and lifecycle](server/README.md).
 
 ## Play
 
@@ -18,7 +24,7 @@ Infantry attacks ground/air; tanks and Artillery ground; helicopters ground; fig
 
 Regular, Missile and Machine-gun Infantry occupy one hex as five-member squads. Members have individual HP/damage and focus one target. Single hits affect one member with no damage spillover; splash can damage multiple members. Producers dispatch only missing members after cooldown, counting members already travelling. Reinforcements are visual/non-interactable until arrival, add full-HP members without healing survivors, and vanish if their target squad dies.
 
-The provisional stats and remaining full-game design are in BRIEF.md and tune.json. The current bot can research/upgrade; this is still a local systems preview, not six-player multiplayer.
+The provisional stats and remaining full-game design are in BRIEF.md and tune.json. The local bot can research/upgrade; online rooms use two humans and no bot.
 
 ## Development
 
@@ -27,8 +33,10 @@ From repository root, after `npm ci`:
 ```sh
 node node_modules/vite/bin/vite.js --config prototypes/operation-c/vite.config.ts
 node prototypes/operation-c/tests/run.mjs
+node prototypes/operation-c/tests/online.mjs
 node scripts/generate-versions.js
 npx tsc --noEmit -p prototypes/operation-c/tsconfig.json
+npx tsc --noEmit -p prototypes/operation-c/server/tsconfig.json
 npx vite build --config prototypes/operation-c/vite.config.ts
 ```
 
@@ -46,6 +54,8 @@ Browser checks use `scripts/screenshot-operation-c.mjs <url> <output-dir>`. Set 
 - catalog.ts: shared military building/unit names and role descriptions.
 - main.ts: scrollable split-stat loadout, pinned sockets, classic RTS canvas HUD, placement feedback, cached terrain, live units and scripted spawn/movement.
 - tests/run.mjs: behavior tests using the existing TypeScript compiler; no new application dependencies.
+- online-protocol.ts / online-client.ts: strict command envelopes, revisioned record deltas, authenticated reconnect and a read-only server-state mirror.
+- server/: isolated authoritative Worker/Durable Object room, checkpoints, ready/countdown, deduplication and command validation.
 
 Firestorm main f584c590d52e0f8802c55b90aaa870d4a9c85fdc, particularly arena-sim and firestorm-net, informed separation of commands, pure rules, deterministic timing and authoritative-state presentation. This prototype has different occupancy, construction and capture rules; it does not connect to Firestorm or alter its server.
 
@@ -53,4 +63,4 @@ Firestorm main f584c590d52e0f8802c55b90aaa870d4a9c85fdc, particularly arena-sim 
 
 271-hex radius-nine test map; HQ centre supplies no capacity; capacity capped at 200 while additional land stays capturable; sample unit damage/health/movement/ranges and all combat timers are balance placeholders. Infantry prioritizes capture; other capturing ground units capture only in Expand mode while friendly territory is clear of intruders. Flak guards against air instead of capturing. Non-neutral capture takes 1.5x neutral duration. No ranged line-of-sight obstruction yet. Elimination removes remaining structures without a burn cascade. HQ pressure retakes unoccupied nearby enemy land using normal enemy capture duration. Movement reserves both endpoints until arrival, so queues cannot exchange places. These are documented test assumptions, not final design decisions.
 
-Pending: complete Eurasia map, six players/networking, three races and full race catalogs, final balance and physical phone performance/orientation testing.
+Pending: utility/nuclear mechanics, complete Eurasia map, six-player rooms, three races and full race catalogs, final balance and physical phone performance/orientation testing.
