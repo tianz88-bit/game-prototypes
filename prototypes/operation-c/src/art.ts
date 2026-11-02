@@ -11,9 +11,10 @@ export const PALETTE = {
   valid: 0x81b960, invalid: 0xd85e53,
 } as const;
 type Graphics = Phaser.GameObjects.Graphics;
-export type UnitKind = 'infantry' | 'tank' | 'artillery' | 'helicopter' | 'fighter' | 'missile' | 'bomber' | 'mlrs';
+export type UnitKind = 'infantry' | 'tank' | 'artillery' | 'helicopter' | 'fighter' | 'missile' | 'bomber' | 'mlrs'
+  | 'scout' | 'gunner' | 'flak' | 'walker' | 'destroyer' | 'gunship' | 'siege' | 'carrier';
 export type BuildingKind = 'hq' | UnitKind;
-export type CommitmentKind = 'building' | 'upgrade' | 'research';
+export type CommitmentKind = 'building' | 'upgrade' | 'research' | 'release';
 export interface HexOptions {
   owner: number | null; burnt: boolean; committed: boolean;
   commitment?: CommitmentKind;
@@ -61,7 +62,7 @@ function committedColor(owner: number | null): number {
 /** Static upgrade arrow can be cached. Draw research markers separately each
  * frame above cached terrain, passing real-time milliseconds for gentle bobbing. */
 export function drawCommitmentMarker(g: Graphics, x: number, y: number, r: number, type: CommitmentKind, time = 0): void {
-  if (!(r > 0) || type === 'building') return;
+  if (!(r > 0) || type === 'building' || type === 'release') return;
   if (type === 'upgrade') {
     const cy = y + r * 0.15;
     g.fillStyle(PALETTE.cream, 0.85).fillRect(x - r * 0.055, cy - r * 0.05, r * 0.11, r * 0.24);
@@ -77,6 +78,21 @@ export function drawCommitmentMarker(g: Graphics, x: number, y: number, r: numbe
   g.lineBetween(x - r * 0.13, cy - r * 0.28, x + r * 0.13, cy - r * 0.28);
   g.lineStyle(Math.max(1, r * 0.035), PALETTE.cream, 0.38)
     .lineBetween(x - r * 0.14, cy + r * 0.1, x + r * 0.14, cy + r * 0.1);
+}
+
+/** Destroyed-support release: progress is ELAPSED fraction (0..1), not seconds
+ * remaining. The remaining arc shrinks; completed overlays draw nothing. */
+export function drawReleaseCountdown(g: Graphics, x: number, y: number, r: number, progress: number): void {
+  const p = clamp(progress);
+  if (!(r > 0) || p >= 1) return;
+  const radius = r * 0.29;
+  g.fillStyle(PALETTE.cream, 0.76).fillCircle(x, y, radius * 1.2);
+  g.lineStyle(Math.max(1, r * 0.035), PALETTE.ink, 0.25).strokeCircle(x, y, radius);
+  g.lineStyle(Math.max(1.5, r * 0.06), PALETTE.metal, 0.85).beginPath()
+    .arc(x, y, radius, -Math.PI / 2 + p * TAU, Math.PI * 1.5, false).strokePath();
+  g.lineStyle(Math.max(1, r * 0.04), PALETTE.ink, 0.7)
+    .lineBetween(x, y, x, y - radius * 0.6).lineBetween(x, y, x + radius * 0.43, y + radius * 0.18);
+  g.fillStyle(PALETTE.ink, 0.7).fillCircle(x, y, r * 0.025);
 }
 
 /** Pointy-top circumradius, with vertical projection applied after construction. */
@@ -260,6 +276,71 @@ function badge(g: Graphics, owner: number, x: number, y: number, r: number) {
   } else g.strokeCircle(x, y, r);
 }
 
+/** Additional producer silhouettes share the foundation, not the roof profile. */
+function expandedProducer(g: Graphics, kind: BuildingKind, color: number): boolean {
+  switch (kind) {
+    case 'scout':
+      // Recon post: open-sided canopy with a high observation mast.
+      g.fillStyle(PALETTE.ink).fillRect(-0.5, -0.4, 0.09, 0.7).fillRect(0.4, -0.4, 0.09, 0.7);
+      g.fillStyle(color).fillTriangle(-0.68, -0.36, 0, -0.73, 0.68, -0.36);
+      g.lineStyle(0.045, PALETTE.ink).lineBetween(0.33, -0.65, 0.33, -1.13);
+      g.fillStyle(PALETTE.metal).fillEllipse(0.33, -1.1, 0.42, 0.16);
+      g.fillStyle(PALETTE.cream).fillRect(-0.35, 0.03, 0.64, 0.12); return true;
+    case 'gunner':
+      // Support barracks: twin pitched roofs and sandbag bunker mouth.
+      g.fillStyle(color).fillTriangle(-0.65, -0.36, -0.32, -0.82, 0, -0.36)
+        .fillTriangle(-0.03, -0.36, 0.3, -0.82, 0.65, -0.36);
+      g.fillStyle(PALETTE.ink).fillRoundedRect(-0.39, -0.17, 0.78, 0.48, 0.05);
+      g.fillStyle(PALETTE.side).fillRoundedRect(-0.58, 0.19, 0.4, 0.16, 0.06)
+        .fillRoundedRect(0.18, 0.19, 0.4, 0.16, 0.06);
+      g.lineStyle(0.08, PALETTE.metal).lineBetween(-0.1, -0.48, 0.48, -0.48); return true;
+    case 'flak':
+      // Air defence: raised radar cup and conspicuous paired vertical cannons.
+      g.fillStyle(color).fillRoundedRect(-0.4, -0.61, 0.8, 0.34, 0.09);
+      g.lineStyle(0.08, PALETTE.ink).lineBetween(-0.19, -0.55, -0.32, -1.05)
+        .lineBetween(0.13, -0.55, 0.26, -1.05);
+      g.fillStyle(PALETTE.cream).fillEllipse(0, -0.67, 0.38, 0.18);
+      g.fillStyle(PALETTE.ink).fillRect(-0.25, 0.1, 0.5, 0.26); return true;
+    case 'walker':
+      // Assault foundry: tall gantry, suspended assembly cradle and side towers.
+      g.fillStyle(PALETTE.metal).fillRect(-0.59, -0.98, 0.18, 1.28).fillRect(0.41, -0.98, 0.18, 1.28);
+      g.fillStyle(color).fillRoundedRect(-0.66, -1.06, 1.32, 0.25, 0.04);
+      g.lineStyle(0.05, PALETTE.ink).lineBetween(0, -0.81, 0, -0.49);
+      g.fillStyle(PALETTE.ink).fillRoundedRect(-0.22, -0.51, 0.44, 0.4, 0.08);
+      g.fillStyle(PALETTE.cream).fillRect(-0.14, -0.4, 0.28, 0.065); return true;
+    case 'destroyer':
+      // Anti-tank depot: low wedge roof and a long horizontal weapon test bed.
+      g.fillStyle(color).fillTriangle(-0.62, -0.34, -0.45, -0.75, 0.62, -0.34);
+      g.fillStyle(PALETTE.metal).fillRoundedRect(-0.25, -0.6, 0.45, 0.19, 0.03);
+      g.lineStyle(0.11, PALETTE.ink).lineBetween(-0.09, -0.54, 0.78, -0.54);
+      g.fillStyle(PALETTE.ink).fillRect(-0.44, 0.08, 0.32, 0.28).fillRect(0.19, 0.08, 0.32, 0.28); return true;
+    case 'gunship':
+      // Attack helipad: two fortified roof shoulders and a raised landing deck.
+      g.fillStyle(color).fillRoundedRect(-0.62, -0.8, 0.27, 0.71, 0.04)
+        .fillRoundedRect(0.35, -0.8, 0.27, 0.71, 0.04);
+      g.fillStyle(PALETTE.metal).fillEllipse(0, -0.63, 1.18, 0.36);
+      g.lineStyle(0.045, PALETTE.cream).strokeEllipse(0, -0.63, 0.83, 0.24)
+        .lineBetween(-0.12, -0.63, 0.12, -0.63);
+      g.fillStyle(PALETTE.ink).fillRoundedRect(-0.28, -0.11, 0.56, 0.47, 0.04); return true;
+    case 'siege':
+      // Siege foundry: broad arched furnace and twin squat exhaust chimneys.
+      g.fillStyle(PALETTE.metal).fillRect(-0.57, -1, 0.24, 0.73).fillRect(0.33, -1, 0.24, 0.73);
+      g.fillStyle(color).fillRoundedRect(-0.61, -0.73, 1.22, 0.82, 0.23);
+      g.fillStyle(PALETTE.ink).fillRoundedRect(-0.4, -0.41, 0.8, 0.76, 0.17);
+      g.lineStyle(0.07, PALETTE.cream).lineBetween(-0.26, -0.23, 0.26, -0.23);
+      g.fillStyle(PALETTE.side).fillRect(-0.42, 0.27, 0.84, 0.08); return true;
+    case 'carrier':
+      // Carrier command: wide flight deck with a narrow side control island.
+      g.fillStyle(PALETTE.metal).fillRoundedRect(-0.73, -0.67, 1.46, 0.47, 0.05);
+      g.fillStyle(color).fillRoundedRect(-0.73, -0.73, 1.46, 0.24, 0.04);
+      g.lineStyle(0.045, PALETTE.cream).lineBetween(-0.52, -0.61, 0.27, -0.61);
+      g.fillStyle(PALETTE.metal).fillRect(0.29, -1.07, 0.26, 0.51);
+      g.fillStyle(PALETTE.ink).fillRect(0.25, -1.08, 0.35, 0.13);
+      g.fillStyle(PALETTE.ink).fillRect(-0.38, 0.02, 0.76, 0.33); return true;
+    default: return false;
+  }
+}
+
 export function drawBuilding(g: Graphics, x: number, y: number, size: number, owner: number, kind: BuildingKind, o: BuildingOptions = DEFAULT_BUILDING_OPTIONS): void {
   if (!(size > 0)) return;
   const color = playerColor(owner);
@@ -276,6 +357,8 @@ export function drawBuilding(g: Graphics, x: number, y: number, size: number, ow
     g.fillStyle(PALETTE.ink).fillRoundedRect(-0.17, 0.06, 0.34, 0.31, 0.03);
     g.lineStyle(0.045, PALETTE.ink).lineBetween(0.22, -0.96, 0.22, -1.34);
     g.fillStyle(color).fillTriangle(0.24, -1.34, 0.58, -1.22, 0.24, -1.1);
+  } else if (expandedProducer(g, kind, color)) {
+    // Dedicated silhouette drawn above the shared foundation.
   } else if (kind === 'infantry' || kind === 'missile') {
     // Barracks: broad low roof, two doorways, helmet-shaped roof emblem.
     g.fillStyle(color).fillRoundedRect(-0.55, -0.57, 1.1, 0.29, 0.05);
@@ -358,6 +441,80 @@ export function drawBuilding(g: Graphics, x: number, y: number, size: number, ow
 
 const SQUAD_POSITIONS = [[-0.3, -0.17], [0.3, -0.17], [-0.43, 0.22], [0, 0.3], [0.43, 0.22]] as const;
 
+function expandedUnit(g: Graphics, kind: UnitKind, color: number, phase: number, moving: boolean, opacity: number): boolean {
+  if (kind === 'scout' || kind === 'flak') {
+    // Exposed buggy cage versus armoured AA rover with upright twin guns.
+    for (const wx of [-0.4, 0.36]) {
+      g.fillStyle(PALETTE.ink, opacity).fillCircle(wx, 0.18, 0.19);
+      g.fillStyle(PALETTE.metal, opacity).fillCircle(wx, 0.18, 0.085);
+    }
+    g.fillStyle(color, opacity).fillRoundedRect(-0.55, -0.17, 1.08, 0.3, 0.08);
+    if (kind === 'scout') {
+      g.lineStyle(0.065, PALETTE.ink, opacity).lineBetween(-0.23, -0.15, -0.18, -0.48)
+        .lineBetween(-0.18, -0.48, 0.22, -0.48).lineBetween(0.22, -0.48, 0.31, -0.15);
+      g.fillStyle(PALETTE.ink, opacity).fillRoundedRect(-0.13, -0.25, 0.3, 0.15, 0.035);
+      g.fillStyle(PALETTE.cream, opacity).fillRect(0.39, -0.12, 0.12, 0.07);
+      g.lineStyle(0.03, PALETTE.ink, opacity).lineBetween(-0.42, -0.16, -0.48, -0.69);
+    } else {
+      g.fillStyle(PALETTE.metal, opacity).fillRoundedRect(-0.34, -0.39, 0.65, 0.3, 0.06);
+      g.lineStyle(0.085, PALETTE.ink, opacity).lineBetween(-0.12, -0.32, 0.08, -0.82)
+        .lineBetween(0.1, -0.32, 0.3, -0.82);
+      g.fillStyle(color, opacity).fillEllipse(-0.24, -0.45, 0.3, 0.13);
+    }
+    return true;
+  }
+  if (kind === 'walker') {
+    const stride = moving ? Math.sin(phase) * 0.1 : 0;
+    g.lineStyle(0.17, PALETTE.metal, opacity).lineBetween(-0.2, -0.18, -0.35 - stride, 0.25)
+      .lineBetween(0.2, -0.18, 0.35 + stride, 0.25);
+    g.fillStyle(PALETTE.ink, opacity).fillRoundedRect(-0.54 - stride, 0.18, 0.38, 0.16, 0.035)
+      .fillRoundedRect(0.17 + stride, 0.18, 0.38, 0.16, 0.035);
+    g.fillStyle(color, opacity).fillRoundedRect(-0.4, -0.82, 0.8, 0.65, 0.14);
+    g.fillStyle(PALETTE.ink, opacity).fillRoundedRect(-0.2, -0.68, 0.45, 0.13, 0.035);
+    g.fillStyle(PALETTE.cream, opacity).fillRect(-0.14, -0.66, 0.2, 0.035);
+    g.fillStyle(PALETTE.metal, opacity).fillRoundedRect(0.26, -0.43, 0.48, 0.16, 0.035);
+    g.fillStyle(PALETTE.ink, opacity).fillRect(0.64, -0.4, 0.16, 0.09); return true;
+  }
+  if (kind === 'destroyer' || kind === 'siege') {
+    const heavy = kind === 'siege';
+    g.fillStyle(PALETTE.ink, opacity).fillRoundedRect(-0.64, -0.28, 1.25, 0.23, 0.07)
+      .fillRoundedRect(-0.64, 0.16, 1.25, 0.23, 0.07);
+    g.fillStyle(color, opacity).fillRoundedRect(-0.56, -0.22, 1.12, 0.48, 0.09);
+    g.fillStyle(PALETTE.metal, opacity).fillTriangle(-0.52, -0.12, 0.36, -0.5, 0.47, 0.02);
+    if (heavy) {
+      g.fillStyle(color, opacity).fillRoundedRect(-0.4, -0.55, 0.79, 0.42, 0.07);
+      g.lineStyle(0.22, PALETTE.ink, opacity).lineBetween(0.17, -0.37, 0.9, -0.37);
+      g.lineStyle(0.11, PALETTE.metal, opacity).lineBetween(0.2, -0.4, 0.87, -0.4);
+      g.fillStyle(PALETTE.cream, opacity).fillRect(-0.3, -0.53, 0.48, 0.055);
+      g.lineStyle(0.08, PALETTE.metal, opacity).lineBetween(-0.54, 0.21, -0.73, 0.44)
+        .lineBetween(0.48, 0.21, 0.68, 0.44);
+    } else {
+      g.lineStyle(0.1, PALETTE.ink, opacity).lineBetween(0.04, -0.28, 1.02, -0.28);
+      g.lineStyle(0.045, PALETTE.metal, opacity).lineBetween(0.04, -0.3, 1.02, -0.3);
+      g.fillStyle(PALETTE.cream, opacity).fillRect(-0.35, -0.18, 0.22, 0.07);
+    }
+    return true;
+  }
+  if (kind === 'carrier') {
+    // Broad assault transport: deep central hull, short wings and four lift pods.
+    g.fillStyle(PALETTE.metal, opacity).fillRoundedRect(-0.64, -0.29, 1.23, 0.4, 0.12);
+    g.fillStyle(color, opacity).fillTriangle(-0.17, -0.12, -0.44, -0.7, 0.28, -0.12)
+      .fillTriangle(-0.17, -0.02, -0.44, 0.51, 0.28, -0.02);
+    for (let i = 0; i < 2; i++) {
+      const py = i === 0 ? -0.56 : 0.29;
+      g.fillStyle(PALETTE.ink, opacity).fillRoundedRect(-0.43, py, 0.35, 0.17, 0.05)
+        .fillRoundedRect(0.09, py, 0.35, 0.17, 0.05);
+      g.fillStyle(PALETTE.cream, opacity * 0.7).fillRect(-0.37, py + 0.04, 0.17, 0.03)
+        .fillRect(0.15, py + 0.04, 0.17, 0.03);
+    }
+    g.fillStyle(color, opacity).fillRoundedRect(-0.58, -0.28, 1.22, 0.35, 0.12);
+    g.fillStyle(PALETTE.ink, opacity).fillRoundedRect(0.3, -0.22, 0.26, 0.14, 0.04);
+    g.fillStyle(PALETTE.cream, opacity).fillRect(-0.43, -0.27, 0.55, 0.05);
+    g.lineStyle(0.04, PALETTE.ink, opacity).lineBetween(-0.39, -0.09, -0.1, -0.09); return true;
+  }
+  return false;
+}
+
 export function drawUnit(g: Graphics, x: number, y: number, size: number, owner: number, kind: UnitKind, o: UnitOptions = DEFAULT_UNIT_OPTIONS): void {
   if (!(size > 0)) return;
   const color = playerColor(owner), phase = o.phase ?? 0;
@@ -370,10 +527,12 @@ export function drawUnit(g: Graphics, x: number, y: number, size: number, owner:
   g.lineStyle(0.055, color, opacity).strokeEllipse(0, 0.23, 1.16, 0.46);
   if (opacity === 1) badge(g, owner, -0.44, 0.23, 0.055);
   g.save().scaleCanvas(o.facingX === -1 ? -1 : 1, 1);
-  const airborne = kind === 'helicopter' || kind === 'fighter' || kind === 'bomber';
+  const airborne = kind === 'helicopter' || kind === 'fighter' || kind === 'bomber' || kind === 'gunship' || kind === 'carrier';
   // x/y always identify the ground hex. Only the air body floats; UI stays grounded.
   if (airborne) g.translateCanvas(0, -0.42 - Math.sin(phase) * 0.035);
-  if (kind === 'infantry' || kind === 'missile') {
+  if (expandedUnit(g, kind, color, phase, !!o.moving, opacity)) {
+    // Body drawn, with ring and attack direction still handled by the caller frame.
+  } else if (kind === 'infantry' || kind === 'missile' || kind === 'gunner') {
     const squad = o.members !== undefined || o.memberCount !== undefined;
     const count = o.members ? Math.min(5, o.members.length) : Math.min(5, Math.max(0, Math.trunc(o.memberCount ?? 1)));
     for (let member = 0; member < count; member++) {
@@ -397,11 +556,16 @@ export function drawUnit(g: Graphics, x: number, y: number, size: number, owner:
       g.lineStyle(0.19, PALETTE.ink, opacity).lineBetween(-0.2 - kick, -0.4, 0.58 - kick, -0.48);
       g.lineStyle(0.11, PALETTE.metal, opacity).lineBetween(-0.2 - kick, -0.42, 0.56 - kick, -0.5);
       g.fillStyle(PALETTE.cream, opacity).fillTriangle(0.56 - kick, -0.61, 0.78 - kick, -0.51, 0.56 - kick, -0.4);
+    } else if (kind === 'gunner') {
+      g.fillStyle(PALETTE.metal, opacity).fillRoundedRect(-0.03 - kick, -0.37, 0.49, 0.16, 0.03);
+      g.lineStyle(0.09, PALETTE.ink, opacity).lineBetween(0.33 - kick, -0.3, 0.79 - kick, -0.3);
+      g.fillStyle(0xd6aa3f, opacity).fillRect(0.07 - kick, -0.23, 0.16, 0.19);
+      g.lineStyle(0.04, PALETTE.ink, opacity).lineBetween(0.58 - kick, -0.29, 0.5 - kick, 0.02);
     } else g.lineStyle(0.11, PALETTE.ink, opacity).lineBetween(0.06 - kick, -0.21, 0.58 - kick, -0.33);
     g.fillStyle(0xe7bf90, opacity).fillCircle(0.24 - kick, -0.26, 0.085);
       g.restore();
     }
-  } else if (kind === 'helicopter') {
+  } else if (kind === 'helicopter' || kind === 'gunship') {
     // Side-on toy helicopter: tail boom, rounded cabin, skids and projected rotor.
     g.lineStyle(0.1, PALETTE.metal, opacity).lineBetween(-0.22, -0.21, -0.76, -0.34);
     g.fillStyle(color, opacity).fillTriangle(-0.82, -0.33, -0.63, -0.33, -0.8, -0.59);
@@ -419,6 +583,13 @@ export function drawUnit(g: Graphics, x: number, y: number, size: number, owner:
     g.lineStyle(0.055, PALETTE.ink, opacity).lineBetween(-0.04 - rx, -0.65 - ry, -0.04 + rx, -0.65 + ry)
       .lineBetween(-0.04 - sx, -0.65 - sy, -0.04 + sx, -0.65 + sy);
     g.fillStyle(PALETTE.cream, opacity).fillCircle(-0.04, -0.65, 0.055);
+    if (kind === 'gunship') {
+      g.fillStyle(PALETTE.metal, opacity).fillRoundedRect(-0.33, -0.18, 0.76, 0.26, 0.06);
+      g.fillStyle(color, opacity).fillRoundedRect(-0.43, -0.12, 0.27, 0.2, 0.04)
+        .fillRoundedRect(0.29, -0.12, 0.27, 0.2, 0.04);
+      g.fillStyle(PALETTE.ink, opacity).fillCircle(-0.29, -0.02, 0.065).fillCircle(0.43, -0.02, 0.065);
+      g.lineStyle(0.07, PALETTE.ink, opacity).lineBetween(0.28, 0.04, 0.67, 0.04);
+    }
   } else if (kind === 'bomber') {
     // Broad heavy wings, twin engines and rounded nose, distinct from the swept jet.
     g.fillStyle(PALETTE.metal, opacity).fillTriangle(0.17, -0.16, -0.42, -0.72, -0.36, 0.51);
@@ -502,8 +673,9 @@ export function drawUnit(g: Graphics, x: number, y: number, size: number, owner:
 export function drawRetreat(g: Graphics, x: number, y: number, r: number, owner: number, kind: UnitKind, progress: number, members?: number[]): void {
   const p = clamp(progress);
   if (p >= 1 || !(r > 0)) return;
-  const squad = (kind === 'infantry' || kind === 'missile') && members !== undefined;
-  const size = r * (squad ? 0.8 : kind === 'infantry' || kind === 'missile' ? 0.58 : 0.69);
+  const infantry = kind === 'infantry' || kind === 'missile' || kind === 'gunner';
+  const squad = infantry && members !== undefined;
+  const size = r * (squad ? 0.8 : infantry ? 0.58 : 0.69);
   drawUnit(g, x, y - r * p * 0.16, size, owner, kind, {
     moving: true, phase: p * 8, opacity: (1 - p) * (1 - p), members,
   });

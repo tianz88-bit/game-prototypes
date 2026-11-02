@@ -1,15 +1,14 @@
 import Phaser from 'phaser';
 import type { Pane } from 'tweakpane';
-import { OperationSim, DEFAULT_TUNE, BASE_CARDS } from './sim';
+import { OperationSim, DEFAULT_TUNE, BASE_CARDS, DEFAULT_LOADOUT } from './sim';
 import type { Building, Unit, CardKind, Hex, Tune } from './model';
-import { drawHex, drawBuilding, drawUnit, drawExplosion, drawCaptureFlip, drawBuildConfirmation, drawBulletTrace, drawCommitmentMarker, drawRetreat, playerColor, hexPoints } from './art';
+import { drawHex, drawBuilding, drawUnit, drawExplosion, drawCaptureFlip, drawBuildConfirmation, drawBulletTrace, drawCommitmentMarker, drawReleaseCountdown, drawRetreat, playerColor, hexPoints } from './art';
 import { Intents } from './input';
 import { VERSION_STAMP } from './version.generated';
+import { NAMES, UNIT_NAMES, NOTES } from './catalog';
 
-const CARDS: CardKind[] = ['infantry', 'tank', 'artillery', 'helicopter', 'fighter', 'mlrs'];
-const NAMES: Record<CardKind, string> = { infantry: 'BARRACKS', tank: 'FACTORY', artillery: 'ARTILLERY', helicopter: 'HANGAR', fighter: 'AIRFIELD', missile: 'ARMOURY', bomber: 'BOMBER AIRFIELD', mlrs: 'MLRS WORKS' };
-const ROLES: Record<CardKind, string> = { infantry: 'G > G/A', tank: 'G > G', artillery: 'G > G', helicopter: 'A > G', fighter: 'A > A', missile: 'G > G', bomber: 'A > G', mlrs: 'G > G' };
-const UNIT_NAMES: Record<CardKind,string> = { infantry:'INFANTRY SQUAD', missile:'MISSILE SQUAD', tank:'TANK', artillery:'ARTILLERY', helicopter:'HELICOPTER', fighter:'FIGHTER', bomber:'BOMBER', mlrs:'MLRS' };
+const CARDS = BASE_CARDS;
+const STARTER = [...DEFAULT_LOADOUT];
 const INK = '#203d46', MUTED = '#60767a', CREAM = 0xfff7e5;
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
 type Button = { id: string; x: number; y: number; w: number; h: number; run: () => void };
@@ -21,8 +20,15 @@ class Battlefield extends Phaser.Scene {
   private w = 0; private h = 0; private top = 0; private bottom = 0;
   private boardW = 0; private sideW = 0;
   private page: 'loadout' | 'battle' = 'loadout';
-  private loadout = new Set<CardKind>(CARDS);
+  private loadout = new Set<CardKind>(STARTER);
   private previewUpgrade = new Set<CardKind>();
+  private flips = new Map<CardKind, { born: number; toUpgrade: boolean }>();
+  private unitPortraits = false;
+  private loadoutScroll = 0; private loadoutMaxScroll = 0;
+  private loadoutTop = 0; private loadoutEnd = 0;
+  private cardArt!: Phaser.GameObjects.Graphics;
+  private cardMaskArt!: Phaser.GameObjects.Graphics;
+  private cardMask!: Phaser.Display.Masks.GeometryMask;
   private panel: 'build' | 'details' = 'build';
   private inspectedUnit = false;
   private inspectedSnapshot: Building | Unit | null = null;
@@ -64,6 +70,8 @@ class Battlefield extends Phaser.Scene {
     this.world = this.add.container();
     this.terrain = this.add.graphics(); this.overlay = this.add.graphics(); this.live = this.add.graphics(); this.feedback = this.add.graphics();
     this.world.add([this.terrain, this.overlay, this.live, this.feedback]);
+    this.cardArt = this.add.graphics(); this.cardMaskArt = this.make.graphics({ x: 0, y: 0 });
+    this.cardMask = this.cardMaskArt.createGeometryMask(); this.cardArt.setMask(this.cardMask);
     this.hud = this.add.graphics();
     this.indexHexes(); this.resize(true);
     this.inputs = new Intents(this.game.canvas, () => ({ w: this.w, h: this.h }));
@@ -73,7 +81,7 @@ class Battlefield extends Phaser.Scene {
     if (new URLSearchParams(location.search).has('debug')) void this.debugPanel();
     if (new URLSearchParams(location.search).get('test') === '1') {
       window.__operationC = {
-        snapshot: () => ({ page: this.page, paused: this.paused, loadout: [...this.loadout], inspected: this.inspected, inspectorKind: this.inspectedSnapshot?.kind, panel: this.panel, players: this.sim.players, reinforcements: this.sim.reinforcements, timeMs: this.sim.timeMs, buildings: this.sim.buildings, units: this.sim.units,
+        snapshot: () => ({ page: this.page, paused: this.paused, loadout: [...this.loadout], unitPortraits: this.unitPortraits, previewUpgrades: [...this.previewUpgrade], loadoutScroll: this.loadoutScroll, loadoutMaxScroll: this.loadoutMaxScroll, inspected: this.inspected, inspectorKind: this.inspectedSnapshot?.kind, panel: this.panel, players: this.sim.players, reinforcements: this.sim.reinforcements, timeMs: this.sim.timeMs, buildings: this.sim.buildings, units: this.sim.units,
           hexes: this.sim.hexes, resources: this.sim.resources(0), winner: this.sim.winner, target: this.sim.players[0].targetId,
           objects: this.children.length, textures: this.textures.getTextureKeys().length,
           selectedBuild: this.selected && this.chosenHex ? { hexId: this.chosenHex, valid: this.sim.placement(0, this.chosenHex, this.selected).ok } : null,
@@ -105,6 +113,7 @@ class Battlefield extends Phaser.Scene {
     const values = structuredClone(DEFAULT_TUNE);
     this.pane = new Pane({ title: 'Operation C · provisional tuning' });
     const capture = this.pane.addFolder({ title: 'Capture', expanded: false });
+    capture.addBinding(values.resources, 'destroyReleaseMs', { min: 1000, max: 30000, step: 1000 });
     capture.addBinding(values.capture, 'neutralMs', { min: 500, max: 10000, step: 100 });
     capture.addBinding(values.capture, 'ownedMultiplier', { min: 1, max: 4, step: 0.1 });
     capture.addBinding(values.capture, 'rollbackRate', { min: 0.05, max: 1, step: 0.05 });
@@ -120,7 +129,7 @@ class Battlefield extends Phaser.Scene {
     presentation.addBinding(values.presentation, 'captureLift', { min: 0.1, max: 1.4, step: 0.02 });
     presentation.addBinding(values.presentation, 'retreatMs', {min:200,max:1500,step:50});
     presentation.addBinding(values.presentation, 'shotTraceMs', { min: 100, max: 600, step: 20 });
-    for (const kind of CARDS) {
+    for (const kind of Object.keys(values.cards) as CardKind[]) {
       const folder = this.pane.addFolder({ title: NAMES[kind], expanded: false });
       for (const key of ['cost', 'damage', 'unitHp', 'moveMs', 'productionMs', 'attackMs', 'captureRate', 'minRange', 'range', 'buildMs'] as const)
         folder.addBinding(values.cards[kind], key, { min: key.endsWith('Ms') ? 100 : 0.1, max: key.endsWith('Ms') ? 30000 : 300 });
@@ -133,7 +142,7 @@ class Battlefield extends Phaser.Scene {
     });
   }
   private restart(tune?: Tune) {
-    this.sim = new OperationSim({ tune, bot: !(new URLSearchParams(location.search).get('test') === '1' && new URLSearchParams(location.search).get('bot') === '0'), loadouts: [[...this.loadout], [...BASE_CARDS]] }); this.page = 'battle'; this.indexHexes(); this.terrainSignature = '';
+    this.sim = new OperationSim({ tune, bot: !(new URLSearchParams(location.search).get('test') === '1' && new URLSearchParams(location.search).get('bot') === '0'), loadouts: [[...this.loadout], STARTER] }); this.page = 'battle'; this.indexHexes(); this.terrainSignature = '';
     this.seenUnits.clear(); this.seenBuildings.clear(); this.spawns.clear(); this.effects = [];
     this.facingX.clear(); this.traces = []; this.lastShotId = 0; this.retiredSeen = 0; this.retreats = []; this.inspectedSnapshot = null; this.panel = 'build';
     this.selected = null; this.chosenHex = null; this.inspected = null; this.paused = false;
@@ -144,8 +153,9 @@ class Battlefield extends Phaser.Scene {
     // This prevents the two command buttons colliding with the capacity display.
     this.uiScale = window.innerHeight < 520 && window.innerWidth >= 640 && window.innerWidth < 840 ? window.innerWidth / 840 : 1;
     this.w = Math.max(320, window.innerWidth) / this.uiScale; this.h = Math.max(320, window.innerHeight) / this.uiScale;
-    this.top = this.h < 520 ? 94 : this.w < 760 ? 138 : 110;
-    this.bottom = 0; this.sideW = this.w < 600 ? 150 : this.h < 520 ? 246 : 284; this.boardW = this.w - this.sideW;
+    this.top = this.h < 520 ? 82 : 98;
+    this.bottom = this.w < 600 ? 298 : this.h < 520 ? 154 : 220;
+    this.sideW = this.w / 2; this.boardW = this.w;
     this.scale.resize(Math.round(this.w * this.uiScale * DPR), Math.round(this.h * this.uiScale * DPR));
     this.cameras.main.setZoom(DPR * this.uiScale).centerOn(this.w / 2, this.h / 2);
     if (first) {
@@ -171,7 +181,7 @@ class Battlefield extends Phaser.Scene {
     return { x: this.boardW / 2 + this.panX + p.x * this.zoomLevel, y: (this.top + this.h - this.bottom) / 2 + this.panY + p.y * this.zoomLevel };
   }
   private at(x: number, y: number): Hex | undefined {
-    if (this.page !== 'battle' || x >= this.boardW || y < this.top || y > this.h) return;
+    if (this.page !== 'battle' || x >= this.boardW || y < this.top || y >= this.h - this.bottom) return;
     const localX = (x - this.world.x) / this.zoomLevel, localY = (y - this.world.y) / this.zoomLevel;
     let closest: Hex | undefined, best = Infinity;
     for (const h of this.sim.hexes) {
@@ -191,13 +201,14 @@ class Battlefield extends Phaser.Scene {
     if (button) { button.run(); return; }
     if (this.sim.winner !== null) return;
     const hex = this.at(x, y); if (!hex) return;
-    if (this.selected) {
+    const b = this.sim.buildings.find(b => b.hexId === hex.id);
+    const u = this.sim.units.find(u => u.hexId === hex.id);
+    if (this.selected && !b && !u && !hex.lockedBy && !hex.burnt) {
       if (this.chosenHex === hex.id) this.build();
       else { this.chosenHex = hex.id; const p = this.sim.placement(0, hex.id, this.selected); this.message = p.ok ? `${p.hexes.length} connected hexes · tap the hammer hex again to build.` : p.reason ?? 'Invalid placement.'; }
       return;
     }
-    const b = this.sim.buildings.find(b => b.hexId === hex.id);
-    const u = this.sim.units.find(u => u.hexId === hex.id);
+    this.selected = null; this.chosenHex = null;
     this.inspected = b?.id ?? u?.id ?? null; this.inspectedUnit = !b && !!u;
     this.inspectedSnapshot = b ?? u ?? null; this.panel = 'details';
     if (b?.kind === 'hq') {
@@ -211,15 +222,19 @@ class Battlefield extends Phaser.Scene {
     for (const event of this.inputs.drain()) {
       if (event.type === 'tap') this.tap(event.x, event.y);
       else if (event.type === 'hover') this.hover = this.at(event.x, event.y)?.id ?? null;
-      else if (event.type === 'pan') { this.panX += event.dx; this.panY += event.dy; }
+      else if (event.type === 'pan') { if(this.page==='loadout') this.loadoutScroll=Phaser.Math.Clamp(this.loadoutScroll-event.dy,0,this.loadoutMaxScroll);else {this.panX += event.dx; this.panY += event.dy;} }
       else if (event.type === 'zoom') {
+        if(this.page==='loadout') {this.loadoutScroll=Phaser.Math.Clamp(this.loadoutScroll-Math.log(event.factor)*500,0,this.loadoutMaxScroll);continue;}
         const before = this.zoomLevel; this.zoomLevel = Phaser.Math.Clamp(before * event.factor, 0.24, 2.4);
         this.panX *= this.zoomLevel / before; this.panY *= this.zoomLevel / before;
       } else if (event.type === 'key') {
+        if(this.page==='loadout'&&event.key==='home')this.loadoutScroll=0;
+        if(this.page==='loadout'&&event.key==='end')this.loadoutScroll=this.loadoutMaxScroll;
         if (event.key === ' ') this.paused = !this.paused;
         if (event.key === 'h') this.home();
         if (event.key === 'escape') { this.selected = null; this.chosenHex = null; }
-        const index = Number(event.key) - 1; if (index >= 0 && index < CARDS.length) this.selected = CARDS[index];
+        if(this.page==='loadout'&&(event.key==='arrowdown'||event.key==='arrowup')) this.loadoutScroll=Phaser.Math.Clamp(this.loadoutScroll+(event.key==='arrowdown'?100:-100),0,this.loadoutMaxScroll);
+        const index = Number(event.key) - 1; const deck=[...this.loadout];if(this.page==='battle'&&index>=0&&index<deck.length)this.chooseCard(deck[index]);
       }
     }
     if (this.page === 'battle' && !this.paused) this.sim.tick(Math.min(delta, 100) * this.speed);
@@ -252,6 +267,10 @@ class Battlefield extends Phaser.Scene {
       this.terrainSignature = signature;
     }
     this.overlay.clear(); this.live.clear(); this.feedback.clear();
+    for (const h of this.sim.hexes) if (h.commitment === 'release' && h.releaseAtMs !== undefined) {
+      const p = this.position(h);
+      drawReleaseCountdown(this.overlay, p.x, p.y, this.radius, 1 - Math.max(0, h.releaseAtMs - this.sim.timeMs) / this.sim.tune.resources.destroyReleaseMs);
+    }
     for (const h of this.sim.hexes) if (h.commitment === 'research') { const p = this.position(h); drawCommitmentMarker(this.overlay, p.x, p.y, this.radius, 'research', now); }
     for (const [id, flip] of this.captureFlips) {
       const h = this.byHex.get(id)!, p = this.position(h);
@@ -348,7 +367,7 @@ class Battlefield extends Phaser.Scene {
   private label(id: string, text: string, x: number, y: number, size = 14, color = INK, origin = 0) {
     let object = this.texts.get(id);
     if (!object) { object = this.add.text(x, y, '', { fontFamily: 'Arial, Helvetica, sans-serif', fontSize: size, color }).setResolution(DPR); this.texts.set(id, object); }
-    object.setVisible(true).setPosition(x, y).setOrigin(origin, 0).setColor(color).setFontSize(size);
+    object.setVisible(true).setPosition(x, y).setOrigin(origin, 0).setColor(color).setFontSize(size).setScale(1).setAlpha(1).setFontStyle('normal');
     if (object.text !== text) object.setText(text);
     return object;
   }
@@ -358,122 +377,193 @@ class Battlefield extends Phaser.Scene {
     this.label(id, title, x + w / 2, y + (h - 16) / 2, 13, active ? '#fff7e5' : disabled ? '#78887e' : INK, 0.5);
     this.buttons.push({ id, x, y, w, h, run: disabled ? () => {} : run });
   }
+  private chooseCard(kind: CardKind) {
+    this.selected=this.selected===kind?null:kind;
+    this.chosenHex=null;this.inspected=null;this.inspectedSnapshot=null;this.panel='build';
+    this.message=this.selected?'Choose open territory · tap its hammer again to build.':'Select a card or a force on the map.';
+  }
+  /** Same miniature factories for deck portraits and battlefield entities. */
+  private miniCard(id:string,kind:CardKind,x:number,y:number,w:number,h:number,run:()=>void,active=false,disabled=false) {
+    const c=this.sim.tune.cards[kind];this.button(id,'',x,y,w,h,run,active,disabled);
+    const r=Math.min(20,h*0.25,w*0.22),cx=x+w/2,cy=y+r+8;
+    if(this.unitPortraits)drawUnit(this.hud,cx,cy,r,0,kind,{members:c.squadSize?Array(c.squadSize).fill(c.unitHp):undefined});
+    else drawBuilding(this.hud,cx,cy,r,0,kind);
+    const color=disabled?MUTED:active?'#fff7e5':INK;
+    this.label(`${id}-name`,this.unitPortraits?UNIT_NAMES[kind]:NAMES[kind],cx,y+h-28,w<100?8:10,color,0.5).setWordWrapWidth(w-4).setAlign('center');
+    this.label(`${id}-cost`,`${c.cost} ◇ · ${c.buildMs/1000}s`,cx,y+h-12,9,color,0.5);
+  }
   private drawHud() {
-    this.hud.clear(); this.buttons = [];
-    for (const text of this.texts.values()) text.setVisible(false);
-    if (this.page === 'loadout') { this.drawLoadout(); return; }
-    const narrow = this.w < 600, compact = this.h < 520, pad = 12, r = this.sim.resources(0), p = this.sim.players[0];
-    this.hud.fillStyle(CREAM).fillRect(0,0,this.w,this.top).fillRect(this.boardW,this.top,this.sideW,this.h-this.top);
-    this.hud.lineStyle(1,0xbfc8b6).lineBetween(0,this.top,this.w,this.top).lineBetween(this.boardW,this.top,this.boardW,this.h);
-    this.label('title','OPERATION C',pad,10,narrow?20:24).setFontStyle('bold');
-    this.label('version',VERSION_STAMP,pad,38,9,'#84938c');
-    const rx = narrow ? this.w-pad : 250;
-    this.label('resources',`${r.committed} / ${r.capacity}`,rx,10,22,r.committed>r.capacity?'#b44739':'#187e88',narrow?1:0).setFontStyle('bold');
-    this.label('resourceLabel',`COMMITTED / CAPACITY${r.stranded ? ` · ${r.stranded} LOST` : ''}`,rx,36,8,MUTED,narrow?1:0);
-    const commandY = narrow ? 58 : 12, commandX = narrow ? pad : this.w-365, commandW = narrow ? (this.w-32)/2 : 166;
-    this.button('defend','HOME · EXPAND',commandX,commandY,commandW,32,()=>{this.sim.setTarget(0,0);this.selected=null;this.chosenHex=null;},p.targetId===0);
-    this.button('attack','ATTACK RIVAL HQ',commandX+commandW+8,commandY,commandW,32,()=>{this.sim.setTarget(0,1);this.selected=null;this.chosenHex=null;},p.targetId===1);
-    const research = p.research;
-    const researchLabel = research ? `T${research.fromTier} → T${research.toTier} · ${Math.ceil((research.completeAtMs-this.sim.timeMs)/1000)}s · CANCEL` : p.techTier<3 ? `RESEARCH T${p.techTier+1} · ${this.sim.tune.research.cost} TILES · ${(p.techTier===1?this.sim.tune.research.tier2Ms:this.sim.tune.research.tier3Ms)/1000}s` : 'T3 TECHNOLOGY READY';
-    this.button('research',researchLabel,pad,this.top-30,this.w-24,23,()=>{ const result=research?this.sim.cancelResearch(0):this.sim.startResearch(0);this.message=result.ok?(research?'Research cancelled.':'Research started.'):result.reason??'Research unavailable.'; },!!research,p.techTier===3&&!research);
-    if (research) {
-      const progress=1-(research.completeAtMs-this.sim.timeMs)/(research.completeAtMs-research.startedAtMs);
-      this.hud.fillStyle(0x218d98).fillRect(pad,this.top-5,(this.w-24)*Phaser.Math.Clamp(progress,0,1),3);
+    this.hud.clear();this.cardArt.clear();this.buttons=[];
+    for(const text of this.texts.values())text.setVisible(false);
+    if(this.page==='loadout'){this.drawLoadout();return;}
+    const narrow=this.w<600,compact=this.h<520,pad=10,p=this.sim.players[0],r=this.sim.resources(0),bottomY=this.h-this.bottom;
+    for(const hex of this.sim.hexes)if(hex.commitment==='release'&&hex.releaseAtMs!==undefined){
+      const point=this.toScreen(hex);
+      if(point.x>12&&point.x<this.w-12&&point.y>this.top+12&&point.y<bottomY-12)
+        this.label(`release-${hex.id}`,`${Math.ceil(Math.max(0,hex.releaseAtMs-this.sim.timeMs)/1000)}s`,point.x,point.y+9*this.zoomLevel,Math.max(8,10*this.zoomLevel),'#fff7e5',0.5);
     }
-    const sx=this.boardW+10, sw=this.sideW-20, by=this.top+9;
-    this.button('panel-build','BUILD',sx,by,(sw-6)/2,27,()=>{this.panel='build';},this.panel==='build');
-    this.button('panel-details','DETAILS',sx+(sw+6)/2,by,(sw-6)/2,27,()=>{this.panel='details';this.selected=null;this.chosenHex=null;},this.panel==='details');
-    let y=by+38;
-    if (this.panel==='build') {
-      const columns=compact?2:1, gap=6, cw=(sw-gap*(columns-1))/columns, ch=compact?40:49;
-      const visibleCards = this.selected && this.h < 740 ? [this.selected] : CARDS.filter(k=>this.loadout.has(k));
-      visibleCards.forEach((kind,i)=>{
-        const c=this.sim.tune.cards[kind],x=sx+(i%columns)*(cw+gap),cy=y+Math.floor(i/columns)*(ch+gap),locked=c.tier>p.techTier;
-        this.button(`card-${kind}`,'',x,cy,cw,ch,()=>{this.selected=this.selected===kind?null:kind;this.chosenHex=null;this.message=this.selected?'Choose an open owned hex, then tap its hammer again.':'Choose a building.';},this.selected===kind,locked);
-        drawBuilding(this.hud,x+17,cy+27,12,0,kind);
-        this.label(`cardName${i}`,NAMES[kind],x+32,cy+5,narrow||compact?9:12,locked?MUTED:this.selected===kind?'#fff7e5':INK).setFontStyle('bold');
-        this.label(`cardInfo${i}`,`${c.cost} tiles · T${c.tier}${locked?' · LOCKED':''}`,x+32,cy+22,narrow||compact?8:10,locked?MUTED:this.selected===kind?'#fff7e5':'#187e88');
-      });
-      y+=Math.ceil(visibleCards.length/columns)*(ch+gap)+5;
-      if (this.selected) {
-        const c=this.sim.tune.cards[this.selected];
-        this.label('cardDescription',`${ROLES[this.selected]} · R${c.minRange>1?`${c.minRange}-`:''}${c.range}\nBuild ${c.buildMs/1000}s · unit ${c.productionMs/1000}s`,sx,y,10,MUTED).setWordWrapWidth(sw);y+=39;
-        const valid=this.chosenHex?this.sim.placement(0,this.chosenHex,this.selected).ok:false;
-        this.button('build','BUILD HERE',sx,y,sw,30,()=>this.build(),true,!valid);y+=36;
-        this.button('cancel','CANCEL',sx,y,sw,27,()=>{this.selected=null;this.chosenHex=null;});y+=33;
-      }
-      this.label('status',this.message,sx,y,compact?9:10,MUTED).setWordWrapWidth(sw);
-    } else this.drawInspector(sx,y,sw);
-    const fy=this.h-72, half=(sw-6)/2;
-    this.button('home','MY HQ',sx,fy,half,27,()=>this.home());
-    this.button('overview','MAP',sx+half+6,fy,half,27,()=>{this.zoomLevel=this.fitZoom();this.panX=0;this.panY=0;});
-    this.button('pause',this.paused?'PLAY':'PAUSE',sx,fy+33,half,27,()=>{this.paused=!this.paused;});
-    this.button('restart','LOADOUT',sx+half+6,fy+33,half,27,()=>{this.page='loadout';this.selected=null;this.chosenHex=null;});
-    this.label('mapHint',`${Math.floor(this.sim.timeMs/60000)}:${String(Math.floor(this.sim.timeMs/1000)%60).padStart(2,'0')} · T${p.techTier} · drag / zoom`,10,this.h-19,10,MUTED);
-    if (this.sim.winner!==null) {
-      const width=Math.min(350,this.boardW-20),x=(this.boardW-width)/2,mid=(this.top+this.h)/2;
-      this.hud.fillStyle(0x153d4b,0.4).fillRect(0,this.top,this.boardW,this.h-this.top);
+    this.hud.fillStyle(CREAM).fillRect(0,0,this.w,this.top).fillRect(0,bottomY,this.w,this.bottom);
+    this.hud.lineStyle(2,0xa8bbaa).lineBetween(0,this.top,this.w,this.top).lineBetween(0,bottomY,this.w,bottomY).lineBetween(this.w/2,bottomY,this.w/2,this.h-32);
+    this.label('title','OPERATION C',pad,8,narrow?18:22).setFontStyle('bold');
+    this.label('version',VERSION_STAMP,pad,32,9,'#84938c');
+    this.label('resources',`${r.committed} / ${r.capacity} ◇`,this.w-pad,7,narrow?21:25,r.committed>r.capacity?'#b44739':'#187e88',1).setFontStyle('bold');
+    this.label('resourceLabel',`COMMITTED / CAPACITY${r.stranded?` · ${r.stranded} LOST`:''}`,this.w-pad,35,8,MUTED,1);
+    const research=p.research,ry=this.top-34;
+    const researchLabel=research?`T${research.fromTier} → T${research.toTier} · ${Math.ceil((research.completeAtMs-this.sim.timeMs)/1000)}s · CANCEL`:p.techTier<3?`RESEARCH T${p.techTier+1} · ${this.sim.tune.research.cost} TILES · ${(p.techTier===1?this.sim.tune.research.tier2Ms:this.sim.tune.research.tier3Ms)/1000}s`:'T3 TECHNOLOGY READY';
+    this.button('research',researchLabel,pad,ry,this.w-pad*2,26,()=>{const result=research?this.sim.cancelResearch(0):this.sim.startResearch(0);this.message=result.ok?(research?'Research cancelled.':'Research started.'):result.reason??'Research unavailable.';},!!research,p.techTier===3&&!research);
+    if(research)this.hud.fillStyle(0x218d98).fillRect(pad,this.top-5,(this.w-pad*2)*Phaser.Math.Clamp((this.sim.timeMs-research.startedAtMs)/(research.completeAtMs-research.startedAtMs),0,1),3);
+    const half=this.w/2,leftW=half-pad*2;
+    this.label('deckTitle','BUILD',pad,bottomY+7,10,MUTED).setFontStyle('bold');
+    this.button('portrait-toggle',this.unitPortraits?'UNITS':'BUILDINGS',Math.max(55,half-100),bottomY+4,90,22,()=>{this.unitPortraits=!this.unitPortraits;},this.unitPortraits);
+    const deck=[...this.loadout],cols=narrow?2:4,rows=Math.ceil(deck.length/cols),gap=4,cardY=bottomY+31,cw=(leftW-gap*(cols-1))/cols,ch=Math.min(narrow?62:76,(this.bottom-67-gap*(rows-1))/Math.max(rows,1));
+    deck.forEach((kind,i)=>this.miniCard(`card-${kind}`,kind,pad+i%cols*(cw+gap),cardY+Math.floor(i/cols)*(ch+gap),cw,ch,()=>this.chooseCard(kind),this.selected===kind,this.sim.tune.cards[kind].tier>p.techTier));
+    const x=half+pad,w=half-pad*2;
+    if(this.selected){
+      const c=this.sim.tune.cards[this.selected];
+      this.label('buildTitle',NAMES[this.selected],x,bottomY+9,narrow?12:16).setFontStyle('bold').setWordWrapWidth(w);
+      drawBuilding(this.hud,x+w/2,bottomY+(compact?60:80),compact?24:34,0,this.selected);
+      this.label('buildInfo',`${c.cost} tiles · ${c.buildMs/1000}s construction`,x,bottomY+(compact?84:117),narrow?10:12,MUTED).setWordWrapWidth(w);
+      this.label('buildHint',this.chosenHex?'Tap the hammer again to build.':'Choose an open owned hex.',x,bottomY+(compact?100:143),10,MUTED).setWordWrapWidth(w);
+      this.button('cancel','CANCEL',x,this.h-66,w,27,()=>{this.selected=null;this.chosenHex=null;});
+    }else if(this.inspectedSnapshot)this.drawInspector(x,bottomY+9,w,this.bottom-45);
+    else{
+      this.label('contextHint','COMMAND',x,bottomY+8,10,MUTED).setFontStyle('bold');
+      this.label('status','Select a force for its commands.\n\nYour HQ: expand & defend\nEnemy HQ: attack',x,bottomY+34,compact?10:12,MUTED).setWordWrapWidth(w);
+    }
+    const navW=Math.min(80,(this.w-36)/4),navY=this.h-28;
+    this.button('home','MY HQ',pad,navY,navW,23,()=>this.home());
+    this.button('overview','MAP',pad+navW+4,navY,navW,23,()=>{this.zoomLevel=this.fitZoom();this.panX=0;this.panY=0;});
+    this.button('pause',this.paused?'PLAY':'PAUSE',pad+(navW+4)*2,navY,navW,23,()=>{this.paused=!this.paused;});
+    this.button('restart','LOADOUT',pad+(navW+4)*3,navY,navW,23,()=>{this.page='loadout';this.selected=null;this.chosenHex=null;});
+    if(!narrow)this.label('mapHint',`${Math.floor(this.sim.timeMs/60000)}:${String(Math.floor(this.sim.timeMs/1000)%60).padStart(2,'0')} · T${p.techTier} · ${p.targetId===0?'EXPAND / DEFEND':'ATTACK HQ'}`,this.w-pad,this.h-23,10,MUTED,1);
+    if(this.sim.winner!==null){
+      const width=Math.min(350,this.boardW-20),x=(this.boardW-width)/2,mid=(this.top+bottomY)/2;
+      this.hud.fillStyle(0x153d4b,0.4).fillRect(0,this.top,this.boardW,bottomY-this.top);
       this.hud.fillStyle(CREAM).fillRoundedRect(x,mid-65,width,130,16);
       this.label('winner',this.sim.winner===0?'YOUR HQ STANDS':this.sim.winner===-1?'MUTUAL DESTRUCTION':'HQ DESTROYED',this.boardW/2,mid-44,narrow?15:22,INK,0.5).setFontStyle('bold');
       this.button('playAgain','NEW MATCH',this.boardW/2-65,mid+6,130,35,()=>{this.page='loadout';});
     }
   }
-  private drawInspector(x:number,y:number,w:number) {
+  private drawInspector(x:number,y:number,w:number,h:number){
     const live=this.inspectedUnit?this.sim.units.find(u=>u.id===this.inspected):this.sim.buildings.find(b=>b.id===this.inspected);
-    if (live) this.inspectedSnapshot=structuredClone(live);
-    const e=this.inspectedSnapshot;
-    if (!e) { this.label('inspectEmpty','Select a building or unit on the map to inspect it.',x,y,11,MUTED).setWordWrapWidth(w);return; }
-    const compact=this.h<520, font=this.w<600?10:12;
-    this.label('inspectTitle',e.kind==='hq'?'HEADQUARTERS':'unitId' in e?NAMES[e.kind]:UNIT_NAMES[e.kind],x,y,font+1).setFontStyle('bold').setWordWrapWidth(w);y+=compact?16:32;
-    this.label('inspectType',`${'unitId' in e?'BUILDING':'UNIT'} · ${e.owner===0?'YOUR':'RIVAL'}${live?'':' · DESTROYED'}`,x,y,9,MUTED).setWordWrapWidth(w);y+=compact?14:23;
-    if (e.kind==='hq') {
-      this.label('inspectStats',`HP ${Math.max(0,Math.ceil(e.hp))}/${e.maxHp}\nHex ${e.hexId}\nTech T${this.sim.players[e.owner].techTier}`,x,y,font).setWordWrapWidth(w);return;
+    if(live)this.inspectedSnapshot=structuredClone(live);
+    const e=this.inspectedSnapshot;if(!e)return;
+    const compact=this.h<520,small=this.w<600,fs=small?11:14,building='unitId' in e;
+    this.label('inspectTitle',e.kind==='hq'?'Headquarters':building?NAMES[e.kind]:UNIT_NAMES[e.kind],x,y,fs).setFontStyle('bold').setWordWrapWidth(w);
+    this.label('inspectType',`${e.owner===0?'YOUR':'RIVAL'} ${building?'BUILDING':'UNIT'}${live?'':' · DESTROYED'}`,x,y+22,8,MUTED);
+    this.label('inspectHealth',`HP ${Math.max(0,Math.ceil(e.hp))} / ${e.maxHp}${'members' in e&&e.members?` · ${e.members.length} members`:''}`,x,y+37,10,MUTED);
+    if(e.kind==='hq'){
+      const own=e.owner===0;
+      this.label('hqOrder',own?'Expand territory & defend intruders.':'Direct your forces at this HQ.',x,y+56,10,MUTED).setWordWrapWidth(w);
+      this.button(own?'defend':'attack',own?'EXPAND / DEFEND':'ATTACK THIS HQ',x,y+h-34,w,28,()=>{this.sim.setTarget(0,e.owner);this.selected=null;this.chosenHex=null;},this.sim.players[0].targetId===e.owner);return;
     }
     const c=this.sim.tune.cards[e.kind];
-    const stats='unitId' in e ? `HP ${Math.max(0,Math.ceil(e.hp))}/${e.maxHp}\nCost ${c.cost} · T${c.tier}\nProduction ${c.productionMs/1000}s\n${e.completeAtMs&&e.completeAtMs>this.sim.timeMs?`Constructing ${Math.ceil((e.completeAtMs-this.sim.timeMs)/1000)}s`:e.upgradeKind?`Upgrading ${Math.max(0,Math.ceil(((e.upgradeCompleteAtMs??0)-this.sim.timeMs)/1000))}s`:`Unit ready in ${Math.max(0,Math.ceil((e.readyAtMs-this.sim.timeMs)/1000))}s`}` : `HP ${Math.max(0,Math.ceil(e.hp))}/${e.maxHp}${e.members?` · ${e.members.length}/5`:''}\nDMG ${c.damage}${e.members?` × ${e.members.length}`:''} · ${c.attackMs/1000}s\nRange ${c.minRange}-${c.range}\nSpeed ${(1000/c.moveMs).toFixed(2)} hex/s\n${ROLES[e.kind]} · Hex ${e.hexId}`;
-    this.label('inspectStats',compact?stats.replace(/\n/g,' · '):stats,x,y,compact?10:font).setLineSpacing(compact?1:3).setWordWrapWidth(w);y+=compact?50:115;
-    if (live&&'unitId' in e&&e.owner===0) {
-      if (e.upgradeKind) {
-        this.button('cancel-upgrade','CANCEL UPGRADE',x,y,w,30,()=>{const result=this.sim.cancelUpgrade(0,e.id);this.message=result.ok?'Upgrade cancelled; production cooldown restarted.':result.reason??'Cannot cancel.';});y+=36;
-      } else if (c.upgradeTo) {
-        const target=this.sim.tune.cards[c.upgradeTo],result=this.sim.canUpgrade(0,e.id);
-        this.label('upgradeHint',`→ ${NAMES[c.upgradeTo]}\n+${target.cost-c.cost} tiles · ${(c.upgradeMs??0)/1000}s · T${target.tier}`,x,y,9,MUTED).setWordWrapWidth(w);y+=compact?28:39;
-        this.button('upgrade','UPGRADE',x,y,w,30,()=>{const r=this.sim.upgrade(0,e.id);this.message=r.ok?'Upgrade started; old forces recalled.':r.reason??'Cannot upgrade.';},false,!result.ok);y+=36;
-        if (!result.ok && !compact) {this.label('upgradeReason',result.reason??'',x,y,9,MUTED).setWordWrapWidth(w);y+=27;}
+    if(!building){
+      this.label('inspectUnit',`${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'AIR':'GROUND').join(' / ')}\n${NOTES[e.kind]}`,x,y+57,compact?9:11,MUTED).setWordWrapWidth(w);return;
+    }
+    const progress=e.completeAtMs&&e.completeAtMs>this.sim.timeMs?`Constructing ${Math.ceil((e.completeAtMs-this.sim.timeMs)/1000)}s`:e.upgradeKind?`Converting ${Math.max(0,Math.ceil(((e.upgradeCompleteAtMs??0)-this.sim.timeMs)/1000))}s`:`${c.cost} tiles · ${c.buildMs/1000}s construction`;
+    this.label('inspectProgress',progress,x,y+55,small?9:11,MUTED).setWordWrapWidth(w);
+    if(!live||e.owner!==0)return;
+    const commandY=y+h-34,buttonW=(w-5)/2;
+    if(e.upgradeKind)this.button('cancel-upgrade','CANCEL ↑',x,commandY,buttonW,28,()=>{const r=this.sim.cancelUpgrade(0,e.id);this.message=r.ok?'Conversion cancelled; base production restarted.':r.reason??'Cannot cancel.';});
+    else if(c.upgradeTo){
+      const target=this.sim.tune.cards[c.upgradeTo],result=this.sim.canUpgrade(0,e.id);
+      if(!compact)this.label('upgradeHint',`↑ ${NAMES[c.upgradeTo]}\n+${target.cost-c.cost} tiles · ${(c.upgradeMs??0)/1000}s · T${target.tier}`,x,y+81,9,MUTED).setWordWrapWidth(w);
+      this.button('upgrade','UPGRADE ↑',x,commandY,buttonW,28,()=>{const r=this.sim.upgrade(0,e.id);this.message=r.ok?'Conversion started; previous forces recalled.':r.reason??'Cannot upgrade.';},false,!result.ok);
+    }
+    this.button('sell','SELL',x+buttonW+5,commandY,buttonW,28,()=>{const r=this.sim.sell(0,e.id);this.message=r.ok?'Sold. Remaining support released.':r.reason??'Cannot sell.';});
+  }
+  private flipCard(kind:CardKind){
+    if(!this.flips.has(kind))this.flips.set(kind,{born:performance.now(),toUpgrade:!this.previewUpgrade.has(kind)});
+  }
+  private drawLoadout(){
+    const small=this.w<600,compact=this.h<520,pad=small?10:22,gap=small?10:16;
+    const header=compact?116:158,footer=49,cols=small?2:this.w<1000?3:4,cw=(this.w-pad*2-gap*(cols-1))/cols,ch=small?294:300;
+    this.loadoutTop=header;this.loadoutEnd=this.h-footer;
+    this.cardMaskArt.clear().fillStyle(0xffffff).fillRect(0,header,this.w,this.h-header-footer);
+    this.cardArt.fillStyle(CREAM).fillRect(0,header,this.w,this.h-header-footer);
+    this.hud.fillStyle(CREAM).fillRect(0,0,this.w,header).fillRect(0,this.h-footer,this.w,footer);
+    const now=performance.now();let offset=header+12-this.loadoutScroll;
+    for(const tier of [1,2,3] as const){
+      const kinds=CARDS.filter(k=>this.sim.tune.cards[k].tier===tier),sectionY=offset;
+      this.cardArt.fillStyle(0xdce7d6).fillRoundedRect(pad,sectionY,this.w-pad*2,32,7);
+      this.loadLabel(`load-tier-${tier}`,`TIER ${tier}  ·  ${tier===1?'MOBILISE':tier===2?'ADAPT':'BREAK THE LINE'}`,pad+10,sectionY+8,12,INK).setFontStyle('bold');
+      offset+=42;
+      kinds.forEach((kind,i)=>{
+        const base=this.sim.tune.cards[kind],flip=this.flips.get(kind);let scale=1;
+        if(flip){
+          const progress=this.reducedMotion?1:Math.min(1,(now-flip.born)/this.sim.tune.presentation.captureFlipMs);
+          if(progress>=0.5){if(flip.toUpgrade)this.previewUpgrade.add(kind);else this.previewUpgrade.delete(kind);}
+          scale=Math.abs(Math.cos(progress*Math.PI));if(progress===1)this.flips.delete(kind);
+        }
+        const variant=this.previewUpgrade.has(kind)&&base.upgradeTo?base.upgradeTo:kind,c=this.sim.tune.cards[variant];
+        const x=pad+i%cols*(cw+gap),y=offset+Math.floor(i/cols)*(ch+gap),active=this.loadout.has(kind),center=x+cw/2,fx=center-cw*scale/2;
+        if(y+ch<header||y>this.h-footer)return;
+        this.cardArt.fillStyle(variant!==kind?0xe3eadf:0xfffdf2).fillRoundedRect(fx,y,cw*scale,ch,10);
+        this.cardArt.lineStyle(active?3:1,active?0x218d98:0xbacbbd).strokeRoundedRect(fx,y,cw*scale,ch,10);
+        const pick=()=>{if(this.loadout.has(kind))this.loadout.delete(kind);else if(this.loadout.size<8)this.loadout.add(kind);};
+        const hitY=Math.max(header,y),hitEnd=Math.min(this.h-footer,y+ch);
+        if(scale>0.5&&hitEnd>hitY)this.buttons.push({id:`loadout-${kind}`,x,y:hitY,w:cw,h:hitEnd-hitY,run:pick});
+        if(scale<0.13)return;
+        const lx=(v:number)=>center+(v-cw/2)*scale;
+        const label=(id:string,text:string,dx:number,dy:number,size=10,color=MUTED)=>this.loadLabel(`load-${kind}-${id}`,text,lx(dx),y+dy,size,color).setScale(scale,1).setWordWrapWidth(cw-18);
+        label('name',NAMES[variant],9,9,small?11:14,INK).setFontStyle('bold').setWordWrapWidth(cw-(base.upgradeTo?44:18));
+        label('tier',`${active?'✓ SELECTED · ':''}T${c.tier}${variant!==kind?' · UPGRADE PREVIEW':''}`,9,41,8,active?'#187e88':MUTED);
+        this.cardArt.lineStyle(1,0xd6dfcf).lineBetween(fx+7*scale,y+145,fx+(cw-7)*scale,y+145);
+        drawBuilding(this.cardArt,lx(35),y+91,24*scale,0,variant);
+        label('building','BUILDING',68,63,8,MUTED);
+        label('cost',`${c.cost} tiles · ${c.buildMs/1000}s build`,68,78,small?9:11,INK).setWordWrapWidth(cw-75);
+        label('hp',`HP ${c.buildingHp}`,68,99,10);
+        label('production',`Production ${c.productionMs/1000}s`,9,125,10);
+        drawUnit(this.cardArt,lx(34),y+187,22*scale,0,variant,{members:c.squadSize?Array(c.squadSize).fill(c.unitHp):undefined});
+        label('unit',UNIT_NAMES[variant],67,155,small?10:12,INK).setFontStyle('bold').setWordWrapWidth(cw-73);
+        const count=c.squadSize??1;
+        label('unit-hp',`HP ${count>1?`${count} × `:''}${c.unitHp}`,67,191,10);
+        label('stats',`DMG ${count>1?`${count} × `:''}${c.damage} · range ${c.minRange}–${c.range}\n${(1000/c.moveMs).toFixed(1)} hex/s · ${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'A':'G').join('/')}\n${NOTES[variant]}`,9,218,small?9:10).setLineSpacing(2);
+        if(base.upgradeTo&&y+8>=header&&y+38<=this.h-footer){
+          const bx=x+cw-35;
+          this.cardArt.fillStyle(0xd2e5cd).fillRoundedRect(bx,y+7,27,29,6);
+          this.loadLabel(`load-${kind}-arrow`,variant===kind?'↑':'↓',bx+8,y+10,18,INK);
+          this.buttons.push({id:`preview-${kind}`,x:bx,y:y+7,w:27,h:29,run:()=>this.flipCard(kind)});
+        }
+      });
+      offset+=Math.ceil(kinds.length/cols)*(ch+gap)+14;
+    }
+    this.loadoutMaxScroll=Math.max(0,offset+this.loadoutScroll-(this.h-footer));this.loadoutScroll=Math.min(this.loadoutScroll,this.loadoutMaxScroll);
+    this.label('loadoutTitle','OPERATION C · LOADOUT',pad,10,compact?17:22).setFontStyle('bold');
+    this.button('portrait-toggle',this.unitPortraits?'UNIT PORTRAITS':'BUILDING PORTRAITS',this.w-(small?154:184)-pad,compact?8:42,small?154:184,25,()=>{this.unitPortraits=!this.unitPortraits;},this.unitPortraits);
+    if(!compact)this.label('loadoutHint','8 unique base cards · include a T1 ground producer',pad,45,small?9:12,MUTED);
+    const socketY=compact?43:77,socketH=compact?58:67,socketGap=small?3:7,socketW=(this.w-pad*2-socketGap*7)/8,deck=[...this.loadout];
+    for(let i=0;i<8;i++){
+      const x=pad+i*(socketW+socketGap),kind=deck[i];
+      if(kind){
+        this.button(`socket-${i}`,'',x,socketY,socketW,socketH,()=>{this.loadout.delete(kind);});
+        const r=Math.min(19,socketW*0.34),cx=x+socketW/2;
+        if(this.unitPortraits)drawUnit(this.hud,cx,socketY+25,r,0,kind,{members:this.sim.tune.cards[kind].squadSize?Array(5).fill(1):undefined});else drawBuilding(this.hud,cx,socketY+25,r,0,kind);
+        const c=this.sim.tune.cards[kind],name=this.unitPortraits?UNIT_NAMES[kind]:NAMES[kind];
+        this.label(`socket-name-${i}`,socketW<65?name.split(' ')[0]:name,cx,socketY+socketH-27,socketW<65?6:9,INK,0.5);
+        this.label(`socket-cost-${i}`,`${c.cost}◇ · ${c.buildMs/1000}s`,cx,socketY+socketH-13,socketW<65?7:9,INK,0.5);
+      }else{
+        this.hud.fillStyle(0xe0e7da).fillRoundedRect(x,socketY,socketW,socketH,7);
+        this.label(`socket-empty-${i}`,`${i+1}`,x+socketW/2,socketY+21,15,'#9aaa9c',0.5);
       }
-      this.button('sell','SELL',x,y,w,30,()=>{const result=this.sim.sell(0,e.id);this.message=result.ok?'Sold. Remaining support released.':result.reason??'Cannot sell.';});
+    }
+    const valid=this.loadout.size>0&&this.loadout.size<=8&&[...this.loadout].some(k=>this.sim.tune.cards[k].tier===1&&this.sim.tune.cards[k].domain==='ground');
+    this.label('loadoutCount',`${this.loadout.size} / 8${valid?' · Scroll for tiers':' · NEED T1 GROUND'}`,pad,this.h-33,small?10:12,valid?'#187e88':'#b44739');
+    this.button('start-match','START MATCH',this.w-148-pad,this.h-40,148,32,()=>{this.restart();this.home();},true,!valid);
+    if(this.loadoutMaxScroll>0){
+      const track=this.h-header-footer,thumb=Math.max(18,track*track/(track+this.loadoutMaxScroll));
+      this.hud.fillStyle(0x86a798).fillRoundedRect(this.w-5,header+(track-thumb)*this.loadoutScroll/this.loadoutMaxScroll,3,thumb,2);
     }
   }
-  private drawLoadout() {
-    const compact=this.h<520,narrow=this.w<600,pad=12,cols=narrow?2:3,gap=10,header=compact?48:76,footer=compact?48:70;
-    this.hud.fillStyle(CREAM).fillRect(0,0,this.w,this.h);
-    this.label('loadoutTitle','OPERATION C · LOADOUT',pad,12,compact?19:24).setFontStyle('bold');
-    if (!compact) this.label('loadoutHint','Choose up to 8 unique base cards · include a T1 ground producer',pad,44,narrow?10:13,MUTED).setWordWrapWidth(this.w-24);
-    const rows=Math.ceil(CARDS.length/cols),cw=(this.w-pad*2-gap*(cols-1))/cols,ch=Math.min(245,(this.h-header-footer-gap*(rows-1))/rows);
-    CARDS.forEach((kind,i)=>{
-      const base=this.sim.tune.cards[kind],variant=this.previewUpgrade.has(kind)&&base.upgradeTo?base.upgradeTo:kind,c=this.sim.tune.cards[variant];
-      const x=pad+(i%cols)*(cw+gap),y=header+Math.floor(i/cols)*(ch+gap),active=this.loadout.has(kind),fs=compact?9:11;
-      this.button(`loadout-${kind}`,'',x,y,cw,ch,()=>{if(this.loadout.has(kind))this.loadout.delete(kind);else if(this.loadout.size<8)this.loadout.add(kind);},false);
-      this.hud.lineStyle(active?3:1,active?0x218d98:0xc1cbbb).strokeRoundedRect(x,y,cw,ch,9);
-      drawBuilding(this.hud,x+22,y+31,compact?15:20,0,variant);
-      this.label(`loadName${i}`,`${active?'✓ ':''}${NAMES[kind]}`,x+44,y+8,compact||narrow?10:14).setFontStyle('bold');
-      this.label(`loadTier${i}`,variant!==kind?`${NAMES[variant]} preview · T${c.tier}`:`BASE CARD · T${c.tier}`,x+44,y+25,compact?8:9,MUTED).setWordWrapWidth(cw-50);
-      const count=c.squadSize??1;
-      const stats=`Cost ${c.cost} tiles · building HP ${c.buildingHp}\nConstruction ${c.buildMs/1000}s · unit ${c.productionMs/1000}s\nUnit HP ${count>1?`${count} × ${c.unitHp} = `:''}${count*c.unitHp}\nSpeed ${(1000/c.moveMs).toFixed(2)} hex/s\nRange ${c.minRange}-${c.range} · damage ${count>1?`${count} × `:''}${c.damage}\nAttack ${c.attackMs/1000}s · ${ROLES[variant]}`;
-      this.label(`loadStats${i}`,stats,x+9,y+(compact?47:58),fs,MUTED).setLineSpacing(compact?1:4).setWordWrapWidth(cw-18);
-      if (base.upgradeTo) this.button(`preview-${kind}`,variant===kind?'VIEW UPGRADE':'VIEW BASE',x+8,y+ch-27,cw-16,22,()=>{if(this.previewUpgrade.has(kind))this.previewUpgrade.delete(kind);else this.previewUpgrade.add(kind);});
-    });
-    const valid=this.loadout.size>0&&this.loadout.size<=8&&[...this.loadout].some(k=>this.sim.tune.cards[k].tier===1&&this.sim.tune.cards[k].domain==='ground');
-    this.label('loadoutCount',`${this.loadout.size} / 8 unique${valid?'':' · NEED T1 GROUND'}`,pad,this.h-footer+12,compact?10:12,valid?'#187e88':'#b44739');
-    this.label('loadoutNote','Upgrades stay with their base card.',pad,this.h-18,9,MUTED);
-    this.button('start-match','START MATCH',this.w-156,this.h-footer+5,144,33,()=>{this.restart();this.home();},true,!valid);
+  private loadLabel(id:string,text:string,x:number,y:number,size=10,color=MUTED){
+    const label=this.label(id,text,x,y,size,color);label.setMask(this.cardMask);return label;
   }
-
 }
 
 new Phaser.Game({
-  type: Phaser.AUTO, parent: 'app', backgroundColor: '#b5d5cf', antialias: true,
-  width: Math.round(window.innerWidth * DPR), height: Math.round(window.innerHeight * DPR),
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-  render: { powerPreference: 'low-power' }, scene: Battlefield,
+  type:Phaser.AUTO,parent:'app',backgroundColor:'#b5d5cf',antialias:true,
+  width:Math.round(window.innerWidth*DPR),height:Math.round(window.innerHeight*DPR),
+  scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},
+  render:{powerPreference:'low-power'},scene:Battlefield,
 });

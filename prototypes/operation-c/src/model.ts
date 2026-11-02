@@ -1,4 +1,5 @@
-export type CardKind = 'infantry' | 'tank' | 'artillery' | 'helicopter' | 'fighter' | 'missile' | 'bomber' | 'mlrs';
+export type CardKind = 'infantry' | 'tank' | 'artillery' | 'helicopter' | 'fighter' | 'missile' | 'bomber' | 'mlrs' |
+  'scout' | 'gunner' | 'flak' | 'walker' | 'destroyer' | 'gunship' | 'siege' | 'carrier';
 export type UnitDomain = 'ground' | 'air';
 /** Presentation-only record of a shot actually fired, independent of entity IDs. */
 export interface Shot {
@@ -9,7 +10,7 @@ export interface Hex {
   id: string; q: number; r: number; owner: number | null; burnt: boolean;
   lockedBy: string | null; capture: number; capturePlayer: number | null;
   captureUnitId?: string; captureReversing?: boolean;
-  commitment?: 'building' | 'upgrade' | 'research';
+  commitment?: 'building' | 'upgrade' | 'research' | 'release'; releaseAtMs?: number;
 }
 export interface Building {
   id: string; hexId: string; owner: number; kind: 'hq' | CardKind;
@@ -37,16 +38,18 @@ export interface Reinforcement {
 export interface Retirement {
   id: number; unitId: string; kind: CardKind; owner: number; hexId: string; members?: number[]; timeMs: number;
 }
+export interface PendingRelease { id: string; owner: number; releaseAtMs: number; supportIds: string[] }
 export interface CardTune {
   cost: number; buildingHp: number; unitHp: number; damage: number; range: number;
   attackMs: number; moveMs: number; productionMs: number; captureRate: number;
   domain: UnitDomain; targets: UnitDomain[]; minRange: number; retreatMs?: number;
   tier: 1 | 2 | 3; buildMs: number; upgradeTo?: CardKind; upgradeMs?: number;
   squadSize?: number; splashRadius?: number; splashDamageFraction?: number;
+  capturePriority?: boolean;
 }
 export interface Tune {
   stepMs: number; map: { radius: number; hqQ: number; hqR: number };
-  resources: { capacityCap: number }; hq: { hp: number; captureRings: number };
+  resources: { capacityCap: number; destroyReleaseMs: number }; hq: { hp: number; captureRings: number };
   capture: { neutralMs: number; ownedMultiplier: number; hqRate: number; rollbackRate: number };
   presentation: { captureFlipMs: number; captureLift: number; shotTraceMs: number; retreatMs: number; maxShotEvents: number };
   bot: { buildEveryMs: number; attackAtMs: number; cardCycle: CardKind[] };

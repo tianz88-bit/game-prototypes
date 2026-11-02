@@ -1,9 +1,10 @@
 import tuneJson from '../tune.json';
-import type { Building, CardKind, Hex, Placement, Player, Reinforcement, Retirement, Shot, Tune, Unit, UnitDomain } from './model';
-export type { Building, CardKind, Hex, Placement, Player, Reinforcement, Retirement, Research, Shot, Tune, Unit, UnitDomain } from './model';
+import type { Building, CardKind, Hex, PendingRelease, Placement, Player, Reinforcement, Retirement, Shot, Tune, Unit, UnitDomain } from './model';
+export type { Building, CardKind, Hex, PendingRelease, Placement, Player, Reinforcement, Retirement, Research, Shot, Tune, Unit, UnitDomain } from './model';
 
 export const DEFAULT_TUNE: Tune = tuneJson as Tune;
-export const BASE_CARDS: readonly CardKind[] = ['infantry', 'tank', 'artillery', 'helicopter', 'fighter', 'mlrs'];
+export const BASE_CARDS: readonly CardKind[] = ['infantry', 'tank', 'artillery', 'helicopter', 'fighter', 'scout', 'gunner', 'flak', 'walker', 'destroyer', 'carrier'];
+export const DEFAULT_LOADOUT: readonly CardKind[] = ['infantry', 'tank', 'artillery', 'helicopter', 'fighter', 'scout', 'flak', 'carrier'];
 // Axial direction order is also the deterministic BFS tie-break.
 const DIRECTIONS = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]] as const;
 export const hexId = (q: number, r: number): string => `${q},${r}`;
@@ -23,6 +24,7 @@ export class OperationSim {
   readonly shots: Shot[] = [];
   readonly reinforcements: Reinforcement[] = [];
   readonly retirements: Retirement[] = [];
+  readonly pendingReleases: PendingRelease[] = [];
   readonly loadouts: CardKind[][];
   readonly players: Player[] = [
     { id: 0, name: 'You', alive: true, targetId: 0, techTier: 1, research: null },
@@ -45,7 +47,7 @@ export class OperationSim {
     this.tune = structuredClone(options.tune ?? DEFAULT_TUNE);
     if (!Number.isFinite(this.tune.stepMs) || this.tune.stepMs <= 0) throw new Error('stepMs must be positive');
     this.loadouts = this.players.map((p, i) => {
-      const cards = options.loadouts?.[i] ?? [...BASE_CARDS];
+      const cards = options.loadouts?.[i] ?? [...DEFAULT_LOADOUT];
       if (!Array.isArray(cards) || cards.length > 8 || new Set(cards).size !== cards.length ||
         cards.some(k => !BASE_CARDS.includes(k)) || !cards.some(k => this.tune.cards[k].tier === 1 && this.tune.cards[k].domain === 'ground')) {
         throw new Error(`Invalid loadout for player ${p.id}: choose up to eight unique base cards including a T1 ground producer`);
@@ -86,7 +88,8 @@ export class OperationSim {
     const stranded = this.strandedDebt.get(playerId) ?? 0;
     const committed = stranded + this.buildings.reduce((sum, b) => sum + (b.owner === playerId && b.kind !== 'hq' ?
       (b.committedCost ?? this.tune.cards[b.kind].cost) + (b.upgradeCost ?? 0) : 0), 0) +
-      (this.players.find(p => p.id === playerId)?.research ? this.tune.research.cost : 0);
+      (this.players.find(p => p.id === playerId)?.research ? this.tune.research.cost : 0) +
+      this.pendingReleases.filter(r => r.owner === playerId).reduce((n, r) => n + r.supportIds.length, 0);
     return { committed, capacity: Math.min(capacity, this.tune.resources.capacityCap), stranded };
   }
 
@@ -200,10 +203,25 @@ export class OperationSim {
     this.strandedDebt.set(playerId, (this.strandedDebt.get(playerId) ?? 0) + Math.max(0, amount));
   }
 
-  private releaseBuilding(b: Building): void {
-    let released = 0;
-    for (const h of this.hexes) if (h.lockedBy === b.id) { h.lockedBy = null; delete h.commitment; released++; }
-    if (b.kind !== 'hq') this.addStranded(b.owner, (b.committedCost ?? this.tune.cards[b.kind].cost) + (b.upgradeCost ?? 0) - released);
+  private releaseBuilding(b: Building, delayed = false): void {
+    const supports = this.hexes.filter(h => h.lockedBy === b.id);
+    if (b.kind !== 'hq') this.addStranded(b.owner, (b.committedCost ?? this.tune.cards[b.kind].cost) + (b.upgradeCost ?? 0) - supports.length);
+    if (delayed && supports.length) {
+      const release: PendingRelease = { id: `release-${b.id}`, owner: b.owner,
+        releaseAtMs: this.timeMs + this.tune.resources.destroyReleaseMs, supportIds: supports.map(h => h.id) };
+      this.pendingReleases.push(release);
+      for (const h of supports) { h.lockedBy = release.id; h.commitment = 'release'; h.releaseAtMs = release.releaseAtMs; }
+    } else for (const h of supports) { h.lockedBy = null; delete h.commitment; delete h.releaseAtMs; }
+  }
+
+  private loseAssignment(h: Hex): void {
+    if (h.commitment === 'release') {
+      const release = this.pendingReleases.find(r => r.id === h.lockedBy);
+      if (release && release.supportIds.includes(h.id)) {
+        release.supportIds.splice(release.supportIds.indexOf(h.id), 1); this.addStranded(release.owner, 1);
+      }
+    }
+    h.lockedBy = null; delete h.commitment; delete h.releaseAtMs;
   }
 
   private retireProducer(b: Building): void {
@@ -219,6 +237,15 @@ export class OperationSim {
   }
 
   private advanceLifecycles(): void {
+    for (let i = this.pendingReleases.length - 1; i >= 0; i--) {
+      const release = this.pendingReleases[i];
+      if (this.timeMs < release.releaseAtMs) continue;
+      for (const id of release.supportIds) {
+        const h = this.byHex.get(id)!;
+        if (h.lockedBy === release.id) { h.lockedBy = null; delete h.commitment; delete h.releaseAtMs; }
+      }
+      this.pendingReleases.splice(i, 1);
+    }
     for (const p of this.players) if (p.research && this.timeMs >= p.research.completeAtMs) {
       p.techTier = p.research.toTier; this.cancelResearch(p.id);
     }
@@ -321,6 +348,7 @@ export class OperationSim {
       delete u.attackTargetHexId;
       if ((u.movingUntilMs ?? 0) > this.timeMs) continue;
       if ((u.retreatUntilMs ?? 0) > this.timeMs) continue;
+      if (this.tune.cards[u.kind].capturePriority && this.shouldCapture(u)) continue;
       const target = this.attackTarget(u);
       if (!target) continue;
       u.attacking = true;
@@ -373,8 +401,10 @@ export class OperationSim {
       const retreating = (u.retreatUntilMs ?? 0) > this.timeMs;
       if (u.attacking && !retreating) continue;
       // Hold non-owned land until capture finishes, including under unanswered fire.
-      if (!retreating && this.tune.cards[u.kind].domain === 'ground' &&
-        this.byHex.get(u.hexId)!.owner !== u.owner && !this.byHex.get(u.hexId)!.burnt) continue;
+      if (!retreating && this.shouldCapture(u)) continue;
+      // Capture-first squads secure the hex, then hold to retaliate on the next
+      // decision rather than immediately marching away on the capture-flip step.
+      if (!retreating && this.tune.cards[u.kind].capturePriority && this.attackTarget(u)) continue;
       const next = retreating ? this.retreatMove(u, blocked) : this.nextMove(u, blocked);
       if (!next) continue;
       if (retreating) { u.attacking = false; delete u.attackTargetHexId; }
@@ -400,7 +430,7 @@ export class OperationSim {
       if (airDefense) return distance(here, this.byHex.get(a.hexId)!) - distance(here, this.byHex.get(b.hexId)!);
       const score = (t: Building | Unit) => {
         const isUnit = 'buildingId' in t;
-        if (player.targetId === player.id) return isUnit ? 0 : 1;
+        if (player.targetId === player.id) return isUnit && this.byHex.get(t.hexId)!.owner === u.owner ? 0 : isUnit ? 1 : 2;
         return !isUnit && t.owner === player.targetId ? 0 : isUnit ? 1 : 2;
       };
       return score(a) - score(b) || distance(here, this.byHex.get(a.hexId)!) - distance(here, this.byHex.get(b.hexId)!);
@@ -427,6 +457,18 @@ export class OperationSim {
     const enemyHq = enemy.find(b => b.kind === 'hq');
     const targetHex = enemyHq ? this.byHex.get(enemyHq.hexId)! : undefined;
     const range = this.tune.cards[u.kind].range;
+    if (player.targetId === player.id && !this.tune.cards[u.kind].capturePriority) {
+      const intruders = this.intruders(u.owner);
+      if (intruders.length) {
+        const target = intruders.filter(t => this.canTarget(u, t)).sort((a, b) =>
+          distance(here, this.byHex.get(a.hexId)!) - distance(here, this.byHex.get(b.hexId)!))[0];
+        if (!target) return;
+        const goals = new Set(this.hexes.filter(h => !blocked.has(h.id) &&
+          distance(h, this.byHex.get(target.hexId)!) >= this.tune.cards[u.kind].minRange && distance(h, this.byHex.get(target.hexId)!) <= range).map(h => h.id));
+        return this.pathToGoals(u, blocked, goals);
+      }
+    }
+    if (this.tune.cards[u.kind].captureRate <= 0) return this.airMove(u, blocked);
     const goals = new Set<string>();
     if (enemy.length) {
       // Search for free attack positions rather than pathing into a blocked HQ.
@@ -455,6 +497,28 @@ export class OperationSim {
       }
     }
     return expansion;
+  }
+
+  private intruders(owner: number): Unit[] {
+    return this.units.filter(u => u.owner !== owner && u.hp > 0 && this.byHex.get(u.hexId)!.owner === owner);
+  }
+
+  private shouldCapture(u: Unit): boolean {
+    const card = this.tune.cards[u.kind], h = this.byHex.get(u.hexId)!;
+    if (card.domain !== 'ground' || card.captureRate <= 0 || h.owner === u.owner || h.burnt) return false;
+    if (card.capturePriority) return true;
+    return this.players.find(p => p.id === u.owner)!.targetId === u.owner && this.intruders(u.owner).length === 0;
+  }
+
+  private pathToGoals(u: Unit, blocked: Set<string>, goals: Set<string>): string | undefined {
+    const queue = [u.hexId], seen = new Set(queue), first = new Map<string, string>();
+    for (let i = 0; i < queue.length; i++) {
+      const id = queue[i]; if (i > 0 && goals.has(id)) return first.get(id);
+      for (const n of this.neighbors(id)) {
+        if (seen.has(n.id) || blocked.has(n.id)) continue;
+        seen.add(n.id); first.set(n.id, first.get(id) ?? n.id); queue.push(n.id);
+      }
+    }
   }
 
   private airMove(u: Unit, blocked: Set<string>): string | undefined {
@@ -493,7 +557,7 @@ export class OperationSim {
 
   private capture(): void {
     const pressure = new Map<string, { owner: number; rate: number; unitId?: string }>();
-    for (const u of this.units) if (this.tune.cards[u.kind].domain === 'ground' && !u.attacking && (u.movingUntilMs ?? 0) <= this.timeMs) {
+    for (const u of this.units) if (this.shouldCapture(u) && !u.attacking && (u.movingUntilMs ?? 0) <= this.timeMs) {
       if (!this.byHex.get(u.hexId)!.burnt) pressure.set(u.hexId, { owner: u.owner, rate: this.tune.cards[u.kind].captureRate, unitId: u.id });
     }
     for (const b of this.buildings) if (b.kind === 'hq') {
@@ -513,7 +577,7 @@ export class OperationSim {
       const duration = this.tune.capture.neutralMs * (h.owner === null ? 1 : this.tune.capture.ownedMultiplier);
       h.capture += this.tune.stepMs * p.rate / duration;
       if (h.capture + Number.EPSILON >= 1) {
-        h.owner = p.owner; h.lockedBy = null; delete h.commitment; h.capture = 0; h.capturePlayer = null;
+        h.owner = p.owner; this.loseAssignment(h); h.capture = 0; h.capturePlayer = null;
         delete h.captureUnitId; delete h.captureReversing;
       }
     }
@@ -532,7 +596,7 @@ export class OperationSim {
       const b = this.buildings[i];
       if (b.hp > 0 && !eliminated.has(b.owner)) continue;
       if (b.hp <= 0 && b.kind !== 'hq' && !eliminated.has(b.owner)) this.byHex.get(b.hexId)!.burnt = true;
-      this.releaseBuilding(b);
+      this.releaseBuilding(b, b.kind !== 'hq' && b.hp <= 0 && !eliminated.has(b.owner));
       for (const u of this.units) if (u.buildingId === b.id) u.buildingId = null;
       this.buildings.splice(i, 1);
     }
@@ -547,10 +611,15 @@ export class OperationSim {
       this.units.splice(i, 1);
     }
     for (const h of this.hexes) if (h.owner !== null && eliminated.has(h.owner)) {
-      h.owner = null; h.lockedBy = null; delete h.commitment; h.capture = 0; h.capturePlayer = null;
+      h.owner = null; h.lockedBy = null; delete h.commitment; delete h.releaseAtMs; h.capture = 0; h.capturePlayer = null;
       delete h.captureUnitId; delete h.captureReversing;
     }
     for (const id of eliminated) this.strandedDebt.delete(id);
+    for (let i = this.pendingReleases.length - 1; i >= 0; i--) if (eliminated.has(this.pendingReleases[i].owner)) {
+      const r = this.pendingReleases[i];
+      for (const h of this.hexes) if (h.lockedBy === r.id) { h.lockedBy = null; delete h.commitment; delete h.releaseAtMs; }
+      this.pendingReleases.splice(i, 1);
+    }
     if (eliminated.size) {
       const survivors = this.players.filter(p => p.alive);
       this.winner = survivors.length === 1 ? survivors[0].id : survivors.length === 0 ? -1 : null;
