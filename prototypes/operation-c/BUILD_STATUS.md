@@ -22,6 +22,8 @@ Artifacts are outside Git under outputs/operation-c-rts-final (four-profile scre
 
 ## Open questions
 
+Design follow-up 2026-11-03: utility cards share the eight-slot loadout; nuclear silo has expensive construction, a separate one-nuke production cycle that restarts only on launch, contextual launch commands, hidden elapsed flight and seven-hex centre-heavy damage with a mushroom cloud. These rules are recorded in BRIEF.md only, not implemented. Friendly fire, target eligibility, terrain effects, silo destruction after launch and numerical tuning remain discussion items.
+
 Playtest new roster balance before adding more rules. New unit/conversion numbers and T3 cooldowns are provisional settings implementing the requested tier philosophy; tune.json and the debug pane expose them. Canonical rules, names, upgrade costs/timers and weaknesses are recorded in BRIEF.md. Three races, geography and multiplayer remain future milestones.
 
 ## Known issues

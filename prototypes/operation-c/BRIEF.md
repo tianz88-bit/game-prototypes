@@ -1,6 +1,6 @@
 # Operation C permanent design reference
 
-Last reconciled: 2026-11-02, Asia/Singapore. This is the canonical design reference for main, logic and art discussions. Check it before re-asking an answered question. Update the relevant section when a decision changes; keep proposals distinct from confirmed rules. BUILD_STATUS.md records implementation and verification, not design authority. Git history preserves superseded decisions.
+Last reconciled: 2026-11-03, Asia/Singapore. This is the canonical design reference for main, logic and art discussions. Check it before re-asking an answered question. Update the relevant section when a decision changes; keep proposals distinct from confirmed rules. BUILD_STATUS.md records implementation and verification, not design authority. Git history preserves superseded decisions.
 
 ## Design versus implementation
 
@@ -84,6 +84,20 @@ Names are shared by the loadout, deck and contextual panel. Costs for the eight 
 - Every catalog card has separate BUILDING and UNIT sections and matching procedural pictures. Show building name, cost, health, construction and production time; unit name, health, speed, range, damage and targeting type, plus a short role/weakness note.
 - An up-arrow button flips eligible cards to their upgrade preview with a scripted flip animation; the reverse arrow restores the base face. Previewing changes neither loadout membership nor base-tier grouping. The selected socket continues to represent the base card.
 - Deck/socket mini cards use the same unit/building art factories as battlefield entities. In-match cards are concise: name, resource cost, construction time.
+## Utility buildings and nuclear silo — design discussion
+
+Confirmed 2026-11-03. These are recorded design decisions, NOT implemented in the current roster/UI playtest. Continue systems discussion here before assigning execution.
+
+- Add utility buildings and a nuclear silo. Base utility cards compete for the SAME eight unique loadout slots as producers; no separate utility allowance. They do not replace the requirement to bring at least one T1 ground-unit producer.
+- Utility buildings introduce non-unit-producing building roles. Defence bunkers are a candidate; self-contained weapons versus garrison mechanics, other utility types and their tiers/costs remain undecided. Earlier suggested support buildings are proposals, not an approved catalog.
+- The silo is expensive in committed resource territory. After building construction completes, it takes additional time to produce its first nuke. Building construction and nuke production are separate timers.
+- The silo holds ONE ready nuke. It does not stockpile or start another production cycle while that nuke is ready. Launching consumes the ready nuke and starts producing the next one.
+- Select the silo on the map and use its contextual menu to launch. Targeting/confirmation details still need discussion; launch is a player command rather than autonomous unit behaviour.
+- Launch and impact are separated by actual elapsed flight time. The nuke in flight is INVISIBLE to defenders. Fixed versus distance-based flight duration, attacker-side presentation, warnings and interception are not yet settled. Do not assume a defender-visible projectile/path or carry forward the earlier warning proposal as confirmed.
+- The blast targets SEVEN hexes: one centre hex and its six adjacent neighbours. The centre takes the most damage; exact centre/outer damage, squad-member allocation, ground/air eligibility and friendly fire remain undecided.
+- Owner explicitly requests a visually satisfying MUSHROOM CLOUD at impact. Art direction proposal: scripted flash, expanding ground shockwave, rising stem and billowing mushroom cap, consistent with the procedural/vector style. Exact animation remains art work for a later execution milestone.
+- Proposed, not confirmed: T3 access; ordinary building support/construction/sale/destruction rules for utilities; launched missiles surviving silo destruction; blasts not directly burning empty terrain. Existing destruction burns building tiles, but direct nuclear terrain effects have not been decided.
+- Still to settle: friendly fire and damage eligibility, HQ lethality, terrain effects, post-launch silo/owner destruction behaviour, targeting confirmation, utility catalog, tier access, costs, production/flight times and damage falloff.
 ## Technology research
 
 - T1 to T2: temporarily commit 20 OPEN UNCOMMITTED OWNED cells for 30 seconds. No adjacency/connectivity requirement. Creates deliberate rush vulnerability.
