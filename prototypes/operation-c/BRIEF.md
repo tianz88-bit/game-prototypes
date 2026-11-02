@@ -100,19 +100,19 @@ Current one-way conversion tree: Barracks → Armoury (+2 / 5s / T1); Motor Pool
 All building upgrades are PERMANENT and ONE-WAY, including Airbase to Bomber Command. No downgrade or switch back. Additional upgrade resources remain committed for the upgraded building's lifetime. Costs vary by upgrade; do not generalize the Barracks surcharge to all producers.
 
 - Barracks to Armoury: permanently add 2 resource cells, for total commitment 6. Requires an upgrade timer. New production is Missile Infantry instead of regular infantry. Missile Infantry remains a T1 role.
-- Airbase to Bomber Command: explore a FREE permanent upgrade with a conversion timer, not a +2 surcharge. No extra resource commitment; the existing Airfield commitment of 12 remains. Fighter is T2, Bomber T3. Cannot switch back to Fighters.
+- Airbase to Bomber Command: explore a FREE permanent upgrade with a conversion timer, not a +2 surcharge. No extra resource commitment; the existing Airbase commitment of 12 remains. Fighter is T2, Bomber T3. Cannot switch back to Fighters.
 - Latest timing supersedes the earlier delete-at-completion proposal: when the player starts upgrading/converting the building, its previous unit or squad retreats briefly and fades from the map. The lost field presence is an additional upgrade penalty. Do not retain the old unit until upgrade completion.
 - Upgraded production becomes available when the timer finishes, subject to legal spawn occupancy; completion starts the new type's production cooldown when it spawns.
 
 Confirmed upgrade lifecycle:
 - Starting reserves any additional resource support, retires the current unit/squad AND incoming reinforcements, and pauses production. Retired forces use the brief retreat/fade; they do not return if cancelled.
 - Player may cancel an UNFINISHED upgrade. All upgrade progress is lost. Release only the upgrade's remaining assigned support tiles; lost assignments remain debt. The base building remains. The retired unit is not restored. Cancellation starts a FRESH FULL production cooldown for the base unit type; after it finishes, dispatch a replacement unit/squad, waiting if legal spawning is blocked. This prevents cancellation from accelerating replacement.
-- Enemy destruction while upgrading burns the building tile and releases only the remaining support assignments from both base and upgrade.
+- Enemy destruction while upgrading burns the building tile immediately and holds the remaining support assignments from both base and upgrade for the same 10-second release countdown.
 - Completion permanently changes production, spawns the new type when a legal cell is available, then starts that type's production cooldown. Completed upgrades remain irreversible.
 
 Presentation implementation recommendation: remove retired forces from combat/capture/occupancy when accepted, then render retreat/fade cosmetically. Exact retirement timing relative to the short visual remains a presentation detail; do not permit it to restore a retired force.
 
-Conversion times are approved for the first playtest: Armoury 5 seconds and Bomber Command 8 seconds. Base production restart after cancellation is confirmed as a fresh full base-type cooldown. Upgrade prerequisites remain to be fully specified. Base-only loadouts and building-selected upgrade options are confirmed; upgraded variants are not loadout cards. Airfield's zero-surcharge conversion is under exploration, not a universal upgrade-cost rule; permanent one-way behavior is confirmed. Implement the settled rules for the next playtest; remaining numerical balance and minor integration defaults must be documented as provisional rather than prompting for every edge case.
+Conversion times are approved for the first playtest: Armoury 5 seconds and Bomber Command 8 seconds. Base production restart after cancellation is confirmed as a fresh full base-type cooldown. Upgrade prerequisites follow the target form tier in the current roster. Base-only loadouts and building-selected upgrade options are confirmed; upgraded variants are not loadout cards. Airbase's zero-surcharge conversion is under exploration, not a universal upgrade-cost rule; permanent one-way behavior is confirmed. Implement the settled rules for the next playtest; remaining numerical balance and minor integration defaults must be documented as provisional rather than prompting for every edge case.
 
 ### Additional resource support for upgrades
 
@@ -135,7 +135,7 @@ Confirmed selling rules:
 - Release ONLY the resource tiles still tied to that building at sale time. Previously captured support tiles discount the release; do not refund the full original/upgraded cost on sale. Owner explicitly extended the same discounted release to enemy destruction. This supersedes both the full-release selling recommendation and the older full-cost destruction rule.
 - Example: cost 8, with 3 support assignments lost, releases only the remaining 5 immediately on sale or after 10 seconds on enemy destruction. The unreleased 3 remains as match debt; do not silently clear it by deleting the building from a summed-cost ledger.
 
-Sale duration/interruptibility and sale of an upgrading building remain unresolved. Selling unfinished construction is confirmed as cancellation under the lifecycle below. Resource costs represent capacity commitments rather than spent currency.
+Selling is immediate in the prototype, including an upgrading building; this remains a provisional playtest choice. Selling unfinished construction is confirmed as cancellation under the lifecycle below. Resource costs represent capacity commitments rather than spent currency.
 
 Confirmed construction lifecycle:
 - Placement immediately reserves the building's full resource cost and blocks its hex.
@@ -149,11 +149,16 @@ Owner-approved first-playtest construction durations:
 | Base building | Construction time |
 | --- | --- |
 | Barracks | 3 seconds |
-| Factory | 5 seconds |
-| Artillery | 5 seconds |
-| Hangar | 6 seconds |
-| Airfield | 6 seconds |
-| MLRS | 8 seconds |
+| Motor Pool | 5 seconds |
+| Artillery Battery | 5 seconds |
+| Helipad | 6 seconds |
+| Airbase | 6 seconds |
+| Recon Post | 2.5 seconds (provisional) |
+| Support Barracks | 3.5 seconds (provisional) |
+| Air Defence Post | 4 seconds (provisional) |
+| Assault Foundry | 7 seconds (provisional) |
+| Anti-tank Depot | 6 seconds (provisional) |
+| Carrier Command | 10 seconds (provisional) |
 
 Owner-approved conversion durations: Barracks to Armoury 5 seconds; Airbase to Bomber Command 8 seconds. Construction and conversion times remain separate from unit-production cooldowns. These timings are provisional for the first playtest. Confirmed construction health: a new building starts at full building HP, remains vulnerable and inactive during construction, and completing construction does not heal damage taken. Upgrading preserves current building HP and completion does not heal it. No progressive construction-health curve or upgrade healing.
 

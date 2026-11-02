@@ -385,12 +385,13 @@ class Battlefield extends Phaser.Scene {
   /** Same miniature factories for deck portraits and battlefield entities. */
   private miniCard(id:string,kind:CardKind,x:number,y:number,w:number,h:number,run:()=>void,active=false,disabled=false) {
     const c=this.sim.tune.cards[kind];this.button(id,'',x,y,w,h,run,active,disabled);
-    const r=Math.min(20,h*0.25,w*0.22),cx=x+w/2,cy=y+r+8;
+    const r=Math.min(18,h*0.28,w*0.17),cx=x+r+4,cy=y+h/2;
     if(this.unitPortraits)drawUnit(this.hud,cx,cy,r,0,kind,{members:c.squadSize?Array(c.squadSize).fill(c.unitHp):undefined});
     else drawBuilding(this.hud,cx,cy,r,0,kind);
     const color=disabled?MUTED:active?'#fff7e5':INK;
-    this.label(`${id}-name`,this.unitPortraits?UNIT_NAMES[kind]:NAMES[kind],cx,y+h-28,w<100?8:10,color,0.5).setWordWrapWidth(w-4).setAlign('center');
-    this.label(`${id}-cost`,`${c.cost} ◇ · ${c.buildMs/1000}s`,cx,y+h-12,9,color,0.5);
+    const tx=x+r*2+8,tw=w-r*2-12;
+    this.label(`${id}-name`,this.unitPortraits?UNIT_NAMES[kind]:NAMES[kind],tx,y+5,h<55||w<100?8:10,color).setWordWrapWidth(tw).setAlign('left');
+    this.label(`${id}-cost`,`${c.cost}◇ · ${c.buildMs/1000}s`,tx,y+h-14,w<100?7:h<55?8:9,color);
   }
   private drawHud() {
     this.hud.clear();this.cardArt.clear();this.buttons=[];
@@ -421,9 +422,9 @@ class Battlefield extends Phaser.Scene {
     if(this.selected){
       const c=this.sim.tune.cards[this.selected];
       this.label('buildTitle',NAMES[this.selected],x,bottomY+9,narrow?12:16).setFontStyle('bold').setWordWrapWidth(w);
-      drawBuilding(this.hud,x+w/2,bottomY+(compact?60:80),compact?24:34,0,this.selected);
-      this.label('buildInfo',`${c.cost} tiles · ${c.buildMs/1000}s construction`,x,bottomY+(compact?84:117),narrow?10:12,MUTED).setWordWrapWidth(w);
-      this.label('buildHint',this.chosenHex?'Tap the hammer again to build.':'Choose an open owned hex.',x,bottomY+(compact?100:143),10,MUTED).setWordWrapWidth(w);
+      drawBuilding(this.hud,compact?x+29:x+w/2,bottomY+(compact?58:80),compact?23:34,0,this.selected);
+      this.label('buildInfo',`${c.cost} tiles · ${c.buildMs/1000}s construction`,compact?x+65:x,bottomY+(compact?39:117),narrow?10:12,MUTED).setWordWrapWidth(compact?w-65:w);
+      this.label('buildHint',this.chosenHex?'Tap the hammer again to build.':'Choose an open owned hex.',compact?x+65:x,bottomY+(compact?61:143),10,MUTED).setWordWrapWidth(compact?w-65:w);
       this.button('cancel','CANCEL',x,this.h-66,w,27,()=>{this.selected=null;this.chosenHex=null;});
     }else if(this.inspectedSnapshot)this.drawInspector(x,bottomY+9,w,this.bottom-45);
     else{
@@ -512,7 +513,8 @@ class Battlefield extends Phaser.Scene {
         this.cardArt.lineStyle(1,0xd6dfcf).lineBetween(fx+7*scale,y+145,fx+(cw-7)*scale,y+145);
         drawBuilding(this.cardArt,lx(35),y+91,24*scale,0,variant);
         label('building','BUILDING',68,63,8,MUTED);
-        label('cost',`${c.cost} tiles · ${c.buildMs/1000}s build`,68,78,small?9:11,INK).setWordWrapWidth(cw-75);
+        const duration=variant===kind?c.buildMs:base.upgradeMs??c.buildMs;
+        label('cost',`${c.cost} tiles · ${duration/1000}s ${variant===kind?'build':'convert'}`,68,78,small?9:11,INK).setWordWrapWidth(cw-75);
         label('hp',`HP ${c.buildingHp}`,68,99,10);
         label('production',`Production ${c.productionMs/1000}s`,9,125,10);
         drawUnit(this.cardArt,lx(34),y+187,22*scale,0,variant,{members:c.squadSize?Array(c.squadSize).fill(c.unitHp):undefined});

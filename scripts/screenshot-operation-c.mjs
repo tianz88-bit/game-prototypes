@@ -32,7 +32,7 @@ for(const profile of [
   const scrollTo=async id=>{
     // Return to the top through ordinary wheel intent, then search the catalog.
     await page.keyboard.press('Home');await page.mouse.move(profile.viewport.width/2,profile.viewport.height/2);await page.waitForTimeout(90);
-    for(let i=0;i<45;i++){if((await targets()).buttons.some(b=>b.id===id&&b.h>25))return;await page.mouse.wheel(0,170);await page.waitForTimeout(45);}
+    for(let i=0;i<45;i++){if((await targets()).buttons.some(b=>b.id===id&&b.h>18))return;await page.mouse.wheel(0,170);await page.waitForTimeout(45);}
     throw new Error(`Could not scroll to ${id}`);
   };
   const inspect=async entity=>{const h=(await targets()).hexes.find(h=>h.id===entity.hexId);assert(h);await tap(h.x,h.y);await page.waitForTimeout(75);assert.equal((await snap()).inspected,entity.id);};
