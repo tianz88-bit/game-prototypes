@@ -37,6 +37,7 @@ class Battlefield extends Phaser.Scene {
   private loadoutScroll = 0; private loadoutMaxScroll = 0;
   private loadoutTop = 0; private loadoutEnd = 0;
   private cardArt!: Phaser.GameObjects.Graphics;
+  private catalogLayer!: Phaser.GameObjects.Container;
   private cardMaskArt!: Phaser.GameObjects.Graphics;
   private cardMask!: Phaser.Display.Masks.GeometryMask;
   private panel: 'build' | 'details' = 'build';
@@ -80,8 +81,9 @@ class Battlefield extends Phaser.Scene {
     this.world = this.add.container();
     this.terrain = this.add.graphics(); this.overlay = this.add.graphics(); this.live = this.add.graphics(); this.feedback = this.add.graphics();
     this.world.add([this.terrain, this.overlay, this.live, this.feedback]);
-    this.cardArt = this.add.graphics(); this.cardMaskArt = this.make.graphics({ x: 0, y: 0 });
-    this.cardMask = this.cardMaskArt.createGeometryMask(); this.cardArt.setMask(this.cardMask);
+    this.cardArt = this.add.graphics(); this.catalogLayer = this.add.container(0, 0, [this.cardArt]);
+    this.cardMaskArt = this.make.graphics({ x: 0, y: 0 });
+    this.cardMask = this.cardMaskArt.createGeometryMask(); this.catalogLayer.setMask(this.cardMask);
     this.hud = this.add.graphics();
     this.indexHexes(); this.resize(true);
     this.inputs = new Intents(this.game.canvas, () => ({ w: this.w, h: this.h }));
@@ -405,6 +407,7 @@ class Battlefield extends Phaser.Scene {
   }
   private drawHud() {
     this.hud.clear();this.cardArt.clear();this.buttons=[];
+    this.catalogLayer.setVisible(this.page==='loadout');
     for(const text of this.texts.values())text.setVisible(false);
     if(this.page==='loadout'){this.drawLoadout();return;}
     const narrow=this.w<600,compact=this.h<520,pad=10,p=this.sim.players[0],r=this.sim.resources(0),bottomY=this.h-this.bottom;
@@ -569,7 +572,9 @@ class Battlefield extends Phaser.Scene {
     }
   }
   private loadLabel(id:string,text:string,x:number,y:number,size=10,color=MUTED){
-    const label=this.label(id,text,x,y,size,color);label.setMask(this.cardMask);return label;
+    const label=this.label(id,text,x,y,size,color);
+    if(label.parentContainer!==this.catalogLayer)this.catalogLayer.add(label);
+    return label;
   }
 }
 
