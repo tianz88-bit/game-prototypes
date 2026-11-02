@@ -1,6 +1,6 @@
 ## Current milestone
 
-Operation C roster and classic RTS interface milestone, 2026-11-02. Local production playtest: http://127.0.0.1:5188/ . Branch codex/operation-c-roster-rts-ui is based on current main 134b88d. Public Pages still serves the prior progression milestone 021126r0008; this new change is being prepared for review and has not been published. Do not manually increment the deployment counter.
+Operation C roster and classic RTS interface milestone, 2026-11-02. Local production playtest: http://127.0.0.1:5188/ . Branch codex/operation-c-roster-rts-ui is based on current main 134b88d. Public Pages still serves the prior progression milestone 021126r0008; the new change is in draft PR #414 (https://github.com/tianz88-bit/game-prototypes/pull/414) for playtest review and has not been published. Do not manually increment the deployment counter.
 
 ## What was implemented
 
@@ -30,4 +30,4 @@ Local two-HQ human-versus-bot sandbox only. Physical phone performance and long-
 
 ## Next proposed step
 
-Review the local roster/UI milestone and merge its game-specific PR when approved, then verify the published Pages build. Keep Current WIP itch and unrelated prototype deployments untouched.
+Review the local roster/UI milestone and merge draft PR #414 when approved, then verify the published Pages build. Keep Current WIP itch and unrelated prototype deployments untouched.
