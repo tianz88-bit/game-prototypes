@@ -18,6 +18,7 @@ for(const profile of [
   {name:'phone-landscape',viewport:{width:844,height:390},touch:true},
   {name:'phone-small-landscape',viewport:{width:667,height:375},touch:true},
 ].filter(p=>!process.env.OPERATION_C_PROFILE||p.name===process.env.OPERATION_C_PROFILE)){
+  console.log(`CHECK ${profile.name}: loadout and card previews`);
   const context=await browser.newContext({viewport:profile.viewport,deviceScaleFactor:2,hasTouch:profile.touch,reducedMotion:'no-preference'}),page=await context.newPage();
   page.on('console',m=>{if(m.type()==='error')errors.push(`${profile.name}: ${m.text()}`);});page.on('pageerror',e=>errors.push(`${profile.name}: ${e.message}`));
   await page.goto(`${base}${base.includes('?')?'&':'?'}test=1&bot=0`,{waitUntil:'networkidle'});
@@ -56,6 +57,7 @@ for(const profile of [
   await scrollTo('loadout-carrier');await shot('tier-three');await checkButtons();
   // Touch drag scroll is the same intent used by wheel navigation.
   if(profile.touch){const before=(await snap()).loadoutScroll;await page.mouse.move(80,profile.viewport.height*0.55);await page.mouse.down();await page.mouse.move(80,profile.viewport.height*0.7,{steps:8});await page.mouse.up();await page.waitForTimeout(80);assert((await snap()).loadoutScroll<before,'drag scroll');}
+  console.log(`CHECK ${profile.name}: construction, commands and progression`);
   await press('start-match');await press('pause');await checkButtons();await shot('start');
   const hq=(await snap()).buildings.find(b=>b.owner===0&&b.kind==='hq');await press('card-infantry');await inspect(hq);assert.equal((await snap()).selectedBuild,null);assert((await targets()).buttons.some(b=>b.id==='defend'));
   const barracks=await place('infantry');assert.equal((await snap()).resources.committed,4);assert.equal((await snap()).units.length,0);await shot('construction');

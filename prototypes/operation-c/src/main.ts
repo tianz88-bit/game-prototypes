@@ -15,6 +15,16 @@ type Button = { id: string; x: number; y: number; w: number; h: number; run: () 
 type QA = { snapshot: () => unknown; targets: () => unknown; advance: (ms: number) => void; captureClock: (ms: number | null) => void };
 declare global { interface Window { __operationC?: QA } }
 
+/** Phaser re-rasterizes text for several unchanged setters; keep static UI cached. */
+class CachedText extends Phaser.GameObjects.Text {
+  override setColor(color:string) { if(this.style.color!==color)super.setColor(color);return this; }
+  override setWordWrapWidth(width:number,useAdvancedWrap=false) {
+    if(this.style.wordWrapWidth!==width||this.style.wordWrapUseAdvanced!==useAdvancedWrap)super.setWordWrapWidth(width,useAdvancedWrap);return this;
+  }
+  override setAlign(align:string) {if(this.style.align!==align)super.setAlign(align);return this;}
+  override setLineSpacing(value:number) {if(this.lineSpacing!==value)super.setLineSpacing(value);return this;}
+}
+
 class Battlefield extends Phaser.Scene {
   sim = new OperationSim();
   private w = 0; private h = 0; private top = 0; private bottom = 0;
@@ -366,8 +376,8 @@ class Battlefield extends Phaser.Scene {
   }
   private label(id: string, text: string, x: number, y: number, size = 14, color = INK, origin = 0) {
     let object = this.texts.get(id);
-    if (!object) { object = this.add.text(x, y, '', { fontFamily: 'Arial, Helvetica, sans-serif', fontSize: size, color }).setResolution(DPR); this.texts.set(id, object); }
-    object.setVisible(true).setPosition(x, y).setOrigin(origin, 0).setColor(color).setFontSize(size).setScale(1).setAlpha(1).setFontStyle('normal');
+    if (!object) { object = this.add.existing(new CachedText(this, x, y, '', { fontFamily: 'Arial, Helvetica, sans-serif', fontSize: size, color })).setResolution(DPR); this.texts.set(id, object); }
+    object.setVisible(true).setPosition(x, y).setOrigin(origin, 0).setColor(color).setFontSize(size).setScale(1).setAlpha(1);
     if (object.text !== text) object.setText(text);
     return object;
   }
@@ -507,18 +517,18 @@ class Battlefield extends Phaser.Scene {
         if(scale>0.5&&hitEnd>hitY)this.buttons.push({id:`loadout-${kind}`,x,y:hitY,w:cw,h:hitEnd-hitY,run:pick});
         if(scale<0.13)return;
         const lx=(v:number)=>center+(v-cw/2)*scale;
-        const label=(id:string,text:string,dx:number,dy:number,size=10,color=MUTED)=>this.loadLabel(`load-${kind}-${id}`,text,lx(dx),y+dy,size,color).setScale(scale,1).setWordWrapWidth(cw-18);
-        label('name',NAMES[variant],9,9,small?11:14,INK).setFontStyle('bold').setWordWrapWidth(cw-(base.upgradeTo?44:18));
+        const label=(id:string,text:string,dx:number,dy:number,size=10,color=MUTED)=>this.loadLabel(`load-${kind}-${id}`,text,lx(dx),y+dy,size,color).setScale(scale,1).setWordWrapWidth(id==='name'?cw-(base.upgradeTo?44:18):id==='cost'?cw-75:id==='unit'?cw-73:cw-18);
+        label('name',NAMES[variant],9,9,small?11:14,INK).setFontStyle('bold');
         label('tier',`${active?'✓ SELECTED · ':''}T${c.tier}${variant!==kind?' · UPGRADE PREVIEW':''}`,9,41,8,active?'#187e88':MUTED);
         this.cardArt.lineStyle(1,0xd6dfcf).lineBetween(fx+7*scale,y+145,fx+(cw-7)*scale,y+145);
         drawBuilding(this.cardArt,lx(35),y+91,24*scale,0,variant);
         label('building','BUILDING',68,63,8,MUTED);
         const duration=variant===kind?c.buildMs:base.upgradeMs??c.buildMs;
-        label('cost',`${c.cost} tiles · ${duration/1000}s ${variant===kind?'build':'convert'}`,68,78,small?9:11,INK).setWordWrapWidth(cw-75);
+        label('cost',`${c.cost} tiles · ${duration/1000}s ${variant===kind?'build':'convert'}`,68,78,small?9:11,INK);
         label('hp',`HP ${c.buildingHp}`,68,99,10);
         label('production',`Production ${c.productionMs/1000}s`,9,125,10);
         drawUnit(this.cardArt,lx(34),y+187,22*scale,0,variant,{members:c.squadSize?Array(c.squadSize).fill(c.unitHp):undefined});
-        label('unit',UNIT_NAMES[variant],67,155,small?10:12,INK).setFontStyle('bold').setWordWrapWidth(cw-73);
+        label('unit',UNIT_NAMES[variant],67,155,small?10:12,INK).setFontStyle('bold');
         const count=c.squadSize??1;
         label('unit-hp',`HP ${count>1?`${count} × `:''}${c.unitHp}`,67,191,10);
         label('stats',`DMG ${count>1?`${count} × `:''}${c.damage} · range ${c.minRange}–${c.range}\n${(1000/c.moveMs).toFixed(1)} hex/s · ${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'A':'G').join('/')}\n${NOTES[variant]}`,9,218,small?9:10).setLineSpacing(2);
