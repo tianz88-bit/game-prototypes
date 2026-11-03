@@ -196,6 +196,10 @@ class Battlefield extends Phaser.Scene {
     const { Pane } = await import('tweakpane');
     const values = structuredClone(DEFAULT_TUNE);
     this.pane = new Pane({ title: 'Operation C · provisional tuning' });
+    if (values.movement) {
+      const movement = this.pane.addFolder({ title: 'Movement', expanded: false });
+      movement.addBinding(values.movement, 'friendlySpeedMultiplier', { min: 1, max: 2, step: 0.05, label: 'Friendly speed ×' });
+    }
     const capture = this.pane.addFolder({ title: 'Capture', expanded: false });
     capture.addBinding(values.resources, 'destroyReleaseMs', { min: 1000, max: 30000, step: 1000 });
     capture.addBinding(values.capture, 'neutralMs', { min: 500, max: 10000, step: 100 });

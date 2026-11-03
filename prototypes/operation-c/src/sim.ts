@@ -60,6 +60,7 @@ export class OperationSim {
   constructor(options: { tune?: Tune; bot?: boolean; loadouts?: CardKind[][] } = {}) {
     this.tune = structuredClone(options.tune ?? DEFAULT_TUNE);
     if (!Number.isFinite(this.tune.stepMs) || this.tune.stepMs <= 0) throw new Error('stepMs must be positive');
+    if (this.tune.movement && (!Number.isFinite(this.tune.movement.friendlySpeedMultiplier) || this.tune.movement.friendlySpeedMultiplier <= 0)) throw new Error('friendlySpeedMultiplier must be finite and positive');
     for (const card of Object.values(this.tune.cards)) if (!['light', 'armoured', 'structure'].includes(card.damageClass)) throw new Error('Damage-class rules require current tuning; reload the current game version');
     this.loadouts = this.players.map((p, i) => {
       const cards = options.loadouts?.[i] ?? [...DEFAULT_LOADOUT];
@@ -549,7 +550,10 @@ export class OperationSim {
       // Reserve destination and origin for the entire animation; no crossing/swap.
       blocked.add(next); blocked.add(from);
       u.hexId = next; u.fromHexId = from; u.movedAtMs = this.timeMs;
-      u.movingUntilMs = this.timeMs + this.tune.cards[u.kind].moveMs;
+      // Sample the source once and latch arrival; later ownership/tune changes
+      // cannot accelerate or slow an already-reserved movement segment.
+      const speed = this.byHex.get(from)!.owner === u.owner ? this.tune.movement?.friendlySpeedMultiplier ?? 1 : 1;
+      u.movingUntilMs = this.timeMs + this.tune.cards[u.kind].moveMs / speed;
     }
   }
 

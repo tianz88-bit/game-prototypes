@@ -993,4 +993,64 @@ test('HQ/bunker and nuclear damage bypass class bonuses', () => {
   assert.equal(centre.hp, 300); assert.equal(outer.hp, 420); assert.equal(building.hp, 420);
 });
 
+test('every mobile ground/air form gets exactly 25% speed from its own source hex, never from its destination', () => {
+  assert.equal(DEFAULT_TUNE.movement.friendlySpeedMultiplier, 1.25);
+  for (const owner of [0, 1]) for (const [kind, card] of Object.entries(DEFAULT_TUNE.cards).filter(([, c]) => !c.utility)) {
+    for (const ownership of ['friendly', 'neutral', 'enemy']) {
+      const s = fixture(), source = owner === 0 ? '-2,2' : '2,-2';
+      h(s, source).owner = ownership === 'friendly' ? owner : ownership === 'neutral' ? null : 1 - owner;
+      for (const neighbor of s.neighbors(source)) neighbor.owner = ownership === 'friendly' ? 1 - owner : owner;
+      const mover = unit(s, source, owner, kind); s.setTarget(owner, 1 - owner); advance(s, 100);
+      assert.equal(mover.fromHexId, source, `${kind}/${owner}/${ownership} actually moves`);
+      assert.equal(mover.movedAtMs, 100);
+      assert.equal(mover.movingUntilMs - mover.movedAtMs, card.moveMs / (ownership === 'friendly' ? 1.25 : 1), `${kind}/${owner}/${ownership}`);
+      assertOccupancy(s);
+    }
+  }
+});
+
+test('ownership flips during a move cannot change its latched arrival, including JSON checkpoint recovery', () => {
+  for (const sourceOwner of [0, null, 1]) {
+    const s = fixture(), source = '-2,2'; h(s, source).owner = sourceOwner;
+    for (const n of s.neighbors(source)) n.owner = sourceOwner === 0 ? 1 : 0;
+    const mover = unit(s, source, 0, 'fighter'); s.setTarget(0, 1); advance(s, 100);
+    const arrival = mover.movingUntilMs, destination = mover.hexId;
+    h(s, source).owner = sourceOwner === 0 ? 1 : 0; h(s, destination).owner = sourceOwner === 0 ? 1 : 0;
+    s.tick(50); const recovered = OperationSim.restore(JSON.parse(JSON.stringify(s.checkpoint())));
+    const restoredMover = recovered.units.find(u => u.id === mover.id);
+    assert.equal(restoredMover.movingUntilMs, arrival);
+    while (s.timeMs + 100 < arrival) {
+      s.tick(100); recovered.tick(100);
+      assert.equal(mover.movingUntilMs, arrival); assert.equal(restoredMover.movingUntilMs, arrival);
+      assertOccupancy(s); assertOccupancy(recovered);
+    }
+    s.tick(100); recovered.tick(100);
+    assert.equal(mover.fromHexId, destination, 'the next step samples the newly owned source');
+    assert.equal(mover.movingUntilMs - mover.movedAtMs, 450 / (sourceOwner === 0 ? 1 : 1.25));
+    assert.deepEqual(recovered.checkpoint(), s.checkpoint());
+  }
+});
+
+test('retreats and traversable burnt/committed friendly hexes use the same source-owned speed rule', () => {
+  for (const sourceOwner of [0, null, 1]) {
+    const s = fixture(); ownAll(s); h(s, '0,0').owner = sourceOwner; h(s, '1,0').owner = 1;
+    const artillery = unit(s, '0,0', 0, 'artillery', 38); unit(s, '1,0', 1);
+    advance(s, 100); assert(artillery.retreatUntilMs > s.timeMs);
+    assert.equal(artillery.movingUntilMs - artillery.movedAtMs, 1400 / (sourceOwner === 0 ? 1.25 : 1));
+    assertOccupancy(s);
+  }
+  const s = fixture(); const tile = h(s, '-2,2'); tile.owner = 0; tile.burnt = true; tile.lockedBy = 'fixture-support';
+  const mover = unit(s, tile.id, 0, 'fighter'); s.setTarget(0, 1); advance(s, 100);
+  assert.equal(mover.movingUntilMs - mover.movedAtMs, 360);
+});
+
+test('older v3 tuning without the optional movement rule keeps base speed and remains checkpoint-compatible', () => {
+  const s = fixture(t => { delete t.movement; }); const source = '-2,2'; h(s, source).owner = 0;
+  const mover = unit(s, source, 0, 'fighter'); s.setTarget(0, 1); advance(s, 100);
+  assert.equal(mover.movingUntilMs - mover.movedAtMs, 450);
+  const saved = JSON.parse(JSON.stringify(s.checkpoint())); assert.equal(saved.version, 3); assert.equal(saved.tune.movement, undefined);
+  const restored = OperationSim.restore(saved); assert.equal(restored.units[0].movingUntilMs, mover.movingUntilMs);
+  assert.throws(() => fixture(t => { t.movement.friendlySpeedMultiplier = 0; }), /finite and positive/);
+});
+
 console.log(`${passed} Operation C simulation behavior tests passed.`);

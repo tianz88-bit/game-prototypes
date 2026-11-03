@@ -59,6 +59,8 @@ export interface CardTune {
 }
 export interface Tune {
   stepMs: number; map: { radius: number; hqQ: number; hqR: number };
+  /** Absent in older v3 rooms: retain their original base-speed rules. */
+  movement?: { friendlySpeedMultiplier: number };
   resources: { capacityCap: number; destroyReleaseMs: number }; hq: { hp: number; captureRings: number; defenseRange: number; defenseDamage: number; defenseAttackMs: number };
   nuclear: { flightMs: number; radius: number; centreDamage: number; outerDamage: number };
   capture: { neutralMs: number; ownedMultiplier: number; hqRate: number; rollbackRate: number };
