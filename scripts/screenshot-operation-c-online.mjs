@@ -17,6 +17,7 @@ try{
     browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1}),
   ]);
   const [host,guest,extra]=await Promise.all(contexts.map(c=>c.newPage()));
+  const guestFrames=[];guest.on('websocket',ws=>ws.on('framereceived',event=>{try{guestFrames.push(JSON.parse(String(event.payload)));}catch{}}));
   for(const p of[host,guest,extra]){p.on('pageerror',e=>errors.push(e.message));p.on('console',m=>{if(m.type()==='error')errors.push(m.text());});}
   const snap=p=>p.evaluate(()=>window.__operationC.snapshot());
   const targets=p=>p.evaluate(()=>window.__operationC.targets());
@@ -25,6 +26,7 @@ try{
   const capture=(p,name)=>p.screenshot({path:path.join(out,name+'.png')});
   const initial=new URL(base);initial.searchParams.set('test','1');if(server)initial.searchParams.set('server',server);
   await host.goto(initial.href,{waitUntil:'networkidle'});await host.waitForFunction(()=>window.__operationC);
+  assert((await snap(host)).loadout.includes('bunker')&&(await snap(host)).loadout.includes('silo'),'new utilities are discoverable in the default eight');
   await press(host,'host-online');await host.waitForFunction(()=>window.__operationC.snapshot().online?.connected,null,{timeout:20000});
   let h=await snap(host);assert.equal(h.online.seat,0);console.log('CHECK online: host connected');
   const invite=new URL(h.online.inviteLink);invite.searchParams.set('test','1');
@@ -48,10 +50,26 @@ try{
   await place(host,0);await place(guest,1);
   await Promise.all([host,guest].map(p=>p.waitForFunction(()=>window.__operationC.snapshot().units.length>=2,null,{timeout:15000})));
   await capture(host,'host-battle');await capture(guest,'guest-battle');
+  const anchor=(await snap(guest)).buildings.find(b=>b.owner===1&&b.kind==='infantry');await press(guest,'defend-building');await guest.waitForFunction(id=>window.__operationC.snapshot().players[1].defendTargetId===id,anchor.id);assert.deepEqual((await snap(guest)).commandIndicator,{hqId:anchor.id,mode:'defend'});await capture(guest,'guest-defense-anchor');
   h=await snap(host);let g=await snap(guest);assert.deepEqual(h.buildings.map(b=>[b.id,b.owner,b.kind]),g.buildings.map(b=>[b.id,b.owner,b.kind]));
   const firstTime=g.timeMs;await guest.reload({waitUntil:'networkidle'});await guest.waitForFunction(()=>window.__operationC?.snapshot().online?.connected&&window.__operationC.snapshot().page==='battle',null,{timeout:20000});g=await snap(guest);assert.equal(g.online.seat,1);assert(g.timeMs>=firstTime);assert(g.buildings.some(b=>b.owner===1&&b.kind==='infantry'));await capture(guest,'guest-rejoined');
   await press(guest,'overview');h=await snap(guest);const rival=h.buildings.find(b=>b.owner===0&&b.kind==='infantry'),rivalHex=(await targets(guest)).hexes.find(hex=>hex.id===rival.hexId);await tap(guest,rivalHex.x,rivalHex.y);await guest.waitForTimeout(90);assert(!(await targets(guest)).buttons.some(b=>b.id==='sell'||b.id==='upgrade'),'rival producer has no owner-only commands');
   console.log('PASS online: room capacity, authenticated seat1 UI, no local pause/advance, both placement/construction/units, shared buildings, same-seat reload, enemy command restrictions');
+  if(process.env.OPERATION_C_ONLINE_NUKE==='1'){
+    for(let i=0;i<3;i++)await place(host,0);
+    await host.waitForFunction(()=>{const s=window.__operationC.snapshot();return s.resources.capacity>=64;},null,{timeout:120000});
+    console.log('CHECK nuclear: expansion earned silo capacity');
+    // Reallocate captured territory through real commands; avoid an unrelated infantry win during tech/payload timers.
+    await press(host,'overview');
+    for(const b of (await snap(host)).buildings.filter(b=>b.owner===0&&b.kind==='infantry')){const point=(await targets(host)).hexes.find(h=>h.id===b.hexId);await tap(host,point.x,point.y);await host.waitForTimeout(90);await press(host,'sell');await host.waitForFunction(id=>!window.__operationC.snapshot().buildings.some(b=>b.id===id),b.id);}
+    await press(host,'research');await host.waitForFunction(()=>window.__operationC.snapshot().players[0].techTier===2,null,{timeout:40000});await press(host,'research');await host.waitForFunction(()=>window.__operationC.snapshot().players[0].techTier===3,null,{timeout:70000});console.log('CHECK nuclear: real-time T2 and T3 completed');
+    await press(host,'card-silo');let candidates=await targets(host),site=candidates.hexes.find(h=>h.valid&&h.y>candidates.board.top+20&&h.y<candidates.board.bottom-20);assert(site,'connected silo footprint');await tap(host,site.x,site.y);await host.waitForTimeout(90);await tap(host,site.x,site.y);await host.waitForFunction(()=>window.__operationC.snapshot().buildings.some(b=>b.owner===0&&b.kind==='silo'),null,{timeout:10000});
+    let silo=(await snap(host)).buildings.find(b=>b.owner===0&&b.kind==='silo');await host.waitForFunction(id=>{const s=window.__operationC.snapshot(),b=s.buildings.find(b=>b.id===id);return b?.nukeReadyAtMs!==undefined&&b.nukeReadyAtMs<=s.timeMs;},silo.id,{timeout:85000});
+    const position=(await targets(host)).hexes.find(h=>h.id===silo.hexId);await tap(host,position.x,position.y);await host.waitForTimeout(90);await press(host,'defend-building');await host.waitForFunction(id=>window.__operationC.snapshot().players[0].defendTargetId===id,silo.id);await press(host,'launch-nuke');
+    const victim=(await snap(host)).buildings.find(b=>b.kind==='hq'&&b.owner===1),oldHp=victim.hp,point=(await targets(host)).hexes.find(h=>h.id===victim.hexId);await tap(host,point.x,point.y);await host.waitForTimeout(90);guestFrames.length=0;await capture(host,'nuclear-aim');await press(host,'confirm-nuke');
+    await host.waitForTimeout(1500);assert.equal((await snap(guest)).buildings.find(b=>b.id===victim.id).hp,oldHp,'flight has not impacted');assert(guestFrames.filter(m=>m.t==='state').every(m=>m.entities.nukeFlights.length===0),'defender receives no private flights');assert(guestFrames.filter(m=>m.t==='state').every(m=>m.entities.buildings.filter(b=>b.owner===0).every(b=>b.nukeReadyAtMs===undefined)),'defender receives no payload timer');
+    await host.waitForFunction(()=>window.__operationC.snapshot().nuclearImpacts.length>0,null,{timeout:12000});await guest.waitForFunction(()=>window.__operationC.snapshot().nuclearImpacts.length>0,null,{timeout:5000});assert((await snap(guest)).buildings.find(b=>b.id===victim.id).hp<oldHp);await host.waitForTimeout(850);await capture(host,'nuclear-impact-host');await capture(guest,'nuclear-impact-guest');console.log('PASS online nuclear strike: real research/construction/production/flight timers, contextual aim/launch, building anchor, private defender wire data, shared impact/damage');
+  }
   if(process.env.OPERATION_C_ONLINE_FULL_MATCH==='1'){
     for(let i=0;i<3;i++)await place(host,0);
     await press(host,'overview');h=await snap(host);const enemy=h.buildings.find(b=>b.kind==='hq'&&b.owner===1),point=(await targets(host)).hexes.find(hex=>hex.id===enemy.hexId);await tap(host,point.x,point.y);

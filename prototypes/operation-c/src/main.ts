@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { Pane } from 'tweakpane';
 import { OperationSim, DEFAULT_TUNE, BASE_CARDS, DEFAULT_LOADOUT } from './sim';
 import type { Building, Unit, CardKind, Hex, Tune } from './model';
-import { drawHex, drawBuilding, drawUnit, drawExplosion, drawCaptureFlip, drawBuildConfirmation, drawBulletTrace, drawCommitmentMarker, drawReleaseCountdown, drawRetreat, drawHqCommand, drawUpgradeReady, playerColor, hexPoints } from './art';
+import { drawHex, drawBuilding, drawUnit, drawExplosion, drawCaptureFlip, drawBuildConfirmation, drawBulletTrace, drawCommitmentMarker, drawReleaseCountdown, drawRetreat, drawHqCommand, drawUpgradeReady, drawNuclearImpact, playerColor, hexPoints } from './art';
 import { Intents } from './input';
 import { VERSION_STAMP } from './version.generated';
 import { NAMES, UNIT_NAMES, NOTES } from './catalog';
@@ -81,6 +81,7 @@ class Battlefield extends Phaser.Scene {
   private lastSimTime = 0; private lastSimFrame = 0;
   private upgradeReady = new Set<string>(); private upgradeCheckAt = -1;
   private online:OnlineConnection|null=null;private networkEntered=false;private onlineNotice='';private toast='';private toastUntil=0;private readyPending=false;
+  private nuclearAim:{buildingId:string;hexId:string|null}|null=null;
   private get localPlayerId(){return this.online?.seat??0;}
 
   private perform(command:OnlineCommand):{ok:boolean;reason?:string}{
@@ -95,6 +96,8 @@ class Battlefield extends Phaser.Scene {
       case 'upgrade':return this.sim.upgrade(owner,command.buildingId);
       case 'cancelUpgrade':return this.sim.cancelUpgrade(owner,command.buildingId);
       case 'sell':return this.sim.sell(owner,command.buildingId);
+      case 'defend':return this.sim.setDefendTarget(owner,command.entityId);
+      case 'launchNuke':return this.sim.launchNuke(owner,command.buildingId,command.hexId);
     }
   }
   private startOnline(create:boolean,roomCode=generateRoomCode()){
@@ -127,7 +130,15 @@ class Battlefield extends Phaser.Scene {
   private orderedCards(cards:Iterable<CardKind>) {
     return [...cards].sort((a,b)=>this.sim.tune.cards[a].tier-this.sim.tune.cards[b].tier||this.sim.tune.cards[a].cost-this.sim.tune.cards[b].cost||CARDS.indexOf(a)-CARDS.indexOf(b));
   }
-  private commandHq() {return this.sim.buildings.find(b=>b.kind==='hq'&&b.owner===this.sim.players[this.localPlayerId].targetId);}
+  private commandHq() {
+    const player=this.sim.players[this.localPlayerId];
+    if(player.targetId===this.localPlayerId&&player.defendTargetId){
+      const target=this.sim.buildings.find(e=>e.id===player.defendTargetId&&e.owner===this.localPlayerId);
+      if(target)return target;
+    }
+    return this.sim.buildings.find(b=>b.kind==='hq'&&b.owner===player.targetId);
+  }
+  private defendEntity(entityId:string){this.nuclearAim=null;this.perform({kind:'defend',entityId});this.selected=null;this.chosenHex=null;}
 
   create() {
     document.getElementById('loading')?.remove();
@@ -150,7 +161,7 @@ class Battlefield extends Phaser.Scene {
           hexes: this.sim.hexes, resources: this.sim.resources(this.localPlayerId), winner: this.sim.winner, target: this.sim.players[this.localPlayerId].targetId,
           objects: this.children.length, textures: this.textures.getTextureKeys().length,
           selectedBuild: this.selected && this.chosenHex ? { hexId: this.chosenHex, valid: this.sim.placement(this.localPlayerId, this.chosenHex, this.selected).ok } : null,
-          shots: this.sim.shots,
+          shots: this.sim.shots, nuclearAim:this.nuclearAim, nuclearImpacts:this.sim.nuclearImpacts,
           presentation: { durationMs: this.sim.tune.presentation.captureFlipMs, reducedMotion: this.reducedMotion,
             shotTraceMs: this.sim.tune.presentation.shotTraceMs,
             traces: this.traces.map(t => ({ ...t, progress: Phaser.Math.Clamp((this.captureNow() - t.born) / this.sim.tune.presentation.shotTraceMs, 0, 1) })),
@@ -196,12 +207,21 @@ class Battlefield extends Phaser.Scene {
     presentation.addBinding(values.presentation,'commandPulseMs',{min:500,max:4000,step:100});
     presentation.addBinding(values.presentation,'upgradeBobMs',{min:500,max:4000,step:100});
     presentation.addBinding(values.presentation,'upgradeBobLift',{min:0,max:0.3,step:0.01});
+    presentation.addBinding(values.presentation,'mushroomMs',{min:1000,max:6000,step:100});
+    const baseDefense=this.pane.addFolder({title:'HQ defence',expanded:false});
+    baseDefense.addBinding(values.hq,'defenseRange',{min:1,max:4,step:1});
+    baseDefense.addBinding(values.hq,'defenseDamage',{min:1,max:30,step:1});
+    baseDefense.addBinding(values.hq,'defenseAttackMs',{min:200,max:4000,step:100});
+    const nuclear=this.pane.addFolder({title:'Nuclear strike',expanded:false});
+    nuclear.addBinding(values.nuclear,'flightMs',{min:1000,max:30000,step:1000});
+    nuclear.addBinding(values.nuclear,'centreDamage',{min:1,max:1000,step:10});
+    nuclear.addBinding(values.nuclear,'outerDamage',{min:1,max:500,step:10});
     presentation.addBinding(values.presentation, 'retreatMs', {min:200,max:1500,step:50});
     presentation.addBinding(values.presentation, 'shotTraceMs', { min: 100, max: 600, step: 20 });
     for (const kind of Object.keys(values.cards) as CardKind[]) {
       const folder = this.pane.addFolder({ title: NAMES[kind], expanded: false });
       for (const key of ['cost', 'damage', 'unitHp', 'moveMs', 'productionMs', 'attackMs', 'captureRate', 'minRange', 'range', 'buildMs'] as const)
-        folder.addBinding(values.cards[kind], key, { min: key.endsWith('Ms') ? 100 : 0.1, max: key.endsWith('Ms') ? 30000 : 300 });
+        folder.addBinding(values.cards[kind], key, { min: key.endsWith('Ms') ? 100 : 0.1, max: key.endsWith('Ms') ? 120000 : 300 });
       if (values.cards[kind].upgradeMs !== undefined) folder.addBinding(values.cards[kind], 'upgradeMs', { min: 100, max: 30000, step: 100 });
       if (values.cards[kind].retreatMs !== undefined) folder.addBinding(values.cards[kind], 'retreatMs', { min: 100, max: 10000, step: 100 });
     }
@@ -212,7 +232,7 @@ class Battlefield extends Phaser.Scene {
   }
   private restart(tune?: Tune) {
     if(this.online)return;
-    this.upgradeCheckAt=-1;
+    this.upgradeCheckAt=-1;this.nuclearAim=null;
     this.sim = new OperationSim({ tune, bot: !(new URLSearchParams(location.search).get('test') === '1' && new URLSearchParams(location.search).get('bot') === '0'), loadouts: [[...this.loadout], STARTER] }); this.page = 'battle'; this.indexHexes(); this.terrainSignature = '';
     this.seenUnits.clear(); this.seenBuildings.clear(); this.spawns.clear(); this.effects = [];
     this.facingX.clear(); this.traces = []; this.lastShotId = 0; this.retiredSeen = 0; this.retreats = []; this.inspectedSnapshot = null; this.panel = 'build';
@@ -273,6 +293,7 @@ class Battlefield extends Phaser.Scene {
     if (button) { button.run(); return; }
     if (this.sim.winner !== null) return;
     const hex = this.at(x, y); if (!hex) return;
+    if(this.nuclearAim){this.nuclearAim.hexId=hex.id;return;}
     const b = this.sim.buildings.find(b => b.hexId === hex.id);
     const u = this.sim.units.find(u => u.hexId === hex.id);
     if (this.selected && !b && !u && !hex.lockedBy && !hex.burnt) {
@@ -304,7 +325,7 @@ class Battlefield extends Phaser.Scene {
         if(this.page==='loadout'&&event.key==='end')this.loadoutScroll=this.loadoutMaxScroll;
         if (event.key === ' '&&!this.online) this.paused = !this.paused;
         if (event.key === 'h') this.home();
-        if (event.key === 'escape') { this.selected = null; this.chosenHex = null; }
+        if (event.key === 'escape') { this.selected = null; this.chosenHex = null; this.nuclearAim=null; }
         if(this.page==='loadout'&&(event.key==='arrowdown'||event.key==='arrowup')) this.loadoutScroll=Phaser.Math.Clamp(this.loadoutScroll+(event.key==='arrowdown'?100:-100),0,this.loadoutMaxScroll);
         const index = Number(event.key) - 1; const deck=this.orderedCards(this.loadout);if(this.page==='battle'&&index>=0&&index<deck.length)this.chooseCard(deck[index]);
       }
@@ -353,6 +374,10 @@ class Battlefield extends Phaser.Scene {
         committed: !!h.lockedBy, progress: (captureNow - flip.born) / duration, lift: this.radius * this.sim.tune.presentation.captureLift });
     }
     const previewId = this.chosenHex ?? this.hover;
+    const blastHex=this.nuclearAim?.hexId?this.byHex.get(this.nuclearAim.hexId):undefined;
+    if(blastHex)for(const hex of this.sim.hexes){const dq=hex.q-blastHex.q,dr=hex.r-blastHex.r;if(Math.max(Math.abs(dq),Math.abs(dr),Math.abs(dq+dr))>1)continue;
+      const point=this.position(hex),center=hex.id===blastHex.id;this.overlay.fillStyle(center?0xc84836:0xea9a48,center?0.5:0.3).fillPoints(hexPoints(point.x,point.y,this.radius*0.92),true);this.overlay.lineStyle(2,0xffead1).strokePoints(hexPoints(point.x,point.y,this.radius*0.92),true);
+    }
     if (this.selected && previewId) {
       const placement = this.sim.placement(this.localPlayerId, previewId, this.selected);
       for (const id of placement.ok ? placement.hexes : [previewId]) {
@@ -382,7 +407,7 @@ class Battlefield extends Phaser.Scene {
       const p = this.position(this.byHex.get(e.hexId)!);
       if ('unitId' in e) {
         newBuildings.set(e.id, p);
-        const progress = e.kind === 'hq' ? undefined : 1 - Math.max(0, e.readyAtMs - this.sim.timeMs) / this.sim.tune.cards[e.kind].productionMs;
+        const progress = e.kind === 'hq'||this.sim.tune.cards[e.kind].utility==='bunker' ? undefined : e.kind==='silo'?(e.nukeReadyAtMs===undefined?undefined:1-Math.max(0,e.nukeReadyAtMs-this.sim.timeMs)/this.sim.tune.cards.silo.productionMs):e.readyAtMs>this.sim.timeMs?1-Math.max(0,e.readyAtMs-this.sim.timeMs)/this.sim.tune.cards[e.kind].productionMs:undefined;
         drawBuilding(this.live, p.x, p.y, this.radius * 0.8, e.owner, e.kind, { hp: e.hp, maxHp: e.maxHp, progress, selected: this.inspected === e.id, construction: e.completeAtMs && e.completeAtMs > this.sim.timeMs && e.kind !== 'hq' ? 1 - (e.completeAtMs - this.sim.timeMs) / this.sim.tune.cards[e.kind].buildMs : undefined, upgrading: e.upgradeCompleteAtMs && e.upgradeKind && e.kind !== 'hq' ? 1 - (e.upgradeCompleteAtMs - this.sim.timeMs) / (this.sim.tune.cards[e.kind].upgradeMs || 1) : undefined });
         if(this.upgradeReady.has(e.id))drawUpgradeReady(this.feedback,p.x,p.y,this.radius,this.reducedMotion?0:Math.sin(now/this.sim.tune.presentation.upgradeBobMs*Math.PI*2)*this.radius*this.sim.tune.presentation.upgradeBobLift);
       } else {
@@ -439,6 +464,7 @@ class Battlefield extends Phaser.Scene {
       const hex = this.byHex.get(this.chosenHex)!; const p = this.position(hex);
       drawBuildConfirmation(this.feedback, p.x, p.y, this.radius, { valid: this.sim.placement(this.localPlayerId, hex.id, this.selected).ok, time: now });
     }
+    for(const impact of this.sim.nuclearImpacts){const age=visualMs-impact.timeMs;if(age<0||age>=this.sim.tune.presentation.mushroomMs)continue;const hex=this.byHex.get(impact.hexId);if(!hex)continue;const point=this.position(hex);drawNuclearImpact(this.feedback,point.x,point.y,this.radius,this.reducedMotion?0.65:age/this.sim.tune.presentation.mushroomMs);}
   }
   private label(id: string, text: string, x: number, y: number, size = 14, color = INK, origin = 0) {
     let object = this.texts.get(id);
@@ -455,7 +481,7 @@ class Battlefield extends Phaser.Scene {
   }
   private chooseCard(kind: CardKind) {
     if(this.sim.tune.cards[kind].tier>this.sim.players[this.localPlayerId].techTier)return;
-    this.selected=this.selected===kind?null:kind;
+    this.nuclearAim=null;this.selected=this.selected===kind?null:kind;
     this.chosenHex=null;this.inspected=null;this.inspectedSnapshot=null;this.panel='build';
     this.message=this.selected?'Choose open territory · tap its hammer again to build.':'Select a card or a force on the map.';
   }
@@ -463,12 +489,12 @@ class Battlefield extends Phaser.Scene {
   private miniCard(id:string,kind:CardKind,x:number,y:number,w:number,h:number,run:()=>void,active=false,disabled=false) {
     const c=this.sim.tune.cards[kind];this.button(id,'',x,y,w,h,run,active,disabled);
     const r=Math.min(18,h*0.28,w*0.17),cx=x+r+4,cy=y+h/2;
-    if(this.unitPortraits)drawUnit(this.hud,cx,cy,r,this.localPlayerId,kind,{members:c.squadSize?Array(c.squadSize).fill(c.unitHp):undefined});
+    if(this.unitPortraits&&!c.utility)drawUnit(this.hud,cx,cy,r,this.localPlayerId,kind,{members:c.squadSize?Array(c.squadSize).fill(c.unitHp):undefined});
     else drawBuilding(this.hud,cx,cy,r,this.localPlayerId,kind);
     if(disabled){this.hud.fillStyle(0xc6cdc3,0.65).fillRoundedRect(x+2,y+2,w-4,h-4,7);this.hud.lineStyle(1.5,0x718477,1).strokeRoundedRect(cx-4,cy-1,8,7,1).beginPath().arc(cx,cy-1,3,-Math.PI,0).strokePath();}
     const color=disabled?MUTED:active?'#fff7e5':INK;
     const tx=x+r*2+8,tw=w-r*2-12;
-    this.label(`${id}-name`,this.unitPortraits?UNIT_NAMES[kind]:NAMES[kind],tx,y+5,h<55||w<100?8:10,color).setWordWrapWidth(tw).setAlign('left');
+    this.label(`${id}-name`,this.unitPortraits&&!c.utility?UNIT_NAMES[kind]:NAMES[kind],tx,y+5,h<55||w<100?8:10,color).setWordWrapWidth(tw).setAlign('left');
     this.label(`${id}-cost`,`${c.cost}◇ · ${c.buildMs/1000}s`,tx,y+h-14,w<100?7:h<55?8:9,color);
   }
   private drawHud() {
@@ -506,7 +532,14 @@ class Battlefield extends Phaser.Scene {
     const deck=this.orderedCards(this.loadout),cols=narrow?2:4,rows=Math.ceil(deck.length/cols),gap=4,cardY=bottomY+31,cw=(leftW-gap*(cols-1))/cols,ch=Math.min(narrow?62:76,(this.bottom-67-gap*(rows-1))/Math.max(rows,1));
     deck.forEach((kind,i)=>this.miniCard(`card-${kind}`,kind,pad+i%cols*(cw+gap),cardY+Math.floor(i/cols)*(ch+gap),cw,ch,()=>this.chooseCard(kind),this.selected===kind,this.sim.tune.cards[kind].tier>p.techTier));
     const x=half+pad,w=half-pad*2;
-    if(this.selected){
+    if(this.nuclearAim){
+      const aim=this.nuclearAim,silo=this.sim.buildings.find(b=>b.id===aim.buildingId&&b.owner===this.localPlayerId&&b.kind==='silo');
+      if(!silo)this.nuclearAim=null;
+      this.label('nuke-title','NUCLEAR STRIKE',x,bottomY+9,narrow?12:16,'#a63b2b').setFontStyle('bold');
+      this.label('nuke-hint',compact?'Tap hex · 7-hex blast · FRIENDLY FIRE':aim.hexId?'7-hex strike · strongest at centre.\nFRIENDLY FIRE\nConfirm to launch.':'Tap a hex on the map to aim.\n7-hex blast · friendly fire.',x,bottomY+(compact?29:38),compact?9:11,MUTED).setWordWrapWidth(w);
+      this.button('confirm-nuke','CONFIRM LAUNCH',x,this.h-99,w,27,()=>{if(!aim.hexId)return;const result=this.perform({kind:'launchNuke',buildingId:aim.buildingId,hexId:aim.hexId});if(result.ok)this.nuclearAim=null;else this.message=result.reason??'Cannot launch.';},true,!aim.hexId||!silo);
+      this.button('cancel-nuke','CANCEL',x,this.h-66,w,27,()=>{this.nuclearAim=null;});
+    }else if(this.selected){
       const c=this.sim.tune.cards[this.selected];
       this.label('buildTitle',NAMES[this.selected],x,bottomY+9,narrow?12:16).setFontStyle('bold').setWordWrapWidth(w);
       drawBuilding(this.hud,compact?x+29:x+w/2,bottomY+(compact?58:80),compact?23:34,this.localPlayerId,this.selected);
@@ -516,7 +549,7 @@ class Battlefield extends Phaser.Scene {
     }else if(this.inspectedSnapshot)this.drawInspector(x,bottomY+9,w,this.bottom-45);
     else{
       this.label('contextHint','COMMAND',x,bottomY+8,10,MUTED).setFontStyle('bold');
-      this.label('status','Select a force for its commands.\n\nYour HQ: expand & defend\nEnemy HQ: attack',x,bottomY+34,compact?10:12,MUTED).setWordWrapWidth(w);
+      this.label('status','Select a friendly building to defend/expand around it.\nEnemy HQ: attack',x,bottomY+34,compact?10:12,MUTED).setWordWrapWidth(w);
     }
     const navW=Math.min(80,(this.w-36)/4),navY=this.h-28;
     this.button('home','MY HQ',pad,navY,navW,23,()=>this.home());
@@ -538,22 +571,29 @@ class Battlefield extends Phaser.Scene {
     const e=this.inspectedSnapshot;if(!e)return;
     const compact=this.h<520,small=this.w<600,fs=small?11:14,building='unitId' in e;
     this.label('inspectTitle',e.kind==='hq'?'Headquarters':building?NAMES[e.kind]:UNIT_NAMES[e.kind],x,y,fs).setFontStyle('bold').setWordWrapWidth(w);
-    this.label('inspectType',`${e.owner===this.localPlayerId?'YOUR':'RIVAL'} ${building?'BUILDING':'UNIT'}${live?'':' · DESTROYED'}`,x,y+22,8,MUTED);
-    this.label('inspectHealth',`HP ${Math.max(0,Math.ceil(e.hp))} / ${e.maxHp}${'members' in e&&e.members?` · ${e.members.length} members`:''}`,x,y+37,10,MUTED);
+    this.label('inspectType',`${e.owner===this.localPlayerId?'YOUR':'RIVAL'} ${building?'BUILDING':'UNIT'}${live?'':' · DESTROYED'}`,x,y+(compact?17:22),8,MUTED);
+    this.label('inspectHealth',`HP ${Math.max(0,Math.ceil(e.hp))} / ${e.maxHp}${'members' in e&&e.members?` · ${e.members.length} members`:''}`,x,y+(compact?30:37),10,MUTED);
     if(e.kind==='hq'){
       const own=e.owner===this.localPlayerId;
       this.label('hqOrder',own?'Expand territory & defend intruders.':'Direct your forces at this HQ.',x,y+56,10,MUTED).setWordWrapWidth(w);
-      this.button(own?'defend':'attack',own?'EXPAND / DEFEND':'ATTACK THIS HQ',x,y+h-34,w,28,()=>{this.perform({kind:'target',targetId:e.owner as 0|1});this.selected=null;this.chosenHex=null;},this.sim.players[this.localPlayerId].targetId===e.owner);return;
+      this.button(own?'defend':'attack',own?'EXPAND / DEFEND':'ATTACK THIS HQ',x,y+h-34,w,28,()=>{this.perform({kind:'target',targetId:e.owner as 0|1});this.selected=null;this.chosenHex=null;},this.sim.players[this.localPlayerId].targetId===e.owner&&(!own||!this.sim.players[this.localPlayerId].defendTargetId||this.sim.players[this.localPlayerId].defendTargetId===e.id));return;
     }
     const c=this.sim.tune.cards[e.kind];
     if(!building){
       this.label('inspectUnit',`${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'AIR':'GROUND').join(' / ')}\n${NOTES[e.kind]}`,x,y+57,compact?9:11,MUTED).setWordWrapWidth(w);return;
     }
     const progress=e.completeAtMs&&e.completeAtMs>this.sim.timeMs?`Constructing ${Math.ceil((e.completeAtMs-this.sim.timeMs)/1000)}s`:e.upgradeKind?`Converting ${Math.max(0,Math.ceil(((e.upgradeCompleteAtMs??0)-this.sim.timeMs)/1000))}s`:`${c.cost} tiles · ${c.buildMs/1000}s construction`;
-    this.label('inspectProgress',progress,x,y+55,small?9:11,MUTED).setWordWrapWidth(w);
+    if(!compact)this.label('inspectProgress',progress,x,y+55,small?9:11,MUTED).setWordWrapWidth(w);
     if(!live||e.owner!==this.localPlayerId)return;
     const commandY=y+h-34,buttonW=(w-5)/2;
-    if(e.upgradeKind)this.button('cancel-upgrade','CANCEL ↑',x,commandY,buttonW,28,()=>{const r=this.perform({kind:'cancelUpgrade',buildingId:e.id});this.message=r.ok?'Conversion cancelled; base production restarted.':r.reason??'Cannot cancel.';});
+    this.button('defend-building','DEFEND / EXPAND',x,commandY-33,w,27,()=>this.defendEntity(e.id),this.sim.players[this.localPlayerId].defendTargetId===e.id&&this.sim.players[this.localPlayerId].targetId===this.localPlayerId);
+    if(c.utility==='silo'){
+      const complete=!e.completeAtMs||e.completeAtMs<=this.sim.timeMs,ready=e.nukeReadyAtMs!==undefined&&e.nukeReadyAtMs<=this.sim.timeMs;
+      const remaining=Math.max(0,Math.ceil(((e.nukeReadyAtMs??this.sim.timeMs)-this.sim.timeMs)/1000));
+      if(!compact)this.label('nuke-ready',!complete?'Complete construction first':ready?'NUKE READY · select a target':`Producing nuke · ${remaining}s`,x,y+81,small?9:11,ready?'#a63b2b':MUTED).setWordWrapWidth(w);
+      this.button('launch-nuke',ready?'LAUNCH NUKE':`NUKE ${remaining}s`,x,commandY,buttonW,28,()=>{this.selected=null;this.chosenHex=null;this.nuclearAim={buildingId:e.id,hexId:null};},ready,!ready||!complete);
+    }
+    else if(e.upgradeKind)this.button('cancel-upgrade','CANCEL ↑',x,commandY,buttonW,28,()=>{const r=this.perform({kind:'cancelUpgrade',buildingId:e.id});this.message=r.ok?'Conversion cancelled; base production restarted.':r.reason??'Cannot cancel.';});
     else if(c.upgradeTo){
       const target=this.sim.tune.cards[c.upgradeTo],result=this.sim.canUpgrade(this.localPlayerId,e.id);
       if(!compact)this.label('upgradeHint',`↑ ${NAMES[c.upgradeTo]}\n+${target.cost-c.cost} tiles · ${(c.upgradeMs??0)/1000}s · T${target.tier}`,x,y+81,9,MUTED).setWordWrapWidth(w);
@@ -603,12 +643,13 @@ class Battlefield extends Phaser.Scene {
         const duration=variant===kind?c.buildMs:base.upgradeMs??c.buildMs;
         label('cost',`${c.cost} tiles · ${duration/1000}s ${variant===kind?'build':'convert'}`,68,78,small?9:11,INK);
         label('hp',`HP ${c.buildingHp}`,68,99,10);
-        label('production',`Production ${c.productionMs/1000}s`,9,125,10);
-        drawUnit(this.cardArt,lx(34),y+187,22*scale,this.localPlayerId,variant,{members:c.squadSize?Array(c.squadSize).fill(c.unitHp):undefined});
-        label('unit',UNIT_NAMES[variant],67,155,small?10:12,INK).setFontStyle('bold');
+        label('production',c.utility==='bunker'?'Static defence · no unit':`${c.utility==='silo'?'Nuke':'Production'} ${c.productionMs/1000}s`,9,125,10);
+        if(c.utility)drawBuilding(this.cardArt,lx(34),y+187,22*scale,this.localPlayerId,variant);
+        else drawUnit(this.cardArt,lx(34),y+187,22*scale,this.localPlayerId,variant,{members:c.squadSize?Array(c.squadSize).fill(c.unitHp):undefined});
+        label('unit',c.utility==='bunker'?'DEFENCE GUN':c.utility==='silo'?'NUCLEAR STRIKE':UNIT_NAMES[variant],67,155,small?10:12,INK).setFontStyle('bold');
         const count=c.squadSize??1;
-        label('unit-hp',`HP ${count>1?`${count} × `:''}${c.unitHp}`,67,191,10);
-        label('stats',`DMG ${count>1?`${count} × `:''}${c.damage} · range ${c.minRange}–${c.range}\n${(1000/c.moveMs).toFixed(1)} hex/s · ${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'A':'G').join('/')}\n${NOTES[variant]}`,9,218,small?9:10).setLineSpacing(2);
+        label('unit-hp',c.utility==='silo'?'7-hex blast':c.utility==='bunker'?`Range ${c.minRange}–${c.range}`:`HP ${count>1?`${count} × `:''}${c.unitHp}`,67,191,10);
+        label('stats',c.utility?`${c.utility==='bunker'?`DMG ${c.damage} · ${(c.attackMs/1000).toFixed(1)}s fire interval`:'One stored nuke · contextual launch'}\n${NOTES[variant]}`:`DMG ${count>1?`${count} × `:''}${c.damage} · range ${c.minRange}–${c.range}\n${(1000/c.moveMs).toFixed(1)} hex/s · ${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'A':'G').join('/')}\n${NOTES[variant]}`,9,218,small?9:10).setLineSpacing(2);
         if(base.upgradeTo&&y+8>=header&&y+38<=this.h-footer){
           const bx=x+cw-35;
           this.cardArt.fillStyle(0xd2e5cd).fillRoundedRect(bx,y+7,27,29,6);

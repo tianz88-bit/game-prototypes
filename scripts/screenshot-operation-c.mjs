@@ -38,9 +38,11 @@ for(const profile of [
   };
   const inspect=async entity=>{const h=(await targets()).hexes.find(h=>h.id===entity.hexId);assert(h);await tap(h.x,h.y);await page.waitForTimeout(75);assert.equal((await snap()).inspected,entity.id);};
   const place=async kind=>{
-    await press(`card-${kind}`);const t=await targets();
-    const h=t.hexes.find(h=>h.valid&&h.x>22&&h.x<t.board.right-22&&h.y>t.board.top+25&&h.y<t.board.bottom-25);
-    assert(h,`${profile.name}: visible legal ${kind} placement`);await tap(h.x,h.y);await page.waitForTimeout(70);assert.equal((await snap()).selectedBuild?.valid,true);
+    await press(`card-${kind}`);let t=await targets();
+    const visible=(h,t)=>h.valid&&h.x>22&&h.x<t.board.right-22&&h.y>t.board.top+25&&h.y<t.board.bottom-25;
+    let h=t.hexes.find(h=>visible(h,t));
+    if(!h){await press('overview');t=await targets();h=t.hexes.find(h=>visible(h,t));}
+    assert(h,`${profile.name}: visible legal ${kind} placement (${t.hexes.filter(h=>h.valid).length} legal map cells)`);await tap(h.x,h.y);await page.waitForTimeout(70);assert.equal((await snap()).selectedBuild?.valid,true);
     await shot(`${kind}-hammer`);await tap(h.x,h.y);await page.waitForTimeout(70);
     const b=(await snap()).buildings.find(b=>b.owner===0&&b.hexId===h.id);assert(b,`${kind} placed`);await inspect(b);assert.equal((await snap()).selectedBuild,null,'occupied selection exits build mode');return b;
   };
@@ -59,7 +61,7 @@ for(const profile of [
   if(profile.touch){const before=(await snap()).loadoutScroll;await page.mouse.move(80,profile.viewport.height*0.55);await page.mouse.down();await page.mouse.move(80,profile.viewport.height*0.7,{steps:8});await page.mouse.up();await page.waitForTimeout(80);assert((await snap()).loadoutScroll<before,'drag scroll');}
   console.log(`CHECK ${profile.name}: construction, commands and progression`);
   await press('start-match');await press('pause');await checkButtons();await shot('start');
-  assert.deepEqual((await snap()).menuOrder,['infantry','scout','flak','tank','artillery','helicopter','fighter','carrier']);assert.equal((await targets()).buttons.find(b=>b.id==='card-fighter').disabled,true);await press('card-fighter');assert.equal((await snap()).selectedCard,null);assert.deepEqual((await snap()).commandIndicator,{hqId:'hq0',mode:'defend'});
+  assert.deepEqual((await snap()).menuOrder,['infantry','scout','tank','artillery','bunker','helicopter','fighter','silo']);assert.equal((await targets()).buttons.find(b=>b.id==='card-fighter').disabled,true);await press('card-fighter');assert.equal((await snap()).selectedCard,null);assert.deepEqual((await snap()).commandIndicator,{hqId:'hq0',mode:'defend'});
   const hq=(await snap()).buildings.find(b=>b.owner===0&&b.kind==='hq');await press('card-infantry');await inspect(hq);assert.equal((await snap()).selectedBuild,null);assert((await targets()).buttons.some(b=>b.id==='defend'));
   const barracks=await place('infantry');assert.equal((await snap()).resources.committed,4);assert.equal((await snap()).units.length,0);assert(!(await snap()).upgradeIndicators.includes(barracks.id));await shot('construction');
   const remaining=barracks.completeAtMs-(await snap()).timeMs;await advance(Math.floor(remaining/2));assert.equal((await snap()).units.length,0);await advance(remaining);
@@ -73,6 +75,14 @@ for(const profile of [
   await press('research');assert.equal((await snap()).players[0].research,null);await press('research');await advance(30000);assert.equal((await snap()).players[0].techTier,2);assert.equal((await targets()).buttons.find(b=>b.id==='card-fighter').disabled,false);await press('research');await advance(60000);assert.equal((await snap()).players[0].techTier,3);
   const airfield=await place('fighter');await advance(6000);await inspect((await snap()).buildings.find(b=>b.id===airfield.id));await press('upgrade');await advance(8000);s=await snap();assert.equal(s.buildings.find(b=>b.id===airfield.id).kind,'bomber');assert(s.units.some(u=>u.kind==='bomber'));await shot('bomber');await press('sell');assert(!(await snap()).buildings.some(b=>b.id===airfield.id));
   const artillery=await place('artillery');await advance(5000);await inspect((await snap()).buildings.find(b=>b.id===artillery.id));await press('upgrade');await advance(8000);s=await snap();assert.equal(s.buildings.find(b=>b.id===artillery.id).kind,'mlrs');assert(s.units.some(u=>u.kind==='mlrs'));assert(!(await targets()).buttons.some(b=>b.id==='card-mlrs'));await shot('mlrs');await checkButtons();
+  const bunker=await place('bunker');await advance(6000);s=await snap();assert(!s.units.some(u=>u.buildingId===bunker.id),'bunker produces no unit');await inspect(s.buildings.find(b=>b.id===bunker.id));await press('defend-building');assert.equal((await snap()).players[0].defendTargetId,bunker.id);assert.deepEqual((await snap()).commandIndicator,{hqId:bunker.id,mode:'defend'});await shot('bunker-defense-anchor');
+  // Restore home before waiting for the superweapon; the HQ capture aura stays home.
+  await inspect(hq);
+  // Reallocate the artillery footprint to the costly silo using the real Sell command.
+  await inspect((await snap()).buildings.find(b=>b.id===artillery.id));await press('sell');
+  for(let i=0;i<180&&(await snap()).resources.capacity-(await snap()).resources.committed<32;i++)await advance(1000);
+  const silo=await place('silo');await advance(15000);await inspect((await snap()).buildings.find(b=>b.id===silo.id));assert((await targets()).buttons.find(b=>b.id==='launch-nuke').disabled,'payload is separate from construction');await shot('silo-production');await advance(60000);await inspect((await snap()).buildings.find(b=>b.id===silo.id));assert(!(await targets()).buttons.find(b=>b.id==='launch-nuke').disabled);const readyAt=(await snap()).buildings.find(b=>b.id===silo.id).nukeReadyAtMs;await advance(2000);assert.equal((await snap()).buildings.find(b=>b.id===silo.id).nukeReadyAtMs,readyAt,'ready payload does not stockpile');
+  await press('launch-nuke');await press('cancel-nuke');assert.equal((await snap()).nuclearAim,null);await press('launch-nuke');const blast=(await targets()).hexes.find(h=>h.id===bunker.hexId);await tap(blast.x,blast.y);await page.waitForTimeout(80);assert.equal((await snap()).nuclearAim.hexId,bunker.hexId);await checkButtons();await shot('nuke-target-preview');await press('confirm-nuke');assert.equal((await snap()).nuclearAim,null);await advance(7900);assert((await snap()).buildings.some(b=>b.id===bunker.id),'strike waits actual flight time');await advance(100);assert(!(await snap()).buildings.some(b=>b.id===bunker.id),'friendly-fire centre destroys bunker');assert((await snap()).nuclearImpacts.length>0);await advance(850);await shot('mushroom-cloud');await checkButtons();
   // HQ taps, not global command buttons, issue faction orders.
   await press('overview');let rival=(await snap()).buildings.find(b=>b.kind==='hq'&&b.owner===1);await inspect(rival);assert.equal((await snap()).target,1);assert.deepEqual((await snap()).commandIndicator,{hqId:'hq1',mode:'attack'});assert((await targets()).buttons.some(b=>b.id==='attack'));await shot('hq-command');await inspect(hq);assert.equal((await snap()).target,0);assert.deepEqual((await snap()).commandIndicator,{hqId:'hq0',mode:'defend'});
   await press('card-tank');assert.equal((await snap()).inspected,null,'card clears contextual selection');await press('cancel');

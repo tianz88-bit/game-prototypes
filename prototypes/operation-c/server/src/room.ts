@@ -18,9 +18,9 @@ export interface RoomEnvironment {
   close(connectionId: string, code: number, reason: string): void;
 }
 export interface RoomCheckpoint {
-  version: 1; roomCode: string; tune: Tune; seats: (RoomSeat | null)[]; phase: OnlineLobby['phase'];
+  version: 2; roomCode: string; tune: Tune; seats: (RoomSeat | null)[]; phase: OnlineLobby['phase'];
   countdownEndsAtMs: number | null; lastTickWallMs: number; lastBroadcastWallMs: number;
-  lastActivityMs: number; endedAtMs: number | null; revision: number; lastState: OnlineState | null;
+  lastActivityMs: number; endedAtMs: number | null; revision: number; lastStates: (OnlineState | null)[];
   sim: OperationCheckpoint | null;
 }
 
@@ -39,7 +39,7 @@ export class OnlineRoom {
   private lastBroadcastWallMs: number;
   private lastActivityMs: number;
   private endedAtMs: number | null = null;
-  private lastState: OnlineState | null = null;
+  private lastStates: (OnlineState | null)[] = [null, null];
   private rate = new Map<string, { tokens: number; at: number }>();
 
   constructor(roomCode: string, private readonly env: RoomEnvironment, tune: Tune = DEFAULT_TUNE) {
@@ -117,7 +117,7 @@ export class OnlineRoom {
   private setLoadout(index: Seat, cards: CardKind[]): { ok: boolean; reason?: string } {
     if (this.phase !== 'lobby') return { ok: false, reason: 'Loadouts are locked after ready countdown starts' };
     if (!cards.length || cards.length > 8 || new Set(cards).size !== cards.length || cards.some(c => !BASE_CARDS.includes(c)) ||
-      !cards.some(c => this.tune.cards[c].tier === 1 && this.tune.cards[c].domain === 'ground')) return { ok: false, reason: 'Choose up to eight unique base cards including a T1 ground producer' };
+      !cards.some(c => this.tune.cards[c].tier === 1 && this.tune.cards[c].domain === 'ground' && !this.tune.cards[c].utility)) return { ok: false, reason: 'Choose up to eight unique base cards including a T1 ground producer' };
     this.seats[index]!.loadout = [...cards]; this.seats[index]!.ready = false; this.broadcastLobby(); return { ok: true };
   }
 
@@ -144,6 +144,8 @@ export class OnlineRoom {
       case 'upgrade': return sim.upgrade(seat, c.buildingId);
       case 'cancelUpgrade': return sim.cancelUpgrade(seat, c.buildingId);
       case 'sell': return sim.sell(seat, c.buildingId);
+      case 'defend': return sim.setDefendTarget(seat, c.entityId);
+      case 'launchNuke': return sim.launchNuke(seat, c.buildingId, c.hexId);
     }
   }
 
@@ -177,18 +179,30 @@ export class OnlineRoom {
       this.phase === 'ended' && this.env.now() >= (this.endedAtMs ?? this.env.now()) + ENDED_RETENTION_MS;
   }
 
-  private snapshot(): OnlineState {
+  private snapshot(seat: Seat): OnlineState {
     const s = this.sim!;
     return structuredClone({ t: 'state', full: true, baseRevision: null, revision: this.revision, serverNow: this.env.now(),
       timeMs: s.timeMs, winner: s.winner, players: s.players, resources: s.players.map(p => s.resources(p.id)),
       loadouts: s.loadouts, pendingReleases: s.pendingReleases,
-      entities: { hexes: s.hexes, buildings: s.buildings, units: s.units, shots: s.shots, reinforcements: s.reinforcements, retirements: s.retirements },
+      entities: { hexes: s.hexes, buildings: s.buildings.map(b => {
+        const publicBuilding = { ...b };
+        if (b.owner !== seat) {
+          delete publicBuilding.nukeReadyAtMs;
+          if (b.kind !== 'hq' && this.tune.cards[b.kind].utility === 'silo') {
+            publicBuilding.readyAtMs = 0; delete publicBuilding.productionStartedAtMs; delete publicBuilding.cooldownActive;
+          }
+        }
+        return publicBuilding;
+      }), units: s.units, shots: s.shots, reinforcements: s.reinforcements, retirements: s.retirements,
+      nukeFlights: s.nukeFlights.filter(f => f.owner === seat), nuclearImpacts: s.nuclearImpacts },
       removed: emptyOnlineRemoved() });
   }
 
   private broadcastState(forceFull: boolean): void {
     if (!this.sim) return;
-    this.revision++; const current = this.snapshot(), previous = this.lastState;
+    this.revision++;
+    for (let seat = 0; seat < this.seats.length; seat++) {
+    const current = this.snapshot(seat as Seat), previous = this.lastStates[seat];
     let outgoing = current;
     if (!forceFull && previous) {
       outgoing = { ...current, full: false, baseRevision: previous.revision, entities: emptyOnlineEntities(), removed: emptyOnlineRemoved() };
@@ -199,30 +213,34 @@ export class OnlineRoom {
         for (const id of old.keys()) if (!next.has(id)) (outgoing.removed[name] as (string | number)[]).push(id);
       }
     }
-    this.lastState = current; this.lastBroadcastWallMs = this.env.now(); this.broadcast(outgoing);
+    this.lastStates[seat] = current;
+    const connectionId = this.seats[seat]?.connectionId; if (connectionId) this.env.send(connectionId, outgoing);
+    }
+    this.lastBroadcastWallMs = this.env.now();
   }
 
   private sendFull(connectionId: string): void {
     // Use the broadcast baseline, not an unrevisioned intermediate tick. Otherwise
     // a reconnect between 200ms pulses could miss a change that later reverses.
-    if (this.lastState) this.env.send(connectionId, { ...structuredClone(this.lastState), full: true, baseRevision: null });
+    const seat = this.seats.findIndex(s => s?.connectionId === connectionId), state = this.lastStates[seat];
+    if (state) this.env.send(connectionId, { ...structuredClone(state), full: true, baseRevision: null });
   }
   private broadcast(message: OnlineServerMessage): void { for (const s of this.seats) if (s?.connectionId) this.env.send(s.connectionId, message); }
   private broadcastLobby(): void { this.broadcast({ t: 'lobby', ...this.lobby() }); }
   private error(connectionId: string, code: string, message: string): void { this.env.send(connectionId, { t: 'error', code, message }); }
 
   checkpoint(): RoomCheckpoint {
-    return structuredClone({ version: 1, roomCode: this.roomCode, tune: this.tune, seats: this.seats, phase: this.phase,
+    return structuredClone({ version: 2, roomCode: this.roomCode, tune: this.tune, seats: this.seats, phase: this.phase,
       countdownEndsAtMs: this.countdownEndsAtMs, lastTickWallMs: this.lastTickWallMs, lastBroadcastWallMs: this.lastBroadcastWallMs,
-      lastActivityMs: this.lastActivityMs, endedAtMs: this.endedAtMs, revision: this.revision, lastState: this.lastState, sim: this.sim?.checkpoint() ?? null });
+      lastActivityMs: this.lastActivityMs, endedAtMs: this.endedAtMs, revision: this.revision, lastStates: this.lastStates, sim: this.sim?.checkpoint() ?? null });
   }
   static restore(checkpoint: RoomCheckpoint, env: RoomEnvironment): OnlineRoom {
-    if (checkpoint.version !== 1) throw new Error('Unsupported room checkpoint');
+    if (checkpoint.version !== 2) throw new Error('Unsupported room checkpoint');
     const data = structuredClone(checkpoint), room = new OnlineRoom(data.roomCode, env, data.tune);
     room.seats = data.seats; for (const s of room.seats) if (s) s.connectionId = null;
     room.phase = data.phase; room.countdownEndsAtMs = data.countdownEndsAtMs;
     room.lastTickWallMs = data.lastTickWallMs; room.lastBroadcastWallMs = data.lastBroadcastWallMs;
-    room.lastActivityMs = data.lastActivityMs; room.endedAtMs = data.endedAtMs; room.revision = data.revision; room.lastState = data.lastState;
+    room.lastActivityMs = data.lastActivityMs; room.endedAtMs = data.endedAtMs; room.revision = data.revision; room.lastStates = data.lastStates;
     room.sim = data.sim ? OperationSim.restore(data.sim) : null;
     return room;
   }

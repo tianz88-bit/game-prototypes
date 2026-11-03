@@ -7,12 +7,14 @@ export const NAMES: Record<CardKind, string> = {
   gunship: 'Attack Helipad', fighter: 'Airbase', bomber: 'Bomber Command',
   scout: 'Recon Post', gunner: 'Support Barracks', flak: 'Air Defence Post',
   walker: 'Assault Foundry', destroyer: 'Anti-tank Depot', carrier: 'Carrier Command',
+  bunker: 'Bunker', silo: 'Nuclear Silo',
 };
 export const UNIT_NAMES: Record<CardKind, string> = {
   infantry: 'Infantry Squad', missile: 'Missile Squad', tank: 'Battle Tank', siege: 'Siege Tank',
   artillery: 'Field Artillery', mlrs: 'MLRS', helicopter: 'Helicopter', gunship: 'Gunship',
   fighter: 'Fighter', bomber: 'Bomber', scout: 'Scout Buggy', gunner: 'Machine-gun Squad',
   flak: 'Flak Rover', walker: 'Assault Walker', destroyer: 'Tank Destroyer', carrier: 'Assault Carrier',
+  bunker: 'Static Defence Gun', silo: 'Nuclear Payload',
 };
 export const NOTES: Record<CardKind, string> = {
   infantry: 'Fast capture squad; fragile under splash.', missile: 'Heavy squad volley; slow to reinforce.',
@@ -24,4 +26,6 @@ export const NOTES: Record<CardKind, string> = {
   destroyer: 'Long-range anti-armour; weak to swarms inside its minimum range.',
   gunship: 'Splash ground support; cannot fight aircraft.', siege: 'Heavy siege punch; slow fire, vulnerable up close and to air.',
   carrier: 'Heavy aerial bombardment; expensive, slow production, helpless against fighters.',
+  bunker: 'Static ground and air defence; holds a position without producing troops.',
+  silo: 'One stored nuclear payload; friendly fire in the blast. Launches remain hidden until impact.',
 };

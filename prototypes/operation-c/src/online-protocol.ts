@@ -1,6 +1,6 @@
-import type { Building, CardKind, Hex, PendingRelease, Player, Reinforcement, Retirement, Shot, Tune, Unit } from './model';
+import type { Building, CardKind, Hex, NuclearImpact, NukeFlight, PendingRelease, Player, Reinforcement, Retirement, Shot, Tune, Unit } from './model';
 
-export const ONLINE_PROTOCOL_VERSION = 1;
+export const ONLINE_PROTOCOL_VERSION = 2;
 export const ROOM_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const ROOM_CODE_RE = /^[A-HJ-NP-Z2-9]{5}$/;
 export const MAX_ONLINE_MESSAGE_BYTES = 4096;
@@ -9,6 +9,8 @@ export type RequestId = string | number;
 export type OnlineCommand =
   | { kind: 'place'; hexId: string; card: CardKind }
   | { kind: 'target'; targetId: Seat }
+  | { kind: 'defend'; entityId: string }
+  | { kind: 'launchNuke'; buildingId: string; hexId: string }
   | { kind: 'research' | 'cancelResearch' }
   | { kind: 'upgrade' | 'cancelUpgrade' | 'sell'; buildingId: string };
 export type OnlineClientMessage =
@@ -25,10 +27,12 @@ export interface OnlineLobby {
 export interface OnlineEntities {
   hexes: Hex[]; buildings: Building[]; units: Unit[]; shots: Shot[];
   reinforcements: Reinforcement[]; retirements: Retirement[];
+  nukeFlights: NukeFlight[]; nuclearImpacts: NuclearImpact[];
 }
 export interface OnlineRemoved {
   hexes: string[]; buildings: string[]; units: string[]; shots: number[];
   reinforcements: string[]; retirements: number[];
+  nukeFlights: string[]; nuclearImpacts: number[];
 }
 export interface OnlineState {
   t: 'state'; full: boolean; baseRevision: number | null; revision: number;
@@ -69,14 +73,16 @@ export function parseOnlineClientMessage(raw: string): OnlineClientMessage | nul
   const c = m.command;
   if (c.kind === 'place' && keys(c, ['kind', 'hexId', 'card']) && ref(c.hexId) && typeof c.card === 'string' && c.card.length < 24) return m as OnlineClientMessage;
   if (c.kind === 'target' && keys(c, ['kind', 'targetId']) && (c.targetId === 0 || c.targetId === 1)) return m as OnlineClientMessage;
+  if (c.kind === 'defend' && keys(c, ['kind', 'entityId']) && ref(c.entityId)) return m as OnlineClientMessage;
+  if (c.kind === 'launchNuke' && keys(c, ['kind', 'buildingId', 'hexId']) && ref(c.buildingId) && ref(c.hexId)) return m as OnlineClientMessage;
   if ((c.kind === 'research' || c.kind === 'cancelResearch') && keys(c, ['kind'])) return m as OnlineClientMessage;
   if (['upgrade', 'cancelUpgrade', 'sell'].includes(String(c.kind)) && keys(c, ['kind', 'buildingId']) && ref(c.buildingId)) return m as OnlineClientMessage;
   return null;
 }
 
-export const ONLINE_COLLECTIONS = ['hexes', 'buildings', 'units', 'shots', 'reinforcements', 'retirements'] as const;
-export function emptyOnlineEntities(): OnlineEntities { return { hexes: [], buildings: [], units: [], shots: [], reinforcements: [], retirements: [] }; }
-export function emptyOnlineRemoved(): OnlineRemoved { return { hexes: [], buildings: [], units: [], shots: [], reinforcements: [], retirements: [] }; }
+export const ONLINE_COLLECTIONS = ['hexes', 'buildings', 'units', 'shots', 'reinforcements', 'retirements', 'nukeFlights', 'nuclearImpacts'] as const;
+export function emptyOnlineEntities(): OnlineEntities { return { hexes: [], buildings: [], units: [], shots: [], reinforcements: [], retirements: [], nukeFlights: [], nuclearImpacts: [] }; }
+export function emptyOnlineRemoved(): OnlineRemoved { return { hexes: [], buildings: [], units: [], shots: [], reinforcements: [], retirements: [], nukeFlights: [], nuclearImpacts: [] }; }
 
 /** Returns null on a revision gap; request resync instead of applying a broken delta.
  * Full states replace every collection, including after reconnect or server recovery. */

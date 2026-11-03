@@ -1,10 +1,10 @@
 import tuneJson from '../tune.json';
-import type { Building, CardKind, Hex, PendingRelease, Placement, Player, Reinforcement, Retirement, Shot, Tune, Unit, UnitDomain } from './model';
-export type { Building, CardKind, Hex, PendingRelease, Placement, Player, Reinforcement, Retirement, Research, Shot, Tune, Unit, UnitDomain } from './model';
+import type { Building, CardKind, Hex, NuclearImpact, NukeFlight, PendingRelease, Placement, Player, Reinforcement, Retirement, Shot, Tune, Unit, UnitDomain } from './model';
+export type { Building, CardKind, Hex, NuclearImpact, NukeFlight, PendingRelease, Placement, Player, Reinforcement, Retirement, Research, Shot, Tune, Unit, UnitDomain } from './model';
 
 export const DEFAULT_TUNE: Tune = tuneJson as Tune;
-export const BASE_CARDS: readonly CardKind[] = ['infantry', 'tank', 'artillery', 'helicopter', 'fighter', 'scout', 'gunner', 'flak', 'walker', 'destroyer', 'carrier'];
-export const DEFAULT_LOADOUT: readonly CardKind[] = ['infantry', 'tank', 'artillery', 'helicopter', 'fighter', 'scout', 'flak', 'carrier'];
+export const BASE_CARDS: readonly CardKind[] = ['infantry', 'tank', 'artillery', 'helicopter', 'fighter', 'scout', 'gunner', 'flak', 'walker', 'destroyer', 'carrier', 'bunker', 'silo'];
+export const DEFAULT_LOADOUT: readonly CardKind[] = ['infantry', 'tank', 'artillery', 'helicopter', 'fighter', 'scout', 'bunker', 'silo'];
 // Axial direction order is also the deterministic BFS tie-break.
 const DIRECTIONS = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]] as const;
 export const hexId = (q: number, r: number): string => `${q},${r}`;
@@ -13,11 +13,12 @@ export const distance = (a: Pick<Hex, 'q' | 'r'>, b: Pick<Hex, 'q' | 'r'>): numb
 
 /** Private persistence format; never accept a checkpoint from a game client. */
 export interface OperationCheckpoint {
-  version: 1; tune: Tune; loadouts: CardKind[][]; hexes: Hex[]; buildings: Building[]; units: Unit[];
+  version: 2; tune: Tune; loadouts: CardKind[][]; hexes: Hex[]; buildings: Building[]; units: Unit[];
   shots: Shot[]; reinforcements: Reinforcement[]; retirements: Retirement[]; pendingReleases: PendingRelease[]; players: Player[];
   timeMs: number; winner: number | null; accumulatorMs: number; serial: number; shotSerial: number;
   reinforcementSerial: number; retirementSerial: number; strandedDebt: [number, number][];
   botEnabled: boolean; nextBotBuildMs: number; botCard: number;
+  nukeFlights: NukeFlight[]; nuclearImpacts: NuclearImpact[]; nukeSerials: number[]; nuclearImpactSerial: number;
 }
 
 /** Renderer-independent deterministic rules. Public DTOs are mutable for dev fixtures;
@@ -34,6 +35,8 @@ export class OperationSim {
   readonly reinforcements: Reinforcement[] = [];
   readonly retirements: Retirement[] = [];
   readonly pendingReleases: PendingRelease[] = [];
+  readonly nukeFlights: NukeFlight[] = [];
+  readonly nuclearImpacts: NuclearImpact[] = [];
   readonly loadouts: CardKind[][];
   readonly players: Player[] = [
     { id: 0, name: 'You', alive: true, targetId: 0, techTier: 1, research: null },
@@ -46,6 +49,8 @@ export class OperationSim {
   private shotSerial = 0;
   private reinforcementSerial = 0;
   private retirementSerial = 0;
+  private nukeSerials = [0, 0];
+  private nuclearImpactSerial = 0;
   private readonly strandedDebt = new Map<number, number>();
   private readonly byHex = new Map<string, Hex>();
   private readonly botEnabled: boolean;
@@ -58,7 +63,7 @@ export class OperationSim {
     this.loadouts = this.players.map((p, i) => {
       const cards = options.loadouts?.[i] ?? [...DEFAULT_LOADOUT];
       if (!Array.isArray(cards) || cards.length > 8 || new Set(cards).size !== cards.length ||
-        cards.some(k => !BASE_CARDS.includes(k)) || !cards.some(k => this.tune.cards[k].tier === 1 && this.tune.cards[k].domain === 'ground')) {
+        cards.some(k => !BASE_CARDS.includes(k)) || !cards.some(k => this.tune.cards[k].tier === 1 && this.tune.cards[k].domain === 'ground' && !this.tune.cards[k].utility)) {
         throw new Error(`Invalid loadout for player ${p.id}: choose up to eight unique base cards including a T1 ground producer`);
       }
       return [...cards];
@@ -92,22 +97,25 @@ export class OperationSim {
   }
 
   checkpoint(): OperationCheckpoint {
-    return structuredClone({ version: 1, tune: this.tune, loadouts: this.loadouts,
+    return structuredClone({ version: 2, tune: this.tune, loadouts: this.loadouts,
       hexes: this.hexes, buildings: this.buildings, units: this.units, shots: this.shots,
       reinforcements: this.reinforcements, retirements: this.retirements, pendingReleases: this.pendingReleases, players: this.players,
       timeMs: this.timeMs, winner: this.winner, accumulatorMs: this.accumulatorMs, serial: this.serial,
       shotSerial: this.shotSerial, reinforcementSerial: this.reinforcementSerial, retirementSerial: this.retirementSerial,
-      strandedDebt: [...this.strandedDebt], botEnabled: this.botEnabled, nextBotBuildMs: this.nextBotBuildMs, botCard: this.botCard });
+      strandedDebt: [...this.strandedDebt], botEnabled: this.botEnabled, nextBotBuildMs: this.nextBotBuildMs, botCard: this.botCard,
+      nukeFlights: this.nukeFlights, nuclearImpacts: this.nuclearImpacts, nukeSerials: this.nukeSerials, nuclearImpactSerial: this.nuclearImpactSerial });
   }
 
   static restore(checkpoint: OperationCheckpoint): OperationSim {
-    if (checkpoint.version !== 1) throw new Error('Unsupported Operation C checkpoint');
+    if (checkpoint.version !== 2) throw new Error('Unsupported Operation C checkpoint');
     const data = structuredClone(checkpoint);
     const sim = new OperationSim({ tune: data.tune, loadouts: data.loadouts, bot: data.botEnabled });
     const replace = <T>(target: T[], source: T[]) => { target.splice(0, target.length, ...source); };
     replace(sim.hexes, data.hexes); replace(sim.buildings, data.buildings); replace(sim.units, data.units);
     replace(sim.shots, data.shots); replace(sim.reinforcements, data.reinforcements); replace(sim.retirements, data.retirements);
     replace(sim.pendingReleases, data.pendingReleases); replace(sim.players, data.players);
+    replace(sim.nukeFlights, data.nukeFlights); replace(sim.nuclearImpacts, data.nuclearImpacts);
+    sim.nukeSerials = data.nukeSerials; sim.nuclearImpactSerial = data.nuclearImpactSerial;
     sim.byHex.clear(); for (const h of sim.hexes) sim.byHex.set(h.id, h);
     for (const [owner, debt] of data.strandedDebt) sim.strandedDebt.set(owner, debt);
     sim.timeMs = data.timeMs; sim.winner = data.winner; sim.accumulatorMs = data.accumulatorMs; sim.serial = data.serial;
@@ -222,6 +230,7 @@ export class OperationSim {
     this.addStranded(playerId, (b.upgradeCost ?? 0) - released);
     delete b.upgradeKind; delete b.upgradeStartedAtMs; delete b.upgradeCompleteAtMs; delete b.upgradeCost;
     b.readyAtMs = this.timeMs + this.tune.cards[b.kind].productionMs;
+    b.cooldownActive = true; b.productionStartedAtMs = this.timeMs;
     return { ok: true };
   }
 
@@ -230,6 +239,7 @@ export class OperationSim {
     if (this.winner !== null || !b || b.owner !== playerId || b.kind === 'hq' || b.hp <= 0) return { ok: false, reason: 'Select your living non-HQ building' };
     this.retireProducer(b); this.releaseBuilding(b);
     this.buildings.splice(this.buildings.indexOf(b), 1);
+    const p = this.players.find(p => p.id === playerId); if (p?.defendTargetId === id) p.defendTargetId = null;
     return { ok: true };
   }
 
@@ -288,6 +298,7 @@ export class OperationSim {
       b.kind = b.upgradeKind; b.committedCost = base + (b.upgradeCost ?? 0);
       delete b.upgradeKind; delete b.upgradeStartedAtMs; delete b.upgradeCompleteAtMs; delete b.upgradeCost;
       b.readyAtMs = this.timeMs;
+      b.cooldownActive = false; delete b.productionStartedAtMs;
     }
     for (let i = this.reinforcements.length - 1; i >= 0; i--) {
       const r = this.reinforcements[i], u = this.units.find(x => x.id === r.unitId && x.hp > 0);
@@ -304,7 +315,77 @@ export class OperationSim {
 
   setTarget(playerId: number, targetPlayerId: number): void {
     const p = this.players.find(x => x.id === playerId), target = this.players.find(x => x.id === targetPlayerId);
-    if (this.winner === null && p?.alive && target?.alive) p.targetId = targetPlayerId;
+    if (this.winner === null && p?.alive && target?.alive) { p.targetId = targetPlayerId; p.defendTargetId = null; }
+  }
+
+  setDefendTarget(playerId: number, entityId: string): { ok: boolean; reason?: string } {
+    const p = this.players.find(x => x.id === playerId), b = this.buildings.find(x => x.id === entityId && x.owner === playerId && x.hp > 0);
+    if (this.winner !== null || !p?.alive || !b) return { ok: false, reason: 'Select a living friendly building' };
+    p.targetId = playerId; p.defendTargetId = entityId; return { ok: true };
+  }
+
+  canLaunchNuke(playerId: number, buildingId: string): { ok: boolean; reason?: string } {
+    const p = this.players.find(x => x.id === playerId), b = this.buildings.find(x => x.id === buildingId);
+    if (this.winner !== null || !p?.alive || !b || b.owner !== playerId || b.hp <= 0 || b.kind === 'hq' || this.tune.cards[b.kind].utility !== 'silo') return { ok: false, reason: 'Select your living nuclear silo' };
+    if ((b.completeAtMs ?? 0) > this.timeMs || b.nukeReadyAtMs === undefined || b.nukeReadyAtMs > this.timeMs) return { ok: false, reason: 'Nuclear payload is not ready' };
+    return { ok: true };
+  }
+
+  launchNuke(playerId: number, buildingId: string, targetHexId: string): { ok: boolean; reason?: string } {
+    const check = this.canLaunchNuke(playerId, buildingId); if (!check.ok) return check;
+    if (!this.byHex.has(targetHexId)) return { ok: false, reason: 'Target is outside the map' };
+    const b = this.buildings.find(x => x.id === buildingId)!;
+    this.nukeFlights.push({ id: `nuke-${playerId}-${++this.nukeSerials[playerId]}`, owner: playerId, buildingId,
+      fromHexId: b.hexId, targetHexId, launchedAtMs: this.timeMs, impactAtMs: this.timeMs + this.tune.nuclear.flightMs });
+    b.nukeReadyAtMs = this.timeMs + this.tune.cards[b.kind as CardKind].productionMs; return { ok: true };
+  }
+
+  private homeHex(owner: number): Hex | undefined {
+    const p = this.players.find(x => x.id === owner), chosen = this.buildings.find(b => b.id === p?.defendTargetId && b.owner === owner && b.hp > 0);
+    const home = chosen ?? this.buildings.find(b => b.owner === owner && b.kind === 'hq');
+    return home ? this.byHex.get(home.hexId) : undefined;
+  }
+
+  private triggerProduction(b: Building): void {
+    if (b.kind === 'hq' || b.upgradeKind || b.cooldownActive || this.tune.cards[b.kind].utility) return;
+    b.cooldownActive = true; b.productionStartedAtMs = this.timeMs; b.readyAtMs = this.timeMs + this.tune.cards[b.kind].productionMs;
+  }
+
+  private applyDamage(target: Building | Unit, amount: number, splash: boolean): number {
+    const before = target.hp;
+    if ('buildingId' in target && target.members && target.hp > 0) {
+      const count = target.members.length;
+      if (splash) target.members = target.members.map(hp => hp - amount).filter(hp => hp > 0);
+      else { if (target.members.length) target.members[0] -= amount; target.members = target.members.filter(hp => hp > 0); }
+      target.hp = target.members.reduce((n, hp) => n + hp, 0);
+      if (target.members.length < count) {
+        const b = this.buildings.find(b => b.id === target.buildingId); if (b) this.triggerProduction(b);
+      }
+    } else if (!('buildingId' in target && target.members)) target.hp -= amount;
+    return Math.max(0, before - target.hp);
+  }
+
+  private advanceNukes(): void {
+    const due = this.nukeFlights.filter(f => f.impactAtMs <= this.timeMs && this.players.find(p => p.id === f.owner)?.alive);
+    for (const flight of due) {
+      const centre = this.byHex.get(flight.targetHexId)!;
+      for (const target of [...this.units, ...this.buildings]) {
+        const d = distance(centre, this.byHex.get(target.hexId)!);
+        if (d <= this.tune.nuclear.radius) this.applyDamage(target, d === 0 ? this.tune.nuclear.centreDamage : this.tune.nuclear.outerDamage, true);
+      }
+      this.nuclearImpacts.push({ id: ++this.nuclearImpactSerial, owner: flight.owner, hexId: flight.targetHexId, timeMs: this.timeMs, radius: this.tune.nuclear.radius });
+      if (this.nuclearImpacts.length > 128) this.nuclearImpacts.splice(0, this.nuclearImpacts.length - 128);
+    }
+    for (let i = this.nukeFlights.length - 1; i >= 0; i--) if (this.nukeFlights[i].impactAtMs <= this.timeMs) this.nukeFlights.splice(i, 1);
+    this.cleanDead();
+  }
+
+  private recordShot(source: Unit | Building, target: Unit, kind: CardKind, sourceKind?: 'hq' | 'bunker'): void {
+    this.shots.push({ id: ++this.shotSerial, unitId: source.id, owner: source.owner, kind,
+      fromHexId: source.hexId, targetHexId: target.hexId, targetDomain: this.tune.cards[target.kind].domain,
+      timeMs: this.timeMs, ...(sourceKind ? { sourceKind } : {}) });
+    const cap = Math.max(0, Math.floor(this.tune.presentation.maxShotEvents));
+    if (this.shots.length > cap) this.shots.splice(0, this.shots.length - cap);
   }
 
   tick(dtMs: number): void {
@@ -333,9 +414,14 @@ export class OperationSim {
   private spawn(b: Building): void {
     if (b.kind === 'hq' || b.upgradeKind || this.timeMs < (b.completeAtMs ?? 0) || this.timeMs < b.readyAtMs) return;
     const card = this.tune.cards[b.kind];
+    if (card.utility) {
+      b.readyAtMs = 0; b.cooldownActive = false; delete b.productionStartedAtMs;
+      if (card.utility === 'silo' && b.nukeReadyAtMs === undefined) b.nukeReadyAtMs = (b.completeAtMs ?? this.timeMs) + card.productionMs;
+      return;
+    }
     if (b.unitId !== null) {
       const squad = this.units.find(u => u.id === b.unitId);
-      if (!squad?.members || !card.squadSize) return;
+      if (!squad?.members || !card.squadSize || !b.cooldownActive) return;
       const incoming = this.reinforcements.filter(r => r.unitId === squad.id).reduce((n, r) => n + r.count, 0);
       const missing = card.squadSize - squad.members.length - incoming;
       if (missing > 0) {
@@ -343,7 +429,7 @@ export class OperationSim {
           distance(this.byHex.get(b.hexId)!, this.byHex.get(squad.hexId)!) * this.tune.reinforcements.msPerHex);
         this.reinforcements.push({ id: `r${++this.reinforcementSerial}`, unitId: squad.id, buildingId: b.id, owner: b.owner,
           count: missing, fromHexId: b.hexId, startedAtMs: this.timeMs, arriveAtMs: this.timeMs + travel });
-        b.readyAtMs = this.timeMs + card.productionMs;
+        b.readyAtMs = 0; b.cooldownActive = false; delete b.productionStartedAtMs;
       }
       return;
     }
@@ -365,17 +451,32 @@ export class OperationSim {
     const u: Unit = { id: `u${++this.serial}`, owner: b.owner, kind: b.kind, hexId: destination,
       hp: card.unitHp * size, maxHp: card.unitHp * size, attacking: false, buildingId: b.id, nextAttackAtMs: this.timeMs };
     if (card.squadSize) u.members = Array<number>(size).fill(card.unitHp);
-    this.units.push(u); b.unitId = u.id; b.readyAtMs = this.timeMs + card.productionMs;
+    this.units.push(u); b.unitId = u.id; b.readyAtMs = 0; b.cooldownActive = false; delete b.productionStartedAtMs;
   }
 
   private step(): void {
     this.cleanDead();
     if (this.winner !== null) return;
     this.advanceLifecycles();
+    this.advanceNukes();
+    if (this.winner !== null) return;
     this.bot();
     for (const b of [...this.buildings]) this.spawn(b);
-    const damage: { target: Building | Unit; amount: number; splash: boolean; source: Unit }[] = [];
-    const damageSources = new Map<Unit, Unit[]>();
+    const damage: { target: Building | Unit; amount: number; splash: boolean; source: Unit | Building }[] = [];
+    const damageSources = new Map<Unit, (Unit | Building)[]>();
+    for (const b of this.buildings) {
+      const hq = b.kind === 'hq', card = hq ? null : this.tune.cards[b.kind as CardKind];
+      if ((!hq && card?.utility !== 'bunker') || (b.completeAtMs ?? 0) > this.timeMs || this.timeMs < (b.defenseNextAtMs ?? 0)) continue;
+      const range = hq ? this.tune.hq.defenseRange : card!.range, amount = hq ? this.tune.hq.defenseDamage : card!.damage;
+      if (amount <= 0) continue;
+      const centre = this.byHex.get(b.hexId)!;
+      const target = this.units.filter(u => u.owner !== b.owner && u.hp > 0 &&
+        (hq ? this.tune.cards[u.kind].domain === 'ground' : card!.targets.includes(this.tune.cards[u.kind].domain)) &&
+        distance(centre, this.byHex.get(u.hexId)!) <= range).sort((a, z) => distance(centre, this.byHex.get(a.hexId)!) - distance(centre, this.byHex.get(z.hexId)!))[0];
+      if (!target) continue;
+      b.defenseNextAtMs = this.timeMs + (hq ? this.tune.hq.defenseAttackMs : card!.attackMs);
+      damage.push({ target, amount, splash: false, source: b }); this.recordShot(b, target, hq ? 'infantry' : 'bunker', hq ? 'hq' : 'bunker');
+    }
     // Decide all attacks first, so damage does not grant first-iteration survival.
     for (const u of this.units) {
       u.attacking = false;
@@ -408,16 +509,8 @@ export class OperationSim {
     // Capture before damage: being hit alone never cancels that step's progress.
     this.capture();
     for (const hit of damage) {
-      const { target, amount, source, splash } = hit, before = target.hp;
-      if ('buildingId' in target && target.members && target.hp > 0) {
-        if (splash) target.members = target.members.map(hp => hp - amount).filter(hp => hp > 0);
-        else {
-          if (target.members.length) target.members[0] -= amount;
-          target.members = target.members.filter(hp => hp > 0);
-        }
-        target.hp = target.members.reduce((n, hp) => n + hp, 0);
-      } else if (!('buildingId' in target && target.members)) target.hp -= amount;
-      if ('buildingId' in target && target.hp < before) {
+      const { target, amount, source, splash } = hit;
+      if (this.applyDamage(target, amount, splash) > 0 && 'buildingId' in target) {
         const sources = damageSources.get(target) ?? []; sources.push(source); damageSources.set(target, sources);
       }
     }
@@ -511,8 +604,7 @@ export class OperationSim {
     }
     const queue = [here.id], first = new Map<string, string>(), seen = new Set(queue);
     let expansion: string | undefined;
-    const home = this.buildings.find(b => b.owner === u.owner && b.kind === 'hq');
-    const homeHex = home ? this.byHex.get(home.hexId)! : here;
+    const homeHex = this.homeHex(u.owner) ?? here;
     let expansionRank = [Infinity, Infinity];
     for (let i = 0; i < queue.length; i++) {
       const id = queue[i], h = this.byHex.get(id)!;
@@ -570,9 +662,9 @@ export class OperationSim {
         const d = distance(h, this.byHex.get(t.hexId)!); return d >= card.minRange && d <= card.range;
       })) goals.add(h.id);
     } else {
-      const hq = this.buildings.find(b => b.owner === (defense ? u.owner : player.targetId) && b.kind === 'hq');
-      if (!hq) return;
-      const centre = this.byHex.get(hq.hexId)!;
+      const enemyHq = this.buildings.find(b => b.owner === player.targetId && b.kind === 'hq');
+      const centre = defense ? this.homeHex(u.owner) : enemyHq ? this.byHex.get(enemyHq.hexId) : undefined;
+      if (!centre) return;
       // With no eligible enemy aircraft, fighters approach the HQ but never fire at it.
       const holdRange = defense ? 1 : card.range;
       if (distance(here, centre) <= holdRange) return;
@@ -640,7 +732,7 @@ export class OperationSim {
       // Casualty triggers reversal; attacking, retreating or mere absence does not.
       for (const h of this.hexes) if (h.captureUnitId === u.id && h.capture > 0) h.captureReversing = true;
       const b = this.buildings.find(x => x.id === u.buildingId);
-      if (b) b.unitId = null;
+      if (b) { b.unitId = null; this.triggerProduction(b); }
       for (let j = this.reinforcements.length - 1; j >= 0; j--) if (this.reinforcements[j].unitId === u.id) this.reinforcements.splice(j, 1);
       this.units.splice(i, 1);
     }
@@ -649,6 +741,8 @@ export class OperationSim {
       delete h.captureUnitId; delete h.captureReversing;
     }
     for (const id of eliminated) this.strandedDebt.delete(id);
+    for (let i = this.nukeFlights.length - 1; i >= 0; i--) if (eliminated.has(this.nukeFlights[i].owner)) this.nukeFlights.splice(i, 1);
+    for (const p of this.players) if (p.defendTargetId && !this.buildings.some(b => b.id === p.defendTargetId && b.owner === p.id && b.hp > 0)) p.defendTargetId = null;
     for (let i = this.pendingReleases.length - 1; i >= 0; i--) if (eliminated.has(this.pendingReleases[i].owner)) {
       const r = this.pendingReleases[i];
       for (const h of this.hexes) if (h.lockedBy === r.id) { h.lockedBy = null; delete h.commitment; delete h.releaseAtMs; }

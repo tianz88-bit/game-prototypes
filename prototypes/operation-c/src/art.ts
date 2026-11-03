@@ -12,7 +12,8 @@ export const PALETTE = {
 } as const;
 type Graphics = Phaser.GameObjects.Graphics;
 export type UnitKind = 'infantry' | 'tank' | 'artillery' | 'helicopter' | 'fighter' | 'missile' | 'bomber' | 'mlrs'
-  | 'scout' | 'gunner' | 'flak' | 'walker' | 'destroyer' | 'gunship' | 'siege' | 'carrier';
+  | 'scout' | 'gunner' | 'flak' | 'walker' | 'destroyer' | 'gunship' | 'siege' | 'carrier'
+  | 'bunker' | 'silo';
 export type BuildingKind = 'hq' | UnitKind;
 export type CommitmentKind = 'building' | 'upgrade' | 'research' | 'release';
 export interface HexOptions {
@@ -301,6 +302,30 @@ function badge(g: Graphics, owner: number, x: number, y: number, r: number) {
 /** Additional producer silhouettes share the foundation, not the roof profile. */
 function expandedProducer(g: Graphics, kind: BuildingKind, color: number): boolean {
   switch (kind) {
+    case 'bunker':
+      // Low reinforced dome, deep firing slit and a thick, stepped concrete lip.
+      g.fillStyle(PALETTE.metal).fillRoundedRect(-0.66, -0.42, 1.32, 0.59, 0.18);
+      g.fillStyle(PALETTE.side).fillEllipse(0, -0.43, 1.29, 0.57);
+      g.fillStyle(color).fillEllipse(0, -0.52, 0.88, 0.31);
+      g.fillStyle(PALETTE.ink).fillRoundedRect(-0.47, -0.27, 0.94, 0.13, 0.025);
+      g.fillStyle(PALETTE.cream).fillRect(-0.56, 0.03, 1.12, 0.07);
+      g.fillStyle(PALETTE.metal).fillRoundedRect(-0.74, 0.17, 1.48, 0.14, 0.045);
+      g.lineStyle(0.065, PALETTE.ink).lineBetween(0.17, -0.19, 0.64, -0.19);
+      return true;
+    case 'silo':
+      // Round silo hatch and upright missile service cradle read at portrait scale.
+      g.fillStyle(PALETTE.ink).fillEllipse(-0.06, -0.08, 1.14, 0.65);
+      g.fillStyle(PALETTE.metal).fillEllipse(-0.06, -0.16, 1.14, 0.65);
+      g.fillStyle(PALETTE.cream).fillEllipse(-0.06, -0.21, 0.91, 0.46);
+      g.lineStyle(0.04, PALETTE.ink).lineBetween(-0.46, -0.21, 0.34, -0.21);
+      g.fillStyle(color).fillRoundedRect(-0.21, -0.88, 0.3, 0.68, 0.045);
+      g.fillStyle(PALETTE.cream).fillTriangle(-0.21, -0.84, -0.06, -1.15, 0.09, -0.84);
+      g.fillStyle(PALETTE.metal).fillTriangle(-0.21, -0.48, -0.36, -0.18, -0.17, -0.23)
+        .fillTriangle(0.09, -0.48, 0.24, -0.18, 0.05, -0.23);
+      g.fillStyle(PALETTE.ink).fillRect(0.34, -0.91, 0.11, 0.98);
+      g.lineStyle(0.045, PALETTE.metal).lineBetween(0.09, -0.76, 0.39, -0.76)
+        .lineBetween(0.09, -0.45, 0.39, -0.45);
+      return true;
     case 'scout':
       // Recon post: open-sided canopy with a high observation mast.
       g.fillStyle(PALETTE.ink).fillRect(-0.5, -0.4, 0.09, 0.7).fillRect(0.4, -0.4, 0.09, 0.7);
@@ -539,6 +564,11 @@ function expandedUnit(g: Graphics, kind: UnitKind, color: number, phase: number,
 
 export function drawUnit(g: Graphics, x: number, y: number, size: number, owner: number, kind: UnitKind, o: UnitOptions = DEFAULT_UNIT_OPTIONS): void {
   if (!(size > 0)) return;
+  // Utility cards have no mobile unit. Generic portrait callers get their building.
+  if (kind === 'bunker' || kind === 'silo') {
+    drawBuilding(g, x, y, size, owner, kind, { hp: o.hp, maxHp: o.maxHp });
+    return;
+  }
   const color = playerColor(owner), phase = o.phase ?? 0;
   const opacity = clamp(o.opacity ?? 1);
   if (opacity === 0) return;
@@ -715,4 +745,56 @@ export function drawExplosion(g: Graphics, x: number, y: number, size: number, p
       .fillCircle(x + Math.cos(a) * spread, y + Math.sin(a) * spread * 0.7 - size * p * 0.4, size * fade * 0.3);
   }
   if (p < 0.5) g.fillStyle(PALETTE.cream, 1 - p * 2).fillCircle(x, y - size * p * 0.2, size * (0.25 + p));
+}
+
+/** Impact-only, owner-neutral nuclear cloud. No flight telegraph or randomness.
+ * r is a world-pixel VISUAL SCALE: cloud width peaks near 3.2r, top near y-2.6r;
+ * shockwave diameter peaks near 4.6r. Caller owns lifetime (suggested 2400ms),
+ * layering and reduced-motion substitution. Progress 1 draws nothing. */
+export function drawNuclearImpact(g: Graphics, x: number, y: number, r: number, progress: number): void {
+  const p = clamp(progress);
+  if (!(r > 0) || p >= 1) return;
+  const fade = 1 - clamp((p - 0.62) / 0.38);
+  const rise = 1 - Math.pow(1 - clamp((p - 0.06) / 0.74), 2);
+  // Ground anchor: restrained oval flash and an expanding flattened shockwave.
+  g.fillStyle(PALETTE.shadow, 0.17 * fade).fillEllipse(x, y + r * 0.08, r * (1.2 + rise), r * 0.65);
+  if (p < 0.17) {
+    const flash = 1 - p / 0.17;
+    g.fillStyle(0xf6c967, flash * 0.58).fillEllipse(x, y, r * (0.8 + p * 13), r * (0.4 + p * 6));
+    g.fillStyle(PALETTE.cream, flash * 0.9).fillCircle(x, y - r * 0.1, r * (0.22 + p * 3));
+  }
+  if (p < 0.68) {
+    const wave = clamp(p / 0.68), alpha = (1 - wave) * 0.85;
+    g.lineStyle(Math.max(1.2, r * 0.055), PALETTE.cream, alpha)
+      .strokeEllipse(x, y + r * 0.05, r * (0.55 + wave * 4.05), r * (0.3 + wave * 2.05));
+    g.lineStyle(Math.max(1, r * 0.03), 0xd4a458, alpha * 0.65)
+      .strokeEllipse(x, y + r * 0.05, r * (0.45 + wave * 3.65), r * (0.25 + wave * 1.8));
+  }
+  if (p < 0.045) return;
+  const form = clamp((p - 0.045) / 0.2), cloudAlpha = fade * form;
+  const top = y - r * (0.3 + rise * 1.85);
+  const capWidth = r * (0.38 + rise * 1.16);
+  // Five overlapping stem lobes keep a tapered vertical column beneath the cap.
+  for (let i = 0; i < 5; i++) {
+    const t = i / 4, cy = y + (top - y) * t;
+    const width = r * (0.23 + (1 - t) * 0.18 + rise * 0.07);
+    const drift = Math.sin(i * 2.1 + p * 3) * r * 0.065 * rise;
+    g.fillStyle(0x77786d, cloudAlpha * 0.9).fillEllipse(x + drift, cy, width * 2, r * (0.38 + rise * 0.17));
+    g.fillStyle(p < 0.34 ? 0xd69b55 : 0xb8ac87, cloudAlpha * 0.68)
+      .fillEllipse(x + drift - width * 0.12, cy - r * 0.05, width * 1.3, r * 0.32);
+  }
+  // Mushroom rim: broad dark underside, scalloped billows and warm upper planes.
+  g.fillStyle(0x5f6863, cloudAlpha).fillEllipse(x, top + r * 0.17, capWidth * 2.05, r * (0.35 + rise * 0.3));
+  for (let i = 0; i < 7; i++) {
+    const t = (i - 3) / 3, edge = Math.abs(t);
+    const cx = x + t * capWidth * 0.77;
+    const cy = top - (1 - edge * edge) * r * (0.13 + rise * 0.15);
+    const puff = r * (0.19 + rise * 0.36) * (1 - edge * 0.17);
+    g.fillStyle(0x8a8977, cloudAlpha).fillEllipse(cx, cy, puff * 1.9, puff * 1.4);
+    g.fillStyle(p < 0.38 ? 0xe8ba73 : 0xcebf96, cloudAlpha * 0.94)
+      .fillEllipse(cx - puff * 0.12, cy - puff * 0.13, puff * 1.52, puff * 1.02);
+  }
+  // Low dust skirt stays on the ground; it never conceals the entire battlefield.
+  g.lineStyle(Math.max(1.5, r * 0.07), 0xb8ac87, cloudAlpha * 0.6)
+    .strokeEllipse(x, y + r * 0.06, r * (0.95 + rise * 0.55), r * 0.46);
 }

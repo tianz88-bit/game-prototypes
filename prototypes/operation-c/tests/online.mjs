@@ -180,7 +180,7 @@ await test('HQ elimination sends winner/ended state to both clients and prevents
 
 await test('two human contexts complete a real authoritative match from build/target commands without host simulation', () => {
   const h = harness(); h.connect('a'); h.connect('b'); h.ready();
-  h.send('a', { t: 'command', requestId: 'build', command: { kind: 'place', hexId: '-4,0', card: 'infantry' } });
+  h.send('a', { t: 'command', requestId: 'build', command: { kind: 'place', hexId: '-4,0', card: 'tank' } });
   h.send('a', { t: 'command', requestId: 'attack', command: { kind: 'target', targetId: 1 } });
   for (let t = 0; t < 600000 && h.room.phase === 'playing'; t += 100) h.step(100);
   assert.equal(h.room.phase, 'ended'); assert.equal(h.room.sim.winner, 0);
@@ -190,7 +190,8 @@ await test('two human contexts complete a real authoritative match from build/ta
 
 await test('Worker routing is isolated and rejects invalid routes or non-WebSocket requests', async () => {
   const env = { OPERATION_C_ROOMS: { idFromName: code => code, get: () => ({ fetch: async () => new Response('isolated') }) } };
-  const health = await worker.default.fetch(new Request('https://example/health'), env); assert.equal((await health.json()).service, 'operation-c-online');
+  const health = await worker.default.fetch(new Request('https://example/health'), env); const status = await health.json();
+  assert.equal(status.service, 'operation-c-online'); assert.equal(status.protocol, 2);
   assert.equal((await worker.default.fetch(new Request('https://example/ws/ABCDE'), env)).status, 426);
   assert.equal((await worker.default.fetch(new Request('https://example/ws/abcde'), env)).status, 404);
   assert.equal(await (await worker.default.fetch(new Request('https://example/ws/ABCDE', { headers: { upgrade: 'websocket' } }), env)).text(), 'isolated');
@@ -235,7 +236,64 @@ await test('Durable Object wrapper persists authenticated seats, catches up afte
     assert.equal(stored.seats[0].token, token); assert.equal(stored.sim.buildings.filter(b => b.kind !== 'hq').length, 1);
     assert(a.webSocket.messages.filter(m => m.t === 'welcome').length >= 2);
     const ack = a.webSocket.messages.find(m => m.t === 'ack' && m.requestId === 2); assert(ack.ok);
+    records.set('operation-c-room-v1', { ...stored, version: 1 });
+    const oldRoom = new worker.OperationCRoom(state, env), rejected = await oldRoom.fetch(request(''));
+    assert.equal(rejected.status, 101); assert.equal(rejected.webSocket.messages[0].code, 'versionMismatch');
+    assert.equal(alarmAt, null, 'unsupported persisted rooms stop waking and fail safely without HTTP 500');
   } finally { globalThis.Response = NativeResponse; Date.now = nativeNow; delete globalThis.WebSocketPair; }
+});
+
+await test('nuclear readiness and flight payload stay private through full snapshots, deltas, resync and recovered reconnect', () => {
+  const h = harness(); h.connect('a'); h.connect('b'); h.ready();
+  const ta = h.latest('a', 'welcome').token, tb = h.latest('b', 'welcome').token;
+  for (const hex of h.room.sim.hexes) hex.owner = 0; h.room.sim.players[0].techTier = 3;
+  h.send('a', { t: 'command', requestId: 'silo-build', command: { kind: 'place', hexId: '0,0', card: 'silo' } }); assert(h.latest('a', 'ack').ok);
+  h.step(75000); const b = h.room.sim.buildings.find(b => b.kind === 'silo');
+  const ownReady = h.mirrors.get('a').entities.buildings.find(x => x.id === b.id);
+  const enemyReady = h.mirrors.get('b').entities.buildings.find(x => x.id === b.id);
+  assert.equal(ownReady.nukeReadyAtMs, 75000); assert.equal(enemyReady.nukeReadyAtMs, undefined); assert.equal(enemyReady.readyAtMs, 0);
+  h.send('b', { t: 'command', requestId: 'steal-launch', command: { kind: 'launchNuke', buildingId: b.id, hexId: '3,-3' } }); assert(!h.latest('b', 'ack').ok);
+  h.send('a', { t: 'command', requestId: 'launch', command: { kind: 'launchNuke', buildingId: b.id, hexId: '3,-3' } }); assert(h.latest('a', 'ack').ok);
+  h.step(200); const flightId = h.room.sim.nukeFlights[0].id;
+  assert.equal(h.mirrors.get('a').entities.nukeFlights[0].targetHexId, '3,-3');
+  assert.equal(h.mirrors.get('b').entities.nukeFlights.length, 0);
+  h.send('b', { t: 'resync' }); assert(h.latest('b', 'state').full);
+  for (const frame of h.messages.get('b').filter(m => m.t === 'state')) {
+    assert.equal(frame.entities.nukeFlights.length, 0); assert.equal(frame.removed.nukeFlights.length, 0);
+    assert(!JSON.stringify(frame).includes(flightId));
+    for (const building of frame.entities.buildings) if (building.id === b.id) { assert.equal(building.nukeReadyAtMs, undefined); assert.equal(building.readyAtMs, 0); }
+  }
+  const saved = JSON.parse(JSON.stringify(h.room.checkpoint())); assert.equal(saved.sim.nukeFlights[0].targetHexId, '3,-3');
+  assert.equal(saved.lastStates[0].entities.nukeFlights.length, 1); assert.equal(saved.lastStates[1].entities.nukeFlights.length, 0);
+  h.room = OnlineRoom.restore(saved, h.env); assert(h.connect('a2', ta).ok); assert(h.connect('b2', tb).ok);
+  assert.equal(h.latest('a2', 'state').entities.nukeFlights.length, 1); assert.equal(h.latest('b2', 'state').entities.nukeFlights.length, 0);
+  assert.equal(h.latest('b2', 'state').entities.buildings.find(x => x.id === b.id).nukeReadyAtMs, undefined);
+  h.step(7800); assert.equal(h.room.sim.nukeFlights.length, 0);
+  assert.deepEqual(h.mirrors.get('a2').entities.nuclearImpacts, h.mirrors.get('b2').entities.nuclearImpacts);
+  assert.equal(h.mirrors.get('b2').entities.nuclearImpacts[0].hexId, '3,-3');
+  assert.equal(h.latest('b2', 'state').removed.nukeFlights.length, 0);
+});
+
+await test('nuclear flight IDs use separate owner sequences rather than leaking another seat launch count', () => {
+  const s = new OperationSim({ bot: false }); for (const hex of s.hexes) hex.owner = 0; s.players[0].techTier = 3;
+  assert(s.place(0, '0,0', 'silo').ok); const first = s.buildings.find(b => b.kind === 'silo'); first.nukeReadyAtMs = 0; first.completeAtMs = 0;
+  assert(s.launchNuke(0, first.id, '0,2').ok);
+  const enemy = { ...first, id: 'enemy-silo', owner: 1, hexId: '4,0', nukeReadyAtMs: 0 }; s.buildings.push(enemy);
+  assert(s.launchNuke(1, enemy.id, '0,3').ok); first.nukeReadyAtMs = 0; assert(s.launchNuke(0, first.id, '0,4').ok);
+  assert.deepEqual(s.nukeFlights.filter(f => f.owner === 0).map(f => f.id), ['nuke-0-1', 'nuke-0-2']);
+});
+
+await test('friendly defend commands validate building ownership and reject unit IDs or owner spoofing', () => {
+  const h = harness(); h.connect('a'); h.connect('b'); h.ready();
+  h.send('a', { t: 'command', requestId: 1, command: { kind: 'place', hexId: '-4,0', card: 'infantry' } }); h.step(3000);
+  const b = h.room.sim.buildings.find(b => b.kind === 'infantry');
+  h.send('a', { t: 'command', requestId: 2, command: { kind: 'defend', entityId: b.id } }); assert(h.latest('a', 'ack').ok);
+  assert.equal(h.room.sim.players[0].defendTargetId, b.id);
+  h.send('a', { t: 'command', requestId: 3, command: { kind: 'defend', entityId: b.unitId } }); assert(!h.latest('a', 'ack').ok);
+  h.send('b', { t: 'command', requestId: 4, command: { kind: 'defend', entityId: b.id } }); assert(!h.latest('b', 'ack').ok);
+  h.send('b', { t: 'command', requestId: 5, command: { kind: 'defend', entityId: b.id, owner: 0 } }); assert.equal(h.latest('b', 'error').code, 'badMessage');
+  h.send('a', { t: 'command', requestId: 6, command: { kind: 'launchNuke', buildingId: b.id, hexId: '0,0', owner: 1 } }); assert.equal(h.latest('a', 'error').code, 'badMessage');
+  h.send('a', { t: 'command', requestId: 7, command: { kind: 'target', targetId: 0 } }); assert.equal(h.room.sim.players[0].defendTargetId, null);
 });
 
 console.log(`${passed} Operation C online tests passed.`);

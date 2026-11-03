@@ -18,6 +18,8 @@ The local client defaults to port 8789. For a hosted client, set `VITE_OPERATION
 
 Both players choose a loadout and Ready; a three-second countdown starts the match. The server validates all commands against the authenticated seat, rate-limits messages, deduplicates requests and advances fixed 100 ms steps. It broadcasts record deltas every 200 ms, with full snapshots on reconnect or revision gaps. Clients never advance online rules. There are no bots or pause commands online.
 
+Protocol/checkpoints are v2 for utilities, nuclear strikes and friendly-building anchors. Older rooms return a terminal version-change message; reload both clients and create a new room after this update. Each seat has its own redacted delta baseline. Opponents receive no enemy nuke-ready timer, flight record, ID, target or arrival time, including after resync/recovery. Impacts are public. Per-owner flight ID counters prevent launch-count leakage through the attacker's later IDs.
+
 Disconnects do not pause a match. When both players are offline, computation is deferred and elapsed simulation is caught up in bounded batches on return. Confirmed commands are checkpointed before acknowledgements; periodic checkpoints preserve ongoing simulation. A restarted object rebinds hibernating sockets. Unused lobbies expire after 30 minutes, finished matches after one hour. A new match uses a new room.
 
 The existing account was verified on Workers Free on 2026-11-03. SQLite Durable Objects are available on that plan; its daily requests, duration and storage-operation quotas are shared with other services. Active games require periodic wakes, so this is intended for small private playtests, not unlimited concurrent rooms. Exhausting Free quotas can interrupt rooms. No plan upgrade or billing change is part of this prototype. See [Cloudflare's current Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/).
@@ -26,6 +28,9 @@ Browser verification runs two independent clients, a rejected third client, read
 
 ```sh
 OPERATION_C_ONLINE_FULL_MATCH=1 node scripts/screenshot-operation-c-online.mjs http://127.0.0.1:5188/ outputs/online http://127.0.0.1:8789
+OPERATION_C_ONLINE_NUKE=1 node scripts/screenshot-operation-c-online.mjs http://127.0.0.1:5188/ outputs/nuclear-online http://127.0.0.1:8789
 ```
 
 Windows uses isolated Brave; CI uses isolated Chromium. Test rooms contain no personal data. Physical phone performance and real-world latency still need a human playtest.
+
+For an actual preview deployment, use the existing `node scripts/bump-version.js operation-c` before the standalone build, then deploy this Worker config. Persist the resulting version.json only after a successful upload. Never hand-edit the prototype counter or retarget other games' workflows.

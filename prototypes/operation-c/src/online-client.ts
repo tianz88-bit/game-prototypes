@@ -20,6 +20,8 @@ export class RemoteOperationSim extends OperationSim {
     this.shots.splice(0,this.shots.length,...structuredClone(frame.entities.shots));
     this.reinforcements.splice(0,this.reinforcements.length,...structuredClone(frame.entities.reinforcements));
     this.retirements.splice(0,this.retirements.length,...structuredClone(frame.entities.retirements));
+    this.nukeFlights.splice(0,this.nukeFlights.length,...structuredClone(frame.entities.nukeFlights));
+    this.nuclearImpacts.splice(0,this.nuclearImpacts.length,...structuredClone(frame.entities.nuclearImpacts));
     this.pendingReleases.splice(0,this.pendingReleases.length,...structuredClone(frame.pendingReleases));
   }
 }

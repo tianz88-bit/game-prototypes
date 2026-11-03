@@ -1,4 +1,4 @@
-import { ROOM_CODE_RE } from '../../src/online-protocol';
+import { ROOM_CODE_RE, ONLINE_PROTOCOL_VERSION } from '../../src/online-protocol';
 import type { OnlineServerMessage, Seat } from '../../src/online-protocol';
 import { OnlineRoom } from './room';
 import type { RoomCheckpoint } from './room';
@@ -16,6 +16,7 @@ function rejectedSocket(code: string): Response {
     roomFull: 'This private room already has two players, including any disconnected seats.',
     roomNotFound: 'Room not found or expired. Ask your friend for a new invite.',
     roomExists: 'That room code is already in use. Create a new room.',
+    versionMismatch: 'This room belongs to an older game version. Reload both players and create a new room.',
   };
   const pair = new WebSocketPair(); pair[1].accept();
   pair[1].send(JSON.stringify({ t: 'error', code, message: messages[code] ?? 'Unable to join this room.' }));
@@ -27,7 +28,7 @@ export default {
   async fetch(request: Request, env: RoomWorkerEnvironment): Promise<Response> {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
-    if (request.method === 'GET' && url.pathname === '/health') return json({ ok: true, service: 'operation-c-online', protocol: 1 });
+    if (request.method === 'GET' && url.pathname === '/health') return json({ ok: true, service: 'operation-c-online', protocol: ONLINE_PROTOCOL_VERSION });
     const code = url.pathname.match(/^\/ws\/([^/]+)$/)?.[1];
     if (!code || !ROOM_CODE_RE.test(code)) return json({ error: 'invalidRoom', message: 'Use a five-character room code' }, 404);
     if (request.method !== 'GET' || request.headers.get('upgrade')?.toLowerCase() !== 'websocket') return json({ error: 'websocketRequired' }, 426);
@@ -44,10 +45,16 @@ export class OperationCRoom {
   private lastCheckpointMs = 0;
   private queue: Promise<unknown> = Promise.resolve();
   private readonly ready: Promise<void>;
+  private incompatible = false;
   constructor(private readonly state: RoomObjectState, _env: RoomWorkerEnvironment) {
     this.ready = state.blockConcurrencyWhile(async () => {
       const saved = await state.storage.get<RoomCheckpoint>(KEY);
       if (!saved) return;
+      if (saved.version !== 2 || saved.sim && saved.sim.version !== 2) {
+        this.incompatible = true; await state.storage.deleteAlarm();
+        for (const socket of state.getWebSockets()) { socket.send(JSON.stringify({ t: 'error', code: 'versionMismatch', message: 'Reload both players and create a new room for this game version.' })); socket.close(4002, 'Game version changed'); }
+        return;
+      }
       this.room = OnlineRoom.restore(saved, this.roomEnvironment);
       for (const socket of state.getWebSockets()) {
         const a = socket.deserializeAttachment() as Attachment | null;
@@ -76,6 +83,7 @@ export class OperationCRoom {
   fetch(request: Request): Promise<Response> {
     return this.serial(async () => {
       const url = new URL(request.url), code = url.pathname.split('/').pop()!;
+      if (this.incompatible) return rejectedSocket('versionMismatch');
       if (!ROOM_CODE_RE.test(code) || request.headers.get('upgrade')?.toLowerCase() !== 'websocket') return json({ error: 'badUpgrade' }, 426);
       const token = url.searchParams.get('token') ?? undefined, create = url.searchParams.get('create') === '1';
       if (token && !/^[a-f0-9]{32}$/.test(token)) return rejectedSocket('invalidToken');
