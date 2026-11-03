@@ -4,7 +4,7 @@ Last reconciled: 2026-11-03, Asia/Singapore. This is the canonical design refere
 
 ## Design versus implementation
 
-The Phaser 3 / strict TypeScript prototype supports two-human private-room 1v1 and a local human-versus-bot sandbox. It includes base-card loadouts, T1/T2/T3 research, construction/selling, permanent conversions, eleven producers/sixteen unit forms plus two utility cards, squads/reinforcements, delayed discounted destruction release and a classic RTS interface. The current execution adds Bunker/Silo, HQ defence, death-triggered replacement cooldowns and friendly-building defend/expand anchors. Six-player FFA, full geography and race catalogs remain later work. BUILD_STATUS.md records actual verification/publication status; unspecified tuning remains provisional.
+The Phaser 3 / strict TypeScript prototype supports two-human private-room 1v1 and a local human-versus-bot sandbox. It includes base-card loadouts, T1/T2/T3 research, construction/selling, permanent conversions, eleven producers/sixteen unit forms plus two utility cards, squads/reinforcements, delayed discounted destruction release and a classic RTS interface. It also includes Bunker/Silo, HQ defence, death-triggered replacement cooldowns, friendly-building defend/expand anchors, friendly-territory movement and the approved roster balance pass. Six-player FFA, full geography and race catalogs remain later work. BUILD_STATUS.md records actual verification/publication status; unspecified tuning remains provisional.
 
 ## Match and player control
 
@@ -68,17 +68,25 @@ The Phaser 3 / strict TypeScript prototype supports two-human private-room 1v1 a
 | T1 | Recon Post / Scout Buggy | 4 | Base; fast cheap exploration, weak in sustained combat |
 | T1 | Support Barracks / Machine-gun Squad | 5 | Base; five rapid-firing anti-swarm members, short range |
 | T1 | Air Defence Post / Flak Rover | 6 | Base; G to A only, cannot capture, helpless against ground attackers |
-| T2 | Helipad / Helicopter | 12 | Base; mobile air-to-ground support, cannot fight air |
-| T2 | Attack Helipad / Gunship | 16 | Helipad upgrade; ground splash, vulnerable to fighters |
-| T2 | Airbase / Fighter | 12 | Base; air-to-air only, cannot damage ground or buildings |
-| T2 | Assault Foundry / Assault Walker | 14 | Base; G to G/A close assault, slow and easy to outrange |
-| T2 | Anti-tank Depot / Tank Destroyer | 12 | Base; heavy range 2-3 shots, fragile against close swarms |
-| T3 | Bomber Command / Bomber | 12 | Airbase conversion; heavy ground hit, helpless against fighters |
-| T3 | Rocket Battery / MLRS | 16 | Artillery upgrade ONLY; splash range 3-5, weak at close range and to air |
-| T3 | Siege Foundry / Siege Tank | 20 | Motor Pool upgrade; heavy slow shots, minimum range 2, cannot hit air |
-| T3 | Carrier Command / Assault Carrier | 24 | Base; heavy ground splash, 30s production, cannot fight aircraft |
+| T2 | Helipad / Helicopter | 10 | Base; mobile air-to-ground support, cannot fight air |
+| T2 | Attack Helipad / Gunship | 12 | Helipad upgrade; ground splash, vulnerable to fighters |
+| T2 | Airbase / Fighter | 10 | Base; air-to-air only, cannot damage ground or buildings |
+| T2 | Assault Foundry / Assault Walker | 12 | Base; G to G/A close assault, slow and easy to outrange |
+| T2 | Anti-tank Depot / Tank Destroyer | 10 | Base; heavy range 2-3 shots, fragile against close swarms |
+| T3 | Bomber Command / Bomber | 10 | Airbase conversion; heavy ground hit, helpless against fighters |
+| T3 | Rocket Battery / MLRS | 12 | Artillery upgrade ONLY; splash range 3-5, weak at close range and to air |
+| T3 | Siege Foundry / Siege Tank | 16 | Motor Pool upgrade; heavy slow shots, minimum range 2, cannot hit air |
+| T3 | Carrier Command / Assault Carrier | 18 | Base; heavy ground splash, 30s production, cannot fight aircraft |
 
-Names are shared by the loadout, deck and contextual panel. Costs for the eight new units and new conversion durations are provisional playtest settings; existing approved base costs remain intact. Bombers and MLRS now use 24-second production cooldowns under the new slow T3 philosophy; Siege Tanks use 26 seconds. No new armour-resistance or invulnerability system.
+Names are shared by the loadout, deck and contextual panel. Costs for the eight new units and new conversion durations are provisional playtest settings; the balance pass below supersedes earlier costs. Bombers and MLRS now use 24-second production cooldowns under the new slow T3 philosophy; Siege Tanks use 26 seconds. No new armour-resistance or invulnerability system.
+## Approved balance pass — 2026-11-03
+
+- Infantry replacement cooldown increases from 6.5s to 8s. Scout Buggy damage decreases from 5 to 3 and replacement cooldown increases from 5s to 7s. Their movement, capture, health and building costs remain unchanged.
+- Battle Tank health increases from 130 to 180. Keep its 1.3s firing interval; this replaces the earlier proposed firing-speed buff. Bunker health increases from 180 to 280 and damage from 5 to 8 each second, retaining cost 8 and range 1-2.
+- Field Artillery gains radius-one enemy-only splash: full 19 damage to every member on the target hex and provisional 35% damage on adjacent hexes. No friendly fire. Existing range 2-3, minimum range, retreat, health, firing interval and production time remain. A direct hit can wipe a full fragile infantry squad; adjacent hits soften it instead.
+- Advanced total producer commitments are the current roster table above: Helicopter/Fighter/Bomber/Tank Destroyer 10; Walker/Gunship/MLRS 12; Siege Tank 16; Carrier 18; Silo 24. Upgrade surcharges are target total minus base commitment, including free Fighter-to-Bomber conversion. Advanced construction/production timers and research's 20 temporary tiles/30s T2/60s T3 remain unchanged.
+- The approved 25% friendly-territory movement bonus remains. All numerical changes are provisional playtest balance, not proof that snowballing is solved.
+
 ## Loadout page
 
 - Up to 8 UNIQUE BASE building cards across T1-T3; at least one T1 ground producer. Upgrades are options belonging to their base card, never separate selectable cards or extra slots.
@@ -92,7 +100,7 @@ Approved 2026-11-03: adopt a small SC2-inspired additive bonus system. Every bat
 
 - LIGHT units: Regular/Missile/Machine-gun Infantry, Scout Buggy, Field Artillery, Flak Rover, Helicopter and Fighter.
 - ARMOURED units: Battle Tank, Assault Walker, Tank Destroyer, MLRS, Siege Tank, Gunship, Bomber and Assault Carrier.
-- Provisional flat bonuses: Machine-gun Squad +0.5 per member against Light; Missile Squad +2 per member against Armoured; Tank Destroyer +24 against Armoured; Bomber +15 against Structure; Siege Tank +20 against Structure. Existing base damage, health, costs, movement, cadence and production timers are preserved.
+- Provisional flat bonuses: Machine-gun Squad +0.5 per member against Light; Missile Squad +2 per member against Armoured; Tank Destroyer +24 against Armoured; Bomber +15 against Structure; Siege Tank +20 against Structure. The damage-class change itself preserves base stats; the approved balance pass above supplies subsequent damage, health, cost and production changes.
 - Each hit deals base damage plus the matching class bonus. Each living squad member contributes its own hit; single-target excess damage still does not spill into the next member. Each splash recipient uses its OWN class, then the existing splash falloff applies to that recipient's total. A centre target's bonus never transfers to a differently classified neighbour.
 - HQ/Bunker remain generalists at their existing damage. Nukes keep their explicit centre/outer values and bypass class bonuses. Bonuses do not let a weapon shoot an otherwise invalid air/ground target.
 - Catalog cards and inspectors show target classes and explicit bonuses. Mini building cards retain concise names/cost/construction time. tune.json and the debug pane expose classes/bonuses. Exact bonus numbers remain playtest settings; T1 swarms must retain counterplay against unsupported T3.
@@ -102,14 +110,14 @@ Approved 2026-11-03: adopt a small SC2-inspired additive bonus system. Every bat
 Owner explicitly requested implementation on 2026-11-03. Minimal first catalog: self-firing Defence Bunker and Nuclear Silo; additional utility roles remain open. All numerical values and unresolved interactions below are provisional playtest defaults, distinct from the confirmed one-payload/launch/flight/blast rules.
 
 - Add utility buildings and a nuclear silo. Base utility cards compete for the SAME eight unique loadout slots as producers; no separate utility allowance. They do not replace the requirement to bring at least one T1 ground-unit producer.
-- Utilities produce no map unit. Defence Bunker is a self-contained T1 ground/air gun, without garrison mechanics. Provisional: 8 tiles, 6s construction, 180 HP, range 1-2, 5 damage every second. Other support-building types remain proposals.
+- Utilities produce no map unit. Defence Bunker is a self-contained T1 ground/air gun, without garrison mechanics. Provisional: 8 tiles, 6s construction, 280 HP, range 1-2, 8 damage every second. Other support-building types remain proposals.
 - The silo is expensive in committed resource territory. After building construction completes, it takes additional time to produce its first nuke. Building construction and nuke production are separate timers.
 - The silo holds ONE ready nuke. It does not stockpile or start another production cycle while that nuke is ready. Launching consumes the ready nuke and starts producing the next one.
 - Select the silo and choose Launch Nuke in its contextual menu, tap a target hex to preview the seven-cell footprint, then Confirm Launch. Cancel exits targeting without consuming the payload. This is a player command, never autonomous firing.
 - Launch and impact are separated by actual elapsed flight time. The nuke in flight is INVISIBLE to defenders: the server must redact flight/target/timing and silo readiness from opposing snapshots as well as hiding visuals. Provisional fixed 8s flight, no warning or interception.
 - The blast targets SEVEN hexes: one centre and six neighbours. The centre takes the most damage; friendly fire is CONFIRMED. Provisional 200 centre/80 outer damage to ground, air and buildings, including HQs and every affected squad member. Empty terrain is not directly burnt; normal destroyed-building burns/releases apply.
 - Owner explicitly requests a visually satisfying MUSHROOM CLOUD at impact. Implement a scripted flash, expanding ground shockwave, rising stem and billowing mushroom cap in the procedural/vector style; reduced motion uses a static impact pose. The lifetime is tunable in presentation.mushroomMs.
-- Provisional silo: T3, 32 committed tiles, 15s construction, 160 HP, 60s payload production. Ordinary connected support, sale/destruction and delayed discounted release rules apply. Launched missiles survive silo sale/destruction, but owner elimination removes remaining flights. Utilities use normal build/loadout rules and slots. A new-game default deck includes Bunker and Silo so the requested mechanics are discoverable.
+- Provisional silo: T3, 24 committed tiles, 15s construction, 160 HP, 60s payload production. Ordinary connected support, sale/destruction and delayed discounted release rules apply. Launched missiles survive silo sale/destruction, but owner elimination removes remaining flights. Utilities use normal build/loadout rules and slots. A new-game default deck includes Bunker and Silo so the requested mechanics are discoverable.
 - HQ anti-rush defence requested 2026-11-03: an automatic ground-only gun, provisionally range 2 and 5 damage per second. It does not target buildings or grant invulnerability; artillery and aircraft retain counterplay. Existing HQ capture aura remains at the actual HQ even when the defend/expand anchor changes.
 ## Technology research
 
@@ -122,7 +130,7 @@ Owner explicitly requested implementation on 2026-11-03. Minimal first catalog: 
 
 ## Building upgrades and timed conversions
 
-Current one-way conversion tree: Barracks → Armoury (+2 / 5s / T1); Motor Pool → Siege Foundry (+12 / 10s / T3); Artillery Battery → Rocket Battery (+8 / 8s / T3); Helipad → Attack Helipad (+4 / 6s / T2); Airbase → Bomber Command (+0 / 8s / T3). Added conversion costs/timers are provisional and use the same confirmed lifecycle below. MLRS is no longer a base card.
+Current one-way conversion tree: Barracks → Armoury (+2 / 5s / T1); Motor Pool → Siege Foundry (+8 / 10s / T3); Artillery Battery → Rocket Battery (+4 / 8s / T3); Helipad → Attack Helipad (+2 / 6s / T2); Airbase → Bomber Command (+0 / 8s / T3). Added conversion costs/timers are provisional and use the same confirmed lifecycle below. MLRS is no longer a base card.
 
 All building upgrades are PERMANENT and ONE-WAY, including Airbase to Bomber Command. No downgrade or switch back. Additional upgrade resources remain committed for the upgraded building's lifetime. Costs vary by upgrade; do not generalize the Barracks surcharge to all producers.
 
@@ -230,8 +238,8 @@ Loadout/tech/squads/upgrades are the current design milestone. Six-human network
 To keep the next build moving without further rule-by-rule questions, these are implementation defaults for review through play:
 - Thirteen base cards: eleven producers, two utilities; five producer upgrades give sixteen unit types. The eight-slot default deck is Barracks, Motor Pool, Artillery Battery, Helipad, Airbase, Recon Post, Defence Bunker and Nuclear Silo. All other base cards remain selectable. Numerical roles/costs are provisional; see tune.json.
 - Regular infantry: five members, 8 HP and 2 damage each (40 squad HP, 10 full volley damage); Missile Infantry: five members, 7 HP and 4 damage each, range 1-2, move 1000 ms/hex, production 9000 ms, attack 1200 ms. Member attack clocks are synchronized on one shared target; single hits choose the first living member. Capture strength stays constant as members die.
-- Bomber: total producer commitment 12, unit HP 100, damage 45, range 1-2, move 800 ms/hex, attack 2400 ms, production 24000 ms. No splash on Bombers in this slice.
-- MLRS: cost 16, unit HP 80, damage 30, range 3-5, move 1500 ms/hex, attack 3000 ms, production 24000 ms. Radius-one enemy-only splash: full damage on the target hex, half on adjacent hexes, applied to every squad member in an affected hex. No friendly damage.
+- Bomber: total producer commitment 10, unit HP 100, damage 45, range 1-2, move 800 ms/hex, attack 2400 ms, production 24000 ms. No splash on Bombers in this slice.
+- MLRS: cost 12, unit HP 80, damage 30, range 3-5, move 1500 ms/hex, attack 3000 ms, production 24000 ms. Radius-one enemy-only splash: full damage on the target hex, half on adjacent hexes, applied to every squad member in an affected hex. No friendly damage.
 - Reinforcements take 250 ms per dispatch-distance hex with a 500 ms minimum. The visual follows the current squad location; arrival is scheduled at dispatch. They vanish on squad death; producer destruction alone permits already dispatched members to reach a living orphan. Upgrading/selling retires them.
 - Selling is immediate, including an upgrading building, using the combined base-plus-pending-upgrade surviving support count. Retiring a capturer triggers capture rollback. Fresh production cooldown after cancelled upgrade is the base type's full interval.
 - Retired forces stop gameplay immediately; a 650 ms retreat/fade is cosmetic. Inspector keeps the selected entity ID while it moves and retains its last details marked destroyed after loss. The bottom command area has the deck on its left and contextual selection on its right.

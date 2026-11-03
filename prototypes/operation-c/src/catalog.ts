@@ -18,7 +18,7 @@ export const UNIT_NAMES: Record<CardKind, string> = {
 };
 export const NOTES: Record<CardKind, string> = {
   infantry: 'Fast capture squad; fragile under splash.', missile: 'Heavy squad volley; slow to reinforce.',
-  tank: 'Reliable ground armour; cannot fight aircraft.', artillery: 'Long reach; cannot fire adjacent. Retreats under fire.',
+  tank: 'Durable frontline armour; cannot fight aircraft.', artillery: 'Anti-squad splash; cannot fire adjacent. Retreats under fire.',
   helicopter: 'Mobile ground hunter; vulnerable to fighters.', fighter: 'Air superiority; cannot attack ground.',
   bomber: 'Heavy ground strikes; needs an escort against fighters.', mlrs: 'Breaks packed defences; blind inside range 3, weak to air.',
   scout: 'Cheap, fast exploration; loses sustained fights.', gunner: 'Anti-swarm squad; short reach and fragile members.',

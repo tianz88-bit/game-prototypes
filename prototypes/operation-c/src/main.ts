@@ -237,8 +237,10 @@ class Battlefield extends Phaser.Scene {
         const bonusFolder=folder.addFolder({title:'Damage bonuses',expanded:false});
         for(const target of ['light','armoured','structure'] as const){bonuses[target]??=0;bonusFolder.addBinding(bonuses,target,{min:0,max:100,step:0.5,label:`+ vs ${CLASS_NAMES[target]}`});}
       }
-      for (const key of ['cost', 'damage', 'unitHp', 'moveMs', 'productionMs', 'attackMs', 'captureRate', 'minRange', 'range', 'buildMs'] as const)
+      for (const key of ['cost', 'damage', 'buildingHp', 'unitHp', 'moveMs', 'productionMs', 'attackMs', 'captureRate', 'minRange', 'range', 'buildMs'] as const)
         folder.addBinding(values.cards[kind], key, { min: key.endsWith('Ms') ? 100 : 0.1, max: key.endsWith('Ms') ? 120000 : 300 });
+      if (values.cards[kind].splashRadius !== undefined) folder.addBinding(values.cards[kind], 'splashRadius', { min: 0, max: 3, step: 1 });
+      if (values.cards[kind].splashDamageFraction !== undefined) folder.addBinding(values.cards[kind], 'splashDamageFraction', { min: 0, max: 1, step: 0.05 });
       if (values.cards[kind].upgradeMs !== undefined) folder.addBinding(values.cards[kind], 'upgradeMs', { min: 100, max: 30000, step: 100 });
       if (values.cards[kind].retreatMs !== undefined) folder.addBinding(values.cards[kind], 'retreatMs', { min: 100, max: 10000, step: 100 });
     }
