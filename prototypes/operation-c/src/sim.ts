@@ -23,8 +23,8 @@ export interface OperationCheckpoint {
 
 /** Renderer-independent deterministic rules. Public DTOs are mutable for dev fixtures;
  * the game should issue place/setTarget commands rather than mutate them directly.
- * Provisional slice rules: no terrain obstacles/LOS; capture strength does not scale
- * with squad size; HQ pressure retakes empty enemy land; eliminated buildings vanish.
+ * Provisional slice rules: no terrain obstacles/LOS; HQ pressure retakes empty enemy
+ * land; eliminated buildings vanish. Squad capture scales with living membership.
  */
 export class OperationSim {
   readonly tune: Tune;
@@ -563,7 +563,11 @@ export class OperationSim {
     const player = this.players.find(p => p.id === u.owner)!;
     const targets: (Building | Unit)[] = [...this.units, ...this.buildings].filter(t =>
       t.owner !== u.owner && t.hp > 0 && this.canTarget(u, t) &&
-      distance(here, this.byHex.get(t.hexId)!) <= card.sightRange);
+      distance(here, this.byHex.get(t.hexId)!) <= card.sightRange &&
+      // Passive expansion may shoot structures already in its firing band,
+      // but only mobile enemies can draw it away from expansion/defense.
+      (player.targetId !== u.owner || 'buildingId' in t ||
+        distance(here, this.byHex.get(t.hexId)!) >= card.minRange && distance(here, this.byHex.get(t.hexId)!) <= card.range));
     // An attack order prioritizes the selected faction's structures. Defense
     // retains troop-first reactions instead of ignoring a nearby attacker.
     return targets.sort((a, b) => {
@@ -679,7 +683,9 @@ export class OperationSim {
   private capture(): void {
     const pressure = new Map<string, { owner: number; rate: number; unitId?: string }>();
     for (const u of this.units) if (this.shouldCapture(u) && !u.attacking && (u.movingUntilMs ?? 0) <= this.timeMs) {
-      if (!this.byHex.get(u.hexId)!.burnt) pressure.set(u.hexId, { owner: u.owner, rate: this.tune.cards[u.kind].captureRate, unitId: u.id });
+      const card = this.tune.cards[u.kind];
+      const strength = card.squadSize && u.members ? u.members.filter(hp => hp > 0).length / card.squadSize : 1;
+      if (!this.byHex.get(u.hexId)!.burnt) pressure.set(u.hexId, { owner: u.owner, rate: card.captureRate * strength, unitId: u.id });
     }
     for (const b of this.buildings) if (b.kind === 'hq') {
       const centre = this.byHex.get(b.hexId)!;

@@ -38,13 +38,13 @@ try{
   assert.deepEqual((await snap(guest)).commandIndicator,{hqId:'hq1',mode:'defend'});console.log('CHECK online: both ready, countdown, playing');
   const before=(await snap(host)).timeMs;await press(host,'pause');await host.keyboard.press('Space');assert.equal((await snap(host)).paused,false);
   await host.evaluate(()=>window.__operationC.advance(10000));await host.waitForTimeout(650);assert((await snap(host)).timeMs>before);assert((await snap(host)).timeMs<before+4000,'client cannot fast-forward server');
-  const place=async(p,seat)=>{
-    await press(p,'home');await press(p,'card-infantry');
+  const place=async(p,seat,kind='infantry')=>{
+    await press(p,'home');await press(p,`card-${kind}`);
     let hex;
     for(let i=0;i<25&&!hex;i++){const t=await targets(p);hex=t.hexes.find(h=>h.valid&&h.x>24&&h.x<t.board.right-24&&h.y>t.board.top+25&&h.y<t.board.bottom-25);if(!hex)await p.waitForTimeout(1000);}
-    assert(hex,`seat ${seat} legal visible building site`);const count=(await snap(p)).buildings.filter(b=>b.owner===seat&&b.kind==='infantry').length;
+    assert(hex,`seat ${seat} legal visible ${kind} site`);const count=(await snap(p)).buildings.filter(b=>b.owner===seat&&b.kind===kind).length;
     await tap(p,hex.x,hex.y);await p.waitForTimeout(90);assert((await snap(p)).selectedBuild?.valid);await tap(p,hex.x,hex.y);
-    await p.waitForFunction(({seat,count})=>window.__operationC.snapshot().buildings.filter(b=>b.owner===seat&&b.kind==='infantry').length>count,{seat,count},{timeout:10000});
+    await p.waitForFunction(({seat,count,kind})=>window.__operationC.snapshot().buildings.filter(b=>b.owner===seat&&b.kind===kind).length>count,{seat,count,kind},{timeout:10000});
     const position=(await targets(p)).hexes.find(h=>h.id===hex.id);await tap(p,position.x,position.y);await p.waitForTimeout(85);
   };
   await place(host,0);await place(guest,1);
@@ -71,7 +71,7 @@ try{
     await host.waitForFunction(()=>window.__operationC.snapshot().nuclearImpacts.length>0,null,{timeout:12000});await guest.waitForFunction(()=>window.__operationC.snapshot().nuclearImpacts.length>0,null,{timeout:5000});assert((await snap(guest)).buildings.find(b=>b.id===victim.id).hp<oldHp);await host.waitForTimeout(850);await capture(host,'nuclear-impact-host');await capture(guest,'nuclear-impact-guest');console.log('PASS online nuclear strike: real research/construction/production/flight timers, contextual aim/launch, building anchor, private defender wire data, shared impact/damage');
   }
   if(process.env.OPERATION_C_ONLINE_FULL_MATCH==='1'){
-    for(let i=0;i<3;i++)await place(host,0);
+    for(const kind of ['infantry','tank','artillery'])await place(host,0,kind);
     await press(host,'overview');h=await snap(host);const enemy=h.buildings.find(b=>b.kind==='hq'&&b.owner===1),point=(await targets(host)).hexes.find(hex=>hex.id===enemy.hexId);await tap(host,point.x,point.y);
     await host.waitForFunction(()=>window.__operationC.snapshot().target===1,null,{timeout:10000});await capture(host,'host-attack-command');
     await host.waitForFunction(()=>window.__operationC.snapshot().winner!==null,null,{timeout:180000});await guest.waitForFunction(()=>window.__operationC.snapshot().winner!==null,null,{timeout:10000});h=await snap(host);g=await snap(guest);assert.equal(h.winner,g.winner);assert.equal(h.online.lobby.phase,'ended');assert.equal(g.online.lobby.phase,'ended');assert.equal(h.timeMs,g.timeMs);assert.deepEqual(h.hexes,g.hexes);assert.deepEqual(h.buildings,g.buildings);assert.deepEqual(h.units,g.units);await capture(host,'host-result');await capture(guest,'guest-result');console.log(`PASS full online match: winner ${h.winner}, ${h.timeMs}ms, identical final worlds`);

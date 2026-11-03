@@ -600,7 +600,8 @@ class Battlefield extends Phaser.Scene {
     }
     const c=this.sim.tune.cards[e.kind];
     if(!building){
-      this.label('inspectUnit',`${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'AIR':'GROUND').join(' / ')} · SIGHT ${c.sightRange}\nDMG ${this.damageText(e.kind)}\n${NOTES[e.kind]}`,x,y+57,compact?9:11,MUTED).setWordWrapWidth(w);return;
+      const capturePercent=Math.round(c.captureRate * (e.members ? e.members.length / (c.squadSize ?? 1) : 1) * 100);
+      this.label('inspectUnit',`${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'AIR':'GROUND').join(' / ')} · SIGHT ${c.sightRange}\nDMG ${this.damageText(e.kind)}\nCAPTURE ${capturePercent}% · ${NOTES[e.kind]}`,x,y+57,compact?9:11,MUTED).setWordWrapWidth(w);return;
     }
     const progress=e.completeAtMs&&e.completeAtMs>this.sim.timeMs?`Constructing ${Math.ceil((e.completeAtMs-this.sim.timeMs)/1000)}s`:e.upgradeKind?`Converting ${Math.max(0,Math.ceil(((e.upgradeCompleteAtMs??0)-this.sim.timeMs)/1000))}s`:`${c.cost} tiles · ${c.buildMs/1000}s construction`;
     if(!compact)this.label('inspectProgress',progress,x,y+55,small?9:11,MUTED).setWordWrapWidth(w);

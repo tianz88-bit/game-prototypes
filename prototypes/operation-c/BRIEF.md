@@ -21,7 +21,7 @@ The Phaser 3 / strict TypeScript prototype supports two-human private-room 1v1 a
 - Losing supporting territory removes its local assignment permanently, including after recapture, but does not release the building's committed cost. Existing buildings continue functioning in debt. New construction requires sufficient capacity again.
 - Selling OR enemy destruction releases only the cells still assigned to that building. Selling releases immediately; enemy destruction keeps the remaining assignments committed for 10 seconds before release, with a countdown on each hex. Capturing an assignment during this countdown permanently strands that part of the commitment; recapture does not restore it. Previously captured support assignments are discounted from the release; their unreleased commitment remains as match debt after the building is gone. Example: cost 8, lose 3 assigned support cells, then sell or lose the building: release 5 and retain 3 debt. Recapturing a formerly assigned cell does not restore the lost assignment or clear this debt.
 - Enemy destruction permanently burns the building hex. Burnt cells give no resources, building space or support connectivity, but remain traversable. Its living unit survives without replacements. Selling instead returns the building tile to open owned territory and retires its forces, as specified below.
-- No shared building-placement cooldown. Earlier Barracks-8 experiment is superseded by the current Barracks-4 cost.
+- No shared building-placement cooldown. Earlier Barracks-8 and Barracks-4 experiments are superseded by the current Barracks-6 cost.
 
 ## Occupancy, movement and spawning
 
@@ -37,13 +37,17 @@ The Phaser 3 / strict TypeScript prototype supports two-human private-room 1v1 a
 
 ## Capture and HQ pressure
 
+- Anti-rush pass approved 2026-11-03: squad capture strength is multiplied by living members / configured squad size. A full five-member squad captures at 100%, three at 60%, one at 20%. Incoming cosmetic reinforcements contribute only after merging. Remaining HP within a living member does not reduce capture strength. Neutral full-squad capture now takes 4s and enemy-owned capture 6s. HQ capture pressure is not member-scaled.
+
 - Approved capture-role split (2026-11-03): Infantry, Missile and Machine-gun squads capture at 100% strength and prioritize capture. Recon captures at 20%; Battle Tanks and Assault Walkers capture at 25%. These vehicles retain combat priority and capture only in Expand mode with no valid enemy within their own sight. Field Artillery, MLRS, Tank Destroyers and Siege Tanks cannot capture, joining Flak and all aircraft as non-capturing specialists. The individual-sight decision supersedes the former map-wide intruder restriction.
-- Non-neutral cells take 50% longer than neutral capture duration (1.5x), superseding the older 2x rule. Neutral capture is provisionally 2.6s at 100% strength, 13s at Recon's 20%, and 10.4s at vehicles' 25%, before simulation-step rounding and HQ pressure. Unit capture rates do not change HQ capture pressure.
+- Non-neutral cells take 50% longer than neutral capture duration (1.5x), superseding the older 2x rule. Neutral capture is provisionally 4s at 100% strength, 20s at Recon's 20%, and 16s at vehicles' 25%, before simulation-step rounding and HQ pressure. Unit capture rates do not change HQ capture pressure.
 - Capture pauses only while the capturing unit itself attacks. Taking damage without retaliating does not pause it; paused progress is retained.
 - When the responsible capturer dies, incomplete progress slowly reverses toward the unchanged original controller. A replacement capturer can resume progress. Merely attacking or leaving while alive does not trigger casualty rollback.
 - HQ starts with the two surrounding rings (18 cells) captured and applies pressure like invisible infantry, subject to hostile occupation exceptions. Exact full-game exceptions remain open.
 
 ## Individual sight and engagement — 2026-11-03
+
+- Command correction approved 2026-11-03: Defend/Expand pursues valid visible enemy UNITS, but never chases structures outside its legal firing band. Buildings may be fired upon when already inside weapon/minimum range; an out-of-range building must not interrupt vehicle capture. Attack-HQ orders still advance on the selected faction and pursue structures. This supersedes the initial sight implementation that treated every visible structure as an engagement destination.
 
 - Each mobile unit uses ONLY its own sight. No allied spotting, fog of war or hidden-map system. The battlefield remains fully visible to the player; sight governs autonomous acquisition and engagement.
 - Base Infantry and Machine-gun squads have sight 1. Combat units default to sight 3. Ranged specialists use their weapon range plus 1 rather than plus 2 for this playtest: Missile Infantry 3; Field Artillery, Flak, Tank Destroyer and Siege Tank 4; MLRS 6. Tanks, Recon, Walkers and all aircraft have sight 3. Ranged Infantry is an exception to sight 1 so it retains its range-2 weapon role.
@@ -69,12 +73,12 @@ The Phaser 3 / strict TypeScript prototype supports two-human private-room 1v1 a
 
 | Tier | Military building / unit | Total commitment | Access / role and weakness |
 | --- | --- | --- | --- |
-| T1 | Barracks / Infantry Squad | 4 | Base; fast capture, G to G/A, five fragile members |
-| T1 | Armoury / Missile Squad | 6 | Barracks upgrade; anti-ground, slower movement and reinforcement |
+| T1 | Barracks / Infantry Squad | 6 | Base; fast capture, G to G/A, five fragile members |
+| T1 | Armoury / Missile Squad | 8 | Barracks upgrade; anti-ground, slower movement and reinforcement |
 | T1 | Motor Pool / Battle Tank | 8 | Base; reliable ground armour, cannot hit air |
 | T1 | Artillery Battery / Field Artillery | 8 | Base; frail, range 2-3, retreats after damage |
-| T1 | Recon Post / Scout Buggy | 4 | Base; fast cheap exploration, weak in sustained combat |
-| T1 | Support Barracks / Machine-gun Squad | 5 | Base; five rapid-firing anti-swarm members, short range |
+| T1 | Recon Post / Scout Buggy | 6 | Base; fast cheap exploration, weak in sustained combat |
+| T1 | Support Barracks / Machine-gun Squad | 7 | Base; five rapid-firing anti-swarm members, short range |
 | T1 | Air Defence Post / Flak Rover | 6 | Base; G to A only, cannot capture, helpless against ground attackers |
 | T2 | Helipad / Helicopter | 10 | Base; mobile air-to-ground support, cannot fight air |
 | T2 | Attack Helipad / Gunship | 12 | Helipad upgrade; ground splash, vulnerable to fighters |
@@ -89,9 +93,12 @@ The Phaser 3 / strict TypeScript prototype supports two-human private-room 1v1 a
 Names are shared by the loadout, deck and contextual panel. Costs for the eight new units and new conversion durations are provisional playtest settings; the balance pass below supersedes earlier costs. Bombers and MLRS now use 24-second production cooldowns under the new slow T3 philosophy; Siege Tanks use 26 seconds. No new armour-resistance or invulnerability system.
 ## Approved balance pass — 2026-11-03
 
+- Latest anti-rush revision: Barracks and Recon Post cost 6, Support Barracks 7, Armoury total 8 (Barracks upgrade +2). Flak remains 6; Motor Pool, Artillery Battery and Bunker remain 8. Two Barracks commit 12, while Barracks plus Tank/Artillery/Bunker commits 14. The actual prototype opening has 18 productive support cells around the HQ; higher costs permit at most three Barracks if all support is available, rather than the prior four. First units STILL appear at construction completion; an extra initial production timer is not approved.
+- HQ now has 650 HP and a single-target ground gun dealing 8 each second at range 2. There is no tier immunity or invulnerability. Field Artillery damage is now 4 per member on its centre hex and 1.4 on adjacent hexes, requiring two direct shots against a fresh 8-HP/member basic squad. Preserve minimum range 2, 38 HP, slow movement and damage-triggered retreat; Recon and Tank close attacks must remain effective counters. Previous cheaper advanced commitments and all production/building timers remain unchanged.
+
 - Infantry replacement cooldown increases from 6.5s to 8s. Scout Buggy damage decreases from 5 to 3 and replacement cooldown increases from 5s to 7s. Their movement, capture, health and building costs remain unchanged.
 - Battle Tank health increases from 130 to 180. Keep its 1.3s firing interval; this replaces the earlier proposed firing-speed buff. Bunker health increases from 180 to 280 and damage from 5 to 8 each second, retaining cost 8 and range 1-2.
-- Field Artillery gains radius-one enemy-only splash: full 19 damage to every member on the target hex and provisional 35% damage on adjacent hexes. No friendly fire. Existing range 2-3, minimum range, retreat, health, firing interval and production time remain. A direct hit can wipe a full fragile infantry squad; adjacent hits soften it instead.
+- Field Artillery gains radius-one enemy-only splash: full 4 damage to every member on the target hex and provisional 35% damage on adjacent hexes. No friendly fire. Existing range 2-3, minimum range, retreat, health, firing interval and production time remain. Two direct hits wipe a fresh basic infantry squad; each member takes 4 damage per hit. Adjacent hits apply 35% (1.4 damage/member).
 - Advanced total producer commitments are the current roster table above: Helicopter/Fighter/Bomber/Tank Destroyer 10; Walker/Gunship/MLRS 12; Siege Tank 16; Carrier 18; Silo 24. Upgrade surcharges are target total minus base commitment, including free Fighter-to-Bomber conversion. Advanced construction/production timers and research's 20 temporary tiles/30s T2/60s T3 remain unchanged.
 - The approved 25% friendly-territory movement bonus remains. All numerical changes are provisional playtest balance, not proof that snowballing is solved.
 
@@ -126,7 +133,7 @@ Owner explicitly requested implementation on 2026-11-03. Minimal first catalog: 
 - The blast targets SEVEN hexes: one centre and six neighbours. The centre takes the most damage; friendly fire is CONFIRMED. Provisional 200 centre/80 outer damage to ground, air and buildings, including HQs and every affected squad member. Empty terrain is not directly burnt; normal destroyed-building burns/releases apply.
 - Owner explicitly requests a visually satisfying MUSHROOM CLOUD at impact. Implement a scripted flash, expanding ground shockwave, rising stem and billowing mushroom cap in the procedural/vector style; reduced motion uses a static impact pose. The lifetime is tunable in presentation.mushroomMs.
 - Provisional silo: T3, 24 committed tiles, 15s construction, 160 HP, 60s payload production. Ordinary connected support, sale/destruction and delayed discounted release rules apply. Launched missiles survive silo sale/destruction, but owner elimination removes remaining flights. Utilities use normal build/loadout rules and slots. A new-game default deck includes Bunker and Silo so the requested mechanics are discoverable.
-- HQ anti-rush defence requested 2026-11-03: an automatic ground-only gun, provisionally range 2 and 5 damage per second. It does not target buildings or grant invulnerability; artillery and aircraft retain counterplay. Existing HQ capture aura remains at the actual HQ even when the defend/expand anchor changes.
+- HQ anti-rush defence requested 2026-11-03: an automatic ground-only gun, provisionally 650 HP, range 2 and 8 damage per second. It does not target buildings or grant invulnerability; artillery and aircraft retain counterplay. Existing HQ capture aura remains at the actual HQ even when the defend/expand anchor changes.
 ## Technology research
 
 - T1 to T2: temporarily commit 20 OPEN UNCOMMITTED OWNED cells for 30 seconds. No adjacency/connectivity requirement. Creates deliberate rush vulnerability.
@@ -245,7 +252,7 @@ Loadout/tech/squads/upgrades are the current design milestone. Six-human network
 
 To keep the next build moving without further rule-by-rule questions, these are implementation defaults for review through play:
 - Thirteen base cards: eleven producers, two utilities; five producer upgrades give sixteen unit types. The eight-slot default deck is Barracks, Motor Pool, Artillery Battery, Helipad, Airbase, Recon Post, Defence Bunker and Nuclear Silo. All other base cards remain selectable. Numerical roles/costs are provisional; see tune.json.
-- Regular infantry: five members, 8 HP and 2 damage each (40 squad HP, 10 full volley damage); Missile Infantry: five members, 7 HP and 4 damage each, range 1-2, move 1000 ms/hex, production 9000 ms, attack 1200 ms. Member attack clocks are synchronized on one shared target; single hits choose the first living member. Capture strength stays constant as members die.
+- Regular infantry: five members, 8 HP and 2 damage each (40 squad HP, 10 full volley damage); Missile Infantry: five members, 7 HP and 4 damage each, range 1-2, move 1000 ms/hex, production 9000 ms, attack 1200 ms. Member attack clocks are synchronized on one shared target; single hits choose the first living member. Capture strength scales with surviving member count; remaining HP of each living member does not alter its contribution.
 - Bomber: total producer commitment 10, unit HP 100, damage 45, range 1-2, move 800 ms/hex, attack 2400 ms, production 24000 ms. No splash on Bombers in this slice.
 - MLRS: cost 12, unit HP 80, damage 30, range 3-5, move 1500 ms/hex, attack 3000 ms, production 24000 ms. Radius-one enemy-only splash: full damage on the target hex, half on adjacent hexes, applied to every squad member in an affected hex. No friendly damage.
 - Reinforcements take 250 ms per dispatch-distance hex with a 500 ms minimum. The visual follows the current squad location; arrival is scheduled at dispatch. They vanish on squad death; producer destruction alone permits already dispatched members to reach a living orphan. Upgrading/selling retires them.

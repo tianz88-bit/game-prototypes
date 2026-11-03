@@ -63,12 +63,12 @@ for(const profile of [
   await press('start-match');await press('pause');await checkButtons();await shot('start');
   assert.deepEqual((await snap()).menuOrder,['infantry','scout','tank','artillery','bunker','helicopter','fighter','silo']);assert.equal((await targets()).buttons.find(b=>b.id==='card-fighter').disabled,true);await press('card-fighter');assert.equal((await snap()).selectedCard,null);assert.deepEqual((await snap()).commandIndicator,{hqId:'hq0',mode:'defend'});
   const hq=(await snap()).buildings.find(b=>b.owner===0&&b.kind==='hq');await press('card-infantry');await inspect(hq);assert.equal((await snap()).selectedBuild,null);assert((await targets()).buttons.some(b=>b.id==='defend'));
-  const barracks=await place('infantry');assert.equal((await snap()).resources.committed,4);assert.equal((await snap()).units.length,0);assert(!(await snap()).upgradeIndicators.includes(barracks.id));await shot('construction');
+  const barracks=await place('infantry');assert.equal((await snap()).resources.committed,6);assert.equal((await snap()).units.length,0);assert(!(await snap()).upgradeIndicators.includes(barracks.id));await shot('construction');
   const remaining=barracks.completeAtMs-(await snap()).timeMs;await advance(Math.floor(remaining/2));assert.equal((await snap()).units.length,0);await advance(remaining);
   let s=await snap();assert(s.upgradeIndicators.includes(barracks.id));let squad=s.units.find(u=>u.owner===0);assert.equal(squad.members.length,5);assert.equal(squad.maxHp,40);
   await inspect(squad);await advance(3500);s=await snap();assert.equal(s.inspected,squad.id);assert.equal(s.inspectorKind,'infantry');assert(s.inspectorText.includes('LIGHT'));assert(s.inspectorText.includes('DMG'));await shot('persistent-inspector');
-  await inspect(s.buildings.find(b=>b.id===barracks.id));assert((await snap()).inspectorText.includes('STRUCTURE'));await press('upgrade');assert.equal((await snap()).resources.committed,6);assert(!(await snap()).upgradeIndicators.includes(barracks.id));await shot('upgrade');
-  await press('cancel-upgrade');s=await snap();assert.equal(s.resources.committed,4);assert.equal(s.buildings.find(b=>b.id===barracks.id).readyAtMs-s.timeMs,8000);
+  await inspect(s.buildings.find(b=>b.id===barracks.id));assert((await snap()).inspectorText.includes('STRUCTURE'));await press('upgrade');assert.equal((await snap()).resources.committed,8);assert(!(await snap()).upgradeIndicators.includes(barracks.id));await shot('upgrade');
+  await press('cancel-upgrade');s=await snap();assert.equal(s.resources.committed,6);assert.equal(s.buildings.find(b=>b.id===barracks.id).readyAtMs-s.timeMs,8000);
   await advance(8000);await press('upgrade');await advance(5000);s=await snap();assert.equal(s.buildings.find(b=>b.id===barracks.id).kind,'missile');assert(s.units.some(u=>u.kind==='missile'));await shot('armoury');
   for(let i=0;i<180&&s.resources.capacity-s.resources.committed<20;i++){await advance(1000);s=await snap();}
   assert(s.resources.capacity-s.resources.committed>=20);await press('research');assert.equal((await snap()).hexes.filter(h=>h.commitment==='research').length,20);await shot('research');

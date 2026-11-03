@@ -17,11 +17,11 @@ export const UNIT_NAMES: Record<CardKind, string> = {
   bunker: 'Static Defence Gun', silo: 'Nuclear Payload',
 };
 export const NOTES: Record<CardKind, string> = {
-  infantry: 'Full capture strength; fragile under splash.', missile: 'Full capture strength; slow to reinforce.',
-  tank: 'Durable frontline; 25% capture. Cannot fight air.', artillery: 'Anti-squad splash; cannot capture. Retreats under fire.',
+  infantry: 'Capture scales with members; fragile under splash.', missile: 'Capture scales with members; slow to reinforce.',
+  tank: 'Durable frontline; 25% capture. Cannot fight air.', artillery: 'Two-hit squad splash; frail up close. Cannot capture.',
   helicopter: 'Mobile ground hunter; vulnerable to fighters.', fighter: 'Air superiority; cannot attack ground.',
   bomber: 'Heavy ground strikes; needs an escort against fighters.', mlrs: 'Cannot capture; blind inside range 3, weak to air.',
-  scout: 'Fast scout; 20% capture. Weak in sustained fights.', gunner: 'Full capture strength; anti-swarm, fragile members.',
+  scout: 'Fast scout; 20% capture. Weak in sustained fights.', gunner: 'Anti-swarm; capture scales with surviving members.',
   flak: 'Air defence; cannot capture or fight ground.', walker: 'Close assault; 25% capture. Slow and easy to outrange.',
   destroyer: 'Cannot capture; weak to swarms inside minimum range.',
   gunship: 'Splash ground support; cannot fight aircraft.', siege: 'Cannot capture; slow fire, weak up close and to air.',

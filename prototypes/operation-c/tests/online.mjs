@@ -101,10 +101,10 @@ await test('commands derive their player from the seat and enforce territory, lo
 await test('retry deduplication survives reconnect and checkpoint; request ID reuse cannot mutate a second command', () => {
   const h = harness(); h.connect('a'); h.connect('b'); h.ready(); const token = h.latest('a', 'welcome').token;
   const request = { t: 'command', requestId: 'once', command: { kind: 'place', hexId: '-4,0', card: 'infantry' } };
-  h.send('a', request); h.send('a', request); assert(h.latest('a', 'ack').ok); assert.equal(h.room.sim.resources(0).committed, 4);
+  h.send('a', request); h.send('a', request); assert(h.latest('a', 'ack').ok); assert.equal(h.room.sim.resources(0).committed, 6);
   h.send('a', { ...request, command: { kind: 'target', targetId: 1 } }); assert.equal(h.latest('a', 'error').code, 'requestIdReuse');
   const saved = JSON.parse(JSON.stringify(h.room.checkpoint())); h.room = OnlineRoom.restore(saved, h.env); h.connect('a2', token);
-  h.send('a2', request); assert(h.latest('a2', 'ack').ok); assert.equal(h.room.sim.resources(0).committed, 4);
+  h.send('a2', request); assert(h.latest('a2', 'ack').ok); assert.equal(h.room.sim.resources(0).committed, 6);
 });
 
 await test('two independent client mirrors converge through 5Hz deltas, removals and mid-pulse reconnect', () => {
@@ -336,6 +336,31 @@ await test('authoritative individual sight interrupts capture locally while both
   assert.equal(actor.hexId, '1,3', 'server advances toward a newly visible target beyond weapon range');
   assert.equal(actor.attacking, false, 'individual sight does not extend weapon range');
   for (const seat of ['a', 'b']) assert.equal(h.mirrors.get(seat).entities.units.find(x => x.id === actor.id).hexId, actor.hexId);
+});
+
+await test('member-scaled capture and reinforcement merge stay authoritative through v4 room recovery and both seat mirrors', () => {
+  const h = harness(); h.connect('a'); h.connect('b'); h.ready();
+  const aToken = h.latest('a', 'welcome').token, bToken = h.latest('b', 'welcome').token;
+  h.send('a', { t: 'command', requestId: 'capture-producer', command: { kind: 'place', hexId: '-4,0', card: 'infantry' } });
+  assert(h.latest('a', 'ack').ok); h.step(3000);
+  const s = h.room.sim, producer = s.buildings.find(x => x.kind === 'infantry'), squad = s.units.find(x => x.id === producer.unitId);
+  squad.hexId = '0,3'; delete squad.fromHexId; delete squad.movingUntilMs; squad.members = [0.1]; squad.hp = 0.1;
+  const site = s.hexes.find(x => x.id === squad.hexId); site.owner = null;
+  h.step(1000); assert(Math.abs(site.capture - 0.05) < 1e-10);
+  s.reinforcements.push({ id: 'capture-network-incoming', unitId: squad.id, buildingId: producer.id, owner: 0, count: 4,
+    fromHexId: producer.hexId, startedAtMs: s.timeMs, arriveAtMs: s.timeMs + 1000 });
+  const saved = JSON.parse(JSON.stringify(h.room.checkpoint())); assert.equal(saved.version, 4);
+  h.room = OnlineRoom.restore(saved, h.env); h.connect('a2', aToken); h.connect('b2', bToken);
+  h.step(900);
+  const restoredSquad = h.room.sim.units.find(x => x.id === squad.id), restoredSite = h.room.sim.hexes.find(x => x.id === site.id);
+  assert.equal(restoredSquad.members.length, 1); assert(Math.abs(restoredSite.capture - 0.095) < 1e-10);
+  h.step(100); assert.equal(restoredSquad.members.length, 5); assert.equal(restoredSquad.members[0], 0.1);
+  assert(Math.abs(restoredSite.capture - 0.12) < 1e-10);
+  for (const seat of ['a2', 'b2']) {
+    const mirror = h.mirrors.get(seat);
+    assert.equal(mirror.entities.units.find(x => x.id === squad.id).members.length, 5);
+    assert(Math.abs(mirror.entities.hexes.find(x => x.id === site.id).capture - 0.12) < 1e-10);
+  }
 });
 
 console.log(`${passed} Operation C online tests passed.`);
