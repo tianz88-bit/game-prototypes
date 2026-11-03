@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { Pane } from 'tweakpane';
 import { OperationSim, DEFAULT_TUNE, BASE_CARDS, DEFAULT_LOADOUT } from './sim';
-import type { Building, Unit, CardKind, Hex, Tune } from './model';
+import type { Building, Unit, CardKind, Hex, Tune, DamageClass } from './model';
 import { drawHex, drawBuilding, drawUnit, drawExplosion, drawCaptureFlip, drawBuildConfirmation, drawBulletTrace, drawCommitmentMarker, drawReleaseCountdown, drawRetreat, drawHqCommand, drawUpgradeReady, drawNuclearImpact, playerColor, hexPoints } from './art';
 import { Intents } from './input';
 import { VERSION_STAMP } from './version.generated';
@@ -14,6 +14,7 @@ import { ONLINE_SERVER_URL } from './online-config';
 const CARDS = BASE_CARDS;
 const STARTER = [...DEFAULT_LOADOUT];
 const INK = '#203d46', MUTED = '#60767a', CREAM = 0xfff7e5;
+const CLASS_NAMES:Record<DamageClass,string>={light:'LIGHT',armoured:'ARMOURED',structure:'STRUCTURE'};
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
 type Button = { id: string; x: number; y: number; w: number; h: number; run: () => void; disabled?: boolean };
 type QA = { snapshot: () => unknown; targets: () => unknown; advance: (ms: number) => void; captureClock: (ms: number | null) => void };
@@ -130,6 +131,11 @@ class Battlefield extends Phaser.Scene {
   private orderedCards(cards:Iterable<CardKind>) {
     return [...cards].sort((a,b)=>this.sim.tune.cards[a].tier-this.sim.tune.cards[b].tier||this.sim.tune.cards[a].cost-this.sim.tune.cards[b].cost||CARDS.indexOf(a)-CARDS.indexOf(b));
   }
+  private damageText(kind:CardKind){
+    const card=this.sim.tune.cards[kind],bonuses=Object.entries(card.damageBonus??{}).filter(([,amount])=>amount>0).map(([target,amount])=>`+${amount} vs ${CLASS_NAMES[target as DamageClass]}`).join(' · ');
+    const hit=`${card.damage}${bonuses?` ${bonuses}`:''}`;
+    return card.squadSize?`${card.squadSize} × ${bonuses?`(${hit})`:hit}`:hit;
+  }
   private commandHq() {
     const player=this.sim.players[this.localPlayerId];
     if(player.targetId===this.localPlayerId&&player.defendTargetId){
@@ -162,6 +168,7 @@ class Battlefield extends Phaser.Scene {
           objects: this.children.length, textures: this.textures.getTextureKeys().length,
           selectedBuild: this.selected && this.chosenHex ? { hexId: this.chosenHex, valid: this.sim.placement(this.localPlayerId, this.chosenHex, this.selected).ok } : null,
           shots: this.sim.shots, nuclearAim:this.nuclearAim, nuclearImpacts:this.sim.nuclearImpacts,
+          inspectorText:['inspectType','inspectUnit'].map(id=>this.texts.get(id)).filter(text=>text?.visible).map(text=>text!.text).join('\n'),
           presentation: { durationMs: this.sim.tune.presentation.captureFlipMs, reducedMotion: this.reducedMotion,
             shotTraceMs: this.sim.tune.presentation.shotTraceMs,
             traces: this.traces.map(t => ({ ...t, progress: Phaser.Math.Clamp((this.captureNow() - t.born) / this.sim.tune.presentation.shotTraceMs, 0, 1) })),
@@ -220,6 +227,12 @@ class Battlefield extends Phaser.Scene {
     presentation.addBinding(values.presentation, 'shotTraceMs', { min: 100, max: 600, step: 20 });
     for (const kind of Object.keys(values.cards) as CardKind[]) {
       const folder = this.pane.addFolder({ title: NAMES[kind], expanded: false });
+      if(!values.cards[kind].utility){
+        folder.addBinding(values.cards[kind],'damageClass',{options:{Light:'light',Armoured:'armoured',Structure:'structure'}});
+        const bonuses=values.cards[kind].damageBonus??={};
+        const bonusFolder=folder.addFolder({title:'Damage bonuses',expanded:false});
+        for(const target of ['light','armoured','structure'] as const){bonuses[target]??=0;bonusFolder.addBinding(bonuses,target,{min:0,max:100,step:0.5,label:`+ vs ${CLASS_NAMES[target]}`});}
+      }
       for (const key of ['cost', 'damage', 'unitHp', 'moveMs', 'productionMs', 'attackMs', 'captureRate', 'minRange', 'range', 'buildMs'] as const)
         folder.addBinding(values.cards[kind], key, { min: key.endsWith('Ms') ? 100 : 0.1, max: key.endsWith('Ms') ? 120000 : 300 });
       if (values.cards[kind].upgradeMs !== undefined) folder.addBinding(values.cards[kind], 'upgradeMs', { min: 100, max: 30000, step: 100 });
@@ -571,7 +584,7 @@ class Battlefield extends Phaser.Scene {
     const e=this.inspectedSnapshot;if(!e)return;
     const compact=this.h<520,small=this.w<600,fs=small?11:14,building='unitId' in e;
     this.label('inspectTitle',e.kind==='hq'?'Headquarters':building?NAMES[e.kind]:UNIT_NAMES[e.kind],x,y,fs).setFontStyle('bold').setWordWrapWidth(w);
-    this.label('inspectType',`${e.owner===this.localPlayerId?'YOUR':'RIVAL'} ${building?'BUILDING':'UNIT'}${live?'':' · DESTROYED'}`,x,y+(compact?17:22),8,MUTED);
+    this.label('inspectType',`${e.owner===this.localPlayerId?'YOUR':'RIVAL'} ${building?'BUILDING':'UNIT'} · ${building?'STRUCTURE':CLASS_NAMES[this.sim.tune.cards[e.kind as CardKind].damageClass]}${live?'':' · DESTROYED'}`,x,y+(compact?17:22),8,MUTED).setWordWrapWidth(w);
     this.label('inspectHealth',`HP ${Math.max(0,Math.ceil(e.hp))} / ${e.maxHp}${'members' in e&&e.members?` · ${e.members.length} members`:''}`,x,y+(compact?30:37),10,MUTED);
     if(e.kind==='hq'){
       const own=e.owner===this.localPlayerId;
@@ -580,7 +593,7 @@ class Battlefield extends Phaser.Scene {
     }
     const c=this.sim.tune.cards[e.kind];
     if(!building){
-      this.label('inspectUnit',`${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'AIR':'GROUND').join(' / ')}\n${NOTES[e.kind]}`,x,y+57,compact?9:11,MUTED).setWordWrapWidth(w);return;
+      this.label('inspectUnit',`${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'AIR':'GROUND').join(' / ')}\nDMG ${this.damageText(e.kind)}\n${NOTES[e.kind]}`,x,y+57,compact?9:11,MUTED).setWordWrapWidth(w);return;
     }
     const progress=e.completeAtMs&&e.completeAtMs>this.sim.timeMs?`Constructing ${Math.ceil((e.completeAtMs-this.sim.timeMs)/1000)}s`:e.upgradeKind?`Converting ${Math.max(0,Math.ceil(((e.upgradeCompleteAtMs??0)-this.sim.timeMs)/1000))}s`:`${c.cost} tiles · ${c.buildMs/1000}s construction`;
     if(!compact)this.label('inspectProgress',progress,x,y+55,small?9:11,MUTED).setWordWrapWidth(w);
@@ -606,7 +619,7 @@ class Battlefield extends Phaser.Scene {
   }
   private drawLoadout(){
     const small=this.w<600,compact=this.h<520,pad=small?10:22,gap=small?10:16;
-    const header=compact?116:158,footer=49,cols=small?2:this.w<1000?3:4,cw=(this.w-pad*2-gap*(cols-1))/cols,ch=small?294:300;
+    const header=compact?116:158,footer=49,cols=small?2:this.w<1000?3:4,cw=(this.w-pad*2-gap*(cols-1))/cols,ch=small?326:320;
     this.loadoutTop=header;this.loadoutEnd=this.h-footer;
     this.cardMaskArt.clear().fillStyle(0xffffff).fillRect(0,header,this.w,this.h-header-footer);
     this.cardArt.fillStyle(CREAM).fillRect(0,header,this.w,this.h-header-footer);
@@ -639,7 +652,7 @@ class Battlefield extends Phaser.Scene {
         label('tier',`${active?'✓ SELECTED · ':''}T${c.tier}${variant!==kind?' · UPGRADE PREVIEW':''}`,9,41,8,active?'#187e88':MUTED);
         this.cardArt.lineStyle(1,0xd6dfcf).lineBetween(fx+7*scale,y+145,fx+(cw-7)*scale,y+145);
         drawBuilding(this.cardArt,lx(35),y+91,24*scale,this.localPlayerId,variant);
-        label('building','BUILDING',68,63,8,MUTED);
+        label('building','BUILDING · STRUCTURE',68,63,8,MUTED);
         const duration=variant===kind?c.buildMs:base.upgradeMs??c.buildMs;
         label('cost',`${c.cost} tiles · ${duration/1000}s ${variant===kind?'build':'convert'}`,68,78,small?9:11,INK);
         label('hp',`HP ${c.buildingHp}`,68,99,10);
@@ -648,8 +661,8 @@ class Battlefield extends Phaser.Scene {
         else drawUnit(this.cardArt,lx(34),y+187,22*scale,this.localPlayerId,variant,{members:c.squadSize?Array(c.squadSize).fill(c.unitHp):undefined});
         label('unit',c.utility==='bunker'?'DEFENCE GUN':c.utility==='silo'?'NUCLEAR STRIKE':UNIT_NAMES[variant],67,155,small?10:12,INK).setFontStyle('bold');
         const count=c.squadSize??1;
-        label('unit-hp',c.utility==='silo'?'7-hex blast':c.utility==='bunker'?`Range ${c.minRange}–${c.range}`:`HP ${count>1?`${count} × `:''}${c.unitHp}`,67,191,10);
-        label('stats',c.utility?`${c.utility==='bunker'?`DMG ${c.damage} · ${(c.attackMs/1000).toFixed(1)}s fire interval`:'One stored nuke · contextual launch'}\n${NOTES[variant]}`:`DMG ${count>1?`${count} × `:''}${c.damage} · range ${c.minRange}–${c.range}\n${(1000/c.moveMs).toFixed(1)} hex/s · ${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'A':'G').join('/')}\n${NOTES[variant]}`,9,218,small?9:10).setLineSpacing(2);
+        label('unit-hp',c.utility==='silo'?'7-hex blast':c.utility==='bunker'?`Range ${c.minRange}–${c.range}`:`${CLASS_NAMES[c.damageClass]} · HP ${count>1?`${count} × `:''}${c.unitHp}`,67,191,10);
+        label('stats',c.utility?`${c.utility==='bunker'?`DMG ${this.damageText(variant)} · ${(c.attackMs/1000).toFixed(1)}s fire interval`:'One stored nuke · no class bonus'}\n${NOTES[variant]}`:`DMG ${this.damageText(variant)}\nRange ${c.minRange}–${c.range} · ${(1000/c.moveMs).toFixed(1)} hex/s\n${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'A':'G').join('/')}\n${NOTES[variant]}`,9,218,small?9:10).setLineSpacing(2);
         if(base.upgradeTo&&y+8>=header&&y+38<=this.h-footer){
           const bx=x+cw-35;
           this.cardArt.fillStyle(0xd2e5cd).fillRoundedRect(bx,y+7,27,29,6);

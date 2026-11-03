@@ -1,6 +1,7 @@
 export type CardKind = 'infantry' | 'tank' | 'artillery' | 'helicopter' | 'fighter' | 'missile' | 'bomber' | 'mlrs' |
   'scout' | 'gunner' | 'flak' | 'walker' | 'destroyer' | 'gunship' | 'siege' | 'carrier' | 'bunker' | 'silo';
 export type UnitDomain = 'ground' | 'air';
+export type DamageClass = 'light' | 'armoured' | 'structure';
 /** Presentation-only record of a shot actually fired, independent of entity IDs. */
 export interface Shot {
   id: number; unitId: string; owner: number; kind: CardKind;
@@ -54,6 +55,7 @@ export interface CardTune {
   squadSize?: number; splashRadius?: number; splashDamageFraction?: number;
   capturePriority?: boolean;
   utility?: 'bunker' | 'silo';
+  damageClass: DamageClass; damageBonus?: Partial<Record<DamageClass, number>>;
 }
 export interface Tune {
   stepMs: number; map: { radius: number; hqQ: number; hqR: number };

@@ -191,7 +191,7 @@ await test('two human contexts complete a real authoritative match from build/ta
 await test('Worker routing is isolated and rejects invalid routes or non-WebSocket requests', async () => {
   const env = { OPERATION_C_ROOMS: { idFromName: code => code, get: () => ({ fetch: async () => new Response('isolated') }) } };
   const health = await worker.default.fetch(new Request('https://example/health'), env); const status = await health.json();
-  assert.equal(status.service, 'operation-c-online'); assert.equal(status.protocol, 2);
+  assert.equal(status.service, 'operation-c-online'); assert.equal(status.protocol, 3);
   assert.equal((await worker.default.fetch(new Request('https://example/ws/ABCDE'), env)).status, 426);
   assert.equal((await worker.default.fetch(new Request('https://example/ws/abcde'), env)).status, 404);
   assert.equal(await (await worker.default.fetch(new Request('https://example/ws/ABCDE', { headers: { upgrade: 'websocket' } }), env)).text(), 'isolated');
@@ -236,7 +236,7 @@ await test('Durable Object wrapper persists authenticated seats, catches up afte
     assert.equal(stored.seats[0].token, token); assert.equal(stored.sim.buildings.filter(b => b.kind !== 'hq').length, 1);
     assert(a.webSocket.messages.filter(m => m.t === 'welcome').length >= 2);
     const ack = a.webSocket.messages.find(m => m.t === 'ack' && m.requestId === 2); assert(ack.ok);
-    records.set('operation-c-room-v1', { ...stored, version: 1 });
+    records.set('operation-c-room-v1', { ...stored, version: 2 });
     const oldRoom = new worker.OperationCRoom(state, env), rejected = await oldRoom.fetch(request(''));
     assert.equal(rejected.status, 101); assert.equal(rejected.webSocket.messages[0].code, 'versionMismatch');
     assert.equal(alarmAt, null, 'unsupported persisted rooms stop waking and fail safely without HTTP 500');
@@ -294,6 +294,19 @@ await test('friendly defend commands validate building ownership and reject unit
   h.send('b', { t: 'command', requestId: 5, command: { kind: 'defend', entityId: b.id, owner: 0 } }); assert.equal(h.latest('b', 'error').code, 'badMessage');
   h.send('a', { t: 'command', requestId: 6, command: { kind: 'launchNuke', buildingId: b.id, hexId: '0,0', owner: 1 } }); assert.equal(h.latest('a', 'error').code, 'badMessage');
   h.send('a', { t: 'command', requestId: 7, command: { kind: 'target', targetId: 0 } }); assert.equal(h.room.sim.players[0].defendTargetId, null);
+});
+
+await test('v3 welcome carries authoritative classes and bonuses; recovery retains them and rejects older rules', () => {
+  const h = harness(); h.connect('a'); h.connect('b'); const welcome = h.latest('a', 'welcome');
+  assert.equal(welcome.v, 3); assert.equal(welcome.tune.cards.tank.damageClass, 'armoured');
+  assert.equal(welcome.tune.cards.fighter.damageClass, 'light'); assert.equal(welcome.tune.cards.silo.damageClass, 'structure');
+  assert.deepEqual(welcome.tune.cards.destroyer.damageBonus, { armoured: 24 });
+  h.ready(); const saved = JSON.parse(JSON.stringify(h.room.checkpoint()));
+  assert.equal(saved.version, 3); assert.equal(saved.sim.version, 3);
+  const recovered = OnlineRoom.restore(saved, h.env);
+  assert.deepEqual(recovered.sim.tune.cards, h.room.sim.tune.cards);
+  assert.throws(() => OnlineRoom.restore({ ...saved, version: 2 }, h.env), /Unsupported/);
+  assert.throws(() => OperationSim.restore({ ...saved.sim, version: 2 }), /Unsupported/);
 });
 
 console.log(`${passed} Operation C online tests passed.`);

@@ -1,6 +1,6 @@
 import tuneJson from '../tune.json';
-import type { Building, CardKind, Hex, NuclearImpact, NukeFlight, PendingRelease, Placement, Player, Reinforcement, Retirement, Shot, Tune, Unit, UnitDomain } from './model';
-export type { Building, CardKind, Hex, NuclearImpact, NukeFlight, PendingRelease, Placement, Player, Reinforcement, Retirement, Research, Shot, Tune, Unit, UnitDomain } from './model';
+import type { Building, CardKind, CardTune, DamageClass, Hex, NuclearImpact, NukeFlight, PendingRelease, Placement, Player, Reinforcement, Retirement, Shot, Tune, Unit, UnitDomain } from './model';
+export type { Building, CardKind, CardTune, DamageClass, Hex, NuclearImpact, NukeFlight, PendingRelease, Placement, Player, Reinforcement, Retirement, Research, Shot, Tune, Unit, UnitDomain } from './model';
 
 export const DEFAULT_TUNE: Tune = tuneJson as Tune;
 export const BASE_CARDS: readonly CardKind[] = ['infantry', 'tank', 'artillery', 'helicopter', 'fighter', 'scout', 'gunner', 'flak', 'walker', 'destroyer', 'carrier', 'bunker', 'silo'];
@@ -13,7 +13,7 @@ export const distance = (a: Pick<Hex, 'q' | 'r'>, b: Pick<Hex, 'q' | 'r'>): numb
 
 /** Private persistence format; never accept a checkpoint from a game client. */
 export interface OperationCheckpoint {
-  version: 2; tune: Tune; loadouts: CardKind[][]; hexes: Hex[]; buildings: Building[]; units: Unit[];
+  version: 3; tune: Tune; loadouts: CardKind[][]; hexes: Hex[]; buildings: Building[]; units: Unit[];
   shots: Shot[]; reinforcements: Reinforcement[]; retirements: Retirement[]; pendingReleases: PendingRelease[]; players: Player[];
   timeMs: number; winner: number | null; accumulatorMs: number; serial: number; shotSerial: number;
   reinforcementSerial: number; retirementSerial: number; strandedDebt: [number, number][];
@@ -60,6 +60,7 @@ export class OperationSim {
   constructor(options: { tune?: Tune; bot?: boolean; loadouts?: CardKind[][] } = {}) {
     this.tune = structuredClone(options.tune ?? DEFAULT_TUNE);
     if (!Number.isFinite(this.tune.stepMs) || this.tune.stepMs <= 0) throw new Error('stepMs must be positive');
+    for (const card of Object.values(this.tune.cards)) if (!['light', 'armoured', 'structure'].includes(card.damageClass)) throw new Error('Damage-class rules require current tuning; reload the current game version');
     this.loadouts = this.players.map((p, i) => {
       const cards = options.loadouts?.[i] ?? [...DEFAULT_LOADOUT];
       if (!Array.isArray(cards) || cards.length > 8 || new Set(cards).size !== cards.length ||
@@ -97,7 +98,7 @@ export class OperationSim {
   }
 
   checkpoint(): OperationCheckpoint {
-    return structuredClone({ version: 2, tune: this.tune, loadouts: this.loadouts,
+    return structuredClone({ version: 3, tune: this.tune, loadouts: this.loadouts,
       hexes: this.hexes, buildings: this.buildings, units: this.units, shots: this.shots,
       reinforcements: this.reinforcements, retirements: this.retirements, pendingReleases: this.pendingReleases, players: this.players,
       timeMs: this.timeMs, winner: this.winner, accumulatorMs: this.accumulatorMs, serial: this.serial,
@@ -107,7 +108,7 @@ export class OperationSim {
   }
 
   static restore(checkpoint: OperationCheckpoint): OperationSim {
-    if (checkpoint.version !== 2) throw new Error('Unsupported Operation C checkpoint');
+    if (checkpoint.version !== 3) throw new Error('Unsupported Operation C checkpoint');
     const data = structuredClone(checkpoint);
     const sim = new OperationSim({ tune: data.tune, loadouts: data.loadouts, bot: data.botEnabled });
     const replace = <T>(target: T[], source: T[]) => { target.splice(0, target.length, ...source); };
@@ -351,6 +352,15 @@ export class OperationSim {
     b.cooldownActive = true; b.productionStartedAtMs = this.timeMs; b.readyAtMs = this.timeMs + this.tune.cards[b.kind].productionMs;
   }
 
+  targetDamageClass(target: Building | Unit): DamageClass {
+    return 'buildingId' in target ? this.tune.cards[target.kind].damageClass : 'structure';
+  }
+
+  weaponDamage(card: CardKind | CardTune, target: Building | Unit): number {
+    const weapon = typeof card === 'string' ? this.tune.cards[card] : card;
+    return weapon.damage + (weapon.damageBonus?.[this.targetDamageClass(target)] ?? 0);
+  }
+
   private applyDamage(target: Building | Unit, amount: number, splash: boolean): number {
     const before = target.hp;
     if ('buildingId' in target && target.members && target.hp > 0) {
@@ -492,11 +502,11 @@ export class OperationSim {
       u.nextAttackAtMs = this.timeMs + this.tune.cards[u.kind].attackMs;
       const card = this.tune.cards[u.kind];
       for (let i = 0; i < (u.members?.length ?? 1); i++) {
-        damage.push({ target, amount: card.damage, splash: (card.splashRadius ?? 0) > 0, source: u });
+        damage.push({ target, amount: this.weaponDamage(card, target), splash: (card.splashRadius ?? 0) > 0, source: u });
         if (card.splashRadius) for (const nearby of [...this.units, ...this.buildings]) {
           if (nearby === target || nearby.owner === u.owner || nearby.hp <= 0 || !this.canTarget(u, nearby)) continue;
           if (distance(this.byHex.get(nearby.hexId)!, this.byHex.get(target.hexId)!) <= card.splashRadius) {
-            damage.push({ target: nearby, amount: card.damage * (card.splashDamageFraction ?? 0), splash: true, source: u });
+            damage.push({ target: nearby, amount: this.weaponDamage(card, nearby) * (card.splashDamageFraction ?? 0), splash: true, source: u });
           }
         }
       }

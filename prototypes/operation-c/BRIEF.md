@@ -84,6 +84,17 @@ Names are shared by the loadout, deck and contextual panel. Costs for the eight 
 - Every catalog card has separate BUILDING and UNIT sections and matching procedural pictures. Show building name, cost, health, construction and production time; unit name, health, speed, range, damage and targeting type, plus a short role/weakness note.
 - An up-arrow button flips eligible cards to their upgrade preview with a scripted flip animation; the reverse arrow restores the base face. Previewing changes neither loadout membership nor base-tier grouping. The selected socket continues to represent the base card.
 - Deck/socket mini cards use the same unit/building art factories as battlefield entities. In-match cards are concise: name, resource cost, construction time. All card menus and selected sockets are ordered by tier first, then ascending cost, with stable catalog order for ties. In-match cards above current technology are visibly disabled, including keyboard shortcuts; pre-match cards remain selectable across tiers.
+## Damage classes and weapon bonuses
+
+Approved 2026-11-03: adopt a small SC2-inspired additive bonus system. Every battlefield target has one of LIGHT, ARMOURED or STRUCTURE. Every building/HQ is STRUCTURE independently of the class of its produced unit. Ground/air targeting remains separate and must be legal before damage is considered. There is no numerical armour reduction, tier multiplier or invulnerability.
+
+- LIGHT units: Regular/Missile/Machine-gun Infantry, Scout Buggy, Field Artillery, Flak Rover, Helicopter and Fighter.
+- ARMOURED units: Battle Tank, Assault Walker, Tank Destroyer, MLRS, Siege Tank, Gunship, Bomber and Assault Carrier.
+- Provisional flat bonuses: Machine-gun Squad +0.5 per member against Light; Missile Squad +2 per member against Armoured; Tank Destroyer +24 against Armoured; Bomber +15 against Structure; Siege Tank +20 against Structure. Existing base damage, health, costs, movement, cadence and production timers are preserved.
+- Each hit deals base damage plus the matching class bonus. Each living squad member contributes its own hit; single-target excess damage still does not spill into the next member. Each splash recipient uses its OWN class, then the existing splash falloff applies to that recipient's total. A centre target's bonus never transfers to a differently classified neighbour.
+- HQ/Bunker remain generalists at their existing damage. Nukes keep their explicit centre/outer values and bypass class bonuses. Bonuses do not let a weapon shoot an otherwise invalid air/ground target.
+- Catalog cards and inspectors show target classes and explicit bonuses. Mini building cards retain concise names/cost/construction time. tune.json and the debug pane expose classes/bonuses. Exact bonus numbers remain playtest settings; T1 swarms must retain counterplay against unsupported T3.
+
 ## Utility buildings and nuclear silo
 
 Owner explicitly requested implementation on 2026-11-03. Minimal first catalog: self-firing Defence Bunker and Nuclear Silo; additional utility roles remain open. All numerical values and unresolved interactions below are provisional playtest defaults, distinct from the confirmed one-payload/launch/flight/blast rules.

@@ -903,4 +903,94 @@ test('basic HQ defense holds an unsupported T1 infantry rush and its first kill 
   assert.equal(b.productionStartedAtMs, s.timeMs); assert.equal(b.readyAtMs, s.timeMs + 6500);
 });
 
+test('unit classes are independent of tier/domain, while every producer and HQ is always structure', () => {
+  const s = fixture();
+  const light = ['infantry', 'missile', 'gunner', 'scout', 'helicopter', 'fighter', 'flak', 'artillery'];
+  const armoured = ['tank', 'walker', 'destroyer', 'mlrs', 'gunship', 'siege', 'bomber', 'carrier'];
+  for (const kind of light) assert.equal(s.tune.cards[kind].damageClass, 'light');
+  for (const kind of armoured) assert.equal(s.tune.cards[kind].damageClass, 'armoured');
+  for (const kind of [...light, ...armoured]) {
+    const u = unit(s, '0,0', 1, kind); assert.equal(s.targetDamageClass(u), s.tune.cards[kind].damageClass); s.units.splice(0);
+    const b = { id: 'class-building', hexId: '0,0', kind, owner: 1, hp: 1000, maxHp: 1000, readyAtMs: 0, unitId: null };
+    assert.equal(s.targetDamageClass(b), 'structure', `${kind} producer does not inherit its unit class`);
+  }
+  assert.equal(s.targetDamageClass(s.buildings[0]), 'structure');
+  assert.equal(s.tune.cards.bunker.damageClass, 'structure'); assert.equal(s.tune.cards.silo.damageClass, 'structure');
+  const staleTune = structuredClone(DEFAULT_TUNE); delete staleTune.cards.infantry.damageClass;
+  assert.throws(() => new OperationSim({ tune: staleTune }), /current tuning/);
+});
+
+test('matching bonuses add to each weapon hit and nonmatching classes keep exact base damage', () => {
+  const bonuses = { gunner: ['light', 0.5], missile: ['armoured', 2], destroyer: ['armoured', 24], bomber: ['structure', 15], siege: ['structure', 20] };
+  for (const [kind, [matching, extra]] of Object.entries(bonuses)) for (const damageClass of ['light', 'armoured', 'structure']) {
+    const s = fixture(), card = s.tune.cards[kind], range = card.minRange;
+    const attacker = unit(s, '0,0', 0, kind); h(s, '0,0').owner = 0;
+    let target;
+    if (damageClass === 'structure') {
+      target = { id: 'bonus-structure', hexId: `${range},0`, kind: 'tank', owner: 1, hp: 1000, maxHp: 1000, readyAtMs: 100000, completeAtMs: 100000, unitId: null };
+      s.buildings.push(target);
+    } else { target = unit(s, `${range},0`, 1, damageClass === 'light' ? 'infantry' : 'tank'); target.movingUntilMs = 100000; }
+    h(s, target.hexId).owner = 0;
+    const expected = card.damage + (damageClass === matching ? extra : 0);
+    assert.equal(s.weaponDamage(kind, target), expected); assert.equal(s.weaponDamage(card, target), expected);
+    advance(s, 100); assert(s.shots.some(x => x.unitId === attacker.id && x.targetHexId === target.hexId));
+    assert.equal(target.hp, 1000 - expected, `${kind} -> ${damageClass}`);
+  }
+});
+
+test('squad bonuses apply per living member on one shared target, not once per volley', () => {
+  for (const [kind, targetKind, expected] of [['missile', 'tank', 30], ['missile', 'infantry', 20], ['gunner', 'infantry', 10], ['gunner', 'tank', 7.5]]) {
+    const s = fixture(), squad = unit(s, '0,0', 0, kind); squad.members = Array(5).fill(s.tune.cards[kind].unitHp);
+    squad.hp = squad.members.reduce((a, b) => a + b, 0); h(s, '0,0').owner = 0;
+    const target = unit(s, '1,0', 1, targetKind); target.movingUntilMs = 100000;
+    advance(s, 100); assert.equal(target.hp, 1000 - expected);
+    assert.equal(s.shots.filter(x => x.unitId === squad.id).length, 1);
+  }
+});
+
+test('splash evaluates each recipient class before falloff and retains ground-only and friendly-fire restrictions', () => {
+  const s = fixture(t => { t.cards.mlrs.damageBonus = { light: 10, armoured: 20, structure: 30 }; }); ownAll(s);
+  const launcher = unit(s, '0,0', 0, 'mlrs'), primary = unit(s, '3,0', 1, 'infantry'); primary.movingUntilMs = 100000;
+  const armoured = unit(s, '3,1', 1, 'tank'); armoured.movingUntilMs = 100000;
+  const light = unit(s, '4,0', 1, 'gunner'); light.movingUntilMs = 100000;
+  const building = { id: 'splash-structure', owner: 1, hexId: '2,0', kind: 'tank', hp: 1000, maxHp: 1000, completeAtMs: 100000, readyAtMs: 100000, unitId: null }; s.buildings.push(building);
+  const friendly = unit(s, '2,1', 0, 'tank'); friendly.movingUntilMs = 100000;
+  const air = unit(s, '3,-1', 1, 'fighter'); air.movingUntilMs = 100000;
+  advance(s, 100); assert(s.shots.some(x => x.unitId === launcher.id && x.targetHexId === primary.hexId));
+  assert.equal(primary.hp, 960); assert.equal(armoured.hp, 975); assert.equal(light.hp, 980); assert.equal(building.hp, 970);
+  assert.equal(friendly.hp, 1000); assert.equal(air.hp, 1000);
+});
+
+test('bonus hits preserve single-member no-spill damage and start casualty cooldown only on an actual member death', () => {
+  const s = milestone(t => { t.cards.gunner.buildMs = 0; t.cards.gunner.capturePriority = false; t.hq.defenseDamage = 0; }, { loadouts: [['gunner']] }); ownAll(s);
+  const b = producer(s, '0,0', 'gunner'), squad = s.units.find(u => u.id === b.unitId); squad.movingUntilMs = 100000;
+  unit(s, '2,0', 1, 'gunner'); advance(s, 900);
+  assert.equal(squad.members.length, 5); assert.equal(squad.hp, 29); assert.equal(b.cooldownActive, false);
+  advance(s, 400); assert.equal(squad.members.length, 4); assert.equal(squad.hp, 28, 'the overkill point does not spill into the next member');
+  const deadline = s.timeMs + 7500; assert.equal(b.readyAtMs, deadline); assert.equal(b.productionStartedAtMs, s.timeMs);
+  advance(s, 400); assert.equal(b.readyAtMs, deadline);
+});
+
+test('class bonuses never unlock invalid weapon domains and generalists have no tier-based armour reduction', () => {
+  const s = fixture(t => { t.cards.destroyer.damageBonus = { light: 9999 }; });
+  const destroyer = unit(s, '0,0', 0, 'destroyer'), fighter = unit(s, '2,0', 1, 'fighter'); fighter.movingUntilMs = 100000;
+  advance(s, 100); assert(!s.shots.some(x => x.unitId === destroyer.id)); assert.equal(fighter.hp, 1000);
+  const target = { ...fighter, kind: 'carrier' }; assert.equal(s.weaponDamage('infantry', target), 2);
+  s.tune.cards.carrier.tier = 1; assert.equal(s.weaponDamage('infantry', target), 2);
+});
+
+test('HQ/bunker and nuclear damage bypass class bonuses', () => {
+  const hq = milestone(t => { t.cards.infantry.damageBonus = { light: 9999 }; });
+  const intruder = unit(hq, '-3,0', 1); intruder.movingUntilMs = 100000; advance(hq, 100); assert.equal(intruder.hp, 995);
+  const bunker = fixture(t => { t.cards.bunker.damageBonus = { armoured: 9999 }; }); ownAll(bunker); producer(bunker, '0,0', 'bunker');
+  const armoured = unit(bunker, '2,0', 1, 'tank'); armoured.movingUntilMs = 100000; advance(bunker, 100); assert.equal(armoured.hp, 995);
+  const s = fixture(t => { for (const card of Object.values(t.cards)) card.damageBonus = { light: 9999, armoured: 9999, structure: 9999 }; }); ownAll(s);
+  const silo = producer(s, '0,0', 'silo'); silo.nukeReadyAtMs = 0;
+  const centre = unit(s, '3,-3', 1, 'tank', 500); centre.movingUntilMs = 100000;
+  const outer = unit(s, '4,-3', 0, 'fighter', 500); outer.movingUntilMs = 100000;
+  const building = { id: 'nuclear-structure', kind: 'tank', owner: 1, hexId: '2,-3', hp: 500, maxHp: 500, completeAtMs: 100000, readyAtMs: 100000, unitId: null }; s.buildings.push(building);
+  assert(s.launchNuke(0, silo.id, centre.hexId).ok); advance(s, 8000);
+  assert.equal(centre.hp, 300); assert.equal(outer.hp, 420); assert.equal(building.hp, 420);
+});
+
 console.log(`${passed} Operation C simulation behavior tests passed.`);

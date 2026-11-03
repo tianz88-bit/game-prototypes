@@ -55,7 +55,7 @@ for(const profile of [
   for(let i=0;i<8;i++)await press('socket-0');
   await scrollTo('loadout-fighter');await press('loadout-fighter');await press('start-match');assert.equal((await snap()).page,'loadout','T1 ground required');
   for(const kind of original.filter(k=>k!=='fighter')){await scrollTo(`loadout-${kind}`);await press(`loadout-${kind}`);}
-  assert.equal((await snap()).loadout.length,8);await scrollTo('loadout-gunner');await press('loadout-gunner');assert.equal((await snap()).loadout.length,8,'no ninth card');
+  assert.equal((await snap()).loadout.length,8);await scrollTo('loadout-gunner');await shot('light-counter-card');await press('loadout-gunner');assert.equal((await snap()).loadout.length,8,'no ninth card');
   await scrollTo('loadout-carrier');await shot('tier-three');await checkButtons();
   // Touch drag scroll is the same intent used by wheel navigation.
   if(profile.touch){const before=(await snap()).loadoutScroll;await page.mouse.move(80,profile.viewport.height*0.55);await page.mouse.down();await page.mouse.move(80,profile.viewport.height*0.7,{steps:8});await page.mouse.up();await page.waitForTimeout(80);assert((await snap()).loadoutScroll<before,'drag scroll');}
@@ -66,8 +66,8 @@ for(const profile of [
   const barracks=await place('infantry');assert.equal((await snap()).resources.committed,4);assert.equal((await snap()).units.length,0);assert(!(await snap()).upgradeIndicators.includes(barracks.id));await shot('construction');
   const remaining=barracks.completeAtMs-(await snap()).timeMs;await advance(Math.floor(remaining/2));assert.equal((await snap()).units.length,0);await advance(remaining);
   let s=await snap();assert(s.upgradeIndicators.includes(barracks.id));let squad=s.units.find(u=>u.owner===0);assert.equal(squad.members.length,5);assert.equal(squad.maxHp,40);
-  await inspect(squad);await advance(3500);s=await snap();assert.equal(s.inspected,squad.id);assert.equal(s.inspectorKind,'infantry');await shot('persistent-inspector');
-  await inspect(s.buildings.find(b=>b.id===barracks.id));await press('upgrade');assert.equal((await snap()).resources.committed,6);assert(!(await snap()).upgradeIndicators.includes(barracks.id));await shot('upgrade');
+  await inspect(squad);await advance(3500);s=await snap();assert.equal(s.inspected,squad.id);assert.equal(s.inspectorKind,'infantry');assert(s.inspectorText.includes('LIGHT'));assert(s.inspectorText.includes('DMG'));await shot('persistent-inspector');
+  await inspect(s.buildings.find(b=>b.id===barracks.id));assert((await snap()).inspectorText.includes('STRUCTURE'));await press('upgrade');assert.equal((await snap()).resources.committed,6);assert(!(await snap()).upgradeIndicators.includes(barracks.id));await shot('upgrade');
   await press('cancel-upgrade');s=await snap();assert.equal(s.resources.committed,4);assert.equal(s.buildings.find(b=>b.id===barracks.id).readyAtMs-s.timeMs,6500);
   await advance(6500);await press('upgrade');await advance(5000);s=await snap();assert.equal(s.buildings.find(b=>b.id===barracks.id).kind,'missile');assert(s.units.some(u=>u.kind==='missile'));await shot('armoury');
   for(let i=0;i<180&&s.resources.capacity-s.resources.committed<20;i++){await advance(1000);s=await snap();}

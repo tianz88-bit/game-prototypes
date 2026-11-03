@@ -1,6 +1,6 @@
 import type { Building, CardKind, Hex, NuclearImpact, NukeFlight, PendingRelease, Player, Reinforcement, Retirement, Shot, Tune, Unit } from './model';
 
-export const ONLINE_PROTOCOL_VERSION = 2;
+export const ONLINE_PROTOCOL_VERSION = 3;
 export const ROOM_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const ROOM_CODE_RE = /^[A-HJ-NP-Z2-9]{5}$/;
 export const MAX_ONLINE_MESSAGE_BYTES = 4096;
