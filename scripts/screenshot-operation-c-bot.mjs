@@ -32,6 +32,7 @@ try{
       const visible=h=>h.valid&&h.x>24&&h.x<t.board.right-24&&h.y>t.board.top+24&&h.y<t.board.bottom-24;
       let hex=t.hexes.find(visible);
       if(!hex){await press('overview');t=await targets();hex=t.hexes.find(visible);}
+      for(let i=0;i<90&&!hex;i++){await advance(1000);t=await targets();hex=t.hexes.find(visible);}
       assert(hex,`${kind} legal mixed opening`);await tap(hex.x,hex.y);await page.waitForTimeout(70);await tap(hex.x,hex.y);await page.waitForTimeout(70);
       assert((await snap()).buildings.some(b=>b.owner===0&&b.kind===kind));
     }
@@ -45,7 +46,7 @@ try{
       if(s.winner!==null)break;
       if(elapsed>=90000&&!attackOrdered){
         const enemy=s.buildings.find(b=>b.owner===1&&b.kind==='hq'),hex=(await targets()).hexes.find(h=>h.id===enemy.hexId);
-        await tap(hex.x,hex.y);await page.waitForTimeout(80);assert.equal((await snap()).target,1);attackOrdered=true;
+        await tap(hex.x,hex.y);await page.waitForTimeout(80);await press('map-attack-here');assert.equal((await snap()).target,1);attackOrdered=true;
       }
       if(elapsed===30000||elapsed===90000)await shot(`battle-${elapsed/1000}s`);
       if(elapsed<180000)await advance(5000);

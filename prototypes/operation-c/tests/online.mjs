@@ -19,7 +19,7 @@ const jsonShape = value => JSON.parse(JSON.stringify(value));
 let passed = 0;
 async function test(name, run) { await run(); passed++; console.log(`PASS ${name}`); }
 
-function harness() {
+function harness(liveEconomy = false) {
   let wall = 1000000, tokenSerial = 0;
   const messages = new Map(), closed = [], mirrors = new Map();
   const env = { now: () => wall, token: () => (++tokenSerial).toString(16).padStart(32, '0'),
@@ -28,7 +28,8 @@ function harness() {
       const cloned = structuredClone(message); messages.get(id).push(cloned);
       if (cloned.t === 'state') { const next = protocol.applyOnlineState(mirrors.get(id) ?? null, cloned); assert(next, `delta gap for ${id}`); mirrors.set(id, next); }
     }, close: (id, code, reason) => closed.push({ id, code, reason }) };
-  let room = new OnlineRoom('ABCDE', env);
+  const roomTune = structuredClone(tune); if (!liveEconomy) { roomTune.hq.workerLimit = 0; roomTune.hq.captureRings = 2; }
+  let room = new OnlineRoom('ABCDE', env, roomTune);
   const send = (id, message) => room.receive(id, JSON.stringify(message));
   const latest = (id, type) => messages.get(id)?.filter(m => m.t === type).at(-1);
   const step = (ms, quantum = 100) => { for (let left = ms; left > 0;) { const dt = Math.min(left, quantum); wall += dt; room.advance(); left -= dt; } };
@@ -191,7 +192,7 @@ await test('two human contexts complete a real authoritative match from build/ta
 await test('Worker routing is isolated and rejects invalid routes or non-WebSocket requests', async () => {
   const env = { OPERATION_C_ROOMS: { idFromName: code => code, get: () => ({ fetch: async () => new Response('isolated') }) } };
   const health = await worker.default.fetch(new Request('https://example/health'), env); const status = await health.json();
-  assert.equal(status.service, 'operation-c-online'); assert.equal(status.protocol, 4);
+  assert.equal(status.service, 'operation-c-online'); assert.equal(status.protocol, 5);
   assert.equal((await worker.default.fetch(new Request('https://example/ws/ABCDE'), env)).status, 426);
   assert.equal((await worker.default.fetch(new Request('https://example/ws/abcde'), env)).status, 404);
   assert.equal(await (await worker.default.fetch(new Request('https://example/ws/ABCDE', { headers: { upgrade: 'websocket' } }), env)).text(), 'isolated');
@@ -230,13 +231,14 @@ await test('Durable Object wrapper persists authenticated seats, catches up afte
     await object.webSocketMessage(sockets[0], JSON.stringify({ t: 'ready', requestId: 1, ready: true }));
     await object.webSocketMessage(sockets[1], JSON.stringify({ t: 'ready', requestId: 1, ready: true }));
     wall += 3000; await object.alarm(); assert(alarmAt > wall);
-    await object.webSocketMessage(sockets[0], JSON.stringify({ t: 'command', requestId: 2, command: { kind: 'place', hexId: '-4,0', card: 'infantry' } }));
+    const opening = object.room.sim.hexes.find(x => object.room.sim.placement(0, x.id, 'infantry').ok); assert(opening);
+    await object.webSocketMessage(sockets[0], JSON.stringify({ t: 'command', requestId: 2, command: { kind: 'place', hexId: opening.id, card: 'infantry' } }));
     wall += 5000; object = new worker.OperationCRoom(state, env); await object.alarm();
     const stored = records.get('operation-c-room-v1'); assert.equal(stored.sim.timeMs, 5000); assert.equal(stored.sim.botEnabled, false);
     assert.equal(stored.seats[0].token, token); assert.equal(stored.sim.buildings.filter(b => b.kind !== 'hq').length, 1);
     assert(a.webSocket.messages.filter(m => m.t === 'welcome').length >= 2);
     const ack = a.webSocket.messages.find(m => m.t === 'ack' && m.requestId === 2); assert(ack.ok);
-    for (const version of [1, 2, 3]) for (const layer of ['room', 'sim']) {
+    for (const version of [1, 2, 3, 4]) for (const layer of ['room', 'sim']) {
       const incompatible = layer === 'room' ? { ...stored, version } : { ...stored, sim: { ...stored.sim, version } };
       records.set('operation-c-room-v1', incompatible); const putsBefore = puts;
       const oldRoom = new worker.OperationCRoom(state, env), rejected = await oldRoom.fetch(request(''));
@@ -300,70 +302,69 @@ await test('friendly defend commands validate building ownership and reject unit
   h.send('a', { t: 'command', requestId: 7, command: { kind: 'target', targetId: 0 } }); assert.equal(h.room.sim.players[0].defendTargetId, null);
 });
 
-await test('v4 welcome carries authoritative individual sight, classes and bonuses; recovery retains them and rejects older rules', () => {
+await test('v5 welcome carries authoritative individual sight, classes and bonuses; recovery retains them and rejects older rules', () => {
   const h = harness(); h.connect('a'); h.connect('b'); const welcome = h.latest('a', 'welcome');
-  assert.equal(welcome.v, 4); assert.equal(welcome.tune.cards.tank.damageClass, 'armoured');
+  assert.equal(welcome.v, 5); assert.equal(welcome.tune.cards.tank.damageClass, 'armoured');
   assert.equal(welcome.tune.cards.tank.sightRange, 3); assert.equal(welcome.tune.cards.mlrs.sightRange, 6);
   assert.equal(welcome.tune.cards.fighter.damageClass, 'light'); assert.equal(welcome.tune.cards.silo.damageClass, 'structure');
   assert.deepEqual(welcome.tune.cards.destroyer.damageBonus, { armoured: 24 });
   h.ready(); const saved = JSON.parse(JSON.stringify(h.room.checkpoint()));
-  assert.equal(saved.version, 4); assert.equal(saved.sim.version, 4);
+  assert.equal(saved.version, 5); assert.equal(saved.sim.version, 5);
   const recovered = OnlineRoom.restore(saved, h.env);
   assert.deepEqual(recovered.sim.tune.cards, h.room.sim.tune.cards);
-  for (const version of [1, 2, 3]) {
+  for (const version of [1, 2, 3, 4]) {
     assert.throws(() => OnlineRoom.restore({ ...saved, version }, h.env), /Unsupported/);
     assert.throws(() => OperationSim.restore({ ...saved.sim, version }), /Unsupported/);
   }
 });
 
-await test('authoritative individual sight interrupts capture locally while both seats still receive the fully visible battlefield', () => {
-  const h = harness(), custom = structuredClone(tune); custom.capture.hqRate = 0; custom.hq.defenseDamage = 0;
-  h.room = new OnlineRoom('ABCDE', h.env, custom); h.connect('a'); h.connect('b'); h.ready();
+await test('authoritative individual sight stays local while workers gather and both seats receive the fully visible battlefield', () => {
+  const h = harness(); h.connect('a'); h.connect('b'); h.ready();
   const s = h.room.sim, site = s.hexes.find(x => x.id === '0,3'); site.owner = null;
-  const actor = { id: 'sight-actor', owner: 0, kind: 'tank', hexId: site.id, hp: 180, maxHp: 180, attacking: false, buildingId: null, nextAttackAtMs: 0 };
-  const enemy = { ...actor, id: 'sight-enemy', owner: 1, hexId: '4,3', movingUntilMs: 100000 };
-  const ally = { ...actor, id: 'sight-ally', kind: 'scout', hexId: '3,2', movingUntilMs: 100000 };
-  s.units.push(actor, enemy, ally); h.step(200);
-  assert(site.capture > 0, 'allied sight of the enemy does not block this unit capture');
-  const progress = site.capture; assert.equal(actor.hexId, site.id);
+  const actor = { id: 'sight-actor', owner: 0, kind: 'tank', hexId: '-4,0', hp: 180, maxHp: 180, attacking: false, buildingId: null, nextAttackAtMs: 0 };
+  const enemy = { ...actor, id: 'sight-enemy', owner: 1, hexId: '0,0', movingUntilMs: 100000 };
+  const ally = { ...actor, id: 'sight-ally', kind: 'scout', hexId: '-1,1', movingUntilMs: 100000 };
+  const worker = { ...actor, id: 'sight-worker', kind: 'worker', hexId: site.id, hp: 1, maxHp: 1 };
+  s.units.push(actor, enemy, ally, worker); h.step(200);
+  assert(site.capture > 0); const progress = site.capture; assert.equal(actor.hexId, '-4,0', 'allied spotting cannot draw a defender out of home');
   for (const seat of ['a', 'b']) {
     const mirror = h.mirrors.get(seat);
-    assert(mirror.entities.units.some(x => x.id === enemy.id && x.hexId === '4,3'), 'full visibility is independent of engagement sight');
+    assert(mirror.entities.units.some(x => x.id === enemy.id && x.hexId === '0,0'), 'full visibility is independent of engagement sight');
     assert(mirror.entities.units.some(x => x.id === ally.id));
   }
-  enemy.hexId = '3,3'; h.step(200);
-  assert.equal(site.capture, progress); assert.equal(actor.fromHexId, site.id);
-  assert.equal(actor.hexId, '1,3', 'server advances toward a newly visible target beyond weapon range');
+  enemy.hexId = '-1,0'; h.step(200);
+  assert(site.capture > progress, 'worker gathering continues during nearby military engagement'); assert.equal(actor.fromHexId, '-4,0');
+  assert.equal(actor.hexId, '-3,0', 'server advances toward a newly visible target beyond weapon range');
   assert.equal(actor.attacking, false, 'individual sight does not extend weapon range');
   for (const seat of ['a', 'b']) assert.equal(h.mirrors.get(seat).entities.units.find(x => x.id === actor.id).hexId, actor.hexId);
 });
 
-await test('member-scaled capture and reinforcement merge stay authoritative through v4 room recovery and both seat mirrors', () => {
+await test('member-scaled capture and reinforcement merge stay authoritative through v5 room recovery and both seat mirrors', () => {
   const h = harness(); h.connect('a'); h.connect('b'); h.ready();
   const aToken = h.latest('a', 'welcome').token, bToken = h.latest('b', 'welcome').token;
   h.send('a', { t: 'command', requestId: 'capture-producer', command: { kind: 'place', hexId: '-4,0', card: 'infantry' } });
   assert(h.latest('a', 'ack').ok); h.step(3000);
   const s = h.room.sim, producer = s.buildings.find(x => x.kind === 'infantry'), squad = s.units.find(x => x.id === producer.unitId);
   squad.hexId = '0,3'; delete squad.fromHexId; delete squad.movingUntilMs; squad.members = [0.1]; squad.hp = 0.1;
-  const site = s.hexes.find(x => x.id === squad.hexId); site.owner = null;
-  h.step(1000); assert(Math.abs(site.capture - 0.05) < 1e-10);
+  const site = s.hexes.find(x => x.id === squad.hexId); site.owner = 1;
+  h.step(1000); assert(Math.abs(site.capture - (1/30)) < 1e-10);
   s.reinforcements.push({ id: 'capture-network-incoming', unitId: squad.id, buildingId: producer.id, owner: 0, count: 4,
     fromHexId: producer.hexId, startedAtMs: s.timeMs, arriveAtMs: s.timeMs + 1000 });
-  const saved = JSON.parse(JSON.stringify(h.room.checkpoint())); assert.equal(saved.version, 4);
+  const saved = JSON.parse(JSON.stringify(h.room.checkpoint())); assert.equal(saved.version, 5);
   h.room = OnlineRoom.restore(saved, h.env); h.connect('a2', aToken); h.connect('b2', bToken);
   h.step(900);
   const restoredSquad = h.room.sim.units.find(x => x.id === squad.id), restoredSite = h.room.sim.hexes.find(x => x.id === site.id);
-  assert.equal(restoredSquad.members.length, 1); assert(Math.abs(restoredSite.capture - 0.095) < 1e-10);
+  assert.equal(restoredSquad.members.length, 1); assert(Math.abs(restoredSite.capture - (19/300)) < 1e-10);
   h.step(100); assert.equal(restoredSquad.members.length, 5); assert.equal(restoredSquad.members[0], 0.1);
-  assert(Math.abs(restoredSite.capture - 0.12) < 1e-10);
+  assert(Math.abs(restoredSite.capture - 0.08) < 1e-10);
   for (const seat of ['a2', 'b2']) {
     const mirror = h.mirrors.get(seat);
     assert.equal(mirror.entities.units.find(x => x.id === squad.id).members.length, 5);
-    assert(Math.abs(mirror.entities.hexes.find(x => x.id === site.id).capture - 0.12) < 1e-10);
+    assert(Math.abs(mirror.entities.hexes.find(x => x.id === site.id).capture - 0.08) < 1e-10);
   }
 });
 
-await test('two-human rooms never execute bot decisions before or after v4 checkpoint recovery', () => {
+await test('two-human rooms never execute bot decisions before or after v5 checkpoint recovery', () => {
   const h = harness(); h.connect('a'); h.connect('b'); h.ready(); h.step(60000);
   const saved = h.room.checkpoint(); assert.equal(saved.sim.botEnabled, false); assert.equal(saved.sim.botCard, 0);
   assert.equal(saved.sim.botOrderUntilMs, 0); assert.equal(h.room.sim.units.length, 0); assert.equal(h.room.sim.buildings.length, 2);
@@ -371,6 +372,57 @@ await test('two-human rooms never execute bot decisions before or after v4 check
   assert.deepEqual(h.room.sim.players.map(p => h.room.sim.resources(p.id).committed), [0, 0]);
   h.room = OnlineRoom.restore(JSON.parse(JSON.stringify(saved)), h.env); h.step(30000);
   assert.equal(h.room.sim.buildings.length, 2); assert.equal(h.room.sim.units.length, 0); assert.equal(h.room.sim.checkpoint().botCard, 0);
+});
+
+await test('live v5 rooms start with six capacity, three workers and seven selectable cards per seat', () => {
+  const h = harness(true); h.connect('a'); h.connect('b');
+  for (const [i, cards] of [['infantry', 'worker'], ['infantry', 'hq'], [...DEFAULT_LOADOUT, 'helicopter']].entries()) {
+    h.send('a', { t: 'loadout', requestId: `worker-invalid-${i}`, cards });
+    assert(h.latest('a', 'ack')?.ok === false || h.latest('a', 'error')?.code === 'badMessage');
+  }
+  h.ready(); assert.equal(h.latest('a', 'welcome').v, 5);
+  for (const seat of ['a', 'b']) {
+    const mirror = h.mirrors.get(seat); assert.equal(mirror.entities.units.length, 6); assert(mirror.entities.units.every(u => u.kind === 'worker' && u.hp === 1));
+    assert.deepEqual(mirror.resources.map(x => x.capacity), [6, 6]); assert(mirror.loadouts.every(x => x.length === 7));
+  }
+  const site = h.room.sim.hexes.find(x => h.room.sim.placement(0, x.id, 'infantry').ok); assert(site);
+  h.send('a', { t: 'command', requestId: 'first-paid', command: { kind: 'place', hexId: site.id, card: 'infantry' } });
+  assert(h.latest('a', 'ack').ok); assert.equal(h.room.sim.resources(0).committed, 6);
+});
+
+await test('HQ worker queues, linked research, technology drop and surviving orphans replicate through v5 reconnect', () => {
+  const h = harness(true); h.connect('a'); h.connect('b'); h.ready();
+  const tokens = [h.latest('a', 'welcome').token, h.latest('b', 'welcome').token]; for (const hex of h.room.sim.hexes) hex.owner = 0;
+  h.send('a', { t: 'command', requestId: 'build-hq', command: { kind: 'place', hexId: '0,0', card: 'hq' } }); assert(h.latest('a', 'ack').ok);
+  const b = h.room.sim.buildings.find(x => x.hexId === '0,0'), count = () => h.room.sim.units.filter(u => u.buildingId === b.id).length;
+  assert.equal(b.committedCost, 12); h.step(15000); assert.equal(count(), 0); h.step(8000); assert.equal(count(), 1);
+  const saved = JSON.parse(JSON.stringify(h.room.checkpoint())); assert.equal(saved.version, 5); assert.equal(saved.sim.version, 5);
+  h.room = OnlineRoom.restore(saved, h.env); h.connect('a2', tokens[0]); h.connect('b2', tokens[1]); h.step(16000); assert.equal(count(), 3);
+  h.send('a2', { t: 'command', requestId: 'hq-specific-research', command: { kind: 'research', hqId: b.id } }); assert(h.latest('a2', 'ack').ok);
+  assert.equal(h.room.sim.players[0].research.hqId, b.id); h.step(30000); assert.equal(h.room.sim.players[0].techTier, 2);
+  const live = h.room.sim.buildings.find(x => x.id === b.id), workers = h.room.sim.units.filter(u => u.buildingId === b.id).map(u => u.id);
+  live.hp = 0; h.step(200); assert.equal(h.room.phase, 'playing'); assert.equal(h.room.sim.players[0].techTier, 1);
+  for (const seat of ['a2', 'b2']) {
+    const mirror = h.mirrors.get(seat); assert(!mirror.entities.buildings.some(x => x.id === b.id));
+    assert(workers.every(id => mirror.entities.units.some(u => u.id === id && u.buildingId === null)));
+    assert.equal(mirror.players[0].techTier, 1); assert(mirror.players[0].alive);
+  }
+});
+
+await test('wire Attack Here and construction cancellation enforce ownership and clear destroyed building targets without enabling completed sales', () => {
+  const h = harness(true); h.connect('a'); h.connect('b'); h.ready(); for (const hex of h.room.sim.hexes) hex.owner = 0;
+  h.send('a', { t: 'command', requestId: 'expansion', command: { kind: 'place', hexId: '0,0', card: 'hq' } }); assert(h.latest('a', 'ack').ok);
+  const building = h.room.sim.buildings.find(x => x.hexId === '0,0');
+  h.send('b', { t: 'command', requestId: 'target-expansion', command: { kind: 'attackBuilding', entityId: building.id } }); assert(h.latest('b', 'ack').ok);
+  h.send('b', { t: 'command', requestId: 'steal-cancel', command: { kind: 'cancelConstruction', buildingId: building.id } }); assert(!h.latest('b', 'ack').ok);
+  h.send('a', { t: 'command', requestId: 'cancel-own-expansion', command: { kind: 'cancelConstruction', buildingId: building.id } }); assert(h.latest('a', 'ack').ok);
+  assert.equal(h.room.sim.players[1].targetId, 1); assert.equal(h.room.sim.players[1].attackTargetId, null); assert.equal(h.room.sim.players[1].defendTargetId, 'hq1');
+  assert.equal(h.room.sim.resources(0).committed, 0);
+  for (const kind of ['sell', 'cancelConstruction']) {
+    h.send('a', { t: 'command', requestId: `completed-${kind}`, command: { kind, buildingId: 'hq0' } }); assert(!h.latest('a', 'ack').ok);
+  }
+  h.send('a', { t: 'command', requestId: 'spoof-attack', command: { kind: 'attackBuilding', entityId: 'hq1', owner: 1 } }); assert.equal(h.latest('a', 'error').code, 'badMessage');
+  h.send('a', { t: 'command', requestId: 'foreign-research', command: { kind: 'research', hqId: 'hq1' } }); assert(!h.latest('a', 'ack').ok);
 });
 
 console.log(`${passed} Operation C online tests passed.`);

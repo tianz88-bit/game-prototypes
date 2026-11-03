@@ -18,7 +18,7 @@ export interface RoomEnvironment {
   close(connectionId: string, code: number, reason: string): void;
 }
 export interface RoomCheckpoint {
-  version: 4; roomCode: string; tune: Tune; seats: (RoomSeat | null)[]; phase: OnlineLobby['phase'];
+  version: 5; roomCode: string; tune: Tune; seats: (RoomSeat | null)[]; phase: OnlineLobby['phase'];
   countdownEndsAtMs: number | null; lastTickWallMs: number; lastBroadcastWallMs: number;
   lastActivityMs: number; endedAtMs: number | null; revision: number; lastStates: (OnlineState | null)[];
   sim: OperationCheckpoint | null;
@@ -116,8 +116,8 @@ export class OnlineRoom {
 
   private setLoadout(index: Seat, cards: CardKind[]): { ok: boolean; reason?: string } {
     if (this.phase !== 'lobby') return { ok: false, reason: 'Loadouts are locked after ready countdown starts' };
-    if (!cards.length || cards.length > 8 || new Set(cards).size !== cards.length || cards.some(c => !BASE_CARDS.includes(c)) ||
-      !cards.some(c => this.tune.cards[c].tier === 1 && this.tune.cards[c].domain === 'ground' && !this.tune.cards[c].utility)) return { ok: false, reason: 'Choose up to eight unique base cards including a T1 ground producer' };
+    if (!cards.length || cards.length > 7 || new Set(cards).size !== cards.length || cards.some(c => !BASE_CARDS.includes(c)) ||
+      !cards.some(c => this.tune.cards[c].tier === 1 && this.tune.cards[c].domain === 'ground' && !this.tune.cards[c].utility)) return { ok: false, reason: 'Choose up to seven unique base cards including a T1 ground producer' };
     this.seats[index]!.loadout = [...cards]; this.seats[index]!.ready = false; this.broadcastLobby(); return { ok: true };
   }
 
@@ -139,11 +139,13 @@ export class OnlineRoom {
       case 'target':
         if (!sim.players[c.targetId]?.alive) return { ok: false, reason: 'Target eliminated' };
         sim.setTarget(seat, c.targetId); return { ok: true };
-      case 'research': return sim.startResearch(seat);
+      case 'research': return sim.startResearch(seat, c.hqId);
       case 'cancelResearch': return sim.cancelResearch(seat);
       case 'upgrade': return sim.upgrade(seat, c.buildingId);
       case 'cancelUpgrade': return sim.cancelUpgrade(seat, c.buildingId);
       case 'sell': return sim.sell(seat, c.buildingId);
+      case 'cancelConstruction': return sim.cancelConstruction(seat, c.buildingId);
+      case 'attackBuilding': return sim.setAttackTarget(seat, c.entityId);
       case 'defend': return sim.setDefendTarget(seat, c.entityId);
       case 'launchNuke': return sim.launchNuke(seat, c.buildingId, c.hexId);
     }
@@ -230,12 +232,12 @@ export class OnlineRoom {
   private error(connectionId: string, code: string, message: string): void { this.env.send(connectionId, { t: 'error', code, message }); }
 
   checkpoint(): RoomCheckpoint {
-    return structuredClone({ version: 4, roomCode: this.roomCode, tune: this.tune, seats: this.seats, phase: this.phase,
+    return structuredClone({ version: 5, roomCode: this.roomCode, tune: this.tune, seats: this.seats, phase: this.phase,
       countdownEndsAtMs: this.countdownEndsAtMs, lastTickWallMs: this.lastTickWallMs, lastBroadcastWallMs: this.lastBroadcastWallMs,
       lastActivityMs: this.lastActivityMs, endedAtMs: this.endedAtMs, revision: this.revision, lastStates: this.lastStates, sim: this.sim?.checkpoint() ?? null });
   }
   static restore(checkpoint: RoomCheckpoint, env: RoomEnvironment): OnlineRoom {
-    if (checkpoint.version !== 4) throw new Error('Unsupported room checkpoint');
+    if (checkpoint.version !== 5) throw new Error('Unsupported room checkpoint');
     const data = structuredClone(checkpoint), room = new OnlineRoom(data.roomCode, env, data.tune);
     room.seats = data.seats; for (const s of room.seats) if (s) s.connectionId = null;
     room.phase = data.phase; room.countdownEndsAtMs = data.countdownEndsAtMs;

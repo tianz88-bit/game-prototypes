@@ -13,7 +13,7 @@ export const PALETTE = {
 type Graphics = Phaser.GameObjects.Graphics;
 export type UnitKind = 'infantry' | 'tank' | 'artillery' | 'helicopter' | 'fighter' | 'missile' | 'bomber' | 'mlrs'
   | 'scout' | 'gunner' | 'flak' | 'walker' | 'destroyer' | 'gunship' | 'siege' | 'carrier'
-  | 'bunker' | 'silo';
+  | 'bunker' | 'silo' | 'worker';
 export type BuildingKind = 'hq' | UnitKind;
 export type CommitmentKind = 'building' | 'upgrade' | 'research' | 'release';
 export interface HexOptions {
@@ -255,6 +255,7 @@ export function drawBuildConfirmation(g: Graphics, x: number, y: number, r: numb
 /** Event-driven shot, not a persistent link. Coordinates are world pixels,
  * progress is normalized over the caller's lifetime (about 220ms). */
 export function drawBulletTrace(g: Graphics, fromX: number, fromY: number, toX: number, toY: number, kind: UnitKind, progress: number): void {
+  if (kind === 'worker') return; // Noncombatants never suggest a firing event.
   const p = clamp(progress);
   const dx = toX - fromX, dy = toY - fromY, length = Math.hypot(dx, dy);
   if (p >= 1 || length < 0.01) return;
@@ -390,6 +391,11 @@ function expandedProducer(g: Graphics, kind: BuildingKind, color: number): boole
 
 export function drawBuilding(g: Graphics, x: number, y: number, size: number, owner: number, kind: BuildingKind, o: BuildingOptions = DEFAULT_BUILDING_OPTIONS): void {
   if (!(size > 0)) return;
+  if (kind === 'worker') {
+    // Generic portrait fallback only; workers have no selectable producer card.
+    drawUnit(g, x, y, size, owner, 'worker', { hp: o.hp, maxHp: o.maxHp });
+    return;
+  }
   const color = playerColor(owner);
   g.save().translateCanvas(x, y).scaleCanvas(size, size);
   g.fillStyle(PALETTE.shadow, 0.18).fillEllipse(0.03, 0.2, 1.58, 0.53);
@@ -489,6 +495,27 @@ export function drawBuilding(g: Graphics, x: number, y: number, size: number, ow
 const SQUAD_POSITIONS = [[-0.3, -0.17], [0.3, -0.17], [-0.43, 0.22], [0, 0.3], [0.43, 0.22]] as const;
 
 function expandedUnit(g: Graphics, kind: UnitKind, color: number, phase: number, moving: boolean, opacity: number): boolean {
+  if (kind === 'worker') {
+    const stride = moving ? Math.sin(phase) * 0.13 : 0;
+    const bob = moving ? Math.abs(Math.sin(phase)) * 0.035 : 0;
+    // One unarmed engineer: bright hardhat, reflective vest, toolbox and spanner.
+    g.lineStyle(0.14, PALETTE.ink, opacity).lineBetween(-0.12, 0.02, -0.2 - stride, 0.31)
+      .lineBetween(0.12, 0.02, 0.2 + stride, 0.31);
+    g.fillStyle(color, opacity).fillRoundedRect(-0.25, -0.46 - bob, 0.5, 0.55, 0.1);
+    g.fillStyle(PALETTE.cream, opacity).fillRect(-0.16, -0.41 - bob, 0.065, 0.37)
+      .fillRect(0.08, -0.41 - bob, 0.065, 0.37).fillRect(-0.22, -0.13 - bob, 0.44, 0.06);
+    g.fillStyle(0xe7bf90, opacity).fillCircle(0, -0.59 - bob, 0.19);
+    g.fillStyle(0xe4b841, opacity).fillEllipse(-0.02, -0.72 - bob, 0.53, 0.34)
+      .fillRoundedRect(-0.32, -0.65 - bob, 0.64, 0.07, 0.025);
+    g.lineStyle(0.035, PALETTE.cream, opacity).lineBetween(-0.02, -0.86 - bob, -0.02, -0.69 - bob);
+    g.lineStyle(0.05, PALETTE.ink, opacity).strokeRoundedRect(-0.42, -0.09 - bob, 0.15, 0.14, 0.025);
+    g.fillStyle(PALETTE.metal, opacity).fillRoundedRect(-0.54, 0.02 - bob, 0.38, 0.23, 0.035);
+    g.fillStyle(0xe4b841, opacity).fillRect(-0.38, 0.07 - bob, 0.07, 0.08);
+    g.lineStyle(0.075, PALETTE.metal, opacity).lineBetween(0.27, -0.13 - bob, 0.43, -0.44 - bob);
+    g.lineStyle(0.065, PALETTE.metal, opacity).lineBetween(0.43, -0.44 - bob, 0.39, -0.55 - bob)
+      .lineBetween(0.43, -0.44 - bob, 0.55, -0.45 - bob);
+    return true;
+  }
   if (kind === 'scout' || kind === 'flak') {
     // Exposed buggy cage versus armoured AA rover with upright twin guns.
     for (const wx of [-0.4, 0.36]) {
@@ -702,7 +729,7 @@ export function drawUnit(g: Graphics, x: number, y: number, size: number, owner:
     }
   }
   g.restore();
-  if (o.attacking) {
+  if (o.attacking && kind !== 'worker') {
     const angle = Number.isFinite(o.angle) ? o.angle! : 0;
     const dx = Math.cos(angle), dy = Math.sin(angle);
     // Intersect the actual screen-space ray with the elliptical ownership ring.

@@ -4,13 +4,34 @@ Last reconciled: 2026-11-03, Asia/Singapore. This is the canonical design refere
 
 ## Design versus implementation
 
-The Phaser 3 / strict TypeScript prototype supports two-human private-room 1v1 and a local human-versus-bot sandbox. It includes base-card loadouts, T1/T2/T3 research, construction/selling, permanent conversions, eleven producers/sixteen unit forms plus two utility cards, squads/reinforcements, delayed discounted destruction release and a classic RTS interface. It also includes Bunker/Silo, HQ defence, death-triggered replacement cooldowns, friendly-building defend/expand anchors, friendly-territory movement and the approved roster balance pass. Six-player FFA, full geography and race catalogs remain later work. BUILD_STATUS.md records actual verification/publication status; unspecified tuning remains provisional.
+### Worker and HQ economy — confirmed implementation (2026-11-03)
+
+The owner approved all twelve consolidated defaults on 2026-11-03. These rules supersede military neutral capture, eight selectable cards, HQ capture aura and selling. See BUILD_STATUS.md for publication and verification.
+
+All twelve defaults are confirmed: orphan workers survive and keep gathering without replacement; workers die to any damaging hit and do not flee; neutral capture takes 4s; HQ worker production/replacement takes 8s per worker sequentially, limit three; additional HQ commits 12 connected tiles and constructs for 15s at T1; HQ upgrades commit 20 temporary disconnected open tiles for 30s T2 / 60s T3; only the three infantry forms capture enemy land, all other military captures none; Recon prioritizes visible workers in both modes, without map-wide pursuit; other military uses normal target priorities; friendly Gather/Defense anchors workers' neutral gathering and military defense; a destroyed Attack Here target returns orders to the nearest surviving friendly HQ; unfinished construction/research/conversions can be cancelled under existing release rules while completed buildings cannot be sold.
+
+Implementation defaults needed to make these settled rules concrete: worker movement starts at 650 ms/hex and sight 1, subject to playtest; the original HQ starts with three workers and six surrounding owned cells. A completed HQ counts toward survival and technology; an unfinished HQ is not an escape from last-HQ elimination. The fixed HQ card occupies slot one and loadouts store up to seven unique selectable base cards. Default selectable seven: Barracks, Motor Pool, Artillery Battery, Airbase, Recon Post, Bunker, Nuclear Silo. Other base cards remain available in the catalog.
+
+- Separate economic expansion from military conquest. Non-combat workers capture ONLY neutral hexes; infantry captures enemy-owned hexes. Military production should no longer multiply neutral capture coverage. Worker raiding is intended. Non-infantry military units cannot capture territory.
+- Each HQ supports at most three workers. The starting HQ begins with three living workers. Worker casualties are replaced one at a time through their HQ's production timer, without stockpiling beyond three.
+- Additional HQs are economic expansion investments. They commit connected owned resource hexes like other buildings, take time to construct, and then produce their three workers one at a time, rather than spawning a full team immediately. Confirmed values: 12 committed hexes, 15s construction, then 8s production per worker.
+- Starting territory is reduced to the SIX hexes directly adjacent to the starting HQ (one ring), replacing the former eighteen-cell/two-ring opening. The HQ centre retains its existing non-productive building tile role. Remove continuous automatic HQ capture entirely. Additional HQs grant NO free territory or capture aura; workers must capture further neutral land. Implemented under the confirmed worker economy.
+- Only destruction of the player's LAST surviving HQ eliminates them. Losing the starting HQ while another HQ survives does not eliminate them. Surviving workers keep gathering as orphans without replacements from the destroyed HQ.
+- The eight-slot deck now reserves one permanent slot for HQ, leaving seven selectable base-building cards. HQ is always present rather than an optional loadout choice.
+- Technology is bound to the highest surviving HQ level. Each HQ can upgrade twice, using temporary research-hex commitments. Losing the highest-level HQ lowers access for NEW construction and upgrades to the next highest surviving level. Existing advanced buildings and units continue functioning. Each upgrade uses 20 temporary open owned hexes, disconnected support allowed, for 30s to T2 and 60s to T3.
+- Selling is disabled as a temporary design decision. Unfinished construction, upgrades and research remain cancellable under their existing release rules.
+- Selecting ANY building shows a command button above that building: friendly buildings offer Gather/Defense; hostile buildings offer Attack Here. These remain faction orders under the prior autonomous behavior/targeting model. Hostile non-HQ buildings therefore become selectable attack destinations; destroying that target returns the attacker to Gather/Defense at the nearest surviving friendly HQ.
+- No three-free-Barracks starting preset was adopted. The worker system is the chosen direction for separating expansion from combat power. Workers autonomously gather nearby neutral territory, keep gathering during military attacks, and do not flee.
+
+The twelve-default approval above resolves worker gathering/loss behavior, capture eligibility, cancellation and target loss; earlier unresolved wording in this historical section must not trigger repeat questions. Workers continue gathering during military Attack orders, only capture neutral cells, and do not flee.
+
+The Phaser 3 / strict TypeScript prototype supports two-human private-room 1v1 and a local human-versus-bot sandbox. It includes base-card loadouts, T1/T2/T3 research, construction/cancellation, permanent conversions, eleven producers/sixteen unit forms plus two utility cards, squads/reinforcements, delayed discounted destruction release and a classic RTS interface. It also includes Bunker/Silo, HQ defence, death-triggered replacement cooldowns, friendly-building defend/expand anchors, friendly-territory movement and the approved roster balance pass. Six-player FFA, full geography and race catalogs remain later work. BUILD_STATUS.md records actual verification/publication status; unspecified tuning remains provisional.
 
 ## Match and player control
 
 - Mobile-first, deterministic real-time hex war. Full-game direction: six-player FFA, fully visible Eurasia-shaped map, last surviving HQ wins.
-- HQ destruction eliminates its owner, removes their units and neutralizes their territory.
-- Players choose their building-card loadout before the match. During play they place buildings and issue faction-wide orders. Own HQ resets Expand/defend to home; any FRIENDLY BUILDING can be selected as the defend/expand anchor through its contextual command. Moving units cannot be command anchors (confirmed 2026-11-03). Enemy HQ selects Attack. Units act autonomously.
+- Destruction of the last completed HQ eliminates its owner, removes their units and neutralizes territory. Unfinished HQs do not prevent elimination.
+- Players choose seven unique base cards plus the fixed HQ card. Selecting any building reveals its command button without changing orders. Friendly buildings offer Gather/Defense; hostile buildings offer Attack Here. Moving units cannot anchor commands. Units act autonomously.
 - Three races are planned, with expensive advanced, low-tech swarm and balanced identities discussed. Race-specific catalogs and detailed tier access still need design.
 
 ## Territory and committed resources
@@ -20,7 +41,7 @@ The Phaser 3 / strict TypeScript prototype supports two-human private-room 1v1 a
 - Supporting cells cannot host/fund another building or carry its resource connection. Neutral, enemy, burnt and already committed cells break a NEW building's support connection.
 - Losing supporting territory removes its local assignment permanently, including after recapture, but does not release the building's committed cost. Existing buildings continue functioning in debt. New construction requires sufficient capacity again.
 - Selling OR enemy destruction releases only the cells still assigned to that building. Selling releases immediately; enemy destruction keeps the remaining assignments committed for 10 seconds before release, with a countdown on each hex. Capturing an assignment during this countdown permanently strands that part of the commitment; recapture does not restore it. Previously captured support assignments are discounted from the release; their unreleased commitment remains as match debt after the building is gone. Example: cost 8, lose 3 assigned support cells, then sell or lose the building: release 5 and retain 3 debt. Recapturing a formerly assigned cell does not restore the lost assignment or clear this debt.
-- Enemy destruction permanently burns the building hex. Burnt cells give no resources, building space or support connectivity, but remain traversable. Its living unit survives without replacements. Selling instead returns the building tile to open owned territory and retires its forces, as specified below.
+- Enemy destruction permanently burns the building cell. Burnt cells provide no resources, building space or support connectivity but remain traversable. Living supported units survive without replacement; orphan workers keep gathering. Remaining assigned support releases after 10s.
 - No shared building-placement cooldown. Earlier Barracks-8 and Barracks-4 experiments are superseded by the current Barracks-6 cost.
 
 ## Occupancy, movement and spawning
@@ -29,21 +50,21 @@ The Phaser 3 / strict TypeScript prototype supports two-human private-room 1v1 a
 - A squad is a unit under the existing one-hex occupancy rule; its members do not each reserve a separate hex. Exact member visual arrangement remains presentation work.
 - Spawn into an unoccupied reachable cell, searching outward without a distance cap. Committed cells are eligible. A full blockade prevents spawn; do not jump occupied barriers. Visually emerge from the producer and travel to the registered tile.
 - Range 1 means adjacent, range 2+ ranged. Engagement resolves from registered hexes.
-- Infantry squads prioritize capture over fighting, including under unanswered fire. Other ground units prioritize valid enemies within their own sight. Capturing vehicles capture ONLY in Expand mode and while no valid enemy is within their own sight; distant intruders no longer block all expansion. Ground Expand mode prioritizes reachable neutral land outward in rings from the selected friendly BUILDING (HQ by default) before hostile land. Defence-only units return toward that anchor when idle. The real HQ's capture pressure remains unchanged.
+- Infantry prioritizes enemy-territory capture, including under unanswered fire. Other military prioritizes enemies within its own sight and cannot capture. Workers gather neutral territory around the friendly building anchor, continuing during military Attack orders. Idle military defenders return toward that anchor.
 - Aircraft in Expand mode engage valid enemies within their own sight, otherwise defend/return to their anchor. Attack mode advances toward the selected enemy HQ seeking valid local targets. Fighters never attack ground units or buildings.
 - Prototype choice: movement reserves both origin and destination until arrival, preventing swaps. This is a documented implementation choice, not a separate full-game design mandate.
 - Balance playtest approved 2026-11-03: all units move 25% faster when departing a friendly owned hex (step duration is base movement time divided by 1.25). Sample ownership when the step begins and retain that duration through arrival, including if ownership changes mid-step. Neutral and enemy territory use unchanged base speed. This applies equally to both players, including aircraft and attackers travelling across their own captured land. Base unit speeds, production cooldowns and cosmetic squad reinforcement travel are unchanged for this first comparison.
-- Other recovery mechanics discussed (HQ Mobilize, out-of-combat HQ repair and economic changes) are proposals only, not part of this approved movement playtest. Recaptured former support cells are open and locally usable; no assignment is automatically restored. No economic-rule changes were approved for this pass.
+- Other recovery mechanics discussed (HQ Mobilize, out-of-combat HQ repair and economic changes) are proposals only, not part of this approved movement playtest. Recaptured former support cells are open and locally usable; no assignment is automatically restored. The worker economy above is the subsequent approved economic change.
 
-## Capture and HQ pressure
+## Capture and worker economy
 
-- Anti-rush pass approved 2026-11-03: squad capture strength is multiplied by living members / configured squad size. A full five-member squad captures at 100%, three at 60%, one at 20%. Incoming cosmetic reinforcements contribute only after merging. Remaining HP within a living member does not reduce capture strength. Neutral full-squad capture now takes 4s and enemy-owned capture 6s. HQ capture pressure is not member-scaled.
+- Infantry capture strength scales with living members / configured squad size. Five members capture at 100%, three at 60%, one at 20%. Incoming members count only after merging; partial member HP does not reduce capture strength.
 
-- Approved capture-role split (2026-11-03): Infantry, Missile and Machine-gun squads capture at 100% strength and prioritize capture. Recon captures at 20%; Battle Tanks and Assault Walkers capture at 25%. These vehicles retain combat priority and capture only in Expand mode with no valid enemy within their own sight. Field Artillery, MLRS, Tank Destroyers and Siege Tanks cannot capture, joining Flak and all aircraft as non-capturing specialists. The individual-sight decision supersedes the former map-wide intruder restriction.
-- Non-neutral cells take 50% longer than neutral capture duration (1.5x), superseding the older 2x rule. Neutral capture is provisionally 4s at 100% strength, 20s at Recon's 20%, and 16s at vehicles' 25%, before simulation-step rounding and HQ pressure. Unit capture rates do not change HQ capture pressure.
+- Workers alone capture neutral land. Regular, Missile and Machine-gun infantry alone capture enemy-owned land. Recon hunts visible workers. All other military has zero capture power.
+- Enemy land takes 50% longer: 6s for a full infantry squad. Workers capture neutral land in 4s. No HQ capture pressure remains.
 - Capture pauses only while the capturing unit itself attacks. Taking damage without retaliating does not pause it; paused progress is retained.
 - When the responsible capturer dies, incomplete progress slowly reverses toward the unchanged original controller. A replacement capturer can resume progress. Merely attacking or leaving while alive does not trigger casualty rollback.
-- HQ starts with the two surrounding rings (18 cells) captured and applies pressure like invisible infantry, subject to hostile occupation exceptions. Exact full-game exceptions remain open.
+- Original HQ starts with six adjacent resource cells and three workers, with no ongoing capture aura. Additional HQs grant no territory.
 
 ## Individual sight and engagement — 2026-11-03
 
@@ -61,7 +82,7 @@ The Phaser 3 / strict TypeScript prototype supports two-human private-room 1v1 a
 - Missing squad members can be reinforced after the producer's production cooldown; reinforcements travel faster. Reinforcements are tied to a LIVING target squad: if that squad is destroyed, ALL incoming reinforcements vanish. They never recreate a wiped squad or become an independent replacement squad. The previous reference incorrectly said they could continue a wiped squad; that statement is superseded and must not be used.
 - The earlier swarm/squad reinforcement rule now informs both infantry types, following the owner's reminder to retain the prior decision. On each eligible production cooldown, dispatch only enough missing members to restore the squad to 5, counting living members AND members already travelling. Example: 2 living/0 travelling dispatches 3; 2 living/1 travelling dispatches 2. Never over-dispatch beyond the five-member total.
 - New reinforcement members arrive at full individual HP; surviving members retain their existing HP and are not healed.
-- Reinforcement travel is mostly visual until merge: incoming members occupy no hex, cause no blocking, and cannot attack, capture, be targeted or take damage. They visually approach the moving target squad and add their members on arrival, without a separate battlefield occupancy/merge exception. Selling/upgrading retires incoming reinforcements under the established rules. Member damage allocation, numeric travel speed and timing remain to be specified.
+- Reinforcement travel is mostly visual until merge: incoming members occupy no hex, cause no blocking, and cannot attack, capture, be targeted or take damage. They visually approach the moving target squad and add their members on arrival, without a separate battlefield occupancy/merge exception. Upgrading retires incoming reinforcements under the established rules. Member damage allocation, numeric travel speed and timing remain to be specified.
 - Missile Infantry has slower movement and a longer UNIT PRODUCTION cooldown. This remains distinct from the newly requested building construction time below; the earlier instant-construction rule is superseded.
 
 ## Tier philosophy and current roster
@@ -93,10 +114,10 @@ The Phaser 3 / strict TypeScript prototype supports two-human private-room 1v1 a
 Names are shared by the loadout, deck and contextual panel. Costs for the eight new units and new conversion durations are provisional playtest settings; the balance pass below supersedes earlier costs. Bombers and MLRS now use 24-second production cooldowns under the new slow T3 philosophy; Siege Tanks use 26 seconds. No new armour-resistance or invulnerability system.
 ## Approved balance pass — 2026-11-03
 
-- Latest anti-rush revision: Barracks and Recon Post cost 6, Support Barracks 7, Armoury total 8 (Barracks upgrade +2). Flak remains 6; Motor Pool, Artillery Battery and Bunker remain 8. Two Barracks commit 12, while Barracks plus Tank/Artillery/Bunker commits 14. The actual prototype opening has 18 productive support cells around the HQ; higher costs permit at most three Barracks if all support is available, rather than the prior four. First units STILL appear at construction completion; an extra initial production timer is not approved.
+- Latest anti-rush revision: Barracks and Recon Post cost 6, Support Barracks 7, Armoury total 8 (Barracks upgrade +2). Flak remains 6; Motor Pool, Artillery Battery and Bunker remain 8. Two Barracks commit 12, while Barracks plus Tank/Artillery/Bunker commits 14. The worker economy now starts with six productive cells, enough for one Barracks; workers must expand to fund more. First units STILL appear at construction completion; an extra initial production timer is not approved.
 - HQ now has 650 HP and a single-target ground gun dealing 8 each second at range 2. There is no tier immunity or invulnerability. Field Artillery damage is now 4 per member on its centre hex and 1.4 on adjacent hexes, requiring two direct shots against a fresh 8-HP/member basic squad. Preserve minimum range 2, 38 HP, slow movement and damage-triggered retreat; Recon and Tank close attacks must remain effective counters. Previous cheaper advanced commitments and all production/building timers remain unchanged.
 
-- Infantry replacement cooldown increases from 6.5s to 8s. Scout Buggy damage decreases from 5 to 3 and replacement cooldown increases from 5s to 7s. Their movement, capture, health and building costs remain unchanged.
+- Infantry replacement cooldown increases from 6.5s to 8s. Scout Buggy damage decreases from 5 to 3 and replacement cooldown increases from 5s to 7s. Their movement, health and building costs remain unchanged by this combat pass; the worker economy supersedes their earlier capture eligibility.
 - Battle Tank health increases from 130 to 180. Keep its 1.3s firing interval; this replaces the earlier proposed firing-speed buff. Bunker health increases from 180 to 280 and damage from 5 to 8 each second, retaining cost 8 and range 1-2.
 - Field Artillery gains radius-one enemy-only splash: full 4 damage to every member on the target hex and provisional 35% damage on adjacent hexes. No friendly fire. Existing range 2-3, minimum range, retreat, health, firing interval and production time remain. Two direct hits wipe a fresh basic infantry squad; each member takes 4 damage per hit. Adjacent hits apply 35% (1.4 damage/member).
 - Advanced total producer commitments are the current roster table above: Helicopter/Fighter/Bomber/Tank Destroyer 10; Walker/Gunship/MLRS 12; Siege Tank 16; Carrier 18; Silo 24. Upgrade surcharges are target total minus base commitment, including free Fighter-to-Bomber conversion. Advanced construction/production timers and research's 20 temporary tiles/30s T2/60s T3 remain unchanged.
@@ -105,7 +126,7 @@ Names are shared by the loadout, deck and contextual panel. Costs for the eight 
 ## Loadout page
 
 - Up to 8 UNIQUE BASE building cards across T1-T3; at least one T1 ground producer. Upgrades are options belonging to their base card, never separate selectable cards or extra slots.
-- Three scrollable catalog sections by BASE tier, with a pinned top tray of eight selected-card sockets. Clicking a populated socket removes that base card. A Buildings / Units toggle changes the mini portraits in the tray and match deck.
+- Three scrollable catalog sections by BASE tier, with a pinned top tray with one fixed HQ and seven selectable-card sockets. Clicking a selectable populated socket removes that base card. A Buildings / Units toggle changes the mini portraits in the tray and match deck.
 - Every catalog card has separate BUILDING and UNIT sections and matching procedural pictures. Show building name, cost, health, construction and production time; unit name, health, speed, range, damage and targeting type, plus a short role/weakness note.
 - An up-arrow button flips eligible cards to their upgrade preview with a scripted flip animation; the reverse arrow restores the base face. Previewing changes neither loadout membership nor base-tier grouping. The selected socket continues to represent the base card.
 - Deck/socket mini cards use the same unit/building art factories as battlefield entities. In-match cards are concise: name, resource cost, construction time. All card menus and selected sockets are ordered by tier first, then ascending cost, with stable catalog order for ties. In-match cards above current technology are visibly disabled, including keyboard shortcuts; pre-match cards remain selectable across tiers.
@@ -132,8 +153,8 @@ Owner explicitly requested implementation on 2026-11-03. Minimal first catalog: 
 - Launch and impact are separated by actual elapsed flight time. The nuke in flight is INVISIBLE to defenders: the server must redact flight/target/timing and silo readiness from opposing snapshots as well as hiding visuals. Provisional fixed 8s flight, no warning or interception.
 - The blast targets SEVEN hexes: one centre and six neighbours. The centre takes the most damage; friendly fire is CONFIRMED. Provisional 200 centre/80 outer damage to ground, air and buildings, including HQs and every affected squad member. Empty terrain is not directly burnt; normal destroyed-building burns/releases apply.
 - Owner explicitly requests a visually satisfying MUSHROOM CLOUD at impact. Implement a scripted flash, expanding ground shockwave, rising stem and billowing mushroom cap in the procedural/vector style; reduced motion uses a static impact pose. The lifetime is tunable in presentation.mushroomMs.
-- Provisional silo: T3, 24 committed tiles, 15s construction, 160 HP, 60s payload production. Ordinary connected support, sale/destruction and delayed discounted release rules apply. Launched missiles survive silo sale/destruction, but owner elimination removes remaining flights. Utilities use normal build/loadout rules and slots. A new-game default deck includes Bunker and Silo so the requested mechanics are discoverable.
-- HQ anti-rush defence requested 2026-11-03: an automatic ground-only gun, provisionally 650 HP, range 2 and 8 damage per second. It does not target buildings or grant invulnerability; artillery and aircraft retain counterplay. Existing HQ capture aura remains at the actual HQ even when the defend/expand anchor changes.
+- Provisional silo: T3, 24 committed tiles, 15s construction, 160 HP, 60s payload production. Ordinary connected support and delayed discounted destruction release apply. Launched missiles survive silo destruction, but owner elimination removes remaining flights. Utilities use normal build/loadout rules and slots. A new-game default deck includes Bunker and Silo so the requested mechanics are discoverable.
+- HQ anti-rush defence requested 2026-11-03: an automatic ground-only gun, provisionally 650 HP, range 2 and 8 damage per second. It does not target buildings or grant invulnerability; artillery and aircraft retain counterplay. No HQ capture aura remains.
 ## Technology research
 
 - T1 to T2: temporarily commit 20 OPEN UNCOMMITTED OWNED cells for 30 seconds. No adjacency/connectivity requirement. Creates deliberate rush vulnerability.
@@ -141,7 +162,7 @@ Owner explicitly requested implementation on 2026-11-03. Minimal first catalog: 
 - Completion releases research commitment and remaining reservations. Clicking active research cancels it, releases that commitment/reservations, and loses all progress. Territory ownership is unaffected by release.
 - Top-of-screen research control is both the click target to advance technology and the progress-bar location.
 - Research cells show faded conical flasks with subtle vertical bobbing. All committed cells use a darker shade of the owner's colour instead of lock icons. The flask distinguishes temporary research support from building support.
-- T2 to T3: current playtest setting is temporarily commit 20 OPEN UNCOMMITTED OWNED cells for 60 seconds. This supersedes the earlier 30-cell/45-second setting. Apply the same no-connectivity, continue-through-territory-loss, full retained research commitment, completion release and cancellation-with-progress-loss rules. The UI control does not by itself establish a destructible HQ-upgrade mechanic.
+- Each completed HQ upgrades T1 to T2 for 20 temporary open tiles / 30s, then T2 to T3 for 20 / 60s. Losing the researching HQ cancels its research. Highest surviving completed HQ determines new access; existing advanced producers and units continue functioning after a tier loss.
 
 ## Building upgrades and timed conversions
 
@@ -149,8 +170,8 @@ Current one-way conversion tree: Barracks → Armoury (+2 / 5s / T1); Motor Pool
 
 All building upgrades are PERMANENT and ONE-WAY, including Airbase to Bomber Command. No downgrade or switch back. Additional upgrade resources remain committed for the upgraded building's lifetime. Costs vary by upgrade; do not generalize the Barracks surcharge to all producers.
 
-- Barracks to Armoury: permanently add 2 resource cells, for total commitment 6. Requires an upgrade timer. New production is Missile Infantry instead of regular infantry. Missile Infantry remains a T1 role.
-- Airbase to Bomber Command: explore a FREE permanent upgrade with a conversion timer, not a +2 surcharge. No extra resource commitment; the existing Airbase commitment of 12 remains. Fighter is T2, Bomber T3. Cannot switch back to Fighters.
+- Barracks to Armoury: permanently add 2 resource cells, for total commitment 8. Requires an upgrade timer. New production is Missile Infantry instead of regular infantry. Missile Infantry remains a T1 role.
+- Airbase to Bomber Command: explore a FREE permanent upgrade with a conversion timer, not a +2 surcharge. No extra resource commitment; the existing Airbase commitment of 10 remains. Fighter is T2, Bomber T3. Cannot switch back to Fighters.
 - Latest timing supersedes the earlier delete-at-completion proposal: when the player starts upgrading/converting the building, its previous unit or squad retreats briefly and fades from the map. The lost field presence is an additional upgrade penalty. Do not retain the old unit until upgrade completion.
 - Upgraded production becomes available when the timer finishes, subject to legal spawn occupancy; completion starts the new type's production cooldown when it spawns.
 
@@ -173,53 +194,24 @@ Conversion times are approved for the first playtest: Armoury 5 seconds and Bomb
 
 ## Remaining design review
 
-The roster and numerical tuning are provisional for playtesting. Core lifecycle, permanent conversions, research timings, squad focus/reinforcement, bottom RTS interface and maximum eight unique base cards are settled. Two-human multiplayer is implemented; race catalogs, full map, six-player FFA and final balance remain future work. Do not re-ask settled rules before the next build.
+The roster and numerical tuning are provisional for playtesting. Core lifecycle, permanent conversions, research timings, squad focus/reinforcement, bottom RTS interface and fixed HQ plus seven unique selectable base cards are settled. Two-human multiplayer is implemented; race catalogs, full map, six-player FFA and final balance remain future work. Do not re-ask settled rules before the next build.
 
-## Selling and building construction
+## Building construction and cancellation
 
-Owner requests selling buildings and introduces construction time for EVERY building as the tradeoff. This supersedes instant placement/completion. Building construction time and unit-production cooldown are separate values and systems; the slower Missile Infantry production request still stands.
-
-Confirmed selling rules:
-- Retire the building's unit/squad and incoming reinforcements with retreat/fade.
-- Return the building tile to open owned territory; selling does not burn it. HQs cannot be sold.
-- Release ONLY the resource tiles still tied to that building at sale time. Previously captured support tiles discount the release; do not refund the full original/upgraded cost on sale. Owner explicitly extended the same discounted release to enemy destruction. This supersedes both the full-release selling recommendation and the older full-cost destruction rule.
-- Example: cost 8, with 3 support assignments lost, releases only the remaining 5 immediately on sale or after 10 seconds on enemy destruction. The unreleased 3 remains as match debt; do not silently clear it by deleting the building from a summed-cost ledger.
-
-Selling is immediate in the prototype, including an upgrading building; this remains a provisional playtest choice. Selling unfinished construction is confirmed as cancellation under the lifecycle below. Resource costs represent capacity commitments rather than spent currency.
-
-Confirmed construction lifecycle:
-- Placement immediately reserves the building's full resource cost and blocks its hex.
-- A building under construction can be attacked and produces no units.
-- Completion spawns the first unit, then starts its normal production cooldown. If no legal spawn cell exists, spawning waits.
-- Selling an unfinished building cancels construction, releases only its remaining assigned support cells and returns its tile to open owned territory.
-- Enemy destruction during construction burns the tile immediately and releases only remaining assignments after the same 10-second countdown.
-
-Owner-approved first-playtest construction durations:
-
-| Base building | Construction time |
-| --- | --- |
-| Barracks | 3 seconds |
-| Motor Pool | 5 seconds |
-| Artillery Battery | 5 seconds |
-| Helipad | 6 seconds |
-| Airbase | 6 seconds |
-| Recon Post | 2.5 seconds (provisional) |
-| Support Barracks | 3.5 seconds (provisional) |
-| Air Defence Post | 4 seconds (provisional) |
-| Assault Foundry | 7 seconds (provisional) |
-| Anti-tank Depot | 6 seconds (provisional) |
-| Carrier Command | 10 seconds (provisional) |
-
-Owner-approved conversion durations: Barracks to Armoury 5 seconds; Airbase to Bomber Command 8 seconds. Construction and conversion times remain separate from unit-production cooldowns. These timings are provisional for the first playtest. Confirmed construction health: a new building starts at full building HP, remains vulnerable and inactive during construction, and completing construction does not heal damage taken. Upgrading preserves current building HP and completion does not heal it. No progressive construction-health curve or upgrade healing.
+- Every building has construction time, separate from unit-production cooldown.
+- Completed buildings cannot be sold (temporary design decision).
+- Cancelling unfinished construction returns its tile to open owned territory and releases only remaining assigned support. Captured assignments discount the release.
+- Construction does not produce or defend before completion. Enemy destruction burns its tile and delays remaining support release for 10s.
+- Original HQ is free; an additional HQ costs 12 connected tiles including its productive building cell, constructs for 15s, then produces workers sequentially at 8s each.
 
 ## Selection and classic RTS interface
 
 - Resources are at the TOP RIGHT; technology control/progress stays at the top. The bottom contains building cards on the left and contextual commands on the right half. No separate global expand/attack buttons.
 - Selecting a card clears contextual entity selection and enters building mode. First tap on eligible open owned terrain shows a hammer and connected support preview; tapping that hex again confirms construction.
 - Selecting a non-empty hex exits building mode and deselects the card. Units/buildings on it become the contextual selection; committed/burnt hexes also exit building mode rather than pretending to be valid construction.
-- Default faction order is Expand/defend around own HQ. Friendly buildings offer a contextual DEFEND / EXPAND command and move the pulsing ground ring/inward arrows to that building. Destroyed/sold anchors fall back to own HQ; moving units cannot be anchors. Attack moves the ring to the selected enemy HQ. Include a clear mode label; inspection alone must not change a non-HQ command. Draw a tiny bobbing up-arrow over owned buildings whose upgrade is currently available. Respect reduced motion.
-- Tapping YOUR HQ immediately orders Expand/defend; tapping an ENEMY HQ immediately orders Attack against that HQ. The selected HQ's contextual panel also exposes that same command.
-- Selecting a building or unit shows its details and available commands in the right half of the bottom panel. Own buildings expose Sell and permanent Upgrade/Cancel Upgrade as applicable. Entity selection follows its stable ID as it moves, never whatever later occupies the clicked hex.
+- Default order is Gather/Defense at own HQ. Any friendly building can anchor it. Attack Here targets any hostile building. The pulsing ground ring and arrows identify the active command destination; selection alone does not change orders. Target destruction returns to a surviving friendly HQ. Owned producer upgrades show a tiny bobbing arrow when available; respect reduced motion.
+- Tapping any HQ only inspects it. Use its above-map or contextual command to issue Gather/Defense or Attack Here.
+- Selecting a building or unit shows persistent entity details in the bottom-right panel. Friendly buildings expose Gather/Defense and applicable upgrade/cancellation; hostile buildings expose Attack Here. Completed selling is disabled. Above-map command buttons appear on building selection.
 - In-match cards/context avoid catalog-level stat overload. Retain name/cost/construction, health/progress and actionable commands; detailed combat stats remain in the pre-match catalog.
 - Portrait and landscape remain playable; deck cards never shrink the board into the previous narrow right-sidebar layout. The portrait deck uses two columns on its left half, landscape/desktop four.
 ## Multiplayer delivery request
@@ -244,19 +236,19 @@ Confirmed disconnect behavior: match continues, units retain current orders, and
 
 ## Prototype choices and remaining design
 
-Current test map is 271 cells, radius 9. HQ centre gives no capacity. Capacity is provisionally capped at 200 while further land remains capturable. Exact cap meaning, full match length/map size, HQ pressure exceptions, terrain, LOS, eliminated buildings, numerical balance, splash footprint/falloff/friendly fire and member damage allocation remain open. Do not promote these test assumptions into confirmed design.
+Current test map is 271 cells, radius 9. Original free HQ centre gives no capacity; a paid additional HQ cell remains productive. Capacity is provisionally capped at 200 while further land remains capturable. Exact cap meaning, full match length/map size, terrain, LOS, eliminated buildings, numerical balance, splash footprint/falloff/friendly fire and member damage allocation remain open. Do not promote these test assumptions into confirmed design.
 
 Loadout/tech/squads/upgrades are the current design milestone. Six-human networking, full Eurasia geography, full race catalogs, water mechanics, accounts and paid infrastructure are not part of the existing playable slice. No Steam/console commitment.
 
 ## Provisional defaults used for the progression playtest
 
 To keep the next build moving without further rule-by-rule questions, these are implementation defaults for review through play:
-- Thirteen base cards: eleven producers, two utilities; five producer upgrades give sixteen unit types. The eight-slot default deck is Barracks, Motor Pool, Artillery Battery, Helipad, Airbase, Recon Post, Defence Bunker and Nuclear Silo. All other base cards remain selectable. Numerical roles/costs are provisional; see tune.json.
+- Thirteen selectable base cards: eleven military producers and two utilities, with five producer conversions. HQ is fixed in slot one, leaving seven unique selections. Default seven: Barracks, Motor Pool, Artillery Battery, Airbase, Recon Post, Defence Bunker and Nuclear Silo. Workers are HQ-produced, not selectable cards.
 - Regular infantry: five members, 8 HP and 2 damage each (40 squad HP, 10 full volley damage); Missile Infantry: five members, 7 HP and 4 damage each, range 1-2, move 1000 ms/hex, production 9000 ms, attack 1200 ms. Member attack clocks are synchronized on one shared target; single hits choose the first living member. Capture strength scales with surviving member count; remaining HP of each living member does not alter its contribution.
 - Bomber: total producer commitment 10, unit HP 100, damage 45, range 1-2, move 800 ms/hex, attack 2400 ms, production 24000 ms. No splash on Bombers in this slice.
 - MLRS: cost 12, unit HP 80, damage 30, range 3-5, move 1500 ms/hex, attack 3000 ms, production 24000 ms. Radius-one enemy-only splash: full damage on the target hex, half on adjacent hexes, applied to every squad member in an affected hex. No friendly damage.
-- Reinforcements take 250 ms per dispatch-distance hex with a 500 ms minimum. The visual follows the current squad location; arrival is scheduled at dispatch. They vanish on squad death; producer destruction alone permits already dispatched members to reach a living orphan. Upgrading/selling retires them.
-- Selling is immediate, including an upgrading building, using the combined base-plus-pending-upgrade surviving support count. Retiring a capturer triggers capture rollback. Fresh production cooldown after cancelled upgrade is the base type's full interval.
+- Reinforcements take 250 ms per dispatch-distance hex with a 500 ms minimum. The visual follows the current squad location; arrival is scheduled at dispatch. They vanish on squad death; producer destruction alone permits already dispatched members to reach a living orphan. Upgrading retires them.
+- Completed buildings cannot be sold. Unfinished construction and conversions can be cancelled with discounted support release. Cancelled conversion starts a fresh full base-production cooldown.
 - Retired forces stop gameplay immediately; a 650 ms retreat/fade is cosmetic. Inspector keeps the selected entity ID while it moves and retains its last details marked destroyed after loss. The bottom command area has the deck on its left and contextual selection on its right.
 
 These numbers live in tune.json; they are not final race balance or changes to the owner's confirmed lifecycle rules.

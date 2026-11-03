@@ -48,7 +48,7 @@ try{
     const position=(await targets(p)).hexes.find(h=>h.id===hex.id);await tap(p,position.x,position.y);await p.waitForTimeout(85);
   };
   await place(host,0);await place(guest,1);
-  await Promise.all([host,guest].map(p=>p.waitForFunction(()=>window.__operationC.snapshot().units.length>=2,null,{timeout:15000})));
+  await Promise.all([host,guest].map(p=>p.waitForFunction(()=>window.__operationC.snapshot().units.filter(u=>u.kind!=='worker').length>=2,null,{timeout:15000})));
   await capture(host,'host-battle');await capture(guest,'guest-battle');
   const anchor=(await snap(guest)).buildings.find(b=>b.owner===1&&b.kind==='infantry');await press(guest,'defend-building');await guest.waitForFunction(id=>window.__operationC.snapshot().players[1].defendTargetId===id,anchor.id);assert.deepEqual((await snap(guest)).commandIndicator,{hqId:anchor.id,mode:'defend'});await capture(guest,'guest-defense-anchor');
   h=await snap(host);let g=await snap(guest);assert.deepEqual(h.buildings.map(b=>[b.id,b.owner,b.kind]),g.buildings.map(b=>[b.id,b.owner,b.kind]));
@@ -61,7 +61,7 @@ try{
     console.log('CHECK nuclear: expansion earned silo capacity');
     // Reallocate captured territory through real commands; avoid an unrelated infantry win during tech/payload timers.
     await press(host,'overview');
-    for(const b of (await snap(host)).buildings.filter(b=>b.owner===0&&b.kind==='infantry')){const point=(await targets(host)).hexes.find(h=>h.id===b.hexId);await tap(host,point.x,point.y);await host.waitForTimeout(90);await press(host,'sell');await host.waitForFunction(id=>!window.__operationC.snapshot().buildings.some(b=>b.id===id),b.id);}
+    const home=(await snap(host)).buildings.find(b=>b.owner===0&&b.kind==='hq'),homePoint=(await targets(host)).hexes.find(h=>h.id===home.hexId);await tap(host,homePoint.x,homePoint.y);await host.waitForTimeout(90);await press(host,'map-gather-defense');
     await press(host,'research');await host.waitForFunction(()=>window.__operationC.snapshot().players[0].techTier===2,null,{timeout:40000});await press(host,'research');await host.waitForFunction(()=>window.__operationC.snapshot().players[0].techTier===3,null,{timeout:70000});console.log('CHECK nuclear: real-time T2 and T3 completed');
     await press(host,'card-silo');let candidates=await targets(host),site=candidates.hexes.find(h=>h.valid&&h.y>candidates.board.top+20&&h.y<candidates.board.bottom-20);assert(site,'connected silo footprint');await tap(host,site.x,site.y);await host.waitForTimeout(90);await tap(host,site.x,site.y);await host.waitForFunction(()=>window.__operationC.snapshot().buildings.some(b=>b.owner===0&&b.kind==='silo'),null,{timeout:10000});
     let silo=(await snap(host)).buildings.find(b=>b.owner===0&&b.kind==='silo');await host.waitForFunction(id=>{const s=window.__operationC.snapshot(),b=s.buildings.find(b=>b.id===id);return b?.nukeReadyAtMs!==undefined&&b.nukeReadyAtMs<=s.timeMs;},silo.id,{timeout:85000});
@@ -72,7 +72,7 @@ try{
   }
   if(process.env.OPERATION_C_ONLINE_FULL_MATCH==='1'){
     for(const kind of ['infantry','tank','artillery'])await place(host,0,kind);
-    await press(host,'overview');h=await snap(host);const enemy=h.buildings.find(b=>b.kind==='hq'&&b.owner===1),point=(await targets(host)).hexes.find(hex=>hex.id===enemy.hexId);await tap(host,point.x,point.y);
+    await press(host,'overview');h=await snap(host);const enemy=h.buildings.find(b=>b.kind==='hq'&&b.owner===1),point=(await targets(host)).hexes.find(hex=>hex.id===enemy.hexId);await tap(host,point.x,point.y);await host.waitForTimeout(100);await press(host,'map-attack-here');
     await host.waitForFunction(()=>window.__operationC.snapshot().target===1,null,{timeout:10000});await capture(host,'host-attack-command');
     await host.waitForFunction(()=>window.__operationC.snapshot().winner!==null,null,{timeout:180000});await guest.waitForFunction(()=>window.__operationC.snapshot().winner!==null,null,{timeout:10000});h=await snap(host);g=await snap(guest);assert.equal(h.winner,g.winner);assert.equal(h.online.lobby.phase,'ended');assert.equal(g.online.lobby.phase,'ended');assert.equal(h.timeMs,g.timeMs);assert.deepEqual(h.hexes,g.hexes);assert.deepEqual(h.buildings,g.buildings);assert.deepEqual(h.units,g.units);await capture(host,'host-result');await capture(guest,'guest-result');console.log(`PASS full online match: winner ${h.winner}, ${h.timeMs}ms, identical final worlds`);
   }

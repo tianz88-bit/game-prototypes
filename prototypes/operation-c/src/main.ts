@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import type { Pane } from 'tweakpane';
 import { OperationSim, DEFAULT_TUNE, BASE_CARDS, DEFAULT_LOADOUT } from './sim';
-import type { Building, Unit, CardKind, Hex, Tune, DamageClass } from './model';
+import type { Building, Unit, CardKind, BuildKind, Hex, Tune, DamageClass } from './model';
 import { drawHex, drawBuilding, drawUnit, drawExplosion, drawCaptureFlip, drawBuildConfirmation, drawBulletTrace, drawCommitmentMarker, drawReleaseCountdown, drawRetreat, drawHqCommand, drawUpgradeReady, drawNuclearImpact, playerColor, hexPoints } from './art';
 import { Intents } from './input';
 import { VERSION_STAMP } from './version.generated';
@@ -61,7 +61,7 @@ class Battlefield extends Phaser.Scene {
   private buttons: Button[] = [];
   private inputs!: Intents;
   private zoomLevel = 1; private panX = 0; private panY = 0;
-  private selected: CardKind | null = null; private chosenHex: string | null = null;
+  private selected: BuildKind | null = null; private chosenHex: string | null = null;
   private hover: string | null = null; private inspected: string | null = null;
   private terrainSignature = ''; private paused = false; private speed = 1;
   private message = 'Choose a building card, then an open teal hex.';
@@ -92,11 +92,13 @@ class Battlefield extends Phaser.Scene {
     switch(command.kind){
       case 'place':return this.sim.place(owner,command.hexId,command.card);
       case 'target':this.sim.setTarget(owner,command.targetId);return {ok:true};
-      case 'research':return this.sim.startResearch(owner);
+      case 'research':return this.sim.startResearch(owner,command.hqId);
       case 'cancelResearch':return this.sim.cancelResearch(owner);
       case 'upgrade':return this.sim.upgrade(owner,command.buildingId);
       case 'cancelUpgrade':return this.sim.cancelUpgrade(owner,command.buildingId);
       case 'sell':return this.sim.sell(owner,command.buildingId);
+      case 'cancelConstruction':return this.sim.cancelConstruction(owner,command.buildingId);
+      case 'attackBuilding':return this.sim.setAttackTarget(owner,command.entityId);
       case 'defend':return this.sim.setDefendTarget(owner,command.entityId);
       case 'launchNuke':return this.sim.launchNuke(owner,command.buildingId,command.hexId);
     }
@@ -121,7 +123,7 @@ class Battlefield extends Phaser.Scene {
     }
   }
   private changeLoadout(kind:CardKind){
-    if(this.readyPending)return;if(this.loadout.has(kind))this.loadout.delete(kind);else if(this.loadout.size<8)this.loadout.add(kind);else return;
+    if(this.readyPending)return;if(this.loadout.has(kind))this.loadout.delete(kind);else if(this.loadout.size<7)this.loadout.add(kind);else return;
     if(this.online){this.onlineNotice='';void this.online.unready();}
   }
   private inviteLink(){const url=new URL(location.href);url.searchParams.set('room',this.online?.roomCode??'');url.searchParams.set('join','1');for(const key of ['test','bot','debug'])url.searchParams.delete(key);return url.href;}
@@ -138,6 +140,7 @@ class Battlefield extends Phaser.Scene {
   }
   private commandHq() {
     const player=this.sim.players[this.localPlayerId];
+    if(player.attackTargetId){const target=this.sim.buildings.find(b=>b.id===player.attackTargetId);if(target)return target;}
     if(player.targetId===this.localPlayerId&&player.defendTargetId){
       const target=this.sim.buildings.find(e=>e.id===player.defendTargetId&&e.owner===this.localPlayerId);
       if(target)return target;
@@ -145,6 +148,7 @@ class Battlefield extends Phaser.Scene {
     return this.sim.buildings.find(b=>b.kind==='hq'&&b.owner===player.targetId);
   }
   private defendEntity(entityId:string){this.nuclearAim=null;this.perform({kind:'defend',entityId});this.selected=null;this.chosenHex=null;}
+  private buildInfo(kind:BuildKind){return kind==='hq'?{name:'Headquarters',cost:this.sim.tune.hq.cost,buildMs:this.sim.tune.hq.buildMs,tier:1}:{name:NAMES[kind],...this.sim.tune.cards[kind]};}
 
   create() {
     document.getElementById('loading')?.remove();
@@ -228,6 +232,10 @@ class Battlefield extends Phaser.Scene {
     presentation.addBinding(values.presentation,'upgradeBobLift',{min:0,max:0.3,step:0.01});
     presentation.addBinding(values.presentation,'mushroomMs',{min:1000,max:6000,step:100});
     const baseDefense=this.pane.addFolder({title:'HQ defence',expanded:false});
+    baseDefense.addBinding(values.hq,'cost',{min:1,max:100,step:1});
+    baseDefense.addBinding(values.hq,'buildMs',{min:1000,max:60000,step:1000});
+    baseDefense.addBinding(values.hq,'workerLimit',{min:1,max:6,step:1});
+    baseDefense.addBinding(values.hq,'workerProductionMs',{min:1000,max:30000,step:1000});
     baseDefense.addBinding(values.hq,'defenseRange',{min:1,max:4,step:1});
     baseDefense.addBinding(values.hq,'defenseDamage',{min:1,max:30,step:1});
     baseDefense.addBinding(values.hq,'defenseAttackMs',{min:200,max:4000,step:100});
@@ -312,7 +320,7 @@ class Battlefield extends Phaser.Scene {
   private build() {
     if (!this.selected || !this.chosenHex) return;
     const result = this.perform({kind:'place',hexId:this.chosenHex,card:this.selected});
-    this.message = result.ok ? `${NAMES[this.selected]} constructing.` : result.reason ?? 'Cannot build here.';
+    this.message = result.ok ? `${this.buildInfo(this.selected).name} constructing.` : result.reason ?? 'Cannot build here.';
     if (result.ok) { this.chosenHex = null; this.inspected = null; }
   }
   private tap(x: number, y: number) {
@@ -332,10 +340,7 @@ class Battlefield extends Phaser.Scene {
     this.selected = null; this.chosenHex = null;
     this.inspected = b?.id ?? u?.id ?? null; this.inspectedUnit = !b && !!u;
     this.inspectedSnapshot = b ?? u ?? null; this.panel = 'details';
-    if (b?.kind === 'hq') {
-      this.perform({kind:'target',targetId:b.owner as 0|1});
-      this.message = b.owner === this.localPlayerId ? 'HOME ORDER · expand territory and defend.' : 'ATTACK ORDER · advance on the rival faction.';
-    } else if (b) this.message = `${b.owner === this.localPlayerId ? 'Your' : 'Rival'} ${NAMES[b.kind]} · ${Math.ceil(b.hp)}/${b.maxHp} HP`;
+    if (b) this.message = `${b.owner === this.localPlayerId ? 'Your' : 'Rival'} ${b.kind==='hq'?'Headquarters':NAMES[b.kind]} · select the command above it.`;
     else this.message = hex.burnt ? 'Burnt · passable, permanently unusable for construction.' : hex.lockedBy ? 'Committed · supports a building; units may cross.' : hex.owner === this.localPlayerId ? 'Open territory · choose a building card.' : 'Capture this hex to gain capacity.';
   }
   update(_time: number, delta: number) {
@@ -355,7 +360,7 @@ class Battlefield extends Phaser.Scene {
         if (event.key === 'h') this.home();
         if (event.key === 'escape') { this.selected = null; this.chosenHex = null; this.nuclearAim=null; }
         if(this.page==='loadout'&&(event.key==='arrowdown'||event.key==='arrowup')) this.loadoutScroll=Phaser.Math.Clamp(this.loadoutScroll+(event.key==='arrowdown'?100:-100),0,this.loadoutMaxScroll);
-        const index = Number(event.key) - 1; const deck=this.orderedCards(this.loadout);if(this.page==='battle'&&index>=0&&index<deck.length)this.chooseCard(deck[index]);
+        const index = Number(event.key) - 1; const deck:BuildKind[]=['hq',...this.orderedCards(this.loadout)];if(this.page==='battle'&&index>=0&&index<deck.length)this.chooseCard(deck[index]);
       }
     }
     if (this.page === 'battle' && !this.paused&&!this.online) this.sim.tick(Math.min(delta, 100) * this.speed);
@@ -436,7 +441,7 @@ class Battlefield extends Phaser.Scene {
       if ('unitId' in e) {
         newBuildings.set(e.id, p);
         const progress = e.kind === 'hq'||this.sim.tune.cards[e.kind].utility==='bunker' ? undefined : e.kind==='silo'?(e.nukeReadyAtMs===undefined?undefined:1-Math.max(0,e.nukeReadyAtMs-this.sim.timeMs)/this.sim.tune.cards.silo.productionMs):e.readyAtMs>this.sim.timeMs?1-Math.max(0,e.readyAtMs-this.sim.timeMs)/this.sim.tune.cards[e.kind].productionMs:undefined;
-        drawBuilding(this.live, p.x, p.y, this.radius * 0.8, e.owner, e.kind, { hp: e.hp, maxHp: e.maxHp, progress, selected: this.inspected === e.id, construction: e.completeAtMs && e.completeAtMs > this.sim.timeMs && e.kind !== 'hq' ? 1 - (e.completeAtMs - this.sim.timeMs) / this.sim.tune.cards[e.kind].buildMs : undefined, upgrading: e.upgradeCompleteAtMs && e.upgradeKind && e.kind !== 'hq' ? 1 - (e.upgradeCompleteAtMs - this.sim.timeMs) / (this.sim.tune.cards[e.kind].upgradeMs || 1) : undefined });
+        drawBuilding(this.live, p.x, p.y, this.radius * 0.8, e.owner, e.kind, { hp: e.hp, maxHp: e.maxHp, progress, selected: this.inspected === e.id, construction: e.completeAtMs && e.completeAtMs > this.sim.timeMs ? 1 - (e.completeAtMs - this.sim.timeMs) / this.buildInfo(e.kind).buildMs : undefined, upgrading: e.upgradeCompleteAtMs && e.upgradeKind && e.kind !== 'hq' ? 1 - (e.upgradeCompleteAtMs - this.sim.timeMs) / (this.sim.tune.cards[e.kind].upgradeMs || 1) : undefined });
         if(this.upgradeReady.has(e.id))drawUpgradeReady(this.feedback,p.x,p.y,this.radius,this.reducedMotion?0:Math.sin(now/this.sim.tune.presentation.upgradeBobMs*Math.PI*2)*this.radius*this.sim.tune.presentation.upgradeBobLift);
       } else {
         if (!this.seenUnits.has(e.id)) {
@@ -507,15 +512,22 @@ class Battlefield extends Phaser.Scene {
     this.label(id, title, x + w / 2, y + (h - 16) / 2, 13, active ? '#fff7e5' : disabled ? '#78887e' : INK, 0.5);
     this.buttons.push({ id, x, y, w, h, disabled, run: disabled ? () => {} : run });
   }
-  private chooseCard(kind: CardKind) {
-    if(this.sim.tune.cards[kind].tier>this.sim.players[this.localPlayerId].techTier)return;
+  private chooseCard(kind: BuildKind) {
+    if(this.buildInfo(kind).tier>this.sim.players[this.localPlayerId].techTier)return;
     this.nuclearAim=null;this.selected=this.selected===kind?null:kind;
     this.chosenHex=null;this.inspected=null;this.inspectedSnapshot=null;this.panel='build';
     this.message=this.selected?'Choose open territory · tap its hammer again to build.':'Select a card or a force on the map.';
   }
   /** Same miniature factories for deck portraits and battlefield entities. */
-  private miniCard(id:string,kind:CardKind,x:number,y:number,w:number,h:number,run:()=>void,active=false,disabled=false) {
-    const c=this.sim.tune.cards[kind];this.button(id,'',x,y,w,h,run,active,disabled);
+  private miniCard(id:string,kind:BuildKind,x:number,y:number,w:number,h:number,run:()=>void,active=false,disabled=false) {
+    this.button(id,'',x,y,w,h,run,active,disabled);
+    if(kind==='hq'){
+      const c=this.buildInfo(kind),r=Math.min(18,h*0.28,w*0.17),cx=x+r+4,cy=y+h/2,tx=x+r*2+8;
+      if(this.unitPortraits)drawUnit(this.hud,cx,cy,r,this.localPlayerId,'worker');else drawBuilding(this.hud,cx,cy,r,this.localPlayerId,'hq');
+      this.label(`${id}-name`,this.unitPortraits?'Engineers':'Headquarters',tx,y+5,h<55||w<100?8:10,active?'#fff7e5':INK).setWordWrapWidth(w-r*2-12);
+      this.label(`${id}-cost`,`${c.cost}◇ · ${c.buildMs/1000}s`,tx,y+h-14,w<100?7:9,active?'#fff7e5':INK);return;
+    }
+    const c=this.sim.tune.cards[kind];
     const r=Math.min(18,h*0.28,w*0.17),cx=x+r+4,cy=y+h/2;
     if(this.unitPortraits&&!c.utility)drawUnit(this.hud,cx,cy,r,this.localPlayerId,kind,{members:c.squadSize?Array(c.squadSize).fill(c.unitHp):undefined});
     else drawBuilding(this.hud,cx,cy,r,this.localPlayerId,kind);
@@ -537,7 +549,19 @@ class Battlefield extends Phaser.Scene {
     }
     const commanded=this.commandHq();
     if(commanded){const point=this.toScreen(this.byHex.get(commanded.hexId)!);const y=point.y+this.radius*this.zoomLevel*0.9;
-      if(point.x>15&&point.x<this.w-15&&y>this.top+9&&y<bottomY-19){const x=Phaser.Math.Clamp(point.x,68,this.w-68);this.hud.fillStyle(commanded.owner===this.localPlayerId?0x146571:0x805117,0.96).fillRoundedRect(x-65,y,130,18,6);this.label('hq-command-badge',commanded.owner===this.localPlayerId?'DEFEND + EXPAND':'ATTACK THIS HQ',x,y+3,10,'#fff7e5',0.5).setFontStyle('bold');}}
+      if(point.x>15&&point.x<this.w-15&&y>this.top+9&&y<bottomY-19){const x=Phaser.Math.Clamp(point.x,68,this.w-68);this.hud.fillStyle(commanded.owner===this.localPlayerId?0x146571:0x805117,0.96).fillRoundedRect(x-65,y,130,18,6);this.label('hq-command-badge',commanded.owner===this.localPlayerId?'GATHER + DEFENSE':'ATTACK HERE',x,y+3,10,'#fff7e5',0.5).setFontStyle('bold');}}
+    for(const hq of this.sim.buildings.filter(b=>b.kind==='hq')){
+      const point=this.toScreen(this.byHex.get(hq.hexId)!);
+      if(point.y>this.top+12&&point.y<bottomY-12)this.label(`hq-level-${hq.id}`,`T${hq.hqLevel??1}`,point.x,point.y-13*this.zoomLevel,9,'#fff7e5',0.5).setFontStyle('bold');
+    }
+    const selectedBuilding=!this.inspectedUnit?this.sim.buildings.find(b=>b.id===this.inspected):undefined;
+    if(selectedBuilding){
+      const point=this.toScreen(this.byHex.get(selectedBuilding.hexId)!);
+      if(point.x>16&&point.x<this.w-16&&point.y>this.top+20&&point.y<bottomY-14){
+        const own=selectedBuilding.owner===this.localPlayerId,bw=142,bx=Phaser.Math.Clamp(point.x-bw/2,6,this.w-bw-6),by=Math.max(this.top+3,point.y-this.radius*this.zoomLevel-31);
+        this.button(own?'map-gather-defense':'map-attack-here',own?'GATHER / DEFENSE':'ATTACK HERE',bx,by,bw,26,()=>{if(own)this.defendEntity(selectedBuilding.id);else{this.perform({kind:'attackBuilding',entityId:selectedBuilding.id});this.nuclearAim=null;}},false,false);
+      }
+    }
     for(const hex of this.sim.hexes)if(hex.commitment==='release'&&hex.releaseAtMs!==undefined){
       const point=this.toScreen(hex);
       if(point.x>12&&point.x<this.w-12&&point.y>this.top+12&&point.y<bottomY-12)
@@ -551,14 +575,17 @@ class Battlefield extends Phaser.Scene {
     this.label('resources',`${r.committed} / ${r.capacity} ◇`,this.w-pad,7,narrow?21:25,r.committed>r.capacity?'#b44739':'#187e88',1).setFontStyle('bold');
     this.label('resourceLabel',`COMMITTED / CAPACITY${r.stranded?` · ${r.stranded} LOST`:''}`,this.w-pad,35,8,MUTED,1);
     const research=p.research,ry=this.top-34;
-    const researchLabel=research?`T${research.fromTier} → T${research.toTier} · ${Math.ceil((research.completeAtMs-this.sim.timeMs)/1000)}s · CANCEL`:p.techTier<3?`RESEARCH T${p.techTier+1} · ${this.sim.tune.research.cost} TILES · ${(p.techTier===1?this.sim.tune.research.tier2Ms:this.sim.tune.research.tier3Ms)/1000}s`:'T3 TECHNOLOGY READY';
-    this.button('research',researchLabel,pad,ry,this.w-pad*2,26,()=>{const result=research?this.perform({kind:'cancelResearch'}):this.perform({kind:'research'});this.message=result.ok?(research?'Research cancelled.':'Research started.'):result.reason??'Research unavailable.';},!!research,p.techTier===3&&!research);
+    const selectedHq=this.sim.buildings.find(b=>b.id===this.inspected&&b.owner===this.localPlayerId&&b.kind==='hq'&&(b.completeAtMs??0)<=this.sim.timeMs);
+    const researchHq=selectedHq??this.sim.buildings.filter(b=>b.owner===this.localPlayerId&&b.kind==='hq'&&(b.completeAtMs??0)<=this.sim.timeMs).sort((a,b)=>(b.hqLevel??1)-(a.hqLevel??1))[0];
+    const level=researchHq?.hqLevel??1;
+    const researchLabel=research?`HQ T${research.fromTier} → T${research.toTier} · ${Math.ceil((research.completeAtMs-this.sim.timeMs)/1000)}s · CANCEL`:level<3?`HQ T${level} → T${level+1} · ${this.sim.tune.research.cost} TILES · ${(level===1?this.sim.tune.research.tier2Ms:this.sim.tune.research.tier3Ms)/1000}s`:'HQ T3 · MAXIMUM TECHNOLOGY';
+    this.button('research',researchLabel,pad,ry,this.w-pad*2,26,()=>{const result=research?this.perform({kind:'cancelResearch'}):this.perform({kind:'research',hqId:researchHq?.id});this.message=result.ok?(research?'HQ research cancelled.':'HQ research started.'):result.reason??'Research unavailable.';},!!research,!research&&(!researchHq||level===3));
     if(research)this.hud.fillStyle(0x218d98).fillRect(pad,this.top-5,(this.w-pad*2)*Phaser.Math.Clamp((this.sim.timeMs-research.startedAtMs)/(research.completeAtMs-research.startedAtMs),0,1),3);
     const half=this.w/2,leftW=half-pad*2;
     this.label('deckTitle','BUILD',pad,bottomY+7,10,MUTED).setFontStyle('bold');
     this.button('portrait-toggle',this.unitPortraits?'UNITS':'BUILDINGS',Math.max(55,half-100),bottomY+4,90,22,()=>{this.unitPortraits=!this.unitPortraits;},this.unitPortraits);
-    const deck=this.orderedCards(this.loadout),cols=narrow?2:4,rows=Math.ceil(deck.length/cols),gap=4,cardY=bottomY+31,cw=(leftW-gap*(cols-1))/cols,ch=Math.min(narrow?62:76,(this.bottom-67-gap*(rows-1))/Math.max(rows,1));
-    deck.forEach((kind,i)=>this.miniCard(`card-${kind}`,kind,pad+i%cols*(cw+gap),cardY+Math.floor(i/cols)*(ch+gap),cw,ch,()=>this.chooseCard(kind),this.selected===kind,this.sim.tune.cards[kind].tier>p.techTier));
+    const deck:BuildKind[]=['hq',...this.orderedCards(this.loadout)],cols=narrow?2:4,rows=Math.ceil(deck.length/cols),gap=4,cardY=bottomY+31,cw=(leftW-gap*(cols-1))/cols,ch=Math.min(narrow?62:76,(this.bottom-67-gap*(rows-1))/Math.max(rows,1));
+    deck.forEach((kind,i)=>this.miniCard(`card-${kind}`,kind,pad+i%cols*(cw+gap),cardY+Math.floor(i/cols)*(ch+gap),cw,ch,()=>this.chooseCard(kind),this.selected===kind,this.buildInfo(kind).tier>p.techTier));
     const x=half+pad,w=half-pad*2;
     if(this.nuclearAim){
       const aim=this.nuclearAim,silo=this.sim.buildings.find(b=>b.id===aim.buildingId&&b.owner===this.localPlayerId&&b.kind==='silo');
@@ -568,8 +595,8 @@ class Battlefield extends Phaser.Scene {
       this.button('confirm-nuke','CONFIRM LAUNCH',x,this.h-99,w,27,()=>{if(!aim.hexId)return;const result=this.perform({kind:'launchNuke',buildingId:aim.buildingId,hexId:aim.hexId});if(result.ok)this.nuclearAim=null;else this.message=result.reason??'Cannot launch.';},true,!aim.hexId||!silo);
       this.button('cancel-nuke','CANCEL',x,this.h-66,w,27,()=>{this.nuclearAim=null;});
     }else if(this.selected){
-      const c=this.sim.tune.cards[this.selected];
-      this.label('buildTitle',NAMES[this.selected],x,bottomY+9,narrow?12:16).setFontStyle('bold').setWordWrapWidth(w);
+      const c=this.buildInfo(this.selected);
+      this.label('buildTitle',c.name,x,bottomY+9,narrow?12:16).setFontStyle('bold').setWordWrapWidth(w);
       drawBuilding(this.hud,compact?x+29:x+w/2,bottomY+(compact?58:80),compact?23:34,this.localPlayerId,this.selected);
       this.label('buildInfo',`${c.cost} tiles · ${c.buildMs/1000}s construction`,compact?x+65:x,bottomY+(compact?39:117),narrow?10:12,MUTED).setWordWrapWidth(compact?w-65:w);
       this.label('buildHint',this.chosenHex?'Tap the hammer again to build.':'Choose an open owned hex.',compact?x+65:x,bottomY+(compact?61:143),10,MUTED).setWordWrapWidth(compact?w-65:w);
@@ -603,19 +630,33 @@ class Battlefield extends Phaser.Scene {
     this.label('inspectHealth',`HP ${Math.max(0,Math.ceil(e.hp))} / ${e.maxHp}${'members' in e&&e.members?` · ${e.members.length} members`:''}`,x,y+(compact?30:37),10,MUTED);
     if(e.kind==='hq'){
       const own=e.owner===this.localPlayerId;
-      this.label('hqOrder',own?'Expand territory & defend intruders.':'Direct your forces at this HQ.',x,y+56,10,MUTED).setWordWrapWidth(w);
-      this.button(own?'defend':'attack',own?'EXPAND / DEFEND':'ATTACK THIS HQ',x,y+h-34,w,28,()=>{this.perform({kind:'target',targetId:e.owner as 0|1});this.selected=null;this.chosenHex=null;},this.sim.players[this.localPlayerId].targetId===e.owner&&(!own||!this.sim.players[this.localPlayerId].defendTargetId||this.sim.players[this.localPlayerId].defendTargetId===e.id));return;
+      const constructing=(e.completeAtMs??0)>this.sim.timeMs,workers=this.sim.units.filter(u=>u.kind==='worker'&&u.buildingId===e.id).length,research=this.sim.players[e.owner].research;
+      const nextWorker=(e.workerReadyAtMs??0)>this.sim.timeMs?`Next worker ${Math.ceil((e.workerReadyAtMs!-this.sim.timeMs)/1000)}s`:'Workers capture neutral land.';
+      if(compact){
+        this.label('inspectType',`${own?'YOUR':'RIVAL'} HQ T${e.hqLevel??1} · ${workers}/${this.sim.tune.hq.workerLimit} WORKERS`,x,y+17,8,MUTED).setWordWrapWidth(w);
+        this.label('inspectHealth',`HP ${Math.max(0,Math.ceil(e.hp))}/${e.maxHp}${constructing?` · BUILD ${Math.ceil((e.completeAtMs!-this.sim.timeMs)/1000)}s`:(e.workerReadyAtMs??0)>this.sim.timeMs?` · WORKER ${Math.ceil((e.workerReadyAtMs!-this.sim.timeMs)/1000)}s`:''}`,x,y+30,9,MUTED);
+      }else this.label('hqOrder',`HQ T${e.hqLevel??1} · ${workers} / ${this.sim.tune.hq.workerLimit} workers${constructing?`\nConstructing ${Math.ceil((e.completeAtMs!-this.sim.timeMs)/1000)}s`:`\n${nextWorker}`}`,x,y+56,10,MUTED).setWordWrapWidth(w);
+      if(!live)return;
+      const commandY=y+h-34;
+      this.button(own?'defend':'attack',own?'GATHER / DEFENSE':'ATTACK HERE',x,commandY-33,w,27,()=>{if(own)this.defendEntity(e.id);else this.perform({kind:'attackBuilding',entityId:e.id});},own&&this.sim.players[this.localPlayerId].defendTargetId===e.id);
+      if(!own)return;
+      if(constructing)this.button('cancel-construction','CANCEL BUILD',x,commandY,w,28,()=>this.perform({kind:'cancelConstruction',buildingId:e.id}));
+      else if(research?.hqId===e.id)this.button('cancel-hq-research','CANCEL HQ RESEARCH',x,commandY,w,28,()=>this.perform({kind:'cancelResearch'}));
+      else if((e.hqLevel??1)<3)this.button('upgrade-hq',`UPGRADE HQ → T${(e.hqLevel??1)+1}`,x,commandY,w,28,()=>this.perform({kind:'research',hqId:e.id}),false,!!research);
+      return;
     }
     const c=this.sim.tune.cards[e.kind];
     if(!building){
       const capturePercent=Math.round(c.captureRate * (e.members ? e.members.length / (c.squadSize ?? 1) : 1) * 100);
-      this.label('inspectUnit',`${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'AIR':'GROUND').join(' / ')} · SIGHT ${c.sightRange}\nDMG ${this.damageText(e.kind)}\nCAPTURE ${capturePercent}% · ${NOTES[e.kind]}`,x,y+57,compact?9:11,MUTED).setWordWrapWidth(w);return;
+      this.label('inspectUnit',e.kind==='worker'?`UNARMED · SIGHT ${c.sightRange}\nNEUTRAL CAPTURE ${capturePercent}%\n${NOTES[e.kind]}`:`${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'AIR':'GROUND').join(' / ')} · SIGHT ${c.sightRange}\nDMG ${this.damageText(e.kind)}\nENEMY CAPTURE ${capturePercent}% · ${NOTES[e.kind]}`,x,y+57,compact?9:11,MUTED).setWordWrapWidth(w);return;
     }
     const progress=e.completeAtMs&&e.completeAtMs>this.sim.timeMs?`Constructing ${Math.ceil((e.completeAtMs-this.sim.timeMs)/1000)}s`:e.upgradeKind?`Converting ${Math.max(0,Math.ceil(((e.upgradeCompleteAtMs??0)-this.sim.timeMs)/1000))}s`:`${c.cost} tiles · ${c.buildMs/1000}s construction`;
     if(!compact)this.label('inspectProgress',progress,x,y+55,small?9:11,MUTED).setWordWrapWidth(w);
-    if(!live||e.owner!==this.localPlayerId)return;
+    if(!live)return;
     const commandY=y+h-34,buttonW=(w-5)/2;
-    this.button('defend-building','DEFEND / EXPAND',x,commandY-33,w,27,()=>this.defendEntity(e.id),this.sim.players[this.localPlayerId].defendTargetId===e.id&&this.sim.players[this.localPlayerId].targetId===this.localPlayerId);
+    if(e.owner!==this.localPlayerId){this.button('attack-building','ATTACK HERE',x,commandY,w,28,()=>this.perform({kind:'attackBuilding',entityId:e.id}));return;}
+    this.button('defend-building','GATHER / DEFENSE',x,commandY-33,w,27,()=>this.defendEntity(e.id),this.sim.players[this.localPlayerId].defendTargetId===e.id&&this.sim.players[this.localPlayerId].targetId===this.localPlayerId);
+    if((e.completeAtMs??0)>this.sim.timeMs){this.button('cancel-construction','CANCEL BUILD',x,commandY,w,28,()=>this.perform({kind:'cancelConstruction',buildingId:e.id}));return;}
     if(c.utility==='silo'){
       const complete=!e.completeAtMs||e.completeAtMs<=this.sim.timeMs,ready=e.nukeReadyAtMs!==undefined&&e.nukeReadyAtMs<=this.sim.timeMs;
       const remaining=Math.max(0,Math.ceil(((e.nukeReadyAtMs??this.sim.timeMs)-this.sim.timeMs)/1000));
@@ -628,7 +669,6 @@ class Battlefield extends Phaser.Scene {
       if(!compact)this.label('upgradeHint',`↑ ${NAMES[c.upgradeTo]}\n+${target.cost-c.cost} tiles · ${(c.upgradeMs??0)/1000}s · T${target.tier}`,x,y+81,9,MUTED).setWordWrapWidth(w);
       this.button('upgrade','UPGRADE ↑',x,commandY,buttonW,28,()=>{const r=this.perform({kind:'upgrade',buildingId:e.id});this.message=r.ok?'Conversion started; previous forces recalled.':r.reason??'Cannot upgrade.';},false,!result.ok);
     }
-    this.button('sell','SELL',x+buttonW+5,commandY,buttonW,28,()=>{const r=this.perform({kind:'sell',buildingId:e.id});this.message=r.ok?'Sold. Remaining support released.':r.reason??'Cannot sell.';});
   }
   private flipCard(kind:CardKind){
     if(!this.flips.has(kind))this.flips.set(kind,{born:performance.now(),toUpgrade:!this.previewUpgrade.has(kind)});
@@ -695,12 +735,19 @@ class Battlefield extends Phaser.Scene {
     if(!compact){
       const online=this.online,mine=online?.lobby?.players.find(p=>p.seat===online.seat),rival=online?.lobby?.players.find(p=>p.seat!==online.seat);
       const seconds=online?.lobby?.countdownEndsAtMs?Math.max(0,Math.ceil((online.lobby.countdownEndsAtMs-online.lobby.serverNow)/1000)):0;
-      const hint=online?(!online.connected?online.error??online.status:online.lobby?.phase==='countdown'?`Both ready · starting in ${seconds}s`:this.onlineNotice||`${mine?.ready?'YOU READY':'CHOOSE LOADOUT'} · ${rival?.connected?(rival.ready?'OPPONENT READY':'OPPONENT CHOOSING'):'WAITING FOR OPPONENT'}`):this.onlineNotice||'8 unique base cards · include a T1 ground producer';
+      const hint=online?(!online.connected?online.error??online.status:online.lobby?.phase==='countdown'?`Both ready · starting in ${seconds}s`:this.onlineNotice||`${mine?.ready?'YOU READY':'CHOOSE LOADOUT'} · ${rival?.connected?(rival.ready?'OPPONENT READY':'OPPONENT CHOOSING'):'WAITING FOR OPPONENT'}`):this.onlineNotice||'HQ fixed + 7 unique cards · include a T1 ground producer';
       this.label('loadoutHint',hint,pad,45,small?9:12,MUTED).setWordWrapWidth(this.w-(small?174:210)-pad*2);
     }
-    const socketY=compact?43:77,socketH=compact?58:67,socketGap=small?3:7,socketW=(this.w-pad*2-socketGap*7)/8,deck=this.orderedCards(this.loadout);
+    const socketY=compact?43:77,socketH=compact?58:67,socketGap=small?3:7,socketW=(this.w-pad*2-socketGap*7)/8,deck:BuildKind[]=['hq',...this.orderedCards(this.loadout)];
     for(let i=0;i<8;i++){
       const x=pad+i*(socketW+socketGap),kind=deck[i];
+      if(kind==='hq'){
+        this.button('socket-hq','',x,socketY,socketW,socketH,()=>{},false,true);
+        const cx=x+socketW/2,r=Math.min(19,socketW*0.34);
+        if(this.unitPortraits)drawUnit(this.hud,cx,socketY+25,r,this.localPlayerId,'worker');else drawBuilding(this.hud,cx,socketY+25,r,this.localPlayerId,'hq');
+        this.label('socket-hq-name','HQ · FIXED',cx,socketY+socketH-27,socketW<65?6:9,INK,0.5);
+        this.label('socket-hq-cost',`${this.sim.tune.hq.cost}◇ · ${this.sim.tune.hq.buildMs/1000}s`,cx,socketY+socketH-13,socketW<65?7:9,INK,0.5);continue;
+      }
       if(kind){
         this.button(`socket-${i}`,'',x,socketY,socketW,socketH,()=>this.changeLoadout(kind));
         const r=Math.min(19,socketW*0.34),cx=x+socketW/2;
@@ -714,8 +761,8 @@ class Battlefield extends Phaser.Scene {
       }
     }
     const actionW=small?Math.min(138,(this.w-pad*2-46)/2):148;
-    const valid=this.loadout.size>0&&this.loadout.size<=8&&[...this.loadout].some(k=>this.sim.tune.cards[k].tier===1&&this.sim.tune.cards[k].domain==='ground');
-    this.label('loadoutCount',`${this.loadout.size} / 8${small?'':valid?' · Scroll for tiers':' · NEED T1 GROUND'}`,pad,this.h-33,small?10:12,valid?'#187e88':'#b44739');
+    const valid=this.loadout.size>0&&this.loadout.size<=7&&[...this.loadout].some(k=>this.sim.tune.cards[k].tier===1&&this.sim.tune.cards[k].domain==='ground');
+    this.label('loadoutCount',`${this.loadout.size} / 7 + HQ${small?'':valid?' · Scroll for tiers':' · NEED T1 GROUND'}`,pad,this.h-33,small?10:12,valid?'#187e88':'#b44739');
     if(this.online){
       const online=this.online,mine=online.lobby?.players.find(p=>p.seat===online.seat),countdown=online.lobby?.phase==='countdown';
       this.button('leave-room','LEAVE ROOM',this.w-actionW*2-8-pad,this.h-40,actionW,32,()=>this.leaveOnline());

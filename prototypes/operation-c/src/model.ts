@@ -1,6 +1,7 @@
-export type CardKind = 'infantry' | 'tank' | 'artillery' | 'helicopter' | 'fighter' | 'missile' | 'bomber' | 'mlrs' |
+export type CardKind = 'worker' | 'infantry' | 'tank' | 'artillery' | 'helicopter' | 'fighter' | 'missile' | 'bomber' | 'mlrs' |
   'scout' | 'gunner' | 'flak' | 'walker' | 'destroyer' | 'gunship' | 'siege' | 'carrier' | 'bunker' | 'silo';
 export type UnitDomain = 'ground' | 'air';
+export type BuildKind = 'hq' | CardKind;
 export type DamageClass = 'light' | 'armoured' | 'structure';
 /** Presentation-only record of a shot actually fired, independent of entity IDs. */
 export interface Shot {
@@ -20,6 +21,7 @@ export interface Building {
   completeAtMs?: number; upgradeKind?: CardKind; upgradeStartedAtMs?: number; upgradeCompleteAtMs?: number;
   committedCost?: number; upgradeCost?: number;
   cooldownActive?: boolean; productionStartedAtMs?: number; defenseNextAtMs?: number; nukeReadyAtMs?: number;
+  hqLevel?: 1 | 2 | 3; workerReadyAtMs?: number;
 }
 export interface Unit {
   id: string; hexId: string; owner: number; kind: CardKind; hp: number; maxHp: number;
@@ -29,11 +31,13 @@ export interface Unit {
   members?: number[];
 }
 export interface Research {
+  hqId: string;
   fromTier: 1 | 2; toTier: 2 | 3; startedAtMs: number; completeAtMs: number; supportIds: string[];
 }
 export interface Player {
   id: number; name: string; alive: boolean; targetId: number; techTier: 1 | 2 | 3; research: Research | null;
   defendTargetId?: string | null;
+  attackTargetId?: string | null;
 }
 export interface Reinforcement {
   id: string; unitId: string; buildingId: string; owner: number; count: number;
@@ -63,7 +67,7 @@ export interface Tune {
   stepMs: number; map: { radius: number; hqQ: number; hqR: number };
   /** Optional for custom tuning; omission retains base-speed movement. */
   movement?: { friendlySpeedMultiplier: number };
-  resources: { capacityCap: number; destroyReleaseMs: number }; hq: { hp: number; captureRings: number; defenseRange: number; defenseDamage: number; defenseAttackMs: number };
+  resources: { capacityCap: number; destroyReleaseMs: number }; hq: { hp: number; captureRings: number; defenseRange: number; defenseDamage: number; defenseAttackMs: number; cost: number; buildMs: number; workerLimit: number; workerProductionMs: number };
   nuclear: { flightMs: number; radius: number; centreDamage: number; outerDamage: number };
   capture: { neutralMs: number; ownedMultiplier: number; hqRate: number; rollbackRate: number };
   presentation: { captureFlipMs: number; captureLift: number; shotTraceMs: number; retreatMs: number; maxShotEvents: number; commandPulseMs: number; upgradeBobMs: number; upgradeBobLift: number; mushroomMs: number };

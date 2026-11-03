@@ -1,18 +1,19 @@
-import type { Building, CardKind, Hex, NuclearImpact, NukeFlight, PendingRelease, Player, Reinforcement, Retirement, Shot, Tune, Unit } from './model';
+import type { Building, BuildKind, CardKind, Hex, NuclearImpact, NukeFlight, PendingRelease, Player, Reinforcement, Retirement, Shot, Tune, Unit } from './model';
 
-export const ONLINE_PROTOCOL_VERSION = 4;
+export const ONLINE_PROTOCOL_VERSION = 5;
 export const ROOM_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const ROOM_CODE_RE = /^[A-HJ-NP-Z2-9]{5}$/;
 export const MAX_ONLINE_MESSAGE_BYTES = 4096;
 export type Seat = 0 | 1;
 export type RequestId = string | number;
 export type OnlineCommand =
-  | { kind: 'place'; hexId: string; card: CardKind }
+  | { kind: 'place'; hexId: string; card: BuildKind }
   | { kind: 'target'; targetId: Seat }
-  | { kind: 'defend'; entityId: string }
+  | { kind: 'defend' | 'attackBuilding'; entityId: string }
   | { kind: 'launchNuke'; buildingId: string; hexId: string }
-  | { kind: 'research' | 'cancelResearch' }
-  | { kind: 'upgrade' | 'cancelUpgrade' | 'sell'; buildingId: string };
+  | { kind: 'research'; hqId?: string }
+  | { kind: 'cancelResearch' }
+  | { kind: 'upgrade' | 'cancelUpgrade' | 'sell' | 'cancelConstruction'; buildingId: string };
 export type OnlineClientMessage =
   | { t: 'loadout'; requestId: RequestId; cards: CardKind[] }
   | { t: 'ready'; requestId: RequestId; ready: boolean }
@@ -67,16 +68,17 @@ export function parseOnlineClientMessage(raw: string): OnlineClientMessage | nul
   if (m.t === 'resync' && keys(m, ['t'])) return m as OnlineClientMessage;
   if (m.t === 'ping' && keys(m, ['t', 'clientMs']) && typeof m.clientMs === 'number' && Number.isFinite(m.clientMs)) return m as OnlineClientMessage;
   if (!id(m.requestId)) return null;
-  if (m.t === 'loadout' && keys(m, ['t', 'requestId', 'cards']) && Array.isArray(m.cards) && m.cards.length <= 8 && m.cards.every(c => typeof c === 'string' && c.length < 24)) return m as OnlineClientMessage;
+  if (m.t === 'loadout' && keys(m, ['t', 'requestId', 'cards']) && Array.isArray(m.cards) && m.cards.length <= 7 && m.cards.every(c => typeof c === 'string' && c.length < 24)) return m as OnlineClientMessage;
   if (m.t === 'ready' && keys(m, ['t', 'requestId', 'ready']) && typeof m.ready === 'boolean') return m as OnlineClientMessage;
   if (m.t !== 'command' || !keys(m, ['t', 'requestId', 'command']) || !record(m.command)) return null;
   const c = m.command;
   if (c.kind === 'place' && keys(c, ['kind', 'hexId', 'card']) && ref(c.hexId) && typeof c.card === 'string' && c.card.length < 24) return m as OnlineClientMessage;
   if (c.kind === 'target' && keys(c, ['kind', 'targetId']) && (c.targetId === 0 || c.targetId === 1)) return m as OnlineClientMessage;
-  if (c.kind === 'defend' && keys(c, ['kind', 'entityId']) && ref(c.entityId)) return m as OnlineClientMessage;
+  if ((c.kind === 'defend' || c.kind === 'attackBuilding') && keys(c, ['kind', 'entityId']) && ref(c.entityId)) return m as OnlineClientMessage;
   if (c.kind === 'launchNuke' && keys(c, ['kind', 'buildingId', 'hexId']) && ref(c.buildingId) && ref(c.hexId)) return m as OnlineClientMessage;
-  if ((c.kind === 'research' || c.kind === 'cancelResearch') && keys(c, ['kind'])) return m as OnlineClientMessage;
-  if (['upgrade', 'cancelUpgrade', 'sell'].includes(String(c.kind)) && keys(c, ['kind', 'buildingId']) && ref(c.buildingId)) return m as OnlineClientMessage;
+  if (c.kind === 'research' && (keys(c, ['kind']) || keys(c, ['kind', 'hqId']) && ref(c.hqId))) return m as OnlineClientMessage;
+  if (c.kind === 'cancelResearch' && keys(c, ['kind'])) return m as OnlineClientMessage;
+  if (['upgrade', 'cancelUpgrade', 'sell', 'cancelConstruction'].includes(String(c.kind)) && keys(c, ['kind', 'buildingId']) && ref(c.buildingId)) return m as OnlineClientMessage;
   return null;
 }
 
