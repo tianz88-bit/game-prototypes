@@ -363,4 +363,14 @@ await test('member-scaled capture and reinforcement merge stay authoritative thr
   }
 });
 
+await test('two-human rooms never execute bot decisions before or after v4 checkpoint recovery', () => {
+  const h = harness(); h.connect('a'); h.connect('b'); h.ready(); h.step(60000);
+  const saved = h.room.checkpoint(); assert.equal(saved.sim.botEnabled, false); assert.equal(saved.sim.botCard, 0);
+  assert.equal(saved.sim.botOrderUntilMs, 0); assert.equal(h.room.sim.units.length, 0); assert.equal(h.room.sim.buildings.length, 2);
+  assert(h.room.sim.players.every(p => p.targetId === p.id && !p.research && p.techTier === 1));
+  assert.deepEqual(h.room.sim.players.map(p => h.room.sim.resources(p.id).committed), [0, 0]);
+  h.room = OnlineRoom.restore(JSON.parse(JSON.stringify(saved)), h.env); h.step(30000);
+  assert.equal(h.room.sim.buildings.length, 2); assert.equal(h.room.sim.units.length, 0); assert.equal(h.room.sim.checkpoint().botCard, 0);
+});
+
 console.log(`${passed} Operation C online tests passed.`);

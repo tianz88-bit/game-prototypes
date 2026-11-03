@@ -17,7 +17,7 @@ export interface OperationCheckpoint {
   shots: Shot[]; reinforcements: Reinforcement[]; retirements: Retirement[]; pendingReleases: PendingRelease[]; players: Player[];
   timeMs: number; winner: number | null; accumulatorMs: number; serial: number; shotSerial: number;
   reinforcementSerial: number; retirementSerial: number; strandedDebt: [number, number][];
-  botEnabled: boolean; nextBotBuildMs: number; botCard: number;
+  botEnabled: boolean; nextBotBuildMs: number; botCard: number; botOrderUntilMs?: number;
   nukeFlights: NukeFlight[]; nuclearImpacts: NuclearImpact[]; nukeSerials: number[]; nuclearImpactSerial: number;
 }
 
@@ -56,6 +56,7 @@ export class OperationSim {
   private readonly botEnabled: boolean;
   private nextBotBuildMs: number;
   private botCard = 0;
+  private botOrderUntilMs = 0;
 
   constructor(options: { tune?: Tune; bot?: boolean; loadouts?: CardKind[][] } = {}) {
     this.tune = structuredClone(options.tune ?? DEFAULT_TUNE);
@@ -72,7 +73,7 @@ export class OperationSim {
       return [...cards];
     });
     this.botEnabled = options.bot ?? true;
-    this.nextBotBuildMs = this.tune.bot.buildEveryMs;
+    this.nextBotBuildMs = this.tune.bot.heuristic?.initialBuildMs ?? DEFAULT_TUNE.bot.heuristic!.initialBuildMs;
     const radius = this.tune.map.radius;
     for (let q = -radius; q <= radius; q++) {
       for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
@@ -105,7 +106,7 @@ export class OperationSim {
       reinforcements: this.reinforcements, retirements: this.retirements, pendingReleases: this.pendingReleases, players: this.players,
       timeMs: this.timeMs, winner: this.winner, accumulatorMs: this.accumulatorMs, serial: this.serial,
       shotSerial: this.shotSerial, reinforcementSerial: this.reinforcementSerial, retirementSerial: this.retirementSerial,
-      strandedDebt: [...this.strandedDebt], botEnabled: this.botEnabled, nextBotBuildMs: this.nextBotBuildMs, botCard: this.botCard,
+      strandedDebt: [...this.strandedDebt], botEnabled: this.botEnabled, nextBotBuildMs: this.nextBotBuildMs, botCard: this.botCard, botOrderUntilMs: this.botOrderUntilMs,
       nukeFlights: this.nukeFlights, nuclearImpacts: this.nuclearImpacts, nukeSerials: this.nukeSerials, nuclearImpactSerial: this.nuclearImpactSerial });
   }
 
@@ -124,6 +125,7 @@ export class OperationSim {
     sim.timeMs = data.timeMs; sim.winner = data.winner; sim.accumulatorMs = data.accumulatorMs; sim.serial = data.serial;
     sim.shotSerial = data.shotSerial; sim.reinforcementSerial = data.reinforcementSerial; sim.retirementSerial = data.retirementSerial;
     sim.nextBotBuildMs = data.nextBotBuildMs; sim.botCard = data.botCard;
+    sim.botOrderUntilMs = data.botOrderUntilMs ?? 0;
     return sim;
   }
 
@@ -758,23 +760,90 @@ export class OperationSim {
   private bot(): void {
     const p = this.players[1];
     if (!this.botEnabled || !p.alive) return;
-    if (this.timeMs >= this.tune.bot.attackAtMs) p.targetId = 0;
     if (this.timeMs < this.nextBotBuildMs) return;
     this.nextBotBuildMs = this.timeMs + this.tune.bot.buildEveryMs;
-    if (!p.research && this.buildings.filter(b => b.owner === p.id && b.kind !== 'hq').length >= 2) this.startResearch(p.id);
-    // Check conversions independently of the build cycle; locked tiers never stall it.
-    const convertible = this.buildings.find(b => b.owner === p.id && this.canUpgrade(p.id, b.id).ok);
-    if (convertible) this.upgrade(p.id, convertible.id);
-    const cycle = this.tune.bot.cardCycle;
-    let kind: CardKind | undefined;
-    for (let i = 0; i < cycle.length; i++) {
-      const candidate = cycle[this.botCard++ % cycle.length];
-      if (BASE_CARDS.includes(candidate) && this.loadouts[p.id].includes(candidate) && this.tune.cards[candidate].tier <= p.techTier) { kind = candidate; break; }
-    }
     const hq = this.buildings.find(b => b.owner === p.id && b.kind === 'hq');
-    if (!hq || !kind) return;
+    if (!hq) return;
+    const cfg = { ...DEFAULT_TUNE.bot.heuristic!, ...this.tune.bot.heuristic };
     const centre = this.byHex.get(hq.hexId)!;
-    const candidates = this.hexes.filter(h => h.owner === p.id).sort((a, b) => distance(a, centre) - distance(b, centre));
-    for (const h of candidates) if (this.place(p.id, h.id, kind).ok) break;
+    const own = this.buildings.filter(b => b.owner === p.id && b.kind !== 'hq' && b.hp > 0);
+    const army = this.units.filter(u => u.owner === p.id && u.hp > 0), enemies = this.units.filter(u => u.owner !== p.id && u.hp > 0);
+    const strength = (units: Unit[]) => units.reduce((sum, u) => sum + this.tune.cards[u.kind].cost * Math.min(1, u.hp / u.maxHp), 0);
+    const healthy = army.filter(u => u.hp / u.maxHp >= cfg.healthyFraction);
+    const pressure = enemies.filter(u => distance(this.byHex.get(u.hexId)!, centre) <= cfg.pressureRadius ||
+      this.byHex.get(u.hexId)!.owner === p.id && own.some(b => distance(this.byHex.get(u.hexId)!, this.byHex.get(b.hexId)!) <= cfg.defenseStructureRadius));
+    const available = this.loadouts[p.id].filter(k => this.tune.cards[k].tier <= p.techTier && k !== 'silo');
+    const count = (k: CardKind) => own.filter(b => (b.upgradeKind ?? b.kind) === k).length;
+    const captureCard = available.filter(k => this.tune.cards[k].captureRate > 0).sort((a, b) =>
+      Number(!!this.tune.cards[b].capturePriority) - Number(!!this.tune.cards[a].capturePriority) || this.tune.cards[a].cost - this.tune.cards[b].cost)[0];
+    const isCapture = (k: CardKind) => !!this.tune.cards[k].capturePriority || k === captureCard;
+    const captureBuildings = own.filter(b => isCapture((b.upgradeKind ?? b.kind) as CardKind));
+    const captureArmy = army.filter(u => isCapture(u.kind));
+    const depleted = strength(army) < cfg.minAttackStrength * cfg.retreatRatio ||
+      strength(army) < strength(enemies) * cfg.retreatRatio || healthy.length < cfg.minAttackUnits - 1;
+    if (pressure.length || p.targetId !== p.id && depleted) {
+      const anchor = own.filter(b => b.kind === 'bunker' && (b.completeAtMs ?? 0) <= this.timeMs && pressure.length)
+        .sort((a, b) => distance(this.byHex.get(a.hexId)!, this.byHex.get(pressure[0].hexId)!) - distance(this.byHex.get(b.hexId)!, this.byHex.get(pressure[0].hexId)!))[0];
+      if (anchor) this.setDefendTarget(p.id, anchor.id); else this.setTarget(p.id, p.id);
+      this.botOrderUntilMs = this.timeMs + cfg.orderHoldMs;
+      if (p.research) this.cancelResearch(p.id);
+    } else if (p.targetId === p.id && this.timeMs >= this.botOrderUntilMs) {
+      if (healthy.length >= cfg.minAttackUnits && new Set(healthy.map(u => u.kind)).size > 1 && captureArmy.length &&
+        strength(healthy) >= cfg.minAttackStrength && strength(healthy) >= strength(enemies) * cfg.attackRatio) {
+        this.setTarget(p.id, 0); this.botOrderUntilMs = this.timeMs + cfg.orderHoldMs;
+      } else if (p.defendTargetId) this.setTarget(p.id, p.id);
+    }
+
+    const resources = this.resources(p.id), free = resources.capacity - resources.committed;
+    const safe = !pressure.length && healthy.length >= cfg.minAttackUnits;
+    if (safe && !p.research && p.techTier < 3 && own.length >= cfg.researchProducers) {
+      const budget = this.tune.research.cost + cfg.reserve;
+      if (free >= budget && this.openSupports(p.id).length >= budget && this.startResearch(p.id).ok) return;
+      // Bank territory only behind an assembled army with capturers actively
+      // taking new land. Contact, casualties or blocked expansion resume builds.
+      if (captureArmy.length >= cfg.minCaptureProducers && strength(healthy) >= cfg.minAttackStrength &&
+        resources.committed + budget <= this.tune.resources.capacityCap && captureArmy.some(u => {
+          const h = this.byHex.get(u.hexId)!; return h.owner !== p.id && !h.burnt && !u.attacking;
+        })) return;
+    }
+    const enemyAir = enemies.filter(u => this.tune.cards[u.kind].domain === 'air');
+    const enemyArmour = enemies.filter(u => this.tune.cards[u.kind].damageClass === 'armoured');
+    const enemySquads = enemies.filter(u => !!u.members);
+    if (safe) for (const b of own) {
+      const base = b.kind as CardKind, next = this.tune.cards[base].upgradeTo;
+      if (!next || !this.canUpgrade(p.id, b.id).ok || free < Math.max(0, this.tune.cards[next].cost - this.tune.cards[base].cost) + cfg.reserve) continue;
+      if (isCapture(base) && !captureArmy.some(u => u.buildingId !== b.id)) continue;
+      const wanted = next === 'missile' ? enemyArmour.length > 0 : next === 'mlrs' ? enemySquads.length >= cfg.maxCounterCopies :
+        next === 'gunship' ? enemies.some(u => this.tune.cards[u.kind].domain === 'ground') :
+          (next === 'siege' || next === 'bomber') && this.buildings.filter(x => x.owner !== p.id).length >= cfg.researchProducers;
+      if (wanted && (next !== 'bomber' || !enemyAir.length) && this.upgrade(p.id, b.id).ok) return;
+    }
+
+    const choices: CardKind[] = [];
+    if (!captureBuildings.length && captureCard) choices.push(captureCard);
+    if (pressure.length && count('bunker') < cfg.maxCounterCopies) choices.push('bunker');
+    if (enemyAir.length) {
+      choices.push(...(['flak', 'fighter'] as CardKind[]).filter(k => count(k) < Math.min(cfg.maxCounterCopies, enemyAir.length)));
+      choices.push(...(['walker', 'gunner', 'infantry'] as CardKind[]).filter(k => count(k) < cfg.maxCounterCopies));
+    }
+    if (enemyArmour.length && count('destroyer') < Math.min(cfg.maxCounterCopies, enemyArmour.length)) choices.push('destroyer');
+    if (enemySquads.length && count('artillery') + count('mlrs') < Math.min(cfg.maxCounterCopies, enemySquads.length)) choices.push('artillery');
+    const fronts: CardKind[] = ['tank', 'walker', 'scout'];
+    if (captureCard && captureBuildings.length < cfg.minCaptureProducers && own.length >= cfg.minCaptureProducers) choices.push(captureCard);
+    if (!own.some(b => fronts.includes(b.kind as CardKind))) choices.push(...fronts);
+    if (captureCard && captureBuildings.length <= own.filter(b => fronts.includes(b.kind as CardKind)).length) choices.push(captureCard);
+    choices.push(...(['tank', 'walker', 'helicopter', 'artillery', 'destroyer', 'gunner', 'carrier', 'scout'] as CardKind[])
+      .sort((a, b) => count(a) - count(b)));
+    if (captureCard) choices.push(captureCard);
+    for (const kind of new Set(choices)) {
+      if (!available.includes(kind) || this.tune.cards[kind].cost > free) continue;
+      const candidates = this.hexes.filter(h => h.owner === p.id && this.placement(p.id, h.id, kind).ok);
+      const danger = (h: Hex) => enemies.filter(u => this.tune.cards[u.kind].targets.includes('ground') &&
+        distance(h, this.byHex.get(u.hexId)!) <= this.tune.cards[u.kind].range + 1).length;
+      candidates.sort((a, b) => kind === 'bunker' && pressure.length ?
+        distance(a, this.byHex.get(pressure[0].hexId)!) - distance(b, this.byHex.get(pressure[0].hexId)!) || distance(a, centre) - distance(b, centre) :
+        danger(a) - danger(b) || distance(a, centre) - distance(b, centre));
+      if (candidates[0] && this.place(p.id, candidates[0].id, kind).ok) { this.botCard++; return; }
+    }
   }
 }

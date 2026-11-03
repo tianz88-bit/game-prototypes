@@ -261,6 +261,14 @@ To keep the next build moving without further rule-by-rule questions, these are 
 
 These numbers live in tune.json; they are not final race balance or changes to the owner's confirmed lifecycle rules.
 
+## Offline bot playtest opponent — 2026-11-03
+
+- Owner requests a stronger bot to judge the current snowball balance. Replace the fixed build cycle/permanent timed attack with deterministic economy/army/threat decisions: preserve capture presence, mix frontline and support, respond using cards in its legal loadout, defend/rebuild under pressure, and attack once it has a useful force.
+- The bot uses the same resource capacity, placement, construction, production, capture, technology and combat rules as the player. No bonus income, free units, faster timers or stronger stats. The fully visible player map permits strategic observation of enemy composition; individual unit sight remains unchanged.
+- Avoid unsafe research and conversions that strand defense or remove the only capturing force. Place producers with useful support space and protection. Stronger behavior is a playtest aid, not proof of competitive balance. Two-human online rooms remain bot-free.
+- Current bot decisions: first build on the first simulation step, then a 5s decision cadence; require a healthy mixed force before attack, return to defense after losses or home pressure, and hold a 15s regrouping window to reduce order flipping. Start research with its normal 20-tile commitment plus an 8-tile reserve. Deliberately save toward that budget only with a sufficient army and active capturing units; pressure/casualties/blocked capture resume defense and construction. Upgrade only with spare support and another capturing force available.
+- Use available legal counters rather than demanding cards outside the bot's loadout. Keep threatened producers safer and place useful defensive Bunkers. Do not build Silo commitments the bot cannot use; autonomous nuclear targeting is deferred. Bot decision thresholds are provisional, editable in the existing debug pane; combat and economic tuning are unchanged in this bot-only pass.
+
 ## Delivery and verification
 
 - Phaser 3, strict TypeScript, Vite, canvas UI and tune.json values/debug pane; no new dependencies without discussion. Existing Godot planning work remains preserved.

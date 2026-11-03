@@ -8,7 +8,7 @@
   "hq": {"hp":650,"captureRings":2,"defenseRange":2,"defenseDamage":8,"defenseAttackMs":1000},
   "capture": {"neutralMs":4000,"ownedMultiplier":1.5,"hqRate":1,"rollbackRate":0.25},
   "presentation": {"captureFlipMs":900,"captureLift":0.9,"shotTraceMs":220,"retreatMs":650,"maxShotEvents":128,"commandPulseMs":1800,"upgradeBobMs":1400,"upgradeBobLift":0.1,"mushroomMs":3000},
-  "bot": {"buildEveryMs":5000,"attackAtMs":22000,"cardCycle":["infantry","infantry","tank","artillery","helicopter","fighter","scout","bunker"]},
+  "bot": {"buildEveryMs":5000,"attackAtMs":22000,"cardCycle":["infantry","infantry","tank","artillery","helicopter","fighter","scout","bunker"],"heuristic":{"initialBuildMs":0,"orderHoldMs":15000,"reserve":8,"pressureRadius":4,"defenseStructureRadius":2,"minAttackUnits":3,"minAttackStrength":22,"attackRatio":1.2,"retreatRatio":0.6,"healthyFraction":0.55,"minCaptureProducers":2,"researchProducers":3,"maxCounterCopies":2}},
   "cards": {
     "infantry": {"sightRange":1,"cost":6,"tier":1,"buildMs":3000,"upgradeTo":"missile","upgradeMs":5000,"squadSize":5,"buildingHp":110,"unitHp":8,"damage":2,"range":1,"minRange":1,"domain":"ground","targets":["ground","air"],"attackMs":900,"moveMs":650,"productionMs":8000,"captureRate":1,"capturePriority":true,"damageClass":"light"},
     "tank": {"sightRange":3,"cost":8,"tier":1,"buildMs":5000,"buildingHp":180,"unitHp":180,"damage":23,"range":1,"minRange":1,"domain":"ground","targets":["ground"],"attackMs":1300,"moveMs":1100,"productionMs":11000,"captureRate":0.25,"upgradeTo":"siege","upgradeMs":10000,"damageClass":"armoured"},

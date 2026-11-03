@@ -196,6 +196,14 @@ class Battlefield extends Phaser.Scene {
     const { Pane } = await import('tweakpane');
     const values = structuredClone(DEFAULT_TUNE);
     this.pane = new Pane({ title: 'Operation C · provisional tuning' });
+    if (values.bot.heuristic) {
+      const bot = this.pane.addFolder({ title: 'Bot decisions', expanded: false });
+      bot.addBinding(values.bot, 'buildEveryMs', { min: 100, max: 15000, step: 100 });
+      for (const key of Object.keys(values.bot.heuristic) as (keyof NonNullable<Tune['bot']['heuristic']>)[]) {
+        const ratio = key.endsWith('Ratio') || key.endsWith('Fraction');
+        bot.addBinding(values.bot.heuristic, key, { min: 0, max: key.endsWith('Ms') ? 120000 : ratio ? 3 : 200, step: key.endsWith('Ms') ? 500 : ratio ? 0.05 : 1 });
+      }
+    }
     if (values.movement) {
       const movement = this.pane.addFolder({ title: 'Movement', expanded: false });
       movement.addBinding(values.movement, 'friendlySpeedMultiplier', { min: 1, max: 2, step: 0.05, label: 'Friendly speed ×' });
