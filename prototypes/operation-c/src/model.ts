@@ -50,6 +50,8 @@ export interface NuclearImpact { id: number; owner: number; hexId: string; timeM
 export interface CardTune {
   cost: number; buildingHp: number; unitHp: number; damage: number; range: number;
   attackMs: number; moveMs: number; productionMs: number; captureRate: number;
+  /** Individual engagement radius; never grants sight to allied units. */
+  sightRange: number;
   domain: UnitDomain; targets: UnitDomain[]; minRange: number; retreatMs?: number;
   tier: 1 | 2 | 3; buildMs: number; upgradeTo?: CardKind; upgradeMs?: number;
   squadSize?: number; splashRadius?: number; splashDamageFraction?: number;
@@ -59,7 +61,7 @@ export interface CardTune {
 }
 export interface Tune {
   stepMs: number; map: { radius: number; hqQ: number; hqR: number };
-  /** Absent in older v3 rooms: retain their original base-speed rules. */
+  /** Optional for custom tuning; omission retains base-speed movement. */
   movement?: { friendlySpeedMultiplier: number };
   resources: { capacityCap: number; destroyReleaseMs: number }; hq: { hp: number; captureRings: number; defenseRange: number; defenseDamage: number; defenseAttackMs: number };
   nuclear: { flightMs: number; radius: number; centreDamage: number; outerDamage: number };

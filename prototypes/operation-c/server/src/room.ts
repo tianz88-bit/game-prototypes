@@ -18,7 +18,7 @@ export interface RoomEnvironment {
   close(connectionId: string, code: number, reason: string): void;
 }
 export interface RoomCheckpoint {
-  version: 3; roomCode: string; tune: Tune; seats: (RoomSeat | null)[]; phase: OnlineLobby['phase'];
+  version: 4; roomCode: string; tune: Tune; seats: (RoomSeat | null)[]; phase: OnlineLobby['phase'];
   countdownEndsAtMs: number | null; lastTickWallMs: number; lastBroadcastWallMs: number;
   lastActivityMs: number; endedAtMs: number | null; revision: number; lastStates: (OnlineState | null)[];
   sim: OperationCheckpoint | null;
@@ -230,12 +230,12 @@ export class OnlineRoom {
   private error(connectionId: string, code: string, message: string): void { this.env.send(connectionId, { t: 'error', code, message }); }
 
   checkpoint(): RoomCheckpoint {
-    return structuredClone({ version: 3, roomCode: this.roomCode, tune: this.tune, seats: this.seats, phase: this.phase,
+    return structuredClone({ version: 4, roomCode: this.roomCode, tune: this.tune, seats: this.seats, phase: this.phase,
       countdownEndsAtMs: this.countdownEndsAtMs, lastTickWallMs: this.lastTickWallMs, lastBroadcastWallMs: this.lastBroadcastWallMs,
       lastActivityMs: this.lastActivityMs, endedAtMs: this.endedAtMs, revision: this.revision, lastStates: this.lastStates, sim: this.sim?.checkpoint() ?? null });
   }
   static restore(checkpoint: RoomCheckpoint, env: RoomEnvironment): OnlineRoom {
-    if (checkpoint.version !== 3) throw new Error('Unsupported room checkpoint');
+    if (checkpoint.version !== 4) throw new Error('Unsupported room checkpoint');
     const data = structuredClone(checkpoint), room = new OnlineRoom(data.roomCode, env, data.tune);
     room.seats = data.seats; for (const s of room.seats) if (s) s.connectionId = null;
     room.phase = data.phase; room.countdownEndsAtMs = data.countdownEndsAtMs;

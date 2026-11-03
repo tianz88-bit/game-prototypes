@@ -21,6 +21,9 @@ function fixture(edit = () => {}) {
   // Legacy movement/combat fixtures isolate those rules from construction/tier timing.
   for (const card of Object.values(tune.cards)) { card.buildMs = 0; card.capturePriority = false; }
   edit(tune);
+  // Older isolated fixtures acquire only within their weapon band; full sight
+  // and local engagement scenarios use milestone() with the live sight tuning.
+  for (const card of Object.values(tune.cards)) card.sightRange = card.range;
   const s = new OperationSim({ tune, bot: false }); for (const p of s.players) p.techTier = 3;
   return s;
 }
@@ -405,16 +408,16 @@ test('both aircraft cost ten, cannot capture, and share spawn occupancy with gro
   }
 });
 
-test('air defenders pursue eligible intruders on owned territory and return home after they leave', () => {
+test('air defenders acquire eligible enemies only within individual sight across territory and return home after losing sight', () => {
   for (const kind of ['helicopter', 'fighter']) {
-    const s = fixture(); ownAll(s); h(s, '5,0').owner = 1;
+    const s = milestone(); ownAll(s); h(s, '5,0').owner = 1;
     const defender = unit(s, '-4,0', 0, kind), intruder = unit(s, '0,0', 1, kind === 'fighter' ? 'helicopter' : 'tank');
-    intruder.movingUntilMs = 100000; h(s, intruder.hexId).owner = 1;
-    advance(s, 100); assert.equal(defender.hexId, '-4,0', 'passive aircraft does not hunt outside its territory');
-    h(s, intruder.hexId).owner = 0; advance(s, 100);
-    assert(distance(h(s, defender.hexId), h(s, intruder.hexId)) < 4, 'defender moves toward eligible intruder');
+    intruder.movingUntilMs = 100000;
+    advance(s, 100); assert.equal(defender.hexId, '-4,0', 'distant intruder on owned land is outside individual sight');
+    intruder.hexId = '-1,0'; h(s, intruder.hexId).owner = 1; advance(s, 100);
+    assert(distance(h(s, defender.hexId), h(s, intruder.hexId)) < 3, 'defender pursues a visible enemy on hostile land');
     advance(s, 3000); assert(s.shots.some(x => x.unitId === defender.id));
-    h(s, intruder.hexId).owner = 1;
+    intruder.hexId = '4,3';
     advance(s, 6000); assert(distance(h(s, defender.hexId), h(s, '-5,0')) <= 1, 'defender returns to home ring');
     assertOccupancy(s);
   }
@@ -734,14 +737,13 @@ test('infantry, missile and gunner capture before retaliating, including when da
   }
 });
 
-test('other ground captures only while expanding with no hostile unit anywhere on owned territory, including aircraft', () => {
-  for (const kind of ['tank', 'scout', 'walker']) {
-    const s = milestone(); ownAll(s); const site = '-2,2'; h(s, site).owner = null;
-    const ground = unit(s, site, 0, kind), intruder = unit(s, '-1,2', 1, 'helicopter'); intruder.movingUntilMs = 100000;
-    advance(s, 100); assert.equal(h(s, site).capture, 0, `${kind} cannot expand while owned land has an air intruder`);
-    intruder.hp = 0; advance(s, 100); assert(h(s, site).capture > 0, `${kind} resumes expansion once territory is clear`);
-    const progress = h(s, site).capture; s.setTarget(0, 1); advance(s, 100);
-    assert.equal(h(s, site).capture, progress, `${kind} cannot capture on attack orders`); assertOccupancy(s);
+test('combat-first capture stops only for a valid enemy in individual sight, regardless of distant intruders', () => {
+  for (const kind of ['tank', 'scout', 'walker']) for (const enemyKind of ['tank', 'helicopter']) for (const d of [1, 4]) {
+    const s = milestone(); ownAll(s); const site = '0,3'; h(s, site).owner = null;
+    const ground = unit(s, site, 0, kind), intruder = unit(s, `${d},3`, 1, enemyKind); intruder.movingUntilMs = 100000;
+    const validLocal = d <= s.tune.cards[kind].sightRange && s.tune.cards[kind].targets.includes(s.tune.cards[enemyKind].domain);
+    advance(s, 100); assert.equal(h(s, site).capture > 0, !validLocal, `${kind} vs ${enemyKind} at ${d}`);
+    assertOccupancy(s);
   }
 });
 
@@ -1047,11 +1049,11 @@ test('retreats and traversable burnt/committed friendly hexes use the same sourc
   assert.equal(mover.movingUntilMs - mover.movedAtMs, 360);
 });
 
-test('older v3 tuning without the optional movement rule keeps base speed and remains checkpoint-compatible', () => {
+test('v4 custom tuning without the optional movement rule keeps base speed and remains checkpoint-compatible', () => {
   const s = fixture(t => { delete t.movement; }); const source = '-2,2'; h(s, source).owner = 0;
   const mover = unit(s, source, 0, 'fighter'); s.setTarget(0, 1); advance(s, 100);
   assert.equal(mover.movingUntilMs - mover.movedAtMs, 450);
-  const saved = JSON.parse(JSON.stringify(s.checkpoint())); assert.equal(saved.version, 3); assert.equal(saved.tune.movement, undefined);
+  const saved = JSON.parse(JSON.stringify(s.checkpoint())); assert.equal(saved.version, 4); assert.equal(saved.tune.movement, undefined);
   const restored = OperationSim.restore(saved); assert.equal(restored.units[0].movingUntilMs, mover.movingUntilMs);
   assert.throws(() => fixture(t => { t.movement.friendlySpeedMultiplier = 0; }), /finite and positive/);
 });
@@ -1170,7 +1172,7 @@ test('specialists, flak and aircraft cannot capture even while stationary on neu
 test('zero-capture ground specialists still move to defend intruders and attack the selected HQ without gaining land', () => {
   for (const kind of ['artillery', 'mlrs', 'destroyer', 'siege']) {
     const defense = milestone(t => { t.hq.defenseDamage = 0; }); ownAll(defense);
-    const guard = unit(defense, '-2,3', 0, kind), intruder = unit(defense, '4,-2', 1, 'tank'); intruder.movingUntilMs = 100000;
+    const guard = unit(defense, '-2,3', 0, kind), intruder = unit(defense, `${-2 + defense.tune.cards[kind].sightRange},3`, 1, 'tank'); intruder.movingUntilMs = 100000;
     const initialDistance = distance(h(defense, guard.hexId), h(defense, intruder.hexId));
     advance(defense, 100);
     assert(distance(h(defense, guard.hexId), h(defense, intruder.hexId)) < initialDistance, `${kind} pursues a distant intruder`);
@@ -1188,6 +1190,120 @@ test('zero-capture ground specialists still move to defend intruders and attack 
     assert.deepEqual(attack.hexes.map(x => x.owner), ownership, `${kind} gains no territory en route`);
     assert(!attack.hexes.some(x => x.captureUnitId === attacker.id)); assertOccupancy(attack);
   }
+});
+
+test('individual sight tuning preserves short-range infantry and the ranged-unit exceptions', () => {
+  const expected = { infantry: 1, gunner: 1, missile: 3, tank: 3, scout: 3, walker: 3,
+    artillery: 4, flak: 4, destroyer: 4, siege: 4, mlrs: 6,
+    helicopter: 3, fighter: 3, bomber: 3, gunship: 3, carrier: 3 };
+  for (const [kind, sight] of Object.entries(expected)) assert.equal(DEFAULT_TUNE.cards[kind].sightRange, sight, kind);
+  assert.equal(DEFAULT_TUNE.hq.defenseRange, 2); assert.equal(DEFAULT_TUNE.cards.bunker.range, 2);
+});
+
+test('combat units interrupt capture at their own sight boundary and approach valid units or buildings beyond weapon range', () => {
+  for (const kind of ['tank', 'scout', 'walker']) for (const type of ['unit', 'building']) for (const owner of [null, 0, 1]) for (const d of [3, 4]) {
+    const s = milestone(t => { t.hq.defenseDamage = 0; }); ownAll(s); h(s, '0,3').owner = null;
+    const actor = unit(s, '0,3', 0, kind), targetHex = `${d},3`; h(s, targetHex).owner = owner;
+    if (type === 'unit') unit(s, targetHex, 1, 'tank').movingUntilMs = 100000;
+    else s.buildings.push({ id: 'local-building', owner: 1, hexId: targetHex, kind: 'tank', hp: 1000, maxHp: 1000, readyAtMs: 0, unitId: 'fixture' });
+    advance(s, 100);
+    assert(!s.shots.some(x => x.unitId === actor.id), 'sight never extends weapon range');
+    if (d === 3) {
+      assert.equal(h(s, '0,3').capture, 0); assert.equal(actor.fromHexId, '0,3');
+      assert.equal(distance(h(s, actor.hexId), h(s, targetHex)), 2, `${kind} approaches ${type} across owner ${owner}`);
+    } else {
+      assert.equal(actor.hexId, '0,3'); assert(h(s, '0,3').capture > 0, `${kind} ignores ${type} beyond sight`);
+    }
+    assertOccupancy(s);
+  }
+});
+
+test('allied spotting cannot interrupt another unit capture or grant it an engagement target', () => {
+  for (const allyPresent of [false, true]) {
+    const s = milestone(); ownAll(s); h(s, '0,3').owner = null;
+    const actor = unit(s, '0,3', 0, 'tank'), enemy = unit(s, '4,3', 1, 'tank'); enemy.movingUntilMs = 100000;
+    if (allyPresent) {
+      const spotter = unit(s, '3,2', 0, 'scout'); spotter.movingUntilMs = 100000;
+      assert(distance(h(s, spotter.hexId), h(s, enemy.hexId)) <= s.tune.cards.scout.sightRange);
+    }
+    advance(s, 1000); assert.equal(actor.hexId, '0,3'); assert.equal(actor.attacking, false);
+    assert(Math.abs(h(s, actor.hexId).capture - 1000 * 0.25 / 2600) < 1e-10);
+    assert(!s.shots.some(x => x.unitId === actor.id));
+  }
+});
+
+test('losing individual sight drops local pursuit at the next movement decision without remembered global seeking', () => {
+  const s = milestone(); ownAll(s); h(s, '0,3').owner = null;
+  const actor = unit(s, '0,3', 0, 'tank'), enemy = unit(s, '3,3', 1, 'tank'); enemy.movingUntilMs = 100000;
+  advance(s, 100); assert.equal(actor.fromHexId, '0,3'); const destination = h(s, actor.hexId); destination.owner = null;
+  enemy.hexId = '7,1'; assert(distance(destination, h(s, enemy.hexId)) > s.tune.cards.tank.sightRange);
+  advance(s, actor.movingUntilMs - s.timeMs);
+  assert.equal(actor.hexId, destination.id); assert(destination.capture > 0, 'resumes local expansion instead of pursuing the lost enemy');
+  assert.equal(actor.attacking, false); assert.equal(actor.attackTargetHexId, undefined);
+});
+
+test('one-hex infantry sight does not chase distant enemies and ranged missile squads finish capture before using their full weapon range', () => {
+  for (const kind of ['infantry', 'gunner']) {
+    const s = milestone(); ownAll(s); const actor = unit(s, '0,3', 0, kind), enemy = unit(s, '2,3', 1, 'tank'); enemy.movingUntilMs = 100000;
+    advance(s, 100); assert.equal(actor.hexId, '0,3'); assert.equal(actor.attacking, false);
+    enemy.hexId = '1,3'; advance(s, 100);
+    assert(s.shots.some(x => x.unitId === actor.id && x.targetHexId === enemy.hexId));
+  }
+  const s = milestone(); ownAll(s); h(s, '0,3').owner = null;
+  const squad = unit(s, '0,3', 0, 'missile', 35); squad.members = [7, 7, 7, 7, 7];
+  const enemy = unit(s, '3,3', 1, 'tank'); enemy.movingUntilMs = 100000;
+  advance(s, 2500); assert.equal(squad.hexId, '0,3'); assert(h(s, '0,3').capture > 0);
+  assert(!s.shots.some(x => x.unitId === squad.id));
+  advance(s, 200); assert.equal(h(s, '0,3').owner, 0); assert.equal(squad.fromHexId, '0,3');
+  assert.equal(distance(h(s, squad.hexId), h(s, enemy.hexId)), 2);
+  advance(s, squad.movingUntilMs - s.timeMs);
+  assert(s.shots.some(x => x.unitId === squad.id && x.targetHexId === enemy.hexId));
+  assert.equal(enemy.hp, 1000 - 5 * 6, 'all five members fire the armoured bonus at weapon range two');
+});
+
+test('MLRS uses individual sight six, fires at full range five, and approaches a legal minimum-range firing band', () => {
+  for (const d of [1, 2, 3, 5, 6, 7]) {
+    const s = milestone(t => { t.hq.defenseDamage = 0; }); ownAll(s);
+    const launcher = unit(s, '-4,3', 0, 'mlrs'), enemy = unit(s, `${-4 + d},3`, 1, 'tank'); enemy.movingUntilMs = 100000;
+    advance(s, 100);
+    const shots = s.shots.filter(x => x.unitId === launcher.id);
+    assert.equal(shots.length, d >= 3 && d <= 5 ? 1 : 0, `initial distance ${d}`);
+    if (d === 6) assert.equal(distance(h(s, launcher.hexId), h(s, enemy.hexId)), 5, 'sight beyond the weapon band enables approach');
+    if (d < 3) assert(distance(h(s, launcher.hexId), h(s, enemy.hexId)) > d, 'inside minimum range moves outward to a legal firing cell');
+    if (d <= 6) {
+      advance(s, 4000); assert(s.shots.some(x => x.unitId === launcher.id && x.targetHexId === enemy.hexId));
+      for (const shot of s.shots.filter(x => x.unitId === launcher.id)) {
+        const range = distance(h(s, shot.fromHexId), h(s, shot.targetHexId)); assert(range >= 3 && range <= 5);
+      }
+    } else assert.equal(enemy.hp, 1000, 'outside sight does not acquire a target');
+    assertOccupancy(s);
+  }
+});
+
+test('explicit HQ attacks navigate beyond sight, engage a visible enemy along the way, then resume the strategic order', () => {
+  for (const kind of ['tank', 'artillery', 'mlrs', 'fighter', 'missile']) {
+    const s = milestone(t => { t.hq.defenseDamage = 0; }); ownAll(s);
+    const actor = unit(s, '-6,3', 0, kind), hq = s.buildings.find(b => b.id === 'hq1');
+    const start = distance(h(s, actor.hexId), h(s, hq.hexId)); assert(start > s.tune.cards[kind].sightRange);
+    s.setTarget(0, 1); advance(s, 100);
+    assert(distance(h(s, actor.hexId), h(s, hq.hexId)) < start, `${kind} follows explicit orders toward the unseen HQ`);
+  }
+  const s = milestone(t => { t.hq.defenseDamage = 0; }); ownAll(s);
+  const actor = unit(s, '0,3', 0, 'tank'), enemy = unit(s, '-3,3', 1, 'tank', 23); enemy.movingUntilMs = 100000;
+  s.setTarget(0, 1); advance(s, 100); assert.equal(actor.hexId, '-1,3', 'local engagement can divert from the HQ route');
+  advance(s, 4000); assert(!s.units.includes(enemy)); assert(s.shots.some(x => x.unitId === actor.id && x.targetHexId === '-3,3'));
+  assert.equal(s.players[0].targetId, 1); assert(h(s, actor.hexId).q > -2, 'resumes the eastward HQ advance after engagement');
+});
+
+test('v4 sight checkpoints preserve deterministic pursuit and reject missing sight or prior room rules', () => {
+  const s = milestone(); ownAll(s); const actor = unit(s, '0,3', 0, 'tank');
+  unit(s, '3,3', 1, 'tank').movingUntilMs = 100000; advance(s, 100);
+  const saved = JSON.parse(JSON.stringify(s.checkpoint())); assert.equal(saved.version, 4);
+  const restored = OperationSim.restore(saved); assert.equal(restored.tune.cards.tank.sightRange, 3);
+  for (const dt of [37, 63, 1900, 17, 83, 3000]) { advance(s, dt); advance(restored, dt); }
+  assert.deepEqual(restored.checkpoint(), s.checkpoint()); assert(s.shots.some(x => x.unitId === actor.id));
+  for (const version of [1, 2, 3]) assert.throws(() => OperationSim.restore({ ...saved, version }), /Unsupported/);
+  for (const value of [undefined, -1, NaN]) assert.throws(() => milestone(t => { t.cards.tank.sightRange = value; }), /Individual sight/);
 });
 
 console.log(`${passed} Operation C simulation behavior tests passed.`);

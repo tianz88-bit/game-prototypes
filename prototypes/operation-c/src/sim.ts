@@ -13,7 +13,7 @@ export const distance = (a: Pick<Hex, 'q' | 'r'>, b: Pick<Hex, 'q' | 'r'>): numb
 
 /** Private persistence format; never accept a checkpoint from a game client. */
 export interface OperationCheckpoint {
-  version: 3; tune: Tune; loadouts: CardKind[][]; hexes: Hex[]; buildings: Building[]; units: Unit[];
+  version: 4; tune: Tune; loadouts: CardKind[][]; hexes: Hex[]; buildings: Building[]; units: Unit[];
   shots: Shot[]; reinforcements: Reinforcement[]; retirements: Retirement[]; pendingReleases: PendingRelease[]; players: Player[];
   timeMs: number; winner: number | null; accumulatorMs: number; serial: number; shotSerial: number;
   reinforcementSerial: number; retirementSerial: number; strandedDebt: [number, number][];
@@ -62,6 +62,7 @@ export class OperationSim {
     if (!Number.isFinite(this.tune.stepMs) || this.tune.stepMs <= 0) throw new Error('stepMs must be positive');
     if (this.tune.movement && (!Number.isFinite(this.tune.movement.friendlySpeedMultiplier) || this.tune.movement.friendlySpeedMultiplier <= 0)) throw new Error('friendlySpeedMultiplier must be finite and positive');
     for (const card of Object.values(this.tune.cards)) if (!['light', 'armoured', 'structure'].includes(card.damageClass)) throw new Error('Damage-class rules require current tuning; reload the current game version');
+    for (const card of Object.values(this.tune.cards)) if (!Number.isFinite(card.sightRange) || card.sightRange < 0) throw new Error('Individual sight rules require current tuning; reload the current game version');
     this.loadouts = this.players.map((p, i) => {
       const cards = options.loadouts?.[i] ?? [...DEFAULT_LOADOUT];
       if (!Array.isArray(cards) || cards.length > 8 || new Set(cards).size !== cards.length ||
@@ -99,7 +100,7 @@ export class OperationSim {
   }
 
   checkpoint(): OperationCheckpoint {
-    return structuredClone({ version: 3, tune: this.tune, loadouts: this.loadouts,
+    return structuredClone({ version: 4, tune: this.tune, loadouts: this.loadouts,
       hexes: this.hexes, buildings: this.buildings, units: this.units, shots: this.shots,
       reinforcements: this.reinforcements, retirements: this.retirements, pendingReleases: this.pendingReleases, players: this.players,
       timeMs: this.timeMs, winner: this.winner, accumulatorMs: this.accumulatorMs, serial: this.serial,
@@ -109,7 +110,7 @@ export class OperationSim {
   }
 
   static restore(checkpoint: OperationCheckpoint): OperationSim {
-    if (checkpoint.version !== 3) throw new Error('Unsupported Operation C checkpoint');
+    if (checkpoint.version !== 4) throw new Error('Unsupported Operation C checkpoint');
     const data = structuredClone(checkpoint);
     const sim = new OperationSim({ tune: data.tune, loadouts: data.loadouts, bot: data.botEnabled });
     const replace = <T>(target: T[], source: T[]) => { target.splice(0, target.length, ...source); };
@@ -557,25 +558,30 @@ export class OperationSim {
     }
   }
 
-  private attackTarget(u: Unit): Building | Unit | undefined {
-    const here = this.byHex.get(u.hexId)!, range = this.tune.cards[u.kind].range;
+  private visibleTargets(u: Unit): (Building | Unit)[] {
+    const here = this.byHex.get(u.hexId)!, card = this.tune.cards[u.kind];
     const player = this.players.find(p => p.id === u.owner)!;
-    const airDefense = this.tune.cards[u.kind].domain === 'air' && player.targetId === player.id;
     const targets: (Building | Unit)[] = [...this.units, ...this.buildings].filter(t =>
       t.owner !== u.owner && t.hp > 0 && this.canTarget(u, t) &&
-      (!airDefense || this.byHex.get(t.hexId)!.owner === u.owner) &&
-      distance(here, this.byHex.get(t.hexId)!) <= range && distance(here, this.byHex.get(t.hexId)!) >= this.tune.cards[u.kind].minRange);
+      distance(here, this.byHex.get(t.hexId)!) <= card.sightRange);
     // An attack order prioritizes the selected faction's structures. Defense
     // retains troop-first reactions instead of ignoring a nearby attacker.
     return targets.sort((a, b) => {
-      if (airDefense) return distance(here, this.byHex.get(a.hexId)!) - distance(here, this.byHex.get(b.hexId)!);
       const score = (t: Building | Unit) => {
         const isUnit = 'buildingId' in t;
         if (player.targetId === player.id) return isUnit && this.byHex.get(t.hexId)!.owner === u.owner ? 0 : isUnit ? 1 : 2;
         return !isUnit && t.owner === player.targetId ? 0 : isUnit ? 1 : 2;
       };
       return score(a) - score(b) || distance(here, this.byHex.get(a.hexId)!) - distance(here, this.byHex.get(b.hexId)!);
-    })[0];
+    });
+  }
+
+  private attackTarget(u: Unit): Building | Unit | undefined {
+    const here = this.byHex.get(u.hexId)!, card = this.tune.cards[u.kind];
+    return this.visibleTargets(u).find(t => {
+      const d = distance(here, this.byHex.get(t.hexId)!);
+      return d >= card.minRange && d <= card.range;
+    });
   }
 
   private canTarget(u: Unit, target: Building | Unit): boolean {
@@ -591,25 +597,21 @@ export class OperationSim {
   }
 
   private nextMove(u: Unit, blocked: Set<string>): string | undefined {
-    if (this.tune.cards[u.kind].domain === 'air') return this.airMove(u, blocked);
+    const local = this.visibleTargets(u)[0];
+    if (local) {
+      const card = this.tune.cards[u.kind], target = this.byHex.get(local.hexId)!;
+      const goals = new Set(this.hexes.filter(h => !blocked.has(h.id) &&
+        distance(h, target) >= card.minRange && distance(h, target) <= card.range).map(h => h.id));
+      return this.pathToGoals(u, blocked, goals);
+    }
+    if (this.tune.cards[u.kind].domain === 'air') return this.strategicMove(u, blocked);
     const player = this.players.find(p => p.id === u.owner)!;
     const here = this.byHex.get(u.hexId)!;
-    const enemy = this.buildings.filter(b => b.owner === player.targetId && b.owner !== u.owner);
+    const enemy = this.buildings.filter(b => b.kind === 'hq' && b.owner === player.targetId && b.owner !== u.owner);
     const enemyHq = enemy.find(b => b.kind === 'hq');
     const targetHex = enemyHq ? this.byHex.get(enemyHq.hexId)! : undefined;
     const range = this.tune.cards[u.kind].range;
-    if (player.targetId === player.id && !this.tune.cards[u.kind].capturePriority) {
-      const intruders = this.intruders(u.owner);
-      if (intruders.length) {
-        const target = intruders.filter(t => this.canTarget(u, t)).sort((a, b) =>
-          distance(here, this.byHex.get(a.hexId)!) - distance(here, this.byHex.get(b.hexId)!))[0];
-        if (!target) return;
-        const goals = new Set(this.hexes.filter(h => !blocked.has(h.id) &&
-          distance(h, this.byHex.get(target.hexId)!) >= this.tune.cards[u.kind].minRange && distance(h, this.byHex.get(target.hexId)!) <= range).map(h => h.id));
-        return this.pathToGoals(u, blocked, goals);
-      }
-    }
-    if (this.tune.cards[u.kind].captureRate <= 0) return this.airMove(u, blocked);
+    if (this.tune.cards[u.kind].captureRate <= 0) return this.strategicMove(u, blocked);
     const goals = new Set<string>();
     if (enemy.length) {
       // Search for free attack positions rather than pathing into a blocked HQ.
@@ -639,15 +641,11 @@ export class OperationSim {
     return expansion;
   }
 
-  private intruders(owner: number): Unit[] {
-    return this.units.filter(u => u.owner !== owner && u.hp > 0 && this.byHex.get(u.hexId)!.owner === owner);
-  }
-
   private shouldCapture(u: Unit): boolean {
     const card = this.tune.cards[u.kind], h = this.byHex.get(u.hexId)!;
     if (card.domain !== 'ground' || card.captureRate <= 0 || h.owner === u.owner || h.burnt) return false;
     if (card.capturePriority) return true;
-    return this.players.find(p => p.id === u.owner)!.targetId === u.owner && this.intruders(u.owner).length === 0;
+    return this.players.find(p => p.id === u.owner)!.targetId === u.owner && this.visibleTargets(u).length === 0;
   }
 
   private pathToGoals(u: Unit, blocked: Set<string>, goals: Set<string>): string | undefined {
@@ -661,38 +659,21 @@ export class OperationSim {
     }
   }
 
-  private airMove(u: Unit, blocked: Set<string>): string | undefined {
+  private strategicMove(u: Unit, blocked: Set<string>): string | undefined {
     const player = this.players.find(p => p.id === u.owner)!, here = this.byHex.get(u.hexId)!;
     const defense = player.targetId === player.id;
-    const targets: (Building | Unit)[] = [...this.units, ...this.buildings].filter(t => t.owner !== u.owner && t.hp > 0 &&
-      this.canTarget(u, t) && (defense ? this.byHex.get(t.hexId)!.owner === u.owner : t.owner === player.targetId));
-    // Passive defense chooses a single nearest intruder in owned territory.
-    targets.sort((a, b) => distance(here, this.byHex.get(a.hexId)!) - distance(here, this.byHex.get(b.hexId)!));
-    const sought = defense ? targets.slice(0, 1) : targets;
     const card = this.tune.cards[u.kind];
     const goals = new Set<string>();
-    if (sought.length) {
-      for (const h of this.hexes) if (!blocked.has(h.id) && sought.some(t => {
-        const d = distance(h, this.byHex.get(t.hexId)!); return d >= card.minRange && d <= card.range;
-      })) goals.add(h.id);
-    } else {
-      const enemyHq = this.buildings.find(b => b.owner === player.targetId && b.kind === 'hq');
-      const centre = defense ? this.homeHex(u.owner) : enemyHq ? this.byHex.get(enemyHq.hexId) : undefined;
-      if (!centre) return;
-      // With no eligible enemy aircraft, fighters approach the HQ but never fire at it.
-      const holdRange = defense ? 1 : card.range;
-      if (distance(here, centre) <= holdRange) return;
-      for (const h of this.hexes) if (!blocked.has(h.id) && distance(h, centre) >= 1 && distance(h, centre) <= holdRange) goals.add(h.id);
-    }
-    const queue = [u.hexId], seen = new Set(queue), first = new Map<string, string>();
-    for (let i = 0; i < queue.length; i++) {
-      const id = queue[i];
-      if (i > 0 && goals.has(id)) return first.get(id);
-      for (const n of this.neighbors(id)) {
-        if (seen.has(n.id) || blocked.has(n.id)) continue;
-        seen.add(n.id); first.set(n.id, first.get(id) ?? n.id); queue.push(n.id);
-      }
-    }
+    const enemyHq = this.buildings.find(b => b.owner === player.targetId && b.kind === 'hq');
+    const centre = defense ? this.homeHex(u.owner) : enemyHq ? this.byHex.get(enemyHq.hexId) : undefined;
+    if (!centre) return;
+    // A selected HQ is a strategic destination even unseen; aircraft without a
+    // ground weapon approach it but cannot shoot it. Idle defense holds home.
+    const holdRange = defense ? 1 : card.range;
+    const minRange = defense || !card.targets.includes('ground') ? 1 : card.minRange;
+    if (distance(here, centre) >= minRange && distance(here, centre) <= holdRange) return;
+    for (const h of this.hexes) if (!blocked.has(h.id) && distance(h, centre) >= minRange && distance(h, centre) <= holdRange) goals.add(h.id);
+    return this.pathToGoals(u, blocked, goals);
   }
 
   private capture(): void {

@@ -232,6 +232,7 @@ class Battlefield extends Phaser.Scene {
     for (const kind of Object.keys(values.cards) as CardKind[]) {
       const folder = this.pane.addFolder({ title: NAMES[kind], expanded: false });
       if(!values.cards[kind].utility){
+        folder.addBinding(values.cards[kind], 'sightRange', { min: 1, max: 10, step: 1, label: 'Sight (hexes)' });
         folder.addBinding(values.cards[kind],'damageClass',{options:{Light:'light',Armoured:'armoured',Structure:'structure'}});
         const bonuses=values.cards[kind].damageBonus??={};
         const bonusFolder=folder.addFolder({title:'Damage bonuses',expanded:false});
@@ -599,7 +600,7 @@ class Battlefield extends Phaser.Scene {
     }
     const c=this.sim.tune.cards[e.kind];
     if(!building){
-      this.label('inspectUnit',`${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'AIR':'GROUND').join(' / ')}\nDMG ${this.damageText(e.kind)}\n${NOTES[e.kind]}`,x,y+57,compact?9:11,MUTED).setWordWrapWidth(w);return;
+      this.label('inspectUnit',`${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'AIR':'GROUND').join(' / ')} · SIGHT ${c.sightRange}\nDMG ${this.damageText(e.kind)}\n${NOTES[e.kind]}`,x,y+57,compact?9:11,MUTED).setWordWrapWidth(w);return;
     }
     const progress=e.completeAtMs&&e.completeAtMs>this.sim.timeMs?`Constructing ${Math.ceil((e.completeAtMs-this.sim.timeMs)/1000)}s`:e.upgradeKind?`Converting ${Math.max(0,Math.ceil(((e.upgradeCompleteAtMs??0)-this.sim.timeMs)/1000))}s`:`${c.cost} tiles · ${c.buildMs/1000}s construction`;
     if(!compact)this.label('inspectProgress',progress,x,y+55,small?9:11,MUTED).setWordWrapWidth(w);
@@ -668,7 +669,7 @@ class Battlefield extends Phaser.Scene {
         label('unit',c.utility==='bunker'?'DEFENCE GUN':c.utility==='silo'?'NUCLEAR STRIKE':UNIT_NAMES[variant],67,155,small?10:12,INK).setFontStyle('bold');
         const count=c.squadSize??1;
         label('unit-hp',c.utility==='silo'?'7-hex blast':c.utility==='bunker'?`Range ${c.minRange}–${c.range}`:`${CLASS_NAMES[c.damageClass]} · HP ${count>1?`${count} × `:''}${c.unitHp}`,67,191,10);
-        label('stats',c.utility?`${c.utility==='bunker'?`DMG ${this.damageText(variant)} · ${(c.attackMs/1000).toFixed(1)}s fire interval`:'One stored nuke · no class bonus'}\n${NOTES[variant]}`:`DMG ${this.damageText(variant)}\nRange ${c.minRange}–${c.range} · ${(1000/c.moveMs).toFixed(1)} hex/s\n${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'A':'G').join('/')}\n${NOTES[variant]}`,9,218,small?9:10).setLineSpacing(2);
+        label('stats',c.utility?`${c.utility==='bunker'?`DMG ${this.damageText(variant)} · ${(c.attackMs/1000).toFixed(1)}s fire interval`:'One stored nuke · no class bonus'}\n${NOTES[variant]}`:`DMG ${this.damageText(variant)}\nRange ${c.minRange}–${c.range} · ${(1000/c.moveMs).toFixed(1)} hex/s\n${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'A':'G').join('/')} · Sight ${c.sightRange}\n${NOTES[variant]}`,9,218,small?9:10).setLineSpacing(2);
         if(base.upgradeTo&&y+8>=header&&y+38<=this.h-footer){
           const bx=x+cw-35;
           this.cardArt.fillStyle(0xd2e5cd).fillRoundedRect(bx,y+7,27,29,6);
