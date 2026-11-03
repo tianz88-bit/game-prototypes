@@ -1,6 +1,6 @@
 # Operation C permanent design reference
 
-Last reconciled: 2026-11-03, Asia/Singapore. This is the canonical design reference for main, logic and art discussions. Check it before re-asking an answered question. Update the relevant section when a decision changes; keep proposals distinct from confirmed rules. BUILD_STATUS.md records implementation and verification, not design authority. Git history preserves superseded decisions.
+Last reconciled: 2026-11-04, Asia/Singapore. This is the canonical design reference for main, logic and art discussions. Check it before re-asking an answered question. Update the relevant section when a decision changes; keep proposals distinct from confirmed rules. BUILD_STATUS.md records implementation and verification, not design authority. Git history preserves superseded decisions.
 
 ## Design versus implementation
 
@@ -8,13 +8,13 @@ Last reconciled: 2026-11-03, Asia/Singapore. This is the canonical design refere
 
 The owner approved all twelve consolidated defaults on 2026-11-03. These rules supersede military neutral capture, eight selectable cards, HQ capture aura and selling. See BUILD_STATUS.md for publication and verification.
 
-All twelve defaults are confirmed: orphan workers survive and keep gathering without replacement; workers die to any damaging hit and do not flee; neutral capture takes 4s; HQ worker production/replacement takes 8s per worker sequentially, limit three; additional HQ commits 12 connected tiles and constructs for 15s at T1; HQ upgrades commit 20 temporary disconnected open tiles for 30s T2 / 60s T3; only the three infantry forms capture enemy land, all other military captures none; Recon prioritizes visible workers in both modes, without map-wide pursuit; other military uses normal target priorities; friendly Gather/Defense anchors workers' neutral gathering and military defense; a destroyed Attack Here target returns orders to the nearest surviving friendly HQ; unfinished construction/research/conversions can be cancelled under existing release rules while completed buildings cannot be sold.
+All twelve defaults are confirmed: orphan workers survive and keep gathering without replacement; workers die to any damaging hit and do not flee; neutral capture takes 4s; HQ worker production/replacement takes 8s per worker sequentially, limit three; additional HQ commits 18 connected tiles and constructs for 30s at T1; HQ upgrades commit 20 temporary disconnected open tiles for 30s T2 / 60s T3; only the three infantry forms capture enemy land, all other military captures none; Recon prioritizes visible workers in both modes, without map-wide pursuit; other military uses normal target priorities; friendly Gather/Defense anchors workers' neutral gathering and military defense; a destroyed Attack Here target returns orders to the nearest surviving friendly HQ; unfinished construction/research/conversions can be cancelled under existing release rules while completed buildings cannot be sold.
 
 Implementation defaults needed to make these settled rules concrete: worker movement starts at 650 ms/hex and sight 1, subject to playtest; the original HQ starts with three workers and six surrounding owned cells. A completed HQ counts toward survival and technology; an unfinished HQ is not an escape from last-HQ elimination. The fixed HQ card occupies slot one and loadouts store up to seven unique selectable base cards. Default selectable seven: Barracks, Motor Pool, Artillery Battery, Airbase, Recon Post, Bunker, Nuclear Silo. Other base cards remain available in the catalog.
 
 - Separate economic expansion from military conquest. Non-combat workers capture ONLY neutral hexes; infantry captures enemy-owned hexes. Military production should no longer multiply neutral capture coverage. Worker raiding is intended. Non-infantry military units cannot capture territory.
 - Each HQ supports at most three workers. The starting HQ begins with three living workers. Worker casualties are replaced one at a time through their HQ's production timer, without stockpiling beyond three.
-- Additional HQs are economic expansion investments. They commit connected owned resource hexes like other buildings, take time to construct, and then produce their three workers one at a time, rather than spawning a full team immediately. Confirmed values: 12 committed hexes, 15s construction, then 8s production per worker.
+- Additional HQs are economic expansion investments. They commit connected owned resource hexes like other buildings, take time to construct, and then produce their three workers one at a time, rather than spawning a full team immediately. Confirmed values: 18 committed hexes, 30s construction, then 8s production per worker.
 - Starting territory is reduced to the SIX hexes directly adjacent to the starting HQ (one ring), replacing the former eighteen-cell/two-ring opening. The HQ centre retains its existing non-productive building tile role. Remove continuous automatic HQ capture entirely. Additional HQs grant NO free territory or capture aura; workers must capture further neutral land. Implemented under the confirmed worker economy.
 - Only destruction of the player's LAST surviving HQ eliminates them. Losing the starting HQ while another HQ survives does not eliminate them. Surviving workers keep gathering as orphans without replacements from the destroyed HQ.
 - The eight-slot deck now reserves one permanent slot for HQ, leaving seven selectable base-building cards. HQ is always present rather than an optional loadout choice.
@@ -98,7 +98,7 @@ The Phaser 3 / strict TypeScript prototype supports two-human private-room 1v1 a
 | T1 | Armoury / Missile Squad | 8 | Barracks upgrade; anti-ground, slower movement and reinforcement |
 | T1 | Motor Pool / Battle Tank | 8 | Base; reliable ground armour, cannot hit air |
 | T1 | Artillery Battery / Field Artillery | 8 | Base; frail, range 2-3, retreats after damage |
-| T1 | Recon Post / Scout Buggy | 6 | Base; fast cheap exploration, weak in sustained combat |
+| T1 | Recon Post / Scout Buggy | 8 | Base; fast cheap exploration, weak in sustained combat |
 | T1 | Support Barracks / Machine-gun Squad | 7 | Base; five rapid-firing anti-swarm members, short range |
 | T1 | Air Defence Post / Flak Rover | 6 | Base; G to A only, cannot capture, helpless against ground attackers |
 | T2 | Helipad / Helicopter | 10 | Base; mobile air-to-ground support, cannot fight air |
@@ -114,10 +114,10 @@ The Phaser 3 / strict TypeScript prototype supports two-human private-room 1v1 a
 Names are shared by the loadout, deck and contextual panel. Costs for the eight new units and new conversion durations are provisional playtest settings; the balance pass below supersedes earlier costs. Bombers and MLRS now use 24-second production cooldowns under the new slow T3 philosophy; Siege Tanks use 26 seconds. No new armour-resistance or invulnerability system.
 ## Approved balance pass — 2026-11-03
 
-- Latest anti-rush revision: Barracks and Recon Post cost 6, Support Barracks 7, Armoury total 8 (Barracks upgrade +2). Flak remains 6; Motor Pool, Artillery Battery and Bunker remain 8. Two Barracks commit 12, while Barracks plus Tank/Artillery/Bunker commits 14. The worker economy now starts with six productive cells, enough for one Barracks; workers must expand to fund more. First units STILL appear at construction completion; an extra initial production timer is not approved.
+- Latest anti-rush revision: Barracks costs 6 and Recon Post 8, Support Barracks 7, Armoury total 8 (Barracks upgrade +2). Flak remains 6; Motor Pool, Artillery Battery and Bunker remain 8. Two Barracks commit 12, while Barracks plus Tank/Artillery/Bunker commits 14. The worker economy now starts with six productive cells, enough for one Barracks; workers must expand to fund more. First units STILL appear at construction completion; an extra initial production timer is not approved.
 - HQ now has 650 HP and a single-target ground gun dealing 8 each second at range 2. There is no tier immunity or invulnerability. Field Artillery damage is now 4 per member on its centre hex and 1.4 on adjacent hexes, requiring two direct shots against a fresh 8-HP/member basic squad. Preserve minimum range 2, 38 HP, slow movement and damage-triggered retreat; Recon and Tank close attacks must remain effective counters. Previous cheaper advanced commitments and all production/building timers remain unchanged.
 
-- Infantry replacement cooldown increases from 6.5s to 8s. Scout Buggy damage decreases from 5 to 3 and replacement cooldown increases from 5s to 7s. Their movement, health and building costs remain unchanged by this combat pass; the worker economy supersedes their earlier capture eligibility.
+- Infantry replacement cooldown increases from 6.5s to 8s. Scout Buggy damage is3, replacement cooldown10s, movement550ms/hex, producer cost8 and construction3.5s under the corrected worker-raid balance pass. Their movement, health and building costs remain unchanged by this combat pass; the worker economy supersedes their earlier capture eligibility.
 - Battle Tank health increases from 130 to 180. Keep its 1.3s firing interval; this replaces the earlier proposed firing-speed buff. Bunker health increases from 180 to 280 and damage from 5 to 8 each second, retaining cost 8 and range 1-2.
 - Field Artillery gains radius-one enemy-only splash: full 4 damage to every member on the target hex and provisional 35% damage on adjacent hexes. No friendly fire. Existing range 2-3, minimum range, retreat, health, firing interval and production time remain. Two direct hits wipe a fresh basic infantry squad; each member takes 4 damage per hit. Adjacent hits apply 35% (1.4 damage/member).
 - Advanced total producer commitments are the current roster table above: Helicopter/Fighter/Bomber/Tank Destroyer 10; Walker/Gunship/MLRS 12; Siege Tank 16; Carrier 18; Silo 24. Upgrade surcharges are target total minus base commitment, including free Fighter-to-Bomber conversion. Advanced construction/production timers and research's 20 temporary tiles/30s T2/60s T3 remain unchanged.
@@ -202,7 +202,7 @@ The roster and numerical tuning are provisional for playtesting. Core lifecycle,
 - Completed buildings cannot be sold (temporary design decision).
 - Cancelling unfinished construction returns its tile to open owned territory and releases only remaining assigned support. Captured assignments discount the release.
 - Construction does not produce or defend before completion. Enemy destruction burns its tile and delays remaining support release for 10s.
-- Original HQ is free; an additional HQ costs 12 connected tiles including its productive building cell, constructs for 15s, then produces workers sequentially at 8s each.
+- Original HQ is free; an additional HQ costs 18 connected tiles including its productive building cell, constructs for 30s, then produces workers sequentially at 8s each.
 
 ## Selection and classic RTS interface
 
@@ -268,3 +268,15 @@ These numbers live in tune.json; they are not final race balance or changes to t
 - Entry prototypes/operation-c/ and hub shortcut remain. Game-specific validation workflow; existing hub Pages publishing. Do not retarget Current WIP itch or unrelated deployments.
 - Verify meaningful deterministic behavior, scoped/full TypeScript/build, Brave desktop/touch flows and inspected screenshots. Report physical-phone/performance limits honestly. Keep small automatic version stamp.
 - Save implementation/results in BUILD_STATUS.md. Owner explicitly approved merging PR #410 on 2026-11-02; it is now merged and published. Future external publication follows the applicable authorization rules.
+
+## Headless balance and correction — accepted pass (2026-11-04)
+
+Owner requested headless testing, then authorized balancing from the findings. Implement: safe worker paths over friendly/neutral land only; neutral gathering destinations within four hexes of the friendly anchor/supporting HQ; additional HQ18 connected support /30s construction. Original three workers,8s replacement and4s capture remain. Forward Gather/Defense anchors deliberately extend collection reach.
+
+Final verification found a harness mistake: temporary radius/routing variants accidentally also changed worker hit durability. The earlier claimed Recon-counter wins at210.9/242.5s and low worker losses are invalid evidence. Corrected actual-rule runs showed the three changes alone still lost to Recon. The temporary harness was corrected, and scripts/balance-operation-c.mjs now loads actual rules directly without source edits or hypothetical unit durability.
+
+The balance pass therefore also tunes Recon Post/Scout Buggy: cost8, construction3.5s, movement550ms/hex, replacement10s. Damage3, attack700ms, HP35, sight3 and one-hit worker kills remain. These are provisional numbers within the owner's balancing request; no stronger Bunker, shared sight or worker durability changes were adopted.
+
+Corrected final actual-rule mirrored scenarios: mixed defeats fast-HQ greed at156.2/217.4s; Bunker/Tank defense defeats Recon spam at258.4/133.9s, after28/13 worker losses, showing recovery rather than immunity. Recon still defeats undefended greed on one side at110.7s; the reverse remains unfinished at300s. These simplified policies do not establish a human win rate, and starting-seat/path differences are material. Reports are in workspace outputs/operation-c-balance-release/verified and verified.log.
+
+A separate memory check found no unbounded simulation growth over12 simulated minutes plus6 discarded bot matches (~25MB retained heap). Browser reset tests warm to~9MB over6 cycles. A retained HQ-label Text cache was found and fixed; GPU/OS memory is not measured by these heap samples.

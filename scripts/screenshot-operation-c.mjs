@@ -40,9 +40,10 @@ for(const profile of [
   const place=async kind=>{
     await press(`card-${kind}`);let t=await targets();
     const visible=(h,t)=>h.valid&&h.x>22&&h.x<t.board.right-22&&h.y>t.board.top+25&&h.y<t.board.bottom-25;
-    let h=t.hexes.find(h=>visible(h,t));
-    if(!h){await press('overview');t=await targets();h=t.hexes.find(h=>visible(h,t));}
-    for(let i=0;i<180&&!h;i++){await advance(1000);t=await targets();h=t.hexes.find(h=>visible(h,t));}
+    const site=t=>{const enemy=t.hexes.find(h=>h.id==='5,0');return t.hexes.filter(h=>visible(h,t)).sort((a,b)=>kind==='hq'||kind==='bunker'?Math.hypot(a.x-enemy.x,a.y-enemy.y)-Math.hypot(b.x-enemy.x,b.y-enemy.y):0)[0];};
+    let h=site(t);
+    if(!h){await press('overview');t=await targets();h=site(t);}
+    for(let i=0;i<180&&!h;i++){await advance(1000);t=await targets();h=site(t);}
     assert(h,`${profile.name}: visible legal ${kind} placement (${t.hexes.filter(h=>h.valid).length} legal map cells)`);await tap(h.x,h.y);await page.waitForTimeout(70);assert.equal((await snap()).selectedBuild?.valid,true);
     await shot(`${kind}-hammer`);await tap(h.x,h.y);await page.waitForTimeout(70);
     const b=(await snap()).buildings.find(b=>b.owner===0&&b.hexId===h.id);assert(b,`${kind} placed`);await inspect(b);assert.equal((await snap()).selectedBuild,null,'occupied selection exits build mode');return b;
@@ -62,7 +63,7 @@ for(const profile of [
   if(profile.touch){const before=(await snap()).loadoutScroll;await page.mouse.move(80,profile.viewport.height*0.55);await page.mouse.down();await page.mouse.move(80,profile.viewport.height*0.7,{steps:8});await page.mouse.up();await page.waitForTimeout(80);assert((await snap()).loadoutScroll<before,'drag scroll');}
   console.log(`CHECK ${profile.name}: construction, commands and progression`);
   await press('start-match');await press('pause');await checkButtons();await shot('start');
-  assert.deepEqual((await snap()).menuOrder,['infantry','scout','tank','artillery','bunker','fighter','silo']);assert.equal((await snap()).resources.capacity,6);assert.equal((await snap()).units.filter(u=>u.owner===0&&u.kind==='worker').length,3);assert((await targets()).buttons.some(b=>b.id==='card-hq'));assert.equal((await targets()).buttons.find(b=>b.id==='card-fighter').disabled,true);await press('card-fighter');assert.equal((await snap()).selectedCard,null);assert.deepEqual((await snap()).commandIndicator,{hqId:'hq0',mode:'defend'});
+  assert.deepEqual((await snap()).menuOrder,['infantry','tank','artillery','scout','bunker','fighter','silo']);assert.equal((await snap()).resources.capacity,6);assert.equal((await snap()).units.filter(u=>u.owner===0&&u.kind==='worker').length,3);assert((await targets()).buttons.some(b=>b.id==='card-hq'));assert.equal((await targets()).buttons.find(b=>b.id==='card-fighter').disabled,true);await press('card-fighter');assert.equal((await snap()).selectedCard,null);assert.deepEqual((await snap()).commandIndicator,{hqId:'hq0',mode:'defend'});
   const worker=(await snap()).units.find(u=>u.owner===0&&u.kind==='worker');await inspect(worker);assert((await snap()).inspectorText.includes('UNARMED'));await advance(1000);assert.equal((await snap()).inspected,worker.id);await shot('worker-inspector');
   const hq=(await snap()).buildings.find(b=>b.owner===0&&b.kind==='hq');await press('card-infantry');await inspect(hq);assert.equal((await snap()).selectedBuild,null);assert((await targets()).buttons.some(b=>b.id==='defend'));
   const cancelled=await place('infantry');await press('cancel-construction');assert(!(await snap()).buildings.some(b=>b.id===cancelled.id));
@@ -73,7 +74,7 @@ for(const profile of [
   await inspect(s.buildings.find(b=>b.id===barracks.id));assert((await snap()).inspectorText.includes('STRUCTURE'));await press('upgrade');assert.equal((await snap()).resources.committed,8);assert(!(await snap()).upgradeIndicators.includes(barracks.id));await shot('upgrade');
   await press('cancel-upgrade');s=await snap();assert.equal(s.resources.committed,6);assert.equal(s.buildings.find(b=>b.id===barracks.id).readyAtMs-s.timeMs,8000);
   await advance(8000);await press('upgrade');await advance(5000);s=await snap();assert.equal(s.buildings.find(b=>b.id===barracks.id).kind,'missile');assert(s.units.some(u=>u.kind==='missile'));await shot('armoury');
-  const expansion=await place('hq');await advance(15000);assert.equal((await snap()).units.filter(u=>u.kind==='worker'&&u.buildingId===expansion.id).length,0);await advance(8000);assert.equal((await snap()).units.filter(u=>u.kind==='worker'&&u.buildingId===expansion.id).length,1);await advance(16000);assert.equal((await snap()).units.filter(u=>u.kind==='worker'&&u.buildingId===expansion.id).length,3);await inspect((await snap()).buildings.find(b=>b.id===expansion.id));assert(!(await targets()).buttons.some(b=>b.id==='sell'));await shot('expansion-workers');s=await snap();
+  const expansion=await place('hq');await advance(30000);assert.equal((await snap()).units.filter(u=>u.kind==='worker'&&u.buildingId===expansion.id).length,0);await advance(8000);assert.equal((await snap()).units.filter(u=>u.kind==='worker'&&u.buildingId===expansion.id).length,1);await advance(16000);assert.equal((await snap()).units.filter(u=>u.kind==='worker'&&u.buildingId===expansion.id).length,3);await inspect((await snap()).buildings.find(b=>b.id===expansion.id));assert(!(await targets()).buttons.some(b=>b.id==='sell'));await shot('expansion-workers');s=await snap();
   for(let i=0;i<180&&s.resources.capacity-s.resources.committed<20;i++){await advance(1000);s=await snap();}
   assert(s.resources.capacity-s.resources.committed>=20);await press('research');assert.equal((await snap()).players[0].research.hqId,expansion.id);assert.equal((await snap()).hexes.filter(h=>h.commitment==='research').length,20);await shot('research');
   await press('research');assert.equal((await snap()).players[0].research,null);await press('research');await advance(30000);assert.equal((await snap()).players[0].techTier,2);assert.equal((await targets()).buttons.find(b=>b.id==='card-fighter').disabled,false);await press('research');await advance(60000);assert.equal((await snap()).players[0].techTier,3);

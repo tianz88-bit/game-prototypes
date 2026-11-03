@@ -13,7 +13,7 @@ export const distance = (a: Pick<Hex, 'q' | 'r'>, b: Pick<Hex, 'q' | 'r'>): numb
 
 /** Private persistence format; never accept a checkpoint from a game client. */
 export interface OperationCheckpoint {
-  version: 5; tune: Tune; loadouts: CardKind[][]; hexes: Hex[]; buildings: Building[]; units: Unit[];
+  version: 6; tune: Tune; loadouts: CardKind[][]; hexes: Hex[]; buildings: Building[]; units: Unit[];
   shots: Shot[]; reinforcements: Reinforcement[]; retirements: Retirement[]; pendingReleases: PendingRelease[]; players: Player[];
   timeMs: number; winner: number | null; accumulatorMs: number; serial: number; shotSerial: number;
   reinforcementSerial: number; retirementSerial: number; strandedDebt: [number, number][];
@@ -64,6 +64,7 @@ export class OperationSim {
     if (this.tune.movement && (!Number.isFinite(this.tune.movement.friendlySpeedMultiplier) || this.tune.movement.friendlySpeedMultiplier <= 0)) throw new Error('friendlySpeedMultiplier must be finite and positive');
     for (const card of Object.values(this.tune.cards)) if (!['light', 'armoured', 'structure'].includes(card.damageClass)) throw new Error('Damage-class rules require current tuning; reload the current game version');
     for (const card of Object.values(this.tune.cards)) if (!Number.isFinite(card.sightRange) || card.sightRange < 0) throw new Error('Individual sight rules require current tuning; reload the current game version');
+    if (!Number.isInteger(this.tune.hq.workerGatherRadius) || this.tune.hq.workerGatherRadius < 1) throw new Error('Worker gathering requires current tuning; reload the current game version');
     this.loadouts = this.players.map((p, i) => {
       const cards = options.loadouts?.[i] ?? [...DEFAULT_LOADOUT];
       if (!Array.isArray(cards) || cards.length > 7 || new Set(cards).size !== cards.length ||
@@ -103,7 +104,7 @@ export class OperationSim {
   }
 
   checkpoint(): OperationCheckpoint {
-    return structuredClone({ version: 5, tune: this.tune, loadouts: this.loadouts,
+    return structuredClone({ version: 6, tune: this.tune, loadouts: this.loadouts,
       hexes: this.hexes, buildings: this.buildings, units: this.units, shots: this.shots,
       reinforcements: this.reinforcements, retirements: this.retirements, pendingReleases: this.pendingReleases, players: this.players,
       timeMs: this.timeMs, winner: this.winner, accumulatorMs: this.accumulatorMs, serial: this.serial,
@@ -113,7 +114,7 @@ export class OperationSim {
   }
 
   static restore(checkpoint: OperationCheckpoint): OperationSim {
-    if (checkpoint.version !== 5) throw new Error('Unsupported Operation C checkpoint');
+    if (checkpoint.version !== 6) throw new Error('Unsupported Operation C checkpoint');
     const data = structuredClone(checkpoint);
     const sim = new OperationSim({ tune: data.tune, loadouts: data.loadouts, bot: data.botEnabled });
     const replace = <T>(target: T[], source: T[]) => { target.splice(0, target.length, ...source); };
@@ -686,7 +687,6 @@ export class OperationSim {
   }
 
   private workerMove(u: Unit, blocked: Set<string>): string | undefined {
-    const player = this.players.find(p => p.id === u.owner)!;
     const here = this.byHex.get(u.hexId)!;
     const queue = [here.id], first = new Map<string, string>(), seen = new Set(queue);
     let expansion: string | undefined;
@@ -694,7 +694,7 @@ export class OperationSim {
     let expansionRank = [Infinity, Infinity];
     for (let i = 0; i < queue.length; i++) {
       const id = queue[i], h = this.byHex.get(id)!;
-      if (i > 0 && h.owner === null && !h.burnt) {
+      if (i > 0 && h.owner === null && !h.burnt && distance(h, homeHex) <= this.tune.hq.workerGatherRadius) {
         const rank = [distance(h, homeHex), i];
         if (rank[0] < expansionRank[0] || rank[0] === expansionRank[0] && rank[1] < expansionRank[1]) {
           expansion = first.get(id); expansionRank = rank;
@@ -702,7 +702,7 @@ export class OperationSim {
       }
       const neighbors = this.neighbors(id);
       for (const n of neighbors) {
-        if (seen.has(n.id) || blocked.has(n.id)) continue;
+        if (seen.has(n.id) || blocked.has(n.id) || n.owner !== null && n.owner !== u.owner) continue;
         seen.add(n.id); first.set(n.id, first.get(id) ?? n.id); queue.push(n.id);
       }
     }

@@ -67,7 +67,7 @@ export interface Tune {
   stepMs: number; map: { radius: number; hqQ: number; hqR: number };
   /** Optional for custom tuning; omission retains base-speed movement. */
   movement?: { friendlySpeedMultiplier: number };
-  resources: { capacityCap: number; destroyReleaseMs: number }; hq: { hp: number; captureRings: number; defenseRange: number; defenseDamage: number; defenseAttackMs: number; cost: number; buildMs: number; workerLimit: number; workerProductionMs: number };
+  resources: { capacityCap: number; destroyReleaseMs: number }; hq: { hp: number; captureRings: number; defenseRange: number; defenseDamage: number; defenseAttackMs: number; cost: number; buildMs: number; workerLimit: number; workerProductionMs: number; workerGatherRadius: number };
   nuclear: { flightMs: number; radius: number; centreDamage: number; outerDamage: number };
   capture: { neutralMs: number; ownedMultiplier: number; hqRate: number; rollbackRate: number };
   presentation: { captureFlipMs: number; captureLift: number; shotTraceMs: number; retreatMs: number; maxShotEvents: number; commandPulseMs: number; upgradeBobMs: number; upgradeBobLift: number; mushroomMs: number };

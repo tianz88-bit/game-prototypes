@@ -173,6 +173,7 @@ class Battlefield extends Phaser.Scene {
           selectedBuild: this.selected && this.chosenHex ? { hexId: this.chosenHex, valid: this.sim.placement(this.localPlayerId, this.chosenHex, this.selected).ok } : null,
           shots: this.sim.shots, nuclearAim:this.nuclearAim, nuclearImpacts:this.sim.nuclearImpacts,
           inspectorText:['inspectType','inspectUnit'].map(id=>this.texts.get(id)).filter(text=>text?.visible).map(text=>text!.text).join('\n'),
+          renderCache:{hqLabels:[...this.texts.keys()].filter(id=>id.startsWith('hq-level-'))},
           presentation: { durationMs: this.sim.tune.presentation.captureFlipMs, reducedMotion: this.reducedMotion,
             shotTraceMs: this.sim.tune.presentation.shotTraceMs,
             traces: this.traces.map(t => ({ ...t, progress: Phaser.Math.Clamp((this.captureNow() - t.born) / this.sim.tune.presentation.shotTraceMs, 0, 1) })),
@@ -236,6 +237,7 @@ class Battlefield extends Phaser.Scene {
     baseDefense.addBinding(values.hq,'buildMs',{min:1000,max:60000,step:1000});
     baseDefense.addBinding(values.hq,'workerLimit',{min:1,max:6,step:1});
     baseDefense.addBinding(values.hq,'workerProductionMs',{min:1000,max:30000,step:1000});
+    baseDefense.addBinding(values.hq,'workerGatherRadius',{min:1,max:9,step:1});
     baseDefense.addBinding(values.hq,'defenseRange',{min:1,max:4,step:1});
     baseDefense.addBinding(values.hq,'defenseDamage',{min:1,max:30,step:1});
     baseDefense.addBinding(values.hq,'defenseAttackMs',{min:200,max:4000,step:100});
@@ -540,7 +542,11 @@ class Battlefield extends Phaser.Scene {
   private drawHud() {
     this.hud.clear();this.cardArt.clear();this.buttons=[];
     this.catalogLayer.setVisible(this.page==='loadout');
-    for(const text of this.texts.values())text.setVisible(false);
+    const hqLabels=new Set(this.sim.buildings.filter(b=>b.kind==='hq').map(b=>`hq-level-${b.id}`));
+    for(const [id,text] of this.texts){
+      if(id.startsWith('hq-level-')&&!hqLabels.has(id)){text.destroy();this.texts.delete(id);}
+      else text.setVisible(false);
+    }
     if(this.page==='loadout'){this.drawLoadout();return;}
     const narrow=this.w<600,compact=this.h<520,pad=10,p=this.sim.players[this.localPlayerId],r=this.sim.resources(this.localPlayerId),bottomY=this.h-this.bottom;
     if(this.online&&(!this.online.connected||performance.now()<this.toastUntil)){
@@ -631,7 +637,7 @@ class Battlefield extends Phaser.Scene {
     if(e.kind==='hq'){
       const own=e.owner===this.localPlayerId;
       const constructing=(e.completeAtMs??0)>this.sim.timeMs,workers=this.sim.units.filter(u=>u.kind==='worker'&&u.buildingId===e.id).length,research=this.sim.players[e.owner].research;
-      const nextWorker=(e.workerReadyAtMs??0)>this.sim.timeMs?`Next worker ${Math.ceil((e.workerReadyAtMs!-this.sim.timeMs)/1000)}s`:'Workers capture neutral land.';
+      const nextWorker=(e.workerReadyAtMs??0)>this.sim.timeMs?`Next worker ${Math.ceil((e.workerReadyAtMs!-this.sim.timeMs)/1000)}s`:`Gather radius ${this.sim.tune.hq.workerGatherRadius} · use forward anchors.`;
       if(compact){
         this.label('inspectType',`${own?'YOUR':'RIVAL'} HQ T${e.hqLevel??1} · ${workers}/${this.sim.tune.hq.workerLimit} WORKERS`,x,y+17,8,MUTED).setWordWrapWidth(w);
         this.label('inspectHealth',`HP ${Math.max(0,Math.ceil(e.hp))}/${e.maxHp}${constructing?` · BUILD ${Math.ceil((e.completeAtMs!-this.sim.timeMs)/1000)}s`:(e.workerReadyAtMs??0)>this.sim.timeMs?` · WORKER ${Math.ceil((e.workerReadyAtMs!-this.sim.timeMs)/1000)}s`:''}`,x,y+30,9,MUTED);
