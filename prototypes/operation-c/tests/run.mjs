@@ -353,6 +353,9 @@ test('artillery has a two-to-three-hex firing band and never retreats solely fro
 
 test('artillery retreats only after actual damage; a frontline screen prevents that trigger', () => {
   const exposed = fixture(); const gun = unit(exposed, '0,0', 0, 'artillery', 38);
+  // Finish a movement segment on the damage step so normal homeward defense
+  // movement cannot carry the now non-capturing gun away from this fixture.
+  gun.movingUntilMs = 200;
   const threat = unit(exposed, '1,0', 1); threat.nextAttackAtMs = 100000;
   advance(exposed, 100); assert.equal(gun.hexId, '0,0'); assert.equal(gun.retreatUntilMs, undefined);
   threat.nextAttackAtMs = exposed.timeMs; advance(exposed, 100);
@@ -732,7 +735,7 @@ test('infantry, missile and gunner capture before retaliating, including when da
 });
 
 test('other ground captures only while expanding with no hostile unit anywhere on owned territory, including aircraft', () => {
-  for (const kind of ['tank', 'artillery', 'scout', 'walker', 'destroyer', 'siege', 'mlrs']) {
+  for (const kind of ['tank', 'scout', 'walker']) {
     const s = milestone(); ownAll(s); const site = '-2,2'; h(s, site).owner = null;
     const ground = unit(s, site, 0, kind), intruder = unit(s, '-1,2', 1, 'helicopter'); intruder.movingUntilMs = 100000;
     advance(s, 100); assert.equal(h(s, site).capture, 0, `${kind} cannot expand while owned land has an air intruder`);
@@ -1117,6 +1120,74 @@ test('stronger bunker still takes ordinary damage and is destructible by sustain
   assert.equal(b.hp, 280); advance(s, 100); assert.equal(b.hp, 257); assert.equal(attacker.hp, 992);
   advance(s, 14300); assert.equal(b.hp, 4); assert(s.buildings.includes(b));
   advance(s, 1300); assert(!s.buildings.includes(b)); assert(h(s, b.hexId).burnt); assert(s.units.includes(attacker));
+});
+
+test('capture roles retain infantry priority and produce the approved relative neutral and enemy capture times', () => {
+  const rates = { infantry: 1, missile: 1, gunner: 1, tank: 0.25, walker: 0.25, scout: 0.2 };
+  for (const [kind, rate] of Object.entries(rates)) for (const owner of [null, 1]) {
+    const s = milestone(); ownAll(s); const site = h(s, '0,3'); site.owner = owner;
+    const capturer = unit(s, site.id, 0, kind), card = s.tune.cards[kind];
+    assert.equal(card.captureRate, rate);
+    assert.equal(!!card.capturePriority, ['infantry', 'missile', 'gunner'].includes(kind));
+    const duration = s.tune.capture.neutralMs * (owner === null ? 1 : s.tune.capture.ownedMultiplier) / rate;
+    advance(s, 1000);
+    assert(Math.abs(site.capture - 1000 / duration) < 1e-10, `${kind} progresses at its actual configured rate`);
+    assert.equal(capturer.hexId, site.id, 'capturer holds until ownership flips');
+    advance(s, duration - 1100); assert.equal(site.owner, owner, `${kind} cannot finish a step early`);
+    // Allow one fixed-step tolerance for accumulated floating-point fractions.
+    advance(s, 200); assert.equal(site.owner, 0, `${kind} completes within one step of ${duration}ms`);
+  }
+});
+
+test('tank, walker and recon fight before expanding, then resume capture when combat ends', () => {
+  for (const kind of ['tank', 'walker', 'scout']) {
+    const s = milestone(t => { t.hq.defenseDamage = 0; }); const site = h(s, '0,0'); site.owner = null;
+    const capturer = unit(s, site.id, 0, kind), enemy = unit(s, '1,0', 1, 'tank'); enemy.movingUntilMs = 100000;
+    advance(s, 100);
+    assert(capturer.attacking); assert(s.shots.some(x => x.unitId === capturer.id && x.targetHexId === enemy.hexId));
+    assert.equal(site.capture, 0, `${kind} fires instead of capturing despite Expand orders`);
+    enemy.hp = 0; advance(s, 100);
+    assert(!capturer.attacking); assert.equal(capturer.hexId, site.id);
+    assert(Math.abs(site.capture - 100 * s.tune.cards[kind].captureRate / s.tune.capture.neutralMs) < 1e-10);
+    const progress = site.capture; s.setTarget(0, 1); advance(s, 100);
+    assert.equal(site.capture, progress, `${kind} stops expansion under Attack orders`);
+  }
+});
+
+test('specialists, flak and aircraft cannot capture even while stationary on neutral or enemy land', () => {
+  for (const kind of ['artillery', 'mlrs', 'destroyer', 'siege', 'flak', 'helicopter', 'fighter', 'bomber', 'gunship', 'carrier']) {
+    assert.equal(DEFAULT_TUNE.cards[kind].captureRate, 0);
+    for (const owner of [null, 1]) {
+      const s = milestone(t => { t.hq.defenseDamage = 0; }); const site = h(s, '-4,0'); site.owner = owner;
+      const guard = unit(s, site.id, 0, kind); advance(s, 20000);
+      assert.equal(guard.hexId, site.id, `${kind} holds beside home without seeking neutral expansion`);
+      assert.equal(site.owner, owner); assert.equal(site.capture, 0); assert.equal(site.capturePlayer, null);
+      assert(!s.hexes.some(x => x.captureUnitId === guard.id));
+    }
+  }
+});
+
+test('zero-capture ground specialists still move to defend intruders and attack the selected HQ without gaining land', () => {
+  for (const kind of ['artillery', 'mlrs', 'destroyer', 'siege']) {
+    const defense = milestone(t => { t.hq.defenseDamage = 0; }); ownAll(defense);
+    const guard = unit(defense, '-2,3', 0, kind), intruder = unit(defense, '4,-2', 1, 'tank'); intruder.movingUntilMs = 100000;
+    const initialDistance = distance(h(defense, guard.hexId), h(defense, intruder.hexId));
+    advance(defense, 100);
+    assert(distance(h(defense, guard.hexId), h(defense, intruder.hexId)) < initialDistance, `${kind} pursues a distant intruder`);
+    advance(defense, 12000);
+    assert(defense.shots.some(x => x.unitId === guard.id && x.targetHexId === intruder.hexId), `${kind} reaches firing range while defending`);
+    assertOccupancy(defense);
+
+    const attack = milestone(t => { t.hq.defenseDamage = 0; });
+    const attacker = unit(attack, '-3,3', 0, kind), hq = attack.buildings.find(b => b.kind === 'hq' && b.owner === 1);
+    const ownership = attack.hexes.map(x => x.owner), startDistance = distance(h(attack, attacker.hexId), h(attack, hq.hexId));
+    attack.setTarget(0, 1); advance(attack, 100);
+    assert(distance(h(attack, attacker.hexId), h(attack, hq.hexId)) < startDistance, `${kind} advances on the selected faction`);
+    advance(attack, 20000);
+    assert(attack.shots.some(x => x.unitId === attacker.id && x.targetHexId === hq.hexId), `${kind} reaches a legal HQ firing position`);
+    assert.deepEqual(attack.hexes.map(x => x.owner), ownership, `${kind} gains no territory en route`);
+    assert(!attack.hexes.some(x => x.captureUnitId === attacker.id)); assertOccupancy(attack);
+  }
 });
 
 console.log(`${passed} Operation C simulation behavior tests passed.`);

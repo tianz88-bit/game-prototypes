@@ -37,7 +37,8 @@ The Phaser 3 / strict TypeScript prototype supports two-human private-room 1v1 a
 
 ## Capture and HQ pressure
 
-- Most ground units capture; infantry is most effective. Non-neutral cells take 50% longer than neutral capture duration (1.5x), superseding the older 2x rule. Aircraft do not capture.
+- Approved capture-role split (2026-11-03): Infantry, Missile and Machine-gun squads capture at 100% strength and prioritize capture. Recon captures at 20%; Battle Tanks and Assault Walkers capture at 25%. These vehicles retain combat priority and capture only in Expand mode with no hostile unit on friendly territory. Field Artillery, MLRS, Tank Destroyers and Siege Tanks cannot capture, joining Flak and all aircraft as non-capturing specialists. This supersedes the older most-ground-units rule; all other combat, movement and production values remain unchanged.
+- Non-neutral cells take 50% longer than neutral capture duration (1.5x), superseding the older 2x rule. Neutral capture is provisionally 2.6s at 100% strength, 13s at Recon's 20%, and 10.4s at vehicles' 25%, before simulation-step rounding and HQ pressure. Unit capture rates do not change HQ capture pressure.
 - Capture pauses only while the capturing unit itself attacks. Taking damage without retaliating does not pause it; paused progress is retained.
 - When the responsible capturer dies, incomplete progress slowly reverses toward the unchanged original controller. A replacement capturer can resume progress. Merely attacking or leaving while alive does not trigger casualty rollback.
 - HQ starts with the two surrounding rings (18 cells) captured and applies pressure like invisible infantry, subject to hostile occupation exceptions. Exact full-game exceptions remain open.
