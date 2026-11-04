@@ -84,7 +84,7 @@ function play(a, b, seconds = 300) {
             }
         prevWorkers = current;
         if (i % 300 === 299 || s.winner !== null)
-            samples.push({ t: s.timeMs / 1000, p: s.players.map(p => ({ land: s.resources(p.id).capacity, free: s.resources(p.id).capacity - s.resources(p.id).committed, workers: s.units.filter(u => u.owner === p.id && u.kind === 'worker').length, hqs: s.buildings.filter(x => x.owner === p.id && x.kind === 'hq').length, army: s.units.filter(u => u.owner === p.id && u.kind !== 'worker').length, hp: s.buildings.filter(x => x.owner === p.id && x.kind === 'hq').reduce((n, x) => n + x.hp, 0) })) });
+            samples.push({ t: s.timeMs / 1000, p: s.players.map(p => ({ land: s.resources(p.id).capacity, free: s.resources(p.id).capacity - s.resources(p.id).committed, workers: s.units.filter(u => u.owner === p.id && u.kind === 'worker').length, hqs: s.buildings.filter(x => x.owner === p.id && x.kind === 'hq').length, army: s.units.filter(u => u.owner === p.id && u.kind !== 'worker').length, buildings: s.buildings.filter(b => b.owner === p.id).length, moving: s.units.filter(u => u.owner === p.id && (u.movingUntilMs ?? 0) > s.timeMs).length, incomingMembers: s.reinforcements.filter(r => r.owner === p.id).reduce((n,r)=>n+r.count,0), hp: s.buildings.filter(x => x.owner === p.id && x.kind === 'hq').reduce((n, x) => n + x.hp, 0) })) });
     }
     return { pol, winner: s.winner, time: s.timeMs / 1000, deaths, firstLoss, samples, builds: logs };
 }

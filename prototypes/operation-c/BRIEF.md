@@ -4,6 +4,36 @@ Last reconciled: 2026-11-04, Asia/Singapore. This is the canonical design refere
 
 ## Design versus implementation
 
+### Current coordinated pace experiment — accepted 2026-11-04
+
+This section takes precedence over older numerical passes below. Neutral capture is6s and enemy capture9s for a full-strength infantry squad. Research commits16 open owned tiles; T2/T3 timers remain30/60s. Extra HQ costs16 connected tiles and constructs for30s. All mobile-unit movement durations increase about15%, rounded to10ms; the1.25 friendly-territory speed bonus remains. Worker replacement remains8s and military production/weapon/construction timings stay as before except the approved costs below. Recon cost remains8.
+
+Workers are autonomous economic units bound to their own supporting HQ, or the closest surviving completed HQ when orphaned. Military Defend/Attack commands never redirect workers. Workers only capture neutral land within4 of that HQ and never route through hostile-owned territory. Extra HQs extend economic coverage; friendly army-defend buildings do not. The UI uses DEFEND HERE rather than Gather/Defense to communicate this split.
+
+| Card kind | Committed tiles | Base travel per hex |
+|---|---:|---:|
+| infantry | 5 | 750ms |
+| tank | 7 | 1270ms |
+| artillery | 7 | 1610ms |
+| helicopter | 8 | 630ms |
+| fighter | 8 | 520ms |
+| missile | 7 | 1150ms |
+| bomber | 8 | 920ms |
+| mlrs | 10 | 1720ms |
+| scout | 8 | 630ms |
+| gunner | 6 | 860ms |
+| flak | 5 | 980ms |
+| walker | 10 | 1610ms |
+| destroyer | 8 | 1610ms |
+| gunship | 10 | 750ms |
+| siege | 13 | 1950ms |
+| carrier | 15 | 1380ms |
+| bunker | 7 | — |
+| silo | 20 | — |
+
+The original starting six productive tiles/three workers and squad/capture-strength, combat, nuke privacy, exclusive occupancy and discounted support-release rules remain. This is a coordinated playtest experiment, not final competitive balance.
+
+
 ### Worker and HQ economy — confirmed implementation (2026-11-03)
 
 The owner approved all twelve consolidated defaults on 2026-11-03. These rules supersede military neutral capture, eight selectable cards, HQ capture aura and selling. See BUILD_STATUS.md for publication and verification.

@@ -555,17 +555,17 @@ class Battlefield extends Phaser.Scene {
     }
     const commanded=this.commandHq();
     if(commanded){const point=this.toScreen(this.byHex.get(commanded.hexId)!);const y=point.y+this.radius*this.zoomLevel*0.9;
-      if(point.x>15&&point.x<this.w-15&&y>this.top+9&&y<bottomY-19){const x=Phaser.Math.Clamp(point.x,68,this.w-68);this.hud.fillStyle(commanded.owner===this.localPlayerId?0x146571:0x805117,0.96).fillRoundedRect(x-65,y,130,18,6);this.label('hq-command-badge',commanded.owner===this.localPlayerId?'GATHER + DEFENSE':'ATTACK HERE',x,y+3,10,'#fff7e5',0.5).setFontStyle('bold');}}
+      if(point.x>15&&point.x<this.w-15&&y>this.top+9&&y<bottomY-19){const x=Phaser.Math.Clamp(point.x,68,this.w-68);this.hud.fillStyle(commanded.owner===this.localPlayerId?0x146571:0x805117,0.96).fillRoundedRect(x-65,y,130,18,6);this.label('hq-command-badge',commanded.owner===this.localPlayerId?'DEFENDING HERE':'ATTACK HERE',x,y+3,10,'#fff7e5',0.5).setFontStyle('bold');}}
     for(const hq of this.sim.buildings.filter(b=>b.kind==='hq')){
       const point=this.toScreen(this.byHex.get(hq.hexId)!);
       if(point.y>this.top+12&&point.y<bottomY-12)this.label(`hq-level-${hq.id}`,`T${hq.hqLevel??1}`,point.x,point.y-13*this.zoomLevel,9,'#fff7e5',0.5).setFontStyle('bold');
     }
     const selectedBuilding=!this.inspectedUnit?this.sim.buildings.find(b=>b.id===this.inspected):undefined;
-    if(selectedBuilding){
+    if(selectedBuilding&&!this.nuclearAim){
       const point=this.toScreen(this.byHex.get(selectedBuilding.hexId)!);
       if(point.x>16&&point.x<this.w-16&&point.y>this.top+20&&point.y<bottomY-14){
         const own=selectedBuilding.owner===this.localPlayerId,bw=142,bx=Phaser.Math.Clamp(point.x-bw/2,6,this.w-bw-6),by=Math.max(this.top+3,point.y-this.radius*this.zoomLevel-31);
-        this.button(own?'map-gather-defense':'map-attack-here',own?'GATHER / DEFENSE':'ATTACK HERE',bx,by,bw,26,()=>{if(own)this.defendEntity(selectedBuilding.id);else{this.perform({kind:'attackBuilding',entityId:selectedBuilding.id});this.nuclearAim=null;}},false,false);
+        this.button(own?'map-gather-defense':'map-attack-here',own?'DEFEND HERE':'ATTACK HERE',bx,by,bw,26,()=>{if(own)this.defendEntity(selectedBuilding.id);else{this.perform({kind:'attackBuilding',entityId:selectedBuilding.id});this.nuclearAim=null;}},false,false);
       }
     }
     for(const hex of this.sim.hexes)if(hex.commitment==='release'&&hex.releaseAtMs!==undefined){
@@ -637,14 +637,14 @@ class Battlefield extends Phaser.Scene {
     if(e.kind==='hq'){
       const own=e.owner===this.localPlayerId;
       const constructing=(e.completeAtMs??0)>this.sim.timeMs,workers=this.sim.units.filter(u=>u.kind==='worker'&&u.buildingId===e.id).length,research=this.sim.players[e.owner].research;
-      const nextWorker=(e.workerReadyAtMs??0)>this.sim.timeMs?`Next worker ${Math.ceil((e.workerReadyAtMs!-this.sim.timeMs)/1000)}s`:`Gather radius ${this.sim.tune.hq.workerGatherRadius} · use forward anchors.`;
+      const nextWorker=(e.workerReadyAtMs??0)>this.sim.timeMs?`Next worker ${Math.ceil((e.workerReadyAtMs!-this.sim.timeMs)/1000)}s`:`Workers gather within ${this.sim.tune.hq.workerGatherRadius} of this HQ.`;
       if(compact){
         this.label('inspectType',`${own?'YOUR':'RIVAL'} HQ T${e.hqLevel??1} · ${workers}/${this.sim.tune.hq.workerLimit} WORKERS`,x,y+17,8,MUTED).setWordWrapWidth(w);
         this.label('inspectHealth',`HP ${Math.max(0,Math.ceil(e.hp))}/${e.maxHp}${constructing?` · BUILD ${Math.ceil((e.completeAtMs!-this.sim.timeMs)/1000)}s`:(e.workerReadyAtMs??0)>this.sim.timeMs?` · WORKER ${Math.ceil((e.workerReadyAtMs!-this.sim.timeMs)/1000)}s`:''}`,x,y+30,9,MUTED);
       }else this.label('hqOrder',`HQ T${e.hqLevel??1} · ${workers} / ${this.sim.tune.hq.workerLimit} workers${constructing?`\nConstructing ${Math.ceil((e.completeAtMs!-this.sim.timeMs)/1000)}s`:`\n${nextWorker}`}`,x,y+56,10,MUTED).setWordWrapWidth(w);
       if(!live)return;
       const commandY=y+h-34;
-      this.button(own?'defend':'attack',own?'GATHER / DEFENSE':'ATTACK HERE',x,commandY-33,w,27,()=>{if(own)this.defendEntity(e.id);else this.perform({kind:'attackBuilding',entityId:e.id});},own&&this.sim.players[this.localPlayerId].defendTargetId===e.id);
+      this.button(own?'defend':'attack',own?'DEFEND HERE':'ATTACK HERE',x,commandY-33,w,27,()=>{if(own)this.defendEntity(e.id);else this.perform({kind:'attackBuilding',entityId:e.id});},own&&this.sim.players[this.localPlayerId].defendTargetId===e.id);
       if(!own)return;
       if(constructing)this.button('cancel-construction','CANCEL BUILD',x,commandY,w,28,()=>this.perform({kind:'cancelConstruction',buildingId:e.id}));
       else if(research?.hqId===e.id)this.button('cancel-hq-research','CANCEL HQ RESEARCH',x,commandY,w,28,()=>this.perform({kind:'cancelResearch'}));
@@ -661,7 +661,7 @@ class Battlefield extends Phaser.Scene {
     if(!live)return;
     const commandY=y+h-34,buttonW=(w-5)/2;
     if(e.owner!==this.localPlayerId){this.button('attack-building','ATTACK HERE',x,commandY,w,28,()=>this.perform({kind:'attackBuilding',entityId:e.id}));return;}
-    this.button('defend-building','GATHER / DEFENSE',x,commandY-33,w,27,()=>this.defendEntity(e.id),this.sim.players[this.localPlayerId].defendTargetId===e.id&&this.sim.players[this.localPlayerId].targetId===this.localPlayerId);
+    this.button('defend-building','DEFEND HERE',x,commandY-33,w,27,()=>this.defendEntity(e.id),this.sim.players[this.localPlayerId].defendTargetId===e.id&&this.sim.players[this.localPlayerId].targetId===this.localPlayerId);
     if((e.completeAtMs??0)>this.sim.timeMs){this.button('cancel-construction','CANCEL BUILD',x,commandY,w,28,()=>this.perform({kind:'cancelConstruction',buildingId:e.id}));return;}
     if(c.utility==='silo'){
       const complete=!e.completeAtMs||e.completeAtMs<=this.sim.timeMs,ready=e.nukeReadyAtMs!==undefined&&e.nukeReadyAtMs<=this.sim.timeMs;
