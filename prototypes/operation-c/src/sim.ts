@@ -1,4 +1,5 @@
 import tuneJson from '../tune.json';
+import { generateMap, normalizeMapConfig } from './maps';
 import type { Building, BuildKind, CardKind, CardTune, DamageClass, Hex, NuclearImpact, NukeFlight, PendingRelease, Placement, Player, Reinforcement, Retirement, Shot, Tune, Unit, UnitDomain } from './model';
 export type { Building, BuildKind, CardKind, CardTune, DamageClass, Hex, NuclearImpact, NukeFlight, PendingRelease, Placement, Player, Reinforcement, Retirement, Research, Shot, Tune, Unit, UnitDomain } from './model';
 
@@ -13,7 +14,7 @@ export const distance = (a: Pick<Hex, 'q' | 'r'>, b: Pick<Hex, 'q' | 'r'>): numb
 
 /** Private persistence format; never accept a checkpoint from a game client. */
 export interface OperationCheckpoint {
-  version: 7; tune: Tune; loadouts: CardKind[][]; hexes: Hex[]; buildings: Building[]; units: Unit[];
+  version: 8; tune: Tune; loadouts: CardKind[][]; hexes: Hex[]; buildings: Building[]; units: Unit[];
   shots: Shot[]; reinforcements: Reinforcement[]; retirements: Retirement[]; pendingReleases: PendingRelease[]; players: Player[];
   timeMs: number; winner: number | null; accumulatorMs: number; serial: number; shotSerial: number;
   reinforcementSerial: number; retirementSerial: number; strandedDebt: [number, number][];
@@ -60,6 +61,7 @@ export class OperationSim {
 
   constructor(options: { tune?: Tune; bot?: boolean; loadouts?: CardKind[][] } = {}) {
     this.tune = structuredClone(options.tune ?? DEFAULT_TUNE);
+    this.tune.map = normalizeMapConfig(this.tune.map);
     if (!Number.isFinite(this.tune.stepMs) || this.tune.stepMs <= 0) throw new Error('stepMs must be positive');
     if (this.tune.movement && (!Number.isFinite(this.tune.movement.friendlySpeedMultiplier) || this.tune.movement.friendlySpeedMultiplier <= 0)) throw new Error('friendlySpeedMultiplier must be finite and positive');
     for (const card of Object.values(this.tune.cards)) if (!['light', 'armoured', 'structure'].includes(card.damageClass)) throw new Error('Damage-class rules require current tuning; reload the current game version');
@@ -75,13 +77,7 @@ export class OperationSim {
     });
     this.botEnabled = options.bot ?? true;
     this.nextBotBuildMs = this.tune.bot.heuristic?.initialBuildMs ?? DEFAULT_TUNE.bot.heuristic!.initialBuildMs;
-    const radius = this.tune.map.radius;
-    for (let q = -radius; q <= radius; q++) {
-      for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
-        const h: Hex = { id: hexId(q, r), q, r, owner: null, burnt: false, lockedBy: null, capture: 0, capturePlayer: null };
-        this.hexes.push(h); this.byHex.set(h.id, h);
-      }
-    }
+    for (const h of generateMap(this.tune.map)) { this.hexes.push(h); this.byHex.set(h.id, h); }
     for (const p of this.players) {
       const q = p.id === 0 ? -this.tune.map.hqQ : this.tune.map.hqQ;
       const r = p.id === 0 ? -this.tune.map.hqR : this.tune.map.hqR;
@@ -89,7 +85,7 @@ export class OperationSim {
       if (!h) throw new Error('HQ must be inside the map');
       this.buildings.push({ id: `hq${p.id}`, hexId: h.id, owner: p.id, kind: 'hq', hp: this.tune.hq.hp,
         maxHp: this.tune.hq.hp, readyAtMs: 0, unitId: null, hqLevel: 1, committedCost: 0 });
-      for (const land of this.hexes) if (distance(land, h) <= this.tune.hq.captureRings) land.owner = p.id;
+      for (const land of this.hexes) if (!land.gap && distance(land, h) <= this.tune.hq.captureRings) land.owner = p.id;
       const hq = this.buildings[this.buildings.length - 1];
       for (let i = 0; i < this.tune.hq.workerLimit; i++) this.spawnWorker(hq);
     }
@@ -104,7 +100,7 @@ export class OperationSim {
   }
 
   checkpoint(): OperationCheckpoint {
-    return structuredClone({ version: 7, tune: this.tune, loadouts: this.loadouts,
+    return structuredClone({ version: 8, tune: this.tune, loadouts: this.loadouts,
       hexes: this.hexes, buildings: this.buildings, units: this.units, shots: this.shots,
       reinforcements: this.reinforcements, retirements: this.retirements, pendingReleases: this.pendingReleases, players: this.players,
       timeMs: this.timeMs, winner: this.winner, accumulatorMs: this.accumulatorMs, serial: this.serial,
@@ -114,7 +110,7 @@ export class OperationSim {
   }
 
   static restore(checkpoint: OperationCheckpoint): OperationSim {
-    if (checkpoint.version !== 7) throw new Error('Unsupported Operation C checkpoint');
+    if (checkpoint.version !== 8) throw new Error('Unsupported Operation C checkpoint');
     const data = structuredClone(checkpoint);
     const sim = new OperationSim({ tune: data.tune, loadouts: data.loadouts, bot: data.botEnabled });
     const replace = <T>(target: T[], source: T[]) => { target.splice(0, target.length, ...source); };
@@ -134,7 +130,7 @@ export class OperationSim {
 
   resources(playerId: number): { committed: number; capacity: number; stranded: number } {
     const hqs = new Set(this.buildings.filter(b => b.kind === 'hq' && !b.committedCost).map(b => b.hexId));
-    const capacity = this.hexes.filter(h => h.owner === playerId && !h.burnt && !hqs.has(h.id)).length;
+    const capacity = this.hexes.filter(h => h.owner === playerId && !h.gap && !h.burnt && !hqs.has(h.id)).length;
     const stranded = this.strandedDebt.get(playerId) ?? 0;
     const committed = stranded + this.buildings.reduce((sum, b) => sum + (b.owner === playerId ?
       (b.committedCost ?? (b.kind === 'hq' ? 0 : this.tune.cards[b.kind].cost)) + (b.upgradeCost ?? 0) : 0), 0) +
@@ -157,8 +153,9 @@ export class OperationSim {
     if (this.players.find(p => p.id === playerId)!.techTier < card.tier) return fail(`Requires technology tier ${card.tier}`);
     const h = this.byHex.get(id);
     if (!h) return fail('Outside map');
+    if (h.gap) return fail('Requires land');
     if (this.buildings.some(b => b.hexId === id) || this.units.some(u => u.hexId === id || this.reservedFrom(u) === id)) return fail('Hex occupied');
-    const open = (x: Hex) => x.owner === playerId && !x.burnt && x.lockedBy === null && !this.buildings.some(b => b.hexId === x.id);
+    const open = (x: Hex) => x.owner === playerId && !x.gap && !x.burnt && x.lockedBy === null && !this.buildings.some(b => b.hexId === x.id);
     if (!open(h)) return fail('Requires open owned unburnt territory');
     const { committed, capacity } = this.resources(playerId);
     if (committed + card.cost > capacity) return fail('Insufficient global capacity');
@@ -189,7 +186,7 @@ export class OperationSim {
   }
 
   private openSupports(playerId: number): Hex[] {
-    return this.hexes.filter(h => h.owner === playerId && !h.burnt && h.lockedBy === null && !this.buildings.some(b => b.hexId === h.id));
+    return this.hexes.filter(h => h.owner === playerId && !h.gap && !h.burnt && h.lockedBy === null && !this.buildings.some(b => b.hexId === h.id));
   }
 
   startResearch(playerId: number, hqId?: string): { ok: boolean; reason?: string } {
@@ -506,7 +503,7 @@ export class OperationSim {
       for (const n of this.neighbors(queue[i])) {
         if (seen.has(n.id)) continue;
         seen.add(n.id);
-        if (blocked.has(n.id)) continue;
+        if (n.gap || blocked.has(n.id)) continue;
         queue.push(n.id); destination = n.id; break;
       }
     }
@@ -519,7 +516,9 @@ export class OperationSim {
   }
 
   private spawnWorker(b: Building): boolean {
-    const blocked = this.occupied(), destination = this.neighbors(b.hexId).find(h => !blocked.has(h.id));
+    const blocked = this.occupied(), centre = this.byHex.get(b.hexId)!, sign = b.owner === 1 ? -1 : 1;
+    const neighbors = DIRECTIONS.map(([q, r]) => this.byHex.get(hexId(centre.q + q * sign, centre.r + r * sign)));
+    const destination = neighbors.find(h => h && !h.gap && !blocked.has(h.id));
     if (!destination) return false;
     const card = this.tune.cards.worker;
     this.units.push({ id: `u${++this.serial}`, owner: b.owner, kind: 'worker', hexId: destination.id,
@@ -621,7 +620,7 @@ export class OperationSim {
       // Sample the source once and latch arrival; later ownership/tune changes
       // cannot accelerate or slow an already-reserved movement segment.
       const speed = this.byHex.get(from)!.owner === u.owner ? this.tune.movement?.friendlySpeedMultiplier ?? 1 : 1;
-      u.movingUntilMs = this.timeMs + this.tune.cards[u.kind].moveMs / speed;
+      u.movingUntilMs = this.timeMs + this.tune.cards[u.kind].moveMs * distance(this.byHex.get(from)!, this.byHex.get(next)!) / speed;
     }
   }
 
@@ -670,7 +669,7 @@ export class OperationSim {
   private retreatMove(u: Unit, blocked: Set<string>): string | undefined {
     const threat = this.byHex.get(u.retreatFromHexId ?? ''), here = this.byHex.get(u.hexId)!;
     if (!threat) return;
-    return this.neighbors(u.hexId).filter(h => !blocked.has(h.id) && distance(h, threat) > distance(here, threat))
+    return this.movementEdges(u, u.hexId, blocked).map(e => this.byHex.get(e.id)!).filter(h => distance(h, threat) > distance(here, threat))
       .sort((a, b) => distance(b, threat) - distance(a, threat))[0]?.id;
   }
 
@@ -679,7 +678,7 @@ export class OperationSim {
     const local = this.visibleTargets(u)[0];
     if (local) {
       const card = this.tune.cards[u.kind], target = this.byHex.get(local.hexId)!;
-      const goals = new Set(this.hexes.filter(h => !blocked.has(h.id) &&
+      const goals = new Set(this.hexes.filter(h => !h.gap && !blocked.has(h.id) &&
         distance(h, target) >= card.minRange && distance(h, target) <= card.range).map(h => h.id));
       return this.pathToGoals(u, blocked, goals);
     }
@@ -694,7 +693,7 @@ export class OperationSim {
     let expansionRank = [Infinity, Infinity];
     for (let i = 0; i < queue.length; i++) {
       const id = queue[i], h = this.byHex.get(id)!;
-      if (i > 0 && h.owner === null && !h.burnt && distance(h, homeHex) <= this.tune.hq.workerGatherRadius) {
+      if (i > 0 && !h.gap && h.owner === null && !h.burnt && distance(h, homeHex) <= this.tune.hq.workerGatherRadius) {
         const rank = [distance(h, homeHex), i];
         if (rank[0] < expansionRank[0] || rank[0] === expansionRank[0] && rank[1] < expansionRank[1]) {
           expansion = first.get(id); expansionRank = rank;
@@ -702,7 +701,7 @@ export class OperationSim {
       }
       const neighbors = this.neighbors(id);
       for (const n of neighbors) {
-        if (seen.has(n.id) || blocked.has(n.id) || n.owner !== null && n.owner !== u.owner) continue;
+        if (n.gap || seen.has(n.id) || blocked.has(n.id) || n.owner !== null && n.owner !== u.owner) continue;
         seen.add(n.id); first.set(n.id, first.get(id) ?? n.id); queue.push(n.id);
       }
     }
@@ -711,7 +710,7 @@ export class OperationSim {
 
   private shouldCapture(u: Unit): boolean {
     const card = this.tune.cards[u.kind], h = this.byHex.get(u.hexId)!;
-    if (card.domain !== 'ground' || card.captureRate <= 0 || h.owner === u.owner || h.burnt) return false;
+    if (card.domain !== 'ground' || card.captureRate <= 0 || h.owner === u.owner || h.gap || h.burnt) return false;
     if (u.kind === 'worker') {
       const home = this.homeHex(u.owner, u);
       return h.owner === null && !!home && distance(h, home) <= this.tune.hq.workerGatherRadius;
@@ -720,12 +719,42 @@ export class OperationSim {
   }
 
   private pathToGoals(u: Unit, blocked: Set<string>, goals: Set<string>): string | undefined {
+    if (this.tune.cards[u.kind].domain === 'air') return this.airPathToGoals(u, blocked, goals);
     const queue = [u.hexId], seen = new Set(queue), first = new Map<string, string>();
     for (let i = 0; i < queue.length; i++) {
       const id = queue[i]; if (i > 0 && goals.has(id)) return first.get(id);
       for (const n of this.neighbors(id)) {
-        if (seen.has(n.id) || blocked.has(n.id)) continue;
+        if (n.gap || seen.has(n.id) || blocked.has(n.id)) continue;
         seen.add(n.id); first.set(n.id, first.get(id) ?? n.id); queue.push(n.id);
+      }
+    }
+  }
+
+  private movementEdges(u: Unit, fromId: string, blocked: Set<string>): { id: string; cost: number }[] {
+    const from = this.byHex.get(fromId)!, air = this.tune.cards[u.kind].domain === 'air';
+    const edges: { id: string; cost: number }[] = [];
+    for (const [dq, dr] of DIRECTIONS) {
+      let cost = 1, next = this.byHex.get(hexId(from.q + dq, from.r + dr));
+      while (air && next?.gap && !blocked.has(next.id)) {
+        cost++; next = this.byHex.get(hexId(from.q + dq * cost, from.r + dr * cost));
+      }
+      if (next && !next.gap && !blocked.has(next.id)) edges.push({ id: next.id, cost });
+    }
+    return edges;
+  }
+
+  /** Distance-weighted flight planning prevents a long water crossing from
+   * counting as one cheap step. Equal costs retain deterministic direction order. */
+  private airPathToGoals(u: Unit, blocked: Set<string>, goals: Set<string>): string | undefined {
+    const frontier = [{ id: u.hexId, cost: 0 }], best = new Map([[u.hexId, 0]]), first = new Map<string, string>();
+    while (frontier.length) {
+      frontier.sort((a, b) => a.cost - b.cost); const current = frontier.shift()!;
+      if (current.cost !== best.get(current.id)) continue;
+      if (current.id !== u.hexId && goals.has(current.id)) return first.get(current.id);
+      for (const edge of this.movementEdges(u, current.id, blocked)) {
+        const cost = current.cost + edge.cost;
+        if (cost >= (best.get(edge.id) ?? Infinity)) continue;
+        best.set(edge.id, cost); first.set(edge.id, first.get(current.id) ?? edge.id); frontier.push({ id: edge.id, cost });
       }
     }
   }
@@ -743,7 +772,7 @@ export class OperationSim {
     const holdRange = defense ? 1 : card.range;
     const minRange = defense || !card.targets.includes('ground') ? 1 : card.minRange;
     if (distance(here, centre) >= minRange && distance(here, centre) <= holdRange) return;
-    for (const h of this.hexes) if (!blocked.has(h.id) && distance(h, centre) >= minRange && distance(h, centre) <= holdRange) goals.add(h.id);
+    for (const h of this.hexes) if (!h.gap && !blocked.has(h.id) && distance(h, centre) >= minRange && distance(h, centre) <= holdRange) goals.add(h.id);
     return this.pathToGoals(u, blocked, goals);
   }
 

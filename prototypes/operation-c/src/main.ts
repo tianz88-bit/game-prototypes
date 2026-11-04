@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import type { Pane } from 'tweakpane';
 import { OperationSim, DEFAULT_TUNE, BASE_CARDS, DEFAULT_LOADOUT } from './sim';
-import type { Building, Unit, CardKind, BuildKind, Hex, Tune, DamageClass } from './model';
+import type { Building, Unit, CardKind, BuildKind, Hex, Tune, DamageClass, MapShape } from './model';
+import { MAP_SHAPES, generateMap } from './maps';
 import { drawHex, drawBuilding, drawUnit, drawExplosion, drawCaptureFlip, drawBuildConfirmation, drawBulletTrace, drawCommitmentMarker, drawReleaseCountdown, drawRetreat, drawHqCommand, drawUpgradeReady, drawNuclearImpact, playerColor, hexPoints } from './art';
 import { Intents } from './input';
 import { VERSION_STAMP } from './version.generated';
@@ -16,6 +17,11 @@ const STARTER = [...DEFAULT_LOADOUT];
 const INK = '#203d46', MUTED = '#60767a', CREAM = 0xfff7e5;
 const CLASS_NAMES:Record<DamageClass,string>={light:'LIGHT',armoured:'ARMOURED',structure:'STRUCTURE'};
 const DPR = Math.min(window.devicePixelRatio || 1, 2);
+const MAP_NAMES:Record<MapShape,string>={open:'Open',narrows:'Narrows',forks:'Forks',ring:'Ring'};
+function initialMapConfig():Tune['map']{
+  const params=new URLSearchParams(location.search),shape=params.get('map') as MapShape,seed=Number(params.get('seed')??1);
+  return {...DEFAULT_TUNE.map,shape:MAP_SHAPES.includes(shape)?shape:'open',seed:Number.isInteger(seed)&&seed>=0&&seed<=4294967295?seed:1};
+}
 type Button = { id: string; x: number; y: number; w: number; h: number; run: () => void; disabled?: boolean };
 type QA = { snapshot: () => unknown; targets: () => unknown; advance: (ms: number) => void; captureClock: (ms: number | null) => void };
 declare global { interface Window { __operationC?: QA } }
@@ -34,7 +40,9 @@ class Battlefield extends Phaser.Scene {
   sim = new OperationSim();
   private w = 0; private h = 0; private top = 0; private bottom = 0;
   private boardW = 0; private sideW = 0;
-  private page: 'loadout' | 'battle' = 'loadout';
+  private page: 'loadout' | 'battle' | 'map' = 'loadout';
+  private offlineMap=initialMapConfig();private mapPending=false;private pendingHostMap:Tune['map']|null=null;
+  private previewKey='';private previewHexes:Hex[]=[];
   private loadout = new Set<CardKind>(STARTER);
   private previewUpgrade = new Set<CardKind>();
   private flips = new Map<CardKind, { born: number; toUpgrade: boolean }>();
@@ -84,6 +92,18 @@ class Battlefield extends Phaser.Scene {
   private online:OnlineConnection|null=null;private networkEntered=false;private onlineNotice='';private toast='';private toastUntil=0;private readyPending=false;
   private nuclearAim:{buildingId:string;hexId:string|null}|null=null;
   private get localPlayerId(){return this.online?.seat??0;}
+  private get mapConfig(){const config=this.online?.lobby?.map??this.offlineMap;return {...config,shape:config.shape??'open',seed:config.seed??1};}
+  private get mapEditable(){return !this.mapPending&&!this.readyPending&&(!this.online||(this.online.connected&&this.online.seat===0&&this.online.lobby?.phase==='lobby'));}
+  private changeMap(shape:MapShape,seed:number){
+    if(!this.mapEditable)return;seed=((seed%4294967296)+4294967296)%4294967296;
+    if(this.online){this.mapPending=true;void this.online.setMap(shape,seed).then(result=>{if(!result.ok)this.onlineNotice=result.reason??'Map change refused.';}).finally(()=>{this.mapPending=false;});}
+    else {this.offlineMap={...this.offlineMap,shape,seed};const url=new URL(location.href);url.searchParams.set('map',shape);url.searchParams.set('seed',String(seed));history.replaceState(null,'',url);}
+  }
+  private copyMapLink(){
+    const url=new URL(location.href);for(const key of ['room','join','test','bot','debug'])url.searchParams.delete(key);
+    url.searchParams.set('map',this.mapConfig.shape);url.searchParams.set('seed',String(this.mapConfig.seed));
+    void navigator.clipboard.writeText(url.href).then(()=>{this.onlineNotice='Map link copied.';}).catch(()=>{this.onlineNotice=`${MAP_NAMES[this.mapConfig.shape]} · seed ${this.mapConfig.seed}`;});
+  }
 
   private perform(command:OnlineCommand):{ok:boolean;reason?:string}{
     this.upgradeCheckAt=-1;
@@ -111,6 +131,7 @@ class Battlefield extends Phaser.Scene {
     const endpoint=params.get('server')||configured||(local?`${location.protocol}//${location.hostname}:8789`:ONLINE_SERVER_URL);
     if(!endpoint){this.onlineNotice='Online play is not available on this build yet.';return;}
     this.online?.close();this.networkEntered=false;this.onlineNotice='';
+    this.pendingHostMap=create?{...this.mapConfig}:null;
     const invite=!create&&params.get('join')!=='0';
     const url=new URL(location.href);url.searchParams.set('room',roomCode);url.searchParams.set('join',invite?'1':'0');history.replaceState(null,'',url);
     this.online=new OnlineConnection(endpoint,roomCode,create,invite,()=>this.onlineChanged());
@@ -118,6 +139,10 @@ class Battlefield extends Phaser.Scene {
   private onlineChanged(){
     const online=this.online;if(!online)return;
     this.sim=online.sim;this.paused=false;this.upgradeCheckAt=-1;
+    if(this.pendingHostMap&&online.connected&&online.seat===0&&online.lobby?.phase==='lobby'){
+      const config=this.pendingHostMap;this.pendingHostMap=null;
+      if(config.shape!==online.lobby.map.shape||config.seed!==online.lobby.map.seed)this.changeMap(config.shape??'open',config.seed??1);
+    }
     if(online.state&&(online.lobby?.phase==='playing'||online.lobby?.phase==='ended')){
       if(!this.networkEntered){this.loadout=new Set(online.state.loadouts[this.localPlayerId]);this.networkEntered=true;this.page='battle';this.indexHexes();this.terrainSignature='';this.selected=null;this.chosenHex=null;this.inspected=null;this.inspectedSnapshot=null;this.seenUnits.clear();this.seenBuildings.clear();this.spawns.clear();this.effects=[];this.facingX.clear();this.traces=[];this.lastShotId=0;this.retiredSeen=0;this.retreats=[];this.home();}
     }
@@ -128,7 +153,7 @@ class Battlefield extends Phaser.Scene {
   }
   private inviteLink(){const url=new URL(location.href);url.searchParams.set('room',this.online?.roomCode??'');url.searchParams.set('join','1');for(const key of ['test','bot','debug'])url.searchParams.delete(key);return url.href;}
   private copyInvite(){void navigator.clipboard.writeText(this.inviteLink()).then(()=>{this.onlineNotice='Invite link copied. Send it to your opponent.';this.message=this.onlineNotice;this.toast=this.message;this.toastUntil=performance.now()+4000;}).catch(()=>{this.onlineNotice=`Share room ${this.online?.roomCode} using this page’s address, with join=1.`;});}
-  private leaveOnline(){this.online?.close();this.online=null;this.networkEntered=false;const url=new URL(location.href);url.searchParams.delete('room');url.searchParams.delete('join');history.replaceState(null,'',url);this.restart();this.page='loadout';}
+  private leaveOnline(){this.offlineMap={...this.mapConfig};this.online?.close();this.online=null;this.networkEntered=false;const url=new URL(location.href);url.searchParams.delete('room');url.searchParams.delete('join');url.searchParams.set('map',this.offlineMap.shape??'open');url.searchParams.set('seed',String(this.offlineMap.seed??1));history.replaceState(null,'',url);this.restart();this.page='loadout';}
 
   private orderedCards(cards:Iterable<CardKind>) {
     return [...cards].sort((a,b)=>this.sim.tune.cards[a].tier-this.sim.tune.cards[b].tier||this.sim.tune.cards[a].cost-this.sim.tune.cards[b].cost||CARDS.indexOf(a)-CARDS.indexOf(b));
@@ -168,7 +193,7 @@ class Battlefield extends Phaser.Scene {
     if (new URLSearchParams(location.search).get('test') === '1') {
       window.__operationC = {
         snapshot: () => ({ page: this.page, online: this.online?{roomCode:this.online.roomCode,seat:this.online.seat,connected:this.online.connected,status:this.online.status,lobby:this.online.lobby,revision:this.online.state?.revision,inviteLink:this.inviteLink()}:null, paused: this.paused, loadout: [...this.loadout], unitPortraits: this.unitPortraits, selectedCard: this.selected, menuOrder: this.orderedCards(this.loadout), commandIndicator: { hqId: this.commandHq()?.id, mode: this.sim.players[this.localPlayerId].targetId===this.localPlayerId?'defend':'attack' }, upgradeIndicators: [...this.upgradeReady], previewUpgrades: [...this.previewUpgrade], loadoutScroll: this.loadoutScroll, loadoutMaxScroll: this.loadoutMaxScroll, inspected: this.inspected, inspectorKind: this.inspectedSnapshot?.kind, panel: this.panel, players: this.sim.players, reinforcements: this.sim.reinforcements, timeMs: this.sim.timeMs, buildings: this.sim.buildings, units: this.sim.units,
-          hexes: this.sim.hexes, resources: this.sim.resources(this.localPlayerId), winner: this.sim.winner, target: this.sim.players[this.localPlayerId].targetId,
+          hexes: this.sim.hexes, mapConfig:this.page==='battle'?this.sim.tune.map:this.mapConfig, previewHexes:this.page==='map'?this.previewHexes:[], resources: this.sim.resources(this.localPlayerId), winner: this.sim.winner, target: this.sim.players[this.localPlayerId].targetId,
           objects: this.children.length, textures: this.textures.getTextureKeys().length,
           selectedBuild: this.selected && this.chosenHex ? { hexId: this.chosenHex, valid: this.sim.placement(this.localPlayerId, this.chosenHex, this.selected).ok } : null,
           shots: this.sim.shots, nuclearAim:this.nuclearAim, nuclearImpacts:this.sim.nuclearImpacts,
@@ -271,7 +296,8 @@ class Battlefield extends Phaser.Scene {
   private restart(tune?: Tune) {
     if(this.online)return;
     this.upgradeCheckAt=-1;this.nuclearAim=null;
-    this.sim = new OperationSim({ tune, bot: !(new URLSearchParams(location.search).get('test') === '1' && new URLSearchParams(location.search).get('bot') === '0'), loadouts: [[...this.loadout], STARTER] }); this.page = 'battle'; this.indexHexes(); this.terrainSignature = '';
+    const configured=structuredClone(tune??DEFAULT_TUNE);configured.map={...configured.map,shape:this.offlineMap.shape,seed:this.offlineMap.seed};
+    this.sim = new OperationSim({ tune:configured, bot: !(new URLSearchParams(location.search).get('test') === '1' && new URLSearchParams(location.search).get('bot') === '0'), loadouts: [[...this.loadout], STARTER] }); this.page = 'battle'; this.indexHexes(); this.terrainSignature = '';
     this.seenUnits.clear(); this.seenBuildings.clear(); this.spawns.clear(); this.effects = [];
     this.facingX.clear(); this.traces = []; this.lastShotId = 0; this.retiredSeen = 0; this.retreats = []; this.inspectedSnapshot = null; this.panel = 'build';
     this.selected = null; this.chosenHex = null; this.inspected = null; this.paused = false;
@@ -385,12 +411,12 @@ class Battlefield extends Phaser.Scene {
       const h = this.byHex.get(id)!;
       if (captureNow - flip.born >= duration || h.burnt || h.owner === null) this.captureFlips.delete(id);
     }
-    const signature = this.sim.hexes.map(h => `${h.owner}:${h.burnt}:${h.lockedBy}:${h.commitment}`).join('|') + [...this.captureFlips.keys()].join(';');
+    const signature = this.sim.hexes.map(h => `${h.gap}:${h.owner}:${h.burnt}:${h.lockedBy}:${h.commitment}`).join('|') + [...this.captureFlips.keys()].join(';');
     if (signature !== this.terrainSignature) {
       this.terrain.clear();
       for (const h of this.sim.hexes) {
         if (this.captureFlips.has(h.id)) continue;
-        const p = this.position(h); drawHex(this.terrain, p.x, p.y, this.radius, { owner: h.owner, burnt: h.burnt, committed: !!h.lockedBy, commitment: h.commitment });
+        const p = this.position(h); drawHex(this.terrain, p.x, p.y, this.radius, { owner: h.owner, burnt: h.burnt, committed: !!h.lockedBy, commitment: h.commitment, gap:h.gap });
       }
       this.terrainSignature = signature;
     }
@@ -548,6 +574,7 @@ class Battlefield extends Phaser.Scene {
       else text.setVisible(false);
     }
     if(this.page==='loadout'){this.drawLoadout();return;}
+    if(this.page==='map'){this.drawMapSetup();return;}
     const narrow=this.w<600,compact=this.h<520,pad=10,p=this.sim.players[this.localPlayerId],r=this.sim.resources(this.localPlayerId),bottomY=this.h-this.bottom;
     if(this.online&&(!this.online.connected||performance.now()<this.toastUntil)){
       const text=this.online.connected?this.toast:'Reconnecting — match continues',width=Math.min(360,this.w-20);
@@ -676,12 +703,43 @@ class Battlefield extends Phaser.Scene {
       this.button('upgrade','UPGRADE ↑',x,commandY,buttonW,28,()=>{const r=this.perform({kind:'upgrade',buildingId:e.id});this.message=r.ok?'Conversion started; previous forces recalled.':r.reason??'Cannot upgrade.';},false,!result.ok);
     }
   }
+  private drawMapSetup(){
+    const small=this.w<600,pad=small?12:22,config=this.mapConfig,key=JSON.stringify(config);
+    if(this.previewKey!==key){this.previewHexes=generateMap(config);this.previewKey=key;}
+    const land=this.previewHexes.filter(h=>!h.gap).length,gaps=this.previewHexes.length-land;
+    this.hud.fillStyle(CREAM).fillRect(0,0,this.w,this.h);
+    this.label('map-title','1V1 MAP GENERATOR',pad,12,small?21:25).setFontStyle('bold');
+    this.label('map-role',this.online?(this.localPlayerId===0?'HOST CHOOSES · BOTH PLAYERS SEE THIS MAP':'HOST CHOOSES · PREVIEW ONLY'):'MIRRORED STARTS · REUSABLE SEEDS',pad,43,small?9:12,MUTED);
+    this.label('map-stats',`${MAP_NAMES[config.shape].toUpperCase()} · SEED ${config.seed} · ${land} LAND / ${gaps} GAPS`,pad,65,small?10:12,'#187e88');
+    const controls=this.h-(small?178:133),previewTop=92,previewBottom=controls-12;
+    this.hud.fillStyle(0xa8ccca).fillRoundedRect(pad,previewTop,this.w-pad*2,Math.max(20,previewBottom-previewTop),12);
+    const points=this.previewHexes.map(h=>this.position(h)),xs=points.map(p=>p.x),ys=points.map(p=>p.y);
+    const scale=Math.max(0.05,Math.min((this.w-pad*2-22)/(Math.max(...xs)-Math.min(...xs)+this.radius*2),(previewBottom-previewTop-32)/(Math.max(...ys)-Math.min(...ys)+this.radius*2)));
+    const cx=this.w/2,cy=(previewTop+previewBottom)/2-6;
+    const hexDistance=(a:{q:number;r:number},b:{q:number;r:number})=>(Math.abs(a.q-b.q)+Math.abs(a.r-b.r)+Math.abs(a.q+a.r-b.q-b.r))/2;
+    for(const h of this.previewHexes){
+      const p=this.position(h),a={q:-config.hqQ,r:-config.hqR},b={q:config.hqQ,r:config.hqR};
+      const owner=h.gap?null:hexDistance(h,a)<=this.sim.tune.hq.captureRings?0:hexDistance(h,b)<=this.sim.tune.hq.captureRings?1:null;
+      drawHex(this.hud,cx+p.x*scale,cy+p.y*scale,this.radius*scale,{owner,burnt:false,committed:false,gap:h.gap});
+    }
+    for(const owner of [0,1]){const p=this.position({q:(owner===0?-1:1)*config.hqQ,r:(owner===0?-1:1)*config.hqR});drawBuilding(this.hud,cx+p.x*scale,cy+p.y*scale,this.radius*scale*0.8,owner,'hq');}
+    this.label('map-legend','Gaps block ground · Aircraft can cross to clear land',this.w/2,previewBottom-16,small?8:10,MUTED,0.5);
+    const cols=small?2:4,gap=6,bw=(this.w-pad*2-gap*(cols-1))/cols;
+    MAP_SHAPES.forEach((shape,i)=>this.button(`map-shape-${shape}`,MAP_NAMES[shape].toUpperCase(),pad+i%cols*(bw+gap),controls+Math.floor(i/cols)*35,bw,29,()=>this.changeMap(shape,config.seed),config.shape===shape,!this.mapEditable));
+    const sw=(this.w-pad*2-gap*3)/4,seedY=this.h-(small?105:95);
+    this.button('map-seed-minus','SEED −',pad,seedY,sw,29,()=>this.changeMap(config.shape,config.seed-1),false,!this.mapEditable);
+    this.button('map-seed-plus','SEED +',pad+sw+gap,seedY,sw,29,()=>this.changeMap(config.shape,config.seed+1),false,!this.mapEditable);
+    this.button('map-reroll','REROLL',pad+(sw+gap)*2,seedY,sw,29,()=>{const values=new Uint32Array(1);crypto.getRandomValues(values);this.changeMap(config.shape,values[0]%1000000);},false,!this.mapEditable);
+    this.button('map-copy-link','COPY LINK',pad+(sw+gap)*3,seedY,sw,29,()=>this.copyMapLink());
+    this.label('map-notice',this.onlineNotice||'Both sides receive matching terrain and starting room.',this.w/2,this.h-61,small?8:10,MUTED,0.5).setWordWrapWidth(this.w-pad*2);
+    this.button('map-back','BACK TO LOADOUT',pad,this.h-43,this.w-pad*2,31,()=>{this.page='loadout';});
+  }
   private flipCard(kind:CardKind){
     if(!this.flips.has(kind))this.flips.set(kind,{born:performance.now(),toUpgrade:!this.previewUpgrade.has(kind)});
   }
   private drawLoadout(){
     const small=this.w<600,compact=this.h<520,pad=small?10:22,gap=small?10:16;
-    const header=compact?116:158,footer=49,cols=small?2:this.w<1000?3:4,cw=(this.w-pad*2-gap*(cols-1))/cols,ch=small?326:320;
+    const header=compact?116:158,footer=87,cols=small?2:this.w<1000?3:4,cw=(this.w-pad*2-gap*(cols-1))/cols,ch=small?326:320;
     this.loadoutTop=header;this.loadoutEnd=this.h-footer;
     this.cardMaskArt.clear().fillStyle(0xffffff).fillRect(0,header,this.w,this.h-header-footer);
     this.cardArt.fillStyle(CREAM).fillRect(0,header,this.w,this.h-header-footer);
@@ -766,13 +824,14 @@ class Battlefield extends Phaser.Scene {
         this.label(`socket-empty-${i}`,`${i+1}`,x+socketW/2,socketY+21,15,'#9aaa9c',0.5);
       }
     }
+    this.button('map-setup',`MAP: ${MAP_NAMES[this.mapConfig.shape].toUpperCase()} · SEED ${this.mapConfig.seed} · PREVIEW`,pad,this.h-78,this.w-pad*2,29,()=>{this.page='map';});
     const actionW=small?Math.min(138,(this.w-pad*2-46)/2):148;
     const valid=this.loadout.size>0&&this.loadout.size<=7&&[...this.loadout].some(k=>this.sim.tune.cards[k].tier===1&&this.sim.tune.cards[k].domain==='ground');
     this.label('loadoutCount',`${this.loadout.size} / 7 + HQ${small?'':valid?' · Scroll for tiers':' · NEED T1 GROUND'}`,pad,this.h-33,small?10:12,valid?'#187e88':'#b44739');
     if(this.online){
       const online=this.online,mine=online.lobby?.players.find(p=>p.seat===online.seat),countdown=online.lobby?.phase==='countdown';
       this.button('leave-room','LEAVE ROOM',this.w-actionW*2-8-pad,this.h-40,actionW,32,()=>this.leaveOnline());
-      this.button('ready',countdown?'STARTING…':mine?.ready?'READY ✓':'READY',this.w-actionW-pad,this.h-40,actionW,32,()=>{this.onlineNotice='';this.readyPending=true;void online.ready(this.orderedCards(this.loadout)).then(result=>{if(!result.ok)this.onlineNotice=result.reason??'Cannot ready yet.';}).finally(()=>{this.readyPending=false;});},true,!valid||!online.connected||!!mine?.ready||countdown||this.readyPending);
+      this.button('ready',countdown?'STARTING…':mine?.ready?'READY ✓':'READY',this.w-actionW-pad,this.h-40,actionW,32,()=>{this.onlineNotice='';this.readyPending=true;void online.ready(this.orderedCards(this.loadout)).then(result=>{if(!result.ok)this.onlineNotice=result.reason??'Cannot ready yet.';}).finally(()=>{this.readyPending=false;});},true,!valid||!online.connected||!!mine?.ready||countdown||this.readyPending||this.mapPending);
     }else{
       this.button('host-online','HOST 1V1',this.w-actionW*2-8-pad,this.h-40,actionW,32,()=>this.startOnline(true),true,!valid);
       this.button('start-match','VS BOT',this.w-actionW-pad,this.h-40,actionW,32,()=>{this.restart();this.home();},false,!valid);

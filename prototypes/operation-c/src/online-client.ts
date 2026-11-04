@@ -1,7 +1,7 @@
 import { OperationSim } from './sim';
 import { applyOnlineState, ONLINE_PROTOCOL_VERSION } from './online-protocol';
 import type { ClientMessage, OnlineCommand, OnlineLobby, OnlineState, Seat, ServerMessage } from './online-protocol';
-import type { Tune, CardKind } from './model';
+import type { Tune, CardKind, MapShape } from './model';
 
 /** The browser only mirrors server state. It never advances an online simulation. */
 export class RemoteOperationSim extends OperationSim {
@@ -53,7 +53,8 @@ export class OnlineConnection {
         this.seat=message.seat;this.token=message.token;this.lobby=message.lobby;this.connected=true;this.status='Connected';this.error=null;this.retries=0;this.create=false;
         try{sessionStorage.setItem(this.storageKey,this.token);}catch{/* Reconnect within this page still uses the in-memory token. */}
         if(!this.state)this.sim=new RemoteOperationSim(message.tune);
-      }else if(message.t==='lobby')this.lobby=message;
+        this.sim.tune.map=structuredClone(message.tune.map);
+      }else if(message.t==='lobby'){this.lobby=message;this.sim.tune.map=structuredClone(message.map);}
       else if(message.t==='state'){
         const state=applyOnlineState(this.state,message);
         if(!state){this.send({t:'resync'});return;}
@@ -81,6 +82,7 @@ export class OnlineConnection {
     return new Promise(resolve=>{const timer=setTimeout(()=>{this.waiting.delete(requestId);resolve({ok:false,reason:'Server response delayed. Check your connection.'});},8000);this.waiting.set(requestId,{resolve,timer});this.send({...message,requestId} as ClientMessage);});
   }
   command(command:OnlineCommand){return this.request({t:'command',command});}
+  setMap(shape:MapShape,seed:number){return this.request({t:'map',shape,seed});}
   async ready(cards:CardKind[]){
     const loadout=await this.request({t:'loadout',cards});
     return loadout.ok?this.request({t:'ready',ready:true}):loadout;

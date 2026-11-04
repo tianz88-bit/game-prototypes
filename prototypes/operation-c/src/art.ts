@@ -18,6 +18,8 @@ export type BuildingKind = 'hq' | UnitKind;
 export type CommitmentKind = 'building' | 'upgrade' | 'research' | 'release';
 export interface HexOptions {
   owner: number | null; burnt: boolean; committed: boolean;
+  /** Non-land cutout: ignores ownership, commitment, capture and placement cues. */
+  gap?: boolean;
   commitment?: CommitmentKind;
   hover?: boolean; valid?: boolean; selected?: boolean;
   capture?: number; captureOwner?: number | null; time?: number;
@@ -141,6 +143,21 @@ function perimeter(g: Graphics, x: number, y: number, r: number, progress: numbe
 
 export function drawHex(g: Graphics, x: number, y: number, r: number, o: HexOptions): void {
   if (!(r > 0)) return;
+  if (o.gap) {
+    // Deep rim sits at board level; the smaller water face sits visibly below it.
+    const edge = Math.max(1, r * 0.035);
+    g.fillStyle(0x37666c).fillPoints(hexPoints(x, y, r * 0.98), true);
+    g.fillStyle(0x508f99).fillPoints(hexPoints(x, y + r * 0.07, r * 0.87), true);
+    g.lineStyle(edge, 0x315b64, 0.7).strokePoints(hexPoints(x, y, r * 0.96), true);
+    // Two sparse, broad ripples survive overview scale without implying a bridge.
+    g.lineStyle(Math.max(1, r * 0.045), 0xa5d1cc, 0.65).beginPath()
+      .moveTo(x - r * 0.4, y - r * 0.035).lineTo(x - r * 0.16, y - r * 0.075)
+      .lineTo(x + r * 0.08, y - r * 0.035).strokePath();
+    g.lineStyle(Math.max(1, r * 0.04), 0xa5d1cc, 0.48).beginPath()
+      .moveTo(x - r * 0.06, y + r * 0.24).lineTo(x + r * 0.15, y + r * 0.2)
+      .lineTo(x + r * 0.36, y + r * 0.24).strokePath();
+    return;
+  }
   const edge = Math.max(1, r * 0.035), color = playerColor(o.owner);
   g.fillStyle(PALETTE.side).fillPoints(hexPoints(x, y + r * 0.075, r * 0.98), true);
   g.fillStyle(o.burnt ? PALETTE.crater : o.owner === null ? PALETTE.parchment : PALETTE.sage)

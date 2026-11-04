@@ -4,6 +4,17 @@ Last reconciled: 2026-11-04, Asia/Singapore. This is the canonical design refere
 
 ## Design versus implementation
 
+### Symmetric 1v1 generated maps — accepted 2026-11-04
+
+Owner requests a map generator to test map shape, with symmetric starting points and gaps that block ground but can be flown over. Four seeded presets are available before a match: Open, Narrows, Forks and Ring. Open/seed1 preserves the original uncut map. Other seeds vary shore cuts and preset geometry. Every terrain cell mirrors under180-degree rotation; HQ positions, the six owned starting cells and starting worker placements mirror too. Each HQ has a protected two-ring land area, and every generated preset retains a ground route between the starting HQs. Symmetric terrain does not promise identical AI outcomes or eliminate global path/turn tie-break effects.
+
+Gaps remain addressable cells for drawing, distances and flight planning, but provide no resource, capture, construction, research or support connection. Burnt land remains traversable as before; gaps are a separate terrain rule. Ground units/workers cannot enter them. Aircraft can cross consecutive gap cells along a hex direction only when there is a valid unoccupied land destination across; they cannot stop/register on gaps, jump occupied land or leave the map. Flight duration scales with crossed distance and source-territory speed; path planning weighs long crossings by distance. Logical origin/destination reservations and no shared occupancy remain. Gap traversal does not add LOS or change weapon ranges.
+
+Map setup is a canvas preview accessible from the loadout footer. Pick a preset, adjust/reroll its uint32 seed, or copy an offline replay link using ?map=ring&seed=27. The preview shows land/gap counts so differing map volumes are visible. Private-room hosts choose the map; guests preview it. Changes clear readiness and lock after countdown begins. Both seats receive the same configuration and terrain through reconnect/checkpoint recovery. Match protocol/checkpoints advance to8; reload both players and create a new room.
+
+Use scripts/balance-operation-c.mjs <output-dir> [seconds] [shape] [seed] for actual-rule headless comparisons. Generator/movement/server tests and the new generated-map browser script cover symmetry, route availability, reproducibility, invalid input, ground blocking, landing occupancy and real air crossing time. This remains a1v1 test-map tool; the planned full FFA/Eurasia design remains future work.
+
+
 ### Current coordinated pace experiment — accepted 2026-11-04
 
 This section takes precedence over older numerical passes below. Neutral capture is6s and enemy capture9s for a full-strength infantry squad. Research commits16 open owned tiles; T2/T3 timers remain30/60s. Extra HQ costs16 connected tiles and constructs for30s. All mobile-unit movement durations increase about15%, rounded to10ms; the1.25 friendly-territory speed bonus remains. Worker replacement remains8s and military production/weapon/construction timings stay as before except the approved costs below. Recon cost remains8.
@@ -266,7 +277,7 @@ Confirmed disconnect behavior: match continues, units retain current orders, and
 
 ## Prototype choices and remaining design
 
-Current test map is 271 cells, radius 9. Original free HQ centre gives no capacity; a paid additional HQ cell remains productive. Capacity is provisionally capped at 200 while further land remains capturable. Exact cap meaning, full match length/map size, terrain, LOS, eliminated buildings, numerical balance, splash footprint/falloff/friendly fire and member damage allocation remain open. Do not promote these test assumptions into confirmed design.
+The bounding test grid is271 cells, radius9; generated gap cells reduce usable land. Original free HQ centre gives no capacity; a paid additional HQ cell remains productive. Capacity is provisionally capped at 200 while further land remains capturable. Exact cap meaning, full match length/map size, terrain, LOS, eliminated buildings, numerical balance, splash footprint/falloff/friendly fire and member damage allocation remain open. Do not promote these test assumptions into confirmed design.
 
 Loadout/tech/squads/upgrades are the current design milestone. Six-human networking, full Eurasia geography, full race catalogs, water mechanics, accounts and paid infrastructure are not part of the existing playable slice. No Steam/console commitment.
 

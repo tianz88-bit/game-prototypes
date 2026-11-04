@@ -11,8 +11,9 @@ async function load(relative, imports = {}) {
   code = code.replace(/from (['"])([^'"]+)\1/g, (all, quote, path) => imports[path] ? `from ${JSON.stringify(imports[path])}` : all);
   const url = `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`; urls.set(relative, url); return import(url);
 }
-const simModule = await load('../src/sim.ts'), protocol = await load('../src/online-protocol.ts');
-const roomModule = await load('../server/src/room.ts', { '../../src/sim': urls.get('../src/sim.ts'), '../../src/online-protocol': urls.get('../src/online-protocol.ts') });
+const mapModule = await load('../src/maps.ts');
+const simModule = await load('../src/sim.ts', { './maps': urls.get('../src/maps.ts') }), protocol = await load('../src/online-protocol.ts', { './maps': urls.get('../src/maps.ts') });
+const roomModule = await load('../server/src/room.ts', { '../../src/sim': urls.get('../src/sim.ts'), '../../src/online-protocol': urls.get('../src/online-protocol.ts'), '../../src/maps': urls.get('../src/maps.ts') });
 const worker = await load('../server/src/index.ts', { './room': urls.get('../server/src/room.ts'), '../../src/online-protocol': urls.get('../src/online-protocol.ts') });
 const { OperationSim, DEFAULT_LOADOUT } = simModule, { OnlineRoom } = roomModule;
 const jsonShape = value => JSON.parse(JSON.stringify(value));
@@ -155,7 +156,9 @@ await test('sim JSON checkpoint restores private IDs, fractional clock, stranded
   const checkpoint = JSON.parse(JSON.stringify(s.checkpoint())), restored = OperationSim.restore(checkpoint);
   assert.deepEqual(jsonShape(restored.checkpoint()), jsonShape(s.checkpoint()));
   assert.strictEqual(restored.neighbors('0,0')[0], restored.hexes.find(h => h.id === restored.neighbors('0,0')[0].id));
-  for (const sim of [s, restored]) { assert(sim.place(0, '4,0', 'infantry').ok); sim.tick(3050); }
+  for (const sim of [s, restored]) {
+    const site = sim.hexes.find(x => sim.placement(0, x.id, 'infantry').ok); assert(site); assert(sim.place(0, site.id, 'infantry').ok); sim.tick(3050);
+  }
   assert.deepEqual(jsonShape(restored.checkpoint()), jsonShape(s.checkpoint()));
   for (let i = 0; i < 350; i++) { s.tick(100); restored.tick(100); }
   assert.deepEqual(jsonShape(restored.checkpoint()), jsonShape(s.checkpoint())); assert.equal(restored.resources(0).stranded, 3);
@@ -192,7 +195,7 @@ await test('two human contexts complete a real authoritative match from build/ta
 await test('Worker routing is isolated and rejects invalid routes or non-WebSocket requests', async () => {
   const env = { OPERATION_C_ROOMS: { idFromName: code => code, get: () => ({ fetch: async () => new Response('isolated') }) } };
   const health = await worker.default.fetch(new Request('https://example/health'), env); const status = await health.json();
-  assert.equal(status.service, 'operation-c-online'); assert.equal(status.protocol, 7);
+  assert.equal(status.service, 'operation-c-online'); assert.equal(status.protocol, 8);
   assert.equal((await worker.default.fetch(new Request('https://example/ws/ABCDE'), env)).status, 426);
   assert.equal((await worker.default.fetch(new Request('https://example/ws/abcde'), env)).status, 404);
   assert.equal(await (await worker.default.fetch(new Request('https://example/ws/ABCDE', { headers: { upgrade: 'websocket' } }), env)).text(), 'isolated');
@@ -238,7 +241,7 @@ await test('Durable Object wrapper persists authenticated seats, catches up afte
     assert.equal(stored.seats[0].token, token); assert.equal(stored.sim.buildings.filter(b => b.kind !== 'hq').length, 1);
     assert(a.webSocket.messages.filter(m => m.t === 'welcome').length >= 2);
     const ack = a.webSocket.messages.find(m => m.t === 'ack' && m.requestId === 2); assert(ack.ok);
-    for (const version of [1, 2, 3, 4, 5, 6]) for (const layer of ['room', 'sim']) {
+    for (const version of [1, 2, 3, 4, 5, 6, 7]) for (const layer of ['room', 'sim']) {
       const incompatible = layer === 'room' ? { ...stored, version } : { ...stored, sim: { ...stored.sim, version } };
       records.set('operation-c-room-v1', incompatible); const putsBefore = puts;
       const oldRoom = new worker.OperationCRoom(state, env), rejected = await oldRoom.fetch(request(''));
@@ -302,17 +305,17 @@ await test('friendly defend commands validate building ownership and reject unit
   h.send('a', { t: 'command', requestId: 7, command: { kind: 'target', targetId: 0 } }); assert.equal(h.room.sim.players[0].defendTargetId, null);
 });
 
-await test('v7 welcome carries authoritative individual sight, classes and bonuses; recovery retains them and rejects older rules', () => {
+await test('v8 welcome carries authoritative individual sight, classes and bonuses; recovery retains them and rejects older rules', () => {
   const h = harness(); h.connect('a'); h.connect('b'); const welcome = h.latest('a', 'welcome');
-  assert.equal(welcome.v, 7); assert.equal(welcome.tune.cards.tank.damageClass, 'armoured');
+  assert.equal(welcome.v, 8); assert.equal(welcome.tune.cards.tank.damageClass, 'armoured');
   assert.equal(welcome.tune.cards.tank.sightRange, 3); assert.equal(welcome.tune.cards.mlrs.sightRange, 6);
   assert.equal(welcome.tune.cards.fighter.damageClass, 'light'); assert.equal(welcome.tune.cards.silo.damageClass, 'structure');
   assert.deepEqual(welcome.tune.cards.destroyer.damageBonus, { armoured: 24 });
   h.ready(); const saved = JSON.parse(JSON.stringify(h.room.checkpoint()));
-  assert.equal(saved.version, 7); assert.equal(saved.sim.version, 7);
+  assert.equal(saved.version, 8); assert.equal(saved.sim.version, 8);
   const recovered = OnlineRoom.restore(saved, h.env);
   assert.deepEqual(recovered.sim.tune.cards, h.room.sim.tune.cards);
-  for (const version of [1, 2, 3, 4, 5, 6]) {
+  for (const version of [1, 2, 3, 4, 5, 6, 7]) {
     assert.throws(() => OnlineRoom.restore({ ...saved, version }, h.env), /Unsupported/);
     assert.throws(() => OperationSim.restore({ ...saved.sim, version }), /Unsupported/);
   }
@@ -339,7 +342,7 @@ await test('authoritative individual sight stays local while workers gather and 
   for (const seat of ['a', 'b']) assert.equal(h.mirrors.get(seat).entities.units.find(x => x.id === actor.id).hexId, actor.hexId);
 });
 
-await test('member-scaled capture and reinforcement merge stay authoritative through v7 room recovery and both seat mirrors', () => {
+await test('member-scaled capture and reinforcement merge stay authoritative through v8 room recovery and both seat mirrors', () => {
   const h = harness(); h.connect('a'); h.connect('b'); h.ready();
   const aToken = h.latest('a', 'welcome').token, bToken = h.latest('b', 'welcome').token;
   h.send('a', { t: 'command', requestId: 'capture-producer', command: { kind: 'place', hexId: '-4,0', card: 'infantry' } });
@@ -350,7 +353,7 @@ await test('member-scaled capture and reinforcement merge stay authoritative thr
   h.step(1000); assert(Math.abs(site.capture - (1/45)) < 1e-10);
   s.reinforcements.push({ id: 'capture-network-incoming', unitId: squad.id, buildingId: producer.id, owner: 0, count: 4,
     fromHexId: producer.hexId, startedAtMs: s.timeMs, arriveAtMs: s.timeMs + 1000 });
-  const saved = JSON.parse(JSON.stringify(h.room.checkpoint())); assert.equal(saved.version, 7);
+  const saved = JSON.parse(JSON.stringify(h.room.checkpoint())); assert.equal(saved.version, 8);
   h.room = OnlineRoom.restore(saved, h.env); h.connect('a2', aToken); h.connect('b2', bToken);
   h.step(900);
   const restoredSquad = h.room.sim.units.find(x => x.id === squad.id), restoredSite = h.room.sim.hexes.find(x => x.id === site.id);
@@ -364,7 +367,7 @@ await test('member-scaled capture and reinforcement merge stay authoritative thr
   }
 });
 
-await test('two-human rooms never execute bot decisions before or after v7 checkpoint recovery', () => {
+await test('two-human rooms never execute bot decisions before or after v8 checkpoint recovery', () => {
   const h = harness(); h.connect('a'); h.connect('b'); h.ready(); h.step(60000);
   const saved = h.room.checkpoint(); assert.equal(saved.sim.botEnabled, false); assert.equal(saved.sim.botCard, 0);
   assert.equal(saved.sim.botOrderUntilMs, 0); assert.equal(h.room.sim.units.length, 0); assert.equal(h.room.sim.buildings.length, 2);
@@ -374,13 +377,13 @@ await test('two-human rooms never execute bot decisions before or after v7 check
   assert.equal(h.room.sim.buildings.length, 2); assert.equal(h.room.sim.units.length, 0); assert.equal(h.room.sim.checkpoint().botCard, 0);
 });
 
-await test('live v7 rooms start with six capacity, three workers and seven selectable cards per seat', () => {
+await test('live v8 rooms start with six capacity, three workers and seven selectable cards per seat', () => {
   const h = harness(true); h.connect('a'); h.connect('b');
   for (const [i, cards] of [['infantry', 'worker'], ['infantry', 'hq'], [...DEFAULT_LOADOUT, 'helicopter']].entries()) {
     h.send('a', { t: 'loadout', requestId: `worker-invalid-${i}`, cards });
     assert(h.latest('a', 'ack')?.ok === false || h.latest('a', 'error')?.code === 'badMessage');
   }
-  h.ready(); assert.equal(h.latest('a', 'welcome').v, 7);
+  h.ready(); assert.equal(h.latest('a', 'welcome').v, 8);
   for (const seat of ['a', 'b']) {
     const mirror = h.mirrors.get(seat); assert.equal(mirror.entities.units.length, 6); assert(mirror.entities.units.every(u => u.kind === 'worker' && u.hp === 1));
     assert.deepEqual(mirror.resources.map(x => x.capacity), [6, 6]); assert(mirror.loadouts.every(x => x.length === 7));
@@ -390,13 +393,13 @@ await test('live v7 rooms start with six capacity, three workers and seven selec
   assert(h.latest('a', 'ack').ok); assert.equal(h.room.sim.resources(0).committed, 5);
 });
 
-await test('HQ worker queues, linked research, technology drop and surviving orphans replicate through v7 reconnect', () => {
+await test('HQ worker queues, linked research, technology drop and surviving orphans replicate through v8 reconnect', () => {
   const h = harness(true); h.connect('a'); h.connect('b'); h.ready();
   const tokens = [h.latest('a', 'welcome').token, h.latest('b', 'welcome').token]; for (const hex of h.room.sim.hexes) hex.owner = 0;
   h.send('a', { t: 'command', requestId: 'build-hq', command: { kind: 'place', hexId: '0,0', card: 'hq' } }); assert(h.latest('a', 'ack').ok);
   const b = h.room.sim.buildings.find(x => x.hexId === '0,0'), count = () => h.room.sim.units.filter(u => u.buildingId === b.id).length;
   assert.equal(b.committedCost, 16); h.step(30000); assert.equal(count(), 0); h.step(8000); assert.equal(count(), 1);
-  const saved = JSON.parse(JSON.stringify(h.room.checkpoint())); assert.equal(saved.version, 7); assert.equal(saved.sim.version, 7);
+  const saved = JSON.parse(JSON.stringify(h.room.checkpoint())); assert.equal(saved.version, 8); assert.equal(saved.sim.version, 8);
   h.room = OnlineRoom.restore(saved, h.env); h.connect('a2', tokens[0]); h.connect('b2', tokens[1]); h.step(16000); assert.equal(count(), 3);
   h.send('a2', { t: 'command', requestId: 'hq-specific-research', command: { kind: 'research', hqId: b.id } }); assert(h.latest('a2', 'ack').ok);
   assert.equal(h.room.sim.players[0].research.hqId, b.id); h.step(30000); assert.equal(h.room.sim.players[0].techTier, 2);
@@ -426,7 +429,7 @@ await test('wire Attack Here and construction cancellation enforce ownership and
 });
 
 
-await test('v7 HQ-bound gathering ignores military commands and forward HQ coverage replicates through recovery', () => {
+await test('v8 HQ-bound gathering ignores military commands and forward HQ coverage replicates through recovery', () => {
   const h = harness(true); h.connect('a'); h.connect('b'); h.ready();
   const welcome = h.latest('a', 'welcome'); assert.equal(welcome.tune.hq.cost, 16); assert.equal(welcome.tune.hq.buildMs, 30000); assert.equal(welcome.tune.hq.workerGatherRadius, 4);
   const sim = h.room.sim; for (const hex of sim.hexes) hex.owner = 0;
@@ -451,6 +454,104 @@ await test('v7 HQ-bound gathering ignores military commands and forward HQ cover
     assert(mirror.entities.units.some(u => u.buildingId === forward.id && u.kind === 'worker'));
     assert.equal(mirror.entities.units.find(u => u.id === original.id).buildingId, 'hq0');
   }
+});
+
+await test('map requests validate a strict preset and uint32 seed whitelist without accepting geometry or owner injection', () => {
+  for (const shape of mapModule.MAP_SHAPES) for (const seed of [0, 1, 0xffffffff]) {
+    assert(protocol.parseOnlineClientMessage(JSON.stringify({ t: 'map', requestId: 'valid-map', shape, seed })));
+  }
+  const valid = { t: 'map', requestId: 'invalid-map', shape: 'narrows', seed: 12 };
+  for (const invalid of [{ ...valid, shape: 'unknown' }, { ...valid, shape: null }, { ...valid, seed: -1 },
+    { ...valid, seed: 1.5 }, { ...valid, seed: 0x100000000 }, { ...valid, seed: '12' }, { ...valid, seed: null },
+    { ...valid, radius: 12 }, { ...valid, owner: 0 }, { t: 'map', requestId: 'missing', shape: 'open' }]) {
+    assert.equal(protocol.parseOnlineClientMessage(JSON.stringify(invalid)), null);
+  }
+});
+
+await test('only the host changes lobby maps, accepted changes clear readiness, retries deduplicate and countdown locks the map', () => {
+  const h = harness(); h.connect('a'); h.connect('b');
+  h.send('b', { t: 'map', requestId: 'guest-map', shape: 'ring', seed: 42 }); assert(!h.latest('b', 'ack').ok);
+  assert.equal(h.room.tune.map.shape, 'open');
+  h.send('b', { t: 'ready', requestId: 'guest-ready', ready: true }); assert(h.room.lobby().players[1].ready);
+  const change = { t: 'map', requestId: 'host-map', shape: 'ring', seed: 42 }; h.send('a', change); assert(h.latest('a', 'ack').ok);
+  assert(h.room.lobby().players.every(p => !p.ready)); assert.equal(h.room.lobby().map.shape, 'ring');
+  assert.equal(h.latest('b', 'lobby').map.seed, 42); assert.equal(h.room.tune.map.radius, 9);
+  h.send('b', { t: 'ready', requestId: 'guest-ready-again', ready: true }); h.send('a', change);
+  assert(h.latest('a', 'ack').ok); assert(h.room.lobby().players[1].ready, 'a retried map request cannot erase later readiness');
+  h.send('a', { ...change, seed: 43 }); assert.equal(h.latest('a', 'error').code, 'requestIdReuse'); assert.equal(h.room.tune.map.seed, 42);
+  h.send('a', { t: 'ready', requestId: 'host-ready', ready: true }); assert.equal(h.room.phase, 'countdown');
+  h.send('a', { t: 'map', requestId: 'countdown-map', shape: 'forks', seed: 99 }); assert(!h.latest('a', 'ack').ok);
+  h.step(3000); assert.equal(h.room.phase, 'playing'); assert.equal(h.room.sim.tune.map.shape, 'ring');
+  h.send('a', { t: 'map', requestId: 'playing-map', shape: 'open', seed: 1 }); assert(!h.latest('a', 'ack').ok);
+  assert.equal(h.room.sim.tune.map.seed, 42); assert(h.room.sim.hexes.some(x => x.gap));
+});
+
+await test('selected map topology is authoritative in lobby, welcome, reconnect, full states and v8 recovery', () => {
+  const h = harness(true); h.connect('a'); h.connect('b'); const tokens = [h.latest('a', 'welcome').token, h.latest('b', 'welcome').token];
+  h.send('a', { t: 'map', requestId: 'seeded-map', shape: 'forks', seed: 0xffffffff }); assert(h.latest('a', 'ack').ok);
+  const saved = JSON.parse(JSON.stringify(h.room.checkpoint())); assert.equal(saved.version, 8);
+  h.room = OnlineRoom.restore(saved, h.env); h.connect('a2', tokens[0]); h.connect('b2', tokens[1]);
+  for (const seat of ['a2', 'b2']) {
+    const welcome = h.latest(seat, 'welcome'); assert.equal(welcome.v, 8); assert.equal(welcome.tune.map.shape, 'forks');
+    assert.equal(welcome.lobby.map.seed, 0xffffffff); assert.deepEqual(welcome.tune.map, h.room.lobby().map);
+  }
+  h.send('a2', { t: 'ready', requestId: 'ready-seeded-a', ready: true }); h.send('b2', { t: 'ready', requestId: 'ready-seeded-b', ready: true }); h.step(3000);
+  const gaps = mapModule.generateMap(h.room.tune.map).filter(x => x.gap).map(x => x.id);
+  for (const seat of ['a2', 'b2']) {
+    const mirror = h.mirrors.get(seat); assert.deepEqual(mirror.entities.hexes.filter(x => x.gap).map(x => x.id), gaps);
+    assert.deepEqual(mirror.resources.map(x => x.capacity), [6, 6]); assert(mirror.entities.units.every(u => !gaps.includes(u.hexId)));
+  }
+  const recovered = OnlineRoom.restore(JSON.parse(JSON.stringify(h.room.checkpoint())), h.env);
+  assert.deepEqual(recovered.sim.checkpoint(), h.room.sim.checkpoint());
+});
+
+await test('mid-flight gap crossings retain geometry, reserved endpoints and distance-scaled timing through network recovery', () => {
+  const h = harness(true); h.connect('a'); h.connect('b'); h.send('a', { t: 'map', requestId: 'flight-map', shape: 'narrows', seed: 2 }); h.ready();
+  const tokens = [h.latest('a', 'welcome').token, h.latest('b', 'welcome').token], s = h.room.sim;
+  s.units.splice(0); s.tune.hq.workerLimit = 0;
+  for (const cell of s.hexes) { cell.owner = 0; if (Math.abs(cell.q) <= 1) cell.gap = true; }
+  const plane = { id: 'network-flight', owner: 0, kind: 'fighter', hexId: '-2,0', hp: 60, maxHp: 60, attacking: false, buildingId: null, nextAttackAtMs: 0 };
+  s.units.push(plane); s.setTarget(0, 1); h.step(200);
+  assert.equal(plane.hexId, '2,0'); assert.equal(plane.fromHexId, '-2,0'); const arrival = plane.movingUntilMs;
+  assert.equal(arrival - plane.movedAtMs, s.tune.cards.fighter.moveMs * 4 / 1.25);
+  for (const seat of ['a', 'b']) {
+    const mirrored = h.mirrors.get(seat).entities.units.find(u => u.id === plane.id); assert.equal(mirrored.movingUntilMs, arrival); assert.equal(mirrored.fromHexId, '-2,0');
+  }
+  const saved = JSON.parse(JSON.stringify(h.room.checkpoint())); h.room = OnlineRoom.restore(saved, h.env); h.connect('a2', tokens[0]); h.connect('b2', tokens[1]);
+  h.step(1500); const live = h.room.sim.units.find(u => u.id === plane.id); assert.equal(live.movingUntilMs, arrival); assert.equal(live.movedAtMs, 100);
+  h.step(200); assert(h.room.sim.timeMs >= arrival); assert(h.room.sim.hexes.find(x => x.id === '0,0').gap);
+  for (const seat of ['a2', 'b2']) {
+    const mirror = h.mirrors.get(seat); assert(mirror.entities.units.every(u => !mirror.entities.hexes.find(x => x.id === u.hexId).gap));
+  }
+});
+
+await test('browser connection sends setMap and mirrors authoritative map changes and gap records without local simulation', async () => {
+  const clientModule = await load('../src/online-client.ts', { './sim': urls.get('../src/sim.ts'), './online-protocol': urls.get('../src/online-protocol.ts') });
+  const NativeWebSocket = globalThis.WebSocket, sockets = [];
+  class TestSocket {
+    static OPEN = 1; readyState = 1; sent = [];
+    constructor(url) { this.url = url; sockets.push(this); }
+    send(raw) { this.sent.push(JSON.parse(raw)); }
+    close() { this.readyState = 3; }
+    emit(message) { this.onmessage?.({ data: JSON.stringify(message) }); }
+  }
+  let connection;
+  try {
+    globalThis.WebSocket = TestSocket;
+    connection = new clientModule.OnlineConnection('https://example.invalid', 'ABCDE', false, false, () => {});
+    const socket = sockets[0], authoritative = structuredClone(tune); authoritative.map = { ...authoritative.map, shape: 'narrows', seed: 17 };
+    socket.emit({ t: 'welcome', v: 8, seat: 0, token: 'a'.repeat(32), roomCode: 'ABCDE', tune: authoritative,
+      lobby: { phase: 'lobby', countdownEndsAtMs: null, players: [], serverNow: 0, map: authoritative.map } });
+    assert.equal(connection.sim.tune.map.shape, 'narrows');
+    const pending = connection.setMap('ring', 99), request = socket.sent.at(-1);
+    socket.emit({ t: 'ack', requestId: request.requestId, ok: true }); assert((await pending).ok);
+    assert.deepEqual({ t: request.t, shape: request.shape, seed: request.seed }, { t: 'map', shape: 'ring', seed: 99 });
+    const h = harness(true); h.connect('a'); h.connect('b'); h.send('a', { t: 'map', requestId: 'client-map', shape: 'ring', seed: 99 });
+    socket.emit({ t: 'lobby', ...h.room.lobby() }); assert.equal(connection.lobby.map.seed, 99); assert.equal(connection.sim.tune.map.shape, 'ring');
+    h.ready(); socket.emit(h.latest('a', 'state'));
+    assert.deepEqual(connection.sim.hexes.filter(x => x.gap).map(x => x.id), h.room.sim.hexes.filter(x => x.gap).map(x => x.id));
+    assert(!connection.sim.placement(0, connection.sim.hexes.find(x => x.gap).id, 'infantry').ok);
+  } finally { connection?.close(); globalThis.WebSocket = NativeWebSocket; }
 });
 
 console.log(`${passed} Operation C online tests passed.`);

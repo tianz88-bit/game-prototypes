@@ -1,6 +1,8 @@
 import type { Building, BuildKind, CardKind, Hex, NuclearImpact, NukeFlight, PendingRelease, Player, Reinforcement, Retirement, Shot, Tune, Unit } from './model';
+import { MAP_SHAPES } from './maps';
+import type { MapShape } from './model';
 
-export const ONLINE_PROTOCOL_VERSION = 7;
+export const ONLINE_PROTOCOL_VERSION = 8;
 export const ROOM_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const ROOM_CODE_RE = /^[A-HJ-NP-Z2-9]{5}$/;
 export const MAX_ONLINE_MESSAGE_BYTES = 4096;
@@ -15,6 +17,7 @@ export type OnlineCommand =
   | { kind: 'cancelResearch' }
   | { kind: 'upgrade' | 'cancelUpgrade' | 'sell' | 'cancelConstruction'; buildingId: string };
 export type OnlineClientMessage =
+  | { t: 'map'; requestId: RequestId; shape: MapShape; seed: number }
   | { t: 'loadout'; requestId: RequestId; cards: CardKind[] }
   | { t: 'ready'; requestId: RequestId; ready: boolean }
   | { t: 'command'; requestId: RequestId; command: OnlineCommand }
@@ -22,6 +25,7 @@ export type OnlineClientMessage =
   | { t: 'ping'; clientMs: number };
 export interface OnlineLobbyPlayer { seat: Seat; connected: boolean; ready: boolean; loadout: CardKind[] }
 export interface OnlineLobby {
+  map: Tune['map'];
   phase: 'lobby' | 'countdown' | 'playing' | 'ended'; players: OnlineLobbyPlayer[];
   countdownEndsAtMs: number | null; serverNow: number;
 }
@@ -68,6 +72,8 @@ export function parseOnlineClientMessage(raw: string): OnlineClientMessage | nul
   if (m.t === 'resync' && keys(m, ['t'])) return m as OnlineClientMessage;
   if (m.t === 'ping' && keys(m, ['t', 'clientMs']) && typeof m.clientMs === 'number' && Number.isFinite(m.clientMs)) return m as OnlineClientMessage;
   if (!id(m.requestId)) return null;
+  if (m.t === 'map' && keys(m, ['t', 'requestId', 'shape', 'seed']) && MAP_SHAPES.includes(m.shape as MapShape) &&
+    typeof m.seed === 'number' && Number.isInteger(m.seed) && m.seed >= 0 && m.seed <= 0xffffffff) return m as OnlineClientMessage;
   if (m.t === 'loadout' && keys(m, ['t', 'requestId', 'cards']) && Array.isArray(m.cards) && m.cards.length <= 7 && m.cards.every(c => typeof c === 'string' && c.length < 24)) return m as OnlineClientMessage;
   if (m.t === 'ready' && keys(m, ['t', 'requestId', 'ready']) && typeof m.ready === 'boolean') return m as OnlineClientMessage;
   if (m.t !== 'command' || !keys(m, ['t', 'requestId', 'command']) || !record(m.command)) return null;

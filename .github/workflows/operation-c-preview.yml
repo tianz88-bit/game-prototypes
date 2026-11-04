@@ -8,6 +8,8 @@ on:
       - 'scripts/screenshot-operation-c.mjs'
       - 'scripts/screenshot-operation-c-online.mjs'
       - 'scripts/screenshot-operation-c-bot.mjs'
+      - 'scripts/screenshot-operation-c-maps.mjs'
+      - 'scripts/balance-operation-c.mjs'
       - 'scripts/generate-versions.js'
       - '.github/workflows/operation-c-preview.yml'
   workflow_dispatch:
@@ -58,10 +60,12 @@ jobs:
           done
           node scripts/screenshot-operation-c.mjs http://127.0.0.1:4187/ "$RUNNER_TEMP/operation-c-captures"
           node scripts/screenshot-operation-c-bot.mjs http://127.0.0.1:4187/ "$RUNNER_TEMP/operation-c-bot-captures"
+          node scripts/screenshot-operation-c-maps.mjs http://127.0.0.1:4187/ "$RUNNER_TEMP/operation-c-map-captures"
       - name: Exercise two humans against the local authoritative Worker
         env:
           OPERATION_C_BROWSER_PACKAGE: ${{ runner.temp }}/operation-c-browser/package.json
           OPERATION_C_ONLINE_FULL_MATCH: '1'
+          OPERATION_C_ONLINE_MAP: 'narrows'
         run: |
           python3 -m http.server 4187 --directory prototypes/operation-c/dist > "$RUNNER_TEMP/operation-c-http.log" 2>&1 &
           http_pid=$!
@@ -83,5 +87,6 @@ jobs:
             ${{ runner.temp }}/operation-c-captures/
             ${{ runner.temp }}/operation-c-online-captures/
             ${{ runner.temp }}/operation-c-bot-captures/
+            ${{ runner.temp }}/operation-c-map-captures/
             ${{ runner.temp }}/operation-c-worker.log
           retention-days: 7

@@ -50,7 +50,7 @@ export class OperationCRoom {
     this.ready = state.blockConcurrencyWhile(async () => {
       const saved = await state.storage.get<RoomCheckpoint>(KEY);
       if (!saved) return;
-      if (saved.version !== 7 || saved.sim && saved.sim.version !== 7) {
+      if (saved.version !== 8 || saved.sim && saved.sim.version !== 8) {
         this.incompatible = true; await state.storage.deleteAlarm();
         for (const socket of state.getWebSockets()) { socket.send(JSON.stringify({ t: 'error', code: 'versionMismatch', message: 'Reload both players and create a new room for this game version.' })); socket.close(4002, 'Game version changed'); }
         return;

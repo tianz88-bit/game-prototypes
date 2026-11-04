@@ -27,15 +27,25 @@ try{
   const initial=new URL(base);initial.searchParams.set('test','1');if(server)initial.searchParams.set('server',server);
   await host.goto(initial.href,{waitUntil:'networkidle'});await host.waitForFunction(()=>window.__operationC);
   assert((await snap(host)).loadout.includes('bunker')&&(await snap(host)).loadout.includes('silo'),'new utilities are discoverable in the default eight');
-  await press(host,'host-online');await host.waitForFunction(()=>window.__operationC.snapshot().online?.connected,null,{timeout:20000});
+  const requestedMap=(await snap(host)).mapConfig;await press(host,'host-online');await host.waitForFunction(()=>window.__operationC.snapshot().online?.connected,null,{timeout:20000});
+  await host.waitForFunction(config=>{const map=window.__operationC.snapshot().online?.lobby?.map;return map?.shape===config.shape&&map?.seed===config.seed;},requestedMap,{timeout:15000});
   let h=await snap(host);assert.equal(h.online.seat,0);console.log('CHECK online: host connected');
   const invite=new URL(h.online.inviteLink);invite.searchParams.set('test','1');
   await guest.goto(invite.href,{waitUntil:'networkidle'});await guest.waitForFunction(()=>window.__operationC?.snapshot().online?.connected,null,{timeout:20000});assert.equal((await snap(guest)).online.seat,1);
+  if(process.env.OPERATION_C_ONLINE_MAP){
+    const shape=process.env.OPERATION_C_ONLINE_MAP;await press(guest,'ready');await press(host,'map-setup');await press(host,'map-shape-'+shape);
+    await host.waitForFunction(shape=>window.__operationC.snapshot().online.lobby.map.shape===shape,shape);await press(host,'map-seed-plus');
+    await guest.waitForFunction(()=>window.__operationC.snapshot().online.lobby.map.seed===2);await press(guest,'map-setup');
+    assert.deepEqual((await snap(host)).previewHexes,(await snap(guest)).previewHexes);assert.deepEqual((await snap(host)).mapConfig,(await snap(guest)).mapConfig);
+    assert((await targets(guest)).buttons.filter(b=>b.id.startsWith('map-shape-')||b.id==='map-seed-plus').every(b=>b.disabled),'guest map editing disabled');
+    assert(!(await snap(host)).online.lobby.players.find(p=>p.seat===1).ready,'map change clears readiness');
+    await capture(host,'host-map-preview');await capture(guest,'guest-map-preview');await press(host,'map-back');await press(guest,'map-back');
+  }
   await capture(host,'host-lobby');await capture(guest,'guest-lobby');
   await extra.goto(invite.href,{waitUntil:'networkidle'});await extra.waitForFunction(()=>window.__operationC?.snapshot().online?.status.toLowerCase().includes('two players'),null,{timeout:15000});assert.equal((await snap(extra)).online.connected,false);await capture(extra,'room-full');await extra.close();
   await press(host,'ready');await press(guest,'ready');
   await Promise.all([host,guest].map(p=>p.waitForFunction(()=>window.__operationC.snapshot().page==='battle',null,{timeout:15000})));
-  assert.deepEqual((await snap(guest)).commandIndicator,{hqId:'hq1',mode:'defend'});console.log('CHECK online: both ready, countdown, playing');
+  assert.deepEqual((await snap(guest)).mapConfig,(await snap(host)).mapConfig);assert.deepEqual((await snap(guest)).hexes.filter(h=>h.gap).map(h=>h.id),(await snap(host)).hexes.filter(h=>h.gap).map(h=>h.id));assert.deepEqual((await snap(guest)).commandIndicator,{hqId:'hq1',mode:'defend'});console.log('CHECK online: both ready, countdown, playing');
   const before=(await snap(host)).timeMs;await press(host,'pause');await host.keyboard.press('Space');assert.equal((await snap(host)).paused,false);
   await host.evaluate(()=>window.__operationC.advance(10000));await host.waitForTimeout(650);assert((await snap(host)).timeMs>before);assert((await snap(host)).timeMs<before+4000,'client cannot fast-forward server');
   const place=async(p,seat,kind='infantry')=>{
@@ -74,7 +84,7 @@ try{
     for(const kind of ['infantry','tank','artillery'])await place(host,0,kind);
     await press(host,'overview');h=await snap(host);const enemy=h.buildings.find(b=>b.kind==='hq'&&b.owner===1),point=(await targets(host)).hexes.find(hex=>hex.id===enemy.hexId);await tap(host,point.x,point.y);await host.waitForTimeout(100);await press(host,'map-attack-here');
     await host.waitForFunction(()=>window.__operationC.snapshot().target===1,null,{timeout:10000});await capture(host,'host-attack-command');
-    await host.waitForFunction(()=>window.__operationC.snapshot().winner!==null,null,{timeout:180000});await guest.waitForFunction(()=>window.__operationC.snapshot().winner!==null,null,{timeout:10000});h=await snap(host);g=await snap(guest);assert.equal(h.winner,g.winner);assert.equal(h.online.lobby.phase,'ended');assert.equal(g.online.lobby.phase,'ended');assert.equal(h.timeMs,g.timeMs);assert.deepEqual(h.hexes,g.hexes);assert.deepEqual(h.buildings,g.buildings);assert.deepEqual(h.units,g.units);for(const state of [h,g])assert(state.renderCache.hqLabels.every(id=>state.buildings.some(b=>id==='hq-level-'+b.id)),'destroyed HQ labels released');await capture(host,'host-result');await capture(guest,'guest-result');console.log(`PASS full online match: winner ${h.winner}, ${h.timeMs}ms, identical final worlds`);
+    await host.waitForFunction(()=>window.__operationC.snapshot().winner!==null,null,{timeout:process.env.OPERATION_C_ONLINE_MAP?240000:180000});await guest.waitForFunction(()=>window.__operationC.snapshot().winner!==null,null,{timeout:10000});h=await snap(host);g=await snap(guest);assert.equal(h.winner,g.winner);assert.equal(h.online.lobby.phase,'ended');assert.equal(g.online.lobby.phase,'ended');assert.equal(h.timeMs,g.timeMs);assert.deepEqual(h.hexes,g.hexes);assert.deepEqual(h.buildings,g.buildings);assert.deepEqual(h.units,g.units);for(const state of [h,g])assert(state.renderCache.hqLabels.every(id=>state.buildings.some(b=>id==='hq-level-'+b.id)),'destroyed HQ labels released');await capture(host,'host-result');await capture(guest,'guest-result');console.log(`PASS full online match: winner ${h.winner}, ${h.timeMs}ms, identical final worlds`);
   }
   assert.deepEqual(errors,[],'browser console/page errors');
   for(const c of contexts)await c.close();

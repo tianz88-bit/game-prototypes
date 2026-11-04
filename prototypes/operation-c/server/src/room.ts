@@ -1,6 +1,7 @@
 import { BASE_CARDS, DEFAULT_LOADOUT, DEFAULT_TUNE, OperationSim } from '../../src/sim';
 import type { OperationCheckpoint } from '../../src/sim';
 import type { CardKind, Tune } from '../../src/model';
+import { normalizeMapConfig } from '../../src/maps';
 import { ONLINE_COLLECTIONS, ONLINE_PROTOCOL_VERSION, emptyOnlineEntities, emptyOnlineRemoved, parseOnlineClientMessage } from '../../src/online-protocol';
 import type { OnlineClientMessage, OnlineCommand, OnlineLobby, OnlineServerMessage, OnlineState, RequestId, Seat } from '../../src/online-protocol';
 
@@ -18,7 +19,7 @@ export interface RoomEnvironment {
   close(connectionId: string, code: number, reason: string): void;
 }
 export interface RoomCheckpoint {
-  version: 7; roomCode: string; tune: Tune; seats: (RoomSeat | null)[]; phase: OnlineLobby['phase'];
+  version: 8; roomCode: string; tune: Tune; seats: (RoomSeat | null)[]; phase: OnlineLobby['phase'];
   countdownEndsAtMs: number | null; lastTickWallMs: number; lastBroadcastWallMs: number;
   lastActivityMs: number; endedAtMs: number | null; revision: number; lastStates: (OnlineState | null)[];
   sim: OperationCheckpoint | null;
@@ -44,6 +45,7 @@ export class OnlineRoom {
 
   constructor(roomCode: string, private readonly env: RoomEnvironment, tune: Tune = DEFAULT_TUNE) {
     this.roomCode = roomCode; this.tune = structuredClone(tune); this.tune.stepMs = ONLINE_STEP_MS;
+    this.tune.map = normalizeMapConfig(this.tune.map);
     this.lastTickWallMs = this.lastBroadcastWallMs = this.lastActivityMs = env.now();
   }
 
@@ -80,7 +82,7 @@ export class OnlineRoom {
   }
 
   lobby(): OnlineLobby {
-    return { phase: this.phase, serverNow: this.env.now(), countdownEndsAtMs: this.countdownEndsAtMs,
+    return { phase: this.phase, map: structuredClone(this.tune.map), serverNow: this.env.now(), countdownEndsAtMs: this.countdownEndsAtMs,
       players: this.seats.map((s, i) => ({ seat: i as Seat, connected: !!s?.connectionId, ready: s?.ready ?? false, loadout: [...(s?.loadout ?? [])] })) };
   }
 
@@ -105,7 +107,14 @@ export class OnlineRoom {
       return false;
     }
     let result: { ok: boolean; reason?: string };
-    if (m.t === 'loadout') result = this.setLoadout(index as Seat, m.cards);
+    if (m.t === 'map') {
+      if (index !== 0 || this.phase !== 'lobby') result = { ok: false, reason: index !== 0 ? 'Only the host can choose the map' : 'Map is locked after countdown starts' };
+      else {
+        this.tune.map = normalizeMapConfig({ ...this.tune.map, shape: m.shape, seed: m.seed });
+        for (const player of this.seats) if (player) player.ready = false;
+        this.broadcastLobby(); result = { ok: true };
+      }
+    } else if (m.t === 'loadout') result = this.setLoadout(index as Seat, m.cards);
     else if (m.t === 'ready') result = this.setReady(index as Seat, m.ready);
     else result = this.command(index as Seat, m.command);
     const ack: Extract<OnlineServerMessage, { t: 'ack' }> = { t: 'ack', requestId: m.requestId, ...result };
@@ -232,12 +241,12 @@ export class OnlineRoom {
   private error(connectionId: string, code: string, message: string): void { this.env.send(connectionId, { t: 'error', code, message }); }
 
   checkpoint(): RoomCheckpoint {
-    return structuredClone({ version: 7, roomCode: this.roomCode, tune: this.tune, seats: this.seats, phase: this.phase,
+    return structuredClone({ version: 8, roomCode: this.roomCode, tune: this.tune, seats: this.seats, phase: this.phase,
       countdownEndsAtMs: this.countdownEndsAtMs, lastTickWallMs: this.lastTickWallMs, lastBroadcastWallMs: this.lastBroadcastWallMs,
       lastActivityMs: this.lastActivityMs, endedAtMs: this.endedAtMs, revision: this.revision, lastStates: this.lastStates, sim: this.sim?.checkpoint() ?? null });
   }
   static restore(checkpoint: RoomCheckpoint, env: RoomEnvironment): OnlineRoom {
-    if (checkpoint.version !== 7) throw new Error('Unsupported room checkpoint');
+    if (checkpoint.version !== 8) throw new Error('Unsupported room checkpoint');
     const data = structuredClone(checkpoint), room = new OnlineRoom(data.roomCode, env, data.tune);
     room.seats = data.seats; for (const s of room.seats) if (s) s.connectionId = null;
     room.phase = data.phase; room.countdownEndsAtMs = data.countdownEndsAtMs;

@@ -5,9 +5,13 @@ import { readFile } from 'node:fs/promises';
 // Optional path lets an isolated worktree use an existing installed dependency tree.
 const require = createRequire(process.env.OPERATION_C_DEPENDENCIES || import.meta.url);
 const ts = require('typescript');
+const mapSource = await readFile(new URL('../src/maps.ts', import.meta.url), 'utf8');
+const mapCode = ts.transpileModule(mapSource, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
+const mapUrl = `data:text/javascript;base64,${Buffer.from(mapCode).toString('base64')}`;
+const { generateMap, MAP_SHAPES } = await import(mapUrl);
 const source = await readFile(new URL('../src/sim.ts', import.meta.url), 'utf8');
 const tuneJson = await readFile(new URL('../tune.json', import.meta.url), 'utf8');
-const compiled = ts.transpileModule(source.replace("import tuneJson from '../tune.json';", `const tuneJson = ${tuneJson};`), {
+const compiled = ts.transpileModule(source.replace("import tuneJson from '../tune.json';", `const tuneJson = ${tuneJson};`).replace("from './maps'", `from '${mapUrl}'`), {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
 }).outputText;
 const { OperationSim, DEFAULT_TUNE, BASE_CARDS, DEFAULT_LOADOUT, distance } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
@@ -908,11 +912,11 @@ test('retreats and traversable burnt/committed friendly hexes use the same sourc
   assert.equal(mover.movingUntilMs - mover.movedAtMs, s.tune.cards.fighter.moveMs / 1.25);
 });
 
-test('v7 custom tuning without the optional movement rule keeps base speed and remains checkpoint-compatible', () => {
+test('v8 custom tuning without the optional movement rule keeps base speed and remains checkpoint-compatible', () => {
   const s = fixture(t => { delete t.movement; }); const source = '-2,2'; h(s, source).owner = 0;
   const mover = unit(s, source, 0, 'fighter'); s.setTarget(0, 1); advance(s, 100);
   assert.equal(mover.movingUntilMs - mover.movedAtMs, s.tune.cards.fighter.moveMs);
-  const saved = JSON.parse(JSON.stringify(s.checkpoint())); assert.equal(saved.version, 7); assert.equal(saved.tune.movement, undefined);
+  const saved = JSON.parse(JSON.stringify(s.checkpoint())); assert.equal(saved.version, 8); assert.equal(saved.tune.movement, undefined);
   const restored = OperationSim.restore(saved); assert.equal(restored.units[0].movingUntilMs, mover.movingUntilMs);
   assert.throws(() => fixture(t => { t.movement.friendlySpeedMultiplier = 0; }), /finite and positive/);
 });
@@ -1083,14 +1087,14 @@ test('explicit HQ attacks navigate beyond sight, engage a visible enemy along th
   assert.equal(s.players[0].targetId, 1); assert(h(s, actor.hexId).q > -2, 'resumes the eastward HQ advance after engagement');
 });
 
-test('v7 sight checkpoints preserve deterministic pursuit and reject missing sight or prior room rules', () => {
+test('v8 sight checkpoints preserve deterministic pursuit and reject missing sight or prior room rules', () => {
   const s = milestone(); ownAll(s); const actor = unit(s, '0,3', 0, 'tank');
   unit(s, '3,3', 1, 'tank').movingUntilMs = 100000; advance(s, 100);
-  const saved = JSON.parse(JSON.stringify(s.checkpoint())); assert.equal(saved.version, 7);
+  const saved = JSON.parse(JSON.stringify(s.checkpoint())); assert.equal(saved.version, 8);
   const restored = OperationSim.restore(saved); assert.equal(restored.tune.cards.tank.sightRange, 3);
   for (const dt of [37, 63, 1900, 17, 83, 3000]) { advance(s, dt); advance(restored, dt); }
   assert.deepEqual(restored.checkpoint(), s.checkpoint()); assert(s.shots.some(x => x.unitId === actor.id));
-  for (const version of [1, 2, 3, 4, 5, 6]) assert.throws(() => OperationSim.restore({ ...saved, version }), /Unsupported/);
+  for (const version of [1, 2, 3, 4, 5, 6, 7]) assert.throws(() => OperationSim.restore({ ...saved, version }), /Unsupported/);
   for (const value of [undefined, -1, NaN]) assert.throws(() => milestone(t => { t.cards.tank.sightRange = value; }), /Individual sight/);
 });
 
@@ -1309,7 +1313,7 @@ test('bot attacks with an assembled healthy mixed force, retreats after depletio
   assert(s.timeMs >= retreatAt + cfg.orderHoldMs); assert(s.timeMs > attackAt);
 });
 
-test('bot decisions, saving and order hysteresis are checkpoint and tick-partition deterministic with old-v7 defaults', () => {
+test('bot decisions, saving and order hysteresis are checkpoint and tick-partition deterministic with old-v8 defaults', () => {
   const a = new OperationSim(), b = new OperationSim();
   for (let t = 0; t < 90000; t += 100) advance(a, 100);
   for (let t = 0; t < 90000; t += 500) advance(b, 500);
@@ -1335,7 +1339,7 @@ function extraHQ(s, owner = 0, site = '0,0') {
   assert(s.place(owner, site, 'hq').ok); return s.buildings.find(b => b.hexId === site);
 }
 
-test('v7 starts with six productive hexes, three ordinary workers per HQ and seven selectable cards plus implicit HQ', () => {
+test('v8 starts with six productive hexes, three ordinary workers per HQ and seven selectable cards plus implicit HQ', () => {
   const s = economyWorld();
   assert.deepEqual(s.resources(0), { committed: 0, capacity: 6, stranded: 0 });
   assert.equal(s.units.length, 6); assert.equal(DEFAULT_LOADOUT.length, 7); assert.equal(Object.keys(DEFAULT_TUNE.cards).length, 19);
@@ -1514,12 +1518,12 @@ test('bot economy expands a real HQ and researches through it while respecting s
   for (const building of s.buildings.filter(x => x.owner === 1 && x.kind !== 'hq')) assert(s.loadouts[1].includes(building.kind));
 });
 
-test('worker economy and HQ orders are deterministic through v7 checkpoint recovery and tick partitions', () => {
+test('worker economy and HQ orders are deterministic through v8 checkpoint recovery and tick partitions', () => {
   const a = economyWorld(), b = economyWorld(); advance(a, 40137); advance(b, 40137);
-  const saved = JSON.parse(JSON.stringify(a.checkpoint())); assert.equal(saved.version, 7); const restored = OperationSim.restore(saved);
+  const saved = JSON.parse(JSON.stringify(a.checkpoint())); assert.equal(saved.version, 8); const restored = OperationSim.restore(saved);
   for (let i = 0; i < 100; i++) advance(a, 100); for (let i = 0; i < 20; i++) advance(b, 500); advance(restored, 10000);
   assert.deepEqual(a.checkpoint(), b.checkpoint()); assert.deepEqual(a.checkpoint(), restored.checkpoint());
-  for (const version of [1, 2, 3, 4, 5, 6]) assert.throws(() => OperationSim.restore({ ...saved, version }), /Unsupported/);
+  for (const version of [1, 2, 3, 4, 5, 6, 7]) assert.throws(() => OperationSim.restore({ ...saved, version }), /Unsupported/);
 });
 
 test('an expansion HQ can be funded by exactly sixteen productive cells without losing one capacity on placement', () => {
@@ -1600,6 +1604,164 @@ test('orphan workers choose the closest surviving completed HQ while ignoring th
   assert.equal(worker.buildingId, null); assert.equal(worker.hexId, '0,5'); assert.equal(s.players[0].defendTargetId, 'distant-army-anchor');
   advance(s, 1000); assert.equal(h(s, '0,5').captureUnitId, worker.id, 'orphan starts gathering before the new HQ can produce another worker');
   advance(s, 6000); assert.equal(h(s, '0,5').owner, 0); assert(s.buildings.includes(forward)); assertOccupancy(s);
+});
+
+test('seeded map presets retain mirrored terrain, six-resource starts and protected worker spawn neighborhoods', () => {
+  assert.deepEqual(MAP_SHAPES, ['open', 'narrows', 'forks', 'ring']);
+  for (const shape of MAP_SHAPES) for (const seed of [0, 1, 2, 3, 42, 0xffffffff]) {
+    const s = economyWorld(t => { t.map.shape = shape; t.map.seed = seed; });
+    const byId = new Map(s.hexes.map(x => [x.id, x]));
+    assert.equal(s.hexes.length, 271); assert.equal(s.resources(0).capacity, 6); assert.equal(s.resources(1).capacity, 6);
+    for (const cell of s.hexes) {
+      const mirror = byId.get(`${-cell.q},${-cell.r}`); assert.equal(!!cell.gap, !!mirror.gap, `${shape}/${seed}/${cell.id}`);
+      if (Math.min(distance(cell, { q: -5, r: 0 }), distance(cell, { q: 5, r: 0 })) <= 2) assert(!cell.gap);
+      assert.equal(cell.owner === null ? null : 1 - cell.owner, mirror.owner);
+    }
+    const left = s.units.filter(u => u.owner === 0).map(u => { const cell = h(s, u.hexId); return `${-cell.q},${-cell.r}`; }).sort();
+    assert.deepEqual(left, s.units.filter(u => u.owner === 1).map(u => u.hexId).sort(), 'starting workers are rotationally mirrored too');
+    assertOccupancy(s);
+  }
+});
+
+test('every preset and seed has a ground route between HQ sides and reproducible seed-sensitive contours', () => {
+  for (const shape of MAP_SHAPES) {
+    const variants = new Set();
+    for (const seed of [1, 2, 3, 19, 77, 0xffffffff]) {
+      const config = { ...DEFAULT_TUNE.map, shape, seed }, cells = generateMap(config), byId = new Map(cells.map(x => [x.id, x]));
+      assert.deepEqual(generateMap(config), cells); variants.add(JSON.stringify(cells.filter(x => x.gap).map(x => x.id)));
+      const queue = ['-5,0'], seen = new Set(queue);
+      for (let i = 0; i < queue.length; i++) {
+        const cell = byId.get(queue[i]);
+        for (const [q, r] of [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]]) {
+          const next = byId.get(`${cell.q + q},${cell.r + r}`); if (!next || next.gap || seen.has(next.id)) continue;
+          seen.add(next.id); queue.push(next.id);
+        }
+      }
+      assert(seen.has('5,0'), `${shape}/${seed} must retain a land route`);
+    }
+    assert(variants.size > 1, `${shape} responds to different seeds`);
+  }
+});
+
+test('open seed one preserves the classic grid and omitted map fields use compatible open-one defaults', () => {
+  const legacy = { radius: 9, hqQ: 5, hqR: 0 }, cells = generateMap(legacy);
+  assert.equal(cells.length, 271); assert(!cells.some(x => x.gap)); assert.deepEqual(cells, generateMap({ ...legacy, shape: 'open', seed: 1 }));
+  const s = economyWorld(t => { delete t.map.shape; delete t.map.seed; }); assert.equal(s.tune.map.shape, 'open'); assert.equal(s.tune.map.seed, 1);
+  for (const shape of ['unknown', '', null]) assert.throws(() => generateMap({ ...legacy, shape }), /Invalid map/);
+  for (const seed of [-1, 1.5, NaN, Infinity, 0x100000000]) assert.throws(() => generateMap({ ...legacy, seed }), /seed/);
+});
+
+test('preset terrain retains the intended choke, two lanes and central ring hole', () => {
+  const reachable = (cells, allowed = () => true) => {
+    const byId = new Map(cells.map(x => [x.id, x])), queue = ['-5,0'], seen = new Set(queue);
+    for (let i = 0; i < queue.length; i++) {
+      const cell = byId.get(queue[i]);
+      for (const [q, r] of [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]]) {
+        const next = byId.get(`${cell.q + q},${cell.r + r}`); if (!next || next.gap || !allowed(next) || seen.has(next.id)) continue;
+        seen.add(next.id); queue.push(next.id);
+      }
+    }
+    return seen.has('5,0');
+  };
+  const narrows = generateMap({ ...DEFAULT_TUNE.map, shape: 'narrows', seed: 2 });
+  assert(reachable(narrows)); assert(!narrows.find(x => x.id === '0,0').gap);
+  narrows.find(x => x.id === '0,0').gap = true; assert(!reachable(narrows), 'central bridge is a real ground choke');
+  const forks = generateMap({ ...DEFAULT_TUNE.map, shape: 'forks', seed: 2 }); assert(forks.find(x => x.id === '0,0').gap);
+  assert(reachable(forks, x => x.r >= 0)); assert(reachable(forks, x => x.r <= 0), 'both flank lanes connect the starts');
+  const ring = generateMap({ ...DEFAULT_TUNE.map, shape: 'ring', seed: 2 }); assert(ring.find(x => x.id === '0,0').gap); assert(reachable(ring));
+});
+
+test('gaps provide no capacity, capture, building sites, connected funding or research support', () => {
+  const s = fixture(t => { t.resources.capacityCap = 10000; t.map.shape = 'narrows'; t.map.seed = 2; }); ownAll(s);
+  const centres = new Set(s.buildings.map(b => b.hexId)), landCount = s.hexes.filter(x => !x.gap && !centres.has(x.id)).length;
+  assert.equal(s.resources(0).capacity, landCount); const gap = s.hexes.find(x => x.gap); assert(gap);
+  assert(!s.placement(0, gap.id, 'infantry').ok); assert(!s.placement(0, gap.id, 'hq').ok);
+  const home = s.buildings.find(b => b.id === 'hq0'); home.hqLevel = 1;
+  assert(s.startResearch(0, home.id).ok); assert(s.players[0].research.supportIds.every(id => !h(s, id).gap)); s.cancelResearch(0);
+  const bridge = costFourFixture(); for (const cell of bridge.hexes) cell.owner = null;
+  for (const cell of bridge.hexes.filter(x => x.q === 0)) { cell.gap = true; cell.owner = 0; }
+  for (const id of ['-1,0', '-2,0', '1,0', '2,0', '1,1', '2,-1']) h(bridge, id).owner = 0;
+  assert.equal(bridge.resources(0).capacity, 6); assert(!bridge.placement(0, '-1,0', 'infantry').ok);
+  const valid = bridge.placement(0, '1,0', 'infantry'); assert(valid.ok); assert(valid.hexes.every(id => !h(bridge, id).gap));
+  const capture = laborWorld(t => { t.hq.defenseDamage = 0; }); ownAll(capture); capture.buildings.find(b => b.id === 'hq0').hexId = '-2,0';
+  h(capture, '0,0').gap = true; h(capture, '0,0').owner = null; unit(capture, '0,0', 0, 'worker', 1);
+  advance(capture, 100); assert.equal(h(capture, '0,0').capture, 0); assert.equal(h(capture, '0,0').owner, null);
+});
+
+test('ground troops and workers cannot traverse a complete gap barrier even toward visible valid targets', () => {
+  const s = laborWorld(t => { t.hq.defenseDamage = 0; }); ownAll(s); s.buildings.find(b => b.id === 'hq0').hexId = '-2,0';
+  for (const cell of s.hexes) { if (cell.q === 0) cell.gap = true; if (cell.q > 0) cell.owner = null; }
+  const tank = unit(s, '-1,0', 0, 'tank'), worker = unit(s, '-1,1', 0, 'worker', 1); worker.buildingId = 'hq0';
+  unit(s, '2,0', 1, 'tank').movingUntilMs = 100000;
+  advance(s, 10000); assert.equal(tank.hexId, '-1,0'); assert.equal(worker.hexId, '-1,1');
+  assert(!s.shots.some(x => x.unitId === tank.id)); assert(!s.units.some(u => h(s, u.hexId).gap)); assertOccupancy(s);
+});
+
+test('workers and military aircraft both wait for an adjacent land spawn instead of spawning over a gap ring', () => {
+  const s = economyWorld(); ownAll(s); const base = extraHQ(s);
+  for (const cell of s.neighbors(base.hexId)) cell.gap = true;
+  advance(s, s.tune.hq.buildMs + s.tune.hq.workerProductionMs); assert(!s.units.some(u => u.buildingId === base.id));
+  const opening = s.neighbors(base.hexId)[0]; delete opening.gap; advance(s, 100);
+  assert(s.units.some(u => u.buildingId === base.id && u.hexId === opening.id));
+  const air = fixture(); ownAll(air); for (const cell of air.neighbors('0,0')) cell.gap = true;
+  assert(air.place(0, '0,0', 'fighter').ok === false, 'a gap ring also prevents connected producer funding');
+  // Place first, then isolate its spawn ring to test deployment independently of funding.
+  for (const cell of air.neighbors('0,0')) delete cell.gap;
+  const b = producer(air, '0,0', 'fighter'); const spawned = air.units.find(u => u.id === b.unitId); spawned.hp = 0;
+  for (const cell of air.neighbors('0,0')) cell.gap = true;
+  advance(air, air.tune.cards.fighter.productionMs + 100); assert.equal(b.unitId, null);
+  const cell = air.neighbors('0,0')[0]; delete cell.gap; advance(air, 100); assert(b.unitId); assert(!h(air, air.units.find(u => u.id === b.unitId).hexId).gap);
+});
+
+test('aircraft cross consecutive gaps only to land and spend the full distance-scaled flight time', () => {
+  const s = fixture(); ownAll(s); for (const cell of s.hexes) if (Math.abs(cell.q) <= 1) cell.gap = true;
+  const aircraft = unit(s, '-2,0', 0, 'fighter'); s.setTarget(0, 1); advance(s, 100);
+  assert.equal(aircraft.fromHexId, '-2,0'); assert.equal(aircraft.hexId, '2,0');
+  const duration = s.tune.cards.fighter.moveMs * 4 / s.tune.movement.friendlySpeedMultiplier;
+  assert.equal(aircraft.movingUntilMs - aircraft.movedAtMs, duration);
+  const arrival = aircraft.movingUntilMs; h(s, '-2,0').owner = 1;
+  advance(s, 500); const restored = OperationSim.restore(JSON.parse(JSON.stringify(s.checkpoint())));
+  while (s.timeMs + 100 < arrival) { advance(s, 100); advance(restored, 100); assert.equal(aircraft.movingUntilMs, arrival); assert(!h(s, aircraft.hexId).gap); }
+  assert.equal(aircraft.movedAtMs, 100, 'flight cannot complete after only one ordinary move interval');
+  advance(s, 100); advance(restored, 100); assert.deepEqual(restored.checkpoint(), s.checkpoint()); assertOccupancy(s);
+});
+
+test('air crossings cannot skip an occupied first shore or stack with ground units and buildings', () => {
+  for (const occupant of ['unit', 'building']) {
+    const s = fixture(); ownAll(s);
+    for (const cell of s.hexes) cell.gap = !['-5,0', '5,0', '-2,0', '2,0', '3,0'].includes(cell.id);
+    if (occupant === 'unit') unit(s, '2,0', 0, 'tank').movingUntilMs = 100000;
+    else s.buildings.push({ id: 'shore-building', kind: 'tank', owner: 0, hexId: '2,0', hp: 180, maxHp: 180, unitId: 'fixture', readyAtMs: 0 });
+    const aircraft = unit(s, '-2,0', 0, 'fighter'); s.setTarget(0, 1); advance(s, 100);
+    assert.equal(aircraft.hexId, '-2,0', `${occupant} blocks the first shore rather than being flown through`); assertOccupancy(s);
+  }
+});
+
+test('weighted air planning chooses two land steps over a four-hex jump that also reaches a valid goal', () => {
+  const s = fixture(); ownAll(s); s.buildings.find(b => b.id === 'hq1').hexId = '2,2';
+  for (const cell of s.hexes) cell.gap = !['-5,0', '2,2', '0,0', '0,1', '0,2', '4,0'].includes(cell.id);
+  const aircraft = unit(s, '0,0', 0, 'fighter'); s.setTarget(0, 1); advance(s, 100);
+  assert.equal(aircraft.hexId, '0,1', 'edge count must not make a much longer jump look cheaper');
+  assert.equal(aircraft.movingUntilMs - aircraft.movedAtMs, s.tune.cards.fighter.moveMs / 1.25);
+});
+
+test('gaps do not add line-of-sight obstruction or extend weapon ranges', () => {
+  const s = fixture(); ownAll(s); h(s, '-1,0').gap = h(s, '0,0').gap = true;
+  const gun = unit(s, '-2,0', 0, 'artillery'), target = unit(s, '1,0', 1, 'tank', 180); target.movingUntilMs = 100000;
+  advance(s, 100); assert(s.shots.some(x => x.unitId === gun.id && x.targetHexId === target.hexId)); assert.equal(target.hp, 176);
+  const air = fixture(); ownAll(air); h(air, '0,0').gap = true;
+  const fighter = unit(air, '-1,0', 0, 'fighter'); unit(air, '2,0', 1, 'helicopter').movingUntilMs = 100000;
+  advance(air, 100); assert(!air.shots.some(x => x.unitId === fighter.id), 'sight across a gap still cannot increase range two');
+});
+
+test('non-open map topology and active flights remain checkpoint and tick-partition deterministic', () => {
+  for (const shape of ['narrows', 'forks', 'ring']) {
+    const a = economyWorld(t => { t.map.shape = shape; t.map.seed = 123; }), b = economyWorld(t => { t.map.shape = shape; t.map.seed = 123; });
+    for (let i = 0; i < 200; i++) advance(a, 100); for (let i = 0; i < 40; i++) advance(b, 500);
+    assert.deepEqual(a.checkpoint(), b.checkpoint()); const restored = OperationSim.restore(JSON.parse(JSON.stringify(a.checkpoint())));
+    advance(a, 12345); advance(restored, 12345); assert.deepEqual(a.checkpoint(), restored.checkpoint());
+    assert(!a.units.some(u => h(a, u.hexId).gap)); assertOccupancy(a);
+  }
 });
 
 console.log(`${passed} Operation C simulation behavior tests passed.`);

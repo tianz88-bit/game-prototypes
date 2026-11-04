@@ -3,6 +3,8 @@ export type CardKind = 'worker' | 'infantry' | 'tank' | 'artillery' | 'helicopte
 export type UnitDomain = 'ground' | 'air';
 export type BuildKind = 'hq' | CardKind;
 export type DamageClass = 'light' | 'armoured' | 'structure';
+export type MapShape = 'open' | 'narrows' | 'forks' | 'ring';
+export interface MapConfig { radius: number; hqQ: number; hqR: number; shape?: MapShape; seed?: number }
 /** Presentation-only record of a shot actually fired, independent of entity IDs. */
 export interface Shot {
   id: number; unitId: string; owner: number; kind: CardKind;
@@ -14,6 +16,7 @@ export interface Hex {
   lockedBy: string | null; capture: number; capturePlayer: number | null;
   captureUnitId?: string; captureReversing?: boolean;
   commitment?: 'building' | 'upgrade' | 'research' | 'release'; releaseAtMs?: number;
+  gap?: boolean;
 }
 export interface Building {
   id: string; hexId: string; owner: number; kind: 'hq' | CardKind;
@@ -64,7 +67,7 @@ export interface CardTune {
   damageClass: DamageClass; damageBonus?: Partial<Record<DamageClass, number>>;
 }
 export interface Tune {
-  stepMs: number; map: { radius: number; hqQ: number; hqR: number };
+  stepMs: number; map: MapConfig;
   /** Optional for custom tuning; omission retains base-speed movement. */
   movement?: { friendlySpeedMultiplier: number };
   resources: { capacityCap: number; destroyReleaseMs: number }; hq: { hp: number; captureRings: number; defenseRange: number; defenseDamage: number; defenseAttackMs: number; cost: number; buildMs: number; workerLimit: number; workerProductionMs: number; workerGatherRadius: number };

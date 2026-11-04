@@ -1,7 +1,7 @@
 {
   "stepMs": 100,
   "movement": {"friendlySpeedMultiplier":1.25},
-  "map": {"radius":9,"hqQ":5,"hqR":0},
+  "map": {"radius":9,"hqQ":5,"hqR":0,"shape":"open","seed":1},
   "resources": {"capacityCap":200,"destroyReleaseMs":10000},
   "research": {"cost":16,"tier2Ms":30000,"tier3Ms":60000},
   "reinforcements": {"msPerHex":250,"minTravelMs":500},
