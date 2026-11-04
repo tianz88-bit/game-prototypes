@@ -246,10 +246,10 @@ test('attack order prioritizes selected faction buildings over troops; defense r
 });
 
 test('all presentation settings, including event capacity, leave authoritative state and entity IDs identical', () => {
-  assert.deepEqual(DEFAULT_TUNE.presentation, { captureFlipMs: 900, captureLift: 0.9, shotTraceMs: 220, retreatMs: 650, maxShotEvents: 128, commandPulseMs: 1800, upgradeBobMs: 1400, upgradeBobLift: 0.1, mushroomMs: 3000 });
+  assert.deepEqual(DEFAULT_TUNE.presentation, { captureFlipMs: 900, captureLift: 0.9, shotTraceMs: 220, retreatMs: 650, maxShotEvents: 128, commandPulseMs: 1800, upgradeBobMs: 1400, upgradeBobLift: 0.1, nukeArcLift: 3, mushroomMs: 3000 });
   const normal = fixture();
   const variants = [normal, ...[0, 2].map(cap => fixture(t => {
-    t.presentation = { ...t.presentation, captureFlipMs: 99999, captureLift: 10, shotTraceMs: 1, maxShotEvents: cap, commandPulseMs: 1, upgradeBobMs: 99999, upgradeBobLift: 10 };
+    t.presentation = { ...t.presentation, captureFlipMs: 99999, captureLift: 10, shotTraceMs: 1, maxShotEvents: cap, commandPulseMs: 1, upgradeBobMs: 99999, upgradeBobLift: 10, nukeArcLift: 8 };
   }))];
   for (const s of variants) {
     unit(s, '0,0', 0); unit(s, '1,0', 1); unit(s, '-1,3', 0);

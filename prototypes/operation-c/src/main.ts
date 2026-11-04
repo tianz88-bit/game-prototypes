@@ -3,7 +3,7 @@ import type { Pane } from 'tweakpane';
 import { OperationSim, DEFAULT_TUNE, BASE_CARDS, DEFAULT_LOADOUT } from './sim';
 import type { Building, Unit, CardKind, BuildKind, Hex, Tune, DamageClass, MapShape } from './model';
 import { MAP_SHAPES, generateMap } from './maps';
-import { drawHex, drawBuilding, drawUnit, drawExplosion, drawCaptureFlip, drawBuildConfirmation, drawBulletTrace, drawCommitmentMarker, drawReleaseCountdown, drawRetreat, drawHqCommand, drawUpgradeReady, drawNuclearImpact, playerColor, hexPoints } from './art';
+import { drawHex, drawBuilding, drawUnit, drawExplosion, drawCaptureFlip, drawBuildConfirmation, drawBulletTrace, drawCommitmentMarker, drawReleaseCountdown, drawRetreat, drawHqCommand, drawUpgradeReady, drawNuclearImpact, drawNuclearFlight, playerColor, hexPoints } from './art';
 import { Intents } from './input';
 import { VERSION_STAMP } from './version.generated';
 import { NAMES, UNIT_NAMES, NOTES } from './catalog';
@@ -196,7 +196,7 @@ class Battlefield extends Phaser.Scene {
           hexes: this.sim.hexes, mapConfig:this.page==='battle'?this.sim.tune.map:this.mapConfig, previewHexes:this.page==='map'?this.previewHexes:[], resources: this.sim.resources(this.localPlayerId), winner: this.sim.winner, target: this.sim.players[this.localPlayerId].targetId,
           objects: this.children.length, textures: this.textures.getTextureKeys().length,
           selectedBuild: this.selected && this.chosenHex ? { hexId: this.chosenHex, valid: this.sim.placement(this.localPlayerId, this.chosenHex, this.selected).ok } : null,
-          shots: this.sim.shots, nuclearAim:this.nuclearAim, nuclearImpacts:this.sim.nuclearImpacts,
+          shots: this.sim.shots, nuclearAim:this.nuclearAim, nukeFlights:this.sim.nukeFlights.filter(f=>f.owner===this.localPlayerId), nuclearImpacts:this.sim.nuclearImpacts,
           inspectorText:['inspectType','inspectUnit'].map(id=>this.texts.get(id)).filter(text=>text?.visible).map(text=>text!.text).join('\n'),
           renderCache:{hqLabels:[...this.texts.keys()].filter(id=>id.startsWith('hq-level-'))},
           presentation: { durationMs: this.sim.tune.presentation.captureFlipMs, reducedMotion: this.reducedMotion,
@@ -267,6 +267,7 @@ class Battlefield extends Phaser.Scene {
     baseDefense.addBinding(values.hq,'defenseDamage',{min:1,max:30,step:1});
     baseDefense.addBinding(values.hq,'defenseAttackMs',{min:200,max:4000,step:100});
     const nuclear=this.pane.addFolder({title:'Nuclear strike',expanded:false});
+    nuclear.addBinding(values.presentation,'nukeArcLift',{min:0,max:8,step:0.25});
     nuclear.addBinding(values.nuclear,'flightMs',{min:1000,max:30000,step:1000});
     nuclear.addBinding(values.nuclear,'centreDamage',{min:1,max:1000,step:10});
     nuclear.addBinding(values.nuclear,'outerDamage',{min:1,max:500,step:10});
@@ -525,6 +526,12 @@ class Battlefield extends Phaser.Scene {
       const hex = this.byHex.get(this.chosenHex)!; const p = this.position(hex);
       drawBuildConfirmation(this.feedback, p.x, p.y, this.radius, { valid: this.sim.placement(this.localPlayerId, hex.id, this.selected).ok, time: now });
     }
+    for(const flight of this.sim.nukeFlights){
+      if(flight.owner!==this.localPlayerId)continue;
+      const from=this.byHex.get(flight.fromHexId),to=this.byHex.get(flight.targetHexId);
+      if(!from||!to||visualMs<flight.launchedAtMs)continue;
+      drawNuclearFlight(this.feedback,this.position(from),this.position(to),this.radius,(visualMs-flight.launchedAtMs)/(flight.impactAtMs-flight.launchedAtMs),this.sim.tune.presentation.nukeArcLift);
+    }
     for(const impact of this.sim.nuclearImpacts){const age=visualMs-impact.timeMs;if(age<0||age>=this.sim.tune.presentation.mushroomMs)continue;const hex=this.byHex.get(impact.hexId);if(!hex)continue;const point=this.position(hex);drawNuclearImpact(this.feedback,point.x,point.y,this.radius,this.reducedMotion?0.65:age/this.sim.tune.presentation.mushroomMs);}
   }
   private label(id: string, text: string, x: number, y: number, size = 14, color = INK, origin = 0) {
@@ -588,7 +595,7 @@ class Battlefield extends Phaser.Scene {
       if(point.y>this.top+12&&point.y<bottomY-12)this.label(`hq-level-${hq.id}`,`T${hq.hqLevel??1}`,point.x,point.y-13*this.zoomLevel,9,'#fff7e5',0.5).setFontStyle('bold');
     }
     const selectedBuilding=!this.inspectedUnit?this.sim.buildings.find(b=>b.id===this.inspected):undefined;
-    if(selectedBuilding&&!this.nuclearAim){
+    if(selectedBuilding&&!this.nuclearAim&&!this.sim.nukeFlights.some(f=>f.buildingId===selectedBuilding.id&&f.owner===this.localPlayerId)){
       const point=this.toScreen(this.byHex.get(selectedBuilding.hexId)!);
       if(point.x>16&&point.x<this.w-16&&point.y>this.top+20&&point.y<bottomY-14){
         const own=selectedBuilding.owner===this.localPlayerId,bw=142,bx=Phaser.Math.Clamp(point.x-bw/2,6,this.w-bw-6),by=Math.max(this.top+3,point.y-this.radius*this.zoomLevel-31);

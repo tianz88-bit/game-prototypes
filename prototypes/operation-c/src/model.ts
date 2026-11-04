@@ -73,7 +73,7 @@ export interface Tune {
   resources: { capacityCap: number; destroyReleaseMs: number }; hq: { hp: number; captureRings: number; defenseRange: number; defenseDamage: number; defenseAttackMs: number; cost: number; buildMs: number; workerLimit: number; workerProductionMs: number; workerGatherRadius: number };
   nuclear: { flightMs: number; radius: number; centreDamage: number; outerDamage: number };
   capture: { neutralMs: number; ownedMultiplier: number; hqRate: number; rollbackRate: number };
-  presentation: { captureFlipMs: number; captureLift: number; shotTraceMs: number; retreatMs: number; maxShotEvents: number; commandPulseMs: number; upgradeBobMs: number; upgradeBobLift: number; mushroomMs: number };
+  presentation: { captureFlipMs: number; captureLift: number; shotTraceMs: number; retreatMs: number; maxShotEvents: number; commandPulseMs: number; upgradeBobMs: number; upgradeBobLift: number; nukeArcLift: number; mushroomMs: number };
   bot: { buildEveryMs: number; attackAtMs: number; cardCycle: CardKind[];
     heuristic?: { initialBuildMs: number; orderHoldMs: number; reserve: number; pressureRadius: number; defenseStructureRadius: number;
       minAttackUnits: number; minAttackStrength: number; attackRatio: number; retreatRatio: number;

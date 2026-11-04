@@ -7,7 +7,7 @@
   "reinforcements": {"msPerHex":250,"minTravelMs":500},
   "hq": {"hp":650,"captureRings":1,"defenseRange":2,"defenseDamage":8,"defenseAttackMs":1000,"cost":16,"buildMs":30000,"workerLimit":3,"workerProductionMs":8000,"workerGatherRadius":4},
   "capture": {"neutralMs":6000,"ownedMultiplier":1.5,"hqRate":1,"rollbackRate":0.25},
-  "presentation": {"captureFlipMs":900,"captureLift":0.9,"shotTraceMs":220,"retreatMs":650,"maxShotEvents":128,"commandPulseMs":1800,"upgradeBobMs":1400,"upgradeBobLift":0.1,"mushroomMs":3000},
+  "presentation": {"captureFlipMs":900,"captureLift":0.9,"shotTraceMs":220,"retreatMs":650,"maxShotEvents":128,"commandPulseMs":1800,"upgradeBobMs":1400,"upgradeBobLift":0.1,"nukeArcLift":3,"mushroomMs":3000},
   "bot": {"buildEveryMs":5000,"attackAtMs":22000,"cardCycle":["infantry","infantry","tank","artillery","helicopter","fighter","scout","bunker"],"heuristic":{"initialBuildMs":0,"orderHoldMs":15000,"reserve":8,"pressureRadius":4,"defenseStructureRadius":2,"minAttackUnits":3,"minAttackStrength":22,"attackRatio":1.2,"retreatRatio":0.6,"healthyFraction":0.55,"minCaptureProducers":2,"researchProducers":3,"maxCounterCopies":2}},
   "cards": {
     "worker": {"sightRange":1,"cost":0,"tier":1,"buildMs":0,"buildingHp":0,"unitHp":1,"damage":0,"range":0,"minRange":0,"domain":"ground","targets":[],"attackMs":0,"moveMs":750,"productionMs":8000,"captureRate":1,"capturePriority":true,"damageClass":"light"},

@@ -4,6 +4,10 @@ Last reconciled: 2026-11-04, Asia/Singapore. This is the canonical design refere
 
 ## Design versus implementation
 
+### Nuclear missile presentation — accepted 2026-11-04
+
+The launching player sees a missile lifting from the silo, exhaust and smoke, then an arcing flight ending at the selected hex at the actual impact time. Flight remains invisible to the defender until the public mushroom-cloud impact, preserving the previously agreed rule. Presentation only: damage, travel time and payload production are unchanged.
+
 ### Symmetric 1v1 generated maps — accepted 2026-11-04
 
 Owner requests a map generator to test map shape, with symmetric starting points and gaps that block ground but can be flown over. Four seeded presets are available before a match: Open, Narrows, Forks and Ring. Open/seed1 preserves the original uncut map. Other seeds vary shore cuts and preset geometry. Every terrain cell mirrors under180-degree rotation; HQ positions, the six owned starting cells and starting worker placements mirror too. Each HQ has a protected two-ring land area, and every generated preset retains a ground route between the starting HQs. Symmetric terrain does not promise identical AI outcomes or eliminate global path/turn tie-break effects.

@@ -791,6 +791,25 @@ export function drawExplosion(g: Graphics, x: number, y: number, size: number, p
   if (p < 0.5) g.fillStyle(PALETTE.cream, 1 - p * 2).fillCircle(x, y - size * p * 0.2, size * (0.25 + p));
 }
 
+/** Owner-only missile. Caller filters visibility and supplies authoritative progress. */
+export function drawNuclearFlight(g: Graphics, from: {x:number;y:number}, to: {x:number;y:number}, r:number, progress:number, arcLift:number): void {
+  const p=clamp(progress);if(p>=1)return;
+  const height=r*arcLift+Math.hypot(to.x-from.x,to.y-from.y)*0.3;
+  const point=(t:number)=>{const ease=t*t*(3-2*t);return {x:from.x+(to.x-from.x)*ease,y:from.y+(to.y-from.y)*ease-height*4*t*(1-t)};};
+  const head=point(p),next=point(Math.min(1,p+0.001)),prev=point(Math.max(0,p-0.001));
+  const angle=Math.atan2(next.y-prev.y,next.x-prev.x),dx=Math.cos(angle),dy=Math.sin(angle),size=r*0.44;
+  // A short fading exhaust follows the actual arc rather than telegraphing the target.
+  for(let i=12;i>0;i--){const a=point(Math.max(0,p-i*0.003)),b=point(Math.max(0,p-(i-1)*0.003));g.lineStyle(r*0.11*(1-i/15),0xeeb36a,(1-i/13)*0.65).lineBetween(a.x,a.y,b.x,b.y);}
+  if(p<0.16){const fade=1-p/0.16;g.fillStyle(0xc7c3af,fade*0.65).fillEllipse(from.x,from.y+r*0.08,r*(0.5+p*5),r*(0.2+p*2));}
+  const at=(forward:number,side:number)=>({x:head.x+dx*size*forward-dy*size*side,y:head.y+dy*size*forward+dx*size*side});
+  const nose=at(1,0),left=at(-0.6,-0.25),right=at(-0.6,0.25),tail=at(-1.3,0);
+  g.fillStyle(0xf2aa4c,0.95).fillTriangle(left.x,left.y,right.x,right.y,tail.x,tail.y);
+  g.fillStyle(0xfff7e5,1).fillTriangle(nose.x,nose.y,left.x,left.y,right.x,right.y);
+  g.lineStyle(Math.max(1,r*0.045),0x304e56,1).strokeTriangle(nose.x,nose.y,left.x,left.y,right.x,right.y);
+  const finA=at(-0.6,-0.5),finB=at(-0.6,0.5),finTip=at(0,0);
+  g.fillStyle(0x547a80,1).fillTriangle(finA.x,finA.y,finB.x,finB.y,finTip.x,finTip.y);
+}
+
 /** Impact-only, owner-neutral nuclear cloud. No flight telegraph or randomness.
  * r is a world-pixel VISUAL SCALE: cloud width peaks near 3.2r, top near y-2.6r;
  * shockwave diameter peaks near 4.6r. Caller owns lifetime (suggested 2400ms),
