@@ -2,7 +2,7 @@ import type { Building, BuildKind, CardKind, Hex, NuclearImpact, NukeFlight, Pen
 import { MAP_SHAPES } from './maps';
 import type { MapShape } from './model';
 
-export const ONLINE_PROTOCOL_VERSION = 8;
+export const ONLINE_PROTOCOL_VERSION = 9;
 export const ROOM_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const ROOM_CODE_RE = /^[A-HJ-NP-Z2-9]{5}$/;
 export const MAX_ONLINE_MESSAGE_BYTES = 4096;
@@ -15,7 +15,7 @@ export type OnlineCommand =
   | { kind: 'launchNuke'; buildingId: string; hexId: string }
   | { kind: 'research'; hqId?: string }
   | { kind: 'cancelResearch' }
-  | { kind: 'upgrade' | 'cancelUpgrade' | 'sell' | 'cancelConstruction'; buildingId: string };
+  | { kind: 'upgrade' | 'cancelUpgrade' | 'sell' | 'dismantle' | 'cancelConstruction'; buildingId: string };
 export type OnlineClientMessage =
   | { t: 'map'; requestId: RequestId; shape: MapShape; seed: number }
   | { t: 'loadout'; requestId: RequestId; cards: CardKind[] }
@@ -84,7 +84,7 @@ export function parseOnlineClientMessage(raw: string): OnlineClientMessage | nul
   if (c.kind === 'launchNuke' && keys(c, ['kind', 'buildingId', 'hexId']) && ref(c.buildingId) && ref(c.hexId)) return m as OnlineClientMessage;
   if (c.kind === 'research' && (keys(c, ['kind']) || keys(c, ['kind', 'hqId']) && ref(c.hqId))) return m as OnlineClientMessage;
   if (c.kind === 'cancelResearch' && keys(c, ['kind'])) return m as OnlineClientMessage;
-  if (['upgrade', 'cancelUpgrade', 'sell', 'cancelConstruction'].includes(String(c.kind)) && keys(c, ['kind', 'buildingId']) && ref(c.buildingId)) return m as OnlineClientMessage;
+  if (['upgrade', 'cancelUpgrade', 'sell', 'dismantle', 'cancelConstruction'].includes(String(c.kind)) && keys(c, ['kind', 'buildingId']) && ref(c.buildingId)) return m as OnlineClientMessage;
   return null;
 }
 

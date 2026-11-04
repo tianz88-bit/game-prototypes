@@ -4,6 +4,14 @@ Last reconciled: 2026-11-04, Asia/Singapore. This is the canonical design refere
 
 ## Design versus implementation
 
+### Economy recovery and supplied support — accepted 2026-11-04
+
+Workers prefer reachable neutral land within four hexes of their supporting HQ, then seek the nearest reachable neutral land farther away. Four is a preference, not a maximum capture distance. Enemy territory, buildings, units and gaps still block worker paths; military commands never redirect workers. With no reachable neutral land, workers return toward their HQ, show an idle ellipsis and explain "No reachable territory" when inspected. They resume when a route/neutral target opens. Extra HQs add three workers and replacement locations; they are no longer mandatory to exceed the original gathering area.
+
+New upgrade surcharges and HQ research reserve only open owned productive hexes connected through adjacent owned land to any living completed friendly HQ. Owned committed cells and friendly building footprints carry the connection; burnt, neutral, enemy and gap cells break it. The original free HQ centre seeds the connection despite being nonproductive. Supports need not be mutually adjacent or beside the upgrading building. Already started work continues after connectivity/support losses. Ordinary building placement and global capacity accounting remain unchanged. This supersedes unrestricted disconnected upgrade/research support and the hard worker radius in earlier decisions below.
+
+Completed buildings offer Dismantle in their contextual menu, with a second tap to confirm. The building stops immediately, its footprint burns, surviving units become orphans, and only surviving assigned support tiles release after the existing ten-second countdown. Previously captured supports remain discounted; no capacity is refunded for them. In-progress conversion commitments follow the same destruction rule. Extra completed HQs can be dismantled, cancelling linked research and orphaning their workers; the last completed HQ is protected, and unfinished HQs do not satisfy that safeguard. Unfinished construction retains Cancel Build. Completed selling remains disabled; Dismantle is the deliberate destructive recovery action.
+
 ### Nuclear missile presentation — accepted 2026-11-04
 
 The launching player sees a missile lifting from the silo, exhaust and smoke, then an arcing flight ending at the selected hex at the actual impact time. Flight remains invisible to the defender until the public mushroom-cloud impact, preserving the previously agreed rule. Presentation only: damage, travel time and payload production are unchanged.

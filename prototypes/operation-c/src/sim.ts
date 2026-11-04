@@ -14,7 +14,7 @@ export const distance = (a: Pick<Hex, 'q' | 'r'>, b: Pick<Hex, 'q' | 'r'>): numb
 
 /** Private persistence format; never accept a checkpoint from a game client. */
 export interface OperationCheckpoint {
-  version: 8; tune: Tune; loadouts: CardKind[][]; hexes: Hex[]; buildings: Building[]; units: Unit[];
+  version: 9; tune: Tune; loadouts: CardKind[][]; hexes: Hex[]; buildings: Building[]; units: Unit[];
   shots: Shot[]; reinforcements: Reinforcement[]; retirements: Retirement[]; pendingReleases: PendingRelease[]; players: Player[];
   timeMs: number; winner: number | null; accumulatorMs: number; serial: number; shotSerial: number;
   reinforcementSerial: number; retirementSerial: number; strandedDebt: [number, number][];
@@ -100,7 +100,7 @@ export class OperationSim {
   }
 
   checkpoint(): OperationCheckpoint {
-    return structuredClone({ version: 8, tune: this.tune, loadouts: this.loadouts,
+    return structuredClone({ version: 9, tune: this.tune, loadouts: this.loadouts,
       hexes: this.hexes, buildings: this.buildings, units: this.units, shots: this.shots,
       reinforcements: this.reinforcements, retirements: this.retirements, pendingReleases: this.pendingReleases, players: this.players,
       timeMs: this.timeMs, winner: this.winner, accumulatorMs: this.accumulatorMs, serial: this.serial,
@@ -110,7 +110,7 @@ export class OperationSim {
   }
 
   static restore(checkpoint: OperationCheckpoint): OperationSim {
-    if (checkpoint.version !== 8) throw new Error('Unsupported Operation C checkpoint');
+    if (checkpoint.version !== 9) throw new Error('Unsupported Operation C checkpoint');
     const data = structuredClone(checkpoint);
     const sim = new OperationSim({ tune: data.tune, loadouts: data.loadouts, bot: data.botEnabled });
     const replace = <T>(target: T[], source: T[]) => { target.splice(0, target.length, ...source); };
@@ -185,8 +185,21 @@ export class OperationSim {
     return { ok: true };
   }
 
+  /** Commitments and buildings connect owned supply; burnt land and gaps do not. */
+  private suppliedTerritory(playerId: number): Set<string> {
+    const queue=this.buildings.filter(b=>b.owner===playerId&&b.kind==='hq'&&b.hp>0&&(b.completeAtMs??0)<=this.timeMs)
+      .map(b=>b.hexId).filter(id=>{const h=this.byHex.get(id)!;return !h.gap&&!h.burnt;});
+    const supplied=new Set(queue);
+    for(let i=0;i<queue.length;i++)for(const h of this.neighbors(queue[i])){
+      if(supplied.has(h.id)||h.owner!==playerId||h.gap||h.burnt)continue;
+      supplied.add(h.id);queue.push(h.id);
+    }
+    return supplied;
+  }
+
   private openSupports(playerId: number): Hex[] {
-    return this.hexes.filter(h => h.owner === playerId && !h.gap && !h.burnt && h.lockedBy === null && !this.buildings.some(b => b.hexId === h.id));
+    const supplied=this.suppliedTerritory(playerId);
+    return this.hexes.filter(h => supplied.has(h.id) && h.owner === playerId && !h.gap && !h.burnt && h.lockedBy === null && !this.buildings.some(b => b.hexId === h.id));
   }
 
   startResearch(playerId: number, hqId?: string): { ok: boolean; reason?: string } {
@@ -196,7 +209,7 @@ export class OperationSim {
       .sort((a, b) => (b.hqLevel ?? 1) - (a.hqLevel ?? 1))[0];
     if (!hq || p.research || hq.hqLevel === 3) return { ok: false, reason: !hq ? 'Select a completed friendly HQ' : p.research ? 'Research already running' : 'Maximum HQ level reached' };
     const cost = this.tune.research.cost, r = this.resources(playerId), supports = this.openSupports(playerId);
-    if (r.committed + cost > r.capacity || supports.length < cost) return { ok: false, reason: `Research needs ${cost} open resources and global capacity` };
+    if (r.committed + cost > r.capacity || supports.length < cost) return { ok: false, reason: `Research needs ${cost} open HQ-connected resources and global capacity` };
     const level = hq.hqLevel ?? 1;
     p.research = { hqId: hq.id, fromTier: level as 1 | 2, toTier: level === 1 ? 2 : 3, startedAtMs: this.timeMs,
       completeAtMs: this.timeMs + (level === 1 ? this.tune.research.tier2Ms : this.tune.research.tier3Ms),
@@ -221,7 +234,7 @@ export class OperationSim {
     if ((b.completeAtMs ?? 0) > this.timeMs || b.upgradeKind) return { ok: false, reason: 'Construction or conversion still running' };
     if (p.techTier < this.tune.cards[next].tier) return { ok: false, reason: `Requires technology tier ${this.tune.cards[next].tier}` };
     const extra = Math.max(0, this.tune.cards[next].cost - card.cost), r = this.resources(playerId);
-    if (extra > 0 && (r.committed + extra > r.capacity || this.openSupports(playerId).length < extra)) return { ok: false, reason: 'Upgrade needs additional open resources' };
+    if (extra > 0 && (r.committed + extra > r.capacity || this.openSupports(playerId).length < extra)) return { ok: false, reason: 'Upgrade needs additional open HQ-connected resources' };
     return { ok: true };
   }
 
@@ -249,6 +262,18 @@ export class OperationSim {
 
   sell(playerId: number, id: string): { ok: boolean; reason?: string } {
     return this.cancelConstruction(playerId, id);
+  }
+
+  canDismantle(playerId: number, id: string): { ok: boolean; reason?: string } {
+    const b=this.buildings.find(x=>x.id===id),p=this.players.find(x=>x.id===playerId);
+    if(this.winner!==null||!p?.alive||!b||b.owner!==playerId||b.hp<=0||(b.completeAtMs??0)>this.timeMs)return {ok:false,reason:'Select your completed building'};
+    if(b.kind==='hq'&&!this.buildings.some(x=>x.id!==id&&x.owner===playerId&&x.kind==='hq'&&x.hp>0&&(x.completeAtMs??0)<=this.timeMs))return {ok:false,reason:'Keep at least one completed HQ'};
+    return {ok:true};
+  }
+
+  dismantle(playerId: number, id: string): { ok: boolean; reason?: string } {
+    const check=this.canDismantle(playerId,id);if(!check.ok)return check;
+    this.buildings.find(x=>x.id===id)!.hp=0;this.cleanDead();return {ok:true};
   }
 
   cancelConstruction(playerId: number, id: string): { ok: boolean; reason?: string } {
@@ -606,7 +631,7 @@ export class OperationSim {
       const retreating = (u.retreatUntilMs ?? 0) > this.timeMs;
       if (u.attacking && !retreating) continue;
       // Hold non-owned land until capture finishes, including under unanswered fire.
-      if (!retreating && this.shouldCapture(u)) continue;
+      if (!retreating && this.shouldCapture(u)) { delete u.workerStatus; continue; }
       // Capture-first squads secure the hex, then hold to retaliate on the next
       // decision rather than immediately marching away on the capture-flip step.
       if (!retreating && this.tune.cards[u.kind].capturePriority && this.attackTarget(u)) continue;
@@ -691,29 +716,32 @@ export class OperationSim {
     let expansion: string | undefined;
     const homeHex = this.homeHex(u.owner, u) ?? here;
     let expansionRank = [Infinity, Infinity];
+    let homeStep: string | undefined, homeDistance=Infinity;
     for (let i = 0; i < queue.length; i++) {
       const id = queue[i], h = this.byHex.get(id)!;
-      if (i > 0 && !h.gap && h.owner === null && !h.burnt && distance(h, homeHex) <= this.tune.hq.workerGatherRadius) {
-        const rank = [distance(h, homeHex), i];
+      if (i > 0 && !h.gap && h.owner === null && !h.burnt) {
+        const rank = [distance(h, homeHex)<=this.tune.hq.workerGatherRadius?0:1, i];
         if (rank[0] < expansionRank[0] || rank[0] === expansionRank[0] && rank[1] < expansionRank[1]) {
           expansion = first.get(id); expansionRank = rank;
         }
       }
+      if(h.owner===u.owner&&distance(h,homeHex)<homeDistance){homeDistance=distance(h,homeHex);homeStep=first.get(id);}
       const neighbors = this.neighbors(id);
       for (const n of neighbors) {
         if (n.gap || seen.has(n.id) || blocked.has(n.id) || n.owner !== null && n.owner !== u.owner) continue;
         seen.add(n.id); first.set(n.id, first.get(id) ?? n.id); queue.push(n.id);
       }
     }
-    return expansion;
+    if(expansion){delete u.workerStatus;return expansion;}
+    u.workerStatus=homeStep?'returning':'idle';
+    return homeStep;
   }
 
   private shouldCapture(u: Unit): boolean {
     const card = this.tune.cards[u.kind], h = this.byHex.get(u.hexId)!;
     if (card.domain !== 'ground' || card.captureRate <= 0 || h.owner === u.owner || h.gap || h.burnt) return false;
     if (u.kind === 'worker') {
-      const home = this.homeHex(u.owner, u);
-      return h.owner === null && !!home && distance(h, home) <= this.tune.hq.workerGatherRadius;
+      return h.owner === null && !!this.homeHex(u.owner, u);
     }
     return (u.kind === 'infantry' || u.kind === 'missile' || u.kind === 'gunner') && h.owner !== null;
   }

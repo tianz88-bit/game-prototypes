@@ -90,6 +90,7 @@ class Battlefield extends Phaser.Scene {
   private lastSimTime = 0; private lastSimFrame = 0;
   private upgradeReady = new Set<string>(); private upgradeCheckAt = -1;
   private online:OnlineConnection|null=null;private networkEntered=false;private onlineNotice='';private toast='';private toastUntil=0;private readyPending=false;
+  private dismantleConfirm:string|null=null;
   private nuclearAim:{buildingId:string;hexId:string|null}|null=null;
   private get localPlayerId(){return this.online?.seat??0;}
   private get mapConfig(){const config=this.online?.lobby?.map??this.offlineMap;return {...config,shape:config.shape??'open',seed:config.seed??1};}
@@ -116,6 +117,7 @@ class Battlefield extends Phaser.Scene {
       case 'cancelResearch':return this.sim.cancelResearch(owner);
       case 'upgrade':return this.sim.upgrade(owner,command.buildingId);
       case 'cancelUpgrade':return this.sim.cancelUpgrade(owner,command.buildingId);
+      case 'dismantle':return this.sim.dismantle(owner,command.buildingId);
       case 'sell':return this.sim.sell(owner,command.buildingId);
       case 'cancelConstruction':return this.sim.cancelConstruction(owner,command.buildingId);
       case 'attackBuilding':return this.sim.setAttackTarget(owner,command.entityId);
@@ -366,7 +368,7 @@ class Battlefield extends Phaser.Scene {
       else { this.chosenHex = hex.id; const p = this.sim.placement(this.localPlayerId, hex.id, this.selected); this.message = p.ok ? `${p.hexes.length} connected hexes · tap the hammer hex again to build.` : p.reason ?? 'Invalid placement.'; }
       return;
     }
-    this.selected = null; this.chosenHex = null;
+    this.selected = null; this.chosenHex = null;this.dismantleConfirm=null;
     this.inspected = b?.id ?? u?.id ?? null; this.inspectedUnit = !b && !!u;
     this.inspectedSnapshot = b ?? u ?? null; this.panel = 'details';
     if (b) this.message = `${b.owner === this.localPlayerId ? 'Your' : 'Rival'} ${b.kind==='hq'?'Headquarters':NAMES[b.kind]} · select the command above it.`;
@@ -499,6 +501,10 @@ class Battlefield extends Phaser.Scene {
         drawUnit(this.live, x, y, this.radius * (e.members ? 0.85 : 0.69), e.owner, e.kind,
           { hp: e.hp, maxHp: e.maxHp, attacking: e.attacking, moving: (e.movingUntilMs ?? 0) > this.sim.timeMs,
             phase: now / (e.attacking ? 100 : 130), angle, facingX, members: e.members });
+        if(e.kind==='worker'&&e.workerStatus==='idle'&&e.owner===this.localPlayerId){
+          this.feedback.fillStyle(0xfff7e5,0.95).fillRoundedRect(x-this.radius*0.24,y-this.radius*0.83,this.radius*0.48,this.radius*0.3,3);
+          for(let i=-1;i<=1;i++)this.feedback.fillStyle(0xa57430,1).fillCircle(x+i*this.radius*0.12,y-this.radius*0.68,this.radius*0.035);
+        }
       }
     }
     for (const [id, p] of this.seenBuildings) if (!newBuildings.has(id)) this.effects.push({ ...p, born: now });
@@ -549,7 +555,7 @@ class Battlefield extends Phaser.Scene {
   }
   private chooseCard(kind: BuildKind) {
     if(this.buildInfo(kind).tier>this.sim.players[this.localPlayerId].techTier)return;
-    this.nuclearAim=null;this.selected=this.selected===kind?null:kind;
+    this.dismantleConfirm=null;this.nuclearAim=null;this.selected=this.selected===kind?null:kind;
     this.chosenHex=null;this.inspected=null;this.inspectedSnapshot=null;this.panel='build';
     this.message=this.selected?'Choose open territory · tap its hammer again to build.':'Select a card or a force on the map.';
   }
@@ -671,24 +677,25 @@ class Battlefield extends Phaser.Scene {
     if(e.kind==='hq'){
       const own=e.owner===this.localPlayerId;
       const constructing=(e.completeAtMs??0)>this.sim.timeMs,workers=this.sim.units.filter(u=>u.kind==='worker'&&u.buildingId===e.id).length,research=this.sim.players[e.owner].research;
-      const nextWorker=(e.workerReadyAtMs??0)>this.sim.timeMs?`Next worker ${Math.ceil((e.workerReadyAtMs!-this.sim.timeMs)/1000)}s`:`Workers gather within ${this.sim.tune.hq.workerGatherRadius} of this HQ.`;
+      const nextWorker=(e.workerReadyAtMs??0)>this.sim.timeMs?`Next worker ${Math.ceil((e.workerReadyAtMs!-this.sim.timeMs)/1000)}s`:`Workers prefer ${this.sim.tune.hq.workerGatherRadius} hexes, then expand outward.`;
       if(compact){
         this.label('inspectType',`${own?'YOUR':'RIVAL'} HQ T${e.hqLevel??1} · ${workers}/${this.sim.tune.hq.workerLimit} WORKERS`,x,y+17,8,MUTED).setWordWrapWidth(w);
         this.label('inspectHealth',`HP ${Math.max(0,Math.ceil(e.hp))}/${e.maxHp}${constructing?` · BUILD ${Math.ceil((e.completeAtMs!-this.sim.timeMs)/1000)}s`:(e.workerReadyAtMs??0)>this.sim.timeMs?` · WORKER ${Math.ceil((e.workerReadyAtMs!-this.sim.timeMs)/1000)}s`:''}`,x,y+30,9,MUTED);
       }else this.label('hqOrder',`HQ T${e.hqLevel??1} · ${workers} / ${this.sim.tune.hq.workerLimit} workers${constructing?`\nConstructing ${Math.ceil((e.completeAtMs!-this.sim.timeMs)/1000)}s`:`\n${nextWorker}`}`,x,y+56,10,MUTED).setWordWrapWidth(w);
       if(!live)return;
-      const commandY=y+h-34;
+      const commandY=y+h-34,actionW=(w-5)/2;
       this.button(own?'defend':'attack',own?'DEFEND HERE':'ATTACK HERE',x,commandY-33,w,27,()=>{if(own)this.defendEntity(e.id);else this.perform({kind:'attackBuilding',entityId:e.id});},own&&this.sim.players[this.localPlayerId].defendTargetId===e.id);
       if(!own)return;
       if(constructing)this.button('cancel-construction','CANCEL BUILD',x,commandY,w,28,()=>this.perform({kind:'cancelConstruction',buildingId:e.id}));
-      else if(research?.hqId===e.id)this.button('cancel-hq-research','CANCEL HQ RESEARCH',x,commandY,w,28,()=>this.perform({kind:'cancelResearch'}));
-      else if((e.hqLevel??1)<3)this.button('upgrade-hq',`UPGRADE HQ → T${(e.hqLevel??1)+1}`,x,commandY,w,28,()=>this.perform({kind:'research',hqId:e.id}),false,!!research);
+      else if(research?.hqId===e.id)this.button('cancel-hq-research','CANCEL ↑',x,commandY,actionW,28,()=>this.perform({kind:'cancelResearch'}));
+      else if((e.hqLevel??1)<3)this.button('upgrade-hq',`HQ → T${(e.hqLevel??1)+1}`,x,commandY,actionW,28,()=>this.perform({kind:'research',hqId:e.id}),false,!!research);
+      if(!constructing)this.dismantleButton(e.id,x+actionW+5,commandY,actionW);
       return;
     }
     const c=this.sim.tune.cards[e.kind];
     if(!building){
       const capturePercent=Math.round(c.captureRate * (e.members ? e.members.length / (c.squadSize ?? 1) : 1) * 100);
-      this.label('inspectUnit',e.kind==='worker'?`UNARMED · SIGHT ${c.sightRange}\nNEUTRAL CAPTURE ${capturePercent}%\n${NOTES[e.kind]}`:`${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'AIR':'GROUND').join(' / ')} · SIGHT ${c.sightRange}\nDMG ${this.damageText(e.kind)}\nENEMY CAPTURE ${capturePercent}% · ${NOTES[e.kind]}`,x,y+57,compact?9:11,MUTED).setWordWrapWidth(w);return;
+      this.label('inspectUnit',e.kind==='worker'?`UNARMED · SIGHT ${c.sightRange}\n${e.workerStatus==='idle'?'NO REACHABLE TERRITORY':e.workerStatus==='returning'?'RETURNING TO HQ':'NEUTRAL CAPTURE '+capturePercent+'%'}\n${NOTES[e.kind]}`:`${c.domain==='air'?'AIR':'GROUND'} → ${c.targets.map(t=>t==='air'?'AIR':'GROUND').join(' / ')} · SIGHT ${c.sightRange}\nDMG ${this.damageText(e.kind)}\nENEMY CAPTURE ${capturePercent}% · ${NOTES[e.kind]}`,x,y+57,compact?9:11,MUTED).setWordWrapWidth(w);return;
     }
     const progress=e.completeAtMs&&e.completeAtMs>this.sim.timeMs?`Constructing ${Math.ceil((e.completeAtMs-this.sim.timeMs)/1000)}s`:e.upgradeKind?`Converting ${Math.max(0,Math.ceil(((e.upgradeCompleteAtMs??0)-this.sim.timeMs)/1000))}s`:`${c.cost} tiles · ${c.buildMs/1000}s construction`;
     if(!compact)this.label('inspectProgress',progress,x,y+55,small?9:11,MUTED).setWordWrapWidth(w);
@@ -697,6 +704,7 @@ class Battlefield extends Phaser.Scene {
     if(e.owner!==this.localPlayerId){this.button('attack-building','ATTACK HERE',x,commandY,w,28,()=>this.perform({kind:'attackBuilding',entityId:e.id}));return;}
     this.button('defend-building','DEFEND HERE',x,commandY-33,w,27,()=>this.defendEntity(e.id),this.sim.players[this.localPlayerId].defendTargetId===e.id&&this.sim.players[this.localPlayerId].targetId===this.localPlayerId);
     if((e.completeAtMs??0)>this.sim.timeMs){this.button('cancel-construction','CANCEL BUILD',x,commandY,w,28,()=>this.perform({kind:'cancelConstruction',buildingId:e.id}));return;}
+    this.dismantleButton(e.id,x+buttonW+5,commandY,buttonW);
     if(c.utility==='silo'){
       const complete=!e.completeAtMs||e.completeAtMs<=this.sim.timeMs,ready=e.nukeReadyAtMs!==undefined&&e.nukeReadyAtMs<=this.sim.timeMs;
       const remaining=Math.max(0,Math.ceil(((e.nukeReadyAtMs??this.sim.timeMs)-this.sim.timeMs)/1000));
@@ -709,6 +717,14 @@ class Battlefield extends Phaser.Scene {
       if(!compact)this.label('upgradeHint',`↑ ${NAMES[c.upgradeTo]}\n+${target.cost-c.cost} tiles · ${(c.upgradeMs??0)/1000}s · T${target.tier}`,x,y+81,9,MUTED).setWordWrapWidth(w);
       this.button('upgrade','UPGRADE ↑',x,commandY,buttonW,28,()=>{const r=this.perform({kind:'upgrade',buildingId:e.id});this.message=r.ok?'Conversion started; previous forces recalled.':r.reason??'Cannot upgrade.';},false,!result.ok);
     }
+  }
+  private dismantleButton(id:string,x:number,y:number,w:number){
+    const check=this.sim.canDismantle(this.localPlayerId,id);
+    this.button('dismantle',this.dismantleConfirm===id?'CONFIRM?':'DISMANTLE',x,y,w,28,()=>{
+      if(this.dismantleConfirm!==id){this.dismantleConfirm=id;this.message='Burn this building; surviving supports return after 10s. Tap again to confirm.';return;}
+      const result=this.perform({kind:'dismantle',buildingId:id});this.dismantleConfirm=null;
+      this.message=result.ok?'Dismantled; surviving units remain. Support releases after 10s.':result.reason??'Cannot dismantle.';
+    },false,!check.ok);
   }
   private drawMapSetup(){
     const small=this.w<600,pad=small?12:22,config=this.mapConfig,key=JSON.stringify(config);

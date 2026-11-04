@@ -91,6 +91,12 @@ for(const profile of [
   // Building selection reveals explicit commands without immediately issuing orders.
   await press('overview');let rival=(await snap()).buildings.find(b=>b.kind==='hq'&&b.owner===1);await inspect(rival);assert.equal((await snap()).target,0);await press('map-attack-here');assert.equal((await snap()).target,1);assert.deepEqual((await snap()).commandIndicator,{hqId:'hq1',mode:'attack'});assert((await targets()).buttons.some(b=>b.id==='attack'));await shot('hq-command');await inspect(hq);await press('map-gather-defense');assert.equal((await snap()).target,0);assert.deepEqual((await snap()).commandIndicator,{hqId:'hq0',mode:'defend'});
   await press('card-tank');assert.equal((await snap()).inspected,null,'card clears contextual selection');await press('cancel');
+  await inspect((await snap()).buildings.find(b=>b.id===airfield.id));
+  const beforeDismantle=await snap(),survivor=beforeDismantle.buildings.find(b=>b.id===airfield.id).unitId;
+  await press('dismantle');assert((await snap()).buildings.some(b=>b.id===airfield.id),'first tap only arms dismantle');
+  await press('dismantle');s=await snap();assert(!s.buildings.some(b=>b.id===airfield.id));assert(s.hexes.find(h=>h.id===airfield.hexId).burnt);
+  if(survivor)assert(s.units.some(u=>u.id===survivor&&u.buildingId===null),'dismantle keeps living supported unit');
+  assert(s.hexes.some(h=>h.commitment==='release'));await shot('dismantle-release');await advance(9900);assert((await snap()).hexes.some(h=>h.commitment==='release'));await advance(100);assert(!(await snap()).hexes.some(h=>h.commitment==='release'));await shot('dismantle-complete');
   s=await snap();assert.equal(new Set(s.units.map(u=>u.hexId)).size,s.units.length);await press('restart');assert.equal((await snap()).page,'loadout');
   console.log(`PASS ${profile.name}: fixedHQ+7sockets/toggle; tier scroll; animated upgrade preview; base-only7unique/T1validation; bottomdeck/occupiedcancel; construction/squad/persistentselection; upgradecancel/research/T3; bomber/no-sale; artillery-to-MLRS; HQorders; exclusiveoccupancy`);
   await context.close();

@@ -31,6 +31,7 @@ export interface Unit {
   fromHexId?: string; movedAtMs?: number; movingUntilMs?: number;
   attacking: boolean; attackTargetHexId?: string; buildingId: string | null; nextAttackAtMs: number;
   retreatFromHexId?: string; retreatUntilMs?: number;
+  workerStatus?: 'returning' | 'idle';
   members?: number[];
 }
 export interface Research {
