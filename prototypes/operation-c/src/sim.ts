@@ -1,19 +1,31 @@
 import tuneJson from '../tune.json';
-import type { Building, CardKind, Hex, Placement, Player, Reinforcement, Retirement, Shot, Tune, Unit, UnitDomain } from './model';
-export type { Building, CardKind, Hex, Placement, Player, Reinforcement, Retirement, Research, Shot, Tune, Unit, UnitDomain } from './model';
+import { generateMap, normalizeMapConfig } from './maps';
+import type { Building, BuildKind, CardKind, CardTune, DamageClass, Hex, NuclearImpact, NukeFlight, PendingRelease, Placement, Player, Reinforcement, Retirement, Shot, Tune, Unit, UnitDomain } from './model';
+export type { Building, BuildKind, CardKind, CardTune, DamageClass, Hex, NuclearImpact, NukeFlight, PendingRelease, Placement, Player, Reinforcement, Retirement, Research, Shot, Tune, Unit, UnitDomain } from './model';
 
 export const DEFAULT_TUNE: Tune = tuneJson as Tune;
-export const BASE_CARDS: readonly CardKind[] = ['infantry', 'tank', 'artillery', 'helicopter', 'fighter', 'mlrs'];
+export const BASE_CARDS: readonly CardKind[] = ['infantry', 'tank', 'artillery', 'helicopter', 'fighter', 'scout', 'gunner', 'flak', 'walker', 'destroyer', 'carrier', 'bunker', 'silo'];
+export const DEFAULT_LOADOUT: readonly CardKind[] = ['infantry', 'tank', 'artillery', 'fighter', 'scout', 'bunker', 'silo'];
 // Axial direction order is also the deterministic BFS tie-break.
 const DIRECTIONS = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]] as const;
 export const hexId = (q: number, r: number): string => `${q},${r}`;
 export const distance = (a: Pick<Hex, 'q' | 'r'>, b: Pick<Hex, 'q' | 'r'>): number =>
   (Math.abs(a.q - b.q) + Math.abs(a.r - b.r) + Math.abs(a.q + a.r - b.q - b.r)) / 2;
 
+/** Private persistence format; never accept a checkpoint from a game client. */
+export interface OperationCheckpoint {
+  version: 9; tune: Tune; loadouts: CardKind[][]; hexes: Hex[]; buildings: Building[]; units: Unit[];
+  shots: Shot[]; reinforcements: Reinforcement[]; retirements: Retirement[]; pendingReleases: PendingRelease[]; players: Player[];
+  timeMs: number; winner: number | null; accumulatorMs: number; serial: number; shotSerial: number;
+  reinforcementSerial: number; retirementSerial: number; strandedDebt: [number, number][];
+  botEnabled: boolean; nextBotBuildMs: number; botCard: number; botOrderUntilMs?: number;
+  nukeFlights: NukeFlight[]; nuclearImpacts: NuclearImpact[]; nukeSerials: number[]; nuclearImpactSerial: number;
+}
+
 /** Renderer-independent deterministic rules. Public DTOs are mutable for dev fixtures;
  * the game should issue place/setTarget commands rather than mutate them directly.
- * Provisional slice rules: no terrain obstacles/LOS; capture strength does not scale
- * with squad size; HQ pressure retakes empty enemy land; eliminated buildings vanish.
+ * Provisional slice rules: no terrain obstacles/LOS; eliminated buildings vanish.
+ * Workers gather neutral land; infantry capture enemy land with member-scaled pressure.
  */
 export class OperationSim {
   readonly tune: Tune;
@@ -23,6 +35,9 @@ export class OperationSim {
   readonly shots: Shot[] = [];
   readonly reinforcements: Reinforcement[] = [];
   readonly retirements: Retirement[] = [];
+  readonly pendingReleases: PendingRelease[] = [];
+  readonly nukeFlights: NukeFlight[] = [];
+  readonly nuclearImpacts: NuclearImpact[] = [];
   readonly loadouts: CardKind[][];
   readonly players: Player[] = [
     { id: 0, name: 'You', alive: true, targetId: 0, techTier: 1, research: null },
@@ -35,40 +50,44 @@ export class OperationSim {
   private shotSerial = 0;
   private reinforcementSerial = 0;
   private retirementSerial = 0;
+  private nukeSerials = [0, 0];
+  private nuclearImpactSerial = 0;
   private readonly strandedDebt = new Map<number, number>();
   private readonly byHex = new Map<string, Hex>();
   private readonly botEnabled: boolean;
   private nextBotBuildMs: number;
   private botCard = 0;
+  private botOrderUntilMs = 0;
 
   constructor(options: { tune?: Tune; bot?: boolean; loadouts?: CardKind[][] } = {}) {
     this.tune = structuredClone(options.tune ?? DEFAULT_TUNE);
+    this.tune.map = normalizeMapConfig(this.tune.map);
     if (!Number.isFinite(this.tune.stepMs) || this.tune.stepMs <= 0) throw new Error('stepMs must be positive');
+    if (this.tune.movement && (!Number.isFinite(this.tune.movement.friendlySpeedMultiplier) || this.tune.movement.friendlySpeedMultiplier <= 0)) throw new Error('friendlySpeedMultiplier must be finite and positive');
+    for (const card of Object.values(this.tune.cards)) if (!['light', 'armoured', 'structure'].includes(card.damageClass)) throw new Error('Damage-class rules require current tuning; reload the current game version');
+    for (const card of Object.values(this.tune.cards)) if (!Number.isFinite(card.sightRange) || card.sightRange < 0) throw new Error('Individual sight rules require current tuning; reload the current game version');
+    if (!Number.isInteger(this.tune.hq.workerGatherRadius) || this.tune.hq.workerGatherRadius < 1) throw new Error('Worker gathering requires current tuning; reload the current game version');
     this.loadouts = this.players.map((p, i) => {
-      const cards = options.loadouts?.[i] ?? [...BASE_CARDS];
-      if (!Array.isArray(cards) || cards.length > 8 || new Set(cards).size !== cards.length ||
-        cards.some(k => !BASE_CARDS.includes(k)) || !cards.some(k => this.tune.cards[k].tier === 1 && this.tune.cards[k].domain === 'ground')) {
-        throw new Error(`Invalid loadout for player ${p.id}: choose up to eight unique base cards including a T1 ground producer`);
+      const cards = options.loadouts?.[i] ?? [...DEFAULT_LOADOUT];
+      if (!Array.isArray(cards) || cards.length > 7 || new Set(cards).size !== cards.length ||
+        cards.some(k => !BASE_CARDS.includes(k)) || !cards.some(k => this.tune.cards[k].tier === 1 && this.tune.cards[k].domain === 'ground' && !this.tune.cards[k].utility)) {
+        throw new Error(`Invalid loadout for player ${p.id}: choose up to seven unique base cards including a T1 ground producer`);
       }
       return [...cards];
     });
     this.botEnabled = options.bot ?? true;
-    this.nextBotBuildMs = this.tune.bot.buildEveryMs;
-    const radius = this.tune.map.radius;
-    for (let q = -radius; q <= radius; q++) {
-      for (let r = Math.max(-radius, -q - radius); r <= Math.min(radius, -q + radius); r++) {
-        const h: Hex = { id: hexId(q, r), q, r, owner: null, burnt: false, lockedBy: null, capture: 0, capturePlayer: null };
-        this.hexes.push(h); this.byHex.set(h.id, h);
-      }
-    }
+    this.nextBotBuildMs = this.tune.bot.heuristic?.initialBuildMs ?? DEFAULT_TUNE.bot.heuristic!.initialBuildMs;
+    for (const h of generateMap(this.tune.map)) { this.hexes.push(h); this.byHex.set(h.id, h); }
     for (const p of this.players) {
       const q = p.id === 0 ? -this.tune.map.hqQ : this.tune.map.hqQ;
       const r = p.id === 0 ? -this.tune.map.hqR : this.tune.map.hqR;
       const h = this.byHex.get(hexId(q, r));
       if (!h) throw new Error('HQ must be inside the map');
       this.buildings.push({ id: `hq${p.id}`, hexId: h.id, owner: p.id, kind: 'hq', hp: this.tune.hq.hp,
-        maxHp: this.tune.hq.hp, readyAtMs: 0, unitId: null });
-      for (const land of this.hexes) if (distance(land, h) <= this.tune.hq.captureRings) land.owner = p.id;
+        maxHp: this.tune.hq.hp, readyAtMs: 0, unitId: null, hqLevel: 1, committedCost: 0 });
+      for (const land of this.hexes) if (!land.gap && distance(land, h) <= this.tune.hq.captureRings) land.owner = p.id;
+      const hq = this.buildings[this.buildings.length - 1];
+      for (let i = 0; i < this.tune.hq.workerLimit; i++) this.spawnWorker(hq);
     }
   }
 
@@ -80,28 +99,63 @@ export class OperationSim {
     });
   }
 
+  checkpoint(): OperationCheckpoint {
+    return structuredClone({ version: 9, tune: this.tune, loadouts: this.loadouts,
+      hexes: this.hexes, buildings: this.buildings, units: this.units, shots: this.shots,
+      reinforcements: this.reinforcements, retirements: this.retirements, pendingReleases: this.pendingReleases, players: this.players,
+      timeMs: this.timeMs, winner: this.winner, accumulatorMs: this.accumulatorMs, serial: this.serial,
+      shotSerial: this.shotSerial, reinforcementSerial: this.reinforcementSerial, retirementSerial: this.retirementSerial,
+      strandedDebt: [...this.strandedDebt], botEnabled: this.botEnabled, nextBotBuildMs: this.nextBotBuildMs, botCard: this.botCard, botOrderUntilMs: this.botOrderUntilMs,
+      nukeFlights: this.nukeFlights, nuclearImpacts: this.nuclearImpacts, nukeSerials: this.nukeSerials, nuclearImpactSerial: this.nuclearImpactSerial });
+  }
+
+  static restore(checkpoint: OperationCheckpoint): OperationSim {
+    if (checkpoint.version !== 9) throw new Error('Unsupported Operation C checkpoint');
+    const data = structuredClone(checkpoint);
+    const sim = new OperationSim({ tune: data.tune, loadouts: data.loadouts, bot: data.botEnabled });
+    const replace = <T>(target: T[], source: T[]) => { target.splice(0, target.length, ...source); };
+    replace(sim.hexes, data.hexes); replace(sim.buildings, data.buildings); replace(sim.units, data.units);
+    replace(sim.shots, data.shots); replace(sim.reinforcements, data.reinforcements); replace(sim.retirements, data.retirements);
+    replace(sim.pendingReleases, data.pendingReleases); replace(sim.players, data.players);
+    replace(sim.nukeFlights, data.nukeFlights); replace(sim.nuclearImpacts, data.nuclearImpacts);
+    sim.nukeSerials = data.nukeSerials; sim.nuclearImpactSerial = data.nuclearImpactSerial;
+    sim.byHex.clear(); for (const h of sim.hexes) sim.byHex.set(h.id, h);
+    for (const [owner, debt] of data.strandedDebt) sim.strandedDebt.set(owner, debt);
+    sim.timeMs = data.timeMs; sim.winner = data.winner; sim.accumulatorMs = data.accumulatorMs; sim.serial = data.serial;
+    sim.shotSerial = data.shotSerial; sim.reinforcementSerial = data.reinforcementSerial; sim.retirementSerial = data.retirementSerial;
+    sim.nextBotBuildMs = data.nextBotBuildMs; sim.botCard = data.botCard;
+    sim.botOrderUntilMs = data.botOrderUntilMs ?? 0;
+    return sim;
+  }
+
   resources(playerId: number): { committed: number; capacity: number; stranded: number } {
-    const hqs = new Set(this.buildings.filter(b => b.kind === 'hq').map(b => b.hexId));
-    const capacity = this.hexes.filter(h => h.owner === playerId && !h.burnt && !hqs.has(h.id)).length;
+    const hqs = new Set(this.buildings.filter(b => b.kind === 'hq' && !b.committedCost).map(b => b.hexId));
+    const capacity = this.hexes.filter(h => h.owner === playerId && !h.gap && !h.burnt && !hqs.has(h.id)).length;
     const stranded = this.strandedDebt.get(playerId) ?? 0;
-    const committed = stranded + this.buildings.reduce((sum, b) => sum + (b.owner === playerId && b.kind !== 'hq' ?
-      (b.committedCost ?? this.tune.cards[b.kind].cost) + (b.upgradeCost ?? 0) : 0), 0) +
-      (this.players.find(p => p.id === playerId)?.research ? this.tune.research.cost : 0);
+    const committed = stranded + this.buildings.reduce((sum, b) => sum + (b.owner === playerId ?
+      (b.committedCost ?? (b.kind === 'hq' ? 0 : this.tune.cards[b.kind].cost)) + (b.upgradeCost ?? 0) : 0), 0) +
+      (this.players.find(p => p.id === playerId)?.research ? this.tune.research.cost : 0) +
+      this.pendingReleases.filter(r => r.owner === playerId).reduce((n, r) => n + r.supportIds.length, 0);
     return { committed, capacity: Math.min(capacity, this.tune.resources.capacityCap), stranded };
   }
 
-  placement(playerId: number, id: string, kind: CardKind): Placement {
+  private constructionTune(kind: BuildKind) {
+    return kind === 'hq' ? { cost: this.tune.hq.cost, tier: 1, buildingHp: this.tune.hq.hp, buildMs: this.tune.hq.buildMs } : this.tune.cards[kind];
+  }
+
+  placement(playerId: number, id: string, kind: BuildKind): Placement {
     const fail = (reason: string): Placement => ({ ok: false, reason, hexes: [] });
     if (this.winner !== null) return fail('Match ended');
     if (!this.players.find(p => p.id === playerId)?.alive) return fail('Player eliminated');
-    const card = this.tune.cards[kind];
+    const card = this.constructionTune(kind);
     if (!card) return fail('Unknown building');
-    if (!BASE_CARDS.includes(kind) || !this.loadouts[playerId]?.includes(kind)) return fail('Building is not in the base-card loadout');
+    if (kind !== 'hq' && (!BASE_CARDS.includes(kind) || !this.loadouts[playerId]?.includes(kind))) return fail('Building is not in the base-card loadout');
     if (this.players.find(p => p.id === playerId)!.techTier < card.tier) return fail(`Requires technology tier ${card.tier}`);
     const h = this.byHex.get(id);
     if (!h) return fail('Outside map');
+    if (h.gap) return fail('Requires land');
     if (this.buildings.some(b => b.hexId === id) || this.units.some(u => u.hexId === id || this.reservedFrom(u) === id)) return fail('Hex occupied');
-    const open = (x: Hex) => x.owner === playerId && !x.burnt && x.lockedBy === null && !this.buildings.some(b => b.hexId === x.id);
+    const open = (x: Hex) => x.owner === playerId && !x.gap && !x.burnt && x.lockedBy === null && !this.buildings.some(b => b.hexId === x.id);
     if (!open(h)) return fail('Requires open owned unburnt territory');
     const { committed, capacity } = this.resources(playerId);
     if (committed + card.cost > capacity) return fail('Insufficient global capacity');
@@ -117,31 +171,48 @@ export class OperationSim {
     return { ok: true, hexes: queue.slice(0, card.cost).map(x => x.id) };
   }
 
-  place(playerId: number, id: string, kind: CardKind): { ok: boolean; reason?: string } {
+  place(playerId: number, id: string, kind: BuildKind): { ok: boolean; reason?: string } {
     const result = this.placement(playerId, id, kind);
     if (!result.ok) return { ok: false, reason: result.reason };
-    const card = this.tune.cards[kind];
+    const card = this.constructionTune(kind);
     const building: Building = { id: `b${++this.serial}`, owner: playerId, hexId: id, kind,
       hp: card.buildingHp, maxHp: card.buildingHp, readyAtMs: this.timeMs, unitId: null,
       completeAtMs: this.timeMs + card.buildMs, committedCost: card.cost };
+    if (kind === 'hq') { building.hqLevel = 1; building.workerReadyAtMs = building.completeAtMs! + this.tune.hq.workerProductionMs; }
     this.buildings.push(building);
     for (const support of result.hexes) { const h = this.byHex.get(support)!; h.lockedBy = building.id; h.commitment = 'building'; }
     this.spawn(building);
     return { ok: true };
   }
 
-  private openSupports(playerId: number): Hex[] {
-    return this.hexes.filter(h => h.owner === playerId && !h.burnt && h.lockedBy === null && !this.buildings.some(b => b.hexId === h.id));
+  /** Commitments and buildings connect owned supply; burnt land and gaps do not. */
+  private suppliedTerritory(playerId: number): Set<string> {
+    const queue=this.buildings.filter(b=>b.owner===playerId&&b.kind==='hq'&&b.hp>0&&(b.completeAtMs??0)<=this.timeMs)
+      .map(b=>b.hexId).filter(id=>{const h=this.byHex.get(id)!;return !h.gap&&!h.burnt;});
+    const supplied=new Set(queue);
+    for(let i=0;i<queue.length;i++)for(const h of this.neighbors(queue[i])){
+      if(supplied.has(h.id)||h.owner!==playerId||h.gap||h.burnt)continue;
+      supplied.add(h.id);queue.push(h.id);
+    }
+    return supplied;
   }
 
-  startResearch(playerId: number): { ok: boolean; reason?: string } {
+  private openSupports(playerId: number): Hex[] {
+    const supplied=this.suppliedTerritory(playerId);
+    return this.hexes.filter(h => supplied.has(h.id) && h.owner === playerId && !h.gap && !h.burnt && h.lockedBy === null && !this.buildings.some(b => b.hexId === h.id));
+  }
+
+  startResearch(playerId: number, hqId?: string): { ok: boolean; reason?: string } {
     const p = this.players.find(x => x.id === playerId);
     if (this.winner !== null || !p?.alive) return { ok: false, reason: 'Player cannot research' };
-    if (p.research || p.techTier === 3) return { ok: false, reason: p.research ? 'Research already running' : 'Maximum technology reached' };
+    const hq = this.buildings.filter(b => b.owner === playerId && b.kind === 'hq' && b.hp > 0 && (b.completeAtMs ?? 0) <= this.timeMs && (!hqId || b.id === hqId))
+      .sort((a, b) => (b.hqLevel ?? 1) - (a.hqLevel ?? 1))[0];
+    if (!hq || p.research || hq.hqLevel === 3) return { ok: false, reason: !hq ? 'Select a completed friendly HQ' : p.research ? 'Research already running' : 'Maximum HQ level reached' };
     const cost = this.tune.research.cost, r = this.resources(playerId), supports = this.openSupports(playerId);
-    if (r.committed + cost > r.capacity || supports.length < cost) return { ok: false, reason: 'Research needs twenty open resources and global capacity' };
-    p.research = { fromTier: p.techTier, toTier: p.techTier === 1 ? 2 : 3, startedAtMs: this.timeMs,
-      completeAtMs: this.timeMs + (p.techTier === 1 ? this.tune.research.tier2Ms : this.tune.research.tier3Ms),
+    if (r.committed + cost > r.capacity || supports.length < cost) return { ok: false, reason: `Research needs ${cost} open HQ-connected resources and global capacity` };
+    const level = hq.hqLevel ?? 1;
+    p.research = { hqId: hq.id, fromTier: level as 1 | 2, toTier: level === 1 ? 2 : 3, startedAtMs: this.timeMs,
+      completeAtMs: this.timeMs + (level === 1 ? this.tune.research.tier2Ms : this.tune.research.tier3Ms),
       supportIds: supports.slice(0, cost).map(h => h.id) };
     for (const id of p.research.supportIds) { const h = this.byHex.get(id)!; h.lockedBy = `research-${playerId}`; h.commitment = 'research'; }
     return { ok: true };
@@ -163,7 +234,7 @@ export class OperationSim {
     if ((b.completeAtMs ?? 0) > this.timeMs || b.upgradeKind) return { ok: false, reason: 'Construction or conversion still running' };
     if (p.techTier < this.tune.cards[next].tier) return { ok: false, reason: `Requires technology tier ${this.tune.cards[next].tier}` };
     const extra = Math.max(0, this.tune.cards[next].cost - card.cost), r = this.resources(playerId);
-    if (extra > 0 && (r.committed + extra > r.capacity || this.openSupports(playerId).length < extra)) return { ok: false, reason: 'Upgrade needs additional open resources' };
+    if (extra > 0 && (r.committed + extra > r.capacity || this.openSupports(playerId).length < extra)) return { ok: false, reason: 'Upgrade needs additional open HQ-connected resources' };
     return { ok: true };
   }
 
@@ -185,14 +256,33 @@ export class OperationSim {
     this.addStranded(playerId, (b.upgradeCost ?? 0) - released);
     delete b.upgradeKind; delete b.upgradeStartedAtMs; delete b.upgradeCompleteAtMs; delete b.upgradeCost;
     b.readyAtMs = this.timeMs + this.tune.cards[b.kind].productionMs;
+    b.cooldownActive = true; b.productionStartedAtMs = this.timeMs;
     return { ok: true };
   }
 
   sell(playerId: number, id: string): { ok: boolean; reason?: string } {
+    return this.cancelConstruction(playerId, id);
+  }
+
+  canDismantle(playerId: number, id: string): { ok: boolean; reason?: string } {
+    const b=this.buildings.find(x=>x.id===id),p=this.players.find(x=>x.id===playerId);
+    if(this.winner!==null||!p?.alive||!b||b.owner!==playerId||b.hp<=0||(b.completeAtMs??0)>this.timeMs)return {ok:false,reason:'Select your completed building'};
+    if(b.kind==='hq'&&!this.buildings.some(x=>x.id!==id&&x.owner===playerId&&x.kind==='hq'&&x.hp>0&&(x.completeAtMs??0)<=this.timeMs))return {ok:false,reason:'Keep at least one completed HQ'};
+    return {ok:true};
+  }
+
+  dismantle(playerId: number, id: string): { ok: boolean; reason?: string } {
+    const check=this.canDismantle(playerId,id);if(!check.ok)return check;
+    this.buildings.find(x=>x.id===id)!.hp=0;this.cleanDead();return {ok:true};
+  }
+
+  cancelConstruction(playerId: number, id: string): { ok: boolean; reason?: string } {
     const b = this.buildings.find(x => x.id === id);
-    if (this.winner !== null || !b || b.owner !== playerId || b.kind === 'hq' || b.hp <= 0) return { ok: false, reason: 'Select your living non-HQ building' };
+    if (this.winner !== null || !b || b.owner !== playerId || b.hp <= 0 || (b.completeAtMs ?? 0) <= this.timeMs) return { ok: false, reason: 'Only unfinished construction can be cancelled; completed buildings cannot be sold' };
     this.retireProducer(b); this.releaseBuilding(b);
     this.buildings.splice(this.buildings.indexOf(b), 1);
+    this.resetAttackTargets(b.id, this.byHex.get(b.hexId)!);
+    const p = this.players.find(p => p.id === playerId); if (p?.defendTargetId === id) p.defendTargetId = null;
     return { ok: true };
   }
 
@@ -200,10 +290,25 @@ export class OperationSim {
     this.strandedDebt.set(playerId, (this.strandedDebt.get(playerId) ?? 0) + Math.max(0, amount));
   }
 
-  private releaseBuilding(b: Building): void {
-    let released = 0;
-    for (const h of this.hexes) if (h.lockedBy === b.id) { h.lockedBy = null; delete h.commitment; released++; }
-    if (b.kind !== 'hq') this.addStranded(b.owner, (b.committedCost ?? this.tune.cards[b.kind].cost) + (b.upgradeCost ?? 0) - released);
+  private releaseBuilding(b: Building, delayed = false): void {
+    const supports = this.hexes.filter(h => h.lockedBy === b.id);
+    this.addStranded(b.owner, (b.committedCost ?? (b.kind === 'hq' ? 0 : this.tune.cards[b.kind].cost)) + (b.upgradeCost ?? 0) - supports.length);
+    if (delayed && supports.length) {
+      const release: PendingRelease = { id: `release-${b.id}`, owner: b.owner,
+        releaseAtMs: this.timeMs + this.tune.resources.destroyReleaseMs, supportIds: supports.map(h => h.id) };
+      this.pendingReleases.push(release);
+      for (const h of supports) { h.lockedBy = release.id; h.commitment = 'release'; h.releaseAtMs = release.releaseAtMs; }
+    } else for (const h of supports) { h.lockedBy = null; delete h.commitment; delete h.releaseAtMs; }
+  }
+
+  private loseAssignment(h: Hex): void {
+    if (h.commitment === 'release') {
+      const release = this.pendingReleases.find(r => r.id === h.lockedBy);
+      if (release && release.supportIds.includes(h.id)) {
+        release.supportIds.splice(release.supportIds.indexOf(h.id), 1); this.addStranded(release.owner, 1);
+      }
+    }
+    h.lockedBy = null; delete h.commitment; delete h.releaseAtMs;
   }
 
   private retireProducer(b: Building): void {
@@ -219,14 +324,26 @@ export class OperationSim {
   }
 
   private advanceLifecycles(): void {
+    for (let i = this.pendingReleases.length - 1; i >= 0; i--) {
+      const release = this.pendingReleases[i];
+      if (this.timeMs < release.releaseAtMs) continue;
+      for (const id of release.supportIds) {
+        const h = this.byHex.get(id)!;
+        if (h.lockedBy === release.id) { h.lockedBy = null; delete h.commitment; delete h.releaseAtMs; }
+      }
+      this.pendingReleases.splice(i, 1);
+    }
     for (const p of this.players) if (p.research && this.timeMs >= p.research.completeAtMs) {
-      p.techTier = p.research.toTier; this.cancelResearch(p.id);
+      const hq = this.buildings.find(b => b.id === p.research!.hqId && b.hp > 0);
+      if (hq) hq.hqLevel = p.research.toTier;
+      this.cancelResearch(p.id);
     }
     for (const b of this.buildings) if (b.upgradeKind && this.timeMs >= (b.upgradeCompleteAtMs ?? Infinity)) {
       const base = b.committedCost ?? this.tune.cards[b.kind as CardKind].cost;
       b.kind = b.upgradeKind; b.committedCost = base + (b.upgradeCost ?? 0);
       delete b.upgradeKind; delete b.upgradeStartedAtMs; delete b.upgradeCompleteAtMs; delete b.upgradeCost;
       b.readyAtMs = this.timeMs;
+      b.cooldownActive = false; delete b.productionStartedAtMs;
     }
     for (let i = this.reinforcements.length - 1; i >= 0; i--) {
       const r = this.reinforcements[i], u = this.units.find(x => x.id === r.unitId && x.hp > 0);
@@ -243,7 +360,107 @@ export class OperationSim {
 
   setTarget(playerId: number, targetPlayerId: number): void {
     const p = this.players.find(x => x.id === playerId), target = this.players.find(x => x.id === targetPlayerId);
-    if (this.winner === null && p?.alive && target?.alive) p.targetId = targetPlayerId;
+    if (this.winner !== null || !p?.alive || !target?.alive) return;
+    if (playerId !== targetPlayerId) {
+      const hq = this.buildings.find(b => b.owner === targetPlayerId && b.kind === 'hq' && b.hp > 0 && (b.completeAtMs ?? 0) <= this.timeMs);
+      if (hq) this.setAttackTarget(playerId, hq.id);
+    } else { p.targetId = playerId; p.attackTargetId = null; p.defendTargetId = null; }
+  }
+
+  setAttackTarget(playerId: number, entityId: string): { ok: boolean; reason?: string } {
+    const p = this.players.find(x => x.id === playerId), b = this.buildings.find(x => x.id === entityId && x.hp > 0 && x.owner !== playerId);
+    if (this.winner !== null || !p?.alive || !b) return { ok: false, reason: 'Select a living hostile building' };
+    p.targetId = b.owner; p.attackTargetId = b.id; return { ok: true };
+  }
+
+  private resetAttackTargets(id: string, lastHex: Hex): void {
+    for (const p of this.players) if (p.attackTargetId === id) {
+      const fallback = this.buildings.filter(b => b.owner === p.id && b.kind === 'hq' && b.hp > 0 && (b.completeAtMs ?? 0) <= this.timeMs)
+        .sort((a, b) => distance(this.byHex.get(a.hexId)!, lastHex) - distance(this.byHex.get(b.hexId)!, lastHex))[0];
+      p.targetId = p.id; p.attackTargetId = null; p.defendTargetId = fallback?.id ?? null;
+    }
+  }
+
+  setDefendTarget(playerId: number, entityId: string): { ok: boolean; reason?: string } {
+    const p = this.players.find(x => x.id === playerId), b = this.buildings.find(x => x.id === entityId && x.owner === playerId && x.hp > 0);
+    if (this.winner !== null || !p?.alive || !b) return { ok: false, reason: 'Select a living friendly building' };
+    p.targetId = playerId; p.defendTargetId = entityId; p.attackTargetId = null; return { ok: true };
+  }
+
+  canLaunchNuke(playerId: number, buildingId: string): { ok: boolean; reason?: string } {
+    const p = this.players.find(x => x.id === playerId), b = this.buildings.find(x => x.id === buildingId);
+    if (this.winner !== null || !p?.alive || !b || b.owner !== playerId || b.hp <= 0 || b.kind === 'hq' || this.tune.cards[b.kind].utility !== 'silo') return { ok: false, reason: 'Select your living nuclear silo' };
+    if ((b.completeAtMs ?? 0) > this.timeMs || b.nukeReadyAtMs === undefined || b.nukeReadyAtMs > this.timeMs) return { ok: false, reason: 'Nuclear payload is not ready' };
+    return { ok: true };
+  }
+
+  launchNuke(playerId: number, buildingId: string, targetHexId: string): { ok: boolean; reason?: string } {
+    const check = this.canLaunchNuke(playerId, buildingId); if (!check.ok) return check;
+    if (!this.byHex.has(targetHexId)) return { ok: false, reason: 'Target is outside the map' };
+    const b = this.buildings.find(x => x.id === buildingId)!;
+    this.nukeFlights.push({ id: `nuke-${playerId}-${++this.nukeSerials[playerId]}`, owner: playerId, buildingId,
+      fromHexId: b.hexId, targetHexId, launchedAtMs: this.timeMs, impactAtMs: this.timeMs + this.tune.nuclear.flightMs });
+    b.nukeReadyAtMs = this.timeMs + this.tune.cards[b.kind as CardKind].productionMs; return { ok: true };
+  }
+
+  private homeHex(owner: number, unit?: Unit): Hex | undefined {
+    const p = this.players.find(x => x.id === owner), chosen = this.buildings.find(b => b.id === p?.defendTargetId && b.owner === owner && b.hp > 0);
+    const hqs = this.buildings.filter(b => b.owner === owner && b.kind === 'hq' && b.hp > 0 && (b.completeAtMs ?? 0) <= this.timeMs);
+    if (unit) hqs.sort((a, b) => Number(b.id === unit.buildingId) - Number(a.id === unit.buildingId) || distance(this.byHex.get(a.hexId)!, this.byHex.get(unit.hexId)!) - distance(this.byHex.get(b.hexId)!, this.byHex.get(unit.hexId)!));
+    const home = unit?.kind === 'worker' ? hqs[0] : chosen ?? hqs[0];
+    return home ? this.byHex.get(home.hexId) : undefined;
+  }
+
+  private triggerProduction(b: Building): void {
+    if (b.kind === 'hq' || b.upgradeKind || b.cooldownActive || this.tune.cards[b.kind].utility) return;
+    b.cooldownActive = true; b.productionStartedAtMs = this.timeMs; b.readyAtMs = this.timeMs + this.tune.cards[b.kind].productionMs;
+  }
+
+  targetDamageClass(target: Building | Unit): DamageClass {
+    return 'buildingId' in target ? this.tune.cards[target.kind].damageClass : 'structure';
+  }
+
+  weaponDamage(card: CardKind | CardTune, target: Building | Unit): number {
+    const weapon = typeof card === 'string' ? this.tune.cards[card] : card;
+    return weapon.damage + (weapon.damageBonus?.[this.targetDamageClass(target)] ?? 0);
+  }
+
+  private applyDamage(target: Building | Unit, amount: number, splash: boolean): number {
+    const before = target.hp;
+    if ('buildingId' in target && target.kind === 'worker' && amount > 0) { target.hp = 0; return before; }
+    if ('buildingId' in target && target.members && target.hp > 0) {
+      const count = target.members.length;
+      if (splash) target.members = target.members.map(hp => hp - amount).filter(hp => hp > 0);
+      else { if (target.members.length) target.members[0] -= amount; target.members = target.members.filter(hp => hp > 0); }
+      target.hp = target.members.reduce((n, hp) => n + hp, 0);
+      if (target.members.length < count) {
+        const b = this.buildings.find(b => b.id === target.buildingId); if (b) this.triggerProduction(b);
+      }
+    } else if (!('buildingId' in target && target.members)) target.hp -= amount;
+    return Math.max(0, before - target.hp);
+  }
+
+  private advanceNukes(): void {
+    const due = this.nukeFlights.filter(f => f.impactAtMs <= this.timeMs && this.players.find(p => p.id === f.owner)?.alive);
+    for (const flight of due) {
+      const centre = this.byHex.get(flight.targetHexId)!;
+      for (const target of [...this.units, ...this.buildings]) {
+        const d = distance(centre, this.byHex.get(target.hexId)!);
+        if (d <= this.tune.nuclear.radius) this.applyDamage(target, d === 0 ? this.tune.nuclear.centreDamage : this.tune.nuclear.outerDamage, true);
+      }
+      this.nuclearImpacts.push({ id: ++this.nuclearImpactSerial, owner: flight.owner, hexId: flight.targetHexId, timeMs: this.timeMs, radius: this.tune.nuclear.radius });
+      if (this.nuclearImpacts.length > 128) this.nuclearImpacts.splice(0, this.nuclearImpacts.length - 128);
+    }
+    for (let i = this.nukeFlights.length - 1; i >= 0; i--) if (this.nukeFlights[i].impactAtMs <= this.timeMs) this.nukeFlights.splice(i, 1);
+    this.cleanDead();
+  }
+
+  private recordShot(source: Unit | Building, target: Unit, kind: CardKind, sourceKind?: 'hq' | 'bunker'): void {
+    this.shots.push({ id: ++this.shotSerial, unitId: source.id, owner: source.owner, kind,
+      fromHexId: source.hexId, targetHexId: target.hexId, targetDomain: this.tune.cards[target.kind].domain,
+      timeMs: this.timeMs, ...(sourceKind ? { sourceKind } : {}) });
+    const cap = Math.max(0, Math.floor(this.tune.presentation.maxShotEvents));
+    if (this.shots.length > cap) this.shots.splice(0, this.shots.length - cap);
   }
 
   tick(dtMs: number): void {
@@ -270,11 +487,27 @@ export class OperationSim {
   }
 
   private spawn(b: Building): void {
-    if (b.kind === 'hq' || b.upgradeKind || this.timeMs < (b.completeAtMs ?? 0) || this.timeMs < b.readyAtMs) return;
+    if (b.kind === 'hq') {
+      if (this.timeMs < (b.completeAtMs ?? 0)) return;
+      const count = this.units.filter(u => u.kind === 'worker' && u.buildingId === b.id && u.hp > 0).length;
+      if (count >= this.tune.hq.workerLimit) { delete b.workerReadyAtMs; return; }
+      b.workerReadyAtMs ??= this.timeMs + this.tune.hq.workerProductionMs;
+      if (this.timeMs >= b.workerReadyAtMs && this.spawnWorker(b)) {
+        if (count + 1 < this.tune.hq.workerLimit) b.workerReadyAtMs = this.timeMs + this.tune.hq.workerProductionMs;
+        else delete b.workerReadyAtMs;
+      }
+      return;
+    }
+    if (b.upgradeKind || this.timeMs < (b.completeAtMs ?? 0) || this.timeMs < b.readyAtMs) return;
     const card = this.tune.cards[b.kind];
+    if (card.utility) {
+      b.readyAtMs = 0; b.cooldownActive = false; delete b.productionStartedAtMs;
+      if (card.utility === 'silo' && b.nukeReadyAtMs === undefined) b.nukeReadyAtMs = (b.completeAtMs ?? this.timeMs) + card.productionMs;
+      return;
+    }
     if (b.unitId !== null) {
       const squad = this.units.find(u => u.id === b.unitId);
-      if (!squad?.members || !card.squadSize) return;
+      if (!squad?.members || !card.squadSize || !b.cooldownActive) return;
       const incoming = this.reinforcements.filter(r => r.unitId === squad.id).reduce((n, r) => n + r.count, 0);
       const missing = card.squadSize - squad.members.length - incoming;
       if (missing > 0) {
@@ -282,7 +515,7 @@ export class OperationSim {
           distance(this.byHex.get(b.hexId)!, this.byHex.get(squad.hexId)!) * this.tune.reinforcements.msPerHex);
         this.reinforcements.push({ id: `r${++this.reinforcementSerial}`, unitId: squad.id, buildingId: b.id, owner: b.owner,
           count: missing, fromHexId: b.hexId, startedAtMs: this.timeMs, arriveAtMs: this.timeMs + travel });
-        b.readyAtMs = this.timeMs + card.productionMs;
+        b.readyAtMs = 0; b.cooldownActive = false; delete b.productionStartedAtMs;
       }
       return;
     }
@@ -295,7 +528,7 @@ export class OperationSim {
       for (const n of this.neighbors(queue[i])) {
         if (seen.has(n.id)) continue;
         seen.add(n.id);
-        if (blocked.has(n.id)) continue;
+        if (n.gap || blocked.has(n.id)) continue;
         queue.push(n.id); destination = n.id; break;
       }
     }
@@ -304,23 +537,56 @@ export class OperationSim {
     const u: Unit = { id: `u${++this.serial}`, owner: b.owner, kind: b.kind, hexId: destination,
       hp: card.unitHp * size, maxHp: card.unitHp * size, attacking: false, buildingId: b.id, nextAttackAtMs: this.timeMs };
     if (card.squadSize) u.members = Array<number>(size).fill(card.unitHp);
-    this.units.push(u); b.unitId = u.id; b.readyAtMs = this.timeMs + card.productionMs;
+    this.units.push(u); b.unitId = u.id; b.readyAtMs = 0; b.cooldownActive = false; delete b.productionStartedAtMs;
+  }
+
+  private spawnWorker(b: Building): boolean {
+    const blocked = this.occupied(), centre = this.byHex.get(b.hexId)!, sign = b.owner === 1 ? -1 : 1;
+    const neighbors = DIRECTIONS.map(([q, r]) => this.byHex.get(hexId(centre.q + q * sign, centre.r + r * sign)));
+    const destination = neighbors.find(h => h && !h.gap && !blocked.has(h.id));
+    if (!destination) return false;
+    const card = this.tune.cards.worker;
+    this.units.push({ id: `u${++this.serial}`, owner: b.owner, kind: 'worker', hexId: destination.id,
+      hp: card.unitHp, maxHp: card.unitHp, attacking: false, buildingId: b.id, nextAttackAtMs: this.timeMs });
+    return true;
+  }
+
+  private refreshTech(): void {
+    for (const p of this.players) p.techTier = this.buildings.filter(b => b.owner === p.id && b.kind === 'hq' && b.hp > 0 && (b.completeAtMs ?? 0) <= this.timeMs)
+      .reduce<1 | 2 | 3>((level, b) => Math.max(level, b.hqLevel ?? 1) as 1 | 2 | 3, 1);
   }
 
   private step(): void {
     this.cleanDead();
     if (this.winner !== null) return;
     this.advanceLifecycles();
+    this.refreshTech();
+    this.advanceNukes();
+    if (this.winner !== null) return;
     this.bot();
     for (const b of [...this.buildings]) this.spawn(b);
-    const damage: { target: Building | Unit; amount: number; splash: boolean; source: Unit }[] = [];
-    const damageSources = new Map<Unit, Unit[]>();
+    const damage: { target: Building | Unit; amount: number; splash: boolean; source: Unit | Building }[] = [];
+    const damageSources = new Map<Unit, (Unit | Building)[]>();
+    for (const b of this.buildings) {
+      const hq = b.kind === 'hq', card = hq ? null : this.tune.cards[b.kind as CardKind];
+      if ((!hq && card?.utility !== 'bunker') || (b.completeAtMs ?? 0) > this.timeMs || this.timeMs < (b.defenseNextAtMs ?? 0)) continue;
+      const range = hq ? this.tune.hq.defenseRange : card!.range, amount = hq ? this.tune.hq.defenseDamage : card!.damage;
+      if (amount <= 0) continue;
+      const centre = this.byHex.get(b.hexId)!;
+      const target = this.units.filter(u => u.owner !== b.owner && u.hp > 0 &&
+        (hq ? this.tune.cards[u.kind].domain === 'ground' : card!.targets.includes(this.tune.cards[u.kind].domain)) &&
+        distance(centre, this.byHex.get(u.hexId)!) <= range).sort((a, z) => distance(centre, this.byHex.get(a.hexId)!) - distance(centre, this.byHex.get(z.hexId)!))[0];
+      if (!target) continue;
+      b.defenseNextAtMs = this.timeMs + (hq ? this.tune.hq.defenseAttackMs : card!.attackMs);
+      damage.push({ target, amount, splash: false, source: b }); this.recordShot(b, target, hq ? 'infantry' : 'bunker', hq ? 'hq' : 'bunker');
+    }
     // Decide all attacks first, so damage does not grant first-iteration survival.
     for (const u of this.units) {
       u.attacking = false;
       delete u.attackTargetHexId;
       if ((u.movingUntilMs ?? 0) > this.timeMs) continue;
       if ((u.retreatUntilMs ?? 0) > this.timeMs) continue;
+      if (this.tune.cards[u.kind].capturePriority && this.shouldCapture(u)) continue;
       const target = this.attackTarget(u);
       if (!target) continue;
       u.attacking = true;
@@ -329,11 +595,11 @@ export class OperationSim {
       u.nextAttackAtMs = this.timeMs + this.tune.cards[u.kind].attackMs;
       const card = this.tune.cards[u.kind];
       for (let i = 0; i < (u.members?.length ?? 1); i++) {
-        damage.push({ target, amount: card.damage, splash: (card.splashRadius ?? 0) > 0, source: u });
+        damage.push({ target, amount: this.weaponDamage(card, target), splash: (card.splashRadius ?? 0) > 0, source: u });
         if (card.splashRadius) for (const nearby of [...this.units, ...this.buildings]) {
           if (nearby === target || nearby.owner === u.owner || nearby.hp <= 0 || !this.canTarget(u, nearby)) continue;
           if (distance(this.byHex.get(nearby.hexId)!, this.byHex.get(target.hexId)!) <= card.splashRadius) {
-            damage.push({ target: nearby, amount: card.damage * (card.splashDamageFraction ?? 0), splash: true, source: u });
+            damage.push({ target: nearby, amount: this.weaponDamage(card, nearby) * (card.splashDamageFraction ?? 0), splash: true, source: u });
           }
         }
       }
@@ -346,16 +612,8 @@ export class OperationSim {
     // Capture before damage: being hit alone never cancels that step's progress.
     this.capture();
     for (const hit of damage) {
-      const { target, amount, source, splash } = hit, before = target.hp;
-      if ('buildingId' in target && target.members && target.hp > 0) {
-        if (splash) target.members = target.members.map(hp => hp - amount).filter(hp => hp > 0);
-        else {
-          if (target.members.length) target.members[0] -= amount;
-          target.members = target.members.filter(hp => hp > 0);
-        }
-        target.hp = target.members.reduce((n, hp) => n + hp, 0);
-      } else if (!('buildingId' in target && target.members)) target.hp -= amount;
-      if ('buildingId' in target && target.hp < before) {
+      const { target, amount, source, splash } = hit;
+      if (this.applyDamage(target, amount, splash) > 0 && 'buildingId' in target) {
         const sources = damageSources.get(target) ?? []; sources.push(source); damageSources.set(target, sources);
       }
     }
@@ -373,8 +631,10 @@ export class OperationSim {
       const retreating = (u.retreatUntilMs ?? 0) > this.timeMs;
       if (u.attacking && !retreating) continue;
       // Hold non-owned land until capture finishes, including under unanswered fire.
-      if (!retreating && this.tune.cards[u.kind].domain === 'ground' &&
-        this.byHex.get(u.hexId)!.owner !== u.owner && !this.byHex.get(u.hexId)!.burnt) continue;
+      if (!retreating && this.shouldCapture(u)) { delete u.workerStatus; continue; }
+      // Capture-first squads secure the hex, then hold to retaliate on the next
+      // decision rather than immediately marching away on the capture-flip step.
+      if (!retreating && this.tune.cards[u.kind].capturePriority && this.attackTarget(u)) continue;
       const next = retreating ? this.retreatMove(u, blocked) : this.nextMove(u, blocked);
       if (!next) continue;
       if (retreating) { u.attacking = false; delete u.attackTargetHexId; }
@@ -382,29 +642,48 @@ export class OperationSim {
       // Reserve destination and origin for the entire animation; no crossing/swap.
       blocked.add(next); blocked.add(from);
       u.hexId = next; u.fromHexId = from; u.movedAtMs = this.timeMs;
-      u.movingUntilMs = this.timeMs + this.tune.cards[u.kind].moveMs;
+      // Sample the source once and latch arrival; later ownership/tune changes
+      // cannot accelerate or slow an already-reserved movement segment.
+      const speed = this.byHex.get(from)!.owner === u.owner ? this.tune.movement?.friendlySpeedMultiplier ?? 1 : 1;
+      u.movingUntilMs = this.timeMs + this.tune.cards[u.kind].moveMs * distance(this.byHex.get(from)!, this.byHex.get(next)!) / speed;
     }
   }
 
-  private attackTarget(u: Unit): Building | Unit | undefined {
-    const here = this.byHex.get(u.hexId)!, range = this.tune.cards[u.kind].range;
+  private visibleTargets(u: Unit): (Building | Unit)[] {
+    if (u.kind === 'worker') return [];
+    const here = this.byHex.get(u.hexId)!, card = this.tune.cards[u.kind];
     const player = this.players.find(p => p.id === u.owner)!;
-    const airDefense = this.tune.cards[u.kind].domain === 'air' && player.targetId === player.id;
     const targets: (Building | Unit)[] = [...this.units, ...this.buildings].filter(t =>
       t.owner !== u.owner && t.hp > 0 && this.canTarget(u, t) &&
-      (!airDefense || this.byHex.get(t.hexId)!.owner === u.owner) &&
-      distance(here, this.byHex.get(t.hexId)!) <= range && distance(here, this.byHex.get(t.hexId)!) >= this.tune.cards[u.kind].minRange);
+      distance(here, this.byHex.get(t.hexId)!) <= card.sightRange &&
+      // Passive expansion may shoot structures already in its firing band,
+      // but only mobile enemies can draw it away from expansion/defense.
+      (player.targetId !== u.owner || 'buildingId' in t ||
+        distance(here, this.byHex.get(t.hexId)!) >= card.minRange && distance(here, this.byHex.get(t.hexId)!) <= card.range));
     // An attack order prioritizes the selected faction's structures. Defense
     // retains troop-first reactions instead of ignoring a nearby attacker.
     return targets.sort((a, b) => {
-      if (airDefense) return distance(here, this.byHex.get(a.hexId)!) - distance(here, this.byHex.get(b.hexId)!);
+      if (u.kind === 'scout') {
+        const worker = (t: Unit | Building) => 'buildingId' in t && t.kind === 'worker';
+        if (worker(a) !== worker(b)) return Number(worker(b)) - Number(worker(a));
+      }
       const score = (t: Building | Unit) => {
         const isUnit = 'buildingId' in t;
-        if (player.targetId === player.id) return isUnit ? 0 : 1;
+        if (player.targetId === player.id) return isUnit && this.byHex.get(t.hexId)!.owner === u.owner ? 0 : isUnit ? 1 : 2;
         return !isUnit && t.owner === player.targetId ? 0 : isUnit ? 1 : 2;
       };
       return score(a) - score(b) || distance(here, this.byHex.get(a.hexId)!) - distance(here, this.byHex.get(b.hexId)!);
-    })[0];
+    });
+  }
+
+  private attackTarget(u: Unit): Building | Unit | undefined {
+    const here = this.byHex.get(u.hexId)!, card = this.tune.cards[u.kind];
+    const targets = this.visibleTargets(u);
+    const worker = u.kind === 'scout' ? targets.find(t => 'buildingId' in t && t.kind === 'worker') : undefined;
+    return (worker ? [worker] : targets).find(t => {
+      const d = distance(here, this.byHex.get(t.hexId)!);
+      return d >= card.minRange && d <= card.range;
+    });
   }
 
   private canTarget(u: Unit, target: Building | Unit): boolean {
@@ -415,95 +694,122 @@ export class OperationSim {
   private retreatMove(u: Unit, blocked: Set<string>): string | undefined {
     const threat = this.byHex.get(u.retreatFromHexId ?? ''), here = this.byHex.get(u.hexId)!;
     if (!threat) return;
-    return this.neighbors(u.hexId).filter(h => !blocked.has(h.id) && distance(h, threat) > distance(here, threat))
+    return this.movementEdges(u, u.hexId, blocked).map(e => this.byHex.get(e.id)!).filter(h => distance(h, threat) > distance(here, threat))
       .sort((a, b) => distance(b, threat) - distance(a, threat))[0]?.id;
   }
 
   private nextMove(u: Unit, blocked: Set<string>): string | undefined {
-    if (this.tune.cards[u.kind].domain === 'air') return this.airMove(u, blocked);
-    const player = this.players.find(p => p.id === u.owner)!;
-    const here = this.byHex.get(u.hexId)!;
-    const enemy = this.buildings.filter(b => b.owner === player.targetId && b.owner !== u.owner);
-    const enemyHq = enemy.find(b => b.kind === 'hq');
-    const targetHex = enemyHq ? this.byHex.get(enemyHq.hexId)! : undefined;
-    const range = this.tune.cards[u.kind].range;
-    const goals = new Set<string>();
-    if (enemy.length) {
-      // Search for free attack positions rather than pathing into a blocked HQ.
-      for (const h of this.hexes) if (!blocked.has(h.id) && enemy.some(b => this.canTarget(u, b) &&
-        distance(h, this.byHex.get(b.hexId)!) <= range && distance(h, this.byHex.get(b.hexId)!) >= this.tune.cards[u.kind].minRange)) goals.add(h.id);
+    if (u.kind === 'worker') return this.workerMove(u, blocked);
+    const local = this.visibleTargets(u)[0];
+    if (local) {
+      const card = this.tune.cards[u.kind], target = this.byHex.get(local.hexId)!;
+      const goals = new Set(this.hexes.filter(h => !h.gap && !blocked.has(h.id) &&
+        distance(h, target) >= card.minRange && distance(h, target) <= card.range).map(h => h.id));
+      return this.pathToGoals(u, blocked, goals);
     }
-    const queue = [here.id], first = new Map<string, string>(), seen = new Set(queue);
-    let expansion: string | undefined;
-    const home = this.buildings.find(b => b.owner === u.owner && b.kind === 'hq');
-    const homeHex = home ? this.byHex.get(home.hexId)! : here;
-    let expansionRank = [Infinity, Infinity];
-    for (let i = 0; i < queue.length; i++) {
-      const id = queue[i], h = this.byHex.get(id)!;
-      if (i > 0 && goals.has(id)) return first.get(id);
-      if (i > 0 && h.owner !== u.owner && !h.burnt) {
-        const rank = [h.owner === null ? 0 : 1, distance(h, homeHex)];
-        if (!enemy.length && (rank[0] < expansionRank[0] || rank[0] === expansionRank[0] && rank[1] < expansionRank[1])) {
-          expansion = first.get(id); expansionRank = rank;
-        } else if (enemy.length && !expansion) expansion = first.get(id);
-      }
-      const neighbors = this.neighbors(id);
-      if (targetHex) neighbors.sort((a, b) => distance(a, targetHex) - distance(b, targetHex));
-      for (const n of neighbors) {
-        if (seen.has(n.id) || blocked.has(n.id)) continue;
-        seen.add(n.id); first.set(n.id, first.get(id) ?? n.id); queue.push(n.id);
-      }
-    }
-    return expansion;
+    return this.strategicMove(u, blocked);
   }
 
-  private airMove(u: Unit, blocked: Set<string>): string | undefined {
-    const player = this.players.find(p => p.id === u.owner)!, here = this.byHex.get(u.hexId)!;
-    const defense = player.targetId === player.id;
-    const targets: (Building | Unit)[] = [...this.units, ...this.buildings].filter(t => t.owner !== u.owner && t.hp > 0 &&
-      this.canTarget(u, t) && (defense ? this.byHex.get(t.hexId)!.owner === u.owner : t.owner === player.targetId));
-    // Passive defense chooses a single nearest intruder in owned territory.
-    targets.sort((a, b) => distance(here, this.byHex.get(a.hexId)!) - distance(here, this.byHex.get(b.hexId)!));
-    const sought = defense ? targets.slice(0, 1) : targets;
-    const card = this.tune.cards[u.kind];
-    const goals = new Set<string>();
-    if (sought.length) {
-      for (const h of this.hexes) if (!blocked.has(h.id) && sought.some(t => {
-        const d = distance(h, this.byHex.get(t.hexId)!); return d >= card.minRange && d <= card.range;
-      })) goals.add(h.id);
-    } else {
-      const hq = this.buildings.find(b => b.owner === (defense ? u.owner : player.targetId) && b.kind === 'hq');
-      if (!hq) return;
-      const centre = this.byHex.get(hq.hexId)!;
-      // With no eligible enemy aircraft, fighters approach the HQ but never fire at it.
-      const holdRange = defense ? 1 : card.range;
-      if (distance(here, centre) <= holdRange) return;
-      for (const h of this.hexes) if (!blocked.has(h.id) && distance(h, centre) >= 1 && distance(h, centre) <= holdRange) goals.add(h.id);
-    }
-    const queue = [u.hexId], seen = new Set(queue), first = new Map<string, string>();
+  private workerMove(u: Unit, blocked: Set<string>): string | undefined {
+    const here = this.byHex.get(u.hexId)!;
+    const queue = [here.id], first = new Map<string, string>(), seen = new Set(queue);
+    let expansion: string | undefined;
+    const homeHex = this.homeHex(u.owner, u) ?? here;
+    let expansionRank = [Infinity, Infinity];
+    let homeStep: string | undefined, homeDistance=Infinity;
     for (let i = 0; i < queue.length; i++) {
-      const id = queue[i];
-      if (i > 0 && goals.has(id)) return first.get(id);
-      for (const n of this.neighbors(id)) {
-        if (seen.has(n.id) || blocked.has(n.id)) continue;
+      const id = queue[i], h = this.byHex.get(id)!;
+      if (i > 0 && !h.gap && h.owner === null && !h.burnt) {
+        const rank = [distance(h, homeHex)<=this.tune.hq.workerGatherRadius?0:1, i];
+        if (rank[0] < expansionRank[0] || rank[0] === expansionRank[0] && rank[1] < expansionRank[1]) {
+          expansion = first.get(id); expansionRank = rank;
+        }
+      }
+      if(h.owner===u.owner&&distance(h,homeHex)<homeDistance){homeDistance=distance(h,homeHex);homeStep=first.get(id);}
+      const neighbors = this.neighbors(id);
+      for (const n of neighbors) {
+        if (n.gap || seen.has(n.id) || blocked.has(n.id) || n.owner !== null && n.owner !== u.owner) continue;
         seen.add(n.id); first.set(n.id, first.get(id) ?? n.id); queue.push(n.id);
       }
     }
+    if(expansion){delete u.workerStatus;return expansion;}
+    u.workerStatus=homeStep?'returning':'idle';
+    return homeStep;
+  }
+
+  private shouldCapture(u: Unit): boolean {
+    const card = this.tune.cards[u.kind], h = this.byHex.get(u.hexId)!;
+    if (card.domain !== 'ground' || card.captureRate <= 0 || h.owner === u.owner || h.gap || h.burnt) return false;
+    if (u.kind === 'worker') {
+      return h.owner === null && !!this.homeHex(u.owner, u);
+    }
+    return (u.kind === 'infantry' || u.kind === 'missile' || u.kind === 'gunner') && h.owner !== null;
+  }
+
+  private pathToGoals(u: Unit, blocked: Set<string>, goals: Set<string>): string | undefined {
+    if (this.tune.cards[u.kind].domain === 'air') return this.airPathToGoals(u, blocked, goals);
+    const queue = [u.hexId], seen = new Set(queue), first = new Map<string, string>();
+    for (let i = 0; i < queue.length; i++) {
+      const id = queue[i]; if (i > 0 && goals.has(id)) return first.get(id);
+      for (const n of this.neighbors(id)) {
+        if (n.gap || seen.has(n.id) || blocked.has(n.id)) continue;
+        seen.add(n.id); first.set(n.id, first.get(id) ?? n.id); queue.push(n.id);
+      }
+    }
+  }
+
+  private movementEdges(u: Unit, fromId: string, blocked: Set<string>): { id: string; cost: number }[] {
+    const from = this.byHex.get(fromId)!, air = this.tune.cards[u.kind].domain === 'air';
+    const edges: { id: string; cost: number }[] = [];
+    for (const [dq, dr] of DIRECTIONS) {
+      let cost = 1, next = this.byHex.get(hexId(from.q + dq, from.r + dr));
+      while (air && next?.gap && !blocked.has(next.id)) {
+        cost++; next = this.byHex.get(hexId(from.q + dq * cost, from.r + dr * cost));
+      }
+      if (next && !next.gap && !blocked.has(next.id)) edges.push({ id: next.id, cost });
+    }
+    return edges;
+  }
+
+  /** Distance-weighted flight planning prevents a long water crossing from
+   * counting as one cheap step. Equal costs retain deterministic direction order. */
+  private airPathToGoals(u: Unit, blocked: Set<string>, goals: Set<string>): string | undefined {
+    const frontier = [{ id: u.hexId, cost: 0 }], best = new Map([[u.hexId, 0]]), first = new Map<string, string>();
+    while (frontier.length) {
+      frontier.sort((a, b) => a.cost - b.cost); const current = frontier.shift()!;
+      if (current.cost !== best.get(current.id)) continue;
+      if (current.id !== u.hexId && goals.has(current.id)) return first.get(current.id);
+      for (const edge of this.movementEdges(u, current.id, blocked)) {
+        const cost = current.cost + edge.cost;
+        if (cost >= (best.get(edge.id) ?? Infinity)) continue;
+        best.set(edge.id, cost); first.set(edge.id, first.get(current.id) ?? edge.id); frontier.push({ id: edge.id, cost });
+      }
+    }
+  }
+
+  private strategicMove(u: Unit, blocked: Set<string>): string | undefined {
+    const player = this.players.find(p => p.id === u.owner)!, here = this.byHex.get(u.hexId)!;
+    const defense = player.targetId === player.id;
+    const card = this.tune.cards[u.kind];
+    const goals = new Set<string>();
+    const enemyHq = this.buildings.find(b => b.id === player.attackTargetId && b.owner !== u.owner && b.hp > 0);
+    const centre = defense ? this.homeHex(u.owner, u) : enemyHq ? this.byHex.get(enemyHq.hexId) : undefined;
+    if (!centre) return;
+    // A selected HQ is a strategic destination even unseen; aircraft without a
+    // ground weapon approach it but cannot shoot it. Idle defense holds home.
+    const holdRange = defense ? 1 : card.range;
+    const minRange = defense || !card.targets.includes('ground') ? 1 : card.minRange;
+    if (distance(here, centre) >= minRange && distance(here, centre) <= holdRange) return;
+    for (const h of this.hexes) if (!h.gap && !blocked.has(h.id) && distance(h, centre) >= minRange && distance(h, centre) <= holdRange) goals.add(h.id);
+    return this.pathToGoals(u, blocked, goals);
   }
 
   private capture(): void {
     const pressure = new Map<string, { owner: number; rate: number; unitId?: string }>();
-    for (const u of this.units) if (this.tune.cards[u.kind].domain === 'ground' && !u.attacking && (u.movingUntilMs ?? 0) <= this.timeMs) {
-      if (!this.byHex.get(u.hexId)!.burnt) pressure.set(u.hexId, { owner: u.owner, rate: this.tune.cards[u.kind].captureRate, unitId: u.id });
-    }
-    for (const b of this.buildings) if (b.kind === 'hq') {
-      const centre = this.byHex.get(b.hexId)!;
-      for (const h of this.hexes) {
-        const d = distance(h, centre);
-        if (d === 0 || d > this.tune.hq.captureRings || this.units.some(u => u.owner !== b.owner &&
-          (u.hexId === h.id || this.reservedFrom(u) === h.id)) || this.buildings.some(x => x.owner !== b.owner && x.hexId === h.id)) continue;
-        if (!pressure.has(h.id)) pressure.set(h.id, { owner: b.owner, rate: this.tune.capture.hqRate });
-      }
+    for (const u of this.units) if (this.shouldCapture(u) && !u.attacking && (u.movingUntilMs ?? 0) <= this.timeMs) {
+      const card = this.tune.cards[u.kind];
+      const strength = card.squadSize && u.members ? u.members.filter(hp => hp > 0).length / card.squadSize : 1;
+      if (!this.byHex.get(u.hexId)!.burnt) pressure.set(u.hexId, { owner: u.owner, rate: card.captureRate * strength, unitId: u.id });
     }
     for (const [id, p] of pressure) {
       const h = this.byHex.get(id)!;
@@ -513,7 +819,7 @@ export class OperationSim {
       const duration = this.tune.capture.neutralMs * (h.owner === null ? 1 : this.tune.capture.ownedMultiplier);
       h.capture += this.tune.stepMs * p.rate / duration;
       if (h.capture + Number.EPSILON >= 1) {
-        h.owner = p.owner; h.lockedBy = null; delete h.commitment; h.capture = 0; h.capturePlayer = null;
+        h.owner = p.owner; this.loseAssignment(h); h.capture = 0; h.capturePlayer = null;
         delete h.captureUnitId; delete h.captureReversing;
       }
     }
@@ -525,14 +831,15 @@ export class OperationSim {
   }
 
   private cleanDead(): void {
-    const eliminated = new Set(this.buildings.filter(b => b.kind === 'hq' && b.hp <= 0).map(b => b.owner));
+    const eliminated = new Set(this.players.filter(p => p.alive && !this.buildings.some(b => b.owner === p.id && b.kind === 'hq' && b.hp > 0 && (b.completeAtMs ?? 0) <= this.timeMs)).map(p => p.id));
     for (const p of this.players) if (eliminated.has(p.id)) p.alive = false;
-    for (const p of this.players) if (eliminated.has(p.id)) this.cancelResearch(p.id);
+    for (const p of this.players) if (eliminated.has(p.id) || p.research && !this.buildings.some(b => b.id === p.research!.hqId && b.hp > 0)) this.cancelResearch(p.id);
     for (let i = this.buildings.length - 1; i >= 0; i--) {
       const b = this.buildings[i];
       if (b.hp > 0 && !eliminated.has(b.owner)) continue;
-      if (b.hp <= 0 && b.kind !== 'hq' && !eliminated.has(b.owner)) this.byHex.get(b.hexId)!.burnt = true;
-      this.releaseBuilding(b);
+      if (b.hp <= 0 && !eliminated.has(b.owner)) this.byHex.get(b.hexId)!.burnt = true;
+      this.releaseBuilding(b, b.hp <= 0 && !eliminated.has(b.owner));
+      this.resetAttackTargets(b.id, this.byHex.get(b.hexId)!);
       for (const u of this.units) if (u.buildingId === b.id) u.buildingId = null;
       this.buildings.splice(i, 1);
     }
@@ -542,15 +849,28 @@ export class OperationSim {
       // Casualty triggers reversal; attacking, retreating or mere absence does not.
       for (const h of this.hexes) if (h.captureUnitId === u.id && h.capture > 0) h.captureReversing = true;
       const b = this.buildings.find(x => x.id === u.buildingId);
-      if (b) b.unitId = null;
+      if (b?.kind === 'hq' && u.kind === 'worker') b.workerReadyAtMs ??= this.timeMs + this.tune.hq.workerProductionMs;
+      else if (b) { b.unitId = null; this.triggerProduction(b); }
       for (let j = this.reinforcements.length - 1; j >= 0; j--) if (this.reinforcements[j].unitId === u.id) this.reinforcements.splice(j, 1);
       this.units.splice(i, 1);
     }
     for (const h of this.hexes) if (h.owner !== null && eliminated.has(h.owner)) {
-      h.owner = null; h.lockedBy = null; delete h.commitment; h.capture = 0; h.capturePlayer = null;
+      h.owner = null; h.lockedBy = null; delete h.commitment; delete h.releaseAtMs; h.capture = 0; h.capturePlayer = null;
       delete h.captureUnitId; delete h.captureReversing;
     }
     for (const id of eliminated) this.strandedDebt.delete(id);
+    for (let i = this.nukeFlights.length - 1; i >= 0; i--) if (eliminated.has(this.nukeFlights[i].owner)) this.nukeFlights.splice(i, 1);
+    for (const p of this.players) if (p.defendTargetId && !this.buildings.some(b => b.id === p.defendTargetId && b.owner === p.id && b.hp > 0)) p.defendTargetId = null;
+    for (const p of this.players) if (p.attackTargetId && !this.buildings.some(b => b.id === p.attackTargetId && b.hp > 0)) {
+      const position = this.units.find(u => u.owner === p.id)?.hexId ?? this.buildings.find(b => b.owner === p.id)?.hexId;
+      if (position) this.resetAttackTargets(p.attackTargetId, this.byHex.get(position)!);
+    }
+    this.refreshTech();
+    for (let i = this.pendingReleases.length - 1; i >= 0; i--) if (eliminated.has(this.pendingReleases[i].owner)) {
+      const r = this.pendingReleases[i];
+      for (const h of this.hexes) if (h.lockedBy === r.id) { h.lockedBy = null; delete h.commitment; delete h.releaseAtMs; }
+      this.pendingReleases.splice(i, 1);
+    }
     if (eliminated.size) {
       const survivors = this.players.filter(p => p.alive);
       this.winner = survivors.length === 1 ? survivors[0].id : survivors.length === 0 ? -1 : null;
@@ -560,23 +880,100 @@ export class OperationSim {
   private bot(): void {
     const p = this.players[1];
     if (!this.botEnabled || !p.alive) return;
-    if (this.timeMs >= this.tune.bot.attackAtMs) p.targetId = 0;
     if (this.timeMs < this.nextBotBuildMs) return;
     this.nextBotBuildMs = this.timeMs + this.tune.bot.buildEveryMs;
-    if (!p.research && this.buildings.filter(b => b.owner === p.id && b.kind !== 'hq').length >= 2) this.startResearch(p.id);
-    // Check conversions independently of the build cycle; locked tiers never stall it.
-    const convertible = this.buildings.find(b => b.owner === p.id && this.canUpgrade(p.id, b.id).ok);
-    if (convertible) this.upgrade(p.id, convertible.id);
-    const cycle = this.tune.bot.cardCycle;
-    let kind: CardKind | undefined;
-    for (let i = 0; i < cycle.length; i++) {
-      const candidate = cycle[this.botCard++ % cycle.length];
-      if (BASE_CARDS.includes(candidate) && this.loadouts[p.id].includes(candidate) && this.tune.cards[candidate].tier <= p.techTier) { kind = candidate; break; }
-    }
-    const hq = this.buildings.find(b => b.owner === p.id && b.kind === 'hq');
-    if (!hq || !kind) return;
+    const hqs = this.buildings.filter(b => b.owner === p.id && b.kind === 'hq' && b.hp > 0 && (b.completeAtMs ?? 0) <= this.timeMs);
+    const hq = hqs[0];
+    if (!hq) return;
+    const cfg = { ...DEFAULT_TUNE.bot.heuristic!, ...this.tune.bot.heuristic };
     const centre = this.byHex.get(hq.hexId)!;
-    const candidates = this.hexes.filter(h => h.owner === p.id).sort((a, b) => distance(a, centre) - distance(b, centre));
-    for (const h of candidates) if (this.place(p.id, h.id, kind).ok) break;
+    const own = this.buildings.filter(b => b.owner === p.id && b.kind !== 'hq' && b.hp > 0);
+    const workers = this.units.filter(u => u.owner === p.id && u.kind === 'worker' && u.hp > 0);
+    const army = this.units.filter(u => u.owner === p.id && u.kind !== 'worker' && u.hp > 0), enemies = this.units.filter(u => u.owner !== p.id && u.hp > 0);
+    const enemyArmy = enemies.filter(u => u.kind !== 'worker');
+    const strength = (units: Unit[]) => units.reduce((sum, u) => sum + this.tune.cards[u.kind].cost * Math.min(1, u.hp / u.maxHp), 0);
+    const healthy = army.filter(u => u.hp / u.maxHp >= cfg.healthyFraction);
+    const pressure = enemyArmy.filter(u => distance(this.byHex.get(u.hexId)!, centre) <= cfg.pressureRadius ||
+      this.byHex.get(u.hexId)!.owner === p.id && own.some(b => distance(this.byHex.get(u.hexId)!, this.byHex.get(b.hexId)!) <= cfg.defenseStructureRadius));
+    const available = this.loadouts[p.id].filter(k => this.tune.cards[k].tier <= p.techTier && k !== 'silo');
+    const count = (k: CardKind) => own.filter(b => (b.upgradeKind ?? b.kind) === k).length;
+    const captureCard = available.filter(k => this.tune.cards[k].captureRate > 0).sort((a, b) =>
+      Number(!!this.tune.cards[b].capturePriority) - Number(!!this.tune.cards[a].capturePriority) || this.tune.cards[a].cost - this.tune.cards[b].cost)[0];
+    const isCapture = (k: CardKind) => !!this.tune.cards[k].capturePriority || k === captureCard;
+    const captureBuildings = own.filter(b => isCapture((b.upgradeKind ?? b.kind) as CardKind));
+    const captureArmy = army.filter(u => isCapture(u.kind));
+    const depleted = strength(army) < cfg.minAttackStrength * cfg.retreatRatio ||
+      strength(army) < strength(enemyArmy) * cfg.retreatRatio || healthy.length < cfg.minAttackUnits - 1;
+    if (pressure.length || p.targetId !== p.id && depleted) {
+      const anchor = own.filter(b => b.kind === 'bunker' && (b.completeAtMs ?? 0) <= this.timeMs && pressure.length)
+        .sort((a, b) => distance(this.byHex.get(a.hexId)!, this.byHex.get(pressure[0].hexId)!) - distance(this.byHex.get(b.hexId)!, this.byHex.get(pressure[0].hexId)!))[0];
+      if (anchor) this.setDefendTarget(p.id, anchor.id); else this.setTarget(p.id, p.id);
+      this.botOrderUntilMs = this.timeMs + cfg.orderHoldMs;
+      if (p.research) this.cancelResearch(p.id);
+    } else if (p.targetId === p.id && this.timeMs >= this.botOrderUntilMs) {
+      if (healthy.length >= cfg.minAttackUnits && new Set(healthy.map(u => u.kind)).size > 1 && captureArmy.length &&
+        strength(healthy) >= cfg.minAttackStrength && strength(healthy) >= strength(enemyArmy) * cfg.attackRatio) {
+        this.setTarget(p.id, 0); this.botOrderUntilMs = this.timeMs + cfg.orderHoldMs;
+      } else if (p.defendTargetId) this.setTarget(p.id, p.id);
+    }
+
+    const resources = this.resources(p.id), free = resources.capacity - resources.committed;
+    const safe = !pressure.length && healthy.length >= cfg.minAttackUnits;
+    if (safe && this.buildings.filter(b => b.owner === p.id && b.kind === 'hq').length < cfg.minCaptureProducers &&
+      workers.length >= hqs.length * this.tune.hq.workerLimit && free >= this.tune.hq.cost + cfg.reserve) {
+      const site = this.hexes.filter(h => distance(h, centre) > this.tune.hq.captureRings && this.placement(p.id, h.id, 'hq').ok)
+        .sort((a, b) => distance(a, centre) - distance(b, centre))[0];
+      if (site && this.place(p.id, site.id, 'hq').ok) return;
+    }
+    if (safe && !p.research && p.techTier < 3 && own.length >= cfg.researchProducers) {
+      const budget = this.tune.research.cost + cfg.reserve;
+      if (free >= budget && this.openSupports(p.id).length >= budget && this.startResearch(p.id).ok) return;
+      // Bank territory only behind an assembled army with capturers actively
+      // taking new land. Contact, casualties or blocked expansion resume builds.
+      if (workers.length >= this.tune.hq.workerLimit && strength(healthy) >= cfg.minAttackStrength &&
+        resources.committed + budget <= this.tune.resources.capacityCap && workers.some(u => {
+          const h = this.byHex.get(u.hexId)!; return h.owner !== p.id && !h.burnt && !u.attacking;
+        })) return;
+    }
+    const enemyAir = enemies.filter(u => this.tune.cards[u.kind].domain === 'air');
+    const enemyArmour = enemies.filter(u => this.tune.cards[u.kind].damageClass === 'armoured');
+    const enemySquads = enemies.filter(u => !!u.members);
+    if (safe) for (const b of own) {
+      const base = b.kind as CardKind, next = this.tune.cards[base].upgradeTo;
+      if (!next || !this.canUpgrade(p.id, b.id).ok || free < Math.max(0, this.tune.cards[next].cost - this.tune.cards[base].cost) + cfg.reserve) continue;
+      if (isCapture(base) && !captureArmy.some(u => u.buildingId !== b.id)) continue;
+      const wanted = next === 'missile' ? enemyArmour.length > 0 : next === 'mlrs' ? enemySquads.length >= cfg.maxCounterCopies :
+        next === 'gunship' ? enemies.some(u => this.tune.cards[u.kind].domain === 'ground') :
+          (next === 'siege' || next === 'bomber') && this.buildings.filter(x => x.owner !== p.id).length >= cfg.researchProducers;
+      if (wanted && (next !== 'bomber' || !enemyAir.length) && this.upgrade(p.id, b.id).ok) return;
+    }
+
+    const choices: CardKind[] = [];
+    if (!captureBuildings.length && captureCard) choices.push(captureCard);
+    if (pressure.length && count('bunker') < cfg.maxCounterCopies) choices.push('bunker');
+    if (enemyAir.length) {
+      choices.push(...(['flak', 'fighter'] as CardKind[]).filter(k => count(k) < Math.min(cfg.maxCounterCopies, enemyAir.length)));
+      choices.push(...(['walker', 'gunner', 'infantry'] as CardKind[]).filter(k => count(k) < cfg.maxCounterCopies));
+    }
+    if (enemyArmour.length && count('destroyer') < Math.min(cfg.maxCounterCopies, enemyArmour.length)) choices.push('destroyer');
+    if (enemySquads.length && count('artillery') + count('mlrs') < Math.min(cfg.maxCounterCopies, enemySquads.length)) choices.push('artillery');
+    if (own.length >= cfg.minCaptureProducers && enemies.some(u => u.kind === 'worker') && count('scout') < cfg.maxCounterCopies) choices.push('scout');
+    const fronts: CardKind[] = ['tank', 'walker', 'scout'];
+    if (captureCard && captureBuildings.length < cfg.minCaptureProducers && own.length >= cfg.minCaptureProducers) choices.push(captureCard);
+    if (!own.some(b => fronts.includes(b.kind as CardKind))) choices.push(...fronts);
+    if (captureCard && captureBuildings.length <= own.filter(b => fronts.includes(b.kind as CardKind)).length) choices.push(captureCard);
+    choices.push(...(['tank', 'walker', 'helicopter', 'artillery', 'destroyer', 'gunner', 'carrier', 'scout'] as CardKind[])
+      .sort((a, b) => count(a) - count(b)));
+    if (captureCard) choices.push(captureCard);
+    for (const kind of new Set(choices)) {
+      if (!available.includes(kind) || this.tune.cards[kind].cost > free) continue;
+      const candidates = this.hexes.filter(h => h.owner === p.id && this.placement(p.id, h.id, kind).ok);
+      const danger = (h: Hex) => enemies.filter(u => this.tune.cards[u.kind].targets.includes('ground') &&
+        distance(h, this.byHex.get(u.hexId)!) <= this.tune.cards[u.kind].range + 1).length;
+      candidates.sort((a, b) => kind === 'bunker' && pressure.length ?
+        distance(a, this.byHex.get(pressure[0].hexId)!) - distance(b, this.byHex.get(pressure[0].hexId)!) || distance(a, centre) - distance(b, centre) :
+        danger(a) - danger(b) || distance(a, centre) - distance(b, centre));
+      if (candidates[0] && this.place(p.id, candidates[0].id, kind).ok) { this.botCard++; return; }
+    }
   }
 }
