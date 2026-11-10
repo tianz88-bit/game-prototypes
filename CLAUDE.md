@@ -51,12 +51,15 @@ Fixed. Do not add, swap, or upgrade any of these without asking first.
 - Atlas packing: free-tex-packer-cli
 - Debug UI: Tweakpane
 - Visual verification: Playwright
-- Hosting: not uniform. The hub/index page still deploys to GitHub Pages.
-  Individual game prototypes (starting with digger and suits) instead
-  deploy to itch.io via Butler, due to a known deploy-pages@v4
-  polling/timeout reliability issue on GitHub Pages. New prototypes
-  should default to the itch.io/Butler path; only use GitHub Pages if a
-  prototype specifically needs it.
+- Hosting: chosen per prototype, not uniform. The hub/index page still
+  deploys to GitHub Pages. Game prototypes usually deploy their client to
+  itch.io via Butler (GitHub Pages has a known deploy-pages@v4
+  polling/timeout reliability issue), but this is a starting point, not a
+  rule: Cloudflare (Workers or Pages) or GitHub Pages are acceptable when a
+  prototype benefits, after the owner picks it for that prototype.
+  Multiplayer servers deploy to Cloudflare Workers.
+  Steroids-Alpha follows the Firestorm split: client on its own itch.io
+  project via Butler, server on Cloudflare Workers.
   Firestorm Arena uses two separate deployment targets: its browser
   client deploys to the itch.io project via Butler, while its multiplayer
   server deploys to Cloudflare Workers. Neither replaces the other.

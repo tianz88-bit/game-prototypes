@@ -1,0 +1,20 @@
+{
+  "name": "steroids-alpha-server",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-02",
+  "workers_dev": true,
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PLANET_ROOMS",
+        "class_name": "PlanetRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["PlanetRoom"]
+    }
+  ]
+}

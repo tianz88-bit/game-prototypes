@@ -1,0 +1,78 @@
+name: Deploy Steroids-Alpha Worker
+
+# The Steroids-Alpha multiplayer server (planet rooms) on Cloudflare Workers.
+# The browser client deploys separately to itch.io (deploy-steroids-alpha-itch.yml).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "prototypes/steroids-alpha/server/**"
+      - "prototypes/steroids-alpha/sim/**"
+      - "prototypes/steroids-alpha/tune.json"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-steroids-alpha-worker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: steroids-alpha-worker
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install repository dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Check Cloudflare deployment secrets
+        id: cloudflare
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [[ -n "$CLOUDFLARE_API_TOKEN" && -n "$CLOUDFLARE_ACCOUNT_ID" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Worker deployment skipped. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets."
+          fi
+
+      - name: Deploy to Cloudflare Workers
+        if: steps.cloudflare.outputs.configured == 'true'
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.143.0"
+          workingDirectory: prototypes/steroids-alpha/server
+          command: deploy
+
+      - name: Check the deployed Worker answers
+        if: steps.cloudflare.outputs.configured == 'true'
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsS https://steroids-alpha-server.tianz-88.workers.dev/health; then exit 0; fi
+            echo "Not answering yet (attempt $attempt of 6); waiting 10s..."
+            sleep 10
+          done
+          echo "Worker /health did not answer" >&2
+          exit 1
