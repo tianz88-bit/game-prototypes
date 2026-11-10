@@ -159,8 +159,9 @@ lockdown, warp progress and extraction.
 - **Matchmaker:** one Durable Object that assigns players to a room for the
   chosen planet and opens new rooms when full.
 - **Stash:** Cloudflare D1 database `steroids-alpha-stash` (players,
-  inventory, raid history). Creation requested from Codex; binding added once
-  the database ID is confirmed.
+  inventory, raid history). Created 2026-11-10 (empty, automatic location),
+  database_id `02a083da-e0b9-4ae8-9a7d-d7c0fa292b40`, in the same Cloudflare
+  account as firestorm-arena-server. No schema or binding yet.
 - **Transport:** WebSocket, compact binary messages.
 - **Own ship:** client-side prediction with server reconciliation.
 - **Other ships:** snapshot interpolation (about 100 ms behind).
