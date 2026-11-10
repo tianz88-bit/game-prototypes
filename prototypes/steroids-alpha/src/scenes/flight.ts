@@ -12,6 +12,8 @@ import { clientTune } from '../clientTune';
 import { intents } from '../input/intents';
 import { NetClient } from '../net/client';
 import { fitCamera, text, versionStamp } from './common';
+import { ShipView } from '../render/shipView';
+import { shipArtStatus } from '../render/shipArt';
 
 const W = TUNE.world.width;
 const H = TUNE.world.height;
@@ -21,7 +23,7 @@ export class FlightScene extends Phaser.Scene {
   private planet!: PlanetId;
   private grid!: Phaser.GameObjects.Graphics;
   private overlay!: Phaser.GameObjects.Graphics;
-  private ships = new Map<number, Phaser.GameObjects.Graphics>();
+  private ships = new Map<number, DrawnShip>();
   private status!: Phaser.GameObjects.Text;
   private message!: Phaser.GameObjects.Text;
   private coords!: Phaser.GameObjects.Text;
@@ -84,9 +86,9 @@ export class FlightScene extends Phaser.Scene {
       alive.add(r.id);
       this.placeShip(r.id, r.s, w / 2 + wrapDelta(r.s.x, cx, W), h / 2 + wrapDelta(r.s.y, cy, H), false);
     }
-    for (const [id, g] of this.ships) {
+    for (const [id, ship] of this.ships) {
       if (!alive.has(id)) {
-        g.destroy();
+        ship.destroy();
         this.ships.delete(id);
       }
     }
@@ -124,28 +126,12 @@ export class FlightScene extends Phaser.Scene {
   }
 
   private placeShip(id: number, s: ShipState, x: number, y: number, mine: boolean): void {
-    let g = this.ships.get(id);
-    if (!g) {
-      g = this.add.graphics().setDepth(mine ? 20 : 10);
-      this.ships.set(id, g);
+    let ship = this.ships.get(id);
+    if (!ship) {
+      ship = shipArtStatus === 'ready' ? new RigShip(this, mine) : new PlaceholderShip(this, mine);
+      this.ships.set(id, ship);
     }
-    const size = clientTune.render.shipSize;
-    g.clear();
-    if (s.dashTime > 0) {
-      g.fillStyle(0xffd27a, 0.85);
-      g.fillTriangle(-size * 0.5, -size * 0.3, -size * 0.5, size * 0.3, -size * 1.4, 0);
-    }
-    g.fillStyle(mine ? 0x5fe3ff : 0xff8a4a, 1);
-    g.fillPoints(
-      [
-        new Phaser.Math.Vector2(size, 0),
-        new Phaser.Math.Vector2(-size * 0.7, size * 0.65),
-        new Phaser.Math.Vector2(-size * 0.4, 0),
-        new Phaser.Math.Vector2(-size * 0.7, -size * 0.65),
-      ],
-      true,
-    );
-    g.setPosition(x, y).setRotation(s.heading);
+    ship.update(x, y, s, this.time.now);
   }
 
   private drawTouch(w: number, h: number): void {
@@ -195,6 +181,73 @@ export class FlightScene extends Phaser.Scene {
     if (DEBUG && own) {
       this.coords.setText(`x ${own.x.toFixed(0)}  y ${own.y.toFixed(0)}  pending ${n.pendingCount}  corr ${n.lastCorrection.toFixed(1)}`);
     }
+  }
+}
+
+interface DrawnShip {
+  update(x: number, y: number, s: ShipState, timeMs: number): void;
+  destroy(): void;
+}
+
+/** The approved Human Nomad rig, plus a placeholder dash flame until thrust art and FFD exist. */
+class RigShip implements DrawnShip {
+  private view: ShipView;
+  private flame: Phaser.GameObjects.Graphics;
+
+  constructor(scene: Phaser.Scene, mine: boolean) {
+    this.flame = scene.add.graphics().setDepth(19);
+    this.view = new ShipView(scene, mine);
+  }
+
+  update(x: number, y: number, s: ShipState, timeMs: number): void {
+    this.view.update(x, y, s.heading, timeMs);
+    this.flame.clear();
+    if (s.dashTime > 0) {
+      // Behind the thrusters: the rig's engines sit about 110 rig px aft of the centre.
+      const k = clientTune.render.shipScale;
+      this.flame.fillStyle(0xffd27a, 0.8);
+      this.flame.fillTriangle(-110 * k, -40 * k, -110 * k, 40 * k, -230 * k, 0);
+      this.flame.setPosition(x, y - 28 * k).setRotation(s.heading);
+    }
+  }
+
+  destroy(): void {
+    this.view.destroy();
+    this.flame.destroy();
+  }
+}
+
+/** Coloured triangle used when the ship art is not available (placeholder-first). */
+class PlaceholderShip implements DrawnShip {
+  private g: Phaser.GameObjects.Graphics;
+
+  constructor(scene: Phaser.Scene, private mine: boolean) {
+    this.g = scene.add.graphics().setDepth(mine ? 20 : 10);
+  }
+
+  update(x: number, y: number, s: ShipState): void {
+    const g = this.g;
+    const size = clientTune.render.shipSize;
+    g.clear();
+    if (s.dashTime > 0) {
+      g.fillStyle(0xffd27a, 0.85);
+      g.fillTriangle(-size * 0.5, -size * 0.3, -size * 0.5, size * 0.3, -size * 1.4, 0);
+    }
+    g.fillStyle(this.mine ? 0x5fe3ff : 0xff8a4a, 1);
+    g.fillPoints(
+      [
+        new Phaser.Math.Vector2(size, 0),
+        new Phaser.Math.Vector2(-size * 0.7, size * 0.65),
+        new Phaser.Math.Vector2(-size * 0.4, 0),
+        new Phaser.Math.Vector2(-size * 0.7, -size * 0.65),
+      ],
+      true,
+    );
+    g.setPosition(x, y).setRotation(s.heading);
+  }
+
+  destroy(): void {
+    this.g.destroy();
   }
 }
 
