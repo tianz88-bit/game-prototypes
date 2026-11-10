@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "status": "awaiting-explicit-publication-approval",
+  "localBaseline": "C:\\Users\\Zitian\\Documents\\ChatGPT\\Gamedev\\outputs\\steroids-alpha\\releases\\human-nomad-rig-v1-20261110",
+  "github": {
+    "repository": "tianz88-bit/game-prototypes",
+    "visibility": "public",
+    "branch": "proto/steroids-alpha/approved-ship-rig-v1",
+    "path": "tools/ship-rig/human-nomad-v1",
+    "uploaded": false
+  },
+  "r2": {
+    "bucket": "game-assets",
+    "publicBaseUrl": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev",
+    "uploaded": false,
+    "blocker": "Automatic approval review rejected publishing unpublished art/prompts without explicit public-destination approval",
+    "delivery": {
+      "object": "steroids-alpha_human-nomad-v1_assets.zip",
+      "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_human-nomad-v1_assets.zip",
+      "sha256": "81a2e3e08dc6a856b93d776f9b7ede17ed9a010c16f724e0089a231e738d80fd",
+      "bytes": 6481485,
+      "verified": false
+    },
+    "sourceArt": {
+      "object": "human-nomad-source-art-v1-20261110.zip",
+      "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/human-nomad-source-art-v1-20261110.zip",
+      "sha256": "f6b03a79b92b0ac9fbaa2211cafd6b1b711a14f609e297a3a388335797b4b2c2",
+      "bytes": 18728481,
+      "verified": false
+    },
+    "snapshot": {
+      "object": "human-nomad-rig-v1-20261110.zip",
+      "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/human-nomad-rig-v1-20261110.zip",
+      "verified": false
+    }
+  }
+}
