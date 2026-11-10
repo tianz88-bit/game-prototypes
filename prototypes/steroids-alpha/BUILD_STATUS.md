@@ -1,7 +1,9 @@
 ## Current milestone
 
-Milestone 1 of 6: netcode test. Built and verified locally only. Nothing is
-deployed (no Worker, no itch.io upload).
+Milestone 1 of 6: netcode test. Verified locally; first deploy set up.
+Client: itch.io draft project daily-daily-games/steroids-alpha (created by
+Codex, owner-only while testing). Server: Cloudflare Worker
+steroids-alpha-server.tianz-88.workers.dev.
 
 ## What was implemented
 
@@ -60,8 +62,6 @@ deployed (no Worker, no itch.io upload).
 ## Open questions
 
 - Planet names (currently "Planet A" / "Planet B").
-- Hosting for the client: Current WIP itch slot, a new itch project, or local
-  only. Deploying the Worker also needs owner approval.
 - All open questions listed at the bottom of BRIEF.md still stand.
 - BRIEF.md was drafted by Claude from the design chat; the owner should review
   it and take ownership, since the repo rules expect the owner to write briefs.
@@ -75,17 +75,22 @@ deployed (no Worker, no itch.io upload).
   drawn within 44-64 px of their true position.
 - No D1 binding yet. The database `steroids-alpha-stash` exists (created by
   Codex), but schema and binding come with the stash milestone.
-- No version-counter bump or deploy workflow yet (nothing deploys).
+- Deploys: `deploy-steroids-alpha-worker.yml` (server) and
+  `deploy-steroids-alpha-itch.yml` (client, bumps the version counter) run on
+  pushes to main. After the first itch upload, the upload must be marked
+  "played in the browser" once on itch (requested from Codex).
 - With `?debug=1` on a narrow phone screen, the Tweakpane panel covers the
   status line. Debug only.
 - No off-screen indicator for nearby ships beyond the screen edge.
 
 ## Next proposed step
 
-Owner decides where to host so milestone 1 can be tested on real phones over
-a real network (approve the Worker deploy and pick the itch slot). Then
-milestone 2: firing, server-side hits with lag compensation, HP and death,
-and simple bots.
+Owner plays milestone 1 on a real phone from the itch draft page and reports
+how steering, dash and other ships feel at real ping. Then milestone 2:
+firing, server-side hits with lag compensation, HP and death, and simple bots.
+Codex delivered an approved Human Nomad ship rig and art kit (branch
+proto/steroids-alpha/approved-ship-rig-v1, commit 38e7139). It is not
+integrated yet; owner to decide whether it moves ahead of milestone 2.
 
 ### Run locally
 

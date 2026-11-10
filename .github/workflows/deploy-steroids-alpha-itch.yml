@@ -1,0 +1,138 @@
+name: Deploy Steroids-Alpha to itch.io
+
+# The Steroids-Alpha browser client, pushed to its own itch.io project
+# (draft while testing). The server deploys separately to Cloudflare Workers
+# (deploy-steroids-alpha-worker.yml).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'prototypes/steroids-alpha/index.html'
+      - 'prototypes/steroids-alpha/src/**'
+      - 'prototypes/steroids-alpha/sim/**'
+      - 'prototypes/steroids-alpha/tune.json'
+      - 'prototypes/steroids-alpha/client.tune.json'
+      - 'scripts/generate-versions.js'
+      - 'scripts/bump-version.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - '.github/workflows/deploy-steroids-alpha-itch.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: itch-steroids-alpha
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check deployment prerequisites
+        id: ready
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          if [ -z "$BUTLER_API_KEY" ]; then
+            echo "BUTLER_API_KEY is not configured; skipping deployment."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node
+        if: steps.ready.outputs.run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.ready.outputs.run == 'true'
+        run: npm ci
+
+      - name: Typecheck
+        if: steps.ready.outputs.run == 'true'
+        run: npm run typecheck
+
+      # The counter advances only for a real deploy, not a skipped or failed upload.
+      - name: Bump version stamp counter
+        if: steps.ready.outputs.run == 'true'
+        run: node scripts/bump-version.js steroids-alpha
+
+      - name: Build (relative base for itch.io)
+        if: steps.ready.outputs.run == 'true'
+        env:
+          # Public Worker URL (not a secret): where the browser client finds its planet rooms.
+          VITE_STEROIDS_SERVER: wss://steroids-alpha-server.tianz-88.workers.dev
+        run: npx vite build --base ./
+
+      - name: Prune build to Steroids-Alpha only
+        if: steps.ready.outputs.run == 'true'
+        run: |
+          rm -f dist/index.html
+          for d in dist/prototypes/*/; do
+            [ "$(basename "$d")" = "steroids-alpha" ] || rm -rf "$d"
+          done
+          test -f dist/prototypes/steroids-alpha/index.html
+
+      - name: Set up butler
+        if: steps.ready.outputs.run == 'true'
+        uses: jdno/setup-butler@v1
+
+      - name: Push to itch.io
+        if: steps.ready.outputs.run == 'true'
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        # itch rejects a push while the channel's previous build is still processing. Wait and retry only for that
+        # error (bounded); any other failure stops at once. The version stamp is bumped before this step, so a
+        # retry never bumps it twice.
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if butler push dist daily-daily-games/steroids-alpha:html5 > push.log 2>&1; then
+              cat push.log
+              exit 0
+            fi
+            cat push.log
+            if ! grep -qi "still processing" push.log; then
+              exit 1
+            fi
+            echo "Previous build is still processing (attempt $attempt of 6); waiting 90s..."
+            sleep 90
+          done
+          echo "itch was still processing the previous build after 6 attempts" >&2
+          exit 1
+
+      - name: Commit version stamp bump
+        if: steps.ready.outputs.run == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add prototypes/steroids-alpha/version.json
+          if git diff --cached --quiet; then
+            echo "No version bump to commit"
+            exit 0
+          fi
+          git commit -m "Bump Steroids-Alpha version stamp counter"
+          # Other itch deploys can race this push; retry on non-fast-forward.
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git rebase origin/main
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt), retrying..."
+            sleep $((attempt * 3))
+          done
+          echo "Failed to push version stamp bump after retries" >&2
+          exit 1
