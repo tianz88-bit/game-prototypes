@@ -1,0 +1,23 @@
+{
+  "dpr": {
+    "max": 2
+  },
+  "net": {
+    "interpDelayMs": 100,
+    "pingIntervalMs": 1000,
+    "correctionDecay": 0.12,
+    "snapCorrectionAbove": 250,
+    "remoteTimeoutMs": 1500
+  },
+  "touch": {
+    "joystickRadius": 64,
+    "deadZone": 0.25,
+    "dashButtonRadius": 46,
+    "dashButtonMargin": 34
+  },
+  "render": {
+    "gridSpacing": 200,
+    "sectorSpacing": 1000,
+    "shipSize": 22
+  }
+}
