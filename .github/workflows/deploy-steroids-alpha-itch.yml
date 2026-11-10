@@ -13,6 +13,10 @@ on:
       - 'prototypes/steroids-alpha/sim/**'
       - 'prototypes/steroids-alpha/tune.json'
       - 'prototypes/steroids-alpha/client.tune.json'
+      - 'prototypes/steroids-alpha/art/**'
+      - 'scripts/fetch-assets.js'
+      - 'scripts/pack-assets.js'
+      - 'scripts/test-steroids-alpha-rig.mjs'
       - 'scripts/generate-versions.js'
       - 'scripts/bump-version.js'
       - 'package.json'
@@ -54,16 +58,29 @@ jobs:
         if: steps.ready.outputs.run == 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
         if: steps.ready.outputs.run == 'true'
         run: npm ci
 
+      # Approved Human Nomad ship art from R2 (not in Git). art/prepare-assets.mjs checks every part's
+      # SHA-256 against the approved kit and stages it; pack-assets writes the hashed art manifest.
+      # No cache, so art overwritten in R2 is always picked up.
+      - name: Fetch and pack ship art
+        if: steps.ready.outputs.run == 'true'
+        run: |
+          node scripts/fetch-assets.js steroids-alpha steroids-alpha_human-nomad-v1_assets.zip
+          node scripts/pack-assets.js steroids-alpha
+
       - name: Typecheck
         if: steps.ready.outputs.run == 'true'
         run: npm run typecheck
+
+      - name: Ship rig matches the approved kit
+        if: steps.ready.outputs.run == 'true'
+        run: node --experimental-strip-types scripts/test-steroids-alpha-rig.mjs
 
       # The counter advances only for a real deploy, not a skipped or failed upload.
       - name: Bump version stamp counter
@@ -85,6 +102,7 @@ jobs:
             [ "$(basename "$d")" = "steroids-alpha" ] || rm -rf "$d"
           done
           test -f dist/prototypes/steroids-alpha/index.html
+          test -f dist/prototypes/steroids-alpha/assets/loose/human-nomad-v1-chassis.png
 
       - name: Set up butler
         if: steps.ready.outputs.run == 'true'

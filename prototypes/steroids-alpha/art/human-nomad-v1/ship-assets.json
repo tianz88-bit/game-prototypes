@@ -1,0 +1,60 @@
+{
+  "source": {
+    "repository": "tianz88-bit/game-prototypes",
+    "branch": "proto/steroids-alpha/approved-ship-rig-v1",
+    "commit": "38e71398633b6f38303f2a73c857ee0f8bfa6f56",
+    "path": "tools/ship-rig/human-nomad-v1"
+  },
+  "r2Object": "steroids-alpha_human-nomad-v1_assets.zip",
+  "calibrationSha256": "9a45d0609b519048e6168493f5b77190ea8f62e13808182c3c14a06a914b9d71",
+  "assets": [
+    {
+      "asset": "chassis",
+      "deliveryPath": "loose/ships/human-nomad/scrappy-v1/chassis.png",
+      "bytes": 749975,
+      "sha256": "32e66e496afaceaad2295089ef3e54eae1056fcee2e55b904c43035616a65c6f"
+    },
+    {
+      "asset": "wing",
+      "deliveryPath": "loose/ships/human-nomad/scrappy-v1/wing.png",
+      "bytes": 831945,
+      "sha256": "3c41b8e5848edb9fbf3c7c8f71022531deb2c7f4a39cc2215c7a7011c53f2043"
+    },
+    {
+      "asset": "armour",
+      "deliveryPath": "loose/ships/human-nomad/scrappy-v1/armour.png",
+      "bytes": 1362845,
+      "sha256": "1bd094ddf2091e85a3953087d8282f5aa78d96e122e523926ebaef893142f352"
+    },
+    {
+      "asset": "booster-core",
+      "deliveryPath": "loose/ships/human-nomad/scrappy-v1/booster-core.png",
+      "bytes": 1069766,
+      "sha256": "c741956614a48f62c5628178edb2abc3817650a74e50e2d7a25d594d9bef756f"
+    },
+    {
+      "asset": "booster-cowling",
+      "deliveryPath": "loose/ships/human-nomad/scrappy-v1/booster-cowling.png",
+      "bytes": 1099559,
+      "sha256": "548afef6a980b5e848b50fcdd6c776cdda8c2636209d390574e04ff7f7b8de15"
+    },
+    {
+      "asset": "cockpit-base",
+      "deliveryPath": "loose/ships/human-nomad/scrappy-v1/cockpit-base.png",
+      "bytes": 951532,
+      "sha256": "49d60e292183020dde3d39644d9d6527581ca9d43aed16808e3265194bf1afe6"
+    },
+    {
+      "asset": "cockpit-canopy",
+      "deliveryPath": "loose/ships/human-nomad/scrappy-v1/cockpit-canopy.png",
+      "bytes": 673892,
+      "sha256": "467bd8d457fb993e76c53abb3ea93f0dcbeaff9014692f7ff8ee1afabd60bc3e"
+    },
+    {
+      "asset": "gun",
+      "deliveryPath": "loose/ships/human-nomad/scrappy-v1/gun.png",
+      "bytes": 434147,
+      "sha256": "970f42e24c3a134bc87ec4e52b491da3511b4e087837475a1d264e65925f0d9b"
+    }
+  ]
+}

@@ -47,12 +47,23 @@ try {
   assert.equal(btn.id, 'alpha');
   await desk.mouse.click(btn.x, btn.y);
   await desk.waitForFunction(() => window.__steroids.scene() === 'flight' && window.__steroids.own() !== null, null, { timeout: 10000 });
+  // The approved Human Nomad rig is drawn (not the placeholder triangles), unless EXPECT_PLACEHOLDER=1.
+  const expectArt = process.env.EXPECT_PLACEHOLDER === '1' ? 'placeholder' : 'ready';
+  assert.equal(await api(desk, () => window.__steroids.shipArt()), expectArt, 'desktop ship art');
 
   // Ships never stop, so the desktop holds turn-right while the others join: it circles in the
   // drop zone (turn radius = speed / turn rate, about 80 px) and stays in view range of newcomers.
   const h0 = (await api(desk, () => window.__steroids.own())).heading;
   await desk.keyboard.down('ArrowRight');
-  await wait(700);
+  // Close-ups of your own ship through the turn: eight headings for the rig check.
+  const turnShots = [];
+  for (let i = 0; i < 8; i++) {
+    const heading = (await api(desk, () => window.__steroids.own())).heading;
+    const file = `desktop-ship-${i}.png`;
+    await desk.screenshot({ path: path.join(outDir, file), clip: { x: 640 - 90, y: 360 - 90, width: 180, height: 180 } });
+    turnShots.push({ file, rigDeg: Math.round((((heading * 180) / Math.PI + 90) % 360 + 360) % 360) });
+    await wait(150);
+  }
   const h1 = (await api(desk, () => window.__steroids.own())).heading;
   const turned = Math.abs(((h1 - h0 + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
   assert(turned > 1, `desktop keyboard turned the ship (${turned.toFixed(2)} rad)`);
@@ -73,6 +84,7 @@ try {
   watch('phone', phone);
   await phone.goto(url('debug=1&planet=alpha&lag=120'), { waitUntil: 'networkidle' });
   await phone.waitForFunction(() => window.__steroids.own() !== null, null, { timeout: 10000 });
+  assert.equal(await api(phone, () => window.__steroids.shipArt()), expectArt, 'phone ship art');
 
   // Each sees the other.
   await desk.waitForFunction(() => window.__steroids.remotes().length >= 1, null, { timeout: 5000 });
@@ -162,7 +174,7 @@ try {
   const fpsOf = (page) => page.evaluate(() => new Promise((r) => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 1000) requestAnimationFrame(f); else r(n); }; requestAnimationFrame(f); }));
   const fps = { desk: await fpsOf(desk), phone: await fpsOf(phone) };
 
-  console.log(JSON.stringify({ fps, ids, turned: Number(turned.toFixed(2)), phoneHeading: Number(steered.heading.toFixed(2)), phoneStats: pStats, deskStats: dStats, remoteGapPx: Math.round(gap), dropInOut: 'ok' }));
+  console.log(JSON.stringify({ fps, turnShots, ids, turned: Number(turned.toFixed(2)), phoneHeading: Number(steered.heading.toFixed(2)), phoneStats: pStats, deskStats: dStats, remoteGapPx: Math.round(gap), dropInOut: 'ok' }));
 } finally {
   await deskBrowser.close();
   await phoneBrowser.close();

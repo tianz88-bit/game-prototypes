@@ -97,10 +97,15 @@ All names, ships, pilots and art are original. Nothing is copied from either.
 - Each part is both visual and functional: equipping a different part changes
   how the ship looks and how it performs.
 - Bots use the same ship rig and parts.
-- Placeholder-first: coloured shapes per slot until owner art arrives.
+- First approved ship: Human Nomad v1 (twin-engine, 12 parts from 8 PNGs),
+  delivered as an owner-approved rig kit (branch
+  proto/steroids-alpha/approved-ship-rig-v1, commit 38e7139). Its calibration
+  (`art/human-nomad-v1/calibration-approved.json`) is owner-authored and frozen:
+  fixed Z order, 3% shading per lower layer, engine rattle, gun recoil, hard
+  ground shadow, FFD pitch/bank tilt on thrust/brake/yaw. The game uses a
+  TypeScript port of that rig, checked against the kit's own output.
+- Placeholder shapes remain as the fallback when art is not available.
 - Art pipeline per repo rules (R2 zip, packed/ and loose/).
-- The Punchies lab is plain JavaScript and unmerged. Steroids-Alpha ports the
-  concept to TypeScript; it does not import from the experiment folder.
 
 ## Flight and combat
 

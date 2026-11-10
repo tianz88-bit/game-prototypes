@@ -18,6 +18,9 @@
   "render": {
     "gridSpacing": 200,
     "sectorSpacing": 1000,
-    "shipSize": 22
+    "shipSize": 22,
+    "shipScale": 0.2,
+    "shipRingRadius": 190,
+    "partTextureMax": 256
   }
 }

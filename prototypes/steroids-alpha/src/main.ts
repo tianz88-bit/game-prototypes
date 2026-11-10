@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
-import { DEBUG, DPR, URL_PLANET, refreshDpr } from './base';
+import { DEBUG, DPR, refreshDpr } from './base';
 import { intents } from './input/intents';
+import { BootScene } from './scenes/boot';
 import { MenuScene } from './scenes/menu';
 import { FlightScene } from './scenes/flight';
 import { mountDebugPanelIfRequested } from './debug/debugPanel';
-import { isPlanetId } from '../sim/planets';
+import { shipArtStatus } from './render/shipArt';
 
 // The pixel buffer is logical size x DPR; Scale zoom of 1/DPR shows it at CSS size,
 // and every scene's camera zoom of DPR maps logical coordinates back onto it.
@@ -18,16 +19,11 @@ const game = new Phaser.Game({
   // Phaser input is off: all input goes through the intent layer.
   input: { mouse: false, touch: false, keyboard: false, gamepad: false },
   render: { antialias: true, roundPixels: false },
-  scene: [MenuScene, FlightScene],
+  scene: [BootScene, MenuScene, FlightScene],
 });
 
 game.events.once(Phaser.Core.Events.READY, () => {
   intents.attach(game.canvas);
-  // ?planet=alpha drops straight in (handy for testing).
-  if (isPlanetId(URL_PLANET)) {
-    game.scene.stop('menu');
-    game.scene.start('flight', { planet: URL_PLANET });
-  }
 });
 
 function fit(): void {
@@ -77,7 +73,8 @@ if (DEBUG) {
   Object.assign(window, {
     __steroids: {
       stats,
-      scene: () => (flight() ? 'flight' : 'menu'),
+      scene: () => (flight() ? 'flight' : game.scene.isActive('boot') ? 'boot' : 'menu'),
+      shipArt: () => shipArtStatus,
       menuButtons: () => (game.scene.getScene('menu') as MenuScene).buttons,
       own: () => flight()?.net.ownRender() ?? null,
       corrections: () => ({ ...(flight()?.net.corrections ?? { snapshots: 0, count: 0, max: 0 }) }),
