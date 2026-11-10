@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "offsets": {
+    "down": {
+      "footAbdomen": -4,
+      "abdomenTorso": 21.7,
+      "torsoHead": 11.1,
+      "headHair": 5.5
+    },
+    "side": {
+      "footAbdomen": 5,
+      "abdomenTorso": 6,
+      "torsoHead": 9,
+      "headHair": 7.7
+    },
+    "up": {
+      "footAbdomen": 1.1,
+      "abdomenTorso": 1,
+      "torsoHead": 11.1,
+      "headHair": 3.9
+    },
+    "left": {
+      "footAbdomen": 5,
+      "abdomenTorso": 6,
+      "torsoHead": 11.9,
+      "headHair": 4.3
+    }
+  },
+  "sideX": {
+    "abdomen": -0.7,
+    "torso": -5.8,
+    "head": 1.8,
+    "hair": 0
+  },
+  "leftX": {
+    "abdomen": 0.7,
+    "torso": 5.8,
+    "head": -1.8,
+    "hair": 1.1
+  },
+  "zoom": 2,
+  "headMode": "split",
+  "breathMode": "fast",
+  "savedAt": "2026-10-26T18:32:54.709Z"
+}

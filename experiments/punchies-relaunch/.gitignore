@@ -1,0 +1,8 @@
+rig-lab/assets/
+rig-lab/vendor/
+rig-lab/server.pid
+rig-lab/server.log
+rig-lab/server.err
+rig-lab/*.mp4
+rig-lab/*.webm
+*.tmp

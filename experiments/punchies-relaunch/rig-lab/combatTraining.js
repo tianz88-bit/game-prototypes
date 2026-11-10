@@ -1,0 +1,67 @@
+import {CombatModel,combatTune} from './combatModel.js';
+import {rigProfiles} from './rigProfiles.js';
+import {WalkMotion} from './legMotion.js';
+const $=s=>document.querySelector(s);
+const textIfChanged=(element,text)=>{if(element.textContent!==text)element.textContent=text;};
+export class CombatTraining{
+ constructor(scene,settings,baseline,casual,offsetAt){this.scene=scene;this.settings=settings;this.offsetAt=offsetAt;this.calibrations={player:casual,dummy:baseline};
+  this.perf={start:performance.now(),frames:0,updateMs:0};this.perfHistory=[];this.perfStarted=performance.now();
+  this.model=new CombatModel(a=>this.project(a));this.accumulator=0;this.stick={x:0,y:0};this.fx=[];this.gamepadHeld=false;this.pointerHeld=false;
+  settings.zoom=1.6;settings.breathMode='off';settings.guard=settings.turn=settings.walk=settings.sequence=settings.legs=settings.bones=false;
+  scene.left.normalWalk=true;scene.left.reference=false;scene.left.profile=rigProfiles.casual;scene.left.calibration=casual;scene.right.profile=rigProfiles.dummy;scene.right.calibration=baseline;
+  scene.leftTitle.setText('MARCO / FREE COMBAT');scene.outfitTitle.setText('TRAINING DUMMY');scene.subtitle.setText('FREE FACING · NEUTRAL GUARD · FLICK DODGE · TAP JAB / HOLD CROSS');scene.footer.setText('No stamina in this prototype · repeated punches fatigue · 3 stars charge Super');
+  this.graphics=scene.add.graphics().setDepth(22);this.label=scene.add.text(450,100,'',{fontFamily:'Arial',fontSize:'14px',fontStyle:'bold',color:'#f4eedc',align:'center'}).setOrigin(.5).setDepth(30);
+  this.dashLines=scene.add.graphics().setDepth(1.8);
+  this.ghostSources=[scene.left.abdomen,scene.left.torso,scene.left.head,scene.left.hair,...scene.left.hands,...scene.left.boots,...scene.left.ovalSegments.flat()];
+  this.ghosts=Array.from({length:4},()=>({until:0,sprites:this.ghostSources.map(()=>scene.add.image(0,0,'casualTorso').setVisible(false))}));this.ghostCursor=0;this.nextGhost=0;
+  if(new URLSearchParams(location.search).has('perf')){$('#perfEmpty').onclick=()=>{this.emptyUntil=performance.now()+4000;this.scene.scene.setVisible(false);this.perfHistory=[];this.perfStarted=performance.now();};$('#perfTools').hidden=false;$('#perfRun').onclick=()=>{this.stressStart=this.model.time;this.stressBeat=-1;this.model.mode='mixed';$('#dummyMode').value='mixed';this.perfHistory=[];this.perfStarted=performance.now();};}
+  this.bind();$('#combatAttack').disabled=false;$('#combatSuper').disabled=false;this.refresh();
+ }
+ project(a){const isPlayer=a===this.model?.player,cal=this.calibrations[isPlayer?'player':'dummy'],fx=Math.cos(a.angle),fy=Math.sin(a.angle),g=this.offsetAt(fx,fy,cal),sx=fx<0?cal.leftX:cal.sideX;return{x:a.x+(sx.abdomen+sx.torso)*Math.abs(fx)*1.6,y:a.y-(g.footAbdomen+g.abdomenTorso)*1.6,radius:29};}
+ bind(){const scene=this.scene,model=this.model,button=$('#combatAttack');
+  const start=e=>{if(e.button!=null&&e.button!==0)return;e.preventDefault();button.focus({preventScroll:true});button.setPointerCapture(e.pointerId);this.pointerHeld=true;this.attackOrigin={x:e.clientX,y:e.clientY};model.press();};
+  button.addEventListener('pointerdown',start);
+  button.addEventListener('pointermove',e=>{if(!this.pointerHeld)return;const dx=e.clientX-this.attackOrigin.x,dy=e.clientY-this.attackOrigin.y;if(Math.hypot(dx,dy)>12)model.aim(Math.atan2(dy,dx),true);});
+  const release=e=>{if(!this.pointerHeld)return;e.preventDefault();this.pointerHeld=false;model.release(e.type==='pointercancel');};button.addEventListener('pointerup',release);button.addEventListener('pointercancel',release);
+  $('#combatSuper').onclick=()=>model.super();$('#combatReset').onclick=()=>{model.reset();$('#dummyMode').value='passive';$('#dummyTrack').checked=true;this.stick={x:0,y:0};this.fx.length=0;scene.left.plantedFeet=null;for(const ghost of this.ghosts)ghost.until=0;this.nextGhost=0;this.refresh();};
+  $('#dummyMode').onchange=e=>{model.mode=e.target.value;model.dummy.attack=null;model.nextDummy=model.time+1000;e.target.blur();};
+  $('#dummyTrack').onchange=e=>model.track=e.target.checked;
+  $('#dummyFacing').onchange=e=>{model.track=false;$('#dummyTrack').checked=false;model.dummy.angle=Number(e.target.value)*Math.PI/180;e.target.blur();};
+  const zone=$('#combatStick'),knob=$('#stickKnob');let pointer=null;
+  const move=e=>{const rect=zone.getBoundingClientRect(),dx=e.clientX-rect.left-rect.width/2,dy=e.clientY-rect.top-rect.height/2,length=Math.hypot(dx,dy),factor=Math.min(1,50/(length||1));this.stick={x:dx*factor/50,y:dy*factor/50};knob.style.transform=`translate(${dx*factor}px,${dy*factor}px)`;};
+  zone.onpointerdown=e=>{e.preventDefault();pointer=e.pointerId;zone.setPointerCapture(pointer);move(e);};zone.onpointermove=e=>{if(e.pointerId===pointer)move(e);};
+  const end=()=>{pointer=null;this.stick={x:0,y:0};knob.style.transform='translate(0,0)';};zone.onpointerup=end;zone.onpointercancel=end;
+  this.keyDown=e=>{if(e.target.matches('input,select,textarea'))return;if(['KeyJ','Space','KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code))e.preventDefault();if(e.repeat)return;if(e.code==='KeyJ')model.press();if(e.code==='Space')model.super();};
+  this.keyUp=e=>{if(e.code==='KeyJ'){e.preventDefault();model.release();}};window.addEventListener('keydown',this.keyDown);window.addEventListener('keyup',this.keyUp);
+  window.addEventListener('blur',()=>{end();model.release(true);model.lastMove=false;model.pgUntil=0;model.queueUntil=0;scene.input.keyboard.resetKeys();});
+  scene.input.on('pointermove',pointer=>{if(model.attackHeld&&!this.pointerHeld){const pos=this.project(model.player);model.aim(Math.atan2(pointer.y-pos.y,pointer.x-pos.x),true);}});
+ }
+ input(){const keys=this.scene.keys;let x=this.stick.x,y=this.stick.y;if(Math.hypot(x,y)<.2){x=(keys.D.isDown||keys.RIGHT.isDown?1:0)-(keys.A.isDown||keys.LEFT.isDown?1:0);y=(keys.S.isDown||keys.DOWN.isDown?1:0)-(keys.W.isDown||keys.UP.isDown?1:0);}
+  const pad=Array.from(navigator.getGamepads?.()||[]).find(Boolean);if(pad){if(Math.hypot(pad.axes[0]||0,pad.axes[1]||0)>.2){x=pad.axes[0];y=pad.axes[1];}const held=!!pad.buttons[0]?.pressed;if(held&&!this.gamepadHeld)this.model.press();if(!held&&this.gamepadHeld)this.model.release();this.gamepadHeld=held;const superHeld=!!pad.buttons[1]?.pressed;if(superHeld&&!this.padSuper)this.model.super();this.padSuper=superHeld;if(this.model.attackHeld&&Math.hypot(pad.axes[2]||0,pad.axes[3]||0)>.25)this.model.aim(Math.atan2(pad.axes[3],pad.axes[2]),true);}
+  return{x,y};
+ }
+ update(delta){const updateStart=performance.now(),model=this.model;if(this.emptyUntil&&updateStart>=this.emptyUntil){this.emptyUntil=0;this.scene.scene.setVisible(true);}this.accumulator+=Math.min(delta,100);let input=this.input();
+  if(this.stressStart!=null){const elapsed=model.time-this.stressStart,phase=elapsed%1400;input={x:phase<450?1:phase<520?0:phase<970?-1:0,y:phase>=1050&&phase<1130?1:0};const beat=Math.floor(elapsed/500);if(beat!==this.stressBeat){this.stressBeat=beat;model.press();model.release();if(model.player.stars===3)model.super();}if(elapsed>=30000){this.stressStart=null;model.release(true);input={x:0,y:0};$('#perfRun').textContent='Stress test finished';}}
+ while(this.accumulator>=1000/60){model.step(1000/60,input);this.accumulator-=1000/60;}const now=model.time;this.scene.clock=now;
+  for(const [puppet,actor]of [[this.scene.left,model.player],[this.scene.right,model.dummy]]){puppet.guard=actor.guard;const dashActive=actor===model.player&&now<actor.dodgeUntil;puppet.dashAmount=dashActive?Math.sin(Math.PI*Math.max(0,1-(actor.dodgeUntil-now)/combatTune.dodgeMs))*.85+.15:0;puppet.motion??=new WalkMotion();const f={x:0,y:0,fx:Math.cos(actor.angle),fy:Math.sin(actor.angle),moveX:actor.vx||0,moveY:actor.vy||0};puppet.motion.update({...f,x:actor.x,y:actor.y},now,.018);puppet.draw({x:actor.x,y:actor.y},f,now,puppet.motion.phase,puppet.motion.stride,puppet.motion.direction,actor.attack);}
+  for(const event of model.events.splice(0)){if(['hit','block','perfect','evade','chargeCancel'].includes(event.type)){this.fx.push({...event,until:now+280});}if(event.type==='perfect')$('#combatFeedback').dataset.kind='perfect';else $('#combatFeedback').dataset.kind=event.type;}
+  const dashActive=now<model.player.dodgeUntil;
+  if(dashActive&&now>=this.nextGhost){this.nextGhost=now+40;const ghost=this.ghosts[this.ghostCursor++%this.ghosts.length];ghost.until=now+200;for(let i=0;i<this.ghostSources.length;i++){const source=this.ghostSources[i],copy=ghost.sprites[i];copy.setTexture(source.texture.key,source.frame.name).setPosition(source.x,source.y).setRotation(source.rotation).setScale(source.scaleX,source.scaleY).setFlip(source.flipX,source.flipY).setDepth(1.1+source.depth*.01).setTint(0x9ed5ed).setVisible(source.visible);copy.wasVisible=source.visible;}}
+  for(const ghost of this.ghosts){const fade=Math.max(0,(ghost.until-now)/200);for(const sprite of ghost.sprites)sprite.setAlpha(fade*.3).setVisible(fade>0&&!!sprite.wasVisible);}
+  const trail=this.dashLines;trail.clear();if(dashActive){const p=model.player,pos=this.project(p),angle=p.dodgeAngle,dx=Math.cos(angle),dy=Math.sin(angle),fade=Math.min(1,(p.dodgeUntil-now)/60);for(let i=0;i<5;i++){const lateral=(i-2)*12,back=25+Math.abs(i-2)*7,length=36+(i%2)*22;trail.lineStyle(i===2?3:2,i%2?0x82cbe9:0xe5f9ff,fade*.75);trail.lineBetween(pos.x-dx*back-dy*lateral,pos.y-dy*back+dx*lateral,pos.x-dx*(back+length)-dy*lateral,pos.y-dy*(back+length)+dx*lateral);}}
+  const g=this.graphics;g.clear();
+  for(const actor of [model.player,model.dummy]){const pos=this.project(actor);if(actor.guard){const perfect=actor===model.player&&now<model.pgUntil;g.lineStyle(perfect?4:2,perfect?0xffed8a:0x76cce3,.8);g.beginPath();g.arc(pos.x,pos.y,48,actor.angle-Math.PI*.38,actor.angle+Math.PI*.38);g.strokePath();}if(actor.attack&&actor===model.dummy&&actor.attack.frame<actor.attack.startup){g.lineStyle(3,0xffa64b,.7);g.strokeCircle(pos.x,pos.y,37);}}
+  if(model.player.aiming){const pos=this.project(model.player),angle=model.aimAngle;g.lineStyle(3,0xffd66c,.85);g.lineBetween(pos.x,pos.y,pos.x+Math.cos(angle)*125,pos.y+Math.sin(angle)*125);const end={x:pos.x+Math.cos(angle)*125,y:pos.y+Math.sin(angle)*125};g.lineBetween(end.x,end.y,end.x-Math.cos(angle-.5)*14,end.y-Math.sin(angle-.5)*14);g.lineBetween(end.x,end.y,end.x-Math.cos(angle+.5)*14,end.y-Math.sin(angle+.5)*14);}
+  this.fx=this.fx.filter(f=>f.until>now);for(const fx of this.fx){const alpha=(fx.until-now)/280,col=fx.type==='chargeCancel'?0xff78ae:fx.type==='perfect'?0xffef92:fx.type==='block'?0x76ceff:fx.type==='evade'?0xc7f4ff:0xffb346;g.lineStyle(3,col,alpha);for(let i=0;i<8;i++){const a=i*Math.PI/4,r=8+(1-alpha)*22;g.lineBetween(fx.x+Math.cos(a)*r*.4,fx.y+Math.sin(a)*r*.4,fx.x+Math.cos(a)*r,fx.y+Math.sin(a)*r);}}
+  const state=model.player.attack?model.player.attack.type.toUpperCase():model.player.aiming?'CHARGING CROSS +'+Math.round(model.charge()*50)+'%':now<model.player.dodgeUntil?'DODGING':now<model.player.stunUntil?'STAGGERED':model.player.guard?(now<model.pgUntil?'PERFECT GUARD WINDOW':'GUARD'):'MOVING';this.scene.status.setText(state);this.label.setText(`MARCO ${Math.ceil(model.player.hp)} HP                DUMMY ${Math.ceil(model.dummy.hp)} HP`);
+  if(now-(this.lastUi||-999)>80){this.lastUi=now;this.refresh();}
+  const p=this.perf;p.frames++;p.updateMs+=performance.now()-updateStart;const elapsed=performance.now()-p.start;
+  if(elapsed>=1000){const heap=performance.memory?.usedJSHeapSize,objects=this.scene.children.list.length,textures=Object.keys(this.scene.textures.list).length,commands=this.graphics.commandBuffer.length+this.dashLines.commandBuffer.length+this.scene.left.legs.commandBuffer.length+this.scene.right.legs.commandBuffer.length;
+   const sample={phase:this.emptyUntil?'empty canvas':'combat',seconds:Math.round((performance.now()-this.perfStarted)/1000),fps:+(p.frames*1000/elapsed).toFixed(1),updateMs:+(p.updateMs/p.frames).toFixed(3),renderMs:+(this.scene.renderMs/Math.max(1,this.scene.renderCount)).toFixed(3),heapMB:heap?+(heap/1048576).toFixed(1):null,objects,textures,commands,effects:this.fx.length};
+   $('#combatPerf').textContent=sample.fps+' FPS · '+sample.updateMs+' ms update · '+sample.renderMs+' ms render · '+objects+' objects · '+textures+' textures'+(sample.heapMB?' · '+sample.heapMB+' MB JS':'');
+   if(!this.perfHistory.length||sample.seconds-this.perfHistory.at(-1).seconds>=(this.emptyUntil?1:5)){this.perfHistory.push(sample);if(this.perfHistory.length>14)this.perfHistory.shift();$('#perfHistory').textContent=JSON.stringify(this.perfHistory,null,2);}
+   p.start=performance.now();p.frames=p.updateMs=0;this.scene.renderMs=this.scene.renderCount=0;
+  }
+ }
+ refresh(){const m=this.model;textIfChanged($('#combatFeedback'),m.notice);textIfChanged($('#combatStats'),`Hits ${m.hits} · Damage dealt ${m.dealt.toFixed(1)} · Received ${m.received.toFixed(1)} · Perfect Guards ${m.perfects} · Dodged hits ${m.dodges}`);textIfChanged($('#combatSuper'),`SUPER ${'★'.repeat(m.player.stars)}${'☆'.repeat(3-m.player.stars)}`);textIfChanged($('#combatAttack'),m.player.aiming?'CROSS +'+Math.round(m.charge()*50)+'%':m.time<m.hookUntil?'HOOK':'ATTACK');textIfChanged($('#combatState'),`${m.player.guard?'Frontal guard · 65% damage reduction':!m.player.attack&&m.time<m.player.guardReadyAt?'Recovering stance · guard not ready':'Guard down'}${m.repeats?' · fatigue ×'+Math.pow(.88,m.repeats).toFixed(2):''}`);}
+}

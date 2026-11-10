@@ -1,0 +1,9 @@
+Edit the overhead Marco ABDOMEN / SHORTS sprite in reference 1, using reference 2 (Marco torso) to transfer the rear blue waistband detail onto this abdomen layer.
+Identity/style: royal blue fabric, cream trim, dark navy thick ink outlines, controlled Punchies cel shading. True overhead, character faces RIGHT/east. Image X is front-to-back, image Y is side-to-side across hips.
+Keep the approved COMPOSITION: a broad TOP-FACING waist/butt surface ABOVE two shallow shorts sections that peek out at the RIGHT/front edge. No leg-opening tubes or holes facing forward. Do not turn it into upright front-facing shorts.
+CHANGES:
+- Make the whole pelvis substantially SHALLOWER in image X and broader/longer in image Y: total forward depth only about 0.50-0.58 of the hip width. It is a compact transverse hip slice, not a long front-to-back body.
+- The curved BLUE waist band with THREE subtle segmented lobes/panels that sits on the LEFT/back edge of reference 2 belongs HERE. Add that distinctive dark/royal-blue curved strip to this abdomen's LEFT/back perimeter, integrating it into the clothing. The torso will have that band removed, so do not draw another torso or shoulder onto this asset.
+- Keep a flat mostly solid royal-blue center for torso overlap; simple cream waistband/piping around edges. Only shallow front hem details and tiny hints of the two shorts sections extend at RIGHT.
+- Round anatomical/fabric silhouette: gently curved back and sides, near-straight shallow front with two little underlying trunk sections. Not a literal geometric rectangle, oval badge, donut, armor plate or huge shorts front.
+No tan skin, torso, head, arms, leg stumps, shoes, text, coloured marks, background, cast shadow or glow. One isolated connected pelvis sprite on real transparency with generous margins. Keep the silhouette clean and readable at small game size.
