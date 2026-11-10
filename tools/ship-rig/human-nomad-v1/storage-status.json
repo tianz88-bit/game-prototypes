@@ -1,13 +1,15 @@
 {
   "schema": 1,
-  "status": "r2-published-github-pending",
+  "status": "published",
   "localBaseline": "C:\\Users\\Zitian\\Documents\\ChatGPT\\Gamedev\\outputs\\steroids-alpha\\releases\\human-nomad-rig-v1-20261110",
   "github": {
     "repository": "tianz88-bit/game-prototypes",
     "visibility": "public",
     "branch": "proto/steroids-alpha/approved-ship-rig-v1",
     "path": "tools/ship-rig/human-nomad-v1",
-    "uploaded": false
+    "uploaded": true,
+    "sourceCommit": "7785d09b42c4b2e2d743c4535d284a0b23ab177f",
+    "url": "https://github.com/tianz88-bit/game-prototypes/tree/proto/steroids-alpha/approved-ship-rig-v1/tools/ship-rig/human-nomad-v1"
   },
   "r2": {
     "bucket": "game-assets",
