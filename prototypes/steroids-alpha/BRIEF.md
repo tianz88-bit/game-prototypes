@@ -8,7 +8,7 @@ Status: DRAFT for owner review. Nothing here is built yet. Sections marked
 A space-themed, top-down, real-time PvP extraction shooter for the browser.
 Arcade dogfighting feel (top-down shoot 'em up) combined with extraction
 survival: players pick a planet from the main menu, drop in with gear from
-their stash, loot, fight bots and other players, and warp out to keep what
+their stash, loot, shoot asteroids, fight other players, and warp out to keep what
 they carry. Dying loses everything brought in and picked up.
 
 Inspiration: the top-down dogfight feel and layered aircraft look of
@@ -31,7 +31,8 @@ All names, ships, pilots and art are original. Nothing is copied from either.
 2. **Drop in:** join that planet's running room at any time.
 3. **Lockdown:** for the first 3 minutes after dropping in, the player cannot
    leave.
-4. **Raid:** fly, fight bots and players, loot. Stay as long as you want.
+4. **Raid:** fly, shoot asteroids, fight players, loot. Stay as long as you
+   want.
 5. **Warp out:** after lockdown, press Warp and survive the warp run to
    launch off the planet.
 6. **Result:** warped out means gear and loot go to stash. Destroyed means all
@@ -39,8 +40,13 @@ All names, ships, pilots and art are original. Nothing is copied from either.
 
 ## Planets
 
-- v1 has 2 planets, chosen from the main menu. Each planet has its own loot
-  and bot setup (differences to be defined).
+- v1 has 2 PvP planets plus 1 practice planet, chosen from the main menu.
+  Each PvP planet has its own loot and asteroid setup (differences to be
+  defined).
+- Practice planet: single-player PvE, a private room per player. It teaches
+  flying and shooting asteroids and acts as the tutorial. It drops consumable
+  loot only, nothing rare. Default (confirm): no lockdown there, and nothing
+  is lost on death.
 - Rooms are persistent drop-in/drop-out: a planet room keeps running while
   players come and go. No fixed match start or end.
 - No maximum time on a planet (owner decision, for now).
@@ -96,7 +102,6 @@ All names, ships, pilots and art are original. Nothing is copied from either.
   weapon hardpoint(s).
 - Each part is both visual and functional: equipping a different part changes
   how the ship looks and how it performs.
-- Bots use the same ship rig and parts.
 - First approved ship: Human Nomad v1 (twin-engine, 12 parts from 8 PNGs),
   delivered as an owner-approved rig kit (branch
   proto/steroids-alpha/approved-ship-rig-v1, commit 38e7139). Its calibration
@@ -109,32 +114,63 @@ All names, ships, pilots and art are original. Nothing is copied from either.
 
 ## Flight and combat
 
-Default (confirm), Thunderdogs-style arcade controls:
-
-- Ship always moves forward at base speed; player steers direction.
-- Primary fire from equipped weapon(s).
+- Ships have throttle: accelerate and brake between a minimum and a maximum
+  speed.
+- Default (confirm): a ship cannot stop or hover (braking drops to the
+  minimum speed), and there is no drift: it moves where the nose points.
+- Primary fire from equipped weapon(s), fixed forward.
 - Dash: short burst of speed on a cooldown or energy cost.
 - Energy meter shared by firing and dashing (exact rules to confirm).
 - Hull HP; destroyed at 0.
 
-Controls through the intent layer (repo rule):
+### Controls
 
-- Desktop: keyboard steer, fire, dash, warp.
-- Phone: left-side virtual joystick to steer, right-side buttons for fire,
-  dash and warp.
+Both schemes are supported (owner decision), through the intent layer:
 
-## Bots
+- **Craft-relative:** left/right rotates the ship, up/down accelerates and
+  brakes.
+- **Direction marker:** the ship steers toward a chosen direction at its turn
+  rate; how far the stick is pushed sets the throttle.
+- Default (confirm): keyboard uses craft-relative (A/D rotate, W/S throttle);
+  the phone stick defaults to direction marker with a toggle to
+  craft-relative. Fire, dash and warp are buttons on both.
+- Both schemes share the same turn rate and speed limits, so neither has an
+  advantage.
 
-- Each planet has bot enemies alongside players.
-- Bots fight players and drop loot when destroyed.
-- Bots run on the server inside the planet room, so their count is limited by
-  the room's server time. Default (confirm): a handful per planet, tuned.
-- Behaviour, difficulty and whether bots fight each other: to define.
+## Asteroids
+
+Asteroids replace bots as the non-player targets (owner decision).
+
+- They float over the planet surface in straight lines and wrap around it.
+- Shooting one down splits it into smaller asteroids; the smallest size just
+  breaks.
+- Split vectors depend on the damage: Default (confirm) pieces keep the
+  parent's motion, are pushed along the direction of the killing shot, and
+  spread sideways; a harder hit throws them faster and wider.
+- Default (confirm): three sizes; asteroids damage ships on contact; they do
+  not collide with each other; each planet keeps a target count and spawns
+  new large ones to maintain it.
+- Default (confirm): asteroids can drop loot (consumables on the practice
+  planet).
+- Run on the server. Because they move in straight lines, the server sends
+  only spawn, split and destroy events and clients compute positions.
+
+## Atmosphere transition
+
+- Entering and leaving a planet passes through a cloud layer that visually
+  simulates atmosphere. Transitions only: no clouds over the map during play.
+- Entering: the view starts inside cloud, which rushes past and parts to
+  reveal the surface (a descent).
+- Leaving: after the warp ("TP") completes, the reverse (an ascent).
+- Vision (owner): the player flies in space and descends to a planet to
+  enter the level, and leaves the same way in reverse. Whether free flight in
+  space is part of v1 is an open question; until then the planet select
+  stands in for space.
 
 ## Loot and stash
 
 - Stash is server-side (owner decision). Clients never write stash data.
-- Loot sources: loot crates on the planet, destroyed bots, destroyed players.
+- Loot sources: loot crates on the planet, asteroids, destroyed players.
 - Loot = ship parts plus a simple currency or salvage (default, confirm).
 - On drop-in the server moves the equipped loadout from stash into
   "in raid". On warp-out, loadout and carried loot return to stash. On death
@@ -160,7 +196,8 @@ Server-authoritative. The server decides movement, hits, deaths, loot,
 lockdown, warp progress and extraction.
 
 - **Planet room:** one Cloudflare Durable Object per running planet room.
-  Simulation ticks at 30 Hz; state snapshots sent at 15 to 20 Hz. Runs bots.
+  Simulation ticks at 30 Hz; state snapshots sent at 15 to 20 Hz. Runs
+  asteroids.
 - **Matchmaker:** one Durable Object that assigns players to a room for the
   chosen planet and opens new rooms when full.
 - **Stash:** Cloudflare D1 database `steroids-alpha-stash` (players,
@@ -177,7 +214,7 @@ lockdown, warp progress and extraction.
 - **Room location:** use Durable Object location hints so a room runs near
   its players (verify during implementation).
 - **Persistent rooms:** a room stays alive while it has players and shuts
-  down when empty. Default (confirm): a room's world (crates, bots) resets
+  down when empty. Default (confirm): a room's world (crates, asteroids) resets
   when it restarts.
 - **Portability:** all game rules live in a pure TypeScript simulation
   package with no Cloudflare code, so planet rooms can move to another host
@@ -187,7 +224,7 @@ lockdown, warp progress and extraction.
 ## Tuning
 
 All feel values (speeds, turn rates, dash, energy, fire rates, damage,
-lockdown duration, warp acceleration, warp speed, warp distance, bot counts,
+lockdown duration, warp acceleration, warp speed, warp distance, asteroid counts, sizes and split behaviour,
 tick and snapshot rates) live in `tune.json`, shared by client and server.
 Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 
@@ -209,9 +246,12 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 ## v1 scope
 
 - Main menu with hangar (stash and loadout assembly) and planet select.
-- 2 planets, persistent drop-in/drop-out rooms.
+- 2 PvP planets with persistent drop-in/drop-out rooms, plus 1 single-player
+  practice planet.
 - Pseudo-3D wrapping planet rendering.
-- PvP, bots, loot crates, wrecks of bots and players.
+- PvP, splitting asteroids, loot crates, wrecks of players.
+- Cloud-layer transition when entering and leaving a planet.
+- Two control schemes (craft-relative and direction marker) with throttle.
 - 3-minute lockdown and warp-out.
 - Server-side stash with anonymous identity and recovery code.
 - Phone and desktop controls.
@@ -219,7 +259,9 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 
 ## Out of scope (binding for v1)
 
-- More than 2 planets.
+- More than 2 PvP planets and 1 practice planet.
+- Bots / AI enemy ships (replaced by asteroids; may return later).
+- Clouds over the map during play.
 - A true-sphere gameplay model (wrapping map rendered as a sphere instead).
 - Trading, markets, crafting, quests, skill trees.
 - Squads, parties, friends, chat, voice.
@@ -233,12 +275,17 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 - Name: Steroids-Alpha. Browser game, space theme.
 - Ship art: top-down layered parts with a slightly angled 3D look, assembled
   the way Punchies assembles fighters.
-- PvP from day one, plus bot enemies.
+- PvP from day one. Splitting asteroids instead of bots.
 - Server-side stash. Phone play kept.
 - Netcode: Cloudflare Durable Objects + D1, server-authoritative, custom
   realtime netcode (not Firestorm's slow-paced sim).
 - Planets: pseudo-3D spheres wrapping around the player's perspective.
-- 2 planets in v1, entered from the main menu, drop in/out at any time.
+- 2 PvP planets in v1, entered from the main menu, drop in/out at any time.
+- A third, single-player PvE practice planet as the tutorial; consumable
+  loot only, nothing rare.
+- Both control schemes allowed: craft-relative and direction marker.
+- Cloud layer when entering and leaving a planet, transitions only. Vision:
+  fly in space, descend to enter, reverse after the warp.
 - No maximum time on a planet, for now.
 - 3-minute lockdown on entry; then a Warp button comes online.
 - Warp: acceleration mode, only slightly faster than base speed so pursuit is
@@ -252,10 +299,14 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 3. Do part stats exist in v1 (speed, thrust, handling, armour, power), or is
    v1 cosmetic plus weapons only?
 4. Warp-mode details: steering allowed, firing allowed, cancellable?
-5. What makes the 2 planets different (loot tables, bots, size, look)?
-6. Bot behaviour and difficulty.
-7. Should the Punchies part-rig be extracted into a shared package
+5. What makes the 2 PvP planets different (loot tables, asteroids, size,
+   look)?
+6. Can ships stop, and do they drift? Do asteroids damage ships and drop
+   loot on PvP planets?
+7. Is free flight in space (flying to a planet to enter it) part of v1, and
+   is that space shared with other players?
+8. Should the Punchies part-rig be extracted into a shared package
    (`packages/part-rig`) used by both Punchies and Steroids-Alpha?
-8. BRIEF.md was drafted by Claude from the design chat, not written by the
+9. BRIEF.md was drafted by Claude from the design chat, not written by the
    owner as the repo rules expect. The owner should review and take
    ownership of it.
