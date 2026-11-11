@@ -28,6 +28,8 @@ export class FlightScene extends Phaser.Scene {
   private message!: Phaser.GameObjects.Text;
   private coords!: Phaser.GameObjects.Text;
   private schemeLabel!: Phaser.GameObjects.Text;
+  private world!: Phaser.GameObjects.Graphics;
+  private effects: { x: number; y: number; at: number; r: number; ms: number }[] = [];
 
   constructor() {
     super('flight');
@@ -48,6 +50,7 @@ export class FlightScene extends Phaser.Scene {
       this.net.close();
       intents.dashButton = null;
       intents.schemeButton = null;
+      intents.fireButton = null;
     });
     intents.drainTaps();
   }
@@ -59,6 +62,7 @@ export class FlightScene extends Phaser.Scene {
     const planet = PLANETS.find((p) => p.id === this.planet);
     this.cameras.main.setBackgroundColor(planet ? darken(planet.colour) : 0x05070d);
     this.grid = this.add.graphics().setDepth(0);
+    this.world = this.add.graphics().setDepth(15);
     this.overlay = this.add.graphics().setDepth(900);
     const { w } = logicalSize();
     this.status = text(this, w / 2, 6, '', 12, '#b8c6e6').setOrigin(0.5, 0).setDepth(950);
@@ -73,7 +77,7 @@ export class FlightScene extends Phaser.Scene {
     intents.consume('primary');
     intents.consume('pause'); // No leaving during lockdown; warp-out comes in milestone 3.
     if (intents.consume('scheme')) intents.toggleScheme();
-    this.net.update({ ...intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed), dash });
+    this.net.update({ ...intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed), dash, fire: intents.fire });
 
     const { w, h } = logicalSize();
     const own = this.net.ownRender();
@@ -97,10 +101,15 @@ export class FlightScene extends Phaser.Scene {
       }
     }
 
+    for (const f of this.net.drainFx()) {
+      if (f.kind === 'shot') this.ships.get(f.id)?.fire(f.side);
+      else this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.kind === 'burst' ? TUNE.asteroid.radius[f.size] : 9, ms: f.kind === 'burst' ? 320 : 110 });
+    }
+    this.drawWorld(cx, cy, w, h);
     this.drawTouch(w, h);
     this.drawStatus(own);
 
-    if (this.net.status === 'closed' || this.net.status === 'full') {
+    if (this.net.status === 'closed' || this.net.status === 'full' || this.net.status === 'destroyed') {
       for (const _ of intents.drainTaps()) {
         this.scene.start('menu');
         return;
@@ -141,12 +150,31 @@ export class FlightScene extends Phaser.Scene {
   private drawTouch(w: number, h: number): void {
     const g = this.overlay;
     g.clear();
+    // Hull bar, bottom centre.
+    const hp = this.net.predicted?.hp ?? 0;
+    if (this.net.predicted) {
+      const bw = Math.min(220, w * 0.5);
+      const frac = Math.max(0, Math.min(1, hp / TUNE.ship.maxHp));
+      g.fillStyle(0x000000, 0.45);
+      g.fillRect(w / 2 - bw / 2, h - 16, bw, 8);
+      g.fillStyle(frac > 0.35 ? 0x6fe08a : 0xff6b5a, 0.95);
+      g.fillRect(w / 2 - bw / 2, h - 16, bw * frac, 8);
+    }
     this.schemeLabel.setVisible(intents.touch);
     if (!intents.touch) {
       intents.dashButton = null;
       intents.schemeButton = null;
+      intents.fireButton = null;
       return;
     }
+    // Fire button: left of the dash button, held to shoot.
+    const fr = clientTune.touch.fireButtonRadius;
+    const fb = { x: w - clientTune.touch.dashButtonMargin * 2 - clientTune.touch.dashButtonRadius * 2 - fr, y: h - clientTune.touch.dashButtonMargin - fr };
+    intents.fireButton = { x: fb.x, y: fb.y, hw: fr * 1.2, hh: fr * 1.2 };
+    g.fillStyle(0xff8a4a, intents.fire ? 0.5 : 0.25);
+    g.fillCircle(fb.x, fb.y, fr);
+    g.lineStyle(2, 0xffc9a8, 0.8);
+    g.strokeCircle(fb.x, fb.y, fr);
     const r = clientTune.touch.dashButtonRadius;
     const m = clientTune.touch.dashButtonMargin;
     const b = { x: w - m - r, y: h - m - r, r };
@@ -182,6 +210,40 @@ export class FlightScene extends Phaser.Scene {
     }
   }
 
+  /** Asteroids, bullets and short effects. Placeholder shapes until there is art. */
+  private drawWorld(cx: number, cy: number, w: number, h: number): void {
+    const g = this.world;
+    g.clear();
+    const sx = (x: number): number => w / 2 + wrapDelta(x, cx, W);
+    const sy = (y: number): number => h / 2 + wrapDelta(y, cy, H);
+    const now = performance.now();
+    for (const { a, x, y } of this.net.asteroidRender()) {
+      const r = TUNE.asteroid.radius[a.size];
+      const px = sx(x);
+      const py = sy(y);
+      if (px < -r || px > w + r || py < -r || py > h + r) continue;
+      const flash = now - (this.net.asteroidHitAt.get(a.id) ?? -1e9) < 90;
+      const pts = rockShape(a.id, r).map((p) => new Phaser.Math.Vector2(px + p.x, py + p.y));
+      g.fillStyle(flash ? 0xffffff : ROCK_FILL[a.size], 1);
+      g.fillPoints(pts, true);
+      g.lineStyle(2, 0xd9c7a8, 0.8);
+      g.strokePoints(pts, true);
+    }
+    for (const b of this.net.bullets) {
+      const len = 0.018;
+      const x = sx(b.x);
+      const y = sy(b.y);
+      g.lineStyle(3, b.mine ? 0x9ff3ff : 0xffb37a, 1);
+      g.lineBetween(x, y, x - b.vx * len, y - b.vy * len);
+    }
+    this.effects = this.effects.filter((e) => this.time.now - e.at < e.ms);
+    for (const e of this.effects) {
+      const k = (this.time.now - e.at) / e.ms;
+      g.lineStyle(3, 0xffe2b0, 1 - k);
+      g.strokeCircle(sx(e.x), sy(e.y), e.r * (0.4 + k));
+    }
+  }
+
   private drawStatus(own: ShipState | null): void {
     const planet = PLANETS.find((p) => p.id === this.planet)?.label ?? this.planet;
     const n = this.net;
@@ -192,6 +254,7 @@ export class FlightScene extends Phaser.Scene {
       open: '',
       full: 'Planet is full. Tap to go back',
       closed: 'Disconnected. Tap to go back',
+      destroyed: 'Ship destroyed. Tap to go back',
     };
     this.message.setText(n.status === 'open' && !own ? 'Dropping in…' : msg[n.status]);
     if (DEBUG && own) {
@@ -200,7 +263,30 @@ export class FlightScene extends Phaser.Scene {
   }
 }
 
+const ROCK_FILL = [0x6b5a4a, 0x7a6753, 0x8a755d];
+const shapes = new Map<string, { x: number; y: number }[]>();
+/** A lumpy outline, the same every time for a given asteroid id. */
+function rockShape(id: number, r: number): { x: number; y: number }[] {
+  const key = `${id}:${r}`;
+  let pts = shapes.get(key);
+  if (!pts) {
+    pts = [];
+    let seed = id * 9301 + 49297;
+    const n = 11;
+    for (let i = 0; i < n; i++) {
+      seed = (seed * 9301 + 49297) % 233280;
+      const k = 0.78 + (seed / 233280) * 0.3;
+      const a = (i / n) * Math.PI * 2;
+      pts.push({ x: Math.cos(a) * r * k, y: Math.sin(a) * r * k });
+    }
+    if (shapes.size > 400) shapes.clear();
+    shapes.set(key, pts);
+  }
+  return pts;
+}
+
 interface DrawnShip {
+  fire(side: number): void;
   update(x: number, y: number, s: ShipState, timeMs: number): void;
   destroy(): void;
 }
@@ -225,6 +311,10 @@ class RigShip implements DrawnShip {
       this.flame.fillTriangle(-110 * k, -40 * k, -110 * k, 40 * k, -230 * k, 0);
       this.flame.setPosition(x, y - 28 * k).setRotation(s.heading);
     }
+  }
+
+  fire(side: number): void {
+    this.view.fire(side);
   }
 
   destroy(): void {
@@ -260,6 +350,10 @@ class PlaceholderShip implements DrawnShip {
       true,
     );
     g.setPosition(x, y).setRotation(s.heading);
+  }
+
+  fire(): void {
+    // The placeholder triangle has no guns to animate.
   }
 
   destroy(): void {

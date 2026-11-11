@@ -1,9 +1,10 @@
 // One running planet room: the authority for every ship on that planet.
 // Players drop in and out at any time; the tick loop runs only while someone is connected.
 import { TUNE, stepSeconds } from '../../sim/tune';
-import { copyShip, newShip, stepShip } from '../../sim/ship';
+import { copyShip } from '../../sim/ship';
 import type { ShipInput, ShipState } from '../../sim/ship';
-import { CLOSE, MSG, decodeClient, encodePing, encodeSnapshot, encodeWelcome } from '../../sim/protocol';
+import { World } from '../../sim/world';
+import { CLOSE, MSG, decodeClient, encodeAsteroids, encodeGone, encodePing, encodeShots, encodeSnapshot, encodeWelcome } from '../../sim/protocol';
 import type { SnapshotShip } from '../../sim/protocol';
 import { wrapDist2 } from '../../sim/wrap';
 
@@ -43,12 +44,22 @@ interface Player {
 }
 
 
-const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false };
+const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false };
 
 export class Room {
   private players = new Map<number, Player>();
   private nextId = 1;
-  private tick = 0;
+  /** Game rules for this planet: ships, bullets, asteroids. Its tick is the room's clock. */
+  private world: World;
+
+  /** shipHp overrides ship.maxHp for local test runs only (see TEST_SHIP_HP in index.ts). */
+  constructor(shipHp?: number) {
+    this.world = new World(shipHp ? { ...TUNE, ship: { ...TUNE.ship, maxHp: shipHp } } : TUNE);
+  }
+
+  private get tick(): number {
+    return this.world.tick;
+  }
   private timer: ReturnType<typeof setInterval> | null = null;
   private lastStepAt = 0;
   private readonly dt = stepSeconds(TUNE);
@@ -65,11 +76,7 @@ export class Room {
       return false;
     }
     const id = this.allocateId();
-    // Milestone 1: everyone spawns in one drop zone near the map centre so testers find each other.
-    // Real spawn points come with loot and bots.
-    const a = Math.random() * Math.PI * 2;
-    const d = Math.random() * TUNE.net.interestRadius * 0.3;
-    const spawn = newShip(TUNE.world.width / 2 + Math.cos(a) * d, TUNE.world.height / 2 + Math.sin(a) * d, Math.random() * Math.PI * 2 - Math.PI, TUNE.ship.cruiseSpeed);
+    const spawn = this.world.addShip(id);
     const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, reading: Promise.resolve(), started: false, deficitTicks: 0 };
     this.players.set(id, player);
 
@@ -78,6 +85,7 @@ export class Room {
     ws.addEventListener('error', () => this.leave(id));
 
     this.send(player, encodeWelcome(id, this.tick));
+    this.send(player, encodeAsteroids([...this.world.asteroids.values()]));
     this.send(player, this.snapshotFor(player));
     this.start();
     return true;
@@ -127,6 +135,7 @@ export class Room {
 
   private leave(id: number): void {
     if (!this.players.delete(id)) return;
+    this.world.removeShip(id);
     if (this.players.size === 0) this.stop();
   }
 
@@ -156,10 +165,38 @@ export class Room {
 
   private step(): void {
     for (const p of this.players.values()) this.stepPlayer(p);
-    this.tick++;
-    if (this.tick % this.snapshotEvery === 0) {
-      for (const p of this.players.values()) this.send(p, this.snapshotFor(p));
+    this.world.step();
+    const ev = this.world.drain();
+    if (ev.asteroids.length) this.broadcast(encodeAsteroids(ev.asteroids));
+    if (ev.gone.length) this.broadcast(encodeGone(ev.gone));
+    if (ev.shots.length) {
+      // Each player hears every shot but their own, which they already drew when they fired.
+      for (const p of this.players.values()) {
+        const others = ev.shots.filter((s) => s.owner !== p.id);
+        if (others.length) this.send(p, encodeShots(this.tick, others));
+      }
     }
+    const dead = new Set(ev.deaths);
+    if (this.tick % this.snapshotEvery === 0 || dead.size) {
+      for (const p of this.players.values()) {
+        if (this.tick % this.snapshotEvery === 0 || dead.has(p.id)) this.send(p, this.snapshotFor(p));
+      }
+    }
+    // A destroyed ship leaves the planet. (Wrecks and loot come with the stash milestone.)
+    for (const id of dead) {
+      const p = this.players.get(id);
+      if (!p) continue;
+      this.leave(id);
+      try {
+        p.ws.close(CLOSE.DESTROYED, 'destroyed');
+      } catch {
+        // Already closed.
+      }
+    }
+  }
+
+  private broadcast(buf: ArrayBuffer): void {
+    for (const p of this.players.values()) this.send(p, buf);
   }
 
   /**
@@ -198,7 +235,7 @@ export class Room {
       // A guessed step repeats the last input without its dash; a dash owed from a dropped input applies now.
       const dash = (input ? input.dash : false) || p.owedDash;
       p.owedDash = false;
-      stepShip(p.ship, { ...(input ?? p.last), dash }, this.dt, TUNE);
+      this.world.stepShip(p.id, { ...(input ?? p.last), dash });
     }
   }
 

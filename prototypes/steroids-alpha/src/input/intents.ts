@@ -3,12 +3,12 @@
 //                craft-relative   left/right rotates, up/down accelerates/brakes
 //                direction marker the ship steers toward a direction; how far the
 //                                 stick is pushed sets the target speed
-//   primary    fire (not used yet), also taps on menu buttons
+//   primary    fire (held), also taps on menu buttons
 //   secondary  dash
 //   pause      back
 // Devices: keyboard is craft-relative (A/D or left/right rotate, W/S or up/down throttle,
 // Shift or K dash, Space or J fire). Touch: floating stick on the left half, in the scheme
-// chosen with the on-screen STEER button (remembered per browser), plus a dash button.
+// chosen with the on-screen STEER button (remembered per browser), plus fire and dash buttons.
 import { clientTune } from '../clientTune';
 import { TUNE } from '../../sim/tune';
 
@@ -58,11 +58,18 @@ export class Intents {
   taps: { x: number; y: number }[] = [];
   /** Hit areas for on-screen buttons, set by the flight scene. */
   dashButton: Zone | null = null;
+  fireButton: Zone | null = null;
   schemeButton: Zone | null = null;
 
   private presses = new Set<Press>();
   private held = new Set<string>();
   private stickPointer: number | null = null;
+  private firePointer: number | null = null;
+
+  /** Fire is held (keyboard Space or J, or a finger on the fire button). */
+  get fire(): boolean {
+    return this.firePointer !== null || this.held.has(' ') || this.held.has('j');
+  }
 
   attach(canvas: HTMLElement): void {
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -76,6 +83,7 @@ export class Intents {
       this.held.clear();
       this.refreshTurn();
       this.endStick();
+      this.firePointer = null;
     });
   }
 
@@ -155,6 +163,10 @@ export class Intents {
       this.presses.add('secondary');
       return;
     }
+    if (hit(this.fireButton)) {
+      this.firePointer = e.pointerId;
+      return;
+    }
     if (hit(this.schemeButton)) {
       this.presses.add('scheme');
       return;
@@ -181,6 +193,7 @@ export class Intents {
 
   private onUp(e: PointerEvent): void {
     if (e.pointerId === this.stickPointer) this.endStick();
+    if (e.pointerId === this.firePointer) this.firePointer = null;
   }
 
   private endStick(): void {

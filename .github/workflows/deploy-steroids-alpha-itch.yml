@@ -17,6 +17,7 @@ on:
       - 'scripts/fetch-assets.js'
       - 'scripts/pack-assets.js'
       - 'scripts/test-steroids-alpha-rig.mjs'
+      - 'scripts/test-steroids-alpha-sim.mjs'
       - 'scripts/generate-versions.js'
       - 'scripts/bump-version.js'
       - 'package.json'
@@ -81,6 +82,10 @@ jobs:
       - name: Ship rig matches the approved kit
         if: steps.ready.outputs.run == 'true'
         run: node --experimental-strip-types scripts/test-steroids-alpha-rig.mjs
+
+      - name: Game rules test
+        if: steps.ready.outputs.run == 'true'
+        run: node scripts/test-steroids-alpha-sim.mjs
 
       # The counter advances only for a real deploy, not a skipped or failed upload.
       - name: Bump version stamp counter

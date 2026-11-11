@@ -20,6 +20,8 @@ interface RoomNamespace {
 
 interface Env {
   PLANET_ROOMS: RoomNamespace;
+  /** Testing only (a `--var` on `wrangler dev`): ship hull points, so the browser check's ships survive. Unset in production. */
+  TEST_SHIP_HP?: string;
 }
 
 export default {
@@ -45,7 +47,12 @@ export default {
 
 /** Durable Object: one per running planet room. */
 export class PlanetRoom {
-  private room = new Room();
+  private room: Room;
+
+  constructor(_state: unknown, env: Env) {
+    const hp = Number(env.TEST_SHIP_HP);
+    this.room = new Room(Number.isFinite(hp) && hp > 0 ? hp : undefined);
+  }
 
   async fetch(request: Request): Promise<Response> {
     if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {

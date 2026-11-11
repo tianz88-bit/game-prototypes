@@ -1,92 +1,106 @@
 ## Current milestone
 
-Milestone 1 (netcode test) is complete and deployed to the itch draft, plus the
-approved Human Nomad ship rig brought forward from milestone 5 at the owner's
-request. The server is NOT deployed yet: the repo's CLOUDFLARE_API_TOKEN
-secret is invalid, so the Worker deploy fails and planets show "Disconnected"
+Milestone 2 in progress: controls, shooting and splitting asteroids are built
+and verified locally. Still to build from the owner's latest direction: the
+cloud-layer transition, the solo space hub (planet select as a space scene),
+and the single-player practice planet. The server is still NOT deployed: the
+repo's CLOUDFLARE_API_TOKEN secret is invalid, so planets show "Disconnected"
 on itch.
 
 ## What was implemented
 
-- Netcode test (milestone 1): shared sim in `sim/`, Cloudflare Worker planet
-  rooms in `server/`, Phaser client with prediction, reconciliation and
-  interpolation, keyboard and touch controls, menu with two planets. See git
-  history for details.
-- Human Nomad ship rig in the game:
-  - `src/render/shipRig.ts`: TypeScript port of the approved kit's rig math
-    (module mounts, periodic monotone Hermite facing offsets, parent-accumulated
-    corrections, fixed Z, 3% per-layer shading, engine rattle, wing flex,
-    canopy/cockpit lean on turns, gun recoil curve).
-  - `src/render/shipArt.ts`: loads the 8 parts, registers each by the kit's
-    alpha-bounds trim (alpha > 12), resamples once to at most 256 px, builds
-    the hard ground-shadow silhouette.
-  - `src/render/shipView.ts`: draws a ship (own and remote) with hover lift,
-    shadow, and a ground ring (cyan for you, orange for others).
-  - Boot scene loads art with progress; ships fall back to placeholder
-    triangles if any part is missing.
-- Art pipeline: `art/prepare-assets.mjs` (pack-assets hook) verifies every
-  part's SHA-256 against the approved kit and stages it; the itch workflow
-  fetches `steroids-alpha_human-nomad-v1_assets.zip` from R2 and packs it.
-- `scripts/test-steroids-alpha-rig.mjs`: the port matches 396 reference poses,
-  brightness, depth and recoil values generated from the original kit
-  (`art/human-nomad-v1/rig-parity.fixture.json`). Runs in the itch workflow.
-- Deploys: `deploy-steroids-alpha-itch.yml` (client, itch draft
-  daily-daily-games/steroids-alpha:html5) and `deploy-steroids-alpha-worker.yml`
-  (server, steroids-alpha-server.tianz-88.workers.dev).
+- Milestone 1: shared sim in `sim/`, Cloudflare Worker planet rooms in
+  `server/`, Phaser client with prediction, reconciliation and interpolation,
+  two planets, the approved Human Nomad ship rig.
+- Throttle: ships accelerate and brake between a minimum and maximum speed,
+  never stop, and do not drift.
+- Both control schemes:
+  - Craft-relative: left/right rotates, up/down accelerates and brakes.
+    Keyboard uses this (A/D or arrows, W/S).
+  - Direction marker: the ship steers toward the stick direction; how far the
+    stick is pushed sets the target speed. The phone stick defaults to this.
+  - A STEER button on touch switches the stick between the two; the choice is
+    remembered in localStorage (`steroids-alpha:save:v1`).
+- Shooting: hold fire (Space or J, or the touch fire button). The two wing
+  guns alternate and kick with the approved rig's recoil. Your own bullets
+  appear at once; the server decides every hit.
+- Asteroids (replace bots): three sizes, straight-line travel that wraps
+  around the planet. Shooting one down splits it in two; the smallest just
+  breaks. Pieces keep the parent's motion, are pushed along the killing shot
+  in proportion to its damage, and spread sideways, wider for a harder hit.
+  Asteroids hurt ships on contact, and a ship that rams one damages it. Each
+  planet keeps itself stocked with new large asteroids, away from ships.
+- Hull points with a bar; bullets also damage other players' ships. A
+  destroyed ship is removed from the planet and returns to planet select.
+- `sim/world.ts` holds all of these rules with no networking, so the same code
+  runs in the Cloudflare room and in Node tests.
+- `scripts/test-steroids-alpha-sim.mjs`: rules test (throttle, fire rate,
+  split vectors, contact damage, deaths, population, wire format). Runs in
+  both deploy workflows.
 
 ## Key technical decisions
 
-- The approved calibration is copied verbatim (SHA-256 matches the kit's
-  calibrationSha256) and never edited. `seed()` is not used.
-- Game heading (radians, 0 = +x) maps to rig degrees as heading + 90.
-- Parts are resampled at runtime to 256 px, the same resolution the kit's own
-  renderer bakes at. Source PNGs (1024-1774 px) are untouched; drawing them at
-  full size would cost about 50 MB of GPU memory and alias badly at the 0.2
-  ship scale.
-- Netcode: one input per server step, 2-input jitter buffer, guessed steps for
-  late inputs with forgiveness; client prediction runs on performance.now()
-  (Phaser's smoothed frame delta under-reported time at low frame rates).
-- Ship scale (`render.shipScale` 0.2), ring radius and part texture size are in
-  client.tune.json. They are first values, not tuned by playing.
+- Asteroids are sent as events, not in snapshots: the server sends an
+  asteroid when it appears or its hp changes and when it is destroyed; clients
+  compute positions from the straight-line record. Cheap on bandwidth.
+- Asteroids are drawn where they will be when the player's current input
+  reaches the server, so steering and shots line up with what the server sees.
+- Fire cooldown counts whole simulation steps, so client and server always
+  agree on which step fires.
+- Wing guns are angled slightly inward (`weapon.convergeDistance`), because
+  the gun mounts are wider than a small asteroid or a ship.
+- A new ship drops in at the candidate point farthest from any asteroid and
+  has two seconds of contact immunity.
+- Protocol version is 3. Client and server must be deployed together.
+- `TEST_SHIP_HP` (a `--var` on `wrangler dev`) raises ship hull points for the
+  local browser check only. Unset in production.
+- Weapon, asteroid and speed values in tune.json are first values, not tuned
+  by playing.
 
 ## Open questions
 
-- Should FFD pitch/bank tilt come next? It needs a Phaser Mesh renderer and
-  profiling on phones (the kit's Canvas bake is explicitly not production).
-- Ship art download is about 7 MB (eight 0.4-1.4 MB PNGs). Owner to decide
-  whether smaller delivery files are acceptable.
-- Is the ground ring the right way to tell your ship from others, now that
-  every ship uses the same art?
-- Planet names, and all open questions at the bottom of BRIEF.md.
+- Phone portrait view shows only about 195 px to each side while bullets fly
+  about 800 px. Should the camera zoom out on phones, or should play be
+  landscape?
+- PvP bullets have no lag compensation yet (the brief plans up to 200 ms).
+  Hitting another player needs leading the target for now.
+- What should happen on death before wrecks and loot exist? Currently the
+  ship is removed and the player returns to planet select.
+- Loot drops from asteroids wait for the stash milestone.
+- FFD pitch/bank tilt for the ship (needs a Phaser Mesh renderer).
+- Ship art download is about 7 MB.
+- Planet names, and the open questions at the bottom of BRIEF.md.
 - BRIEF.md was drafted by Claude from the design chat; the owner should review
   it and take ownership.
 
 ## Known issues
 
 - Server not deployed: CLOUDFLARE_API_TOKEN is rejected ("Invalid access token
-  [code 9109]"). The owner needs to create a new Cloudflare API token ("Edit
-  Cloudflare Workers" template) and update the GitHub secret; Firestorm's
-  Worker deploys are affected too.
+  [code 9109]"). The owner needs to replace it; Firestorm's Worker deploys are
+  affected too.
 - Not yet tested on a real phone or over a real network.
-- FFD tilt and gun recoil are not active in game: FFD needs the Mesh port;
-  recoil is ported but there is no firing until milestone 2.
-- The dash flame behind the rig is a placeholder shape.
+- Asteroids, bullets and effects are placeholder shapes.
+- A bullet fired by another player appears slightly ahead of that ship's
+  drawn position (the ship is drawn about 100 ms in the past).
+- On a narrow phone the fire button sits in the left half, where the stick
+  also lives; the button takes priority.
 - With `?debug=1` on a narrow phone, the Tweakpane panel covers the status line.
 
 ## Next proposed step
 
-Owner replaces the Cloudflare token so the server deploys, then plays on a
-phone from the itch draft. Then milestone 2 (firing with gun recoil, hits,
-HP, death, bots), or the FFD tilt port if the owner wants the ship feel first.
+Cloud-layer entry transition, then the solo space hub replacing the planet
+menu, then the practice planet (a private single-player room). Owner replaces
+the Cloudflare token so all of this can be played on itch.
 
 ### Run locally
 
 ```sh
 node scripts/fetch-assets.js steroids-alpha steroids-alpha_human-nomad-v1_assets.zip
 node scripts/pack-assets.js steroids-alpha
-npx --yes wrangler@4.143.0 dev --config prototypes/steroids-alpha/server/wrangler.jsonc --ip 127.0.0.1 --port 8787
+npx --yes wrangler@4.143.0 dev --config prototypes/steroids-alpha/server/wrangler.jsonc --ip 127.0.0.1 --port 8787 --var TEST_SHIP_HP:100000
 npm run build && npx vite preview --host 127.0.0.1 --port 4173 --strictPort
 # open http://127.0.0.1:4173/game-prototypes/prototypes/steroids-alpha/
+node scripts/test-steroids-alpha-sim.mjs
 node --experimental-strip-types scripts/test-steroids-alpha-rig.mjs
 node scripts/screenshot-steroids-alpha.mjs http://127.0.0.1:4173/game-prototypes/prototypes/steroids-alpha/ outputs/steroids-alpha
 ```

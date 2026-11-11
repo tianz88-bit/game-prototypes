@@ -1,7 +1,8 @@
 // Steroids-Alpha milestone 1 check: real clients against a real planet room.
 //
 // Needs the server and a client build running first:
-//   npx --yes wrangler@4.143.0 dev --config prototypes/steroids-alpha/server/wrangler.jsonc --ip 127.0.0.1 --port 8787
+//   npx --yes wrangler@4.143.0 dev --config prototypes/steroids-alpha/server/wrangler.jsonc --ip 127.0.0.1 --port 8787 --var TEST_SHIP_HP:100000
+//   (TEST_SHIP_HP keeps the test ships alive through asteroid hits; deaths are covered by test-steroids-alpha-sim.mjs)
 //   npm run build && npx vite preview --host 127.0.0.1 --port 4173 --strictPort
 // Then:
 //   node scripts/screenshot-steroids-alpha.mjs http://127.0.0.1:4173/prototypes/steroids-alpha/ <output-dir>
@@ -193,6 +194,53 @@ try {
   await wait(150);
   await phone.screenshot({ path: path.join(outDir, 'phone-dash.png') });
 
+  // Shooting: the phone makes strafing runs on the nearest asteroid (marker stick plus the fire
+  // button held) until one is shot down and splits. Both clients must see the split.
+  const zones = await api(phone, () => window.__steroids.zones());
+  const rocksBefore = await api(phone, () => window.__steroids.asteroids());
+  assert(rocksBefore.length >= 10 && rocksBefore.every((r) => r.size === 0 || r.size === 1 || r.size === 2), `asteroids on the planet (${rocksBefore.length})`);
+  const deskSplits0 = await api(desk, () => window.__steroids.splits());
+  const touches = (dir, mag) => [
+    { x: sx + Math.cos(dir) * 64 * mag, y: sy + Math.sin(dir) * 64 * mag, id: 11 },
+    { x: zones.fire.x, y: zones.fire.y, id: 12 },
+  ];
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: sx, y: sy, id: 11 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: sx, y: sy, id: 11 }, { x: zones.fire.x, y: zones.fire.y, id: 12 }] });
+  let retreat = false;
+  let sawBullets = 0;
+  let shotPic = false;
+  for (let i = 0; i < 450; i++) {
+    const v = await api(phone, () => ({ own: window.__steroids.own(), rocks: window.__steroids.asteroids(), splits: window.__steroids.splits(), bullets: window.__steroids.bullets(), status: window.__steroids.status() }));
+    assert.equal(v.status, 'open', 'phone ship still alive while hunting');
+    sawBullets = Math.max(sawBullets, v.bullets);
+    if (v.splits >= 1) break;
+    let best = null;
+    for (const r of v.rocks) {
+      const dx = d(r.x, v.own.x);
+      const dy = d(r.y, v.own.y);
+      const dist = Math.hypot(dx, dy);
+      if (!best || dist < best.dist) best = { dx, dy, dist, r };
+    }
+    const reach = best.dist - [70, 42, 22][best.r.size];
+    if (reach < 230) retreat = true;
+    if (reach > 430) retreat = false;
+    const toRock = Math.atan2(best.dy, best.dx);
+    // Approach slowly while firing; break away at right angles when close.
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: touches(retreat ? toRock + Math.PI * 0.6 : toRock, retreat ? 1 : 0.4) });
+    if (!shotPic && v.bullets >= 1 && best.dist < 330) {
+      await phone.screenshot({ path: path.join(outDir, 'phone-shooting.png') });
+      shotPic = true;
+    }
+    await wait(100);
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  const after = await api(phone, () => ({ splits: window.__steroids.splits(), rocks: window.__steroids.asteroids(), hp: window.__steroids.own().hp }));
+  assert(after.splits >= 1, 'phone shot an asteroid down and it split');
+  assert(sawBullets >= 2, `bullets were drawn (${sawBullets})`);
+  assert(after.rocks.some((r) => r.size > 0), 'smaller pieces exist after the split');
+  await phone.screenshot({ path: path.join(outDir, 'phone-after-split.png') });
+  await desk.waitForFunction((n) => window.__steroids.splits() > n, deskSplits0, { timeout: 3000 });
+
   // Fly straight for a while. Prediction should agree with the server: corrections rare, and
   // never more than a couple of steps (one step at cruise speed is 260/30 = 8.7px). A jittery
   // network occasionally costs one step; anything bigger means client and server diverged.
@@ -213,7 +261,7 @@ try {
   const fpsOf = (page) => page.evaluate(() => new Promise((r) => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 1000) requestAnimationFrame(f); else r(n); }; requestAnimationFrame(f); }));
   const fps = { desk: await fpsOf(desk), phone: await fpsOf(phone) };
 
-  console.log(JSON.stringify({ fps, turnShots, ids, turned: Number(turned.toFixed(2)), phoneHeading: Number(steered.heading.toFixed(2)), phoneStats: pStats, deskStats: dStats, remoteGapPx: Math.round(gap), dropInOut: 'ok' }));
+  console.log(JSON.stringify({ fps, turnShots, ids, turned: Number(turned.toFixed(2)), phoneHeading: Number(steered.heading.toFixed(2)), phoneStats: pStats, deskStats: dStats, remoteGapPx: Math.round(gap), dropInOut: 'ok', hunt: { splits: after.splits, hp: after.hp, rocks: after.rocks.length } }));
 } finally {
   await deskBrowser.close();
   await phoneBrowser.close();

@@ -45,8 +45,8 @@ All names, ships, pilots and art are original. Nothing is copied from either.
   defined).
 - Practice planet: single-player PvE, a private room per player. It teaches
   flying and shooting asteroids and acts as the tutorial. It drops consumable
-  loot only, nothing rare. Default (confirm): no lockdown there, and nothing
-  is lost on death.
+  loot only, nothing rare. No lockdown there, and nothing is lost on death
+  (owner decision).
 - Rooms are persistent drop-in/drop-out: a planet room keeps running while
   players come and go. No fixed match start or end.
 - No maximum time on a planet (owner decision, for now).
@@ -116,9 +116,11 @@ All names, ships, pilots and art are original. Nothing is copied from either.
 
 - Ships have throttle: accelerate and brake between a minimum and a maximum
   speed.
-- Default (confirm): a ship cannot stop or hover (braking drops to the
-  minimum speed), and there is no drift: it moves where the nose points.
-- Primary fire from equipped weapon(s), fixed forward.
+- A ship cannot stop or hover (braking drops to the minimum speed), and
+  there is no drift: it moves where the nose points (owner decision).
+- Primary fire from equipped weapon(s), fixed forward. Default (confirm):
+  wing guns are angled slightly inward so the two streams cross ahead of the
+  nose, instead of passing either side of a target dead ahead.
 - Dash: short burst of speed on a cooldown or energy cost.
 - Energy meter shared by firing and dashing (exact rules to confirm).
 - Hull HP; destroyed at 0.
@@ -147,11 +149,11 @@ Asteroids replace bots as the non-player targets (owner decision).
 - Split vectors depend on the damage: Default (confirm) pieces keep the
   parent's motion, are pushed along the direction of the killing shot, and
   spread sideways; a harder hit throws them faster and wider.
-- Default (confirm): three sizes; asteroids damage ships on contact; they do
-  not collide with each other; each planet keeps a target count and spawns
-  new large ones to maintain it.
-- Default (confirm): asteroids can drop loot (consumables on the practice
-  planet).
+- Asteroids damage ships on contact, and they drop loot on every planet
+  (consumables only on the practice planet) (owner decision).
+- Default (confirm): three sizes; a ship that rams an asteroid damages it
+  too; asteroids do not collide with each other; each planet keeps a target
+  amount and spawns new large ones to maintain it.
 - Run on the server. Because they move in straight lines, the server sends
   only spawn, split and destroy events and clients compute positions.
 
@@ -162,10 +164,11 @@ Asteroids replace bots as the non-player targets (owner decision).
 - Entering: the view starts inside cloud, which rushes past and parts to
   reveal the surface (a descent).
 - Leaving: after the warp ("TP") completes, the reverse (an ascent).
-- Vision (owner): the player flies in space and descends to a planet to
-  enter the level, and leaves the same way in reverse. Whether free flight in
-  space is part of v1 is an open question; until then the planet select
-  stands in for space.
+- Space hub (owner decision): the planet select is a space scene. The player
+  flies their ship in space and dives into a planet to enter it, descending
+  through the cloud layer; after the warp they rise back through the clouds
+  into space. The hub is solo: only the player is in it, and it runs on the
+  client. Shared space with other players is out of scope for v1.
 
 ## Loot and stash
 
@@ -245,7 +248,7 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 
 ## v1 scope
 
-- Main menu with hangar (stash and loadout assembly) and planet select.
+- Solo space hub for planet select, with hangar (stash and loadout assembly).
 - 2 PvP planets with persistent drop-in/drop-out rooms, plus 1 single-player
   practice planet.
 - Pseudo-3D wrapping planet rendering.
@@ -262,6 +265,7 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 - More than 2 PvP planets and 1 practice planet.
 - Bots / AI enemy ships (replaced by asteroids; may return later).
 - Clouds over the map during play.
+- Shared space (other players in the space hub).
 - A true-sphere gameplay model (wrapping map rendered as a sphere instead).
 - Trading, markets, crafting, quests, skill trees.
 - Squads, parties, friends, chat, voice.
@@ -284,8 +288,11 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 - A third, single-player PvE practice planet as the tutorial; consumable
   loot only, nothing rare.
 - Both control schemes allowed: craft-relative and direction marker.
-- Cloud layer when entering and leaving a planet, transitions only. Vision:
-  fly in space, descend to enter, reverse after the warp.
+- Cloud layer when entering and leaving a planet, transitions only.
+- Planet select is a solo space hub: fly in space, descend to enter, reverse
+  after the warp.
+- Ships cannot stop and do not drift. Asteroids damage ships on contact and
+  drop loot. The practice planet has no lockdown and no loss on death.
 - No maximum time on a planet, for now.
 - 3-minute lockdown on entry; then a Warp button comes online.
 - Warp: acceleration mode, only slightly faster than base speed so pursuit is
@@ -301,12 +308,10 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 4. Warp-mode details: steering allowed, firing allowed, cancellable?
 5. What makes the 2 PvP planets different (loot tables, asteroids, size,
    look)?
-6. Can ships stop, and do they drift? Do asteroids damage ships and drop
-   loot on PvP planets?
-7. Is free flight in space (flying to a planet to enter it) part of v1, and
-   is that space shared with other players?
-8. Should the Punchies part-rig be extracted into a shared package
+6. What happens when a ship is destroyed, before wrecks and loot exist? For
+   now it is removed from the planet and returns to planet select.
+7. Should the Punchies part-rig be extracted into a shared package
    (`packages/part-rig`) used by both Punchies and Steroids-Alpha?
-9. BRIEF.md was drafted by Claude from the design chat, not written by the
+8. BRIEF.md was drafted by Claude from the design chat, not written by the
    owner as the repo rules expect. The owner should review and take
    ownership of it.
