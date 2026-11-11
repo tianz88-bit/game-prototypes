@@ -23,7 +23,11 @@
     "gridSpacing": 200,
     "sectorSpacing": 1000,
     "shipSize": 22,
-    "shipScale": 0.2,
+    "shipScale": 0.18,
+    "referenceHeight": 810,
+    "planetRadius": 608.25,
+    "haloWidth": 72,
+    "shadowReach": 56,
     "shipRingRadius": 190,
     "partTextureMax": 256
   }

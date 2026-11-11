@@ -1,27 +1,36 @@
-// On a planet. Placeholder shapes only. The camera follows your ship; everything is
-// placed by wrapped difference from it, so the map has no edges.
-// (The pseudo-3D planet curvature and the ship part rig come in later milestones.)
+// On a planet. The view is centred on your ship. Gameplay is a flat wrapping map; everything is
+// drawn through the planet projection (render/planet.ts) so the map reads as a ball seen from above,
+// lit by one fixed sun as the planet turns and you travel over it.
 import Phaser from 'phaser';
 import { TUNE } from '../../sim/tune';
 import { PLANETS } from '../../sim/planets';
 import type { PlanetId } from '../../sim/planets';
 import type { ShipState } from '../../sim/ship';
-import { wrap, wrapDelta } from '../../sim/wrap';
-import { DEBUG, logicalSize } from '../base';
+import { wrapDelta } from '../../sim/wrap';
+import { DEBUG, DEBUG_ROTATION, logicalSize } from '../base';
 import { clientTune } from '../clientTune';
 import { intents } from '../input/intents';
 import { NetClient } from '../net/client';
 import { fitCamera, text, versionStamp } from './common';
 import { ShipView } from '../render/shipView';
 import { shipArtStatus } from '../render/shipArt';
+import { lightingRadius, planetFrame, projectOffset, shipShadow, sunState } from '../render/planet';
+import type { PlanetFrame } from '../render/planet';
+import { PlanetGround } from '../render/planetGround';
+import type { ShipPlacement } from '../render/shipView';
 
 const W = TUNE.world.width;
 const H = TUNE.world.height;
+const SUN = sunState(TUNE.planet.sunAzimuthDeg, TUNE.planet.sunElevationDeg);
+const SPACE = 0x060b17;
 
 export class FlightScene extends Phaser.Scene {
   net!: NetClient;
   private planet!: PlanetId;
-  private grid!: Phaser.GameObjects.Graphics;
+  private ground!: PlanetGround;
+  private frame: PlanetFrame = planetFrame(0, 0, 0, lightingRadius(W), SUN);
+  private view = { cx: 0, cy: 0, w: 1, h: 1, k: 1 };
+  private rotationDeg = 0;
   private overlay!: Phaser.GameObjects.Graphics;
   private ships = new Map<number, DrawnShip>();
   private status!: Phaser.GameObjects.Text;
@@ -59,9 +68,8 @@ export class FlightScene extends Phaser.Scene {
     this.children.removeAll(true);
     this.ships.clear();
     fitCamera(this);
-    const planet = PLANETS.find((p) => p.id === this.planet);
-    this.cameras.main.setBackgroundColor(planet ? darken(planet.colour) : 0x05070d);
-    this.grid = this.add.graphics().setDepth(0);
+    this.cameras.main.setBackgroundColor(SPACE);
+    this.ground = new PlanetGround(this, 1);
     this.world = this.add.graphics().setDepth(15);
     this.overlay = this.add.graphics().setDepth(900);
     const { w } = logicalSize();
@@ -83,16 +91,23 @@ export class FlightScene extends Phaser.Scene {
     const own = this.net.ownRender();
     const cx = own?.x ?? W / 2;
     const cy = own?.y ?? H / 2;
-    this.drawGrid(cx, cy, w, h);
+    // One frame for everything drawn this tick: where the view is on the ball and how the sun falls.
+    // The planet's turn comes from the server's clock, so players in the same place see the same light.
+    // Travel is measured from the middle of the map, so the drop zone starts in daylight.
+    const rotationDeg = DEBUG_ROTATION ?? (this.net.asteroidTick() / TUNE.net.tickHz) * TUNE.planet.rotationDegPerSec;
+    this.rotationDeg = rotationDeg;
+    this.frame = planetFrame(cx - W / 2, cy - H / 2, rotationDeg, lightingRadius(W), SUN);
+    this.view = { cx, cy, w, h, k: h / clientTune.render.referenceHeight };
+    this.ground.update(w, h, this.view.k, this.frame);
 
     const alive = new Set<number>();
     if (own) {
       alive.add(this.net.myId);
-      this.placeShip(this.net.myId, own, w / 2, h / 2, true);
+      this.placeShip(this.net.myId, own, true);
     }
     for (const r of this.net.remoteRender()) {
       alive.add(r.id);
-      this.placeShip(r.id, r.s, w / 2 + wrapDelta(r.s.x, cx, W), h / 2 + wrapDelta(r.s.y, cy, H), false);
+      this.placeShip(r.id, r.s, false);
     }
     for (const [id, ship] of this.ships) {
       if (!alive.has(id)) {
@@ -105,7 +120,7 @@ export class FlightScene extends Phaser.Scene {
       if (f.kind === 'shot') this.ships.get(f.id)?.fire(f.side);
       else this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.kind === 'burst' ? TUNE.asteroid.radius[f.size] : 9, ms: f.kind === 'burst' ? 320 : 110 });
     }
-    this.drawWorld(cx, cy, w, h);
+    this.drawWorld();
     this.drawTouch(w, h);
     this.drawStatus(own);
 
@@ -119,32 +134,29 @@ export class FlightScene extends Phaser.Scene {
     }
   }
 
-  private drawGrid(cx: number, cy: number, w: number, h: number): void {
-    const g = this.grid;
-    g.clear();
-    const sp = clientTune.render.gridSpacing;
-    const sector = clientTune.render.sectorSpacing;
-    const left = cx - w / 2;
-    const top = cy - h / 2;
-    for (let gx = Math.floor(left / sp) * sp; gx <= left + w; gx += sp) {
-      const major = Math.abs(wrap(gx, W) % sector) < 0.5;
-      g.lineStyle(major ? 2 : 1, 0x9fb4e0, major ? 0.28 : 0.1);
-      g.lineBetween(gx - left, 0, gx - left, h);
-    }
-    for (let gy = Math.floor(top / sp) * sp; gy <= top + h; gy += sp) {
-      const major = Math.abs(wrap(gy, H) % sector) < 0.5;
-      g.lineStyle(major ? 2 : 1, 0x9fb4e0, major ? 0.28 : 0.1);
-      g.lineBetween(0, gy - top, w, gy - top);
-    }
+  /** Current sunlight at the view centre (test hook). */
+  lighting(): { brightness: number; daylight: number; sun: { x: number; y: number; z: number }; rotationDeg: number } {
+    return { brightness: this.frame.brightness, daylight: this.frame.daylight, sun: this.frame.sun, rotationDeg: this.rotationDeg };
   }
 
-  private placeShip(id: number, s: ShipState, x: number, y: number, mine: boolean): void {
+  /** World position to screen, through the planet projection. scale is screen pixels per world unit there. */
+  private toScreen(wx: number, wy: number): { x: number; y: number; scale: number; visible: boolean } {
+    const v = this.view;
+    const p = projectOffset(wrapDelta(wx, v.cx, W), wrapDelta(wy, v.cy, H), clientTune.render.planetRadius);
+    return { x: v.w / 2 + p.x * v.k, y: v.h / 2 + p.y * v.k, scale: p.scale * v.k, visible: p.visible };
+  }
+
+  private placeShip(id: number, s: ShipState, mine: boolean): void {
     let ship = this.ships.get(id);
     if (!ship) {
       ship = shipArtStatus === 'ready' ? new RigShip(this, mine) : new PlaceholderShip(this, mine);
       this.ships.set(id, ship);
     }
-    ship.update(x, y, s, this.time.now);
+    const at = this.toScreen(s.x, s.y);
+    // The hard shadow lies on the ground, away from the sun.
+    const sh = shipShadow(this.frame.sun, clientTune.render.shadowReach);
+    const shadow = this.toScreen(s.x + sh.x, s.y + sh.y);
+    ship.update({ ...at, brightness: this.frame.brightness, shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0 }, s, this.time.now);
   }
 
   private drawTouch(w: number, h: number): void {
@@ -210,37 +222,46 @@ export class FlightScene extends Phaser.Scene {
     }
   }
 
-  /** Asteroids, bullets and short effects. Placeholder shapes until there is art. */
-  private drawWorld(cx: number, cy: number, w: number, h: number): void {
+  /** Asteroids, bullets and short effects, drawn through the planet projection. Placeholder shapes until there is art. */
+  private drawWorld(): void {
     const g = this.world;
     g.clear();
-    const sx = (x: number): number => w / 2 + wrapDelta(x, cx, W);
-    const sy = (y: number): number => h / 2 + wrapDelta(y, cy, H);
     const now = performance.now();
+    const light = this.frame.brightness;
+    const shade = (c: number): number => (Math.round(((c >> 16) & 255) * light) << 16) | (Math.round(((c >> 8) & 255) * light) << 8) | Math.round((c & 255) * light);
     for (const { a, x, y } of this.net.asteroidRender()) {
       const r = TUNE.asteroid.radius[a.size];
-      const px = sx(x);
-      const py = sy(y);
-      if (px < -r || px > w + r || py < -r || py > h + r) continue;
+      if (!this.toScreen(x, y).visible) continue;
+      // Each corner goes through the projection, so a rock squashes as it nears the horizon.
+      const pts: Phaser.Math.Vector2[] = [];
+      let hidden = false;
+      for (const p of rockShape(a.id, r)) {
+        const q = this.toScreen(x + p.x, y + p.y);
+        if (!q.visible) hidden = true;
+        pts.push(new Phaser.Math.Vector2(q.x, q.y));
+      }
+      if (hidden) continue;
       const flash = now - (this.net.asteroidHitAt.get(a.id) ?? -1e9) < 90;
-      const pts = rockShape(a.id, r).map((p) => new Phaser.Math.Vector2(px + p.x, py + p.y));
-      g.fillStyle(flash ? 0xffffff : ROCK_FILL[a.size], 1);
+      g.fillStyle(flash ? 0xffffff : shade(ROCK_FILL[a.size]), 1);
       g.fillPoints(pts, true);
-      g.lineStyle(2, 0xd9c7a8, 0.8);
+      g.lineStyle(2, shade(0xd9c7a8), 0.8);
       g.strokePoints(pts, true);
     }
     for (const b of this.net.bullets) {
       const len = 0.018;
-      const x = sx(b.x);
-      const y = sy(b.y);
-      g.lineStyle(3, b.mine ? 0x9ff3ff : 0xffb37a, 1);
-      g.lineBetween(x, y, x - b.vx * len, y - b.vy * len);
+      const head = this.toScreen(b.x, b.y);
+      const tail = this.toScreen(b.x - b.vx * len, b.y - b.vy * len);
+      if (!head.visible || !tail.visible) continue;
+      g.lineStyle(Math.max(1.5, 3 * head.scale), b.mine ? 0x9ff3ff : 0xffb37a, 1);
+      g.lineBetween(head.x, head.y, tail.x, tail.y);
     }
     this.effects = this.effects.filter((e) => this.time.now - e.at < e.ms);
     for (const e of this.effects) {
+      const at = this.toScreen(e.x, e.y);
+      if (!at.visible) continue;
       const k = (this.time.now - e.at) / e.ms;
       g.lineStyle(3, 0xffe2b0, 1 - k);
-      g.strokeCircle(sx(e.x), sy(e.y), e.r * (0.4 + k));
+      g.strokeCircle(at.x, at.y, e.r * (0.4 + k) * at.scale);
     }
   }
 
@@ -287,11 +308,11 @@ function rockShape(id: number, r: number): { x: number; y: number }[] {
 
 interface DrawnShip {
   fire(side: number): void;
-  update(x: number, y: number, s: ShipState, timeMs: number): void;
+  update(at: ShipPlacement, s: ShipState, timeMs: number): void;
   destroy(): void;
 }
 
-/** The approved Human Nomad rig, plus a placeholder dash flame until thrust art and FFD exist. */
+/** The approved Human Nomad rig, plus a placeholder dash flame until thruster art exists. */
 class RigShip implements DrawnShip {
   private view: ShipView;
   private flame: Phaser.GameObjects.Graphics;
@@ -301,15 +322,15 @@ class RigShip implements DrawnShip {
     this.view = new ShipView(scene, mine);
   }
 
-  update(x: number, y: number, s: ShipState, timeMs: number): void {
-    this.view.update(x, y, s.heading, timeMs);
+  update(at: ShipPlacement, s: ShipState, timeMs: number): void {
+    this.view.update(at, s.heading, timeMs);
     this.flame.clear();
-    if (s.dashTime > 0) {
+    if (s.dashTime > 0 && at.visible) {
       // Behind the thrusters: the rig's engines sit about 110 rig px aft of the centre.
-      const k = clientTune.render.shipScale;
+      const k = clientTune.render.shipScale * at.scale;
       this.flame.fillStyle(0xffd27a, 0.8);
       this.flame.fillTriangle(-110 * k, -40 * k, -110 * k, 40 * k, -230 * k, 0);
-      this.flame.setPosition(x, y - 28 * k).setRotation(s.heading);
+      this.flame.setPosition(at.x, at.y - 28 * k).setRotation(s.heading);
     }
   }
 
@@ -331,10 +352,11 @@ class PlaceholderShip implements DrawnShip {
     this.g = scene.add.graphics().setDepth(mine ? 20 : 10);
   }
 
-  update(x: number, y: number, s: ShipState): void {
+  update(at: ShipPlacement, s: ShipState): void {
     const g = this.g;
     const size = clientTune.render.shipSize;
     g.clear();
+    g.setVisible(at.visible);
     if (s.dashTime > 0) {
       g.fillStyle(0xffd27a, 0.85);
       g.fillTriangle(-size * 0.5, -size * 0.3, -size * 0.5, size * 0.3, -size * 1.4, 0);
@@ -349,7 +371,7 @@ class PlaceholderShip implements DrawnShip {
       ],
       true,
     );
-    g.setPosition(x, y).setRotation(s.heading);
+    g.setPosition(at.x, at.y).setRotation(s.heading).setScale(at.scale);
   }
 
   fire(): void {
@@ -359,11 +381,4 @@ class PlaceholderShip implements DrawnShip {
   destroy(): void {
     this.g.destroy();
   }
-}
-
-function darken(c: number): number {
-  const r = ((c >> 16) & 0xff) * 0.25;
-  const g = ((c >> 8) & 0xff) * 0.25;
-  const b = (c & 0xff) * 0.25;
-  return (Math.round(r) << 16) | (Math.round(g) << 8) | Math.round(b);
 }

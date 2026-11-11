@@ -1,12 +1,10 @@
 ## Current milestone
 
-Milestone 2 in progress: controls, shooting and splitting asteroids are built
-and verified locally. Still to build from the owner's latest direction: the
-cloud-layer transition, the solo space hub (planet select as a space scene),
-and the single-player practice planet. The server is deployed
-(steroids-alpha-server.tianz-88.workers.dev answers /health with protocol 3)
-after the owner replaced the Cloudflare token, so the itch draft is playable
-online.
+Integrating the owner's environment handoff v09 (from Codex) in steps. Step 1
+is done: the planet view (composition C) and fixed-sun lighting. Next:
+thruster flames and FFD tilt, then ground props with horizon clipping, then
+the cloud transition, solo space hub and practice planet. The server is live
+and the itch page is public and unlisted.
 
 ## What was implemented
 
@@ -36,6 +34,15 @@ online.
   (`src/scenes/rotate.ts`, `Intents.portraitBlocked`).
 - Steroids-Alpha-only changes no longer redeploy the Punchies "Current WIP"
   itch slot (`.github/workflows/deploy-wip-itch.yml`).
+- Planet view: the map is drawn as a ball seen from above with visible side
+  rims, a soft rim glow and an atmosphere halo, using the handoff's terrain
+  (base tile and sand channels). Ships, asteroids, bullets and effects go
+  through the same projection and vanish over the horizon.
+- Fixed sun: terrain, rim, ship brightness and the ship's hard shadow follow
+  one sun as the planet turns (server clock) and as the ship travels. Night
+  dims everything to 30% and removes the shadow.
+- Terrain art is generated at pack time from the handoff's own SVG
+  definitions and checked against its manifest hashes; nothing is committed.
 - Hull points with a bar; bullets also damage other players' ships. A
   destroyed ship is removed from the planet and returns to planet select.
 - `sim/world.ts` holds all of these rules with no networking, so the same code
@@ -65,6 +72,13 @@ online.
 
 ## Open questions
 
+- Frame rate of the planet shader on real phones is unmeasured. It does the
+  projection per pixel; in this headless test without a GPU it halved the
+  frame rate. If phones struggle, switch to the handoff's mesh approach.
+- Day and night depend on where you are as well as the time: about a quarter
+  of the map away from the lit side it is dusk. Is that the intent for play?
+- The planet turns 1 degree per second (the art lab used 4 for inspection).
+
 - PvP bullets have no lag compensation yet (the brief plans up to 200 ms).
   Hitting another player needs leading the target for now.
 - What should happen on death before wrecks and loot exist? Currently the
@@ -84,6 +98,9 @@ online.
 - Landscape phones show about 195 px above and below the ship; the camera may
   need to zoom out once tested on a real phone.
 - Asteroids, bullets and effects are placeholder shapes.
+- Ground props (crater, rocks, wreck, landing pad) are not drawn yet.
+- The sand channels use a slightly sheared layout so they repeat across the
+  map seam; the lab's rotated layout did not divide the map.
 - A bullet fired by another player appears slightly ahead of that ship's
   drawn position (the ship is drawn about 100 ms in the past).
 - On a narrow phone the fire button sits in the left half, where the stick
@@ -92,9 +109,9 @@ online.
 
 ## Next proposed step
 
-Cloud-layer entry transition, then the solo space hub replacing the planet
-menu, then the practice planet (a private single-player room). Owner plays
-the itch draft on a phone in landscape and reports on feel.
+Thruster flames (steady, burst on throttle and turn) and FFD tilt through a
+Phaser mesh, then ground props with horizon clipping. Owner checks the planet
+view on a real phone for frame rate.
 
 ### Run locally
 

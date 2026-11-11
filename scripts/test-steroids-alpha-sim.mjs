@@ -14,7 +14,8 @@ const tmp = mkdtempSync(path.join(os.tmpdir(), 'steroids-sim-'));
 const entry = `export * from ${JSON.stringify(path.join(sim, 'world.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'ship.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'asteroids.ts'))};
-export * from ${JSON.stringify(path.join(sim, 'protocol.ts'))};`;
+export * from ${JSON.stringify(path.join(sim, 'protocol.ts'))};
+export * as planet from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/src/render/planet.ts'))};`;
 await build({ stdin: { contents: entry, resolveDir: sim, loader: 'ts' }, bundle: true, format: 'esm', platform: 'node', outfile: path.join(tmp, 'sim.mjs'), logLevel: 'silent' });
 const S = await import(pathToFileURL(path.join(tmp, 'sim.mjs')).href);
 rmSync(tmp, { recursive: true, force: true });
@@ -193,4 +194,50 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   assert.deepEqual(S.decodeServer(S.encodeShots(88, [shot])), { type: S.MSG.SHOTS, tick: 88, shots: [shot] });
 }
 
-console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population and wire format all pass.');
+// --- Planet view and fixed-sun lighting (render/planet.ts, from the environment handoff v09). ---
+{
+  const P = S.planet;
+  const R = 608.25;
+  // Projection: centre unchanged, compressed toward the rim, hidden past a quarter turn.
+  assert.deepEqual(P.projectOffset(0, 0, R), { x: 0, y: 0, scale: 1, visible: true });
+  const mid = P.projectOffset(600, 0, R);
+  near(mid.x, R * Math.sin(600 / R), 1e-9, 'projection is R sin(r/R)');
+  assert(mid.scale < 1 && mid.scale > 0, 'things shrink toward the horizon');
+  assert.equal(P.projectOffset(P.horizonDistance(R) + 1, 0, R).visible, false, 'hidden over the horizon');
+  assert.equal(P.projectOffset(0, -(P.horizonDistance(R) - 1), R).visible, true);
+
+  const sun = P.sunState(tune.planet.sunAzimuthDeg, tune.planet.sunElevationDeg);
+  const RL = P.lightingRadius(tune.world.width);
+  const f0 = P.planetFrame(0, 0, 0, RL, sun);
+  // Reference daylight shadow from the handoff: about 17 px right and 27 px down at reach 56.
+  const sh = P.shipShadow(f0.sun, 56);
+  near(sh.x, 17.1, 0.2, 'reference shadow x');
+  near(sh.y, 27.4, 0.2, 'reference shadow y');
+  assert.equal(f0.daylight, 1);
+
+  // Planet rotation and travel move the same position: turning the planet by an angle lights the
+  // view exactly like travelling that far, and the terrain scrolls with it.
+  const byTravel = P.planetFrame(RL * 0.7, 0, 0, RL, sun);
+  const byRotation = P.planetFrame(0, 0, (0.7 * 180) / Math.PI, RL, sun);
+  for (const k of ['x', 'y', 'z']) near(byTravel.sun[k], byRotation.sun[k], 1e-12, 'rotation equals travel');
+  near(byTravel.camera.x, byRotation.camera.x, 1e-9, 'terrain scroll follows the same position');
+  // Stopping both freezes the light; heading is not an input at all.
+  assert.deepEqual(P.planetFrame(123, 45, 10, RL, sun), P.planetFrame(123, 45, 10, RL, sun));
+  // One lap of the wrapping map, or one full turn, brings the same light back: no jump at the seam.
+  const lap = P.planetFrame(123 + tune.world.width, 45 + tune.world.height, 10, RL, sun);
+  const turn = P.planetFrame(123, 45, 370, RL, sun);
+  const here = P.planetFrame(123, 45, 10, RL, sun);
+  for (const k of ['x', 'y', 'z']) {
+    near(lap.sun[k], here.sun[k], 1e-9, 'light repeats across the map seam');
+    near(turn.sun[k], here.sun[k], 1e-9, 'light repeats after a full turn');
+  }
+  // Night: the far side has no direct light, so no shadow; brightness never drops below 0.3.
+  const night = P.planetFrame(0, 0, 180, RL, sun);
+  assert.equal(night.daylight, 0, 'night removes the direct shadow');
+  near(night.brightness, 0.3, 1e-9, 'night keeps a floor of brightness');
+  // Low sun: the shadow lengthens but is bounded.
+  const low = P.shipShadow({ x: 1, y: 0, z: 0.01 }, 56);
+  near(Math.hypot(low.x, low.y), 56 * 2.5, 1e-9, 'shadow length is bounded');
+}
+
+console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format and planet lighting all pass.');

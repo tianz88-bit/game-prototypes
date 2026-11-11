@@ -6,6 +6,7 @@ import { copyFileSync, existsSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import buildTerrain from './terrain-v09/build-terrain.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const SHIPS = [{ id: 'human-nomad-v1', list: path.join(here, 'human-nomad-v1', 'ship-assets.json') }];
@@ -22,4 +23,14 @@ export default async function prepare({ assetsSrcDir }) {
     }
     console.log(`prepare-assets: ${ship.id}: ${assets.length} approved parts verified and staged`);
   }
+
+  // Terrain: generated from the handoff's own SVG definitions, then checked against its manifest.
+  const loose = path.join(assetsSrcDir, 'loose');
+  await buildTerrain(loose);
+  const terrain = JSON.parse(readFileSync(path.join(here, 'terrain-v09', 'terrain-assets.json'), 'utf8'));
+  for (const a of terrain.assets) {
+    const sha = createHash('sha256').update(readFileSync(path.join(loose, a.file))).digest('hex');
+    if (sha !== a.sha256) throw new Error(`prepare-assets: terrain ${a.file} SHA-256 ${sha} does not match the handoff manifest ${a.sha256}`);
+  }
+  console.log(`prepare-assets: terrain-v09: ${terrain.assets.length} generated assets match the handoff manifest`);
 }

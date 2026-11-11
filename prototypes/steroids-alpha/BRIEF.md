@@ -63,11 +63,24 @@ All names, ships, pilots and art are original. Nothing is copied from either.
   wrapped distances. This avoids true-sphere pole problems in movement, loot
   spawning and server checks; players cannot tell the difference from a
   top-down camera.
-- Rendering: the surface curves away from the player's ship toward a horizon,
-  and objects rise over the horizon as they approach.
-- Default (confirm): curvature done by projecting and scaling each sprite by
-  its distance from the camera (cheap, sharp, phone-friendly). A full-screen
-  shader is used for the background only, if at all.
+- Rendering (owner-selected composition "C" from the environment handoff
+  v09): the planet is a ball seen from above, centred under the player's
+  small ship. Its left and right rims are visible against space and it runs
+  off the top and bottom of the screen. Ground distance r from the ship is
+  drawn at R sin(r / R); anything a quarter of the way round is over the
+  horizon. Ships, asteroids and bullets are placed and scaled through the
+  same projection.
+- A broad soft rim glow inside the edge and a soft atmosphere halo outside it.
+- One sun, fixed in space (owner decision). The planet turns beneath it and
+  the ship travels over it; both move the same position on the ball, which
+  drives the terrain scroll and the sunlight together. Terrain light, rim,
+  ship brightness and the ship's hard ground shadow (direction, length,
+  fading out at night) all follow it. Turning the ship in place never changes
+  the light. The planet's turn comes from the server clock, so players in the
+  same place see the same light.
+- Default (confirm): one lap of the wrapping map is one turn of the ball, so
+  the light has no jump at the map seam; the drop zone starts in daylight;
+  the planet turns 1 degree per second (a 6 minute day).
 
 ## Lockdown and warp-out
 
