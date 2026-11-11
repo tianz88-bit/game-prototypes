@@ -1,0 +1,15 @@
+import {build} from 'esbuild';
+const result=await build({entryPoints:['prototypes/steroids-alpha/sim/liveConfig.ts'],bundle:true,platform:'node',format:'esm',write:false});
+const model=await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));
+const data=model.validateConfig(JSON.parse(process.env.SETTINGS_PAYLOAD||'null'));
+const audience='https://steroids-alpha-server.tianz-88.workers.dev/admin/config';
+const url=process.env.ACTIONS_ID_TOKEN_REQUEST_URL,requestToken=process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+if(!url||!requestToken)throw Error('Authenticated GitHub workflow identity required');
+const identity=await fetch(url+'&audience='+encodeURIComponent(audience),{headers:{Authorization:'Bearer '+requestToken}});
+if(!identity.ok)throw Error('Could not obtain workflow identity');
+const {value}=await identity.json();
+const response=await fetch(audience,{method:'POST',headers:{Authorization:'Bearer '+value,'Content-Type':'application/json'},body:JSON.stringify({expectedVersion:process.env.SETTINGS_EXPECTED,data})});
+const saved=await response.json();if(!response.ok)throw Error(saved.error||'Publish rejected');
+const live=await (await fetch('https://steroids-alpha-server.tianz-88.workers.dev/config',{cache:'no-store'})).json();
+if(live.version!==saved.version)throw Error('Publish accepted but live readback did not match');
+console.log('Live settings activated: '+saved.version);

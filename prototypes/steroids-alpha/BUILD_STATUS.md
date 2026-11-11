@@ -8,6 +8,11 @@ and the itch page is public and unlisted.
 
 ## What was implemented
 
+- Permanent Calibration & Balance Lab below the live itch link on the GitHub hub, with approved reference rig/FFD, shared movement preview, validated browser drafts, JSON import/export and allowlisted stat controls.
+- Private Publish to live companion uses existing GitHub login and a fixed main-branch workflow. The Worker verifies the short-lived OIDC signature and repository/branch/workflow/audience/expiry before activating data. No browser write credential.
+- Transactional PlanetConfig storage retains a content-hashed active version and ten prior versions, rejects stale publications, and delivers updates to rooms within 15 seconds. Config records precede new snapshots; prediction and rendering follow server-issued values without a game rebuild.
+- Input floods cannot buy extra movement steps; server queues, packet rates/sizes and sequence windows are bounded.
+
 - Milestone 1: shared sim in `sim/`, Cloudflare Worker planet rooms in
   `server/`, Phaser client with prediction, reconciliation and interpolation,
   two planets, the approved Human Nomad ship rig.
@@ -71,7 +76,7 @@ and the itch page is public and unlisted.
   the gun mounts are wider than a small asteroid or a ship.
 - A new ship drops in at the candidate point farthest from any asteroid and
   has two seconds of contact immunity.
-- Protocol version is 3. Client and server must be deployed together.
+- Protocol version is 4. Initial client/server upgrade must deploy together and old clients reload once; subsequent validated live settings need no rebuild.
 - `TEST_SHIP_HP` (a `--var` on `wrangler dev`) raises ship hull points for the
   local browser check only. Unset in production.
 - Weapon, asteroid and speed values in tune.json are first values, not tuned
@@ -98,6 +103,9 @@ and the itch page is public and unlisted.
   it and take ownership.
 
 ## Known issues
+
+- Publishing needs the private publisher on the owner's PC (npm run steroids:lab); phone-only administrator login is not included.
+- Baseline cheat resistance is in place, but player authentication, anonymous multi-session abuse, bots/aim automation and competitive telemetry remain future work.
 
 - Not yet tested on a real phone or over a real network.
 - The itch embed's orientation is still "Default"; it could be set to

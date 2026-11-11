@@ -1,4 +1,6 @@
-// Binary wire format between client and planet room. Little-endian.
+// Protocol v4: binary game frames are little-endian. The server also sends a JSON
+// {type:'config',record:ConfigRecord} frame before welcome/cutover snapshots.
+// Clients never send configuration; their socket accepts only bounded intent/ping frames.
 //
 // Client -> server
 //   INPUT     u8 type, u32 seq, f32 turn, f32 aim, f32 thrust, u8 flags (bit0 dash, bit1 fire)
@@ -17,7 +19,7 @@ import type { ShipInput, ShipState } from './ship';
 import type { Asteroid } from './asteroids';
 import type { ShotEvent } from './world';
 
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 export const MSG = {
   INPUT: 1,

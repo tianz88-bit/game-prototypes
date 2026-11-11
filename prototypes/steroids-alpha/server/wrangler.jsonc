@@ -8,13 +8,25 @@
       {
         "name": "PLANET_ROOMS",
         "class_name": "PlanetRoom"
+      },
+      {
+        "name": "PLANET_CONFIG",
+        "class_name": "PlanetConfig"
       }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["PlanetRoom"]
+      "new_sqlite_classes": [
+        "PlanetRoom"
+      ]
+    },
+    {
+      "tag": "v2-config",
+      "new_sqlite_classes": [
+        "PlanetConfig"
+      ]
     }
   ]
 }

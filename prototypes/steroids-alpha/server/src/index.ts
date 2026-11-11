@@ -1,3 +1,6 @@
+import { authorizePublisher, readBounded } from './configAuth';
+import { parseRecord } from '../../sim/liveConfig';
+export { PlanetConfig } from './configStore';
 // Steroids-Alpha server: a Worker that routes /ws/<planet> to that planet's room.
 // v1 runs one room per planet; the matchmaker (more rooms when full) comes later.
 import { PROTOCOL_VERSION } from '../../sim/protocol';
@@ -20,6 +23,7 @@ interface RoomNamespace {
 
 interface Env {
   PLANET_ROOMS: RoomNamespace;
+  PLANET_CONFIG: RoomNamespace;
   /** Testing only (a `--var` on `wrangler dev`): ship hull points, so the browser check's ships survive. Unset in production. */
   TEST_SHIP_HP?: string;
 }
@@ -28,6 +32,17 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
+    if (url.pathname === '/config' && request.method==='GET') {
+      const r=await env.PLANET_CONFIG.get(env.PLANET_CONFIG.idFromName('active')).fetch(new Request('https://internal/config'));
+      return new Response(r.body,{status:r.status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','Access-Control-Allow-Origin':'*'}});
+    }
+    if (url.pathname === '/admin/config' && request.method==='POST') {
+      let actor;try{actor=await authorizePublisher(request.headers.get('Authorization'));}catch{return Response.json({error:'Publisher authentication failed'},{status:401});}
+      if(!request.headers.get('Content-Type')?.startsWith('application/json'))return new Response('JSON required',{status:415});
+      try{const body=await readBounded(request) as {expectedVersion:string;data:unknown};
+        return env.PLANET_CONFIG.get(env.PLANET_CONFIG.idFromName('active')).fetch(new Request('https://internal/config',{method:'POST',body:JSON.stringify({...body,actor})}));
+      }catch(e){return Response.json({error:(e as Error).message},{status:400});}
+    }
     if (url.pathname === '/health') {
       return Response.json({ ok: true, service: 'steroids-alpha-server', protocol: PROTOCOL_VERSION });
     }
@@ -48,13 +63,20 @@ export default {
 /** Durable Object: one per running planet room. */
 export class PlanetRoom {
   private room: Room;
+  private refreshAt=0;
+  private refreshing:Promise<void>|null=null;
+  private async refreshConfig():Promise<void>{
+    if(this.refreshing)return this.refreshing;if(Date.now()<this.refreshAt)return;this.refreshAt=Date.now()+15000;
+    this.refreshing=(async()=>{try{const r=await this.env.PLANET_CONFIG.get(this.env.PLANET_CONFIG.idFromName('active')).fetch(new Request('https://internal/config'));if(r.ok)this.room.applyConfig(parseRecord(await r.json()));}catch{/* Keep last known-good settings on temporary failure. */}})().finally(()=>{this.refreshing=null;});return this.refreshing;
+  }
 
-  constructor(_state: unknown, env: Env) {
+  constructor(_state: unknown, private env: Env) {
     const hp = Number(env.TEST_SHIP_HP);
-    this.room = new Room(Number.isFinite(hp) && hp > 0 ? hp : undefined);
+    this.room = new Room(Number.isFinite(hp) && hp > 0 ? hp : undefined,()=>void this.refreshConfig());
   }
 
   async fetch(request: Request): Promise<Response> {
+    await this.refreshConfig();
     if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {
       return Response.json({ players: this.room.playerCount });
     }

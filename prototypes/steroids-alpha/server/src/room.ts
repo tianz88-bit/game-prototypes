@@ -1,3 +1,5 @@
+import { bundledRecord } from '../../sim/liveConfig';
+import type { ConfigRecord } from '../../sim/liveConfig';
 // One running planet room: the authority for every ship on that planet.
 // Players drop in and out at any time; the tick loop runs only while someone is connected.
 import { TUNE, stepSeconds } from '../../sim/tune';
@@ -41,6 +43,8 @@ interface Player {
   started: boolean;
   /** Consecutive ticks with a non-zero deficit. */
   deficitTicks: number;
+  budgetAt:number;
+  packets:number;
 }
 
 
@@ -53,8 +57,24 @@ export class Room {
   private world: World;
 
   /** shipHp overrides ship.maxHp for local test runs only (see TEST_SHIP_HP in index.ts). */
-  constructor(shipHp?: number) {
-    this.world = new World(shipHp ? { ...TUNE, ship: { ...TUNE.ship, maxHp: shipHp } } : TUNE);
+  private config:ConfigRecord=bundledRecord();
+  private tune=structuredClone(TUNE);
+  constructor(private shipHp?: number, private refreshConfig:()=>void=()=>{}) {
+    if(shipHp)this.tune.ship.maxHp=shipHp;
+    this.world = new World(this.tune);
+  }
+  /** Called between fixed ticks. Announce a complete version before its new snapshots. */
+  applyConfig(record:ConfigRecord):void{
+    if(record.version===this.config.version)return;
+    this.config=record;
+    for(const group of ['ship','weapon','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
+    if(this.shipHp)this.tune.ship.maxHp=this.shipHp;
+    for(const p of this.players.values()){
+      p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
+      p.ship.hp=Math.min(this.tune.ship.maxHp,p.ship.hp);
+      if(p.queue.length)p.last=p.queue[p.queue.length-1];p.queue=[];p.deficit=0;p.deficitTicks=0;p.owedDash=false;p.started=false;
+      this.send(p,JSON.stringify({type:'config',record}));this.send(p,this.snapshotFor(p));
+    }
   }
 
   private get tick(): number {
@@ -77,13 +97,14 @@ export class Room {
     }
     const id = this.allocateId();
     const spawn = this.world.addShip(id);
-    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, reading: Promise.resolve(), started: false, deficitTicks: 0 };
+    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0 };
     this.players.set(id, player);
 
     ws.addEventListener('message', (e: MessageEvent) => this.onMessage(player, e.data));
     ws.addEventListener('close', () => this.leave(id));
     ws.addEventListener('error', () => this.leave(id));
 
+    this.send(player,JSON.stringify({type:'config',record:this.config}));
     this.send(player, encodeWelcome(id, this.tick));
     this.send(player, encodeAsteroids([...this.world.asteroids.values()]));
     this.send(player, this.snapshotFor(player));
@@ -101,6 +122,10 @@ export class Room {
   }
 
   private onMessage(player: Player, data: unknown): void {
+    if(Date.now()-player.budgetAt>=1000){player.budgetAt=Date.now();player.packets=0;}
+    if(++player.packets>120){player.ws.close(1008,'input rate exceeded');return;}
+    const bytes=data instanceof ArrayBuffer?data.byteLength:data instanceof Blob?data.size:0;
+    if(bytes!==9&&bytes!==18){player.ws.close(CLOSE.BAD_PROTOCOL,'invalid input size');return;}
     if (typeof data === 'string' || data === null || typeof data !== 'object') {
       player.ws.close(CLOSE.BAD_PROTOCOL, 'binary only');
       return;
@@ -129,8 +154,9 @@ export class Room {
     }
     // Ignore replays and out-of-order inputs.
     const newest = player.queue.length ? player.queue[player.queue.length - 1].seq : player.last.seq;
-    if (msg.input.seq <= newest) return;
+    if (msg.input.seq <= newest || msg.input.seq > newest + 512) return;
     player.queue.push(msg.input);
+    while(player.queue.length > TUNE.net.maxQueuedInputs) player.queue.shift();
   }
 
   private leave(id: number): void {
@@ -152,6 +178,7 @@ export class Room {
 
   /** Run as many fixed steps as real time calls for (at most a few, so a stall does not spiral). */
   private pump(): void {
+    this.refreshConfig();
     const now = Date.now();
     const stepMs = this.dt * 1000;
     let steps = 0;
@@ -227,7 +254,7 @@ export class Room {
       p.deficit = 0;
       p.deficitTicks = 0;
     }
-    const steps = p.queue.length > TUNE.net.maxQueuedInputs ? 2 : 1; // catch up after a burst
+    const steps = 1; // Server clock is authoritative, even when a client floods the queue
     for (let i = 0; i < steps; i++) {
       const input = p.queue.shift();
       if (input) p.last = input;
@@ -253,7 +280,7 @@ export class Room {
     return encodeSnapshot(this.tick, p.last.seq + p.deficit, ships);
   }
 
-  private send(p: Player, buf: ArrayBuffer): void {
+  private send(p: Player, buf: ArrayBuffer|string): void {
     try {
       p.ws.send(buf);
     } catch {

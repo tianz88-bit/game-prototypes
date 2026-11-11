@@ -84,6 +84,17 @@ jobs:
       - name: Pack suits-mp assets
         run: npm run pack:assets suits-mp
 
+      - name: Fetch verified Steroids-Alpha art for permanent lab
+        run: node scripts/fetch-assets.js steroids-alpha steroids-alpha_human-nomad-v1_assets.zip
+
+      - name: Prepare Steroids-Alpha lab assets
+        run: |
+          node scripts/pack-assets.js steroids-alpha
+          node scripts/prepare-steroids-lab.mjs
+
+      - name: Verify live settings and private publisher
+        run: node scripts/test-steroids-live-config.mjs
+
       - name: Typecheck
         run: npm run typecheck
 
