@@ -12,8 +12,12 @@
   "touch": {
     "joystickRadius": 64,
     "deadZone": 0.25,
+    "speedBand": 40,
+    "schemeButtonWidth": 112,
+    "schemeButtonHeight": 30,
     "dashButtonRadius": 46,
-    "dashButtonMargin": 34
+    "dashButtonMargin": 34,
+    "fireButtonRadius": 46
   },
   "render": {
     "gridSpacing": 200,

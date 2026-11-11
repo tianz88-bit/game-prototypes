@@ -10,6 +10,7 @@ on:
       - "prototypes/steroids-alpha/server/**"
       - "prototypes/steroids-alpha/sim/**"
       - "prototypes/steroids-alpha/tune.json"
+      - "scripts/test-steroids-alpha-sim.mjs"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/deploy-steroids-alpha-worker.yml"
@@ -41,6 +42,9 @@ jobs:
 
       - name: Typecheck
         run: npm run typecheck
+
+      - name: Game rules test
+        run: node scripts/test-steroids-alpha-sim.mjs
 
       - name: Check Cloudflare deployment secrets
         id: cloudflare

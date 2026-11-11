@@ -14,10 +14,41 @@
     "forgiveGuessAfterTicks": 15
   },
   "ship": {
-    "baseSpeed": 260,
+    "minSpeed": 140,
+    "cruiseSpeed": 260,
+    "maxSpeed": 380,
+    "acceleration": 220,
+    "braking": 300,
     "turnRate": 3.2,
     "dashSpeed": 640,
     "dashDuration": 0.22,
-    "dashCooldown": 1.6
+    "dashCooldown": 1.6,
+    "maxHp": 100,
+    "radius": 26,
+    "contactGraceSeconds": 0.5
+  },
+  "weapon": {
+    "fireIntervalSteps": 4,
+    "bulletSpeed": 900,
+    "bulletLifeSteps": 24,
+    "bulletRadius": 6,
+    "damage": 10,
+    "muzzleSide": 34,
+    "muzzleForward": 14,
+    "convergeDistance": 420
+  },
+  "asteroid": {
+    "radius": [70, 42, 22],
+    "hp": [60, 30, 12],
+    "contactDamage": [30, 18, 8],
+    "ramDamage": 20,
+    "speedMin": 20,
+    "speedMax": 70,
+    "targetMass": 56,
+    "spawnClearRadius": 500,
+    "splitPushPerDamage": 3,
+    "splitSpreadBase": 30,
+    "splitSpreadPerDamage": 2.5,
+    "splitJitter": 0.25
   }
 }

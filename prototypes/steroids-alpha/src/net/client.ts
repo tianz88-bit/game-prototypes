@@ -4,7 +4,9 @@
 //    visual error smoothed out over a few frames instead of snapping;
 //  - other ships: buffered snapshots, drawn interpDelayMs in the past and interpolated.
 import { TUNE, stepSeconds } from '../../sim/tune';
-import { copyShip, stepShip } from '../../sim/ship';
+import { copyShip, muzzleShot, stepShip } from '../../sim/ship';
+import { asteroidPos } from '../../sim/asteroids';
+import type { Asteroid } from '../../sim/asteroids';
 import type { ShipInput, ShipState } from '../../sim/ship';
 import { CLOSE, MSG, PROTOCOL_VERSION, decodeServer, encodeInput, encodePing } from '../../sim/protocol';
 import type { ServerMessage, SnapshotShip } from '../../sim/protocol';
@@ -13,7 +15,21 @@ import type { PlanetId } from '../../sim/planets';
 import { clientTune } from '../clientTune';
 import { SIM_LAG_MS, serverOrigin } from '../base';
 
-export type NetStatus = 'connecting' | 'open' | 'full' | 'closed';
+export type NetStatus = 'connecting' | 'open' | 'full' | 'closed' | 'destroyed';
+
+/** A bullet as drawn. Damage is decided by the server; this is only what the player sees. */
+export interface VisualBullet {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  /** Milliseconds left. */
+  life: number;
+  mine: boolean;
+}
+
+/** Things the scene should show once: a gun firing, an asteroid breaking, a bullet striking. */
+export type NetFx = { kind: 'shot'; id: number; side: number } | { kind: 'burst'; x: number; y: number; size: number } | { kind: 'spark'; x: number; y: number };
 
 interface Timed {
   t: number;
@@ -44,6 +60,16 @@ export class NetClient {
   private clockOffset: number | null = null;
   private ws: WebSocket | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
+
+  /** Every asteroid on the planet, by id. */
+  readonly asteroids = new Map<number, Asteroid>();
+  /** When each asteroid was last hit (performance.now), for the hit flash. */
+  readonly asteroidHitAt = new Map<number, number>();
+  bullets: VisualBullet[] = [];
+  private fx: NetFx[] = [];
+  private rttSmooth = 0;
+  /** Asteroids destroyed that split into pieces (test hook). */
+  splits = 0;
 
   // Debug stats.
   rttMs = 0;
@@ -77,7 +103,7 @@ export class NetClient {
       else this.receive(data);
     });
     ws.addEventListener('close', (e) => {
-      this.status = e.code === CLOSE.ROOM_FULL ? 'full' : 'closed';
+      this.status = e.code === CLOSE.ROOM_FULL ? 'full' : e.code === CLOSE.DESTROYED ? 'destroyed' : 'closed';
       if (this.pingTimer) clearInterval(this.pingTimer);
     });
   }
@@ -107,6 +133,33 @@ export class NetClient {
   private handle(msg: ServerMessage): void {
     if (msg.type === MSG.PONG) {
       this.rttMs = performance.now() - msg.clientTime;
+      this.rttSmooth = this.rttSmooth ? this.rttSmooth + (this.rttMs - this.rttSmooth) * 0.2 : this.rttMs;
+      return;
+    }
+    if (msg.type === MSG.ASTEROIDS) {
+      for (const a of msg.asteroids) {
+        const old = this.asteroids.get(a.id);
+        if (old && a.hp < old.hp) this.asteroidHitAt.set(a.id, performance.now());
+        this.asteroids.set(a.id, a);
+      }
+      return;
+    }
+    if (msg.type === MSG.GONE) {
+      for (const g of msg.gone) {
+        const a = this.asteroids.get(g.id);
+        if (!a) continue;
+        this.asteroids.delete(g.id);
+        this.asteroidHitAt.delete(g.id);
+        this.fx.push({ kind: 'burst', x: g.x, y: g.y, size: a.size });
+        if (a.size < 2) this.splits++;
+      }
+      return;
+    }
+    if (msg.type === MSG.SHOTS) {
+      for (const s of msg.shots) {
+        this.bullets.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, life: TUNE.weapon.bulletLifeSteps * STEP_MS, mine: false });
+        this.fx.push({ kind: 'shot', id: s.owner, side: s.side });
+      }
       return;
     }
     if (msg.type === MSG.WELCOME) {
@@ -174,7 +227,7 @@ export class NetClient {
    * engine's frame delta: Phaser smooths its delta and under-reports time when the frame rate drops,
    * which made a 37 fps client send 22 inputs a second to a server consuming 30.
    */
-  update(input: { turn: number; aim: number; dash: boolean }): void {
+  update(input: { turn: number; aim: number; thrust: number; dash: boolean; fire: boolean }): void {
     const now = performance.now();
     const deltaMs = this.lastFrameAt ? now - this.lastFrameAt : 0;
     this.lastFrameAt = now;
@@ -184,14 +237,23 @@ export class NetClient {
       this.accumulator += Math.min(deltaMs, 250);
       while (this.accumulator >= STEP_MS) {
         this.accumulator -= STEP_MS;
-        const cmd: ShipInput = { seq: ++this.seq, turn: input.turn, aim: input.aim, dash: this.dashQueued };
+        // Round to the 32-bit floats that go on the wire, so prediction uses exactly what the server gets.
+        const cmd: ShipInput = { seq: ++this.seq, turn: Math.fround(input.turn), aim: Math.fround(input.aim), thrust: Math.fround(input.thrust), dash: this.dashQueued, fire: input.fire };
         this.dashQueued = false;
         this.pending.push(cmd);
         if (this.pending.length > 120) this.pending.shift();
         this.send(encodeInput(cmd));
+        const shots = this.predicted.shots;
         stepShip(this.predicted, cmd, stepSeconds(TUNE), TUNE);
+        if (this.predicted.shots !== shots) {
+          // Our own bullet appears at once; the server fires its real one when this input arrives.
+          const shot = muzzleShot(this.predicted, TUNE);
+          this.bullets.push({ x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: TUNE.weapon.bulletLifeSteps * STEP_MS, mine: true });
+          this.fx.push({ kind: 'shot', id: this.myId, side: shot.side });
+        }
       }
     }
+    this.stepBullets(deltaMs);
     const k = Math.pow(1 - clientTune.net.correctionDecay, deltaMs / 16.67);
     this.visualError.x *= k;
     this.visualError.y *= k;
@@ -200,6 +262,52 @@ export class NetClient {
   }
 
   private dashQueued = false;
+
+  /** Move the drawn bullets; one that reaches an asteroid or another ship stops there with a spark. */
+  private stepBullets(deltaMs: number): void {
+    const dt = deltaMs / 1000;
+    const tick = this.asteroidTick();
+    const rocks = [...this.asteroids.values()].map((a) => ({ p: asteroidPos(a, tick, TUNE), r: TUNE.asteroid.radius[a.size] }));
+    const ships = this.remoteRender().map((r) => r.s);
+    this.bullets = this.bullets.filter((b) => {
+      b.x = wrap(b.x + b.vx * dt, W);
+      b.y = wrap(b.y + b.vy * dt, H);
+      b.life -= deltaMs;
+      if (b.life <= 0) return false;
+      const near = (x: number, y: number, r: number): boolean => wrapDelta(b.x, x, W) ** 2 + wrapDelta(b.y, y, H) ** 2 <= r * r;
+      const struck = rocks.some((k) => near(k.p.x, k.p.y, k.r)) || (b.mine && ships.some((s) => near(s.x, s.y, TUNE.ship.radius)));
+      if (struck) this.fx.push({ kind: 'spark', x: b.x, y: b.y });
+      return !struck;
+    });
+  }
+
+  /**
+   * The tick at which to draw asteroids: the server's time when the input we are sending now will
+   * be applied (one way trip plus the server's input buffer), so rocks appear where they will be
+   * when our steering and shots take effect.
+   */
+  asteroidTick(): number {
+    if (this.clockOffset === null) return 0;
+    const ms = performance.now() + this.clockOffset + this.rttSmooth + TUNE.net.inputBufferSteps * STEP_MS;
+    return ms / STEP_MS;
+  }
+
+  /** Asteroids with their current positions. */
+  asteroidRender(): { a: Asteroid; x: number; y: number }[] {
+    const tick = this.asteroidTick();
+    const out: { a: Asteroid; x: number; y: number }[] = [];
+    for (const a of this.asteroids.values()) {
+      const p = asteroidPos(a, tick, TUNE);
+      out.push({ a, x: p.x, y: p.y });
+    }
+    return out;
+  }
+
+  drainFx(): NetFx[] {
+    const out = this.fx;
+    this.fx = [];
+    return out;
+  }
 
   /** Own ship as it should be drawn: prediction plus the decaying correction. */
   ownRender(): ShipState | null {
