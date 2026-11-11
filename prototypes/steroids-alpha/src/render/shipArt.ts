@@ -11,6 +11,7 @@ import { clientTune } from '../clientTune';
 
 export const SHIP_ID = 'human-nomad-v1';
 export const CALIBRATION: Calibration = checkCalibration(calibrationJson);
+export const SHADOW_ANCHOR = {...calibrationJson.shadow};
 
 export type ShipArtStatus = 'loading' | 'ready' | 'placeholder';
 export let shipArtStatus: ShipArtStatus = 'loading';
@@ -99,7 +100,8 @@ function resample(img: HTMLImageElement, box: { x: number; y: number; w: number;
 
 /** Hard-edged union of module footprints at their mount points (kit rebuildShadow), no blur. */
 const SHADOW_SIZE = 1024;
-function buildShadow(scene: Phaser.Scene): void {
+export function buildShadow(scene: Phaser.Scene): void {
+  if(scene.textures.exists(SHADOW_KEY))scene.textures.remove(SHADOW_KEY);
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = SHADOW_SIZE;
   const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;

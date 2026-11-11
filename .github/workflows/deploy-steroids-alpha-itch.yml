@@ -43,6 +43,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Verify live settings and publisher boundaries
+        run: node scripts/test-steroids-live-config.mjs
+
       - name: Check deployment prerequisites
         id: ready
         env:
