@@ -28,6 +28,10 @@
     "planetRadius": 608.25,
     "haloWidth": 72,
     "shadowReach": 56,
+    "nightObjectDim": 0.1,
+    "thrusterTurnDegPerSec": 30,
+    "thrusterAccel": 30,
+    "thrusterHoldMs": 140,
     "shipRingRadius": 190,
     "partTextureMax": 256
   }
