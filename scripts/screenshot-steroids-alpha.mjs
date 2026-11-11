@@ -144,6 +144,10 @@ try {
     if (!together) await wait(100);
   }
   assert(together, 'phone caught up with the desktop ship using the joystick');
+  // The planet's turn comes from the server clock, so both players are on the same time of day.
+  const [lightDesk, lightPhone] = await Promise.all([api(desk, () => window.__steroids.light()), api(phone, () => window.__steroids.light())]);
+  assert(Math.abs(lightDesk.rotationDeg - lightPhone.rotationDeg) < 1, `planet rotation agrees between players (${lightDesk.rotationDeg.toFixed(2)} vs ${lightPhone.rotationDeg.toFixed(2)})`);
+  assert(lightDesk.brightness >= 0.3 && lightDesk.brightness <= 1, 'brightness in range');
   await desk.screenshot({ path: path.join(outDir, 'desktop-flight.png') });
   await phone.screenshot({ path: path.join(outDir, 'phone-sees-desktop.png') });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });

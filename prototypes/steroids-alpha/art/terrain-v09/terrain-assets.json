@@ -1,0 +1,39 @@
+{
+  "source": {
+    "branch": "proto/steroids-alpha/environment-handoff-v09",
+    "commit": "f25ea411f632e6fce9a2e0d7fbc828d88d72832b",
+    "path": "tools/steroids-alpha-art-v09/environment-lab"
+  },
+  "assets": [
+    {
+      "file": "crater.svg",
+      "bytes": 671,
+      "sha256": "a1f058cd522c6cdf1746d7a4f7eef4de0f5d95317213ea5dd5872c63f9a9a0ee"
+    },
+    {
+      "file": "ground-tile.svg",
+      "bytes": 6512,
+      "sha256": "3bb72c095dc97de42195dd31393af71e63cd88f700461612d4270e230df1628c"
+    },
+    {
+      "file": "landing-pad.svg",
+      "bytes": 823,
+      "sha256": "f7b070a9d60fd9007e9c8c721332ee6b5077153981137fd304ae846c32c911e6"
+    },
+    {
+      "file": "rock-cluster.svg",
+      "bytes": 689,
+      "sha256": "61400b50d6f1d1c0802343d45b95a17b80e7630e5dd149aaf46af88931282115"
+    },
+    {
+      "file": "sand-channel.svg",
+      "bytes": 6688,
+      "sha256": "96970c225cb3dbb7ac3576b6358e2e0e93b98feefe72c276739cb6c68f7d3ad8"
+    },
+    {
+      "file": "wreck.svg",
+      "bytes": 984,
+      "sha256": "770a4b2237e8f85369fa68075858492fe3d8181ea8ed804419f93b3138f4f172"
+    }
+  ]
+}

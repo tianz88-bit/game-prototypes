@@ -1,6 +1,6 @@
 // One ship on screen, drawn with the approved Human Nomad rig: twelve parts in fixed Z order with
 // the kit's 3% per-layer shading, parent-accumulated facing offsets, engine rattle, canopy lean on turns,
-// hover lift and a hard ground shadow. A ground ring marks your ship (cyan) versus others (orange).
+// hover lift and a hard ground shadow cast away from the planet's sun. A ground ring marks your ship (cyan) versus others (orange).
 // Guns kick with the kit's recoil curve when they fire.
 // Not yet ported: FFD pitch/bank tilt (needs a Phaser Mesh renderer and profiling).
 import Phaser from 'phaser';
@@ -10,9 +10,26 @@ import { clientTune } from '../clientTune';
 
 const SHIP_DEPTH = 20;
 
+/** Where and how to draw a ship this frame, from the planet projection and lighting. */
+export interface ShipPlacement {
+  x: number;
+  y: number;
+  /** Screen pixels per world unit at the ship. */
+  scale: number;
+  /** False when the ship is over the horizon. */
+  visible: boolean;
+  /** 0.3 (night) to 1 (full sun). */
+  brightness: number;
+  /** Screen position of the hard ground shadow, and its strength (0 at night). */
+  shadowX: number;
+  shadowY: number;
+  shadowAlpha: number;
+}
+
 export class ShipView {
   private container: Phaser.GameObjects.Container;
-  private parts: { m: (typeof MODULES)[number]; img: Phaser.GameObjects.Image; scale: number }[] = [];
+  private parts: { m: (typeof MODULES)[number]; img: Phaser.GameObjects.Image; scale: number; shade: number }[] = [];
+  private lastBrightness = -1;
   /** When each gun last fired (ms), by side: -1 left, 1 right. */
   private firedAt: Record<number, number> = { [-1]: -1e9, 1: -1e9 };
   private now = 0;
@@ -34,16 +51,28 @@ export class ShipView {
       const img = scene.add.image(0, 0, partKey(m.asset)).setFlipX(!!m.mirror);
       const scale = CALIBRATION.modules[m.id].width / img.width;
       img.setScale(scale);
-      const shade = Math.round(255 * layerBrightness(m, CALIBRATION));
-      img.setTint((shade << 16) | (shade << 8) | shade);
       this.container.add(img);
-      this.parts.push({ m, img, scale });
+      this.parts.push({ m, img, scale, shade: layerBrightness(m, CALIBRATION) });
     }
   }
 
-  /** headingRad uses game convention (0 = +x). x, y are logical screen pixels. timeMs drives idle motion. */
-  update(x: number, y: number, headingRad: number, timeMs: number): void {
-    const scale = clientTune.render.shipScale;
+  /** headingRad uses game convention (0 = +x). timeMs drives idle motion. */
+  update(at: ShipPlacement, headingRad: number, timeMs: number): void {
+    this.container.setVisible(at.visible);
+    this.shadow.setVisible(at.visible && at.shadowAlpha > 0.01);
+    this.ring.setVisible(at.visible);
+    if (!at.visible) return;
+    const x = at.x;
+    const y = at.y;
+    const scale = clientTune.render.shipScale * at.scale;
+    // Sunlight scales every layer's 3% step shade together; retint only when it changes visibly.
+    if (Math.abs(at.brightness - this.lastBrightness) > 0.004) {
+      this.lastBrightness = at.brightness;
+      for (const p of this.parts) {
+        const c = Math.round(255 * p.shade * at.brightness);
+        p.img.setTint((c << 16) | (c << 8) | c);
+      }
+    }
     const angle = rigAngle(headingRad);
     // Canopy/cockpit lean from turn rate, as in the kit lab: degrees per ms x 20, clamped.
     const dt = Math.max(1, timeMs - this.lastTime);
@@ -63,8 +92,9 @@ export class ShipView {
     }
     this.container.setPosition(x, y).setScale(scale);
     this.shadow
-      .setPosition(x + CALIBRATION.shadow.x * scale, y + CALIBRATION.shadow.y * scale)
+      .setPosition(at.shadowX, at.shadowY)
       .setScale(scale)
+      .setAlpha(CALIBRATION.shadow.opacity * at.shadowAlpha)
       .setRotation((angle * Math.PI) / 180);
     this.ring.setPosition(x, y).setScale(scale);
   }

@@ -3,6 +3,11 @@
     "width": 4000,
     "height": 4000
   },
+  "planet": {
+    "rotationDegPerSec": 1,
+    "sunAzimuthDeg": 238,
+    "sunElevationDeg": 60
+  },
   "net": {
     "tickHz": 30,
     "snapshotHz": 15,

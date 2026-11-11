@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { URL_PLANET, logicalSize } from '../base';
 import { isPlanetId } from '../../sim/planets';
 import { prepareShipArt, queueShipArt } from '../render/shipArt';
+import { prepareTerrain, queueTerrain } from '../render/planetGround';
 import { fitCamera, text, versionStamp } from './common';
 
 export class BootScene extends Phaser.Scene {
@@ -19,10 +20,12 @@ export class BootScene extends Phaser.Scene {
     // A missing part is not fatal: prepareShipArt() falls back to placeholder shapes.
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => console.warn('Ship art failed to load:', file.key));
     queueShipArt(this);
+    queueTerrain(this);
   }
 
   create(): void {
     prepareShipArt(this);
+    prepareTerrain(this);
     if (isPlanetId(URL_PLANET)) this.scene.start('flight', { planet: URL_PLANET });
     else this.scene.start('menu');
   }

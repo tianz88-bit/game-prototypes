@@ -80,6 +80,7 @@ if (DEBUG) {
       scene: () => (flight() ? 'flight' : game.scene.isActive('boot') ? 'boot' : 'menu'),
       shipArt: () => shipArtStatus,
       scheme: () => intents.scheme,
+      light: () => flight()?.lighting() ?? null,
       portraitBlocked: () => intents.portraitBlocked,
       asteroids: () => flight()?.net.asteroidRender().map((r) => ({ id: r.a.id, size: r.a.size, hp: r.a.hp, x: r.x, y: r.y })) ?? [],
       splits: () => flight()?.net.splits ?? 0,

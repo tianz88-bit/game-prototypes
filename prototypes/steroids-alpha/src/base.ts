@@ -32,5 +32,8 @@ export function serverOrigin(): string {
 /** Debug only: artificial one-way delay in ms added to each direction, to feel real ping locally. */
 export const SIM_LAG_MS = DEBUG ? Math.max(0, Number(params.get('lag') ?? 0) / 2) : 0;
 
+/** Debug only: ?rot=<degrees> freezes the planet's turn at that angle, to inspect day and night. */
+export const DEBUG_ROTATION = DEBUG && params.get('rot') !== null ? Number(params.get('rot')) : null;
+
 /** Planet given in the URL, which skips the menu. */
 export const URL_PLANET = params.get('planet');
