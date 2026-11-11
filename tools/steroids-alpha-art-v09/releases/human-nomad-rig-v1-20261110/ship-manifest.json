@@ -1,0 +1,566 @@
+{
+  "schema": 1,
+  "id": "human-nomad-scrappy-v1",
+  "approvedDate": "2026-11-10",
+  "timezone": "Asia/Singapore",
+  "calibrationSchema": 7,
+  "calibrationSha256": "9a45d0609b519048e6168493f5b77190ea8f62e13808182c3c14a06a914b9d71",
+  "artStorage": "Cloudflare R2",
+  "artUploadStatus": "not-uploaded",
+  "stagedR2Object": "steroids-alpha_human-nomad-v1_assets.zip",
+  "assets": [
+    {
+      "path": "assets/v02/chassis.png",
+      "deliveryPath": "loose/ships/human-nomad/scrappy-v1/chassis.png",
+      "bytes": 749975,
+      "sha256": "32e66e496afaceaad2295089ef3e54eae1056fcee2e55b904c43035616a65c6f"
+    },
+    {
+      "path": "assets/v02/wing.png",
+      "deliveryPath": "loose/ships/human-nomad/scrappy-v1/wing.png",
+      "bytes": 831945,
+      "sha256": "3c41b8e5848edb9fbf3c7c8f71022531deb2c7f4a39cc2215c7a7011c53f2043"
+    },
+    {
+      "path": "assets/v02/armour.png",
+      "deliveryPath": "loose/ships/human-nomad/scrappy-v1/armour.png",
+      "bytes": 1362845,
+      "sha256": "1bd094ddf2091e85a3953087d8282f5aa78d96e122e523926ebaef893142f352"
+    },
+    {
+      "path": "assets/v03/booster-core.png",
+      "deliveryPath": "loose/ships/human-nomad/scrappy-v1/booster-core.png",
+      "bytes": 1069766,
+      "sha256": "c741956614a48f62c5628178edb2abc3817650a74e50e2d7a25d594d9bef756f"
+    },
+    {
+      "path": "assets/v03/booster-cowling.png",
+      "deliveryPath": "loose/ships/human-nomad/scrappy-v1/booster-cowling.png",
+      "bytes": 1099559,
+      "sha256": "548afef6a980b5e848b50fcdd6c776cdda8c2636209d390574e04ff7f7b8de15"
+    },
+    {
+      "path": "assets/v03/cockpit-base.png",
+      "deliveryPath": "loose/ships/human-nomad/scrappy-v1/cockpit-base.png",
+      "bytes": 951532,
+      "sha256": "49d60e292183020dde3d39644d9d6527581ca9d43aed16808e3265194bf1afe6"
+    },
+    {
+      "path": "assets/v03/cockpit-canopy.png",
+      "deliveryPath": "loose/ships/human-nomad/scrappy-v1/cockpit-canopy.png",
+      "bytes": 673892,
+      "sha256": "467bd8d457fb993e76c53abb3ea93f0dcbeaff9014692f7ff8ee1afabd60bc3e"
+    },
+    {
+      "path": "assets/v02/gun.png",
+      "deliveryPath": "loose/ships/human-nomad/scrappy-v1/gun.png",
+      "bytes": 434147,
+      "sha256": "970f42e24c3a134bc87ec4e52b491da3511b4e087837475a1d264e65925f0d9b"
+    }
+  ],
+  "modules": [
+    {
+      "id": "chassis",
+      "label": "Chassis · lower frame",
+      "asset": "chassis",
+      "x": 0,
+      "y": 0,
+      "width": 178,
+      "band": 20,
+      "height": 0,
+      "texturePath": "assets/v02/chassis.png",
+      "calibration": {
+        "width": 178,
+        "order": {
+          "up": 20,
+          "right": 20,
+          "down": 20,
+          "left": 20
+        },
+        "offsets": {
+          "up": {
+            "x": 0,
+            "y": 0
+          },
+          "right": {
+            "x": 0,
+            "y": 0
+          },
+          "down": {
+            "x": 0,
+            "y": 0
+          },
+          "left": {
+            "x": 0,
+            "y": 0
+          }
+        }
+      }
+    },
+    {
+      "id": "wingL",
+      "label": "Left wing",
+      "asset": "wing",
+      "x": -125,
+      "y": 45,
+      "width": 144,
+      "band": 10,
+      "height": 3,
+      "side": -1,
+      "parent": "chassis",
+      "texturePath": "assets/v02/wing.png",
+      "calibration": {
+        "width": 144,
+        "order": {
+          "up": 10,
+          "right": 10,
+          "down": 10,
+          "left": 10
+        },
+        "offsets": {
+          "up": {
+            "x": 0,
+            "y": -3
+          },
+          "right": {
+            "x": 0.36,
+            "y": -1.875
+          },
+          "down": {
+            "x": 0,
+            "y": -0.75
+          },
+          "left": {
+            "x": -0.36,
+            "y": -1.875
+          }
+        }
+      }
+    },
+    {
+      "id": "wingR",
+      "label": "Right wing",
+      "asset": "wing",
+      "x": 125,
+      "y": 45,
+      "width": 144,
+      "band": 10,
+      "height": 3,
+      "side": 1,
+      "mirror": true,
+      "parent": "chassis",
+      "texturePath": "assets/v02/wing.png",
+      "calibration": {
+        "width": 144,
+        "order": {
+          "up": 11,
+          "right": 11,
+          "down": 11,
+          "left": 11
+        },
+        "offsets": {
+          "up": {
+            "x": 0,
+            "y": -3
+          },
+          "right": {
+            "x": 0.36,
+            "y": -1.875
+          },
+          "down": {
+            "x": 0,
+            "y": -0.75
+          },
+          "left": {
+            "x": -0.36,
+            "y": -1.875
+          }
+        }
+      }
+    },
+    {
+      "id": "armour",
+      "label": "Chassis · upper deck",
+      "asset": "armour",
+      "x": 0,
+      "y": -15,
+      "width": 172,
+      "band": 30,
+      "height": 7,
+      "parent": "chassis",
+      "upGap": 24,
+      "texturePath": "assets/v02/armour.png",
+      "calibration": {
+        "width": 172,
+        "order": {
+          "up": 30,
+          "right": 30,
+          "down": 30,
+          "left": 30
+        },
+        "offsets": {
+          "up": {
+            "x": 0,
+            "y": -24
+          },
+          "right": {
+            "x": 0.84,
+            "y": -15
+          },
+          "down": {
+            "x": 0,
+            "y": -6
+          },
+          "left": {
+            "x": -0.84,
+            "y": -15
+          }
+        }
+      }
+    },
+    {
+      "id": "engineL",
+      "label": "Left thruster · core",
+      "asset": "booster-core",
+      "x": -78,
+      "y": 108,
+      "width": 83,
+      "band": 42,
+      "height": 8,
+      "side": -1,
+      "parent": "chassis",
+      "motion": "engine",
+      "motionGroup": "engineL",
+      "texturePath": "assets/v03/booster-core.png",
+      "calibration": {
+        "width": 83,
+        "order": {
+          "up": 42,
+          "right": 42,
+          "down": 42,
+          "left": 42
+        },
+        "offsets": {
+          "up": {
+            "x": 0,
+            "y": -8
+          },
+          "right": {
+            "x": 0.96,
+            "y": -5
+          },
+          "down": {
+            "x": 0,
+            "y": -2
+          },
+          "left": {
+            "x": -0.96,
+            "y": -5
+          }
+        }
+      }
+    },
+    {
+      "id": "engineR",
+      "label": "Right thruster · core",
+      "asset": "booster-core",
+      "x": 78,
+      "y": 108,
+      "width": 83,
+      "band": 43,
+      "height": 8,
+      "side": 1,
+      "parent": "chassis",
+      "motion": "engine",
+      "motionGroup": "engineR",
+      "texturePath": "assets/v03/booster-core.png",
+      "calibration": {
+        "width": 83,
+        "order": {
+          "up": 43,
+          "right": 43,
+          "down": 43,
+          "left": 43
+        },
+        "offsets": {
+          "up": {
+            "x": 0,
+            "y": -8
+          },
+          "right": {
+            "x": 0.96,
+            "y": -5
+          },
+          "down": {
+            "x": 0,
+            "y": -2
+          },
+          "left": {
+            "x": -0.96,
+            "y": -5
+          }
+        }
+      }
+    },
+    {
+      "id": "engineCapL",
+      "label": "Left thruster · cowling",
+      "asset": "booster-cowling",
+      "x": -78,
+      "y": 88,
+      "width": 86,
+      "band": 44,
+      "height": 16,
+      "side": -1,
+      "parent": "engineL",
+      "motion": "engine",
+      "motionGroup": "engineL",
+      "upGap": 20,
+      "texturePath": "assets/v03/booster-cowling.png",
+      "calibration": {
+        "width": 86,
+        "order": {
+          "up": 44,
+          "right": 44,
+          "down": 44,
+          "left": 44
+        },
+        "offsets": {
+          "up": {
+            "x": 0,
+            "y": -20
+          },
+          "right": {
+            "x": 1.92,
+            "y": -12.5
+          },
+          "down": {
+            "x": 0,
+            "y": -5
+          },
+          "left": {
+            "x": -1.92,
+            "y": -12.5
+          }
+        }
+      }
+    },
+    {
+      "id": "engineCapR",
+      "label": "Right thruster · cowling",
+      "asset": "booster-cowling",
+      "x": 78,
+      "y": 88,
+      "width": 86,
+      "band": 45,
+      "height": 16,
+      "side": 1,
+      "parent": "engineR",
+      "motion": "engine",
+      "motionGroup": "engineR",
+      "upGap": 20,
+      "texturePath": "assets/v03/booster-cowling.png",
+      "calibration": {
+        "width": 86,
+        "order": {
+          "up": 45,
+          "right": 45,
+          "down": 45,
+          "left": 45
+        },
+        "offsets": {
+          "up": {
+            "x": 0,
+            "y": -20
+          },
+          "right": {
+            "x": 1.92,
+            "y": -12.5
+          },
+          "down": {
+            "x": 0,
+            "y": -5
+          },
+          "left": {
+            "x": -1.92,
+            "y": -12.5
+          }
+        }
+      }
+    },
+    {
+      "id": "cockpit",
+      "label": "Cockpit · lower pod",
+      "asset": "cockpit-base",
+      "x": 0,
+      "y": 40,
+      "width": 124,
+      "band": 50,
+      "height": 14,
+      "parent": "armour",
+      "upGap": 8,
+      "texturePath": "assets/v03/cockpit-base.png",
+      "calibration": {
+        "width": 124,
+        "order": {
+          "up": 50,
+          "right": 50,
+          "down": 50,
+          "left": 50
+        },
+        "offsets": {
+          "up": {
+            "x": 0,
+            "y": -8
+          },
+          "right": {
+            "x": 1.68,
+            "y": -5
+          },
+          "down": {
+            "x": 0,
+            "y": -2
+          },
+          "left": {
+            "x": -1.68,
+            "y": -5
+          }
+        }
+      }
+    },
+    {
+      "id": "canopy",
+      "label": "Cockpit · upper canopy",
+      "asset": "cockpit-canopy",
+      "x": 0,
+      "y": 40,
+      "width": 106,
+      "band": 51,
+      "height": 18,
+      "parent": "cockpit",
+      "upGap": 12,
+      "texturePath": "assets/v03/cockpit-canopy.png",
+      "calibration": {
+        "width": 106,
+        "order": {
+          "up": 51,
+          "right": 51,
+          "down": 51,
+          "left": 51
+        },
+        "offsets": {
+          "up": {
+            "x": 0,
+            "y": -12
+          },
+          "right": {
+            "x": 2.16,
+            "y": -7.5
+          },
+          "down": {
+            "x": 0,
+            "y": -8.1
+          },
+          "left": {
+            "x": -2.16,
+            "y": -7.5
+          }
+        }
+      }
+    },
+    {
+      "id": "gunL",
+      "label": "Left gun",
+      "asset": "gun",
+      "x": -170,
+      "y": 0,
+      "width": 34,
+      "band": 60,
+      "height": 10,
+      "side": -1,
+      "parent": "wingL",
+      "texturePath": "assets/v02/gun.png",
+      "calibration": {
+        "width": 34,
+        "order": {
+          "up": 60,
+          "right": 60,
+          "down": 60,
+          "left": 60
+        },
+        "offsets": {
+          "up": {
+            "x": 0,
+            "y": -10
+          },
+          "right": {
+            "x": 1.2,
+            "y": -6.25
+          },
+          "down": {
+            "x": 0,
+            "y": -2.5
+          },
+          "left": {
+            "x": -1.2,
+            "y": -6.25
+          }
+        }
+      }
+    },
+    {
+      "id": "gunR",
+      "label": "Right gun",
+      "asset": "gun",
+      "x": 170,
+      "y": 0,
+      "width": 34,
+      "band": 60,
+      "height": 10,
+      "side": 1,
+      "parent": "wingR",
+      "texturePath": "assets/v02/gun.png",
+      "calibration": {
+        "width": 34,
+        "order": {
+          "up": 61,
+          "right": 61,
+          "down": 61,
+          "left": 61
+        },
+        "offsets": {
+          "up": {
+            "x": 0,
+            "y": -10
+          },
+          "right": {
+            "x": 1.2,
+            "y": -6.25
+          },
+          "down": {
+            "x": 0,
+            "y": -2.5
+          },
+          "left": {
+            "x": -1.2,
+            "y": -6.25
+          }
+        }
+      }
+    }
+  ],
+  "behaviour": {
+    "fixedZ": true,
+    "cockpitAboveCowlings": true,
+    "layerBlackOverlay": 0.03,
+    "interpolation": "periodic monotone cubic Hermite, no scalar overshoot",
+    "defaultRotationFFD": false,
+    "ffd": "per-part relief meshes with shared heading-relative tilt",
+    "yawLeftBankDegrees": 22,
+    "yawRightBankDegrees": -22,
+    "acceleratePitchDegrees": -13,
+    "brakePitchDegrees": 17,
+    "engineCowlingMotionRatio": 0.12,
+    "gunStaggerMilliseconds": 80
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "id": "human-nomad-scrappy-v1",
+  "status": "approved",
+  "approvedDate": "2026-11-10",
+  "ownerDecision": "User accepted current rig, then requested saving assets and Claude instructions; includes subsequent inverted yaw FFD.",
+  "calibrationSha256": "9a45d0609b519048e6168493f5b77190ea8f62e13808182c3c14a06a914b9d71",
+  "workingCopy": "calibration-draft.json",
+  "immutableCalibration": "calibration-approved.json"
+}

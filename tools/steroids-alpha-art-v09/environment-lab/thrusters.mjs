@@ -1,0 +1,13 @@
+// Renderer-independent, screen/world-unit thruster emitter. No ground projection.
+export class ThrusterVFX {
+ constructor(random=Math.random){this.random=random;this.particles=[];this.flashes=[];this.previous={throttle:false,left:false,right:false};this.credits=[0,0];this.bursts=[0,0];this.strong=[false,false];}
+ spawn(origin,strong,burst=false){const r=this.random,particleScale=origin.particleScale??1,a=origin.angle*Math.PI/180,side=(r()-.5)*(burst?1.4:.45),speed=(burst?180:strong?270:95)*(0.7+r()*.6)*particleScale,dx=-Math.sin(a),dy=Math.cos(a),sx=Math.cos(a),sy=Math.sin(a),q=r();this.particles.push({x:origin.x+sx*(r()-.5)*origin.width*.55,y:origin.y+sy*(r()-.5)*origin.width*.55,vx:(dx+sx*side)*speed,vy:(dy+sy*side)*speed,age:0,life:burst?.22+r()*.22:strong?.22+r()*.22:.16+r()*.21,w:(burst?4.5+r()*8:2.2+r()*3.5)*particleScale,h:(burst?6+r()*12:strong?7+r()*13:4+r()*7)*particleScale,angle:a,color:q<.12?'#ffa65f':q<.42?'#e4fcff':q<.78?'#62d9ff':'#4286ff'});}
+ update(dt,input,origins){dt=Math.min(.05,Math.max(0,dt));const edges={throttle:input.throttle&&!this.previous.throttle,left:input.left&&!this.previous.left,right:input.right&&!this.previous.right};
+  // Engine indices are craft-left, craft-right. Outside engine drives the yaw.
+  this.strong=[!!(input.throttle||input.right),!!(input.throttle||input.left)];
+  const burst=[edges.throttle||edges.right,edges.throttle||edges.left];
+  for(let i=0;i<2;i++){if(burst[i]){this.bursts[i]++;this.flashes.push({...origins[i],age:0,life:.18});for(let n=0;n<86;n++)this.spawn(origins[i],true,true);}this.credits[i]+=dt*(this.strong[i]?155:40);while(this.credits[i]>=1){this.spawn(origins[i],this.strong[i]);this.credits[i]--;}}
+  this.previous={...input};for(const p of this.particles){p.age+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=Math.exp(-dt*1.1);p.vy*=Math.exp(-dt*1.1);}this.particles=this.particles.filter(p=>p.age<p.life).slice(-900);for(const f of this.flashes)f.age+=dt;this.flashes=this.flashes.filter(f=>f.age<f.life);
+ }
+ draw(ctx){ctx.save();for(const p of this.particles){const a=1-p.age/p.life;ctx.globalAlpha=a*a;ctx.fillStyle=p.color;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);ctx.restore();}ctx.globalAlpha=1;for(const f of this.flashes){const t=f.age/f.life,size=f.width*(.8+t*1.2);ctx.save();ctx.translate(f.x,f.y);ctx.rotate(f.angle*Math.PI/180);ctx.globalAlpha=(1-t)*.85;ctx.fillStyle='#73cfff';ctx.fillRect(-size/2,0,size,size*.5);ctx.fillStyle='#f0fcff';ctx.fillRect(-size*.3,0,size*.6,size*.26);ctx.fillStyle='#ffb173';ctx.fillRect(-size*.14,-2,size*.28,4);ctx.restore();}ctx.restore();}
+}

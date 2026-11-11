@@ -1,0 +1,120 @@
+{
+  "status": "draft-review",
+  "nativeScene": true,
+  "generatedBackgroundImage": false,
+  "viewport": [
+    1440,
+    810
+  ],
+  "baseline": "human-nomad-rig-v1-20261110",
+  "shipAssets": "../releases/human-nomad-rig-v1-20261110/assets",
+  "calibration": "../releases/human-nomad-rig-v1-20261110/calibration-approved.json",
+  "rigModules": 12,
+  "shipTextures": 8,
+  "assets": [
+    {
+      "path": "assets/crater.svg",
+      "bytes": 671,
+      "sha256": "a1f058cd522c6cdf1746d7a4f7eef4de0f5d95317213ea5dd5872c63f9a9a0ee"
+    },
+    {
+      "path": "assets/ground-tile.svg",
+      "bytes": 6512,
+      "sha256": "3bb72c095dc97de42195dd31393af71e63cd88f700461612d4270e230df1628c"
+    },
+    {
+      "path": "assets/landing-pad.svg",
+      "bytes": 823,
+      "sha256": "f7b070a9d60fd9007e9c8c721332ee6b5077153981137fd304ae846c32c911e6"
+    },
+    {
+      "path": "assets/rock-cluster.svg",
+      "bytes": 689,
+      "sha256": "61400b50d6f1d1c0802343d45b95a17b80e7630e5dd149aaf46af88931282115"
+    },
+    {
+      "path": "assets/sand-channel.svg",
+      "bytes": 6688,
+      "sha256": "96970c225cb3dbb7ac3576b6358e2e0e93b98feefe72c276739cb6c68f7d3ad8"
+    },
+    {
+      "path": "assets/wreck.svg",
+      "bytes": 984,
+      "sha256": "770a4b2237e8f85369fa68075858492fe3d8181ea8ed804419f93b3138f4f172"
+    }
+  ],
+  "thrusterModule": "thrusters.mjs",
+  "projection": "projection.mjs",
+  "published": false,
+  "verification": {
+    "logic": "passed lab.test.mjs including progressive emergence, retained projection, FFD parity, flight and VFX checks",
+    "baseline": "passed verify-baseline.mjs",
+    "browser": "Brave visual review: default C, enlarged C and synchronized movement; no captured console errors",
+    "performance": "Foreground FPS not established; no performance guarantee",
+    "proofs": [
+      "planet-edge-v09.png",
+      "rotation-day-v09.png",
+      "rotation-night-v09.png"
+    ]
+  },
+  "version": 9,
+  "defaultProjection": "C: visible circular side rims",
+  "comparisons": [
+    "flat",
+    "horizon"
+  ],
+  "projectionModel": "rScreen = R * sin(rWorld / R), centred on ship; radius 608.25px at default",
+  "comparison": "http://127.0.0.1:5342/environment-lab/comparison.html",
+  "comparisonViews": [
+    {
+      "id": "A",
+      "projection": "current oversized circle",
+      "shipScale": 0.48
+    },
+    {
+      "id": "B",
+      "projection": "flat repeating ground / no distortion",
+      "shipScale": 0.48
+    },
+    {
+      "id": "C",
+      "projection": "visible circular side rims; planet extends top/bottom",
+      "shipScale": 0.18,
+      "radiusAtDefault": 608.2476923076923
+    }
+  ],
+  "comparisonProof": "verification-v09.json",
+  "shadow": {
+    "sunAzimuth": 238,
+    "sunElevation": 60,
+    "projectionReach": 56,
+    "defaultX": 17.13,
+    "defaultY": 27.42,
+    "linkedToSun": true
+  },
+  "rim": {
+    "innerBlend": "soft light",
+    "innerDepthBand": 0.48,
+    "outerHaloPixels": 72,
+    "linkedToSun": true
+  },
+  "largePropVisibility": "footprint culling, subdivided horizon-clipped triangles with UV interpolation, 12px limb fade",
+  "lightingStudy": {
+    "module": "lighting.mjs",
+    "fixedWorldSun": {
+      "azimuth": 238,
+      "elevation": 60
+    },
+    "independentSunCycle": false,
+    "model": "rolling sphere; rotation and travel share terrain sample camera and local sun transform",
+    "referenceRadius": 608.2476923076923,
+    "rotationDegreesPerSecond": 4,
+    "controls": [
+      "Rotate planet",
+      "Planet rotation",
+      "Rotation speed"
+    ],
+    "night": "ambient light; direct ship shadow fades out",
+    "limitation": "Repeating local terrain rather than globe atlas; baked source highlights/prop shadows only receive overall brightness"
+  }
+}

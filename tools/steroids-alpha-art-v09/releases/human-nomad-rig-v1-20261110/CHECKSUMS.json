@@ -1,0 +1,181 @@
+{
+  "schema": 1,
+  "id": "human-nomad-scrappy-v1",
+  "files": [
+    {
+      "path": ".gitattributes",
+      "bytes": 90,
+      "sha256": "18fc392862bec757b8b3d7630063e0d6b7cdc4913fd25ad93498f87db1e502c7"
+    },
+    {
+      "path": "APPROVAL.json",
+      "bytes": 438,
+      "sha256": "95d2beef6bd37b8b5eaee6735cfc786028786536cb79e732ba7371417f888b1f"
+    },
+    {
+      "path": "assets/concept.png",
+      "bytes": 1388556,
+      "sha256": "6c03c6e65974d67a19f76e73c27c3245d07ab3846ace06677577a0c0e0de41d9"
+    },
+    {
+      "path": "assets/v02/armour.png",
+      "bytes": 1362845,
+      "sha256": "1bd094ddf2091e85a3953087d8282f5aa78d96e122e523926ebaef893142f352"
+    },
+    {
+      "path": "assets/v02/chassis.png",
+      "bytes": 749975,
+      "sha256": "32e66e496afaceaad2295089ef3e54eae1056fcee2e55b904c43035616a65c6f"
+    },
+    {
+      "path": "assets/v02/gun.png",
+      "bytes": 434147,
+      "sha256": "970f42e24c3a134bc87ec4e52b491da3511b4e087837475a1d264e65925f0d9b"
+    },
+    {
+      "path": "assets/v02/wing.png",
+      "bytes": 831945,
+      "sha256": "3c41b8e5848edb9fbf3c7c8f71022531deb2c7f4a39cc2215c7a7011c53f2043"
+    },
+    {
+      "path": "assets/v03/booster-core.png",
+      "bytes": 1069766,
+      "sha256": "c741956614a48f62c5628178edb2abc3817650a74e50e2d7a25d594d9bef756f"
+    },
+    {
+      "path": "assets/v03/booster-cowling.png",
+      "bytes": 1099559,
+      "sha256": "548afef6a980b5e848b50fcdd6c776cdda8c2636209d390574e04ff7f7b8de15"
+    },
+    {
+      "path": "assets/v03/cockpit-base.png",
+      "bytes": 951532,
+      "sha256": "49d60e292183020dde3d39644d9d6527581ca9d43aed16808e3265194bf1afe6"
+    },
+    {
+      "path": "assets/v03/cockpit-canopy.png",
+      "bytes": 673892,
+      "sha256": "467bd8d457fb993e76c53abb3ea93f0dcbeaff9014692f7ff8ee1afabd60bc3e"
+    },
+    {
+      "path": "calibration-approved.json",
+      "bytes": 5439,
+      "sha256": "9a45d0609b519048e6168493f5b77190ea8f62e13808182c3c14a06a914b9d71"
+    },
+    {
+      "path": "calibration-before-fixed-z-v11.json",
+      "bytes": 5439,
+      "sha256": "f5f42fa1709ab866f105fdbc690d8408469289c93c52069ddd5892c938ea321f"
+    },
+    {
+      "path": "CLAUDE.md",
+      "bytes": 9822,
+      "sha256": "f7078ebb2e8f03c6cba180bb0b027e0e21a72b5bb0b47ceea9cf6fdca8713d1e"
+    },
+    {
+      "path": "depth-effects.mjs",
+      "bytes": 287,
+      "sha256": "22757309ac2efb72bed8b660d32830e4530ba536a6910fb509d854b4130dd4cb"
+    },
+    {
+      "path": "depth-effects.test.mjs",
+      "bytes": 1069,
+      "sha256": "19b915f794cde08896aa89381c455ae774dde8429e90f6c31cda0d6df94741e9"
+    },
+    {
+      "path": "ffd.mjs",
+      "bytes": 4191,
+      "sha256": "1ce71c3b7c6b36c9b3c95841feb8dd18212b0760b74c5ffb6379c03f315c2a49"
+    },
+    {
+      "path": "ffd.test.mjs",
+      "bytes": 1048,
+      "sha256": "73cc8af0ce162bbb40dcfc39700af814cf839c77d3d886e2e6f2ab0ac89bcb1f"
+    },
+    {
+      "path": "flight-motion.mjs",
+      "bytes": 953,
+      "sha256": "860cbbd46bfae0ae63150edc68e7d90c1b840cb0f24bcc222f7054132cf940ce"
+    },
+    {
+      "path": "flight-motion.test.mjs",
+      "bytes": 1623,
+      "sha256": "9ee6409e32d08c8b3962857c6bac59a92a2e61b298089613fb80afddb5f65e00"
+    },
+    {
+      "path": "index.html",
+      "bytes": 9378,
+      "sha256": "92ad734b29df28bbfdb15ffa64ee264956de719a3b0ccf2fe6780db3ce15b70a"
+    },
+    {
+      "path": "lab.mjs",
+      "bytes": 14863,
+      "sha256": "2f33dd09aeca5550ef0f77755fa7c7604867e760e47f1c1d754608949b3c237d"
+    },
+    {
+      "path": "part-prompts-v02.json",
+      "bytes": 8903,
+      "sha256": "edd1d3902112db7e04aa99d20d67da576f4be431ba10bdb9ab5b0c61546eeddd"
+    },
+    {
+      "path": "part-prompts-v03.json",
+      "bytes": 5792,
+      "sha256": "5df2863cf7f4d6d796828a1102e1e223732b16f6ee269fa73295475d33d72d0e"
+    },
+    {
+      "path": "part-prompts.json",
+      "bytes": 7774,
+      "sha256": "30a9ee1af93eb25e0440e8caa0cab50ba5e916ea84fee7655b11449fb444b883"
+    },
+    {
+      "path": "README.md",
+      "bytes": 2140,
+      "sha256": "e3abe81ede9cd8cee3221d81bee7d62eb2a5eaa50959e0d3adfdc673df651980"
+    },
+    {
+      "path": "restore-assets.mjs",
+      "bytes": 1989,
+      "sha256": "6caae613c636e7bf250cd8209e09dbcdff6bdf91c1f0ce7f4a7aab9901055147"
+    },
+    {
+      "path": "review/approved-preview.png",
+      "bytes": 303646,
+      "sha256": "3149addbbdf2a40b221b177e57cc4a374bd4ae451d1699f182060dbd07f23727"
+    },
+    {
+      "path": "rig.mjs",
+      "bytes": 6850,
+      "sha256": "810be08a02c4ac34d3e62ca2590b374624d87d68b2a8b9c49bbb1ff15dddcb62"
+    },
+    {
+      "path": "rig.test.mjs",
+      "bytes": 6013,
+      "sha256": "a3661d92fca2cb22546495e49a4cc822cf79d7ccf5b2ae583884dda52c50234b"
+    },
+    {
+      "path": "server.mjs",
+      "bytes": 2567,
+      "sha256": "5a742c8668615f732053598524258e878d7d8b8b82528c23d992d0ea81dc0a7e"
+    },
+    {
+      "path": "ship-manifest.json",
+      "bytes": 12399,
+      "sha256": "2f4f6bf7172fe66d993c4e3603d1c4e5d2fa2b85bcc451cfe9e6623fc4423635"
+    },
+    {
+      "path": "vendor/PHASER-LICENSE.md",
+      "bytes": 1120,
+      "sha256": "080f3d5539e766bb556df5b8e86c4f5d581ece35c692b80956ca352b84d29134"
+    },
+    {
+      "path": "vendor/phaser.min.js",
+      "bytes": 1196122,
+      "sha256": "e92ddef111ba42e92d316979c732311757093688ea1810591cb7aa2858eba7a7"
+    },
+    {
+      "path": "verify-baseline.mjs",
+      "bytes": 947,
+      "sha256": "d9291781e67ccce353db4c2300b94984a7c6e24088821abb39da355740ee2c35"
+    }
+  ]
+}

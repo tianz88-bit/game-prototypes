@@ -1,0 +1,5 @@
+**/assets/
+**/review/
+**/vendor/phaser.min.js
+*.png
+*.zip
