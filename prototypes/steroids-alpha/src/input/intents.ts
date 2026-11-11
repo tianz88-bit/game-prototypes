@@ -66,8 +66,17 @@ export class Intents {
   private stickPointer: number | null = null;
   private firePointer: number | null = null;
 
+  /**
+   * Phone play is landscape only (owner decision). On a touch device held upright the game shows a
+   * rotate prompt and every intent reads as neutral until the phone is turned.
+   */
+  get portraitBlocked(): boolean {
+    return this.touch && window.innerHeight > window.innerWidth;
+  }
+
   /** Fire is held (keyboard Space or J, or a finger on the fire button). */
   get fire(): boolean {
+    if (this.portraitBlocked) return false;
     return this.firePointer !== null || this.held.has(' ') || this.held.has('j');
   }
 
@@ -89,6 +98,10 @@ export class Intents {
 
   /** True once per press since the last call. */
   consume(p: Press): boolean {
+    if (this.portraitBlocked) {
+      this.presses.clear();
+      return false;
+    }
     const had = this.presses.has(p);
     this.presses.delete(p);
     return had;
@@ -136,6 +149,7 @@ export class Intents {
    * speed (the direction-marker scheme steers the throttle toward a target speed).
    */
   flight(speed: number): { turn: number; aim: number; thrust: number } {
+    if (this.portraitBlocked) return { turn: 0, aim: NaN, thrust: 0 };
     const st = this.stick;
     if (!st) return { turn: this.turn, aim: NaN, thrust: this.thrust };
     const r = clientTune.touch.joystickRadius;
@@ -155,6 +169,7 @@ export class Intents {
 
   private onDown(e: PointerEvent): void {
     if (e.pointerType === 'touch') this.touch = true;
+    if (this.portraitBlocked) return;
     const x = e.clientX;
     const y = e.clientY;
     this.taps.push({ x, y });

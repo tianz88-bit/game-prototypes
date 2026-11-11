@@ -3,6 +3,7 @@ import { DEBUG, DPR, refreshDpr } from './base';
 import { intents } from './input/intents';
 import { BootScene } from './scenes/boot';
 import { MenuScene } from './scenes/menu';
+import { RotateScene } from './scenes/rotate';
 import { FlightScene } from './scenes/flight';
 import { mountDebugPanelIfRequested } from './debug/debugPanel';
 import { shipArtStatus } from './render/shipArt';
@@ -19,11 +20,14 @@ const game = new Phaser.Game({
   // Phaser input is off: all input goes through the intent layer.
   input: { mouse: false, touch: false, keyboard: false, gamepad: false },
   render: { antialias: true, roundPixels: false },
-  scene: [BootScene, MenuScene, FlightScene],
+  scene: [BootScene, MenuScene, FlightScene, RotateScene],
 });
 
 game.events.once(Phaser.Core.Events.READY, () => {
   intents.attach(game.canvas);
+  // Always running, on top of everything: the landscape prompt for phones held upright.
+  game.scene.run('rotate');
+  game.scene.bringToTop('rotate');
 });
 
 function fit(): void {
@@ -76,6 +80,7 @@ if (DEBUG) {
       scene: () => (flight() ? 'flight' : game.scene.isActive('boot') ? 'boot' : 'menu'),
       shipArt: () => shipArtStatus,
       scheme: () => intents.scheme,
+      portraitBlocked: () => intents.portraitBlocked,
       asteroids: () => flight()?.net.asteroidRender().map((r) => ({ id: r.a.id, size: r.a.size, hp: r.a.hp, x: r.x, y: r.y })) ?? [],
       splits: () => flight()?.net.splits ?? 0,
       bullets: () => flight()?.net.bullets.length ?? 0,

@@ -19,7 +19,9 @@ All names, ships, pilots and art are original. Nothing is copied from either.
 
 - Browser game. Phaser 3, TypeScript (strict), Vite, per the repo stack.
 - All game UI drawn in the Phaser canvas. No DOM UI overlay.
-- Must be playable on a phone (repo rule kept, no exemption).
+- Must be playable on a phone (repo rule kept, no exemption). Phones play in
+  landscape only (owner decision): held upright, the game asks the player to
+  turn the phone sideways.
 - Client deploys to itch.io via Butler (repo default for new prototypes).
 - Server deploys to Cloudflare Workers (Durable Objects + D1).
 - No new npm dependencies without owner approval.

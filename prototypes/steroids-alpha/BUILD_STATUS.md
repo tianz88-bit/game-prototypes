@@ -3,9 +3,10 @@
 Milestone 2 in progress: controls, shooting and splitting asteroids are built
 and verified locally. Still to build from the owner's latest direction: the
 cloud-layer transition, the solo space hub (planet select as a space scene),
-and the single-player practice planet. The server is still NOT deployed: the
-repo's CLOUDFLARE_API_TOKEN secret is invalid, so planets show "Disconnected"
-on itch.
+and the single-player practice planet. The server is deployed
+(steroids-alpha-server.tianz-88.workers.dev answers /health with protocol 3)
+after the owner replaced the Cloudflare token, so the itch draft is playable
+online.
 
 ## What was implemented
 
@@ -30,6 +31,11 @@ on itch.
   in proportion to its damage, and spread sideways, wider for a harder hit.
   Asteroids hurt ships on contact, and a ship that rams one damages it. Each
   planet keeps itself stocked with new large asteroids, away from ships.
+- Landscape only on phones: a phone held upright shows a "turn your phone
+  sideways" screen over everything and all input is ignored until it is turned
+  (`src/scenes/rotate.ts`, `Intents.portraitBlocked`).
+- Steroids-Alpha-only changes no longer redeploy the Punchies "Current WIP"
+  itch slot (`.github/workflows/deploy-wip-itch.yml`).
 - Hull points with a bar; bullets also damage other players' ships. A
   destroyed ship is removed from the planet and returns to planet select.
 - `sim/world.ts` holds all of these rules with no networking, so the same code
@@ -59,9 +65,6 @@ on itch.
 
 ## Open questions
 
-- Phone portrait view shows only about 195 px to each side while bullets fly
-  about 800 px. Should the camera zoom out on phones, or should play be
-  landscape?
 - PvP bullets have no lag compensation yet (the brief plans up to 200 ms).
   Hitting another player needs leading the target for now.
 - What should happen on death before wrecks and loot exist? Currently the
@@ -75,10 +78,11 @@ on itch.
 
 ## Known issues
 
-- Server not deployed: CLOUDFLARE_API_TOKEN is rejected ("Invalid access token
-  [code 9109]"). The owner needs to replace it; Firestorm's Worker deploys are
-  affected too.
 - Not yet tested on a real phone or over a real network.
+- The itch embed's orientation is still "Default"; it could be set to
+  Landscape so mobile itch launches sideways (an itch page setting).
+- Landscape phones show about 195 px above and below the ship; the camera may
+  need to zoom out once tested on a real phone.
 - Asteroids, bullets and effects are placeholder shapes.
 - A bullet fired by another player appears slightly ahead of that ship's
   drawn position (the ship is drawn about 100 ms in the past).
@@ -89,8 +93,8 @@ on itch.
 ## Next proposed step
 
 Cloud-layer entry transition, then the solo space hub replacing the planet
-menu, then the practice planet (a private single-player room). Owner replaces
-the Cloudflare token so all of this can be played on itch.
+menu, then the practice planet (a private single-player room). Owner plays
+the itch draft on a phone in landscape and reports on feel.
 
 ### Run locally
 
