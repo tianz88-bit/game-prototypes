@@ -43,9 +43,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify live settings and publisher boundaries
-        run: node scripts/test-steroids-live-config.mjs
-
       - name: Check deployment prerequisites
         id: ready
         env:
@@ -68,6 +65,10 @@ jobs:
       - name: Install dependencies
         if: steps.ready.outputs.run == 'true'
         run: npm ci
+
+      - name: Verify live settings and publisher boundaries
+        if: steps.ready.outputs.run == 'true'
+        run: node scripts/test-steroids-live-config.mjs
 
       # Approved Human Nomad ship art from R2 (not in Git). art/prepare-assets.mjs checks every part's
       # SHA-256 against the approved kit and stages it; pack-assets writes the hashed art manifest.
