@@ -15,6 +15,7 @@ const entry = `export * from ${JSON.stringify(path.join(sim, 'world.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'ship.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'asteroids.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'protocol.ts'))};
+export * as thrusters from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/src/render/thrusters.ts'))};
 export * as planet from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/src/render/planet.ts'))};`;
 await build({ stdin: { contents: entry, resolveDir: sim, loader: 'ts' }, bundle: true, format: 'esm', platform: 'node', outfile: path.join(tmp, 'sim.mjs'), logLevel: 'silent' });
 const S = await import(pathToFileURL(path.join(tmp, 'sim.mjs')).href);
@@ -240,4 +241,39 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   near(Math.hypot(low.x, low.y), 56 * 2.5, 1e-9, 'shadow length is bounded');
 }
 
-console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format and planet lighting all pass.');
+// --- Thruster exhaust (render/thrusters.ts): the handoff lab's own acceptance cases. ---
+{
+  const { ThrusterVFX } = S.thrusters;
+  const idleIn = { throttle: false, left: false, right: false };
+  const origins = [{ x: -20, y: 30, width: 12, angle: 0 }, { x: 20, y: 30, width: 12, angle: 0 }];
+  const v = new ThrusterVFX(() => 0.5);
+  for (let i = 0; i < 60; i++) v.update(1 / 60, idleIn, origins);
+  assert(v.particles.length > 0, 'steady idle exhaust');
+  assert.deepEqual(v.bursts, [0, 0]);
+  v.update(1 / 60, { ...idleIn, left: true }, origins);
+  assert.deepEqual(v.strong, [false, true], 'left turn drives the right (outside) engine');
+  assert.deepEqual(v.bursts, [0, 1]);
+  for (let i = 0; i < 120; i++) v.update(1 / 60, { ...idleIn, left: true }, origins);
+  assert.deepEqual(v.bursts, [0, 1], 'a held turn never bursts again');
+  v.update(1 / 60, idleIn, origins);
+  v.update(1 / 60, { ...idleIn, throttle: true }, origins);
+  assert.deepEqual(v.strong, [true, true], 'throttle drives both engines');
+  assert.deepEqual(v.bursts, [1, 2]);
+  for (let i = 0; i < 120; i++) v.update(1 / 60, { ...idleIn, throttle: true }, origins);
+  assert.deepEqual(v.bursts, [1, 2], 'held throttle never bursts again');
+  v.update(1 / 60, idleIn, origins);
+  v.update(1 / 60, { ...idleIn, right: true }, origins);
+  assert.deepEqual(v.strong, [true, false], 'right turn drives the left engine');
+  assert(v.particles.length <= 900 && v.particles.every((p) => Number.isFinite(p.x) && p.w > 0 && p.h > 0), 'bounded, valid particles');
+  const burst = new ThrusterVFX(() => 0.5);
+  burst.update(1 / 60, { ...idleIn, throttle: true }, origins);
+  assert(burst.particles.length >= 172, 'burst emits at least 86 per engine');
+  const big = new ThrusterVFX(() => 0.5);
+  const small = new ThrusterVFX(() => 0.5);
+  big.spawn(origins[0], true);
+  small.spawn({ ...origins[0], particleScale: 0.375 }, true);
+  near(small.particles[0].w / big.particles[0].w, 0.375, 1e-12, 'particles scale with the craft');
+  near(small.particles[0].vy / big.particles[0].vy, 0.375, 1e-12, 'particle speed scales with the craft');
+}
+
+console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting and thrusters all pass.');

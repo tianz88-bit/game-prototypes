@@ -78,6 +78,11 @@ All names, ships, pilots and art are original. Nothing is copied from either.
   fading out at night) all follow it. Turning the ship in place never changes
   the light. The planet's turn comes from the server clock, so players in the
   same place see the same light.
+- Ships and other game objects dim only about 10% on the night side, so they
+  stay readable; the ground goes properly dark (owner decision).
+- Thruster exhaust: steady at idle, a burst when throttle or a turn starts,
+  strong while held; turning fires the outside engine. Blue and white with
+  some orange, rectangular particles.
 - Default (confirm): one lap of the wrapping map is one turn of the ball, so
   the light has no jump at the map seam; the drop zone starts in daylight;
   the planet turns 1 degree per second (a 6 minute day).

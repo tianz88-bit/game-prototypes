@@ -1,8 +1,8 @@
 ## Current milestone
 
-Integrating the owner's environment handoff v09 (from Codex) in steps. Step 1
-is done: the planet view (composition C) and fixed-sun lighting. Next:
-thruster flames and FFD tilt, then ground props with horizon clipping, then
+Integrating the owner's environment handoff v09 (from Codex) in steps. Done:
+the planet view (composition C), fixed-sun lighting, and thruster exhaust.
+Next: FFD tilt, then ground props with horizon clipping, then
 the cloud transition, solo space hub and practice planet. The server is live
 and the itch page is public and unlisted.
 
@@ -41,6 +41,13 @@ and the itch page is public and unlisted.
 - Fixed sun: terrain, rim, ship brightness and the ship's hard shadow follow
   one sun as the planet turns (server clock) and as the ship travels. Night
   dims everything to 30% and removes the shadow.
+- Thruster exhaust (port of the handoff's ThrusterVFX, same rates, sizes and
+  colours): steady idle, a burst when throttle or a turn starts, strong
+  emission while held, outside engine on turns. Driven by how each ship is
+  actually moving, so it also shows on other players' ships. A dash counts
+  as throttle. Replaces the placeholder dash flame.
+- Ships and asteroids dim only 10% on the night side (owner decision,
+  `render.nightObjectDim`); the ground still goes dark.
 - Terrain art is generated at pack time from the handoff's own SVG
   definitions and checked against its manifest hashes; nothing is committed.
 - Hull points with a bar; bullets also damage other players' ships. A
@@ -99,6 +106,8 @@ and the itch page is public and unlisted.
   need to zoom out once tested on a real phone.
 - Asteroids, bullets and effects are placeholder shapes.
 - Ground props (crater, rocks, wreck, landing pad) are not drawn yet.
+- The rig is not complete against the lab: FFD pitch/bank tilt is missing, so
+  thruster nozzles are placed without tilt.
 - The sand channels use a slightly sheared layout so they repeat across the
   map seam; the lab's rotated layout did not divide the map.
 - A bullet fired by another player appears slightly ahead of that ship's
@@ -109,8 +118,8 @@ and the itch page is public and unlisted.
 
 ## Next proposed step
 
-Thruster flames (steady, burst on throttle and turn) and FFD tilt through a
-Phaser mesh, then ground props with horizon clipping. Owner checks the planet
+FFD tilt through a Phaser mesh (the last missing piece of the approved rig),
+then ground props with horizon clipping. Owner checks the planet
 view on a real phone for frame rate.
 
 ### Run locally

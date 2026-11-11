@@ -139,6 +139,15 @@ export class FlightScene extends Phaser.Scene {
     return { brightness: this.frame.brightness, daylight: this.frame.daylight, sun: this.frame.sun, rotationDeg: this.rotationDeg };
   }
 
+  /**
+   * How bright ships and other game objects are drawn. The ground goes properly dark at night, but
+   * things you need to see only dim a little (owner decision: about 10% on the dark side).
+   */
+  private objectLight(): number {
+    const night = 1 - (this.frame.brightness - 0.3) / 0.7;
+    return 1 - clientTune.render.nightObjectDim * Math.max(0, Math.min(1, night));
+  }
+
   /** World position to screen, through the planet projection. scale is screen pixels per world unit there. */
   private toScreen(wx: number, wy: number): { x: number; y: number; scale: number; visible: boolean } {
     const v = this.view;
@@ -156,7 +165,7 @@ export class FlightScene extends Phaser.Scene {
     // The hard shadow lies on the ground, away from the sun.
     const sh = shipShadow(this.frame.sun, clientTune.render.shadowReach);
     const shadow = this.toScreen(s.x + sh.x, s.y + sh.y);
-    ship.update({ ...at, brightness: this.frame.brightness, shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0 }, s, this.time.now);
+    ship.update({ ...at, brightness: this.objectLight(), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0 }, s, this.time.now);
   }
 
   private drawTouch(w: number, h: number): void {
@@ -227,7 +236,7 @@ export class FlightScene extends Phaser.Scene {
     const g = this.world;
     g.clear();
     const now = performance.now();
-    const light = this.frame.brightness;
+    const light = this.objectLight();
     const shade = (c: number): number => (Math.round(((c >> 16) & 255) * light) << 16) | (Math.round(((c >> 8) & 255) * light) << 8) | Math.round((c & 255) * light);
     for (const { a, x, y } of this.net.asteroidRender()) {
       const r = TUNE.asteroid.radius[a.size];
@@ -312,26 +321,17 @@ interface DrawnShip {
   destroy(): void;
 }
 
-/** The approved Human Nomad rig, plus a placeholder dash flame until thruster art exists. */
+/** The approved Human Nomad rig with its thruster exhaust. */
 class RigShip implements DrawnShip {
   private view: ShipView;
-  private flame: Phaser.GameObjects.Graphics;
 
   constructor(scene: Phaser.Scene, mine: boolean) {
-    this.flame = scene.add.graphics().setDepth(19);
     this.view = new ShipView(scene, mine);
   }
 
   update(at: ShipPlacement, s: ShipState, timeMs: number): void {
-    this.view.update(at, s.heading, timeMs);
-    this.flame.clear();
-    if (s.dashTime > 0 && at.visible) {
-      // Behind the thrusters: the rig's engines sit about 110 rig px aft of the centre.
-      const k = clientTune.render.shipScale * at.scale;
-      this.flame.fillStyle(0xffd27a, 0.8);
-      this.flame.fillTriangle(-110 * k, -40 * k, -110 * k, 40 * k, -230 * k, 0);
-      this.flame.setPosition(at.x, at.y - 28 * k).setRotation(s.heading);
-    }
+    // A dash counts as full throttle for the exhaust.
+    this.view.update(at, s.heading, timeMs, s.speed, s.dashTime > 0);
   }
 
   fire(side: number): void {
@@ -340,7 +340,6 @@ class RigShip implements DrawnShip {
 
   destroy(): void {
     this.view.destroy();
-    this.flame.destroy();
   }
 }
 
