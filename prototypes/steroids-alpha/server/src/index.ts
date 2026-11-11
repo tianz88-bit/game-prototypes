@@ -84,7 +84,7 @@ export class PlanetRoom {
     const client = pair[0];
     const server = pair[1];
     acceptBinary(server);
-    this.room.join(server);
+    this.room.join(server, new URL(request.url).searchParams.get('name'));
     return new Response(null, { status: 101, webSocket: client } as ResponseInit);
   }
 }

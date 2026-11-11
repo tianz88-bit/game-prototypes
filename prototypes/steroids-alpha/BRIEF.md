@@ -144,6 +144,22 @@ All names, ships, pilots and art are original. Nothing is copied from either.
 - Dash: short burst of speed on a cooldown or energy cost.
 - Energy meter shared by firing and dashing (exact rules to confirm).
 - Hull HP; destroyed at 0.
+- Shield (owner decision): a blue meter that takes damage before the hull.
+  It equals 50% of the original hull, and the hull was halved to make room
+  (hull 50 + shield 50). It starts regenerating 5 s after the last damage,
+  at 5% of the shield per second. A blocked hit shows blue hexagons on the
+  shield bubble where it landed.
+- Ramming an asteroid destroys it (it splits), and the ship and the rock are
+  pushed apart in opposite directions (owner decision). The ship still takes
+  contact damage.
+- Health boost (owner decision): destroyed asteroids sometimes drop a pickup
+  that restores 25% of the hull.
+- Destroyed ship (owner decision): it explodes, then the player chooses
+  Respawn (same planet, fresh ship) or Menu.
+- Kills leaderboard on every planet (owner decision): sorted by kills and
+  re-ordering itself live. A player's kills reset to 0 when they die.
+- Night side (owner decision): ships are drawn 30% darker at full night;
+  asteroids and pickups only 10%. The ground goes fully dark.
 
 ### Controls
 
@@ -152,7 +168,10 @@ Both schemes are supported (owner decision), through the intent layer:
 - **Craft-relative:** left/right rotates the ship, up/down accelerates and
   brakes.
 - **Direction marker:** the ship steers toward a chosen direction at its turn
-  rate; how far the stick is pushed sets the throttle.
+  rate; how far the stick is pushed sets the throttle. With the stick at
+  neutral (or released) the ship slows to minimum speed (owner decision). A
+  light push accelerates gently; full acceleration needs the stick pushed
+  most of the way (thrust follows the push on a curve, `touch.markerThrustCurve`).
 - Default (confirm): keyboard uses craft-relative (A/D rotate, W/S throttle);
   the phone stick defaults to direction marker with a toggle to
   craft-relative. Fire, dash and warp are buttons on both.
@@ -205,6 +224,9 @@ Asteroids replace bots as the non-player targets (owner decision).
   (default, confirm).
 
 ## Identity
+
+- Pilot name (owner decision): entered on the main menu, remembered in the
+  browser, shown under the player's ship and on the leaderboard.
 
 Default (confirm):
 
@@ -317,19 +339,29 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 - 3-minute lockdown on entry; then a Warp button comes online.
 - Warp: acceleration mode, only slightly faster than base speed so pursuit is
   possible; launch out after X distance; damage resets the distance only.
+- Pilot name on the main menu, shown under the ship. Kills leaderboard that
+  re-orders itself; kills reset on death.
+- Explosion on destruction, then Respawn or Menu.
+- Marker mode slows to minimum speed at neutral; thrust scales with push.
+- Ramming destroys and splits the asteroid and pushes ship and rock apart.
+- Asteroids sometimes drop a health boost (25% hull).
+- Shield of 50% of the old hull, hull halved; regen after 5 s at 5%/s; blue
+  hexagon hit effect.
+- Ships 30% darker on the night side; other objects 10%.
 
 ## Open questions
 
 1. Which Thunderdogs gameplay aspects to keep beyond controls: score-style
-   pickups, leader bounty, special-weapon crates, health/ammo pickups?
+   pickups, leader bounty, special-weapon crates, ammo pickups? (Health
+   pickups and a kills leaderboard are now in.)
 2. Ship slots and how many parts per slot in v1.
 3. Do part stats exist in v1 (speed, thrust, handling, armour, power), or is
    v1 cosmetic plus weapons only?
 4. Warp-mode details: steering allowed, firing allowed, cancellable?
 5. What makes the 2 PvP planets different (loot tables, asteroids, size,
    look)?
-6. What happens when a ship is destroyed, before wrecks and loot exist? For
-   now it is removed from the planet and returns to planet select.
+6. Does a respawn on a PvP planet need a cost or delay once the stash
+   exists? Right now Respawn is free and instant.
 7. Should the Punchies part-rig be extracted into a shared package
    (`packages/part-rig`) used by both Punchies and Steroids-Alpha?
 8. BRIEF.md was drafted by Claude from the design chat, not written by the

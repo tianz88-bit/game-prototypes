@@ -31,8 +31,35 @@ function sameShape(value: unknown, base: unknown, path = 'config'): void {
   if (keys.length !== actual.length || keys.some(k => !Object.prototype.hasOwnProperty.call(value, k))) fail(`${path}: unexpected or missing fields`);
   for (const key of keys) sameShape((value as Record<string, unknown>)[key], (base as Record<string, unknown>)[key], `${path}.${key}`);
 }
+/**
+ * Settings published before a field existed get that field's bundled default, and fields the game
+ * removed are dropped, so older published versions stay valid as the game's values change. One owner rule: before ships had a shield, the whole
+ * hull pool was hull; it is now split in half between hull and shield (owner decision, 11 Nov 2026).
+ */
+export function upgradeConfig(input: unknown): unknown {
+  if (!input || typeof input !== 'object') return input;
+  const value = structuredClone(input) as Record<string, any>;
+  const ship = value.tune?.ship;
+  if (ship && typeof ship === 'object' && ship.maxShield === undefined && typeof ship.maxHp === 'number') {
+    ship.maxShield = ship.maxHp / 2;
+    ship.maxHp = ship.maxHp / 2;
+  }
+  // Rebuild in the bundled shape and key order: fields the game added get their defaults, fields it
+  // no longer has are dropped, and every value that exists is kept as published (so a changed
+  // deployment-locked value is still rejected by validateConfig below).
+  const rebuild = (target: unknown, base: unknown): unknown => {
+    if (!base || typeof base !== 'object' || Array.isArray(base)) return target === undefined ? structuredClone(base) : target;
+    if (!target || typeof target !== 'object' || Array.isArray(target)) return target;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(base)) out[k] = k in (target as object) ? rebuild((target as Record<string, unknown>)[k], v) : structuredClone(v);
+    return out;
+  };
+  return rebuild(value, defaultConfig());
+}
+
 export function validateConfig(input: unknown): ConfigData {
   const base = defaultConfig();
+  input = upgradeConfig(input);
   sameShape(input, base);
   const value = structuredClone(input) as ConfigData;
   if (value.schema !== 1 || value.calibration.version !== 7) fail('Unsupported configuration version');
@@ -56,11 +83,12 @@ export function validateConfig(input: unknown): ConfigData {
   const s = value.tune.ship, w = value.tune.weapon;
   if (!(s.minSpeed <= s.cruiseSpeed && s.cruiseSpeed <= s.maxSpeed && s.maxSpeed > 0 && s.dashSpeed >= s.minSpeed)) fail('Keep minimum ≤ cruise ≤ maximum speed');
   if (s.acceleration <= 0 || s.braking <= 0 || s.radius <= 0 || s.maxHp <= 0) fail('Acceleration, braking, radius and hull must be positive');
+  if (s.shieldRegenPerSecond > 1 || value.tune.asteroid.healthDropChance > 1 || value.tune.asteroid.healthHealFraction > 1) fail('Shield regeneration, drop chance and heal fraction are fractions (0–1)');
   if (!Number.isInteger(w.fireIntervalSteps) || w.fireIntervalSteps < 1 || w.fireIntervalSteps > 255 || !Number.isInteger(w.bulletLifeSteps) || w.bulletLifeSteps < 1 || w.bulletLifeSteps > 900) fail('Weapon step counts must be positive integers (interval ≤255; life ≤900)');
   if (w.bulletRadius <= 0 || w.bulletSpeed <= 0 || w.convergeDistance <= 0 || value.tune.asteroid.radius.some(n=>n<=0) || value.tune.asteroid.hp.some(n=>n<=0) || value.tune.asteroid.targetMass > 256) fail('Invalid weapon/asteroid size or population');
   const p = value.tune.planet, r = value.clientTune.render;
   if (Math.abs(p.rotationDegPerSec)>12 || Math.abs(p.sunElevationDeg)>90 || Math.abs(p.sunAzimuthDeg)>360) fail('Planet lighting values out of range');
-  if (r.shipScale<.05 || r.shipScale>1 || r.planetRadius<450 || r.planetRadius>3000 || r.referenceHeight<300 || r.referenceHeight>1600 || r.haloWidth<0 || r.haloWidth>200 || r.shadowReach<0 || r.shadowReach>120 || r.nightObjectDim<0 || r.nightObjectDim>1) fail('Visual settings out of range');
+  if (r.shipScale<.05 || r.shipScale>1 || r.planetRadius<450 || r.planetRadius>3000 || r.referenceHeight<300 || r.referenceHeight>1600 || r.haloWidth<0 || r.haloWidth>200 || r.shadowReach<0 || r.shadowReach>120 || r.nightObjectDim<0 || r.nightObjectDim>1 || r.nightShipDim<0 || r.nightShipDim>1) fail('Visual settings out of range');
   for (const n of Object.values(r)) if(n<0 || n>10000) fail('Visual setting out of range');
   return value;
 }

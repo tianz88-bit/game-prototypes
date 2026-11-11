@@ -81,6 +81,18 @@ if (DEBUG) {
       shipArt: () => shipArtStatus,
       scheme: () => intents.scheme,
       light: () => flight()?.lighting() ?? null,
+      roster: () => [...(flight()?.net.roster.values() ?? [])],
+      board: () => flight()?.boardOrder() ?? [],
+      death: () => flight()?.net.death ?? null,
+      deathButtons: () => flight()?.deathButtonZones() ?? [],
+      explosions: () => flight()?.explosionCount() ?? 0,
+      pickups: () => flight()?.net.pickups.size ?? 0,
+      shieldHits: () => flight()?.shieldHitCount ?? 0,
+      /** Debug only: an explosion at your ship, to review the effect. */
+      boom: () => flight()?.debugExplosion(),
+      /** Debug only: a blocked hit on your ship, to review the shield effect. */
+      shieldHit: (angle?: number) => flight()?.debugShieldHit(angle),
+      nameBox: () => (game.scene.getScene('menu') as MenuScene).nameBox,
       portraitBlocked: () => intents.portraitBlocked,
       asteroids: () => flight()?.net.asteroidRender().map((r) => ({ id: r.a.id, size: r.a.size, hp: r.a.hp, x: r.x, y: r.y })) ?? [],
       splits: () => flight()?.net.splits ?? 0,

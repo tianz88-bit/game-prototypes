@@ -1,10 +1,12 @@
 ## Current milestone
 
-Integrating the owner's environment handoff v09 (from Codex) in steps, now with a permanent calibration/balance lab and runtime publication path. Done:
-the planet view (composition C), fixed-sun lighting, and thruster exhaust.
-Next: FFD tilt, then ground props with horizon clipping, then
-the cloud transition, solo space hub and practice planet. The server is live
-and the itch page is public and unlisted.
+Combat feel batch done: pilot names, kills leaderboard, explosion and
+death screen, marker-mode throttle, ramming, health boosts, shield with hex
+hit effect, darker ships at night. Still integrating the owner's environment
+handoff v09 (from Codex) in steps: the planet view, fixed-sun lighting and
+thruster exhaust are done. Next: FFD tilt, then ground props with horizon
+clipping, then the cloud transition, solo space hub and practice planet. The
+server is live and the itch page is public and unlisted.
 
 ## What was implemented
 
@@ -45,18 +47,39 @@ and the itch page is public and unlisted.
   through the same projection and vanish over the horizon.
 - Fixed sun: terrain, rim, ship brightness and the ship's hard shadow follow
   one sun as the planet turns (server clock) and as the ship travels. Night
-  dims everything to 30% and removes the shadow.
+  dims the ground to 30% and removes the shadow.
 - Thruster exhaust (port of the handoff's ThrusterVFX, same rates, sizes and
   colours): steady idle, a burst when throttle or a turn starts, strong
   emission while held, outside engine on turns. Driven by how each ship is
   actually moving, so it also shows on other players' ships. A dash counts
   as throttle. Replaces the placeholder dash flame.
-- Ships and asteroids dim only 10% on the night side (owner decision,
-  `render.nightObjectDim`); the ground still goes dark.
 - Terrain art is generated at pack time from the handoff's own SVG
   definitions and checked against its manifest hashes; nothing is committed.
-- Hull points with a bar; bullets also damage other players' ships. A
-  destroyed ship is removed from the planet and returns to planet select.
+- Hull points with a bar; bullets also damage other players' ships.
+- Pilot name: typed on the menu (a canvas box backed by a hidden input so
+  phones get their keyboard), saved in `steroids-alpha:save:v1`, sent when
+  joining, shown under every ship.
+- Kills leaderboard, top right: rows slide to their new rank when the order
+  changes. The server credits a kill to the living shooter; a player's kills
+  reset to 0 on death (a respawn is a new ship).
+- Death: white flash, fireball, rings and a spark spray for every destroyed
+  ship. Your own death shows "Destroyed by <name>" (or "Your ship was
+  destroyed"), then RESPAWN and MENU buttons after 0.7 s. Space/J respawns,
+  Esc goes to the menu.
+- Marker mode: at neutral or with the finger off the stick the ship brakes to
+  minimum speed; thrust is push^2 (`touch.markerThrustCurve`), so a light
+  push accelerates gently. Keyboard throttle still overrides.
+- Ramming: the asteroid is destroyed and splits away from the ship; the ship
+  is knocked back the opposite way (`ship.knockbackSpeed`, decays at
+  `knockbackDecayPerSecond`) and takes contact damage.
+- Health boost: 15% of destroyed asteroids drop a green cross that heals 25%
+  of the hull; it disappears after 20 s.
+- Shield: hull 50 + shield 50 (was hull 100). The shield takes damage first,
+  regenerates after 5 s without damage at 5% a second. Blue bar above the
+  green hull bar. A blocked hit lights a honeycomb of blue hexagons on the
+  shield bubble where it landed (hits now carry their impact point).
+- Night side: ships 30% darker (`render.nightShipDim`), asteroids and pickups
+  10% (`render.nightObjectDim`).
 - `sim/world.ts` holds all of these rules with no networking, so the same code
   runs in the Cloudflare room and in Node tests.
 - `scripts/test-steroids-alpha-sim.mjs`: rules test (throttle, fire rate,
@@ -76,7 +99,12 @@ and the itch page is public and unlisted.
   the gun mounts are wider than a small asteroid or a ship.
 - A new ship drops in at the candidate point farthest from any asteroid and
   has two seconds of contact immunity.
-- Protocol version is 4. Initial client/server upgrade must deploy together and old clients reload once; subsequent validated live settings need no rebuild.
+- Protocol version is 5 (ship state adds shield and knockback; JSON frames
+  for roster, deaths, hits and pickups). Client and server deploy together;
+  old clients reload once. Validated live settings still need no rebuild.
+- Live settings published before the shield existed are upgraded on load
+  (`upgradeConfig` in `sim/liveConfig.ts`): missing new fields are filled
+  from the bundled values and an old hull is split half hull, half shield.
 - `TEST_SHIP_HP` (a `--var` on `wrangler dev`) raises ship hull points for the
   local browser check only. Unset in production.
 - Weapon, asteroid and speed values in tune.json are first values, not tuned
@@ -93,8 +121,13 @@ and the itch page is public and unlisted.
 
 - PvP bullets have no lag compensation yet (the brief plans up to 200 ms).
   Hitting another player needs leading the target for now.
-- What should happen on death before wrecks and loot exist? Currently the
-  ship is removed and the player returns to planet select.
+- "Darken the ships in the shadows to 30%" was read as 30% darker (ships at
+  70% brightness at full night). If 30% brightness was meant, set
+  `render.nightShipDim` to 0.7. BRIEF.md now records the 30%-darker reading.
+- Respawn is free and instant on PvP planets; should it cost something once
+  the stash exists? (Added to BRIEF.md open questions.)
+- Tuned values for the new systems (knockback 320, heal drop 15%, pickup
+  life 20 s) are first values, not tuned by playing.
 - Loot drops from asteroids wait for the stash milestone.
 - FFD pitch/bank tilt for the ship (needs a Phaser Mesh renderer).
 - Ship art download is about 7 MB.
@@ -120,6 +153,8 @@ and the itch page is public and unlisted.
   map seam; the lab's rotated layout did not divide the map.
 - A bullet fired by another player appears slightly ahead of that ship's
   drawn position (the ship is drawn about 100 ms in the past).
+- Pilot names are not unique and not checked for abuse; anyone can pick any
+  name.
 - On a narrow phone the fire button sits in the left half, where the stick
   also lives; the button takes priority.
 - With `?debug=1` on a narrow phone, the Tweakpane panel covers the status line.
@@ -141,4 +176,6 @@ npm run build && npx vite preview --host 127.0.0.1 --port 4173 --strictPort
 node scripts/test-steroids-alpha-sim.mjs
 node --experimental-strip-types scripts/test-steroids-alpha-rig.mjs
 node scripts/screenshot-steroids-alpha.mjs http://127.0.0.1:4173/game-prototypes/prototypes/steroids-alpha/ outputs/steroids-alpha
+# death check: a second server WITHOUT TEST_SHIP_HP on port 8788
+node scripts/check-steroids-alpha-death.mjs http://127.0.0.1:4173/game-prototypes/prototypes/steroids-alpha/ ws://127.0.0.1:8788 outputs/steroids-alpha-death
 ```

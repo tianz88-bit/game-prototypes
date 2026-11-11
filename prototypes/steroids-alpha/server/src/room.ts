@@ -6,7 +6,7 @@ import { TUNE, stepSeconds } from '../../sim/tune';
 import { copyShip } from '../../sim/ship';
 import type { ShipInput, ShipState } from '../../sim/ship';
 import { World } from '../../sim/world';
-import { CLOSE, MSG, decodeClient, encodeAsteroids, encodeGone, encodePing, encodeShots, encodeSnapshot, encodeWelcome } from '../../sim/protocol';
+import { CLOSE, MSG, cleanName, decodeClient, encodeAsteroids, encodeGone, encodePing, encodeShots, encodeSnapshot, encodeWelcome } from '../../sim/protocol';
 import type { SnapshotShip } from '../../sim/protocol';
 import { wrapDist2 } from '../../sim/wrap';
 
@@ -45,6 +45,10 @@ interface Player {
   deficitTicks: number;
   budgetAt:number;
   packets:number;
+  /** Shown under the ship and on the leaderboard. */
+  name: string;
+  /** Ships this player has destroyed since they last dropped in. Resets on death (a new life). */
+  kills: number;
 }
 
 
@@ -72,6 +76,7 @@ export class Room {
     for(const p of this.players.values()){
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
       p.ship.hp=Math.min(this.tune.ship.maxHp,p.ship.hp);
+      p.ship.shield=Math.min(this.tune.ship.maxShield,p.ship.shield);
       if(p.queue.length)p.last=p.queue[p.queue.length-1];p.queue=[];p.deficit=0;p.deficitTicks=0;p.owedDash=false;p.started=false;
       this.send(p,JSON.stringify({type:'config',record}));this.send(p,this.snapshotFor(p));
     }
@@ -90,14 +95,14 @@ export class Room {
   }
 
   /** Attach a freshly accepted socket. Returns false (and closes it) when the room is full. */
-  join(ws: CfSocket): boolean {
+  join(ws: CfSocket, requestedName?: string | null): boolean {
     if (this.players.size >= TUNE.net.maxPlayersPerRoom) {
       ws.close(CLOSE.ROOM_FULL, 'room full');
       return false;
     }
     const id = this.allocateId();
     const spawn = this.world.addShip(id);
-    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0 };
+    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0 };
     this.players.set(id, player);
 
     ws.addEventListener('message', (e: MessageEvent) => this.onMessage(player, e.data));
@@ -107,7 +112,9 @@ export class Room {
     this.send(player,JSON.stringify({type:'config',record:this.config}));
     this.send(player, encodeWelcome(id, this.tick));
     this.send(player, encodeAsteroids([...this.world.asteroids.values()]));
+    this.send(player, JSON.stringify({ type: 'pickups', add: [...this.world.pickups.values()].map(({ id, x, y }) => ({ id, x, y })), remove: [] }));
     this.send(player, this.snapshotFor(player));
+    this.broadcastRoster();
     this.start();
     return true;
   }
@@ -162,6 +169,7 @@ export class Room {
   private leave(id: number): void {
     if (!this.players.delete(id)) return;
     this.world.removeShip(id);
+    this.broadcastRoster();
     if (this.players.size === 0) this.stop();
   }
 
@@ -203,7 +211,17 @@ export class Room {
         if (others.length) this.send(p, encodeShots(this.tick, others));
       }
     }
-    const dead = new Set(ev.deaths);
+    if (ev.hits.length) this.broadcast(JSON.stringify({ type: 'hits', hits: ev.hits }));
+    if (ev.pickups.length || ev.pickupsGone.length) this.broadcast(JSON.stringify({ type: 'pickups', add: ev.pickups, remove: ev.pickupsGone }));
+    const dead = new Set(ev.deaths.map((d) => d.id));
+    if (ev.deaths.length) {
+      // Everyone sees the explosion; whoever fired the killing shot scores.
+      this.broadcast(JSON.stringify({ type: 'deaths', deaths: ev.deaths }));
+      for (const d of ev.deaths) {
+        const killer = d.killer ? this.players.get(d.killer) : undefined;
+        if (killer && !dead.has(killer.id)) killer.kills++;
+      }
+    }
     if (this.tick % this.snapshotEvery === 0 || dead.size) {
       for (const p of this.players.values()) {
         if (this.tick % this.snapshotEvery === 0 || dead.has(p.id)) this.send(p, this.snapshotFor(p));
@@ -222,7 +240,12 @@ export class Room {
     }
   }
 
-  private broadcast(buf: ArrayBuffer): void {
+  /** Names and kills for the leaderboard and name tags. */
+  private broadcastRoster(): void {
+    this.broadcast(JSON.stringify({ type: 'roster', players: [...this.players.values()].map((p) => ({ id: p.id, name: p.name, kills: p.kills })) }));
+  }
+
+  private broadcast(buf: ArrayBuffer | string): void {
     for (const p of this.players.values()) this.send(p, buf);
   }
 
