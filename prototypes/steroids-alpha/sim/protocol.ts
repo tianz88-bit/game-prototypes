@@ -1,5 +1,9 @@
-// Protocol v4: binary game frames are little-endian. The server also sends a JSON
-// {type:'config',record:ConfigRecord} frame before welcome/cutover snapshots.
+// Protocol v5: binary game frames are little-endian. The server also sends JSON text frames:
+//   {type:'config',record:ConfigRecord}            before welcome/cutover snapshots
+//   {type:'roster',players:[{id,name,kills}]}      whenever someone joins, leaves, scores or dies
+//   {type:'deaths',deaths:[{id,x,y,killer}]}       ships destroyed (killer 0 = an asteroid)
+//   {type:'hits',hits:[{id,x,y,shielded}]}         where ships were hit, and whether the shield took it
+//   {type:'pickups',add:[{id,x,y}],remove:[{id,by}]} health boosts dropped, taken (by = ship id) or expired (by 0)
 // Clients never send configuration; their socket accepts only bounded intent/ping frames.
 //
 // Client -> server
@@ -9,7 +13,7 @@
 //   WELCOME   u8 type, u16 yourId, u32 tick
 //   SNAPSHOT  u8 type, u32 tick, u32 ackSeq, u16 count, count x SHIP
 //             SHIP = u16 id, f32 x, f32 y, f32 heading, f32 speed, f32 dashTime, f32 dashCd,
-//                    f32 hp, u8 fireCd, u16 shots
+//                    f32 hp, f32 shield, f32 kx, f32 ky, u8 fireCd, u16 shots
 //   PONG      u8 type, f64 clientTimeMs
 //   ASTEROIDS u8 type, u16 count, count x (u16 id, u8 size, f32 x, f32 y, f32 vx, f32 vy, u32 t0, f32 hp)
 //             New asteroids, or ones whose hp changed. Sent in full to a client when it joins.
@@ -19,7 +23,7 @@ import type { ShipInput, ShipState } from './ship';
 import type { Asteroid } from './asteroids';
 import type { ShotEvent } from './world';
 
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
 
 export const MSG = {
   INPUT: 1,
@@ -43,6 +47,18 @@ export interface SnapshotShip extends ShipState {
   id: number;
 }
 
+/** Text frames from the server (besides config). */
+export interface RosterEntry {
+  id: number;
+  name: string;
+  kills: number;
+}
+
+/** Player names: trimmed, printable, at most 16 characters; empty means none given. */
+export function cleanName(raw: string | null | undefined): string {
+  return Array.from((raw ?? '').replace(/[\u0000-\u001f\u007f-\u009f]/g, '').replace(/\s+/g, ' ').trim()).slice(0, 16).join('');
+}
+
 export interface GoneAsteroid {
   id: number;
   x: number;
@@ -62,7 +78,7 @@ export type ClientMessage =
   | { type: typeof MSG.PING; clientTime: number };
 
 const INPUT_BYTES = 18;
-const SHIP_BYTES = 2 + 4 * 7 + 1 + 2;
+const SHIP_BYTES = 2 + 4 * 10 + 1 + 2;
 const ASTEROID_BYTES = 2 + 1 + 4 * 4 + 4 + 4;
 const GONE_BYTES = 2 + 4 * 2;
 const SHOT_BYTES = 2 + 4 * 4 + 1;
@@ -113,8 +129,11 @@ export function encodeSnapshot(tick: number, ackSeq: number, ships: SnapshotShip
     v.setFloat32(o + 18, s.dashTime, true);
     v.setFloat32(o + 22, s.dashCd, true);
     v.setFloat32(o + 26, s.hp, true);
-    v.setUint8(o + 30, s.fireCd);
-    v.setUint16(o + 31, s.shots, true);
+    v.setFloat32(o + 30, s.shield, true);
+    v.setFloat32(o + 34, s.kx, true);
+    v.setFloat32(o + 38, s.ky, true);
+    v.setUint8(o + 42, s.fireCd);
+    v.setUint16(o + 43, s.shots, true);
     o += SHIP_BYTES;
   }
   return buf;
@@ -221,8 +240,11 @@ export function decodeServer(buf: ArrayBuffer): ServerMessage | null {
         dashTime: v.getFloat32(o + 18, true),
         dashCd: v.getFloat32(o + 22, true),
         hp: v.getFloat32(o + 26, true),
-        fireCd: v.getUint8(o + 30),
-        shots: v.getUint16(o + 31, true),
+        shield: v.getFloat32(o + 30, true),
+        kx: v.getFloat32(o + 34, true),
+        ky: v.getFloat32(o + 38, true),
+        fireCd: v.getUint8(o + 42),
+        shots: v.getUint16(o + 43, true),
       });
       o += SHIP_BYTES;
     }

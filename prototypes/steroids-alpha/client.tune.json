@@ -12,7 +12,7 @@
   "touch": {
     "joystickRadius": 64,
     "deadZone": 0.25,
-    "speedBand": 40,
+    "markerThrustCurve": 2,
     "schemeButtonWidth": 112,
     "schemeButtonHeight": 30,
     "dashButtonRadius": 46,
@@ -29,6 +29,7 @@
     "haloWidth": 72,
     "shadowReach": 56,
     "nightObjectDim": 0.1,
+    "nightShipDim": 0.3,
     "thrusterTurnDegPerSec": 30,
     "thrusterAccel": 30,
     "thrusterHoldMs": 140,

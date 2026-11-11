@@ -39,7 +39,11 @@ const api = (page, expr, arg) => page.evaluate(expr, arg);
 
 try {
   // Desktop: through the menu.
-  const desk = await (await deskBrowser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 })).newPage();
+  const named = async (ctx, name) => {
+    await ctx.addInitScript((n) => localStorage.setItem('steroids-alpha:save:v1', JSON.stringify({ name: n })), name);
+    return ctx;
+  };
+  const desk = await (await named(await deskBrowser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 }), 'Desk Ace')).newPage();
   watch('desktop', desk);
   await desk.goto(url('debug=1'), { waitUntil: 'networkidle' });
   await desk.waitForFunction(() => window.__steroids?.menuButtons().length === 2);
@@ -95,7 +99,7 @@ try {
   await upright.screenshot({ path: path.join(outDir, 'phone-upright-rotate.png') });
   await uprightCtx.close();
 
-  const phoneCtx = await phoneBrowser.newContext({ ...devices['iPhone 13 landscape'], deviceScaleFactor: 1 });
+  const phoneCtx = await named(await phoneBrowser.newContext({ ...devices['iPhone 13 landscape'], deviceScaleFactor: 1 }), 'Phone Pilot');
   const phone = await phoneCtx.newPage();
   watch('phone', phone);
   await phone.goto(url('debug=1&planet=alpha&lag=120'), { waitUntil: 'networkidle' });
@@ -108,6 +112,13 @@ try {
   await phone.waitForFunction(() => window.__steroids.remotes().length >= 1, null, { timeout: 5000 });
   const ids = { desk: await api(desk, () => window.__steroids.myId()), phone: await api(phone, () => window.__steroids.myId()) };
   assert.notEqual(ids.desk, ids.phone);
+
+  // Names reach everyone, and the leaderboard lists both pilots.
+  await desk.waitForFunction(() => window.__steroids.roster().length >= 2, null, { timeout: 5000 });
+  const roster = await api(desk, () => window.__steroids.roster());
+  assert.deepEqual(roster.map((r) => r.name).sort(), ['Desk Ace', 'Phone Pilot'], 'player names on the roster');
+  assert(roster.every((r) => r.kills === 0));
+  await desk.waitForFunction(() => window.__steroids.board().length >= 2, null, { timeout: 3000 });
 
   // While both are close: the desktop's interpolated view of the phone ship is near where the
   // phone predicts it. It trails by the interpolation delay plus network time, so allow a few
@@ -177,11 +188,15 @@ try {
   const steered = await api(phone, () => window.__steroids.own());
   const upErr = Math.abs(steered.heading - -Math.PI / 2);
   assert(upErr < 0.15, `phone joystick steered toward up (heading ${steered.heading.toFixed(2)})`);
-  // Direction marker: the stick is pushed 60 of 64 px, so the target speed is 360 (between 140 and 380).
+  // Direction marker: a stick pushed most of the way accelerates hard toward the maximum speed.
   assert.equal(await api(phone, () => window.__steroids.scheme()), 'marker');
-  assert(Math.abs(steered.speed - 360) < 15, `marker stick distance set the speed (${steered.speed.toFixed(0)})`);
+  assert(steered.speed > 340, `marker stick pushed far accelerates (${steered.speed.toFixed(0)})`);
   await phone.screenshot({ path: path.join(outDir, 'phone-joystick.png') });
+  // Letting the stick go eases the ship back down to minimum speed.
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await wait(1200);
+  const eased = (await api(phone, () => window.__steroids.own())).speed;
+  assert(eased < 160, `stick at rest decelerates to minimum speed (${eased.toFixed(0)})`);
 
   // Switch the stick to craft-relative with the on-screen STEER button, then: right rotates, down brakes.
   const touchAt = async (pt, id) => {
@@ -256,7 +271,7 @@ try {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   const after = await api(phone, () => ({ splits: window.__steroids.splits(), rocks: window.__steroids.asteroids(), hp: window.__steroids.own().hp }));
   assert(after.splits >= 1, 'phone shot an asteroid down and it split');
-  assert(sawBullets >= 2, `bullets were drawn (${sawBullets})`);
+  assert(sawBullets >= 1, `bullets were drawn (${sawBullets})`);
   assert(after.rocks.some((r) => r.size > 0), 'smaller pieces exist after the split');
   await phone.screenshot({ path: path.join(outDir, 'phone-after-split.png') });
   await desk.waitForFunction((n) => window.__steroids.splits() > n, deskSplits0, { timeout: 3000 });

@@ -16,6 +16,7 @@ export * from ${JSON.stringify(path.join(sim, 'ship.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'asteroids.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'protocol.ts'))};
 export * as thrusters from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/src/render/thrusters.ts'))};
+export * as liveConfig from ${JSON.stringify(path.join(sim, 'liveConfig.ts'))};
 export * as planet from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/src/render/planet.ts'))};`;
 await build({ stdin: { contents: entry, resolveDir: sim, loader: 'ts' }, bundle: true, format: 'esm', platform: 'node', outfile: path.join(tmp, 'sim.mjs'), logLevel: 'silent' });
 const S = await import(pathToFileURL(path.join(tmp, 'sim.mjs')).href);
@@ -138,36 +139,145 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   near(S.asteroidPos(a, tune.net.tickHz / 10, tune).x, tune.world.width - 10 + 6, 1e-9, 'straight line');
 }
 
-// --- Flying into an asteroid: the ship is hurt and the asteroid is rammed apart. ---
+// --- Flying into an asteroid: the ship is hurt and bounced back; the asteroid is smashed and its
+// pieces fly on the other way. ---
 {
   const w = emptyWorld();
   const s = placeShip(w, 1, 1000, 1000, 0);
   const a = rock(w, 0, 1000 + tune.asteroid.radius[0] + tune.ship.radius + 40, 1000);
-  for (let i = 0; i < 60 && s.hp === tune.ship.maxHp; i++) {
+  let ev = { gone: [], asteroids: [] };
+  for (let i = 0; i < 60 && w.asteroids.has(a.id); i++) {
     w.stepShip(1, idle);
     w.step();
+    ev = w.drain();
   }
-  assert.equal(s.hp, tune.ship.maxHp - tune.asteroid.contactDamage[0], 'contact damage applied once');
-  assert.equal(w.asteroids.get(a.id).hp, tune.asteroid.hp[0] - tune.asteroid.ramDamage, 'asteroid takes ram damage');
+  assert(!w.asteroids.has(a.id), 'ramming destroys the asteroid outright');
+  assert.equal(ev.gone.length, 1);
+  const kids = ev.asteroids.filter((k) => k.size === 1);
+  assert.equal(kids.length, 2, 'and it splits');
+  assert(kids.every((k) => k.vx > 0), 'the pieces are pushed away from the ship (+x)');
+  assert(s.kx < 0 && Math.abs(s.ky) < 1e-9, 'the ship is pushed back the other way (-x)');
+  near(s.kx, -tune.ship.knockbackSpeed, 1e-9, 'knockback speed');
+  // Contact damage goes to the shield first.
+  assert.equal(s.shield, tune.ship.maxShield - tune.asteroid.contactDamage[0], 'shield takes the contact damage');
+  assert.equal(s.hp, tune.ship.maxHp, 'hull untouched while the shield holds');
+  // The knockback fades and the ship flies on.
+  for (let i = 0; i < tune.net.tickHz * 2; i++) w.stepShip(1, idle);
+  assert.equal(s.kx, 0, 'knockback decays to nothing');
 }
 
-// --- A ship at 0 hp is reported destroyed; bullets hurt other ships but not their owner. ---
+// --- Shield: absorbs first, overflow reaches the hull, regenerates after a quiet spell. ---
+{
+  const w = emptyWorld();
+  const a = placeShip(w, 1, 1000, 1000, 0);
+  const b = placeShip(w, 2, 1200, 1000, Math.PI / 2);
+  a.speed = b.speed = tune.ship.minSpeed;
+  // Shoot b until the shield is gone and the hull has taken some.
+  const hits = [];
+  for (let i = 0; i < 600 && b.hp === tune.ship.maxHp; i++) {
+    a.x = 1000; a.y = 1000; a.heading = 0;
+    b.x = 1200; b.y = 1000;
+    w.stepShip(1, { ...idle, fire: true });
+    w.step();
+    hits.push(...w.drain().hits);
+  }
+  // Every hit is reported with where it landed; the shield effect shows only while the shield holds.
+  assert(hits.length > 1 && hits.every((h) => h.id === 2));
+  assert(hits.slice(0, -1).every((h) => h.shielded), 'hits while the shield holds are shielded');
+  assert.equal(hits[hits.length - 1].shielded, false, 'the hit that reaches the hull is not');
+  assert(hits.every((h) => h.x < 1200 && Math.abs(h.y - 1000) < 40), 'impacts land on the side facing the shooter');
+  assert.equal(b.shield, 0, 'shield emptied before the hull is touched');
+  assert(b.hp < tune.ship.maxHp && b.hp > 0);
+  const hpAfter = b.hp;
+  // Move b away so no more bullets land. No regeneration before the delay...
+  b.x = 3000; b.y = 3000;
+  const quiet = Math.round(tune.ship.shieldRegenDelaySeconds * tune.net.tickHz);
+  for (let i = 0; i < quiet - 2; i++) w.step();
+  assert.equal(b.shield, 0, 'no regeneration within 5 s of the last hit');
+  // ...then 5% of the shield pool per second.
+  for (let i = 0; i < 2 + tune.net.tickHz; i++) w.step();
+  near(b.shield, tune.ship.maxShield * tune.ship.shieldRegenPerSecond, tune.ship.maxShield * 0.01, 'about 5% per second after the delay');
+  assert.equal(b.hp, hpAfter, 'the hull does not regenerate');
+}
+
+// --- A ship at 0 hull is destroyed; the killing shot's owner is credited; bullets spare their owner. ---
 {
   const w = emptyWorld();
   const a = placeShip(w, 1, 1000, 1000, 0);
   const b = placeShip(w, 2, 1200, 1000, Math.PI / 2);
   a.speed = b.speed = tune.ship.minSpeed;
   let deaths = [];
-  for (let i = 0; i < 600 && !deaths.length; i++) {
+  for (let i = 0; i < 900 && !deaths.length; i++) {
     a.x = 1000; a.y = 1000; a.heading = 0; // hold the shooter in place, aimed at b
     b.x = 1200; b.y = 1000;
     w.stepShip(1, { ...idle, fire: true });
     w.step();
     deaths = w.drain().deaths;
   }
-  assert.deepEqual(deaths, [2], 'the target is destroyed, the shooter is not');
+  assert.equal(deaths.length, 1);
+  assert.equal(deaths[0].id, 2, 'the target is destroyed');
+  assert.equal(deaths[0].killer, 1, 'and the shooter gets the kill');
+  assert(Math.abs(deaths[0].x - 1200) < 1e-6, 'death is reported where it happened');
   assert.equal(a.hp, tune.ship.maxHp);
 }
+
+// --- Health boosts: dropped by destroyed asteroids, heal 25% of the hull, capped; expire unclaimed. ---
+{
+  const t = { ...tune, asteroid: { ...tune.asteroid, targetMass: 0, healthDropChance: 1 } };
+  const w = new S.World(t, rng(5));
+  w.drain();
+  const s = placeShip(w, 1, 1000, 1000, 0);
+  s.speed = 0;
+  w.tune.ship.minSpeed = 0;
+  const r = rock(w, 2, 1300, 1000, 0, 0, 1);
+  let pickups = [];
+  for (let i = 0; i < 120 && w.asteroids.has(r.id); i++) {
+    w.stepShip(1, { ...idle, fire: true, thrust: -1 });
+    w.step();
+    pickups.push(...w.drain().pickups);
+  }
+  assert.equal(pickups.length, 1, 'a destroyed asteroid dropped a health boost');
+  s.hp = 10;
+  s.x = pickups[0].x; s.y = pickups[0].y;
+  w.step();
+  const ev = w.drain();
+  near(s.hp, 10 + tune.ship.maxHp * tune.asteroid.healthHealFraction, 1e-9, 'heals 25% of the hull');
+  assert.deepEqual(ev.pickupsGone, [{ id: pickups[0].id, by: 1 }]);
+  // Capped at full hull.
+  const w2 = new S.World(t, rng(6));
+  w2.drain();
+  const s2 = placeShip(w2, 1, 1000, 1000, 0);
+  w2.pickups.set(9, { id: 9, x: s2.x, y: s2.y, expires: w2.tick + 100 });
+  w2.step();
+  assert.equal(s2.hp, tune.ship.maxHp, 'never heals past full');
+  // Unclaimed boosts expire.
+  w2.pickups.set(10, { id: 10, x: 3500, y: 3500, expires: w2.tick + 3 });
+  for (let i = 0; i < 4; i++) w2.step();
+  assert(!w2.pickups.has(10), 'expires when nobody takes it');
+}
+
+// --- Older published live settings upgrade: missing fields filled; the hull pool split into hull + shield. ---
+{
+  const L = S.liveConfig;
+  const base = L.defaultConfig();
+  const old = structuredClone(base);
+  old.tune.ship.maxHp = 100;
+  for (const k of ['maxShield', 'shieldRegenDelaySeconds', 'shieldRegenPerSecond', 'knockbackSpeed', 'knockbackDecayPerSecond']) delete old.tune.ship[k];
+  for (const k of ['healthDropChance', 'healthHealFraction', 'pickupLifeSeconds', 'pickupRadius']) delete old.tune.asteroid[k];
+  delete old.clientTune.touch.markerThrustCurve;
+  old.clientTune.touch.speedBand = 40; // a field the game has since removed
+  const up = L.validateConfig(old);
+  assert.equal(up.tune.ship.maxHp, 50, 'old hull pool halved');
+  assert.equal(up.tune.ship.maxShield, 50, 'the other half becomes shield');
+  assert.equal(up.tune.asteroid.healthHealFraction, base.tune.asteroid.healthHealFraction, 'new fields get defaults');
+  assert(!('speedBand' in up.clientTune.touch), 'removed fields are dropped');
+  assert.deepEqual(L.validateConfig(base), base, 'current settings pass unchanged');
+}
+
+// --- Player names. ---
+assert.equal(S.cleanName('  Ace\u0007  Pilot  '), 'Ace Pilot');
+assert.equal(S.cleanName('a'.repeat(40)).length, 16);
+assert.equal(S.cleanName(null), '');
 
 // --- Population: stocked to the target mass, never on top of a ship or the drop zone. ---
 {
@@ -186,7 +296,7 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   const back = S.decodeClient(S.encodeInput(input)).input;
   assert.deepEqual({ ...back, aim: 0 }, { ...input, aim: 0 });
   assert(Number.isNaN(back.aim));
-  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashTime: 0, dashCd: 0.5, hp: 70, fireCd: 3, shots: 41 };
+  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashTime: 0, dashCd: 0.5, hp: 40, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41 };
   assert.deepEqual(S.decodeServer(S.encodeSnapshot(1234, 55, [ship])), { type: S.MSG.SNAPSHOT, tick: 1234, ackSeq: 55, ships: [ship] });
   const rockRec = { id: 3, size: 1, x: 10.5, y: 20.25, vx: -30, vy: 12.5, t0: 900, hp: 30 };
   assert.deepEqual(S.decodeServer(S.encodeAsteroids([rockRec])).asteroids, [rockRec]);
@@ -276,4 +386,4 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   near(small.particles[0].vy / big.particles[0].vy, 0.375, 1e-12, 'particle speed scales with the craft');
 }
 
-console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting and thrusters all pass.');
+console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, shield, ramming, health boosts, kill credit and settings upgrade all pass.');

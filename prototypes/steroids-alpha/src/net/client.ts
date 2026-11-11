@@ -10,7 +10,7 @@ import { asteroidPos } from '../../sim/asteroids';
 import type { Asteroid } from '../../sim/asteroids';
 import type { ShipInput, ShipState } from '../../sim/ship';
 import { CLOSE, MSG, PROTOCOL_VERSION, decodeServer, encodeInput, encodePing } from '../../sim/protocol';
-import type { ServerMessage, SnapshotShip } from '../../sim/protocol';
+import type { RosterEntry, ServerMessage, SnapshotShip } from '../../sim/protocol';
 import { angleDelta, wrap, wrapDelta } from '../../sim/wrap';
 import type { PlanetId } from '../../sim/planets';
 import { clientTune } from '../clientTune';
@@ -30,7 +30,13 @@ export interface VisualBullet {
 }
 
 /** Things the scene should show once: a gun firing, an asteroid breaking, a bullet striking. */
-export type NetFx = { kind: 'shot'; id: number; side: number } | { kind: 'burst'; x: number; y: number; size: number } | { kind: 'spark'; x: number; y: number };
+export type NetFx =
+  | { kind: 'shot'; id: number; side: number }
+  | { kind: 'burst'; x: number; y: number; size: number }
+  | { kind: 'spark'; x: number; y: number }
+  | { kind: 'explosion'; x: number; y: number }
+  | { kind: 'heal'; x: number; y: number }
+  | { kind: 'shield'; id: number; x: number; y: number };
 
 interface Timed {
   t: number;
@@ -62,6 +68,12 @@ export class NetClient {
   private ws: WebSocket | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
 
+  /** Names and kills of everyone on the planet, by id. */
+  roster = new Map<number, RosterEntry>();
+  /** Health boosts lying on the planet. */
+  readonly pickups = new Map<number, { id: number; x: number; y: number }>();
+  /** Set when our own ship is destroyed: where, and who did it (0 = an asteroid). */
+  death: { x: number; y: number; killer: number; killerName: string } | null = null;
   /** Every asteroid on the planet, by id. */
   readonly asteroids = new Map<number, Asteroid>();
   /** When each asteroid was last hit (performance.now), for the hit flash. */
@@ -85,10 +97,13 @@ export class NetClient {
   bytesIn = 0;
   snapshots = 0;
 
-  constructor(readonly planet: PlanetId) {}
+  constructor(
+    readonly planet: PlanetId,
+    private readonly name = '',
+  ) {}
 
   connect(): void {
-    const url = `${serverOrigin()}/ws/${this.planet}?v=${PROTOCOL_VERSION}`;
+    const url = `${serverOrigin()}/ws/${this.planet}?v=${PROTOCOL_VERSION}${this.name ? `&name=${encodeURIComponent(this.name)}` : ''}`;
     const ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
     this.ws = ws;
@@ -101,7 +116,7 @@ export class NetClient {
       const data=e.data;
       const receive=():void=>{
         if(typeof data==='string'){
-          try{const msg=JSON.parse(data);if(msg.type==='config'&&applyServerConfig(msg.record)){this.pending=[];this.accumulator=0;this.visualError={x:0,y:0,heading:0};}}
+          try{const msg=JSON.parse(data);if(msg.type==='config'&&applyServerConfig(msg.record)){this.pending=[];this.accumulator=0;this.visualError={x:0,y:0,heading:0};}else this.handleText(msg);}
           catch{ws.close(CLOSE.BAD_PROTOCOL,'invalid server settings');}return;
         }
         if(data instanceof ArrayBuffer)this.receive(data);
@@ -129,6 +144,28 @@ export class NetClient {
 
   private ping(): void {
     this.send(encodePing(MSG.PING, performance.now()));
+  }
+
+  /** Roster, deaths and pickups arrive as JSON text frames. */
+  private handleText(msg: { type?: string; hits?: { id: number; x: number; y: number; shielded: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number }[]; remove?: { id: number; by: number }[] }): void {
+    if (msg.type === 'roster' && Array.isArray(msg.players)) {
+      this.roster = new Map(msg.players.map((p) => [p.id, p]));
+    } else if (msg.type === 'deaths' && Array.isArray(msg.deaths)) {
+      for (const d of msg.deaths) {
+        this.fx.push({ kind: 'explosion', x: d.x, y: d.y });
+        this.remotes.delete(d.id);
+        if (d.id === this.myId) this.death = { x: d.x, y: d.y, killer: d.killer, killerName: this.roster.get(d.killer)?.name ?? '' };
+      }
+    } else if (msg.type === 'hits' && Array.isArray(msg.hits)) {
+      for (const h of msg.hits) if (h.shielded) this.fx.push({ kind: 'shield', id: h.id, x: h.x, y: h.y });
+    } else if (msg.type === 'pickups') {
+      for (const k of msg.add ?? []) this.pickups.set(k.id, k);
+      for (const g of msg.remove ?? []) {
+        const k = this.pickups.get(g.id);
+        this.pickups.delete(g.id);
+        if (k && g.by) this.fx.push({ kind: 'heal', x: k.x, y: k.y });
+      }
+    }
   }
 
   private receive(data: ArrayBuffer): void {
@@ -240,7 +277,7 @@ export class NetClient {
     this.lastFrameAt = now;
     // A dash pressed between two fixed steps is kept for the next step.
     this.dashQueued ||= input.dash;
-    if (this.predicted && this.status === 'open') {
+    if (this.predicted && this.status === 'open' && !this.death) {
       this.accumulator += Math.min(deltaMs, 250);
       while (this.accumulator >= STEP_MS) {
         this.accumulator -= STEP_MS;
@@ -319,7 +356,7 @@ export class NetClient {
   /** Own ship as it should be drawn: prediction plus the decaying correction. */
   ownRender(): ShipState | null {
     const p = this.predicted;
-    if (!p) return null;
+    if (!p || this.death) return null;
     return {
       ...p,
       x: wrap(p.x + this.visualError.x, W),

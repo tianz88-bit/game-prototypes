@@ -26,6 +26,21 @@ export interface ShotEvent {
   side: number;
 }
 
+/** A health boost lying on the planet. */
+export interface Pickup {
+  id: number;
+  x: number;
+  y: number;
+}
+
+export interface DeathEvent {
+  id: number;
+  x: number;
+  y: number;
+  /** The ship whose bullet did it, or 0 (an asteroid). */
+  killer: number;
+}
+
 export interface WorldEvents {
   /** New asteroids and asteroids whose hp changed. */
   asteroids: Asteroid[];
@@ -33,8 +48,15 @@ export interface WorldEvents {
   gone: { id: number; x: number; y: number }[];
   shots: ShotEvent[];
   /** Ships destroyed this tick. */
-  deaths: number[];
+  deaths: DeathEvent[];
+  /** Hits on ships: where the hit landed, and whether the shield took it (for the shield effect). */
+  hits: { id: number; x: number; y: number; shielded: boolean }[];
+  /** Health boosts dropped, and boosts taken (by = ship id) or expired (by = 0). */
+  pickups: Pickup[];
+  pickupsGone: { id: number; by: number }[];
 }
+
+const noEvents = (): WorldEvents => ({ asteroids: [], gone: [], shots: [], deaths: [], hits: [], pickups: [], pickupsGone: [] });
 
 export class World {
   tick = 0;
@@ -44,7 +66,11 @@ export class World {
   /** Steps of contact immunity left per ship. */
   private grace = new Map<number, number>();
   private nextAsteroidId = 1;
-  private events: WorldEvents = { asteroids: [], gone: [], shots: [], deaths: [] };
+  readonly pickups = new Map<number, Pickup & { expires: number }>();
+  private nextPickupId = 1;
+  /** Tick of the last damage each ship took, for shield regeneration. */
+  private lastHit = new Map<number, number>();
+  private events: WorldEvents = noEvents();
   private readonly dt: number;
 
   constructor(
@@ -74,6 +100,7 @@ export class World {
     }
     const ship = newShip(best.x, best.y, this.rng() * Math.PI * 2 - Math.PI, t.ship.cruiseSpeed);
     ship.hp = t.ship.maxHp;
+    ship.shield = t.ship.maxShield;
     this.ships.set(id, ship);
     // A moment of immunity so nobody is destroyed by an asteroid drifting through the drop zone.
     this.grace.set(id, Math.round(2 * t.net.tickHz));
@@ -83,6 +110,7 @@ export class World {
   removeShip(id: number): void {
     this.ships.delete(id);
     this.grace.delete(id);
+    this.lastHit.delete(id);
   }
 
   /** Advance one ship by one step with the given input, spawning its bullet if it fired. */
@@ -131,7 +159,7 @@ export class World {
         for (const [id, s] of this.ships) {
           if (id === b.owner || s.hp <= 0) continue;
           if (!hits(b.x, b.y, s.x, s.y, t.ship.radius + t.weapon.bulletRadius)) continue;
-          this.damageShip(id, s, t.weapon.damage);
+          this.damageShip(id, s, t.weapon.damage, b.owner, b.x, b.y);
           spent = true;
           break;
         }
@@ -140,7 +168,8 @@ export class World {
     }
     this.bullets = kept;
 
-    // Ships against asteroids: the ship takes contact damage and the asteroid is rammed.
+    // Ships against asteroids: the ship takes contact damage, the asteroid is smashed and splits, and
+    // the two are pushed apart: the ship bounces back, the pieces fly on away from it.
     for (const [id, s] of this.ships) {
       const g = this.grace.get(id) ?? 0;
       if (g > 0) {
@@ -151,11 +180,49 @@ export class World {
       for (const a of this.asteroids.values()) {
         const p = pos.get(a.id);
         if (!p || !hits(s.x, s.y, p.x, p.y, t.asteroid.radius[a.size] + t.ship.radius)) continue;
-        this.damageShip(id, s, t.asteroid.contactDamage[a.size]);
-        this.damageAsteroid(a, p, t.asteroid.ramDamage, Math.cos(s.heading), Math.sin(s.heading), pos);
+        let dx = wrapDelta(p.x, s.x, W);
+        let dy = wrapDelta(p.y, s.y, H);
+        const len = Math.hypot(dx, dy);
+        if (len < 1e-6) {
+          dx = Math.cos(s.heading);
+          dy = Math.sin(s.heading);
+        } else {
+          dx /= len;
+          dy /= len;
+        }
+        this.damageShip(id, s, t.asteroid.contactDamage[a.size], 0, wrap(s.x + dx * t.ship.radius, W), wrap(s.y + dy * t.ship.radius, H));
+        s.kx = -dx * t.ship.knockbackSpeed;
+        s.ky = -dy * t.ship.knockbackSpeed;
+        this.destroyAsteroid(a, p, t.asteroid.ramDamage, dx, dy, pos);
         this.grace.set(id, Math.round(t.ship.contactGraceSeconds * t.net.tickHz));
         break;
       }
+    }
+
+    // Health boosts: the first ship to touch one is healed; unclaimed ones fade away.
+    for (const k of this.pickups.values()) {
+      let by = 0;
+      if (this.tick >= k.expires) by = -1;
+      else {
+        for (const [id, s] of this.ships) {
+          if (s.hp <= 0 || !hits(s.x, s.y, k.x, k.y, t.asteroid.pickupRadius + t.ship.radius)) continue;
+          s.hp = Math.min(t.ship.maxHp, s.hp + t.ship.maxHp * t.asteroid.healthHealFraction);
+          by = id;
+          break;
+        }
+      }
+      if (by !== 0) {
+        this.pickups.delete(k.id);
+        this.events.pickupsGone.push({ id: k.id, by: Math.max(0, by) });
+      }
+    }
+
+    // Shields come back after a quiet spell.
+    const quiet = Math.round(t.ship.shieldRegenDelaySeconds * t.net.tickHz);
+    for (const [id, s] of this.ships) {
+      if (s.hp <= 0 || s.shield >= t.ship.maxShield) continue;
+      if (this.tick - (this.lastHit.get(id) ?? -Infinity) < quiet) continue;
+      s.shield = Math.min(t.ship.maxShield, s.shield + t.ship.maxShield * t.ship.shieldRegenPerSecond * this.dt);
     }
 
     if (this.tick % t.net.tickHz === 0) this.populate();
@@ -173,13 +240,25 @@ export class World {
   /** Events since the last call. */
   drain(): WorldEvents {
     const e = this.events;
-    this.events = { asteroids: [], gone: [], shots: [], deaths: [] };
+    this.events = noEvents();
     return e;
   }
 
-  private damageShip(id: number, s: ShipState, damage: number): void {
-    s.hp = Math.max(0, s.hp - damage);
-    if (s.hp === 0) this.events.deaths.push(id);
+  /** The shield takes damage first; what it cannot hold goes to the hull. */
+  private damageShip(id: number, s: ShipState, damage: number, attacker: number, atX: number, atY: number): void {
+    if (s.hp <= 0) return;
+    this.lastHit.set(id, this.tick);
+    this.events.hits.push({ id, x: atX, y: atY, shielded: s.shield > 0 });
+    const absorbed = Math.min(s.shield, damage);
+    s.shield -= absorbed;
+    s.hp = Math.max(0, s.hp - (damage - absorbed));
+    if (s.hp === 0) this.events.deaths.push({ id, x: s.x, y: s.y, killer: attacker });
+  }
+
+  /** Smash an asteroid outright (a ship flew into it): it splits as if this hit had destroyed it. */
+  private destroyAsteroid(a: Asteroid, at: { x: number; y: number }, splitDamage: number, dirX: number, dirY: number, pos: Map<number, { x: number; y: number }>): void {
+    a.hp = 0;
+    this.damageAsteroid(a, at, splitDamage, dirX, dirY, pos);
   }
 
   private damageAsteroid(a: Asteroid, at: { x: number; y: number }, damage: number, dirX: number, dirY: number, pos: Map<number, { x: number; y: number }>): void {
@@ -191,6 +270,12 @@ export class World {
     this.asteroids.delete(a.id);
     pos.delete(a.id);
     this.events.gone.push({ id: a.id, x: at.x, y: at.y });
+    if (this.rng() < this.tune.asteroid.healthDropChance) {
+      const k = { id: this.nextPickupId, x: at.x, y: at.y, expires: this.tick + Math.round(this.tune.asteroid.pickupLifeSeconds * this.tune.net.tickHz) };
+      this.nextPickupId = this.nextPickupId >= 0xffff ? 1 : this.nextPickupId + 1;
+      this.pickups.set(k.id, k);
+      this.events.pickups.push({ id: k.id, x: k.x, y: k.y });
+    }
     for (const child of splitAsteroid(a, at, dirX, dirY, damage, this.tick, () => this.newAsteroidId(), this.rng, this.tune)) {
       this.asteroids.set(child.id, child);
       pos.set(child.id, { x: child.x, y: child.y });

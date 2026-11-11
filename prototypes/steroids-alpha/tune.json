@@ -28,9 +28,14 @@
     "dashSpeed": 640,
     "dashDuration": 0.22,
     "dashCooldown": 1.6,
-    "maxHp": 100,
+    "maxHp": 50,
+    "maxShield": 50,
+    "shieldRegenDelaySeconds": 5,
+    "shieldRegenPerSecond": 0.05,
     "radius": 26,
-    "contactGraceSeconds": 0.5
+    "contactGraceSeconds": 0.5,
+    "knockbackSpeed": 320,
+    "knockbackDecayPerSecond": 5
   },
   "weapon": {
     "fireIntervalSteps": 4,
@@ -54,6 +59,10 @@
     "splitPushPerDamage": 3,
     "splitSpreadBase": 30,
     "splitSpreadPerDamage": 2.5,
-    "splitJitter": 0.25
+    "splitJitter": 0.25,
+    "healthDropChance": 0.15,
+    "healthHealFraction": 0.25,
+    "pickupLifeSeconds": 20,
+    "pickupRadius": 34
   }
 }

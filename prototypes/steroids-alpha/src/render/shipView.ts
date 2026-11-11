@@ -33,6 +33,9 @@ export class ShipView {
   private parts: { m: (typeof MODULES)[number]; img: Phaser.GameObjects.Image; scale: number; shade: number }[] = [];
   private lastBrightness = -1;
   private exhaust = new ThrusterVFX();
+  /** Shield impacts: the direction the hit came from (screen radians) and when. */
+  private shieldHits: { angle: number; at: number }[] = [];
+  private shieldGfx: Phaser.GameObjects.Graphics;
   private exhaustGfx: Phaser.GameObjects.Graphics;
   private lastSpeed: number | null = null;
   /** Until when (ms) each thruster demand stays on after it was last seen, so jitter cannot retrigger bursts. */
@@ -52,6 +55,7 @@ export class ShipView {
     this.ring.strokeCircle(0, 0, r);
     this.shadow = scene.add.image(0, 0, SHADOW_KEY).setDepth(SHIP_DEPTH - 1).setAlpha(CALIBRATION.shadow.opacity);
     this.exhaustGfx = scene.add.graphics().setDepth(SHIP_DEPTH - 0.5);
+    this.shieldGfx = scene.add.graphics().setDepth(SHIP_DEPTH + 2).setBlendMode(Phaser.BlendModes.ADD);
     this.container = scene.add.container(0, 0).setDepth(mine ? SHIP_DEPTH + 1 : SHIP_DEPTH);
     // Fixed Z: sort once by the calibrated order; container children draw in list order.
     const sorted = [...MODULES].sort((a, b) => depth(a, CALIBRATION) - depth(b, CALIBRATION));
@@ -114,6 +118,7 @@ export class ShipView {
     }
     this.container.setPosition(x, y).setScale(scale);
     this.updateExhaust(dt / 1000, demand, angle, timeMs, at);
+    this.drawShield(at, timeMs);
     this.shadow
       .setPosition(at.shadowX, at.shadowY)
       .setScale(scale)
@@ -174,6 +179,57 @@ export class ShipView {
     }
   }
 
+  /** The shield blocked a hit coming from this screen direction (radians). */
+  shieldHit(angle: number): void {
+    this.shieldHits.push({ angle, at: this.now });
+  }
+
+  /**
+   * Blocked hits: a honeycomb of blue hexagon cells lights up on the shield bubble where the hit landed,
+   * brightest at the impact and fading outward, with a faint flash of the whole bubble.
+   */
+  private drawShield(at: ShipPlacement, timeMs: number): void {
+    const g = this.shieldGfx;
+    g.clear();
+    const LIFE = 450;
+    this.shieldHits = this.shieldHits.filter((h) => timeMs - h.at < LIFE);
+    g.setVisible(at.visible && this.shieldHits.length > 0);
+    if (!at.visible || !this.shieldHits.length) return;
+    const R = clientTune.render.shipRingRadius * clientTune.render.shipScale * at.scale * 1.12;
+    const hex = R * 0.34;
+    for (const h of this.shieldHits) {
+      const k = (timeMs - h.at) / LIFE;
+      const fade = 1 - k;
+      // The whole bubble flashes briefly, then the hex patch holds where the hit landed.
+      g.fillStyle(0x2f8cff, 0.22 * fade);
+      g.fillCircle(at.x, at.y, R);
+      g.lineStyle(2.5, 0x6fd0ff, 0.9 * fade);
+      g.strokeCircle(at.x, at.y, R);
+      // A honeycomb patch centred on the impact: one cell, its ring of six, fading outward.
+      const ix = at.x + Math.cos(h.angle) * R * 0.9;
+      const iy = at.y + Math.sin(h.angle) * R * 0.9;
+      const cells: [number, number, number][] = [[0, 0, 1]];
+      for (let n = 0; n < 6; n++) {
+        const t = h.angle + Math.PI / 6 + (n * Math.PI) / 3;
+        cells.push([Math.cos(t) * hex * 1.73, Math.sin(t) * hex * 1.73, 0.6]);
+      }
+      for (const [dx, dy, w] of cells) {
+        const a = fade * w;
+        const cx = ix + dx;
+        const cy = iy + dy;
+        const pts: Phaser.Math.Vector2[] = [];
+        for (let v = 0; v < 6; v++) {
+          const t = h.angle + (v * Math.PI) / 3;
+          pts.push(new Phaser.Math.Vector2(cx + Math.cos(t) * hex * 0.94, cy + Math.sin(t) * hex * 0.94));
+        }
+        g.fillStyle(0x3aa8ff, 0.75 * a);
+        g.fillPoints(pts, true);
+        g.lineStyle(3, 0xbfeaff, a);
+        g.strokePoints(pts, true);
+      }
+    }
+  }
+
   /** A gun fired: side 1 right, -1 left. */
   fire(side: number): void {
     this.firedAt[side] = this.now;
@@ -182,6 +238,7 @@ export class ShipView {
   destroy(): void {
     this.container.destroy();
     this.exhaustGfx.destroy();
+    this.shieldGfx.destroy();
     this.shadow.destroy();
     this.ring.destroy();
   }

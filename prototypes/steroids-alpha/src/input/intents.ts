@@ -1,8 +1,8 @@
 // The only place that reads keys, the pointer or touches. Scenes read intents.
 //   move       steer and throttle, in one of two schemes (both always available):
 //                craft-relative   left/right rotates, up/down accelerates/brakes
-//                direction marker the ship steers toward a direction; how far the
-//                                 stick is pushed sets the target speed
+//                direction marker the ship steers toward a direction; pushing further
+//                                 accelerates harder; letting go eases back to minimum speed
 //   primary    fire (held), also taps on menu buttons
 //   secondary  dash
 //   pause      back
@@ -11,17 +11,12 @@
 // chosen with the on-screen STEER button (remembered per browser), plus fire and dash buttons.
 import { clientTune } from '../clientTune';
 import { TUNE } from '../../sim/tune';
+import { loadSave, writeSave } from '../save';
 
 export type SteerScheme = 'marker' | 'craft';
-const SAVE_KEY = 'steroids-alpha:save:v1';
 
 function loadScheme(): SteerScheme {
-  try {
-    const v = JSON.parse(localStorage.getItem(SAVE_KEY) ?? '{}') as { steer?: string };
-    return v.steer === 'craft' ? 'craft' : 'marker';
-  } catch {
-    return 'marker';
-  }
+  return loadSave().steer === 'craft' ? 'craft' : 'marker';
 }
 
 export interface Zone {
@@ -58,6 +53,11 @@ export class Intents {
   taps: { x: number; y: number }[] = [];
   /** Hit areas for on-screen buttons, set by the flight scene. */
   dashButton: Zone | null = null;
+  /**
+   * A canvas-drawn text box and the hidden input that takes its typing. Focus must happen inside the
+   * tap event itself, or phones do not open their keyboard.
+   */
+  textBox: { zone: Zone; field: HTMLInputElement } | null = null;
   fireButton: Zone | null = null;
   schemeButton: Zone | null = null;
 
@@ -114,6 +114,8 @@ export class Intents {
   }
 
   private onKey(e: KeyboardEvent, down: boolean): void {
+    // Typing into the pilot-name field is text, not flying.
+    if (e.target instanceof HTMLInputElement) return;
     const k = e.key.toLowerCase();
     if (down && !this.held.has(k)) {
       if (k === 'shift' || k === 'k') this.presses.add('secondary');
@@ -137,21 +139,19 @@ export class Intents {
 
   toggleScheme(): void {
     this.scheme = this.scheme === 'marker' ? 'craft' : 'marker';
-    try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify({ steer: this.scheme }));
-    } catch {
-      // Private mode or blocked storage: the choice just lasts for this visit.
-    }
+    writeSave({ steer: this.scheme });
   }
 
-  /**
-   * The move intent for one step, from whichever device is active. speed is the ship's current
-   * speed (the direction-marker scheme steers the throttle toward a target speed).
-   */
+  /** The move intent for one step, from whichever device is active. speed is the ship's current speed. */
   flight(speed: number): { turn: number; aim: number; thrust: number } {
     if (this.portraitBlocked) return { turn: 0, aim: NaN, thrust: 0 };
     const st = this.stick;
-    if (!st) return { turn: this.turn, aim: NaN, thrust: this.thrust };
+    if (!st) {
+      // No finger on the stick counts as the stick at rest: in marker mode the ship eases back to
+      // minimum speed. Keyboard throttle, when pressed, still wins.
+      const rest = this.touch && this.scheme === 'marker' && speed > TUNE.ship.minSpeed ? -1 : 0;
+      return { turn: this.turn, aim: NaN, thrust: this.thrust !== 0 ? this.thrust : rest };
+    }
     const r = clientTune.touch.joystickRadius;
     const dead = clientTune.touch.deadZone;
     const nx = st.dx / r;
@@ -160,11 +160,12 @@ export class Intents {
       const axis = (v: number): number => (Math.abs(v) < dead ? 0 : (Math.sign(v) * (Math.abs(v) - dead)) / (1 - dead));
       return { turn: axis(nx), aim: NaN, thrust: axis(-ny) };
     }
+    // Direction marker (owner decision): with the stick at rest the ship eases back to minimum speed.
+    // Pushing it accelerates, gently at first and at full strength only near the edge.
     const mag = Math.min(1, Math.hypot(nx, ny));
-    if (mag < dead) return { turn: 0, aim: NaN, thrust: 0 };
-    const target = TUNE.ship.minSpeed + ((mag - dead) / (1 - dead)) * (TUNE.ship.maxSpeed - TUNE.ship.minSpeed);
-    const thrust = Math.max(-1, Math.min(1, (target - speed) / clientTune.touch.speedBand));
-    return { turn: 0, aim: Math.atan2(ny, nx), thrust };
+    if (mag < dead) return { turn: 0, aim: NaN, thrust: speed > TUNE.ship.minSpeed ? -1 : 0 };
+    const push = (mag - dead) / (1 - dead);
+    return { turn: 0, aim: Math.atan2(ny, nx), thrust: Math.pow(push, clientTune.touch.markerThrustCurve) };
   }
 
   private onDown(e: PointerEvent): void {
@@ -174,6 +175,10 @@ export class Intents {
     const y = e.clientY;
     this.taps.push({ x, y });
     const hit = (z: Zone | null): boolean => !!z && Math.abs(x - z.x) <= z.hw && Math.abs(y - z.y) <= z.hh;
+    if (this.textBox) {
+      if (hit(this.textBox.zone)) this.textBox.field.focus();
+      else this.textBox.field.blur();
+    }
     if (hit(this.dashButton)) {
       this.presses.add('secondary');
       return;
