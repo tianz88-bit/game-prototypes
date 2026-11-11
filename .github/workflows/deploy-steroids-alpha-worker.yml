@@ -46,6 +46,9 @@ jobs:
       - name: Game rules test
         run: node scripts/test-steroids-alpha-sim.mjs
 
+      - name: Verify live settings and publisher boundaries
+        run: node scripts/test-steroids-live-config.mjs
+
       - name: Check Cloudflare deployment secrets
         id: cloudflare
         shell: bash

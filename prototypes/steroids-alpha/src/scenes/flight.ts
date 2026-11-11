@@ -1,3 +1,4 @@
+import {configVersion} from '../liveConfig';
 // On a planet. The view is centred on your ship. Gameplay is a flat wrapping map; everything is
 // drawn through the planet projection (render/planet.ts) so the map reads as a ball seen from above,
 // lit by one fixed sun as the planet turns and you travel over it.
@@ -13,7 +14,7 @@ import { intents } from '../input/intents';
 import { NetClient } from '../net/client';
 import { fitCamera, text, versionStamp } from './common';
 import { ShipView } from '../render/shipView';
-import { shipArtStatus } from '../render/shipArt';
+import { shipArtStatus,buildShadow,CALIBRATION,SHADOW_ANCHOR } from '../render/shipArt';
 import { lightingRadius, planetFrame, projectOffset, shipShadow, sunState } from '../render/planet';
 import type { PlanetFrame } from '../render/planet';
 import { PlanetGround } from '../render/planetGround';
@@ -21,14 +22,13 @@ import type { ShipPlacement } from '../render/shipView';
 
 const W = TUNE.world.width;
 const H = TUNE.world.height;
-const SUN = sunState(TUNE.planet.sunAzimuthDeg, TUNE.planet.sunElevationDeg);
 const SPACE = 0x060b17;
 
 export class FlightScene extends Phaser.Scene {
   net!: NetClient;
   private planet!: PlanetId;
   private ground!: PlanetGround;
-  private frame: PlanetFrame = planetFrame(0, 0, 0, lightingRadius(W), SUN);
+  private frame: PlanetFrame = planetFrame(0, 0, 0, lightingRadius(W), sunState(TUNE.planet.sunAzimuthDeg,TUNE.planet.sunElevationDeg));
   private view = { cx: 0, cy: 0, w: 1, h: 1, k: 1 };
   private rotationDeg = 0;
   private overlay!: Phaser.GameObjects.Graphics;
@@ -80,7 +80,9 @@ export class FlightScene extends Phaser.Scene {
     versionStamp(this);
   }
 
+  private lastConfigVersion='';
   update(): void {
+    if(this.lastConfigVersion!==configVersion){for(const ship of this.ships.values())ship.destroy();this.ships.clear();if(shipArtStatus==='ready')buildShadow(this);this.lastConfigVersion=configVersion;}
     const dash = intents.consume('secondary');
     intents.consume('primary');
     intents.consume('pause'); // No leaving during lockdown; warp-out comes in milestone 3.
@@ -96,7 +98,7 @@ export class FlightScene extends Phaser.Scene {
     // Travel is measured from the middle of the map, so the drop zone starts in daylight.
     const rotationDeg = DEBUG_ROTATION ?? (this.net.asteroidTick() / TUNE.net.tickHz) * TUNE.planet.rotationDegPerSec;
     this.rotationDeg = rotationDeg;
-    this.frame = planetFrame(cx - W / 2, cy - H / 2, rotationDeg, lightingRadius(W), SUN);
+    this.frame = planetFrame(cx - W / 2, cy - H / 2, rotationDeg, lightingRadius(W), sunState(TUNE.planet.sunAzimuthDeg, TUNE.planet.sunElevationDeg));
     this.view = { cx, cy, w, h, k: h / clientTune.render.referenceHeight };
     this.ground.update(w, h, this.view.k, this.frame);
 
@@ -164,6 +166,7 @@ export class FlightScene extends Phaser.Scene {
     const at = this.toScreen(s.x, s.y);
     // The hard shadow lies on the ground, away from the sun.
     const sh = shipShadow(this.frame.sun, clientTune.render.shadowReach);
+    sh.x+=CALIBRATION.shadow.x-SHADOW_ANCHOR.x;sh.y+=CALIBRATION.shadow.y-SHADOW_ANCHOR.y;
     const shadow = this.toScreen(s.x + sh.x, s.y + sh.y);
     ship.update({ ...at, brightness: this.objectLight(), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0 }, s, this.time.now);
   }

@@ -335,3 +335,10 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 8. BRIEF.md was drafted by Claude from the design chat, not written by the
    owner as the repo rules expect. The owner should review and take
    ownership of it.
+
+
+## Owner-approved calibration and live settings lab (11 November 2026)
+
+Keep a permanent Calibration & Balance Lab link immediately below the Steroids-Alpha live game on the GitHub prototypes hub. The public lab previews the approved per-part rig and shared movement simulation, edits calibration and allowlisted gameplay/client values, and saves browser drafts. Editing does not affect live players. An explicit Publish to live action uses the owner's private loopback publisher and existing GitHub authentication; no public browser credential. A fixed main-branch GitHub workflow obtains a short-lived OIDC identity and activates one validated, content-hashed configuration in the server's transactional PlanetConfig object. Client/server prediction and rendering receive the same version at runtime without a game rebuild. Preserve code-deployment boundaries for topology, network timing and texture resolution. Reject stale publications; retain prior configurations for rollback.
+
+Protocol v4 adds server-to-client settings messages before initial/cutover snapshots. The server remains authoritative for movement, hits, damage, cooldowns and state. Input floods cannot advance ships more than one step per server tick; packet size/rate, queues and sequence windows are bounded. This is baseline cheat resistance, not completed account authentication or bot detection. Publishing presently requires the private companion on the owner's PC; public visitors can only preview/export.

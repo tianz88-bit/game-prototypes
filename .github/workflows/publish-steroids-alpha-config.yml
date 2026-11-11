@@ -1,0 +1,35 @@
+name: Publish Steroids-Alpha live settings
+on:
+  workflow_dispatch:
+    inputs:
+      payload:
+        description: Validated lab settings JSON
+        required: true
+        type: string
+      expected_version:
+        description: Active version loaded before editing
+        required: true
+        type: string
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: steroids-alpha-live-settings
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate and activate live settings
+        env:
+          SETTINGS_PAYLOAD: ${{ inputs.payload }}
+          SETTINGS_EXPECTED: ${{ inputs.expected_version }}
+        run: node scripts/publish-steroids-config.mjs

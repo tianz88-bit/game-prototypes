@@ -1,3 +1,4 @@
+import {applyServerConfig} from '../liveConfig';
 // Connection to a planet room, with the client half of the netcode:
 //  - own ship: predicted every fixed step from local input, then reconciled against
 //    the server (rewind to the server state, replay unacknowledged inputs), with the
@@ -97,10 +98,16 @@ export class NetClient {
       this.pingTimer = setInterval(() => this.ping(), clientTune.net.pingIntervalMs);
     });
     ws.addEventListener('message', (e) => {
-      if (!(e.data instanceof ArrayBuffer)) return;
-      const data = e.data;
-      if (SIM_LAG_MS > 0) setTimeout(() => this.receive(data), SIM_LAG_MS);
-      else this.receive(data);
+      const data=e.data;
+      const receive=():void=>{
+        if(typeof data==='string'){
+          try{const msg=JSON.parse(data);if(msg.type==='config'&&applyServerConfig(msg.record)){this.pending=[];this.accumulator=0;this.visualError={x:0,y:0,heading:0};}}
+          catch{ws.close(CLOSE.BAD_PROTOCOL,'invalid server settings');}return;
+        }
+        if(data instanceof ArrayBuffer)this.receive(data);
+      };
+      // Preserve config/snapshot ordering even in the artificial-lag test mode.
+      if(SIM_LAG_MS>0)setTimeout(receive,SIM_LAG_MS);else receive();
     });
     ws.addEventListener('close', (e) => {
       this.status = e.code === CLOSE.ROOM_FULL ? 'full' : e.code === CLOSE.DESTROYED ? 'destroyed' : 'closed';
