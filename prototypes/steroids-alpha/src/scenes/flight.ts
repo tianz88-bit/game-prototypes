@@ -27,6 +27,7 @@ export class FlightScene extends Phaser.Scene {
   private status!: Phaser.GameObjects.Text;
   private message!: Phaser.GameObjects.Text;
   private coords!: Phaser.GameObjects.Text;
+  private schemeLabel!: Phaser.GameObjects.Text;
 
   constructor() {
     super('flight');
@@ -46,6 +47,7 @@ export class FlightScene extends Phaser.Scene {
       this.game.events.off('dpr', this.build, this);
       this.net.close();
       intents.dashButton = null;
+      intents.schemeButton = null;
     });
     intents.drainTaps();
   }
@@ -61,6 +63,7 @@ export class FlightScene extends Phaser.Scene {
     const { w } = logicalSize();
     this.status = text(this, w / 2, 6, '', 12, '#b8c6e6').setOrigin(0.5, 0).setDepth(950);
     this.coords = text(this, 8, 16, '', 10, '#7d8db0').setDepth(950).setVisible(DEBUG);
+    this.schemeLabel = text(this, 0, 0, '', 11, '#dfe8ff').setOrigin(0.5).setDepth(951).setVisible(false);
     this.message = text(this, w / 2, logicalSize().h * 0.3, '', 18, '#ffffff').setOrigin(0.5).setDepth(950);
     versionStamp(this);
   }
@@ -69,7 +72,8 @@ export class FlightScene extends Phaser.Scene {
     const dash = intents.consume('secondary');
     intents.consume('primary');
     intents.consume('pause'); // No leaving during lockdown; warp-out comes in milestone 3.
-    this.net.update({ turn: intents.turn, aim: intents.aim, dash });
+    if (intents.consume('scheme')) intents.toggleScheme();
+    this.net.update({ ...intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed), dash });
 
     const { w, h } = logicalSize();
     const own = this.net.ownRender();
@@ -137,14 +141,26 @@ export class FlightScene extends Phaser.Scene {
   private drawTouch(w: number, h: number): void {
     const g = this.overlay;
     g.clear();
+    this.schemeLabel.setVisible(intents.touch);
     if (!intents.touch) {
       intents.dashButton = null;
+      intents.schemeButton = null;
       return;
     }
     const r = clientTune.touch.dashButtonRadius;
     const m = clientTune.touch.dashButtonMargin;
     const b = { x: w - m - r, y: h - m - r, r };
-    intents.dashButton = b;
+    intents.dashButton = { x: b.x, y: b.y, hw: r * 1.3, hh: r * 1.3 };
+    // Steering scheme toggle, top right under the status line.
+    const bw = clientTune.touch.schemeButtonWidth;
+    const bh = clientTune.touch.schemeButtonHeight;
+    const sb = { x: w - 10 - bw / 2, y: 46 + bh / 2 };
+    intents.schemeButton = { x: sb.x, y: sb.y, hw: bw / 2 + 6, hh: bh / 2 + 6 };
+    g.fillStyle(0xffffff, 0.12);
+    g.fillRoundedRect(sb.x - bw / 2, sb.y - bh / 2, bw, bh, 8);
+    g.lineStyle(1, 0xffffff, 0.45);
+    g.strokeRoundedRect(sb.x - bw / 2, sb.y - bh / 2, bw, bh, 8);
+    this.schemeLabel.setPosition(sb.x, sb.y).setText(intents.scheme === 'marker' ? 'STEER: MARKER' : 'STEER: CRAFT');
     const cd = this.net.predicted?.dashCd ?? 0;
     const ready = cd <= 0;
     g.fillStyle(0xffffff, ready ? 0.22 : 0.08);
@@ -170,7 +186,7 @@ export class FlightScene extends Phaser.Scene {
     const planet = PLANETS.find((p) => p.id === this.planet)?.label ?? this.planet;
     const n = this.net;
     const ships = (own ? 1 : 0) + n.remoteCount;
-    this.status.setText(`${planet}  ·  ${ships} nearby  ·  ${Math.round(n.rttMs)} ms`);
+    this.status.setText(`${planet}  ·  ${ships} nearby  ·  ${Math.round(own?.speed ?? 0)} px/s  ·  ${Math.round(n.rttMs)} ms`);
     const msg: Record<string, string> = {
       connecting: 'Connecting…',
       open: '',

@@ -75,6 +75,8 @@ if (DEBUG) {
       stats,
       scene: () => (flight() ? 'flight' : game.scene.isActive('boot') ? 'boot' : 'menu'),
       shipArt: () => shipArtStatus,
+      scheme: () => intents.scheme,
+      zones: () => ({ dash: intents.dashButton, scheme: intents.schemeButton }),
       menuButtons: () => (game.scene.getScene('menu') as MenuScene).buttons,
       own: () => flight()?.net.ownRender() ?? null,
       corrections: () => ({ ...(flight()?.net.corrections ?? { snapshots: 0, count: 0, max: 0 }) }),

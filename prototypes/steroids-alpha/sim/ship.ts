@@ -8,6 +8,8 @@ export interface ShipState {
   y: number;
   /** Radians, 0 = facing +x, y grows downward. */
   heading: number;
+  /** Forward speed in px/s, between ship.minSpeed and ship.maxSpeed. A ship never stops. */
+  speed: number;
   /** Seconds of dash left. */
   dashTime: number;
   /** Seconds until dash is available again. */
@@ -17,20 +19,22 @@ export interface ShipState {
 export interface ShipInput {
   /** Increasing per client. The server acknowledges the last one it applied. */
   seq: number;
-  /** Keyboard steering, -1 (left) .. 1 (right). Ignored when aim is set. */
+  /** Craft-relative steering, -1 (left) .. 1 (right). Ignored when aim is set. */
   turn: number;
-  /** Joystick target heading in radians, or NaN for none. */
+  /** Direction-marker target heading in radians, or NaN for none. */
   aim: number;
+  /** -1 (brake) .. 1 (accelerate); 0 holds the current speed. */
+  thrust: number;
   /** Dash requested on this step. */
   dash: boolean;
 }
 
-export function newShip(x: number, y: number, heading: number): ShipState {
-  return { x, y, heading, dashTime: 0, dashCd: 0 };
+export function newShip(x: number, y: number, heading: number, speed: number): ShipState {
+  return { x, y, heading, speed, dashTime: 0, dashCd: 0 };
 }
 
 export function copyShip(s: ShipState): ShipState {
-  return { x: s.x, y: s.y, heading: s.heading, dashTime: s.dashTime, dashCd: s.dashCd };
+  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashTime: s.dashTime, dashCd: s.dashCd };
 }
 
 /** Advance one fixed step. Mutates and returns s. */
@@ -48,7 +52,10 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune)
     s.dashTime = tune.ship.dashDuration;
     s.dashCd = tune.ship.dashCooldown;
   }
-  const speed = s.dashTime > 0 ? tune.ship.dashSpeed : tune.ship.baseSpeed;
+  const thrust = Math.max(-1, Math.min(1, input.thrust));
+  s.speed += thrust * (thrust > 0 ? tune.ship.acceleration : tune.ship.braking) * dt;
+  s.speed = Math.max(tune.ship.minSpeed, Math.min(tune.ship.maxSpeed, s.speed));
+  const speed = s.dashTime > 0 ? Math.max(tune.ship.dashSpeed, s.speed) : s.speed;
   s.dashTime = Math.max(0, s.dashTime - dt);
   s.dashCd = Math.max(0, s.dashCd - dt);
 

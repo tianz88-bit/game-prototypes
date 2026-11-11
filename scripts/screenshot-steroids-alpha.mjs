@@ -132,6 +132,18 @@ try {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await desk.keyboard.up('ArrowRight');
 
+  // Keyboard throttle (craft-relative): S brakes toward the minimum speed, W accelerates toward the maximum.
+  await desk.keyboard.down('s');
+  await wait(900);
+  await desk.keyboard.up('s');
+  const slow = (await api(desk, () => window.__steroids.own())).speed;
+  assert(slow < 160, `desktop S braked to near minimum speed (${slow.toFixed(0)})`);
+  await desk.keyboard.down('w');
+  await wait(1400);
+  await desk.keyboard.up('w');
+  const fast = (await api(desk, () => window.__steroids.own())).speed;
+  assert(fast > 360, `desktop W accelerated to near maximum speed (${fast.toFixed(0)})`);
+
   // Phone steers with the joystick (real touch events) toward screen-up, then taps dash.
   const sx = vp.width * 0.25;
   const sy = vp.height * 0.7;
@@ -144,8 +156,35 @@ try {
   const steered = await api(phone, () => window.__steroids.own());
   const upErr = Math.abs(steered.heading - -Math.PI / 2);
   assert(upErr < 0.15, `phone joystick steered toward up (heading ${steered.heading.toFixed(2)})`);
+  // Direction marker: the stick is pushed 60 of 64 px, so the target speed is 360 (between 140 and 380).
+  assert.equal(await api(phone, () => window.__steroids.scheme()), 'marker');
+  assert(Math.abs(steered.speed - 360) < 15, `marker stick distance set the speed (${steered.speed.toFixed(0)})`);
   await phone.screenshot({ path: path.join(outDir, 'phone-joystick.png') });
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+
+  // Switch the stick to craft-relative with the on-screen STEER button, then: right rotates, down brakes.
+  const touchAt = async (pt, id) => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: pt.x, y: pt.y, id }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
+  const schemeZone = (await api(phone, () => window.__steroids.zones())).scheme;
+  await touchAt(schemeZone, 5);
+  await phone.waitForFunction(() => window.__steroids.scheme() === 'craft', null, { timeout: 2000 });
+  const c0 = await api(phone, () => window.__steroids.own());
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: sx, y: sy, id: 6 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: sx + 60, y: sy, id: 6 }] });
+  await wait(500);
+  const c1 = await api(phone, () => window.__steroids.own());
+  const spun = ((c1.heading - c0.heading + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+  assert(spun > 0.8, `craft stick right rotated the ship clockwise (${spun.toFixed(2)} rad)`);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: sx, y: sy + 60, id: 6 }] });
+  await wait(1000);
+  const c2 = await api(phone, () => window.__steroids.own());
+  assert(c2.speed < 160, `craft stick down braked (${c2.speed.toFixed(0)})`);
+  await phone.screenshot({ path: path.join(outDir, 'phone-craft.png') });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await touchAt(schemeZone, 7);
+  await phone.waitForFunction(() => window.__steroids.scheme() === 'marker', null, { timeout: 2000 });
 
   const dashBtn = { x: vp.width - 34 - 46, y: vp.height - 34 - 46 };
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ ...dashBtn, id: 2 }] });
@@ -155,7 +194,7 @@ try {
   await phone.screenshot({ path: path.join(outDir, 'phone-dash.png') });
 
   // Fly straight for a while. Prediction should agree with the server: corrections rare, and
-  // never more than a couple of steps (one step at base speed is 260/30 = 8.7px). A jittery
+  // never more than a couple of steps (one step at cruise speed is 260/30 = 8.7px). A jittery
   // network occasionally costs one step; anything bigger means client and server diverged.
   await Promise.all([api(phone, () => window.__steroids.resetCorrections()), api(desk, () => window.__steroids.resetCorrections())]);
   await wait(3000);

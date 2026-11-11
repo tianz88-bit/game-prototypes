@@ -1,16 +1,16 @@
 // Binary wire format between client and planet room. Little-endian.
 //
 // Client -> server
-//   INPUT    u8 type, u32 seq, f32 turn, f32 aim, u8 flags (bit0 dash)
+//   INPUT    u8 type, u32 seq, f32 turn, f32 aim, f32 thrust, u8 flags (bit0 dash)
 //   PING     u8 type, f64 clientTimeMs
 // Server -> client
 //   WELCOME  u8 type, u16 yourId, u32 tick
 //   SNAPSHOT u8 type, u32 tick, u32 ackSeq, u16 count, count x SHIP
-//            SHIP = u16 id, f32 x, f32 y, f32 heading, f32 dashTime, f32 dashCd
+//            SHIP = u16 id, f32 x, f32 y, f32 heading, f32 speed, f32 dashTime, f32 dashCd
 //   PONG     u8 type, f64 clientTimeMs
 import type { ShipInput, ShipState } from './ship';
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 export const MSG = {
   INPUT: 1,
@@ -39,16 +39,18 @@ export type ClientMessage =
   | { type: typeof MSG.INPUT; input: ShipInput }
   | { type: typeof MSG.PING; clientTime: number };
 
-const SHIP_BYTES = 2 + 4 * 5;
+const SHIP_BYTES = 2 + 4 * 6;
+const INPUT_BYTES = 18;
 
 export function encodeInput(input: ShipInput): ArrayBuffer {
-  const buf = new ArrayBuffer(14);
+  const buf = new ArrayBuffer(INPUT_BYTES);
   const v = new DataView(buf);
   v.setUint8(0, MSG.INPUT);
   v.setUint32(1, input.seq >>> 0, true);
   v.setFloat32(5, input.turn, true);
   v.setFloat32(9, input.aim, true);
-  v.setUint8(13, input.dash ? 1 : 0);
+  v.setFloat32(13, input.thrust, true);
+  v.setUint8(17, input.dash ? 1 : 0);
   return buf;
 }
 
@@ -82,8 +84,9 @@ export function encodeSnapshot(tick: number, ackSeq: number, ships: SnapshotShip
     v.setFloat32(o + 2, s.x, true);
     v.setFloat32(o + 6, s.y, true);
     v.setFloat32(o + 10, s.heading, true);
-    v.setFloat32(o + 14, s.dashTime, true);
-    v.setFloat32(o + 18, s.dashCd, true);
+    v.setFloat32(o + 14, s.speed, true);
+    v.setFloat32(o + 18, s.dashTime, true);
+    v.setFloat32(o + 22, s.dashCd, true);
     o += SHIP_BYTES;
   }
   return buf;
@@ -93,9 +96,10 @@ export function decodeClient(buf: ArrayBuffer): ClientMessage | null {
   const v = new DataView(buf);
   if (v.byteLength < 1) return null;
   const type = v.getUint8(0);
-  if (type === MSG.INPUT && v.byteLength === 14) {
+  if (type === MSG.INPUT && v.byteLength === INPUT_BYTES) {
     const turn = v.getFloat32(5, true);
     const aim = v.getFloat32(9, true);
+    const thrust = v.getFloat32(13, true);
     return {
       type,
       input: {
@@ -103,7 +107,8 @@ export function decodeClient(buf: ArrayBuffer): ClientMessage | null {
         // Never trust a client float: clamp steering, and drop anything that is not a real angle.
         turn: Number.isFinite(turn) ? Math.max(-1, Math.min(1, turn)) : 0,
         aim: Number.isFinite(aim) && Math.abs(aim) <= Math.PI * 2 ? aim : NaN,
-        dash: (v.getUint8(13) & 1) === 1,
+        thrust: Number.isFinite(thrust) ? Math.max(-1, Math.min(1, thrust)) : 0,
+        dash: (v.getUint8(17) & 1) === 1,
       },
     };
   }
@@ -128,8 +133,9 @@ export function decodeServer(buf: ArrayBuffer): ServerMessage | null {
         x: v.getFloat32(o + 2, true),
         y: v.getFloat32(o + 6, true),
         heading: v.getFloat32(o + 10, true),
-        dashTime: v.getFloat32(o + 14, true),
-        dashCd: v.getFloat32(o + 18, true),
+        speed: v.getFloat32(o + 14, true),
+        dashTime: v.getFloat32(o + 18, true),
+        dashCd: v.getFloat32(o + 22, true),
       });
       o += SHIP_BYTES;
     }

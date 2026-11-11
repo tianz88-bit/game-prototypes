@@ -43,7 +43,7 @@ interface Player {
 }
 
 
-const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, dash: false };
+const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false };
 
 export class Room {
   private players = new Map<number, Player>();
@@ -69,7 +69,7 @@ export class Room {
     // Real spawn points come with loot and bots.
     const a = Math.random() * Math.PI * 2;
     const d = Math.random() * TUNE.net.interestRadius * 0.3;
-    const spawn = newShip(TUNE.world.width / 2 + Math.cos(a) * d, TUNE.world.height / 2 + Math.sin(a) * d, Math.random() * Math.PI * 2 - Math.PI);
+    const spawn = newShip(TUNE.world.width / 2 + Math.cos(a) * d, TUNE.world.height / 2 + Math.sin(a) * d, Math.random() * Math.PI * 2 - Math.PI, TUNE.ship.cruiseSpeed);
     const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, reading: Promise.resolve(), started: false, deficitTicks: 0 };
     this.players.set(id, player);
 

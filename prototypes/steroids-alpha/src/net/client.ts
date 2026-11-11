@@ -174,7 +174,7 @@ export class NetClient {
    * engine's frame delta: Phaser smooths its delta and under-reports time when the frame rate drops,
    * which made a 37 fps client send 22 inputs a second to a server consuming 30.
    */
-  update(input: { turn: number; aim: number; dash: boolean }): void {
+  update(input: { turn: number; aim: number; thrust: number; dash: boolean }): void {
     const now = performance.now();
     const deltaMs = this.lastFrameAt ? now - this.lastFrameAt : 0;
     this.lastFrameAt = now;
@@ -184,7 +184,8 @@ export class NetClient {
       this.accumulator += Math.min(deltaMs, 250);
       while (this.accumulator >= STEP_MS) {
         this.accumulator -= STEP_MS;
-        const cmd: ShipInput = { seq: ++this.seq, turn: input.turn, aim: input.aim, dash: this.dashQueued };
+        // Round to the 32-bit floats that go on the wire, so prediction uses exactly what the server gets.
+        const cmd: ShipInput = { seq: ++this.seq, turn: Math.fround(input.turn), aim: Math.fround(input.aim), thrust: Math.fround(input.thrust), dash: this.dashQueued };
         this.dashQueued = false;
         this.pending.push(cmd);
         if (this.pending.length > 120) this.pending.shift();

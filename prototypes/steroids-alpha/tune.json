@@ -14,7 +14,11 @@
     "forgiveGuessAfterTicks": 15
   },
   "ship": {
-    "baseSpeed": 260,
+    "minSpeed": 140,
+    "cruiseSpeed": 260,
+    "maxSpeed": 380,
+    "acceleration": 220,
+    "braking": 300,
     "turnRate": 3.2,
     "dashSpeed": 640,
     "dashDuration": 0.22,
