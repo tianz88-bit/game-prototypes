@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 claude bot-spread
+DID: bots spawn anywhere on the planet, best of 32 points by distance to the nearest ship, clear of rocks (bots.spawnRockClearance 200). Players still drop at the centre.
+FILES: sim/world.ts server/src/room.ts tune.json scripts/test-steroids-alpha-sim.mjs
+SEAM: World.addShip(id, spread?)
+CROSS: none
+FOR codex: nothing.
+
 ## 2026-11-13 codex codex/steroids-bot-readability
 DID: Authoritative diamond bot tags and quiet bot text/board styling; full graphics brief delivered and session status reconciled.
 FILES: src/scenes/flight.ts sim/protocol.ts server/src/room.ts scripts/test-steroids-live-config.mjs BUILD_STATUS.md GFX_BRIEF.md
@@ -97,10 +104,3 @@ FILES: sim/ship.ts tune.json scripts/test-steroids-alpha-sim.mjs
 SEAM: none
 CROSS: none
 FOR codex: nothing.
-
-## 2026-11-12 claude dash-retune
-DID: dash = 0.8 s charge (steering locked) + 0.7 s boost at 4x top speed (steering free); cooldown 8 s; yellow dash bar by the heat bar; swept collision for rams/rocks.
-FILES: sim/ship.ts sim/world.ts tune.json src/scenes/flight.ts scripts/test-steroids-alpha-sim.mjs
-SEAM: none
-CROSS: none
-FOR codex: dash bar is a placeholder (flight.ts drawTouch, beside the heat bar).

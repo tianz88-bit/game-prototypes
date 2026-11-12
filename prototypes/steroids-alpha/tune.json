@@ -125,7 +125,8 @@
     "aimErrorDeg": 7,
     "fireConeDeg": 10,
     "burstHeat": 0.85,
-    "resumeHeat": 0.4
+    "resumeHeat": 0.4,
+    "spawnRockClearance": 200
   },
   "asteroid": {
     "radius": [70, 42, 22],
