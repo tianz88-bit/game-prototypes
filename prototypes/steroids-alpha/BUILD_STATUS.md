@@ -122,8 +122,11 @@ server is live and the itch page is public and unlisted.
   to 5° toward a target, ships before asteroids (`weapon.assist*`). The
   server decides; the client predicts its own shots with the same rule
   against what it sees.
-- Dash, charge and boost (owner design, replaces the instant dash): press →
-  0.5 s charge (`ship.dashChargeSeconds`; placeholder energy ring and sparks,
+- Dash, charge and boost (owner design, replaces the instant dash). Revised
+  12 November: 0.8 s charge, 4.5 s boost (about 3,150 px at 2x top speed,
+  most of the way round the 4,000 px planet), no steering while boosting,
+  cooldown 6 s. Press →
+  charge (`ship.dashChargeSeconds`; placeholder energy ring and sparks,
   plus an arrow on your own ship showing the held direction) → the ship
   snaps to the direction held at that moment and boosts at 2x top speed
   (`dashSpeedFactor`) for 1.5 s (`dashDuration`), ignoring the brake, then
