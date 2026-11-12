@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 codex codex/steroids-markers
+DID: Gold segmented bounty rings and star badges, backed/clamped tracker labels, matching board accent and a persistent framed MISSILE LOCK warning.
+FILES: src/scenes/flight.ts
+SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
+CROSS: none (render/shared drawing)
+FOR claude: Typecheck/build/rig/sim pass. Brave desktop + DPR2 phone owner/near/edge bounty fixtures inspected; 2 clients + 4 bots baseline pacing, zero console/page errors; bounty rules and lock selection untouched.
+
 ## 2026-11-13 codex codex/steroids-ordnance
 DID: Missile hull/fins, blue-white ignition and bounded curved smoke history; spiked armed/unarmed mines, trigger dashes and HP; distinct blast debris and segmented lock crosshairs.
 FILES: src/render/worldArt.ts src/scenes/flight.ts
@@ -97,10 +104,3 @@ FILES: sim/{ship,shop,world,turrets,protocol,liveConfig}.ts server/src/room.ts s
 SEAM: protocol 12. ShipState + dashCharge, hullMax (power/size/speed use hullMax). dashSpeed(hp) = topSpeed x dashSpeedFactor; heatCapacity(s). dashAim sent every step.
 CROSS: src/render/shipView.ts drawShield rewritten (hex bubble); flight.ts drawDashCharge placeholder.
 FOR codex: style the dash charge (flight.ts drawDashCharge; dashCharge 0..0.5s) and boost trail; the hex bubble is yours to refine.
-
-## 2026-11-12 claude shop-overheat
-DID: shop (turret/shield/guns, 4 tiers each, power floor + mineral cost; top-left one-tap buttons, keys 1/2/3), gun overheat (+damage 16), aim assist cone, aimed dash, dash ram. Power no longer scales damage/shield. QR now uses the repo's qrcode lib (own encoder removed).
-FILES: sim/{ship,shop,turrets,world,protocol,liveConfig}.ts server/src/room.ts src/{input/intents,net/client,scenes/flight,scenes/menu,main,liveConfig}.ts tune.json
-SEAM: protocol 11. ShipState + heat, overheated, turrets, shieldTier, damageTier. ShipInput + dashAim. maxShield/damageScale take ShipState. Fx kind 'ram'. New tune groups shop, weapon.assist*/heat*.
-CROSS: ../steroids-alpha-lab (preview dashAim, Shop group); src/render untouched.
-FOR codex: placeholders to style: shop buttons, heat bar, ram ring. Ship could show shield/gun tiers visually.

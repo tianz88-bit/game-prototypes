@@ -400,16 +400,21 @@ export class FlightScene extends Phaser.Scene {
   private drawBounty(p: ShipState | null, w: number, h: number): void {
     const g = this.overlay;
     const now = this.time.now;
-    this.lockText.setVisible(!!p && this.lockedOnMe && Math.floor(now / 200) % 2 === 0).setPosition(w / 2, h * 0.3);
+    const warning=!!p && this.lockedOnMe && !this.net.death;
+    this.lockText.setVisible(warning).setAlpha(.8+.2*Math.sin(now/120)).setPosition(w / 2, h * 0.3);
+    if(warning){g.fillStyle(0x26151e,.92);g.fillRoundedRect(w/2-76,h*.3-12,152,24,5);
+      g.lineStyle(1.5,0xff8664,.85);g.strokeRoundedRect(w/2-76,h*.3-12,152,24,5);}
     const b = this.net.bounty;
     this.bountyText.setVisible(false);
     if (!p || !b || this.net.death) return;
     const pulse = 0.7 + 0.3 * Math.sin(now / 200);
     if (b.id === this.net.myId) {
       const at = this.toScreen(p.x, p.y);
-      g.lineStyle(2, 0xffd23a, 0.6 * pulse);
-      g.strokeCircle(at.x, at.y, 46 * at.scale * shipRadius(p.hullMax, TUNE) / TUNE.ship.radius);
-      this.bountyText.setVisible(true).setText('BOUNTY ON YOU').setPosition(w / 2, h * 0.3 + 18);
+      const r=46 * at.scale * shipRadius(p.hullMax, TUNE) / TUNE.ship.radius;
+      this.bountyRing(g,at.x,at.y,r,pulse);
+      g.fillStyle(0xffd36d,1);this.drawStar(g,at.x,at.y-r-10,5);
+      this.bountyText.setVisible(true).setText('BOUNTY ON YOU').setPosition(w / 2, h * 0.3 + 32);
+      this.bountyPlate(w,h);
       return;
     }
     // Where the holder is: their drawn position when in view range, else the bounty frame's.
@@ -421,11 +426,12 @@ export class FlightScene extends Phaser.Scene {
     const margin = 28;
     if (at.visible && at.x > margin && at.x < w - margin && at.y > margin && at.y < h - margin) {
       const r = 46 * at.scale * (seen ? shipRadius(seen.hullMax, TUNE) / TUNE.ship.radius : 1);
-      g.lineStyle(2, 0xffd23a, 0.85 * pulse);
-      g.strokeCircle(at.x, at.y, r);
+      this.bountyRing(g,at.x,at.y,r,pulse);
+      g.fillStyle(0x32251f,.95);g.fillCircle(at.x,at.y-r-12,11);
       g.fillStyle(0xffd23a, 0.9);
       this.drawStar(g, at.x, at.y - r - 12, 7);
       this.bountyText.setVisible(true).setText('BOUNTY').setPosition(at.x, at.y - r - 26);
+      this.bountyPlate(w,h);
       return;
     }
     // Off screen: an arrow toward the holder (the world wraps; take the short way), on an ellipse
@@ -435,8 +441,13 @@ export class FlightScene extends Phaser.Scene {
     const a = Math.atan2(dy, dx);
     const c = Math.cos(a);
     const s = Math.sin(a);
-    const x = w / 2 + c * w * 0.4;
+    let x = w / 2 + c * w * 0.4;
     const y = h / 2 + s * h * 0.38;
+    const boardBottom=Math.max(0,...[...this.board.values()].map(chip=>chip.y+BOARD_CHIP_H/2))+24;
+    if(y<260 && x<190)x=190;
+    if(y<boardBottom && x>w-Math.min(BOARD_CHIP_W,w*.34)-35)x=w-Math.min(BOARD_CHIP_W,w*.34)-35;
+    g.fillStyle(0x211e2d,.95);g.fillCircle(x,y,18);
+    g.lineStyle(1,0xffd36d,.7);g.strokeCircle(x,y,18);
     g.fillStyle(0xffd23a, 0.9 * pulse);
     g.fillTriangle(x + c * 16, y + s * 16, x - c * 6 - s * 11, y - s * 6 + c * 11, x - c * 6 + s * 11, y - s * 6 - c * 11);
     g.fillStyle(0x2a1d05, 0.9);
@@ -446,6 +457,26 @@ export class FlightScene extends Phaser.Scene {
       .setVisible(true)
       .setText(`${name} ${dist}m`)
       .setPosition(x - c * 40, y - s * 24);
+    this.bountyPlate(w,h);
+  }
+
+  private bountyPlate(w:number,h:number):void {
+    const t=this.bountyText,pad=7,bw=t.width+pad*2,bh=t.height+8;
+    let x=Math.max(bw/2+4,Math.min(w-bw/2-4,t.x));
+    const y=Math.max(bh/2+4,Math.min(h-bh/2-4,t.y));
+    const boardBottom=Math.max(0,...[...this.board.values()].map(chip=>chip.y+BOARD_CHIP_H/2))+20;
+    if(y<260 && x-bw/2<170)x=170+bw/2+5;
+    if(y<boardBottom && x+bw/2>w-Math.min(BOARD_CHIP_W,w*.34)-18)x=w-Math.min(BOARD_CHIP_W,w*.34)-23-bw/2;
+    t.setPosition(x,y);
+    this.overlay.fillStyle(0x221f2c,.9);this.overlay.fillRoundedRect(x-bw/2,y-bh/2,bw,bh,4);
+    this.overlay.lineStyle(1,0xbf9550,.8);this.overlay.strokeRoundedRect(x-bw/2,y-bh/2,bw,bh,4);
+  }
+
+  private bountyRing(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number,pulse:number):void {
+    g.lineStyle(4,0x28212d,.8);g.strokeCircle(x,y,r);
+    g.lineStyle(1,0xffefbd,.55);g.strokeCircle(x,y,r-3);
+    g.lineStyle(2,0xffca55,.65+.25*pulse);
+    for(let i=0;i<4;i++){g.beginPath();g.arc(x,y,r,i*Math.PI/2+.12,i*Math.PI/2+1.35);g.strokePath();}
   }
 
   private drawStar(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number): void {
@@ -713,7 +744,8 @@ export class FlightScene extends Phaser.Scene {
       const mine = r.id === this.net.myId;
       const pop = Math.max(0, 1 - (now - chip.poppedAt) / 600);
       const glow = Math.max(pop, Math.max(0, 1 - (now - chip.climbedAt) / 700) * 0.6);
-      if (chip.width !== cw || pop > 0 || glow > 0 || chip.mine !== mine || chip.lastGlow !== 0) {
+      const bounty = this.net.bounty?.id === r.id;
+      if (chip.width !== cw || pop > 0 || glow > 0 || chip.mine !== mine || chip.lastGlow !== 0 || chip.bounty !== bounty) {
         const g = chip.g;
         g.clear();
         g.fillStyle(mine ? 0x123447 : 0x141c2e, 0.82);
@@ -722,7 +754,7 @@ export class FlightScene extends Phaser.Scene {
           g.fillStyle(0xffd27a, 0.35 * glow);
           g.fillRoundedRect(-cw / 2, -BOARD_CHIP_H / 2, cw, BOARD_CHIP_H, BOARD_CHIP_H / 2);
         }
-        g.lineStyle(1.5, mine ? 0x5fe3ff : 0x3d4a66, mine ? 0.9 : 0.8);
+        g.lineStyle(1.5, bounty ? 0xffd36d : mine ? 0x5fe3ff : 0x3d4a66, bounty || mine ? 0.95 : 0.8);
         g.strokeRoundedRect(-cw / 2, -BOARD_CHIP_H / 2, cw, BOARD_CHIP_H, BOARD_CHIP_H / 2);
         // Power pill on the right.
         const pw = 34;
@@ -735,9 +767,9 @@ export class FlightScene extends Phaser.Scene {
         chip.width = cw;
         chip.mine = mine;
         chip.lastGlow = glow;
+        chip.bounty = bounty;
       }
       // The bounty holder's rank shows a gold star.
-      const bounty = this.net.bounty?.id === r.id;
       const rankLabel = bounty ? '★' : `${rank + 1}`;
       if (chip.rankT.text !== rankLabel) chip.rankT.setText(rankLabel).setColor(bounty ? '#ffd23a' : '#8fa2c8');
       if (chip.nameT.text !== r.name) {
@@ -1024,6 +1056,7 @@ interface BoardChip {
   width: number;
   mine?: boolean;
   lastGlow?: number;
+  bounty?: boolean;
 }
 
 interface DrawnShip {
