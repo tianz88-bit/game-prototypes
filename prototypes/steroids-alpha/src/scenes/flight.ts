@@ -75,6 +75,7 @@ export class FlightScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('dpr', this.build, this);
       this.net.close();
+      intents.dashButton = null;
       intents.schemeButton = null;
       intents.fireButton = null;
     });
@@ -105,12 +106,13 @@ export class FlightScene extends Phaser.Scene {
   update(): void {
     if(this.lastConfigVersion!==configVersion){for(const ship of this.ships.values())ship.destroy();this.ships.clear();if(shipArtStatus==='ready')buildShadow(this);this.lastConfigVersion=configVersion;}
     const dead = !!this.net.death || this.net.status === 'destroyed';
+    const dash = intents.consume('secondary');
     if (!dead) {
       intents.consume('primary');
       intents.consume('pause'); // No leaving during lockdown; warp-out comes in milestone 3.
     }
     if (intents.consume('scheme')) intents.toggleScheme();
-    this.net.update({ ...intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed), fire: intents.fire });
+    this.net.update({ ...intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed), dash, fire: intents.fire });
 
     const { w, h } = logicalSize();
     const own = this.net.ownRender();
@@ -258,13 +260,18 @@ export class FlightScene extends Phaser.Scene {
     }
     this.schemeLabel.setVisible(intents.touch);
     if (!intents.touch) {
+      intents.dashButton = null;
       intents.schemeButton = null;
       intents.fireButton = null;
       return;
     }
-    // Fire button: bottom right, held to shoot.
+    // Dash button in the bottom-right corner; the fire button, held to shoot, sits to its left.
+    const r = clientTune.touch.dashButtonRadius;
+    const m = clientTune.touch.dashButtonMargin;
+    const b = { x: w - m - r, y: h - m - r, r };
+    intents.dashButton = { x: b.x, y: b.y, hw: r * 1.3, hh: r * 1.3 };
     const fr = clientTune.touch.fireButtonRadius;
-    const fb = { x: w - clientTune.touch.fireButtonMargin - fr, y: h - clientTune.touch.fireButtonMargin - fr };
+    const fb = { x: w - m * 2 - r * 2 - fr, y: h - m - fr };
     intents.fireButton = { x: fb.x, y: fb.y, hw: fr * 1.2, hh: fr * 1.2 };
     g.fillStyle(0xff8a4a, intents.fire ? 0.5 : 0.25);
     g.fillCircle(fb.x, fb.y, fr);
@@ -280,6 +287,18 @@ export class FlightScene extends Phaser.Scene {
     g.lineStyle(1, 0xffffff, 0.45);
     g.strokeRoundedRect(sb.x - bw / 2, sb.y - bh / 2, bw, bh, 8);
     this.schemeLabel.setPosition(sb.x, sb.y).setText(intents.scheme === 'marker' ? 'STEER: MARKER' : 'STEER: CRAFT');
+    const cd = this.net.predicted?.dashCd ?? 0;
+    const ready = cd <= 0;
+    g.fillStyle(0xffffff, ready ? 0.22 : 0.08);
+    g.fillCircle(b.x, b.y, r);
+    g.lineStyle(2, 0xffffff, ready ? 0.7 : 0.3);
+    g.strokeCircle(b.x, b.y, r);
+    if (!ready) {
+      g.lineStyle(4, 0xffd27a, 0.9);
+      g.beginPath();
+      g.arc(b.x, b.y, r - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - cd / TUNE.ship.dashCooldown));
+      g.strokePath();
+    }
     const st = intents.stick;
     if (st) {
       g.lineStyle(2, 0xffffff, 0.35);
@@ -564,7 +583,9 @@ function rockShape(id: number, r: number): { x: number; y: number }[] {
     const n = 11;
     for (let i = 0; i < n; i++) {
       seed = (seed * 9301 + 49297) % 233280;
-      const k = 0.78 + (seed / 233280) * 0.3;
+      // Corners sit at 100-112% of the hit radius, so even the flat edges between them stay within
+      // 4% of the circle the server collides with: no hits against empty space.
+      const k = 1 + (seed / 233280) * 0.12;
       const a = (i / n) * Math.PI * 2;
       pts.push({ x: Math.cos(a) * r * k, y: Math.sin(a) * r * k });
     }
@@ -610,7 +631,8 @@ class RigShip implements DrawnShip {
   }
 
   update(at: ShipPlacement, s: ShipState, timeMs: number): void {
-    this.view.update(at, s.heading, timeMs, s.speed);
+    // A dash counts as full throttle for the exhaust.
+    this.view.update(at, s.heading, timeMs, s.speed, s.dashTime > 0);
   }
 
   fire(side: number): void {
@@ -639,6 +661,10 @@ class PlaceholderShip implements DrawnShip {
     const size = clientTune.render.shipSize;
     g.clear();
     g.setVisible(at.visible);
+    if (s.dashTime > 0) {
+      g.fillStyle(0xffd27a, 0.85);
+      g.fillTriangle(-size * 0.5, -size * 0.3, -size * 0.5, size * 0.3, -size * 1.4, 0);
+    }
     g.fillStyle(this.mine ? 0x5fe3ff : 0xff8a4a, 1);
     g.fillPoints(
       [

@@ -141,12 +141,13 @@ All names, ships, pilots and art are original. Nothing is copied from either.
 - Primary fire from equipped weapon(s), fixed forward. Default (confirm):
   wing guns are angled slightly inward so the two streams cross ahead of the
   nose, instead of passing either side of a target dead ahead.
-- No dash (owner decision, 12 November 2026: removed from the game).
+- Dash (owner decision, restored 12 November 2026, "important for io
+  games"): a 0.5 s boost at 450 px/s on a cooldown. Normal top speed 350 px/s.
 - Hull HP; destroyed at 0.
 - Shield (owner decision): a blue meter that takes damage before the hull.
   It equals 50% of the original hull, and the hull was halved to make room
   (hull 50 + shield 50). It starts regenerating 5 s after the last damage,
-  at 5% of the shield per second. A blocked hit shows blue hexagons on the
+  at 20% of the shield per second (owner change, 12 November 2026). A blocked hit shows blue hexagons on the
   shield bubble where it landed.
 - Ramming an asteroid destroys it (it splits), and the ship and the rock are
   pushed apart in opposite directions (owner decision). The ship still takes
@@ -349,7 +350,10 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 - Shield of 50% of the old hull, hull halved; regen after 5 s at 5%/s; blue
   hexagon hit effect.
 - Ships 30% darker on the night side; other objects 10%.
-- Dash removed entirely (button, key and mechanic), 12 November 2026.
+- Dash removed, then restored the same day: 0.5 s at 450 px/s; top speed
+  350 px/s. Shield regenerates 20% of the bar per second after the delay.
+- Thruster plume grows longer near top speed and in a dash.
+- Planet select shows the pilot count on each planet.
 - Pilot name must be typeable on phones (tap the box, the keyboard opens).
 
 ## Open questions

@@ -6,7 +6,7 @@ export { PlanetConfig } from './configStore';
 // Steroids-Alpha server: a Worker that routes /ws/<planet> to that planet's room.
 // v1 runs one room per planet; the matchmaker (more rooms when full) comes later.
 import { PROTOCOL_VERSION } from '../../sim/protocol';
-import { isPlanetId } from '../../sim/planets';
+import { PLANETS, isPlanetId } from '../../sim/planets';
 import { Room, acceptBinary } from './room';
 import type { CfSocket } from './room';
 
@@ -45,6 +45,21 @@ export default {
       try{const body=await readBounded(request) as {expectedVersion:string;data:unknown};
         return env.PLANET_CONFIG.get(env.PLANET_CONFIG.idFromName('active')).fetch(new Request('https://internal/config',{method:'POST',body:JSON.stringify({...body,actor})}));
       }catch(e){return Response.json({error:(e as Error).message},{status:400});}
+    }
+    // Pilots on each planet, for the planet select screen.
+    if (url.pathname === '/planets' && request.method === 'GET') {
+      const counts: Record<string, number> = {};
+      await Promise.all(
+        PLANETS.map(async (p) => {
+          try {
+            const r = await env.PLANET_ROOMS.get(env.PLANET_ROOMS.idFromName(`${p.id}:1`)).fetch(new Request('https://internal/count'));
+            counts[p.id] = ((await r.json()) as { players: number }).players;
+          } catch {
+            counts[p.id] = -1;
+          }
+        }),
+      );
+      return Response.json({ planets: counts }, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
     }
     if (url.pathname === '/health') {
       return Response.json({ ok: true, service: 'steroids-alpha-server', protocol: PROTOCOL_VERSION });

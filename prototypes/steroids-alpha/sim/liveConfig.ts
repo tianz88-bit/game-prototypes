@@ -81,14 +81,14 @@ export function validateConfig(input: unknown): ConfigData {
     if (v < 0 || v > 10000) fail(`${group}.${key}: value must be 0–10000`);
   }
   const s = value.tune.ship, w = value.tune.weapon;
-  if (!(s.minSpeed <= s.cruiseSpeed && s.cruiseSpeed <= s.maxSpeed && s.maxSpeed > 0)) fail('Keep minimum ≤ cruise ≤ maximum speed');
+  if (!(s.minSpeed <= s.cruiseSpeed && s.cruiseSpeed <= s.maxSpeed && s.maxSpeed > 0 && s.dashSpeed >= s.minSpeed)) fail('Keep minimum ≤ cruise ≤ maximum speed');
   if (s.acceleration <= 0 || s.braking <= 0 || s.radius <= 0 || s.maxHp <= 0) fail('Acceleration, braking, radius and hull must be positive');
   if (s.shieldRegenPerSecond > 1 || value.tune.asteroid.healthDropChance > 1 || value.tune.asteroid.healthHealFraction > 1) fail('Shield regeneration, drop chance and heal fraction are fractions (0–1)');
   if (!Number.isInteger(w.fireIntervalSteps) || w.fireIntervalSteps < 1 || w.fireIntervalSteps > 255 || !Number.isInteger(w.bulletLifeSteps) || w.bulletLifeSteps < 1 || w.bulletLifeSteps > 900) fail('Weapon step counts must be positive integers (interval ≤255; life ≤900)');
   if (w.bulletRadius <= 0 || w.bulletSpeed <= 0 || w.convergeDistance <= 0 || value.tune.asteroid.radius.some(n=>n<=0) || value.tune.asteroid.hp.some(n=>n<=0) || value.tune.asteroid.targetMass > 256) fail('Invalid weapon/asteroid size or population');
   const p = value.tune.planet, r = value.clientTune.render;
   if (Math.abs(p.rotationDegPerSec)>12 || Math.abs(p.sunElevationDeg)>90 || Math.abs(p.sunAzimuthDeg)>360) fail('Planet lighting values out of range');
-  if (r.shipScale<.05 || r.shipScale>1 || r.planetRadius<450 || r.planetRadius>3000 || r.referenceHeight<300 || r.referenceHeight>1600 || r.haloWidth<0 || r.haloWidth>200 || r.shadowReach<0 || r.shadowReach>120 || r.nightObjectDim<0 || r.nightObjectDim>1 || r.nightShipDim<0 || r.nightShipDim>1) fail('Visual settings out of range');
+  if (r.shipScale<.05 || r.shipScale>1 || r.planetRadius<450 || r.planetRadius>3000 || r.referenceHeight<300 || r.referenceHeight>1600 || r.haloWidth<0 || r.haloWidth>200 || r.shadowReach<0 || r.shadowReach>120 || r.nightObjectDim<0 || r.nightObjectDim>1 || r.nightShipDim<0 || r.nightShipDim>1 || r.thrusterTopSpeedStretch<0 || r.thrusterTopSpeedStretch>4) fail('Visual settings out of range');
   for (const n of Object.values(r)) if(n<0 || n>10000) fail('Visual setting out of range');
   return value;
 }

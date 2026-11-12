@@ -3,11 +3,12 @@
 import Phaser from 'phaser';
 import { PLANETS } from '../../sim/planets';
 import type { PlanetId } from '../../sim/planets';
-import { logicalSize } from '../base';
+import { logicalSize, serverOrigin } from '../base';
 import { intents } from '../input/intents';
 import { fitCamera, text, versionStamp } from './common';
 import { cleanName } from '../../sim/protocol';
 import { loadSave, writeSave } from '../save';
+import { clientTune } from '../clientTune';
 
 export interface MenuButton {
   id: PlanetId;
@@ -70,6 +71,7 @@ export class MenuScene extends Phaser.Scene {
 
   private layout(): void {
     this.children.removeAll(true);
+    this.countText.clear();
     fitCamera(this);
     const { w, h } = logicalSize();
     this.add.rectangle(w / 2, h / 2, w, h, 0x05070d);
@@ -96,13 +98,47 @@ export class MenuScene extends Phaser.Scene {
       const x = w / 2;
       const y = ny + 60 + bh / 2 + i * (bh + 12);
       this.add.rectangle(x, y, bw, bh, p.colour).setStrokeStyle(2, 0x9fb4e0);
-      text(this, x, y, p.label, 22).setOrigin(0.5);
+      text(this, x, y - (bh > 52 ? 8 : 6), p.label, 22).setOrigin(0.5);
+      this.countText.set(p.id, text(this, x, y + (bh > 52 ? 16 : 12), '', 12, '#c9d6f2').setOrigin(0.5));
       return { id: p.id, x, y, w: bw, h: bh };
     });
     versionStamp(this);
+    this.showCounts();
+  }
+
+  /** Pilots on each planet, from the server; refreshed every few seconds while the menu is open. */
+  private counts: Record<string, number> | null = null;
+  private countText = new Map<string, Phaser.GameObjects.Text>();
+  private countsAt = -1e9;
+  private async pollCounts(): Promise<void> {
+    try {
+      const url = serverOrigin().replace(/^ws/, 'http') + '/planets';
+      const r = await fetch(url, { cache: 'no-store' });
+      if (r.ok) this.counts = ((await r.json()) as { planets: Record<string, number> }).planets;
+    } catch {
+      // Offline or the server is unreachable: leave the counts off.
+    }
+    if (this.scene.isActive()) this.showCounts();
+  }
+
+  /** The pilot count shown on each planet button (test hook). */
+  countLabels(): Record<string, string> {
+    return Object.fromEntries([...this.countText].map(([id, t]) => [id, t.text]));
+  }
+
+  private showCounts(): void {
+    for (const [id, t] of this.countText) {
+      if (!t.active) continue;
+      const n = this.counts?.[id];
+      t.setText(n === undefined || n < 0 ? '' : n === 1 ? '1 pilot' : `${n} pilots`);
+    }
   }
 
   update(time: number): void {
+    if (time - this.countsAt > clientTune.net.planetCountRefreshMs) {
+      this.countsAt = time;
+      void this.pollCounts();
+    }
     const input = nameField();
     const editing = document.activeElement === input;
     const name = cleanName(input.value);

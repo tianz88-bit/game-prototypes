@@ -271,16 +271,19 @@ export class NetClient {
    * engine's frame delta: Phaser smooths its delta and under-reports time when the frame rate drops,
    * which made a 37 fps client send 22 inputs a second to a server consuming 30.
    */
-  update(input: { turn: number; aim: number; thrust: number; fire: boolean }): void {
+  update(input: { turn: number; aim: number; thrust: number; dash: boolean; fire: boolean }): void {
     const now = performance.now();
     const deltaMs = this.lastFrameAt ? now - this.lastFrameAt : 0;
     this.lastFrameAt = now;
+    // A dash pressed between two fixed steps is kept for the next step.
+    this.dashQueued ||= input.dash;
     if (this.predicted && this.status === 'open' && !this.death) {
       this.accumulator += Math.min(deltaMs, 250);
       while (this.accumulator >= STEP_MS) {
         this.accumulator -= STEP_MS;
         // Round to the 32-bit floats that go on the wire, so prediction uses exactly what the server gets.
-        const cmd: ShipInput = { seq: ++this.seq, turn: Math.fround(input.turn), aim: Math.fround(input.aim), thrust: Math.fround(input.thrust), fire: input.fire };
+        const cmd: ShipInput = { seq: ++this.seq, turn: Math.fround(input.turn), aim: Math.fround(input.aim), thrust: Math.fround(input.thrust), dash: this.dashQueued, fire: input.fire };
+        this.dashQueued = false;
         this.pending.push(cmd);
         if (this.pending.length > 120) this.pending.shift();
         this.send(encodeInput(cmd));
@@ -302,6 +305,7 @@ export class NetClient {
     for (const [id, r] of this.remotes) if (now - r.lastSeen > clientTune.net.remoteTimeoutMs) this.remotes.delete(id);
   }
 
+  private dashQueued = false;
 
   /** Move the drawn bullets; one that reaches an asteroid or another ship stops there with a spark. */
   private stepBullets(deltaMs: number): void {
