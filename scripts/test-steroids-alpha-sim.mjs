@@ -281,7 +281,10 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   // A capped ship cannot reach the old top speed.
   const fast = S.newShip(0, 0, 0, sh.maxSpeed);
   fast.hp = sh.powerCap;
+  // Over the cap it slows at the braking rate (no snap), then holds the cap.
   S.stepShip(fast, { ...idle, thrust: 1 }, 1 / tune.net.tickHz, tune);
+  near(fast.speed, sh.maxSpeed - sh.braking / tune.net.tickHz, 1e-9, 'excess speed bleeds off at the braking rate');
+  for (let i = 0; i < tune.net.tickHz; i++) S.stepShip(fast, { ...idle, thrust: 1 }, 1 / tune.net.tickHz, tune);
   near(fast.speed, S.topSpeed(sh.powerCap, tune), 1e-9, 'speed capped by power');
   // Regen is a share of the (bigger) maximum: one quiet second refills shieldRegenPerSecond of it.
   s.shield = 0;
@@ -548,22 +551,28 @@ assert.equal(S.cleanName(null), '');
   assert(longest(fast) > longest(slow) * 1.5, 'top-speed plume lasts longer');
 }
 
-// --- Dash and top speed: dash holds dashSpeed for dashDuration, then the cap is maxSpeed again. ---
+// --- Dash: holds dashSpeed for dashDuration even with the brake held (a released marker stick), then
+// the extra speed bleeds off at the braking rate down to top speed, not to the minimum. ---
 {
-  const sh = S.newShip(0, 0, 0, tune.ship.maxSpeed);
-  const steps = Math.round(tune.ship.dashDuration * tune.net.tickHz);
+  const dt = 1 / tune.net.tickHz;
+  const sh = S.newShip(0, 0, 0, tune.ship.minSpeed);
+  sh.hp = tune.ship.maxHp;
   let x0 = sh.x;
-  S.stepShip(sh, { ...idle, thrust: 1, dash: true }, 1 / tune.net.tickHz, tune);
-  near((sh.x - x0) * tune.net.tickHz, tune.ship.dashSpeed, 1e-6, 'dash moves at dashSpeed');
+  S.stepShip(sh, { ...idle, thrust: -1, dash: true }, dt, tune);
+  near((sh.x - x0) / dt, tune.ship.dashSpeed, 1e-6, 'dash moves at dashSpeed from minimum speed');
   let n = 1;
   while (sh.dashTime > 0) {
-    S.stepShip(sh, { ...idle, thrust: 1 }, 1 / tune.net.tickHz, tune);
+    x0 = sh.x;
+    S.stepShip(sh, { ...idle, thrust: -1 }, dt, tune);
+    near((sh.x - x0) / dt, tune.ship.dashSpeed, 1e-6, 'braking does not cut a dash short');
     n++;
   }
-  assert(Math.abs(n - steps) <= 1, `dash lasts dashDuration (${n} steps)`);
-  x0 = sh.x;
-  S.stepShip(sh, { ...idle, thrust: 1 }, 1 / tune.net.tickHz, tune);
-  near((sh.x - x0) * tune.net.tickHz, tune.ship.maxSpeed, 1e-6, 'after the dash the cap is maxSpeed');
+  assert(Math.abs(n - Math.round(tune.ship.dashDuration / dt)) <= 1, `dash lasts dashDuration (${n} steps)`);
+  // Released stick (brake) after the dash: excess bleeds at braking; the brake then takes it on down.
+  S.stepShip(sh, { ...idle, thrust: 0 }, dt, tune);
+  near(sh.speed, tune.ship.dashSpeed - tune.ship.braking * dt, 1e-6, 'eases out of the dash');
+  for (let i = 0; i < tune.net.tickHz; i++) S.stepShip(sh, { ...idle, thrust: 0 }, dt, tune);
+  near(sh.speed, tune.ship.maxSpeed, 1e-6, 'settles at top speed when coasting');
   assert(sh.dashCd > 0, 'dash on cooldown');
 }
 
