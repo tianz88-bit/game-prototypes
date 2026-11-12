@@ -138,8 +138,13 @@ server is live and the itch page is public and unlisted.
   clamp every ship's hull to the starting 50.
 - Gun tiers add 20% heat capacity each (`shop.gunHeatPerTier`).
 - Leaderboard chips show "n KO" (player kills only) beside the power pill.
-- Shield hit effect: a bubble of 2 staggered rings of hexagons around the
-  craft shows faintly; cells within 60° of the hit flash (`render/shipView.ts`).
+- Shield hit effect (owner reference image: a glowing hex-tiled sphere): on
+  a hit, a sphere fades in over the craft, with a hex grid wrapped onto it
+  (cells flatten toward the rim), a translucent blue body and a glowing rim.
+  Some cells on the hit side flash, strongest near the impact
+  (`render/shipView.ts` drawShield).
+- Live settings 5087bc96d49a (12 November): new dash (1.5 s boost, 4 s
+  cooldown, 2x speed, 0.5 s charge), calibration unchanged.
 - Dash ram: a dashing ship that touches another deals 30 x gun scale, takes
   8 itself, both are thrown apart (smaller further), once per dash; orange
   ring effect. Verified in the rules test and with a real Room (fake

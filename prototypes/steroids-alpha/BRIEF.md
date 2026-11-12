@@ -193,8 +193,8 @@ All names, ships, pilots and art are original. Nothing is copied from either.
   it is above the new maximum (owner design, 12 November).
 - Gun upgrades also hold 20% more heat per tier (owner).
 - Leaderboard shows each player's kills (players only) and power.
-- Shield hit effect: a bubble of hexagons around the craft; only the hit
-  side flashes (owner).
+- Shield hit effect: a glowing sphere tiled with hexagons around the craft
+  (owner reference image); some hexagons on the hit side flash (owner).
 - Dash ram (owner picked): dashing into a ship damages it, scaled by gun
   upgrades, and throws both apart.
 - Destroyed ship (owner decision): it explodes, then the player chooses
