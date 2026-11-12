@@ -1,5 +1,7 @@
 ## Current milestone
 
+Missiles and mines in (12 November): two new shop items with their own buttons and held, auto-refilling charges. Before that: bots on Planet A, dash retune, shop, overheat, aim assist.
+
 Owner calibration ffc177fd2833 is live (12 November2026), with exact JSON readback and unchanged game/render stats. Hosted publishing is prepared and closed pending owner approval of Cloudflare Access; local publisher remains stopped.
 
 Auto turrets in (1 per 100 minerals, max 4). .io power loop in: minerals from asteroids are the hull, raise the shield
@@ -218,6 +220,26 @@ server is live and the itch page is public and unlisted.
   shield bubble where it landed (hits now carry their impact point).
 - Night side: ships 30% darker (`render.nightShipDim`), asteroids and pickups
   10% (`render.nightObjectDim`).
+- Missiles and mines (owner design, 12 November). Shop items 4 and 5, four
+  tiers each (each tier = one more charge, more damage, missiles turn
+  harder, mine blasts grow). Charges refill one at a time
+  (`missile.refillSeconds` 6, `mine.refillSeconds` 8) and are held until
+  used.
+  - Missile (Q, or the touch button above fire): locks the nearest ship
+    within 30 degrees of the nose and 900 px (asteroids are never locked; red
+    corner brackets show the lock), homes at a capped turn rate and speeds up
+    to 800 px/s, 35 damage on hit, fizzles after 3.5 s. Without a lock it flies
+    straight and still hits whatever it meets.
+  - Mine (E, or the touch button above dash): dropped behind the ship, arms
+    after 0.7 s (blinks red), creeps at 90 px/s toward the nearest enemy ship
+    within 260 px, and blows up when one comes within 70 px: 40 damage at the
+    centre, half at the 110 px edge, to every enemy ship in the blast. Up to 4
+    per pilot (oldest goes), 20 s life. Owners are never hurt by their own.
+  - Both are visible and can be shot down (36 hp each). Turrets target
+    incoming missiles first, then ships, then mines; two turrets on a missile
+    for its whole flight do 35, so they need the main gun (16 a hit) to
+    finish it.
+  - Bots fire missiles while engaging and drop mines while fleeing.
 - `sim/world.ts` holds all of these rules with no networking, so the same code
   runs in the Cloudflare room and in Node tests.
 - `scripts/test-steroids-alpha-sim.mjs`: rules test (throttle, fire rate,
@@ -237,7 +259,7 @@ server is live and the itch page is public and unlisted.
   the gun mounts are wider than a small asteroid or a ship.
 - A new ship drops in at the candidate point farthest from any asteroid and
   has two seconds of contact immunity.
-- Protocol version is 12 (12: dash charge and hull maximum; 10: heat, turrets, dash aim, BUY; 11: shield and gun tiers. Earlier: 5 added shield, knockback and the JSON frames; 6
+- Protocol version is 13 (13: missiles and mines: 2 input flags, 16 more ship bytes, ORDNANCE frame and `blasts` JSON frame; 12: dash charge and hull maximum; 10: heat, turrets, dash aim, BUY; 11: shield and gun tiers. Earlier: 5 added shield, knockback and the JSON frames; 6
   removed the dash; 7 restored it; 8 added power and pickup kinds; 9 turret
   shots reach their owner). Client and server deploy together;
   old clients reload once. Validated live settings still need no rebuild.
@@ -247,11 +269,14 @@ server is live and the itch page is public and unlisted.
   an old hull is split half hull, half shield.
 - `TEST_SHIP_HP` (a `--var` on `wrangler dev`) makes ships take no damage for the
   local browser check only. Unset in production.
+- Ordnance is sent as its own ORDNANCE frame with each snapshot (interest radius only); the client carries missiles forward between frames. Missile hits are swept so a fast missile cannot pass through a ship. Live settings published before missiles get the new groups from tune.json on load, so no republish was needed.
 - Weapon, asteroid and speed values in tune.json are first values, not tuned
   by playing.
 
 ## Open questions
 
+- Missile and mine numbers (damage, hp, refill, lock cone, shop floors 120/100 and costs) are Claude's first pass under the owner's rules; untested with real players. BRIEF.md now records the rules.
+- Mine blasts hurt only enemy ships, not asteroids; missiles do hit asteroids. Owner may want either changed.
 - Copy-on-tap inside itch's frame is untested on a real phone; if itch
   blocks copying, the link is shown instead.
 - Power balance is a first pass (owner delegated it). It's untested with
@@ -284,6 +309,8 @@ server is live and the itch page is public and unlisted.
 
 ## Known issues
 
+- Missile, mine, lock bracket and blast visuals are placeholders (Codex lane).
+- The two-client check now ignores bots on the roster; a bot bumping the test ship can still trip its prediction-correction assert (seen once, passed on rerun).
 - The two-client browser check is flaky in the current cloud environment
   (prediction-correction and bullet-count asserts), on unchanged main too.
   Prediction measured directly per flight phase shows 0 corrections.
@@ -311,7 +338,7 @@ server is live and the itch page is public and unlisted.
 
 ## Next proposed step
 
-FFD tilt through a Phaser mesh (the last missing piece of the approved rig),
+Owner plays missiles and mines and adjusts numbers through the live settings. Then FFD tilt through a Phaser mesh (the last missing piece of the approved rig),
 then ground props with horizon clipping. Owner checks the planet
 view on a real phone for frame rate.
 

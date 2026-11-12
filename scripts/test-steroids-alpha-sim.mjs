@@ -16,6 +16,7 @@ export * from ${JSON.stringify(path.join(sim, 'ship.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'turrets.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'shop.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'bots.ts'))};
+export * from ${JSON.stringify(path.join(sim, 'ordnance.ts'))};
 export { Room } from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/server/src/room.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'asteroids.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'protocol.ts'))};
@@ -35,7 +36,7 @@ function rng(seed = 1) {
   let s = seed;
   return () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646;
 }
-const idle = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN };
+const idle = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN, missile: false, mine: false };
 const near = (a, b, eps, what) => assert(Math.abs(a - b) <= eps, `${what}: ${a} vs ${b}`);
 
 // --- Throttle: accelerate to the maximum, brake to the minimum, never stop. ---
@@ -371,7 +372,7 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
     for (let tier = 0; tier < 4; tier++) assert.equal(w.buy(1, 1, tier), true);
     for (let tier = 0; tier < 4; tier++) assert.equal(w.buy(1, 2, tier), true);
     assert.deepEqual([s.shieldTier, s.damageTier], [4, 4]);
-    assert.equal(w.buy(1, 3, 0), false, 'unknown item');
+    assert.equal(w.buy(1, 5, 0), false, 'unknown item');
     // The shield refills up to its new maximum over time.
     s.shield = 0;
     for (let i = 0; i < tune.net.tickHz * 6; i++) w.step();
@@ -719,13 +720,13 @@ assert.equal(S.cleanName(null), '');
 
 // --- Wire format round trips. ---
 {
-  const input = { seq: 77, turn: -0.5, aim: NaN, thrust: 1, dash: true, fire: true, dashAim: -2.5 };
+  const input = { seq: 77, turn: -0.5, aim: NaN, thrust: 1, dash: true, fire: true, dashAim: -2.5, missile: true, mine: false };
   const back = S.decodeClient(S.encodeInput(input)).input;
   assert.deepEqual({ ...back, aim: 0 }, { ...input, aim: 0 });
   assert(Number.isNaN(back.aim));
   assert(Number.isNaN(S.decodeClient(S.encodeInput({ ...input, dashAim: 99 })).input.dashAim), 'bad dash aims are dropped');
   assert.deepEqual(S.decodeClient(S.encodeBuy(0, 2)), { type: S.MSG.BUY, item: 0, tier: 2 });
-  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1 };
+  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3 };
   assert.deepEqual(S.decodeServer(S.encodeSnapshot(1234, 55, [ship])), { type: S.MSG.SNAPSHOT, tick: 1234, ackSeq: 55, ships: [ship] });
   const rockRec = { id: 3, size: 1, x: 10.5, y: 20.25, vx: -30, vy: 12.5, t0: 900, hp: 30 };
   assert.deepEqual(S.decodeServer(S.encodeAsteroids([rockRec])).asteroids, [rockRec]);
@@ -875,4 +876,216 @@ assert.equal(S.cleanName(null), '');
   near(b.heading, 0.3, 1e-9, 'no direction held: straight ahead');
 }
 
-console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, bots, ramming, health boosts, kill credit and settings upgrade all pass.');
+// --- Missiles and mines: bought in tiers, charges refill one at a time and are held; missiles lock
+// ships only and home; mines arm, creep and blow up; both can be shot down (turrets alone barely). ---
+{
+  const sp = tune.shop;
+  const mt = tune.missile;
+  const mn = tune.mine;
+  // Shop and charges.
+  {
+    const s = S.newShip(0, 0, 0, 0);
+    s.hp = s.hullMax = 500;
+    assert.equal(s.missileCharges, 0, 'no missiles before buying');
+    S.stepShip(s, { ...idle, missile: true }, dt, tune);
+    assert.equal(s.missileShots, 0, 'nothing fires without a charge');
+    assert(S.buy(s, 'missile', 0, tune), 'missile tier 1 bought');
+    assert.equal(s.missileTier, 1);
+    assert.equal(s.missileCharges, 1, 'a bought tier comes with its charge');
+    assert(S.buy(s, 'missile', 1, tune) && s.missileCharges === 2, 'tier 2 adds a charge');
+    S.stepShip(s, { ...idle, missile: true }, dt, tune);
+    assert.equal([s.missileCharges, s.missileShots].join(), '1,1', 'one press, one missile');
+    near(s.missileCd, mt.refillSeconds - dt, dt, 'refill timer starts');
+    for (let i = 0; i < Math.ceil(mt.refillSeconds * tune.net.tickHz) + 1; i++) S.stepShip(s, idle, dt, tune);
+    assert.equal(s.missileCharges, 2, 'refilled after refillSeconds');
+    for (let i = 0; i < 20 * tune.net.tickHz; i++) S.stepShip(s, idle, dt, tune);
+    assert.equal(s.missileCharges, 2, 'charges are held, capped at the tier');
+    assert(S.buy(s, 'mine', 0, tune) && s.mineCharges === 1, 'mine tier 1 bought with a charge');
+  }
+  // Missile lock: ships in the cone only, nearest the nose; never rocks.
+  {
+    const w = emptyWorld();
+    const a = placeShip(w, 1, 1000, 1000, 0);
+    const b = placeShip(w, 2, 1500, 1000 + 500 * Math.tan(((mt.lockConeDeg - 5) * Math.PI) / 180), 0);
+    const c = placeShip(w, 3, 1000, 1500, 0); // 90 degrees off the nose
+    assert.equal(S.missileLock(1, a, w.ships, tune), 2, 'locks the ship inside the cone');
+    b.x = 1000 + mt.lockRange + 200;
+    b.y = 1000;
+    assert.equal(S.missileLock(1, a, w.ships, tune), 0, 'nothing beyond lockRange or outside the cone');
+    void c;
+  }
+  // A missile homes onto a ship that is off its nose and hits it; owner credited.
+  {
+    const w = emptyWorld();
+    w.tune.ship.minSpeed = 0;
+    const a = placeShip(w, 1, 1000, 1000, 0);
+    const b = placeShip(w, 2, 1600, 1150, 0);
+    a.speed = b.speed = 0;
+    a.missileTier = 1;
+    a.missileCharges = 1;
+    const full = b.hp + b.shield;
+    w.stepShip(1, { ...idle, thrust: -1, missile: true });
+    assert.equal(w.ordnance.size, 1, 'missile launched');
+    const m = [...w.ordnance.values()][0];
+    assert.equal(m.target, 2, 'locked on the ship');
+    let blasts = [];
+    for (let i = 0; i < 4 * tune.net.tickHz && w.ordnance.size; i++) {
+      w.stepShip(1, { ...idle, thrust: -1 });
+      w.stepShip(2, { ...idle, thrust: -1 });
+      w.step();
+      blasts.push(...w.drain().blasts);
+    }
+    assert.equal(w.ordnance.size, 0, 'missile spent');
+    near(full - (b.hp + b.shield), mt.damage, 1e-6, 'missile does missile.damage');
+    assert(blasts.some((x) => x.kind === 'missile' && !x.shot), 'hit blast reported');
+  }
+  // Without a lock it flies straight and fizzles at the end of its life.
+  {
+    const w = emptyWorld();
+    const a = placeShip(w, 1, 1000, 1000, 0);
+    a.missileTier = 1;
+    a.missileCharges = 1;
+    w.stepShip(1, { ...idle, missile: true });
+    const m = [...w.ordnance.values()][0];
+    assert.equal(m.target, 0, 'no lock with nobody around');
+    let steps = 0;
+    while (w.ordnance.size && steps < 10 * tune.net.tickHz) {
+      w.step();
+      w.drain();
+      steps++;
+    }
+    near(steps * dt, mt.lifeSeconds, 2 * dt, 'fizzles after lifeSeconds');
+  }
+  // Mines: dropped behind, harmless until armed, creep toward a ship in seekRange, blast with falloff.
+  {
+    const w = emptyWorld();
+    w.tune.ship.minSpeed = 0;
+    const a = placeShip(w, 1, 1000, 1000, 0);
+    a.speed = 0;
+    a.mineTier = 1;
+    a.mineCharges = 1;
+    w.stepShip(1, { ...idle, thrust: -1, mine: true });
+    const m = [...w.ordnance.values()][0];
+    assert(m && m.kind === 'mine' && m.x < a.x, 'mine dropped behind the ship');
+    for (let i = 0; i < 3 * tune.net.tickHz; i++) { w.stepShip(1, { ...idle, thrust: -1 }); w.step(); }
+    assert.equal(w.ordnance.size, 1, 'owner never sets off their own mine');
+    // An enemy parked inside seekRange but outside the trigger: the mine creeps to it.
+    const b = placeShip(w, 2, 2500, 2500, 0); // placed far off, then moved in
+    b.speed = 0;
+    b.x = m.x;
+    b.y = m.y + mn.seekRange - 20;
+    const startD = Math.hypot(b.x - m.x, b.y - m.y);
+    w.stepShip(1, { ...idle, thrust: -1 });
+    w.stepShip(2, { ...idle, thrust: -1 });
+    w.step();
+    near(startD - Math.hypot(b.x - m.x, b.y - m.y), mn.seekSpeed * dt, 1e-6, 'mine creeps at seekSpeed');
+    const full = b.hp + b.shield;
+    let blasts = [];
+    for (let i = 0; i < 5 * tune.net.tickHz && w.ordnance.size; i++) {
+      w.stepShip(1, { ...idle, thrust: -1 });
+      w.stepShip(2, { ...idle, thrust: -1 });
+      w.step();
+      blasts.push(...w.drain().blasts);
+    }
+    assert.equal(w.ordnance.size, 0, 'mine went off');
+    const lost = full - (b.hp + b.shield);
+    assert(lost >= mn.damage * 0.5 - 1e-6 && lost <= mn.damage + 1e-6, `blast damage within falloff (${lost})`);
+    assert(blasts.some((x) => x.kind === 'mine' && x.r === mn.blastRadius), 'mine blast reported at blastRadius');
+    assert.equal(a.shield, S.maxShield(a, tune), 'owner untouched by the blast');
+  }
+  // maxActive: dropping one more removes the oldest.
+  {
+    const w = emptyWorld();
+    const a = placeShip(w, 1, 1000, 1000, 0);
+    a.mineTier = 4;
+    for (let i = 0; i < mn.maxActive + 1; i++) {
+      a.mineCharges = 1;
+      w.stepShip(1, { ...idle, mine: true });
+      w.stepShip(1, idle);
+    }
+    assert.equal(w.ordnance.size, mn.maxActive, 'at most maxActive mines each');
+  }
+  // Shoot-down: missile hp outlasts two turrets over its life, falls to a few main-gun hits.
+  {
+    const turretDps = tune.turret.damage * tune.net.tickHz / tune.turret.fireIntervalSteps;
+    assert(2 * turretDps * mt.lifeSeconds < mt.hp + 1e-9 || 2 * turretDps * 2 < mt.hp, `two turrets cannot reliably kill a missile (${2 * turretDps}/s vs hp ${mt.hp})`);
+    assert(Math.ceil(mt.hp / tune.weapon.damage) <= 3, 'main gun finishes a missile in a few hits');
+    assert(Math.ceil(mn.hp / tune.weapon.damage) <= 3, 'main gun finishes a mine in a few hits');
+    // A main-gun bullet into an enemy mine reduces its hp; enough of them pop it as "shot".
+    const w = emptyWorld();
+    w.tune.ship.minSpeed = 0;
+    const a = placeShip(w, 1, 1000, 1000, 0);
+    const b = placeShip(w, 2, 2000, 2000, 0);
+    a.speed = b.speed = 0;
+    b.mineTier = 1;
+    b.mineCharges = 1;
+    w.stepShip(2, { ...idle, thrust: -1, mine: true });
+    const mine = [...w.ordnance.values()][0];
+    mine.x = 1000 + tune.weapon.convergeDistance; // where the two gun streams cross
+    mine.y = 1000;
+    mine.armAt = w.tick + 1e6; // keep it from seeking during the test
+    let shot = false;
+    for (let i = 0; i < 3 * tune.net.tickHz && !shot; i++) {
+      a.x = 1000; a.y = 1000; a.heading = 0;
+      w.stepShip(1, { ...idle, thrust: -1, fire: true });
+      w.stepShip(2, { ...idle, thrust: -1 });
+      w.step();
+      shot = w.drain().blasts.some((x) => x.kind === 'mine' && x.shot);
+    }
+    assert(shot && w.ordnance.size === 0, 'guns shoot a mine down');
+  }
+  // Turret priority: an incoming missile before the ship that fired it.
+  {
+    const w = emptyWorld();
+    w.tune.ship.minSpeed = 0;
+    const a = placeShip(w, 1, 1000, 1000, 0);
+    const b = placeShip(w, 2, 1000, 1300, 0);
+    a.speed = b.speed = 0;
+    a.turrets = 1;
+    // A missile from b parked above a, off the line to b.
+    w.ordnance.set(9, { id: 9, kind: 'missile', owner: 2, x: 1000, y: 800, heading: -Math.PI / 2, speed: 0, hp: 1e6, life: 1e6, armAt: 0, target: 0, damage: 0, blast: 0, turn: 0 });
+    const shots = [];
+    for (let i = 0; i < 60; i++) {
+      w.ordnance.get(9).x = 1000; w.ordnance.get(9).y = 800;
+      w.stepShip(1, { ...idle, thrust: -1 });
+      w.stepShip(2, { ...idle, thrust: -1 });
+      w.step();
+      shots.push(...w.drain().shots);
+    }
+    assert(shots.length && shots.every((x) => x.vy < 0), 'turret shoots the missile before the ship');
+  }
+  // The room streams nearby ordnance to each player with its snapshots.
+  {
+    class Sock extends EventTarget { sent = []; send(v) { this.sent.push(v); } close() { this.dispatchEvent(new Event('close')); } }
+    const room = new S.Room(1);
+    room.setBots(false);
+    const sock = new Sock();
+    room.join(sock, 'P');
+    room.stop();
+    const me = [...room.world.ships.values()][0];
+    room.world.ordnance.set(77, { id: 77, kind: 'mine', owner: 999, x: me.x + 50, y: me.y, heading: 0, hp: tune.mine.hp / 2, life: 1e6, armAt: 1e9, target: 0, damage: 0, blast: 0, turn: 0 });
+    for (let i = 0; i < 10; i++) room.step();
+    const frames = sock.sent.filter((m) => typeof m !== 'string').map((m) => S.decodeServer(m)).filter((m) => m && m.type === S.MSG.ORDNANCE);
+    assert(frames.length, 'ordnance frames sent');
+    const it = frames.at(-1).items.find((o) => o.id === 77);
+    assert(it && it.kind === 1 && !it.armed, 'nearby mine streamed, not yet armed');
+    near(it.hp, 0.5, 0.01, 'hp sent as a fraction');
+  }
+  // Wire: ordnance frames round-trip; inputs carry the two new flags.
+  {
+    const items = [
+      { id: 7, kind: 0, owner: 3, x: 12.5, y: 99.25, heading: 1.25, hp: 0.5, armed: true },
+      { id: 8, kind: 1, owner: 4, x: 1, y: 2, heading: -2, hp: 1, armed: false },
+    ];
+    const back = S.decodeServer(S.encodeOrdnance(items));
+    assert.equal(back.type, S.MSG.ORDNANCE);
+    assert.equal(back.items.length, 2);
+    for (let i = 0; i < 2; i++) {
+      for (const k of ['id', 'kind', 'owner', 'armed']) assert.equal(back.items[i][k], items[i][k], `ordnance ${k}`);
+      for (const k of ['x', 'y', 'heading']) near(back.items[i][k], items[i][k], 1e-4, `ordnance ${k}`);
+      near(back.items[i].hp, items[i].hp, 0.01, 'ordnance hp');
+    }
+  }
+}
+
+console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, bots, ramming, health boosts, kill credit, missiles, mines and settings upgrade all pass.');

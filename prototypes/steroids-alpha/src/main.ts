@@ -106,6 +106,10 @@ if (DEBUG) {
       portraitBlocked: () => intents.portraitBlocked,
       asteroids: () => flight()?.net.asteroidRender().map((r) => ({ id: r.a.id, size: r.a.size, hp: r.a.hp, x: r.x, y: r.y })) ?? [],
       splits: () => flight()?.net.splits ?? 0,
+      ordnance: () => [...(flight()?.net.ordnance.values() ?? [])],
+      /** Debug only: the flight scene itself, for render checks that stage state. */
+      flightScene: () => flight(),
+      weaponButtons: () => ({ missile: intents.missileButton, mine: intents.mineButton }),
       bullets: () => flight()?.net.bullets.length ?? 0,
       status: () => flight()?.net.status ?? 'menu',
       zones: () => ({ dash: intents.dashButton, scheme: intents.schemeButton, fire: intents.fireButton }),

@@ -5,11 +5,11 @@ import type { Tune } from './tune';
 import type { ShipState } from './ship';
 
 /** Shop items by their wire number. */
-export const SHOP_ITEMS = ['turret', 'shield', 'damage'] as const;
+export const SHOP_ITEMS = ['turret', 'shield', 'damage', 'missile', 'mine'] as const;
 export type ShopItem = (typeof SHOP_ITEMS)[number];
 export const SHOP_TIERS = 4;
 
-const TIER_FIELD = { turret: 'turrets', shield: 'shieldTier', damage: 'damageTier' } as const;
+const TIER_FIELD = { turret: 'turrets', shield: 'shieldTier', damage: 'damageTier', missile: 'missileTier', mine: 'mineTier' } as const;
 
 export function shopTier(s: ShipState, item: ShopItem): number {
   return s[TIER_FIELD[item]];
@@ -40,5 +40,8 @@ export function buy(s: ShipState, item: ShopItem, tier: number, tune: Tune): boo
   s.hullMax -= o.cost;
   s.hp = Math.min(s.hp, s.hullMax);
   s[TIER_FIELD[item]]++;
+  // Each missile or mine tier comes with one more charge, ready to use.
+  if (item === 'missile') s.missileCharges++;
+  if (item === 'mine') s.mineCharges++;
   return true;
 }

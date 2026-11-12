@@ -79,7 +79,41 @@
     "damageFloors": [90, 140, 190, 240],
     "damageCosts": [45, 55, 65, 75],
     "damagePerTier": 0.25,
-    "gunHeatPerTier": 0.2
+    "gunHeatPerTier": 0.2,
+    "missileFloors": [120, 170, 220, 270],
+    "missileCosts": [55, 65, 75, 85],
+    "mineFloors": [100, 150, 200, 250],
+    "mineCosts": [45, 55, 65, 75]
+  },
+  "missile": {
+    "damage": 35,
+    "damagePerTier": 5,
+    "hp": 36,
+    "launchSpeed": 500,
+    "maxSpeed": 800,
+    "acceleration": 600,
+    "turnRate": 2.6,
+    "turnPerTier": 0.3,
+    "lockConeDeg": 30,
+    "lockRange": 900,
+    "lifeSeconds": 3.5,
+    "refillSeconds": 6,
+    "radius": 12
+  },
+  "mine": {
+    "damage": 40,
+    "damagePerTier": 8,
+    "blastRadius": 110,
+    "blastPerTier": 10,
+    "triggerRadius": 70,
+    "seekRange": 260,
+    "seekSpeed": 90,
+    "armSeconds": 0.7,
+    "lifeSeconds": 20,
+    "hp": 36,
+    "refillSeconds": 8,
+    "maxActive": 4,
+    "radius": 14
   },
   "bots": {
     "count": 4,

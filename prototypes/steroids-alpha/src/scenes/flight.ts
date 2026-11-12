@@ -24,6 +24,7 @@ import { PlanetGround } from '../render/planetGround';
 import { Explosion } from '../render/explosion';
 import { loadSave } from '../save';
 import type { ShipPlacement } from '../render/shipView';
+import { missileLock } from '../../sim/ordnance';
 
 const W = TUNE.world.width;
 const H = TUNE.world.height;
@@ -58,6 +59,8 @@ export class FlightScene extends Phaser.Scene {
   private board = new Map<number, BoardChip>();
   private boardTitle!: Phaser.GameObjects.Text;
   private powerText!: Phaser.GameObjects.Text;
+  /** Charge counts on the missile and mine buttons. */
+  private weaponTexts: Phaser.GameObjects.Text[] = [];
   private shopTexts: { title: Phaser.GameObjects.Text; sub: Phaser.GameObjects.Text }[] = [];
   /** Turrets, drawn over the ships. Aim per ship and turret comes from the shots the server reports. */
   private turretGfx!: Phaser.GameObjects.Graphics;
@@ -89,6 +92,8 @@ export class FlightScene extends Phaser.Scene {
       intents.dashButton = null;
       intents.schemeButton = null;
       intents.fireButton = null;
+      intents.missileButton = null;
+      intents.mineButton = null;
       intents.shopZones = [];
     });
     intents.drainTaps();
@@ -112,6 +117,7 @@ export class FlightScene extends Phaser.Scene {
     this.schemeLabel = text(this, 0, 0, '', 11, '#dfe8ff').setOrigin(0.5).setDepth(951).setVisible(false);
     this.message = text(this, w / 2, logicalSize().h * 0.3, '', 18, '#ffffff').setOrigin(0.5).setDepth(950);
     this.boardTitle = text(this, 0, 0, 'KO · POWER', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
+    this.weaponTexts = [0, 1].map(() => text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(952).setVisible(false));
     this.powerText = text(this, 0, 0, '', 11, '#ffd98a').setOrigin(0.5, 1).setDepth(950).setVisible(false);
     this.shopTexts = SHOP_ITEMS.map(() => ({
       title: text(this, 0, 0, '', 12, '#ffffff').setOrigin(0, 0.5).setDepth(951).setVisible(false),
@@ -125,13 +131,15 @@ export class FlightScene extends Phaser.Scene {
     if(this.lastConfigVersion!==configVersion){for(const ship of this.ships.values())ship.destroy();this.ships.clear();if(shipArtStatus==='ready')buildShadow(this);this.lastConfigVersion=configVersion;}
     const dead = !!this.net.death || this.net.status === 'destroyed';
     const dash = intents.consume('secondary');
+    const missile = intents.consume('missile');
+    const mine = intents.consume('mine');
     if (!dead) {
       intents.consume('primary');
       intents.consume('pause'); // No leaving during lockdown; warp-out comes in milestone 3.
     }
     if (intents.consume('scheme')) intents.toggleScheme();
     const heading = this.net.predicted?.heading ?? 0;
-    this.net.update({ ...intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed), dash, dashAim: intents.dashAim(heading), fire: intents.fire });
+    this.net.update({ ...intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed), dash, dashAim: intents.dashAim(heading), fire: intents.fire, missile, mine });
     // Shop: each tap asks the server for the tier on offer now; the server checks power and price.
     for (const item of intents.consumeBuys()) {
       const p = this.net.predicted;
@@ -192,7 +200,14 @@ export class FlightScene extends Phaser.Scene {
           this.shieldHitCount++;
         }
       }
-      else if (f.kind === 'ram') {
+      else if (f.kind === 'blast') {
+        // Shot down: a small white pop. Went off: an orange ring the size of the blast.
+        if (f.shot) this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.r, ms: 220, colour: 0xffffff });
+        else {
+          this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.r, ms: f.ordnance === 'mine' ? 480 : 320, colour: 0xff8a3a });
+          this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.r * 0.5, ms: 200, colour: 0xfff2c4 });
+        }
+      } else if (f.kind === 'ram') {
         this.ramCount++;
         this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 70, ms: 380, colour: 0xffa04a });
         this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 34, ms: 200, colour: 0xffffff });
@@ -359,6 +374,71 @@ export class FlightScene extends Phaser.Scene {
   }
 
   /**
+   * Missile and mine buttons, shown once bought: a symbol, the charges held, and a ring refilling the
+   * next charge. Touch: above the fire and dash buttons. Keyboard: small badges (Q, E) by the bars.
+   */
+  private drawWeapons(p: ShipState | null, w: number, h: number): void {
+    const g = this.overlay;
+    intents.missileButton = null;
+    intents.mineButton = null;
+    const show = !!p && !this.net.death;
+    this.weaponTexts.forEach((t) => t.setVisible(false));
+    if (!p || !show) return;
+    const touch = intents.touch;
+    const m = clientTune.touch.dashButtonMargin;
+    const dr = clientTune.touch.dashButtonRadius;
+    const fr = clientTune.touch.fireButtonRadius;
+    const slots = [
+      { kind: 'missile' as const, tier: p.missileTier, charges: p.missileCharges, cd: p.missileCd, refill: TUNE.missile.refillSeconds, key: 'Q' },
+      { kind: 'mine' as const, tier: p.mineTier, charges: p.mineCharges, cd: p.mineCd, refill: TUNE.mine.refillSeconds, key: 'E' },
+    ];
+    slots.forEach((sl, i) => {
+      if (sl.tier <= 0) return;
+      const r = touch ? 30 : 15;
+      const x = touch ? (i === 0 ? w - m * 2 - dr * 2 - fr : w - m - dr) : w / 2 + Math.min(220, w * 0.5) / 2 + 74 + i * 64;
+      const y = touch ? h - m - (i === 0 ? fr * 2 : dr * 2) - 14 - r : h - 30;
+      const ready = sl.charges > 0;
+      g.fillStyle(sl.kind === 'missile' ? 0x3a1d12 : 0x2a1230, ready ? 0.8 : 0.45);
+      g.fillCircle(x, y, r);
+      g.lineStyle(2, ready ? 0xffd27a : 0x6d5a3a, 0.9);
+      g.strokeCircle(x, y, r);
+      if (sl.charges < sl.tier && sl.cd > 0) {
+        g.lineStyle(3, 0x7fd6ff, 0.9);
+        g.beginPath();
+        g.arc(x, y, r - 3, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - sl.cd / sl.refill));
+        g.strokePath();
+      }
+      // Symbol: a rocket (missile) or a spiked ball (mine).
+      const k = r / 30;
+      g.fillStyle(ready ? 0xffffff : 0x9a8f80, 1);
+      if (sl.kind === 'missile') {
+        g.fillTriangle(x + 13 * k, y - 4 * k, x + 13 * k, y + 4 * k, x + 20 * k, y);
+        g.fillRect(x - 12 * k, y - 4 * k, 25 * k, 8 * k);
+        g.fillTriangle(x - 12 * k, y - 4 * k, x - 18 * k, y - 9 * k, x - 7 * k, y - 4 * k);
+        g.fillTriangle(x - 12 * k, y + 4 * k, x - 18 * k, y + 9 * k, x - 7 * k, y + 4 * k);
+      } else {
+        g.fillCircle(x, y - 2 * k, 8 * k);
+        for (let s = 0; s < 6; s++) {
+          const a = (s / 6) * Math.PI * 2;
+          g.fillCircle(x + Math.cos(a) * 11 * k, y - 2 * k + Math.sin(a) * 11 * k, 2.4 * k);
+        }
+      }
+      this.weaponTexts[i]
+        .setVisible(true)
+        .setFontSize(touch ? 18 : 12)
+        .setOrigin(0, 0.5)
+        .setPosition(x + r + 4, y)
+        .setText(touch ? `${sl.charges}` : `${sl.charges} [${sl.key}]`)
+        .setColor(ready ? '#ffd27a' : '#8f7f6a');
+      const zone = { x, y, hw: r * 1.25, hh: r * 1.25 };
+      if (touch) {
+        if (sl.kind === 'missile') intents.missileButton = zone;
+        else intents.mineButton = zone;
+      }
+    });
+  }
+
+  /**
    * Shop, top left: one-tap buttons (keyboard 1/2/3) for the next tier of each upgrade: its tier n/4,
    * the power it needs and its price in minerals. Bright when you can buy it, dim when you can't.
    */
@@ -371,7 +451,7 @@ export class FlightScene extends Phaser.Scene {
     }
     intents.shopZones = [];
     if (!p || !show) return;
-    const labels: Record<string, string> = { turret: 'TURRET', shield: 'SHIELD', damage: 'GUNS' };
+    const labels: Record<string, string> = { turret: 'TURRET', shield: 'SHIELD', damage: 'GUNS', missile: 'MISSILE', mine: 'MINES' };
     const x = 10;
     const bw = 150;
     const bh = 36;
@@ -437,6 +517,7 @@ export class FlightScene extends Phaser.Scene {
       g.fillRect(dx, h - 8 - 19 * fill, 6, 19 * fill);
     }
     this.drawShop(p);
+    this.drawWeapons(p, w, h);
     this.schemeLabel.setVisible(intents.touch);
     if (!intents.touch) {
       intents.dashButton = null;
@@ -666,6 +747,58 @@ export class FlightScene extends Phaser.Scene {
       if (!head.visible || !tail.visible) continue;
       g.lineStyle(Math.max(1, (b.small ? 1.6 : 3) * head.scale), b.mine ? (b.small ? 0xd6fbff : 0x9ff3ff) : b.small ? 0xffd9b0 : 0xffb37a, 1);
       g.lineBetween(head.x, head.y, tail.x, tail.y);
+    }
+    // Missiles and mines. Missiles are carried forward from the last snapshot so they fly smoothly.
+    const tNow = performance.now();
+    for (const o of this.net.ordnance.values()) {
+      const ahead = o.kind === 0 ? Math.min(0.12, (tNow - o.at) / 1000) * TUNE.missile.maxSpeed * 0.85 : 0;
+      const at = this.toScreen(o.x + Math.cos(o.heading) * ahead, o.y + Math.sin(o.heading) * ahead);
+      if (!at.visible) continue;
+      const mineOwn = o.owner === this.net.myId;
+      const k = at.scale;
+      const c = Math.cos(o.heading);
+      const sn = Math.sin(o.heading);
+      if (o.kind === 0) {
+        g.lineStyle(Math.max(2, 4 * k), mineOwn ? 0xd6fbff : 0xffc9a8, 1);
+        g.lineBetween(at.x - c * 9 * k, at.y - sn * 9 * k, at.x + c * 9 * k, at.y + sn * 9 * k);
+        g.fillStyle(0xffa64a, 0.6 + 0.4 * Math.sin(now / 40));
+        g.fillCircle(at.x - c * 13 * k, at.y - sn * 13 * k, 4 * k);
+      } else {
+        const blink = o.armed && Math.floor(now / 250) % 2 === 0;
+        g.lineStyle(1, mineOwn ? 0x5fe3ff : 0xff6b5a, o.armed ? 0.25 : 0.1);
+        g.strokeCircle(at.x, at.y, TUNE.mine.triggerRadius * k);
+        g.fillStyle(0x3a3f4a, 1);
+        g.fillCircle(at.x, at.y, 9 * k);
+        for (let s = 0; s < 6; s++) {
+          const a = (s / 6) * Math.PI * 2 + now / 900;
+          g.fillCircle(at.x + Math.cos(a) * 12 * k, at.y + Math.sin(a) * 12 * k, 2.5 * k);
+        }
+        g.fillStyle(blink ? 0xff3a2a : mineOwn ? 0x5fe3ff : 0xff8a6a, 1);
+        g.fillCircle(at.x, at.y, 3.5 * k);
+      }
+      if (o.hp < 1) {
+        g.fillStyle(0x000000, 0.5);
+        g.fillRect(at.x - 10 * k, at.y - 20 * k, 20 * k, 3 * k);
+        g.fillStyle(0xffffff, 0.9);
+        g.fillRect(at.x - 10 * k, at.y - 20 * k, 20 * k * o.hp, 3 * k);
+      }
+    }
+    // Missile lock: brackets on the ship a missile would lock onto now.
+    const me = this.net.predicted;
+    if (me && me.missileCharges > 0 && !this.net.death) {
+      const ships = this.net.remoteRender().map((r) => [r.id, r.s] as [number, ShipState]);
+      const lock = missileLock(this.net.myId, me, ships, TUNE);
+      const tgt = ships.find(([id]) => id === lock)?.[1];
+      if (tgt) {
+        const at = this.toScreen(tgt.x, tgt.y);
+        const R = 34 * at.scale;
+        const L = 10 * at.scale;
+        g.lineStyle(2, 0xff5a3a, 0.9);
+        for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+          g.lineBetween(at.x + sx * R, at.y + sy * R, at.x + sx * (R - L), at.y + sy * R);
+          g.lineBetween(at.x + sx * R, at.y + sy * R, at.x + sx * R, at.y + sy * (R - L));
+        }
+      }
     }
     // Health boosts: a pulsing green cross in a ring. Minerals: amber crystals, bigger for more value.
     const pulse = 0.75 + 0.25 * Math.sin(now / 160);

@@ -38,6 +38,16 @@ export interface ShipState {
   turrets: number;
   shieldTier: number;
   damageTier: number;
+  missileTier: number;
+  mineTier: number;
+  /** Missile and mine charges held (up to the tier) and seconds until the next one refills. */
+  missileCharges: number;
+  mineCharges: number;
+  missileCd: number;
+  mineCd: number;
+  /** Missiles launched and mines dropped so far (wrap at 65536); the world spawns one per step. */
+  missileShots: number;
+  mineShots: number;
   /** Shots fired so far (wraps at 65536). Odd shots use the right gun, even the left. */
   shots: number;
 }
@@ -60,6 +70,9 @@ export interface ShipInput {
   dashAim: number;
   /** Fire held on this step. */
   fire: boolean;
+  /** Launch a missile / drop a mine this step (pressed once). */
+  missile: boolean;
+  mine: boolean;
 }
 
 /**
@@ -106,11 +119,11 @@ export function maxShield(s: ShipState, tune: Tune): number {
 }
 
 export function newShip(x: number, y: number, heading: number, speed: number): ShipState {
-  return { x, y, heading, speed, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0 };
+  return { x, y, heading, speed, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, mineCd: 0, missileShots: 0, mineShots: 0 };
 }
 
 export function copyShip(s: ShipState): ShipState {
-  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier };
+  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots };
 }
 
 /** Advance one fixed step. Mutates and returns s. */
@@ -166,6 +179,29 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune)
   if (s.fireCd > 0) s.fireCd--;
   s.heat = Math.max(0, s.heat - w.coolPerSecond * dt);
   if (s.overheated && s.heat <= w.unlockHeat) s.overheated = false;
+  // Missiles and mines: charges refill one at a time (refillSeconds each) up to the tier, and are
+  // held until used. A press uses one charge; the world spawns the missile or mine.
+  const refill = (charges: number, cd: number, tier: number, seconds: number): [number, number] => {
+    if (charges >= tier) return [charges, 0];
+    cd -= dt;
+    if (cd <= 0) {
+      charges++;
+      cd = charges < tier ? seconds : 0;
+    }
+    return [charges, cd];
+  };
+  [s.missileCharges, s.missileCd] = refill(s.missileCharges, s.missileCd, s.missileTier, tune.missile.refillSeconds);
+  [s.mineCharges, s.mineCd] = refill(s.mineCharges, s.mineCd, s.mineTier, tune.mine.refillSeconds);
+  if (input.missile && s.missileCharges > 0) {
+    s.missileCharges--;
+    if (s.missileCd <= 0) s.missileCd = tune.missile.refillSeconds;
+    s.missileShots = (s.missileShots + 1) & 0xffff;
+  }
+  if (input.mine && s.mineCharges > 0) {
+    s.mineCharges--;
+    if (s.mineCd <= 0) s.mineCd = tune.mine.refillSeconds;
+    s.mineShots = (s.mineShots + 1) & 0xffff;
+  }
   if (input.fire && s.fireCd === 0 && !s.overheated) {
     s.fireCd = w.fireIntervalSteps;
     s.shots = (s.shots + 1) & 0xffff;
