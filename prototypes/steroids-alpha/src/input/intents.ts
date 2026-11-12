@@ -8,7 +8,7 @@
 //   buy        shop purchases (one-tap buttons top left, or number keys)
 //   pause      back
 // Devices: keyboard is craft-relative (A/D or left/right rotate, W/S or up/down throttle,
-// Shift or K dash (with S for a 180, A or D for 90 degrees), Space or J fire, 1/2/3 buy turret/shield/guns). Touch: floating stick on the left half, in the scheme
+// Shift or K dash (with S for a 180, A or D for 90 degrees), Space or J fire, Q missile, E mine, 1-5 buy turret/shield/guns/missile/mine). Touch: floating stick on the left half, in the scheme
 // chosen with the on-screen STEER button (remembered per browser), plus fire and dash buttons.
 import { clientTune } from '../clientTune';
 import { TUNE } from '../../sim/tune';
@@ -37,7 +37,7 @@ export interface Stick {
   dy: number;
 }
 
-type Press = 'primary' | 'secondary' | 'pause' | 'scheme' | 'copied' | 'copyFailed';
+type Press = 'primary' | 'secondary' | 'pause' | 'scheme' | 'copied' | 'copyFailed' | 'missile' | 'mine';
 
 export class Intents {
   /** Keyboard steering, -1 .. 1. */
@@ -66,6 +66,9 @@ export class Intents {
   copyZone: { zone: Zone; text: string } | null = null;
   private copyPointer: number | null = null;
   dashButton: Zone | null = null;
+  /** Missile and mine buttons (touch), shown once owned. */
+  missileButton: Zone | null = null;
+  mineButton: Zone | null = null;
   /** One-tap shop buttons (top left in flight); a tap queues that item. */
   shopZones: { item: number; zone: Zone }[] = [];
   private buys: number[] = [];
@@ -159,7 +162,9 @@ export class Intents {
       if (k === ' ' || k === 'j') this.presses.add('primary');
       if (k === 'escape') this.presses.add('pause');
       if (k === 'shift' || k === 'k') this.presses.add('secondary');
-      if (k === '1' || k === '2' || k === '3') this.buys.push(Number(k) - 1);
+      if (k >= '1' && k <= '5' && k.length === 1) this.buys.push(Number(k) - 1);
+      if (k === 'q') this.presses.add('missile');
+      if (k === 'e') this.presses.add('mine');
     }
     if (down) this.held.add(k);
     else this.held.delete(k);
@@ -222,6 +227,14 @@ export class Intents {
         this.buys.push(s.item);
         return;
       }
+    }
+    if (hit(this.missileButton)) {
+      this.presses.add('missile');
+      return;
+    }
+    if (hit(this.mineButton)) {
+      this.presses.add('mine');
+      return;
     }
     if (hit(this.dashButton)) {
       this.presses.add('secondary');

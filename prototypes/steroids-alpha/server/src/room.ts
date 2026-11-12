@@ -9,7 +9,8 @@ import { World } from '../../sim/world';
 import { TURRET_SIDE } from '../../sim/turrets';
 import { BOT_NAMES, botThink, newBrain } from '../../sim/bots';
 import type { BotBrain } from '../../sim/bots';
-import { BUY_BYTES, INPUT_BYTES, PING_BYTES, CLOSE, MSG, cleanName, decodeClient, encodeAsteroids, encodeGone, encodePing, encodeShots, encodeSnapshot, encodeWelcome } from '../../sim/protocol';
+import { BUY_BYTES, INPUT_BYTES, PING_BYTES, CLOSE, MSG, cleanName, decodeClient, encodeAsteroids, encodeGone, encodePing, encodeShots, encodeSnapshot, encodeWelcome, encodeOrdnance } from '../../sim/protocol';
+import type { OrdnanceView } from '../../sim/protocol';
 import type { SnapshotShip } from '../../sim/protocol';
 import { wrapDist2 } from '../../sim/wrap';
 
@@ -55,7 +56,7 @@ interface Player {
 }
 
 
-const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN };
+const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN, missile: false, mine: false };
 
 export class Room {
   private players = new Map<number, Player>();
@@ -74,7 +75,7 @@ export class Room {
   applyConfig(record:ConfigRecord):void{
     if(record.version===this.config.version)return;
     this.config=record;
-    for(const group of ['ship','weapon','turret','shop','bots','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
+    for(const group of ['ship','weapon','turret','shop','missile','mine','bots','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
     for(const p of this.players.values()){
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
       p.ship.hullMax=Math.min(this.tune.ship.powerCap,p.ship.hullMax);p.ship.hp=Math.min(p.ship.hullMax,p.ship.hp);
@@ -269,6 +270,7 @@ export class Room {
     }
     if (ev.hits.length) this.broadcast(JSON.stringify({ type: 'hits', hits: ev.hits }));
     if (ev.rams.length) this.broadcast(JSON.stringify({ type: 'rams', rams: ev.rams }));
+    if (ev.blasts.length) this.broadcast(JSON.stringify({ type: 'blasts', blasts: ev.blasts }));
     if (ev.pickups.length || ev.pickupsGone.length) this.broadcast(JSON.stringify({ type: 'pickups', add: ev.pickups, remove: ev.pickupsGone }));
     const dead = new Set(ev.deaths.map((d) => d.id));
     if (ev.deaths.length) {
@@ -286,7 +288,10 @@ export class Room {
     }
     if (this.tick % this.snapshotEvery === 0 || dead.size) {
       for (const p of this.players.values()) {
-        if (this.tick % this.snapshotEvery === 0 || dead.has(p.id)) this.send(p, this.snapshotFor(p));
+        if (this.tick % this.snapshotEvery === 0 || dead.has(p.id)) {
+          this.send(p, this.snapshotFor(p));
+          this.send(p, this.ordnanceFor(p));
+        }
       }
     }
     // A destroyed bot leaves too and a new one comes after respawnSeconds.
@@ -372,6 +377,18 @@ export class Room {
     // Acknowledge the guessed slots too: the ship already includes those steps, so the client must not
     // replay its own inputs for them on top. If a guess was wrong, the client sees a real correction.
     return encodeSnapshot(this.tick, p.last.seq + p.deficit, ships);
+  }
+
+  /** Missiles and mines near this player. */
+  private ordnanceFor(p: Player): ArrayBuffer {
+    const r2 = TUNE.net.interestRadius * TUNE.net.interestRadius;
+    const items: OrdnanceView[] = [];
+    for (const o of this.world.ordnance.values()) {
+      if (wrapDist2(o.x, o.y, p.ship.x, p.ship.y, TUNE.world.width, TUNE.world.height) > r2) continue;
+      const max = o.kind === 'missile' ? this.tune.missile.hp : this.tune.mine.hp;
+      items.push({ id: o.id, kind: o.kind === 'missile' ? 0 : 1, owner: o.owner, x: o.x, y: o.y, heading: o.heading, hp: o.hp / max, armed: this.tick >= o.armAt });
+    }
+    return encodeOrdnance(items);
   }
 
   private send(p: Player, buf: ArrayBuffer|string): void {

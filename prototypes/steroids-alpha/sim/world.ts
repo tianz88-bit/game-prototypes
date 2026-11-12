@@ -9,6 +9,7 @@ import type { Asteroid } from './asteroids';
 import { wrap, wrapDelta, angleDelta } from './wrap';
 import { TURRET_SIDE, turretPosition } from './turrets';
 import { SHOP_ITEMS, buy } from './shop';
+import { missileLock } from './ordnance';
 
 interface Bullet {
   owner: number;
@@ -42,6 +43,29 @@ export interface Pickup {
   value: number;
 }
 
+/** A homing missile or a mine, owned by a ship. Shootable (hp); ships only are its targets. */
+export interface Ordnance {
+  id: number;
+  kind: 'missile' | 'mine';
+  owner: number;
+  x: number;
+  y: number;
+  heading: number;
+  speed: number;
+  hp: number;
+  /** Steps left before it fizzles out. */
+  life: number;
+  /** Tick it arms (mines). */
+  armAt: number;
+  /** Locked ship (missiles), 0 for none. */
+  target: number;
+  damage: number;
+  /** Blast radius (mines). */
+  blast: number;
+  /** Turn rate, radians a second (missiles). */
+  turn: number;
+}
+
 export interface DeathEvent {
   id: number;
   x: number;
@@ -65,9 +89,11 @@ export interface WorldEvents {
   pickupsGone: { id: number; by: number }[];
   /** Dash rams: who rammed whom, and where they met. */
   rams: { id: number; target: number; x: number; y: number }[];
+  /** Missile and mine explosions (r = blast radius), and ordnance shot down (shot: true). */
+  blasts: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[];
 }
 
-const noEvents = (): WorldEvents => ({ asteroids: [], gone: [], shots: [], deaths: [], hits: [], pickups: [], pickupsGone: [], rams: [] });
+const noEvents = (): WorldEvents => ({ asteroids: [], gone: [], shots: [], deaths: [], hits: [], pickups: [], pickupsGone: [], rams: [], blasts: [] });
 
 export class World {
   tick = 0;
@@ -82,6 +108,8 @@ export class World {
   private nextPickupId = 1;
   /** Turret aim (radians, world) and steps until each can fire again, per ship. */
   private turrets = new Map<number, { angle: number[]; cd: number[] }>();
+  readonly ordnance = new Map<number, Ordnance>();
+  private nextOrdnanceId = 1;
   /** Where each ship was before its last step, so fast (dashing) ships collide along their path. */
   private prev = new Map<number, { x: number; y: number }>();
   /** Ships whose current dash has already rammed someone. */
@@ -161,8 +189,12 @@ export class World {
     const s = this.ships.get(id);
     if (!s) return;
     const before = s.shots;
+    const missilesBefore = s.missileShots;
+    const minesBefore = s.mineShots;
     this.prev.set(id, { x: s.x, y: s.y });
     stepShip(s, input, this.dt, this.tune);
+    if (s.missileShots !== missilesBefore) this.launchMissile(id, s);
+    if (s.mineShots !== minesBefore) this.dropMine(id, s);
     if (s.shots !== before) {
       const shot = muzzleShot(s, this.tune, this.assistTargets(id));
       this.bullets.push({ owner: id, damage: this.tune.weapon.damage * damageScale(s, this.tune), x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: this.tune.weapon.bulletLifeSteps });
@@ -185,6 +217,7 @@ export class World {
     };
 
     this.stepTurrets(pos);
+    this.stepOrdnance(pos);
 
     // Bullets.
     const kept: Bullet[] = [];
@@ -197,6 +230,21 @@ export class World {
           const p = pos.get(a.id);
           if (!p || !hits(b.x, b.y, p.x, p.y, t.asteroid.radius[a.size] + t.weapon.bulletRadius)) continue;
           this.damageAsteroid(a, p, b.damage, b.vx, b.vy, pos);
+          spent = true;
+          break;
+        }
+      }
+      if (!spent) {
+        // Enemy missiles and mines can be shot down.
+        for (const o of this.ordnance.values()) {
+          if (o.owner === b.owner) continue;
+          const r = o.kind === 'missile' ? t.missile.radius : t.mine.radius;
+          if (!hits(b.x, b.y, o.x, o.y, r + t.weapon.bulletRadius)) continue;
+          o.hp -= b.damage;
+          if (o.hp <= 0) {
+            this.ordnance.delete(o.id);
+            this.events.blasts.push({ x: o.x, y: o.y, r: r * 2, kind: o.kind, shot: true });
+          }
           spent = true;
           break;
         }
@@ -341,19 +389,21 @@ export class World {
         st.cd[i] ??= 0;
         if (st.cd[i] > 0) st.cd[i]--;
         const at = turretPosition(s, i, t);
-        type Target = { dx: number; dy: number; d: number; ship: boolean };
+        // Priority: incoming missiles, then ships, then mines, then asteroids; nearest within a class.
+        type Target = { dx: number; dy: number; d: number; prio: number };
         let best = null as Target | null;
-        const consider = (x: number, y: number, r: number, ship: boolean): void => {
+        const consider = (x: number, y: number, r: number, prio: number): void => {
           const dx = wrapDelta(x, at.x, W);
           const dy = wrapDelta(y, at.y, H);
           const d = Math.hypot(dx, dy);
           if (d - r > tt.range) return;
-          if (!best || (ship && !best.ship) || (ship === best.ship && d < best.d)) best = { dx, dy, d, ship };
+          if (!best || prio > best.prio || (prio === best.prio && d < best.d)) best = { dx, dy, d, prio };
         };
-        for (const [oid, o] of this.ships) if (oid !== id && o.hp > 0) consider(o.x, o.y, 0, true);
+        for (const o of this.ordnance.values()) if (o.owner !== id) consider(o.x, o.y, 0, o.kind === 'missile' ? 3 : 1);
+        for (const [oid, o] of this.ships) if (oid !== id && o.hp > 0) consider(o.x, o.y, 0, 2);
         for (const a of this.asteroids.values()) {
           const p = pos.get(a.id);
-          if (p) consider(p.x, p.y, t.asteroid.radius[a.size], false);
+          if (p) consider(p.x, p.y, t.asteroid.radius[a.size], 0);
         }
         const target = best as Target | null;
         const want = target ? Math.atan2(target.dy, target.dx) : s.heading;
@@ -369,6 +419,158 @@ export class World {
         this.events.shots.push({ owner: id, x: at.x, y: at.y, vx, vy, side: TURRET_SIDE + i });
       }
       st.angle.length = st.cd.length = n;
+    }
+  }
+
+  private newOrdnanceId(): number {
+    for (;;) {
+      const id = this.nextOrdnanceId;
+      this.nextOrdnanceId = this.nextOrdnanceId >= 0xffff ? 1 : this.nextOrdnanceId + 1;
+      if (!this.ordnance.has(id)) return id;
+    }
+  }
+
+  /** A missile from ship id: locks the ship nearest the nose (ships only), launches from the nose. */
+  private launchMissile(id: number, s: ShipState): void {
+    const m = this.tune.missile;
+    const tier = Math.max(1, s.missileTier);
+    const r = shipRadius(s.hullMax, this.tune) + m.radius;
+    const o: Ordnance = {
+      id: this.newOrdnanceId(),
+      kind: 'missile',
+      owner: id,
+      x: wrap(s.x + Math.cos(s.heading) * r, this.tune.world.width),
+      y: wrap(s.y + Math.sin(s.heading) * r, this.tune.world.height),
+      heading: s.heading,
+      speed: Math.max(m.launchSpeed, s.speed),
+      hp: m.hp,
+      life: Math.round(m.lifeSeconds * this.tune.net.tickHz),
+      armAt: this.tick,
+      target: missileLock(id, s, this.ships, this.tune),
+      damage: m.damage + m.damagePerTier * (tier - 1),
+      blast: 0,
+      turn: m.turnRate + m.turnPerTier * (tier - 1),
+    };
+    this.ordnance.set(o.id, o);
+  }
+
+  /** A mine dropped behind ship id; it arms after armSeconds. Oldest goes when over maxActive. */
+  private dropMine(id: number, s: ShipState): void {
+    const t = this.tune;
+    const mn = t.mine;
+    const tier = Math.max(1, s.mineTier);
+    const mine = [...this.ordnance.values()].filter((o) => o.owner === id && o.kind === 'mine');
+    if (mine.length >= mn.maxActive) this.ordnance.delete(mine[0].id);
+    const r = shipRadius(s.hullMax, t) + mn.radius + 6;
+    const o: Ordnance = {
+      id: this.newOrdnanceId(),
+      kind: 'mine',
+      owner: id,
+      x: wrap(s.x - Math.cos(s.heading) * r, t.world.width),
+      y: wrap(s.y - Math.sin(s.heading) * r, t.world.height),
+      heading: s.heading,
+      speed: 0,
+      hp: mn.hp,
+      life: Math.round(mn.lifeSeconds * t.net.tickHz),
+      armAt: this.tick + Math.round(mn.armSeconds * t.net.tickHz),
+      target: 0,
+      damage: mn.damage + mn.damagePerTier * (tier - 1),
+      blast: mn.blastRadius + mn.blastPerTier * (tier - 1),
+      turn: 0,
+    };
+    this.ordnance.set(o.id, o);
+  }
+
+  /**
+   * Missiles home on their locked ship (turning at a capped rate, speeding up) and hit the first
+   * enemy ship or asteroid they touch. Mines, once armed, creep toward the nearest enemy ship in
+   * seekRange and blow up when one comes within triggerRadius, hurting every enemy ship in the blast
+   * (less toward the edge). Owners are never hurt by their own.
+   */
+  private stepOrdnance(pos: Map<number, { x: number; y: number }>): void {
+    const t = this.tune;
+    const W = t.world.width;
+    const H = t.world.height;
+    const dt = this.dt;
+    const rel = (o: Ordnance, x: number, y: number): { dx: number; dy: number; d: number } => {
+      const dx = wrapDelta(x, o.x, W);
+      const dy = wrapDelta(y, o.y, H);
+      return { dx, dy, d: Math.hypot(dx, dy) };
+    };
+    for (const o of [...this.ordnance.values()]) {
+      if (--o.life <= 0) {
+        this.ordnance.delete(o.id);
+        if (o.kind === 'missile') this.events.blasts.push({ x: o.x, y: o.y, r: t.missile.radius * 2, kind: 'missile', shot: true });
+        continue;
+      }
+      if (o.kind === 'missile') {
+        const target = o.target ? this.ships.get(o.target) : undefined;
+        if (target && target.hp > 0) {
+          const r = rel(o, target.x, target.y);
+          const want = Math.atan2(r.dy, r.dx);
+          const step = o.turn * dt;
+          o.heading = angleDelta(o.heading + Math.max(-step, Math.min(step, angleDelta(want, o.heading))), 0);
+        }
+        o.speed = Math.min(t.missile.maxSpeed, o.speed + t.missile.acceleration * dt);
+        const px = o.x;
+        const py = o.y;
+        o.x = wrap(o.x + Math.cos(o.heading) * o.speed * dt, W);
+        o.y = wrap(o.y + Math.sin(o.heading) * o.speed * dt, H);
+        let hit = false;
+        for (const [sid, s] of this.ships) {
+          if (sid === o.owner || s.hp <= 0) continue;
+          // Swept: a fast missile cannot skip through a ship between ticks.
+          const ex = wrapDelta(o.x, px, W);
+          const ey = wrapDelta(o.y, py, H);
+          const tx = wrapDelta(s.x, px, W);
+          const ty = wrapDelta(s.y, py, H);
+          const len2 = ex * ex + ey * ey;
+          const k = len2 > 0 ? Math.max(0, Math.min(1, (tx * ex + ty * ey) / len2)) : 0;
+          const rr = shipRadius(s.hullMax, t) + t.missile.radius;
+          if ((tx - ex * k) ** 2 + (ty - ey * k) ** 2 > rr * rr) continue;
+          this.damageShip(sid, s, o.damage, o.owner, o.x, o.y);
+          hit = true;
+          break;
+        }
+        if (!hit) {
+          for (const a of this.asteroids.values()) {
+            const p = pos.get(a.id);
+            if (!p || rel(o, p.x, p.y).d > t.asteroid.radius[a.size] + t.missile.radius) continue;
+            this.damageAsteroid(a, p, o.damage, Math.cos(o.heading), Math.sin(o.heading), pos);
+            hit = true;
+            break;
+          }
+        }
+        if (hit) {
+          this.ordnance.delete(o.id);
+          this.events.blasts.push({ x: o.x, y: o.y, r: 40, kind: 'missile', shot: false });
+        }
+        continue;
+      }
+      // Mine.
+      if (this.tick < o.armAt) continue;
+      let near: { s: ShipState; dx: number; dy: number; d: number } | null = null;
+      for (const [sid, s] of this.ships) {
+        if (sid === o.owner || s.hp <= 0) continue;
+        const r = rel(o, s.x, s.y);
+        if (r.d <= t.mine.seekRange && (!near || r.d < near.d)) near = { s, ...r };
+      }
+      if (!near) continue;
+      if (near.d <= t.mine.triggerRadius + shipRadius(near.s.hullMax, t)) {
+        this.ordnance.delete(o.id);
+        this.events.blasts.push({ x: o.x, y: o.y, r: o.blast, kind: 'mine', shot: false });
+        for (const [sid, s] of this.ships) {
+          if (sid === o.owner || s.hp <= 0) continue;
+          const d = rel(o, s.x, s.y).d - shipRadius(s.hullMax, t);
+          if (d > o.blast) continue;
+          this.damageShip(sid, s, o.damage * (1 - 0.5 * Math.max(0, d) / o.blast), o.owner, o.x, o.y);
+        }
+        continue;
+      }
+      // Creep toward it.
+      o.heading = Math.atan2(near.dy, near.dx);
+      o.x = wrap(o.x + Math.cos(o.heading) * t.mine.seekSpeed * dt, W);
+      o.y = wrap(o.y + Math.sin(o.heading) * t.mine.seekSpeed * dt, H);
     }
   }
 

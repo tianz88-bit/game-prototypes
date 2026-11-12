@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-12 claude missiles-mines
+DID: shop items missile + mine (4 tiers, +1 charge each). Charges auto-refill one at a time, held. Missile locks ships only (30 deg / 900 px), homes, 35 dmg. Mine arms 0.7 s, creeps to enemies in 260 px, blast 110 px. Both shootable (36 hp); turrets: missiles > ships > mines > rocks. Bots use both. No republish needed (groups default from tune.json).
+FILES: sim/{ordnance,world,ship,shop,protocol,liveConfig,bots}.ts server/src/room.ts src/{net/client,input/intents,scenes/flight,main,liveConfig}.ts tune.json scripts/test-steroids-alpha-sim.mjs scripts/screenshot-steroids-alpha.mjs
+SEAM: protocol 13. Input bits missile/mine. ShipState + missileTier, mineTier, *Charges, *Cd, *Shots. MSG.ORDNANCE frame (OrdnanceView). JSON 'blasts' -> fx kind 'blast' {r, ordnance, shot}. intents.missileButton/mineButton. New tune groups missile, mine; shop.missile*/mine*.
+CROSS: ../steroids-alpha-lab (draft.ts groups, preview input flags)
+FOR codex: placeholders to style in flight.ts: drawWorld ordnance block (missile body+flame, spiky mine, arm blink, trigger ring, hp bar), lock brackets, drawWeapons buttons, 'blast' fx rings.
+
 ## 2026-11-12 claude bots
 DID: AI bots on Planet A only, only while real players are present (4, respawn 5 s). Planet B stays PvP. Bots fight (lead + wobble, burst fire, dash), flee when hurt, farm, buy upgrades; on leaderboard as "BOT <name>".
 FILES: sim/bots.ts sim/planets.ts sim/liveConfig.ts server/src/{room,index}.ts src/liveConfig.ts tune.json scripts/test-steroids-alpha-sim.mjs
@@ -97,42 +104,6 @@ FILES: sim/{ship,world,protocol,liveConfig}.ts server/src/room.ts src/net/client
 SEAM: protocol 8. Pickups gain kind ('heal'|'mineral') + value. Fx kind 'mineral' (collected). Ships drawn at at.scale * shipRadius(hp)/radius. RosterEntry.power.
 CROSS: none in render files; mineral crystal + collect ring drawn in flight.ts as placeholders.
 FOR codex: mineral crystals, collect fx and ship growth visuals are placeholder; yours to style (powerLevel(hp) 0..1 in sim/ship.ts is the input). Ship parts could appear with power.
-
-## 2026-11-12 claude dash-back
-DID: dash restored (0.5s @450, top 350), shield regen 20%/s, rock outlines now cover hitboxes (fixes "invisible" rams), plume longer near top speed, pilot counts on planet select (GET /planets).
-FILES: sim/* server/src/{room,index}.ts src/{input,net,scenes}/* src/render/{shipView,thrusters}.ts tune.json client.tune.json
-SEAM: protocol 7 (dash back in ShipState/input). ShipView.update(.., boosting) back. ThrusterInput.speedTrail + update(.., trailStretch). New clientTune.render.thrusterTopSpeedStretch.
-CROSS: src/render/thrusters.ts, src/render/shipView.ts, flight.ts rockShape, ../steroids-alpha-lab/ (Dash button back)
-FOR codex: restyle the top-speed plume if you like (speedTrail 0..1 is the input). Live record still has maxSpeed 380 / regen 0.05: needs a republish.
-
-## 2026-11-12 codex proto/steroids-alpha/hosted-publisher
-DID: owner's calibration is live (ffc177fd2833); hosted owner publisher prepared, closed until Access setup is approved; local publisher stays off.
-FILES: ../steroids-alpha-lab/* server/src/admin*.ts server/src/index.ts server/wrangler.jsonc scripts/test-steroids-live-config.mjs
-SEAM: new protected /manage/ browser admin route and lab popup handoff; GitHub OIDC and gameplay wire remain unchanged.
-CROSS: minimal authenticated server route, preserved dashboard vars and boundary tests (Claude's lane).
-FOR claude: admin trusts Access issuer/audience/exact owner, then uses existing config CAS; no need to run a PC companion; setup awaiting owner approval.
-
-
-## 2026-11-12 claude collab-setup
-DID: added COLLAB.md (lanes, seams, comms) and this log.
-FILES: COLLAB.md HANDOFF.md AGENTS.md CLAUDE.md
-SEAM: none
-CROSS: none
-FOR codex: read COLLAB.md once; log your pushes here from now on.
-
-## 2026-11-12 claude #425
-DID: dash removed entirely (button, key, rule, wire). Phone name entry via see-through field over the canvas box. Leaderboard as animated chips.
-FILES: sim/ship.ts sim/protocol.ts server/src/room.ts src/input/intents.ts src/scenes/flight.ts src/scenes/menu.ts tune.json client.tune.json
-SEAM: ShipView.update lost its `boosting` arg; ShipState lost dashTime/dashCd; protocol 6.
-CROSS: src/render/shipView.ts (boosting arg), ../steroids-alpha-lab/ (Dash button + preview)
-FOR codex: lab preview no longer has dash. Thruster burst now only from real acceleration.
-
-## 2026-11-11 claude #424
-DID: shield (hull 50 + shield 50, regen), blue hex shield-hit VFX, ramming knockback + split, health pickups, kills leaderboard, explosion + death screen, pilot names, ships 30% darker at night.
-FILES: sim/* server/src/* src/net/client.ts src/render/explosion.ts src/render/shipView.ts src/scenes/*
-SEAM: Fx kinds added: explosion, heal, shield. ShipView.shieldHit(angle). clientTune.render.nightShipDim.
-CROSS: src/render/shipView.ts, src/render/explosion.ts (placeholder VFX; codex may restyle)
-FOR codex: explosion and shield VFX are placeholder-quality; yours to restyle. Live config upgrade fills/drops fields (sim/liveConfig.ts upgradeConfig).
 
 ## Open for codex (from BUILD_STATUS next steps)
 - FFD pitch/bank tilt on the in-game rig (Phaser mesh); lab already has it.

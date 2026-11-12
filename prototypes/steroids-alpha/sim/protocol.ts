@@ -1,4 +1,4 @@
-// Protocol v12: binary game frames are little-endian. The server also sends JSON text frames:
+// Protocol v13: binary game frames are little-endian. The server also sends JSON text frames:
 //   {type:'config',record:ConfigRecord}            before welcome/cutover snapshots
 //   {type:'roster',players:[{id,name,kills,power}]} on join/leave, and when anyone's power changes (2 Hz max)
 //   {type:'deaths',deaths:[{id,x,y,killer}]}       ships destroyed (killer 0 = an asteroid)
@@ -8,14 +8,18 @@
 // Clients never send configuration; their socket accepts only bounded intent/ping frames.
 //
 // Client -> server
-//   INPUT     u8 type, u32 seq, f32 turn, f32 aim, f32 thrust, u8 flags (bit0 dash, bit1 fire), f32 dashAim (NaN = straight)
+//   INPUT     u8 type, u32 seq, f32 turn, f32 aim, f32 thrust, u8 flags (bit0 dash, bit1 fire, bit2 missile, bit3 mine), f32 dashAim (NaN = straight)
 //   BUY       u8 type, u8 item (index in sim/shop.ts SHOP_ITEMS), u8 tier (the tier being bought, so a repeated tap cannot buy twice)
 //   PING      u8 type, f64 clientTimeMs
 // Server -> client
 //   WELCOME   u8 type, u16 yourId, u32 tick
 //   SNAPSHOT  u8 type, u32 tick, u32 ackSeq, u16 count, count x SHIP
 //             SHIP = u16 id, f32 x, f32 y, f32 heading, f32 speed, f32 dashTime, f32 dashCd,
-//                    f32 hp, f32 shield, f32 kx, f32 ky, u8 fireCd, u16 shots, f32 heat, u8 overheated, u8 turrets, u8 shieldTier, u8 damageTier, f32 dashCharge, f32 hullMax
+//                    f32 hp, f32 shield, f32 kx, f32 ky, u8 fireCd, u16 shots, f32 heat, u8 overheated, u8 turrets, u8 shieldTier, u8 damageTier, f32 dashCharge, f32 hullMax,
+//                    u8 missileTier, u8 mineTier, u8 missileCharges, u8 mineCharges, f32 missileCd, f32 mineCd,
+//                    u16 missileShots, u16 mineShots
+//   ORDNANCE  u8 type, u16 count, count x (u16 id, u8 kind 0 missile / 1 mine, u16 owner, f32 x, f32 y,
+//             f32 heading, u8 hp percent, u8 armed): missiles and mines near you, every snapshot
 //   PONG      u8 type, f64 clientTimeMs
 //   ASTEROIDS u8 type, u16 count, count x (u16 id, u8 size, f32 x, f32 y, f32 vx, f32 vy, u32 t0, f32 hp)
 //             New asteroids, or ones whose hp changed. Sent in full to a client when it joins.
@@ -26,7 +30,7 @@ import type { ShipInput, ShipState } from './ship';
 import type { Asteroid } from './asteroids';
 import type { ShotEvent } from './world';
 
-export const PROTOCOL_VERSION = 12;
+export const PROTOCOL_VERSION = 13;
 
 export const MSG = {
   INPUT: 1,
@@ -38,6 +42,7 @@ export const MSG = {
   ASTEROIDS: 13,
   GONE: 14,
   SHOTS: 15,
+  ORDNANCE: 16,
 } as const;
 
 /** WebSocket close codes the room uses. */
@@ -77,7 +82,21 @@ export type ServerMessage =
   | { type: typeof MSG.PONG; clientTime: number }
   | { type: typeof MSG.ASTEROIDS; asteroids: Asteroid[] }
   | { type: typeof MSG.GONE; gone: GoneAsteroid[] }
-  | { type: typeof MSG.SHOTS; tick: number; shots: ShotEvent[] };
+  | { type: typeof MSG.SHOTS; tick: number; shots: ShotEvent[] }
+  | { type: typeof MSG.ORDNANCE; items: OrdnanceView[] };
+
+/** A missile or mine as clients see it. */
+export interface OrdnanceView {
+  id: number;
+  kind: 0 | 1;
+  owner: number;
+  x: number;
+  y: number;
+  heading: number;
+  /** 0..1 */
+  hp: number;
+  armed: boolean;
+}
 
 export type ClientMessage =
   | { type: typeof MSG.INPUT; input: ShipInput }
@@ -98,10 +117,11 @@ export function encodeBuy(item: number, tier: number): ArrayBuffer {
 export const INPUT_BYTES = 22;
 export const PING_BYTES = 9;
 export const BUY_BYTES = 3;
-const SHIP_BYTES = 2 + 4 * 10 + 1 + 2 + 4 + 1 + 3 + 8;
+const SHIP_BYTES = 2 + 4 * 10 + 1 + 2 + 4 + 1 + 3 + 8 + 4 + 8 + 4;
 const ASTEROID_BYTES = 2 + 1 + 4 * 4 + 4 + 4;
 const GONE_BYTES = 2 + 4 * 2;
 const SHOT_BYTES = 2 + 4 * 4 + 1;
+const ORDNANCE_BYTES = 2 + 1 + 2 + 4 * 3 + 1 + 1;
 
 export function encodeInput(input: ShipInput): ArrayBuffer {
   const buf = new ArrayBuffer(INPUT_BYTES);
@@ -111,7 +131,7 @@ export function encodeInput(input: ShipInput): ArrayBuffer {
   v.setFloat32(5, input.turn, true);
   v.setFloat32(9, input.aim, true);
   v.setFloat32(13, input.thrust, true);
-  v.setUint8(17, (input.dash ? 1 : 0) | (input.fire ? 2 : 0));
+  v.setUint8(17, (input.dash ? 1 : 0) | (input.fire ? 2 : 0) | (input.missile ? 4 : 0) | (input.mine ? 8 : 0));
   v.setFloat32(18, input.dashAim, true);
   return buf;
 }
@@ -162,6 +182,14 @@ export function encodeSnapshot(tick: number, ackSeq: number, ships: SnapshotShip
     v.setUint8(o + 52, s.damageTier);
     v.setFloat32(o + 53, s.dashCharge, true);
     v.setFloat32(o + 57, s.hullMax, true);
+    v.setUint8(o + 61, s.missileTier);
+    v.setUint8(o + 62, s.mineTier);
+    v.setUint8(o + 63, s.missileCharges);
+    v.setUint8(o + 64, s.mineCharges);
+    v.setFloat32(o + 65, s.missileCd, true);
+    v.setFloat32(o + 69, s.mineCd, true);
+    v.setUint16(o + 73, s.missileShots, true);
+    v.setUint16(o + 75, s.mineShots, true);
     o += SHIP_BYTES;
   }
   return buf;
@@ -198,6 +226,26 @@ export function encodeGone(list: GoneAsteroid[]): ArrayBuffer {
     v.setFloat32(o + 2, g.x, true);
     v.setFloat32(o + 6, g.y, true);
     o += GONE_BYTES;
+  }
+  return buf;
+}
+
+export function encodeOrdnance(items: OrdnanceView[]): ArrayBuffer {
+  const buf = new ArrayBuffer(3 + items.length * ORDNANCE_BYTES);
+  const v = new DataView(buf);
+  v.setUint8(0, MSG.ORDNANCE);
+  v.setUint16(1, items.length, true);
+  let o = 3;
+  for (const it of items) {
+    v.setUint16(o, it.id, true);
+    v.setUint8(o + 2, it.kind);
+    v.setUint16(o + 3, it.owner, true);
+    v.setFloat32(o + 5, it.x, true);
+    v.setFloat32(o + 9, it.y, true);
+    v.setFloat32(o + 13, it.heading, true);
+    v.setUint8(o + 17, Math.max(0, Math.min(100, Math.round(it.hp * 100))));
+    v.setUint8(o + 18, it.armed ? 1 : 0);
+    o += ORDNANCE_BYTES;
   }
   return buf;
 }
@@ -241,6 +289,8 @@ export function decodeClient(buf: ArrayBuffer): ClientMessage | null {
         thrust: Number.isFinite(thrust) ? Math.max(-1, Math.min(1, thrust)) : 0,
         dash: (flags & 1) === 1,
         fire: (flags & 2) === 2,
+        missile: (flags & 4) === 4,
+        mine: (flags & 8) === 8,
         dashAim: Number.isFinite(dashAim) && Math.abs(dashAim) <= Math.PI * 2 ? dashAim : NaN,
       },
     };
@@ -283,6 +333,14 @@ export function decodeServer(buf: ArrayBuffer): ServerMessage | null {
         damageTier: v.getUint8(o + 52),
         dashCharge: v.getFloat32(o + 53, true),
         hullMax: v.getFloat32(o + 57, true),
+        missileTier: v.getUint8(o + 61),
+        mineTier: v.getUint8(o + 62),
+        missileCharges: v.getUint8(o + 63),
+        mineCharges: v.getUint8(o + 64),
+        missileCd: v.getFloat32(o + 65, true),
+        mineCd: v.getFloat32(o + 69, true),
+        missileShots: v.getUint16(o + 73, true),
+        mineShots: v.getUint16(o + 75, true),
       });
       o += SHIP_BYTES;
     }
@@ -318,6 +376,26 @@ export function decodeServer(buf: ArrayBuffer): ServerMessage | null {
       o += GONE_BYTES;
     }
     return { type, gone };
+  }
+  if (type === MSG.ORDNANCE && v.byteLength >= 3) {
+    const count = v.getUint16(1, true);
+    if (v.byteLength !== 3 + count * ORDNANCE_BYTES) return null;
+    const items: OrdnanceView[] = [];
+    let o = 3;
+    for (let i = 0; i < count; i++) {
+      items.push({
+        id: v.getUint16(o, true),
+        kind: v.getUint8(o + 2) === 1 ? 1 : 0,
+        owner: v.getUint16(o + 3, true),
+        x: v.getFloat32(o + 5, true),
+        y: v.getFloat32(o + 9, true),
+        heading: v.getFloat32(o + 13, true),
+        hp: v.getUint8(o + 17) / 100,
+        armed: v.getUint8(o + 18) === 1,
+      });
+      o += ORDNANCE_BYTES;
+    }
+    return { type, items };
   }
   if (type === MSG.SHOTS && v.byteLength >= 7) {
     const count = v.getUint16(5, true);

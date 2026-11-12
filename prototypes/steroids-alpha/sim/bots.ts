@@ -28,7 +28,7 @@ export function newBrain(rng: () => number): BotBrain {
   return { aimError: 0, cooling: false, wander: rng() * Math.PI * 2, nextBuy: Math.floor(rng() * 3) };
 }
 
-const idleInput = (): ShipInput => ({ seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN });
+const idleInput = (): ShipInput => ({ seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN, missile: false, mine: false });
 
 /** One tick of decisions for bot id. */
 export function botThink(id: number, s: ShipState, world: World, brain: BotBrain, tune: Tune, rng: () => number): { input: ShipInput; buy: { item: number; tier: number } | null } {
@@ -81,6 +81,8 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
       input.dashAim = away;
     }
     if (s.dashCharge > 0) input.dashAim = away;
+    // Mines behind it for whoever is chasing.
+    input.mine = s.mineCharges > 0 && enemy.d < 400 && rng() < 0.05;
     return { input, buy };
   }
 
@@ -94,6 +96,8 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
     input.thrust = enemy.d > t.preferredRange ? 1 : -0.5;
     const off = Math.abs(angleDelta(aim, s.heading));
     input.fire = mayFire && off < (t.fireConeDeg * Math.PI) / 180 && enemy.d < tune.weapon.assistRange;
+    // A missile when the target is in the lock cone.
+    input.missile = s.missileCharges > 0 && off < (tune.missile.lockConeDeg * Math.PI) / 360 && enemy.d < tune.missile.lockRange && rng() < 0.04;
     // A dash to close in (or ram) when lined up at middle range.
     if (s.dashCd <= 0 && off < 0.3 && enemy.d > 250 && enemy.d < 600 && rng() < 0.03) {
       input.dash = true;

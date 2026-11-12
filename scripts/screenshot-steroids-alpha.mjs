@@ -114,8 +114,10 @@ try {
   assert.notEqual(ids.desk, ids.phone);
 
   // Names reach everyone, and the leaderboard lists both pilots.
-  await desk.waitForFunction(() => window.__steroids.roster().length >= 2, null, { timeout: 5000 });
-  const roster = await api(desk, () => window.__steroids.roster());
+  // Planet A also has bots ("BOT <name>") while players are on; only the humans are checked here.
+  const humans = () => window.__steroids.roster().filter((r) => !r.name.startsWith('BOT '));
+  await desk.waitForFunction((f) => new Function(`return (${f})()`)().length >= 2, humans.toString(), { timeout: 5000 });
+  const roster = await api(desk, humans);
   assert.deepEqual(roster.map((r) => r.name).sort(), ['Desk Ace', 'Phone Pilot'], 'player names on the roster');
   assert(roster.every((r) => r.kills === 0));
   await desk.waitForFunction(() => window.__steroids.board().length >= 2, null, { timeout: 3000 });

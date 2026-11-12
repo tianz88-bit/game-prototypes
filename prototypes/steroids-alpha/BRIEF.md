@@ -199,6 +199,12 @@ All names, ships, pilots and art are original. Nothing is copied from either.
 - Leaderboard shows each player's kills (players only) and power.
 - Bots (owner, 12 November): AI pilots on Planet A only, present only while
   at least one real player is there. Planet B is players-only PvP.
+- Missiles and mines (owner, 12 November): shop items with four tiers; each
+  tier adds a charge. Charges refill automatically one at a time and are held
+  until used. Two buttons with symbols and charge counts (keyboard Q and E).
+  Missiles lock onto ships only and home. Mines are visible and steer slowly
+  toward nearby enemy ships before going off. Both can be shot down: they
+  survive one or two turrets, and the main gun is needed to finish them.
 - Shield hit effect: a glowing sphere tiled with hexagons around the craft
   (owner reference image); some hexagons on the hit side flash (owner).
 - Dash ram (owner picked): dashing into a ship damages it, scaled by gun
