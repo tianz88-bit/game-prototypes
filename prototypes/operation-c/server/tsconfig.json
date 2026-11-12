@@ -1,0 +1,6 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": { "noEmit": true },
+  "include": ["src", "../src/model.ts", "../src/sim.ts", "../src/online-protocol.ts"],
+  "exclude": ["../dist"]
+}

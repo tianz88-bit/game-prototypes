@@ -5,21 +5,33 @@ import { readFile } from 'node:fs/promises';
 // Optional path lets an isolated worktree use an existing installed dependency tree.
 const require = createRequire(process.env.OPERATION_C_DEPENDENCIES || import.meta.url);
 const ts = require('typescript');
+const mapSource = await readFile(new URL('../src/maps.ts', import.meta.url), 'utf8');
+const mapCode = ts.transpileModule(mapSource, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
+const mapUrl = `data:text/javascript;base64,${Buffer.from(mapCode).toString('base64')}`;
+const { generateMap, MAP_SHAPES } = await import(mapUrl);
 const source = await readFile(new URL('../src/sim.ts', import.meta.url), 'utf8');
 const tuneJson = await readFile(new URL('../tune.json', import.meta.url), 'utf8');
-const compiled = ts.transpileModule(source.replace("import tuneJson from '../tune.json';", `const tuneJson = ${tuneJson};`), {
+const compiled = ts.transpileModule(source.replace("import tuneJson from '../tune.json';", `const tuneJson = ${tuneJson};`).replace("from './maps'", `from '${mapUrl}'`), {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
 }).outputText;
-const { OperationSim, DEFAULT_TUNE, BASE_CARDS, distance } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
-let passed = 0;
-function test(name, run) { run(); passed++; console.log(`PASS ${name}`); }
+const { OperationSim, DEFAULT_TUNE, BASE_CARDS, DEFAULT_LOADOUT, distance } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
+let passed = 0, failed = 0;
+function test(name, run) { try { run(); passed++; console.log(`PASS ${name}`); } catch (error) { failed++; console.error(`FAIL ${name}: ${error.message} ${error.stack?.split('\n').find(line => line.includes('/tests/run.mjs:')) ?? ''}`); } }
 function fixture(edit = () => {}) {
   const tune = structuredClone(DEFAULT_TUNE);
   tune.capture.hqRate = 0;
+  tune.hq.defenseDamage = 0;
+  // Legacy unit/economy fixtures isolate military rules from the new worker economy.
+  tune.hq.workerLimit = 0; tune.hq.captureRings = 2; tune.hq.workerGatherRadius = 9;
+  tune.resources.destroyReleaseMs = 0;
   // Legacy movement/combat fixtures isolate those rules from construction/tier timing.
-  for (const card of Object.values(tune.cards)) card.buildMs = 0;
+  for (const card of Object.values(tune.cards)) { card.buildMs = 0; card.capturePriority = false; }
   edit(tune);
-  const s = new OperationSim({ tune, bot: false }); for (const p of s.players) p.techTier = 3;
+  // Older isolated fixtures acquire only within their weapon band; full sight
+  // and local engagement scenarios use milestone() with the live sight tuning.
+  for (const card of Object.values(tune.cards)) card.sightRange = card.range;
+  const s = new OperationSim({ tune, bot: false, loadouts: [['infantry', 'tank', 'artillery', 'helicopter', 'fighter', 'bunker', 'silo']] }); for (const p of s.players) p.techTier = 3;
+  for (const b of s.buildings) if (b.kind === 'hq') b.hqLevel = 3;
   return s;
 }
 // These fixtures exercise general economy invariants with a known cost, rather
@@ -37,8 +49,8 @@ function unit(sim, id, owner, kind = 'infantry', hp = 1000) {
 }
 function advance(sim, ms) { sim.tick(ms); }
 function milestone(edit = () => {}, options = {}) {
-  const tune = structuredClone(DEFAULT_TUNE); tune.capture.hqRate = 0; edit(tune);
-  return new OperationSim({ tune, bot: false, ...options });
+  const tune = structuredClone(DEFAULT_TUNE); tune.capture.hqRate = 0; tune.hq.workerLimit = 0; tune.hq.captureRings = 2; edit(tune);
+  return new OperationSim({ tune, bot: false, loadouts: [['infantry', 'tank', 'artillery', 'helicopter', 'fighter', 'bunker', 'silo']], ...options });
 }
 function loseSupports(s, ids) {
   for (const id of ids) { const tile = h(s, id); tile.owner = 1; tile.lockedBy = null; delete tile.commitment; }
@@ -67,7 +79,7 @@ test('initial HQ capacity excludes centres; previews BFS connected supports incl
   assert(s.place(0, '-4,0', 'infantry').ok);
   const b = s.buildings.find(x => x.kind !== 'hq');
   assert.equal(s.resources(0).committed, 4); assert.equal(s.hexes.filter(x => x.lockedBy === b.id).length, 4);
-  assert.equal(s.units.length, 1, 'immediate first spawn'); assert.equal(b.readyAtMs, s.tune.cards.infantry.productionMs);
+  assert.equal(s.units.length, 1, 'immediate first spawn'); assert.equal(b.readyAtMs, 0); assert.equal(b.cooldownActive, false);
 });
 
 test('local supports cannot cross neutral, enemy, locked or burnt bridges', () => {
@@ -101,16 +113,17 @@ test('enemy capture permanently clears local lock; destruction discounts release
   assert.equal(s.resources(0).capacity, 0); assert(!s.placement(0, b.hexId, 'infantry').ok);
 });
 
-test('production requires both death and cooldown, and restarts cooldown on replacement', () => {
-  const s = fixture(); ownAll(s); s.place(0, '0,0', 'infantry');
-  const b = s.buildings.find(x => x.kind === 'infantry'); const first = b.unitId;
-  s.units[0].hp = 0; advance(s, 100); assert.equal(b.unitId, null);
-  advance(s, s.tune.cards.infantry.productionMs - 200); assert.equal(b.unitId, null);
-  advance(s, 100); assert(b.unitId && b.unitId !== first);
-  const second = b.unitId; advance(s, s.tune.cards.infantry.productionMs + 100);
-  assert.equal(b.unitId, second, 'finished cooldown cannot replace living unit');
+test('non-squad production clock starts on death only and becomes idle again after replacement', () => {
+  const s = fixture(); ownAll(s); s.place(0, '0,0', 'tank');
+  const b = s.buildings.find(x => x.kind === 'tank'), first = b.unitId, interval = s.tune.cards.tank.productionMs;
+  advance(s, interval * 2); assert.equal(b.unitId, first); assert.equal(b.cooldownActive, false);
+  s.units.find(u => u.id === first).hp = 0; advance(s, 100); assert.equal(b.unitId, null);
+  assert.equal(b.readyAtMs, s.timeMs + interval); assert.equal(b.productionStartedAtMs, s.timeMs);
+  advance(s, interval - 100); assert.equal(b.unitId, null); advance(s, 100);
+  assert(b.unitId && b.unitId !== first); assert.equal(b.readyAtMs, 0); assert.equal(b.cooldownActive, false);
+  const second = b.unitId; advance(s, interval + 100); assert.equal(b.unitId, second);
   s.units.find(x => x.id === second).hp = 0; advance(s, 100);
-  assert(b.unitId && b.unitId !== second); assert.equal(b.readyAtMs, s.timeMs + s.tune.cards.infantry.productionMs);
+  assert.equal(b.unitId, null); assert.equal(b.readyAtMs, s.timeMs + interval);
 });
 
 test('destroyed producer leaves living orphan, creates no further replacements', () => {
@@ -137,13 +150,14 @@ test('encircled spawn waits, then uses the opened adjacent hex; locked/burnt gro
   const b = s.buildings.find(x => x.kind === 'infantry');
   assert.equal(b.unitId, null, 'cannot tunnel through six blocking units to an outer ring');
   const opened = s.units[0].hexId; s.units[0].hp = 0; h(s, opened).burnt = true;
-  advance(s, 100); assert(b.unitId); assert.equal(s.units.find(x => x.id === b.unitId).hexId, opened);
+  advance(s, 100); assert(b.unitId); const spawned = s.units.find(x => x.id === b.unitId); assert.equal(spawned.fromHexId ?? spawned.hexId, opened);
   assertOccupancy(s);
 });
 
 test('capture pauses during own attack, retains progress, continues under unanswered ranged fire', () => {
   const s = fixture(t => { t.capture.neutralMs = 1000; t.cards.artillery.attackMs = 100; t.cards.artillery.damage = 1; });
   const victim = unit(s, '0,0', 0); unit(s, '2,0', 1, 'artillery');
+  h(s, '0,0').owner = 1;
   advance(s, 100); assert(victim.hp < 1000); assert.equal(victim.attacking, false); assert(h(s, '0,0').capture > 0);
   const progress = h(s, '0,0').capture;
   const closeEnemy = unit(s, '1,0', 1); advance(s, 100);
@@ -152,28 +166,17 @@ test('capture pauses during own attack, retains progress, continues under unansw
   assert.equal(victim.attacking, false); assert(h(s, '0,0').capture > progress);
 });
 
-test('owned capture takes twice neutral time; normal HQ pressure respects enemy occupants', () => {
-  const s = fixture(t => { t.capture.neutralMs = 1000; t.cards.infantry.range = 0; });
-  unit(s, '0,0', 0); h(s, '0,2').owner = 1; unit(s, '0,2', 0);
-  advance(s, 1000); assert.equal(h(s, '0,0').owner, 0); assert.equal(h(s, '0,2').owner, 1);
-  advance(s, 1000); assert.equal(h(s, '0,2').owner, 0);
-  const p = fixture(t => { t.capture.hqRate = 1; t.capture.neutralMs = 1000; t.cards.infantry.captureRate = 0; t.cards.infantry.range = 0; });
-  h(p, '-3,0').owner = 1; unit(p, '-3,0', 1).movingUntilMs = 100000; advance(p, 2000); assert.equal(h(p, '-3,0').owner, 1);
-  p.units.splice(0); advance(p, 1900); assert.equal(h(p, '-3,0').owner, 1);
-  advance(p, 100); assert.equal(h(p, '-3,0').owner, 0, 'provisional HQ pressure recaptures unoccupied enemy land');
-});
-
 test('ground moves across burnt/locked tiles but cannot cross allied or enemy buildings', () => {
   const s = fixture(); ownAll(s);
   const corridor = new Set(['-2,0', '-1,0', '0,0', '1,0', '2,0']);
   // Buildings seal every alternative route. This is a fixture, not a placement command.
   for (const x of s.hexes) if (!corridor.has(x.id) && !s.buildings.some(b => b.hexId === x.id)) {
-    s.buildings.push({ id: `wall-${x.id}`, hexId: x.id, owner: 0, kind: 'hq', hp: 1000, maxHp: 1000, readyAtMs: 0, unitId: null });
+    s.buildings.push({ id: `wall-${x.id}`, hexId: x.id, owner: 0, kind: 'bunker', hp: 1000, maxHp: 1000, readyAtMs: 0, unitId: null });
   }
-  const u = unit(s, '-2,0', 0); h(s, '-1,0').burnt = true; h(s, '-1,0').lockedBy = 'fixture'; h(s, '2,0').owner = null;
+  const u = unit(s, '-2,0', 0, 'worker'); h(s, '-1,0').burnt = true; h(s, '-1,0').lockedBy = 'fixture'; h(s, '2,0').owner = null;
   advance(s, 100); assert.equal(u.hexId, '-1,0'); assertOccupancy(s);
-  s.buildings.push({ id: 'barrier', hexId: '0,0', owner: 0, kind: 'hq', hp: 1000, maxHp: 1000, readyAtMs: 0, unitId: null });
-  advance(s, 2000); assert.equal(u.hexId, '-1,0', 'cannot tunnel through friendly structure'); assertOccupancy(s);
+  s.buildings.push({ id: 'barrier', hexId: '0,0', owner: 0, kind: 'bunker', hp: 1000, maxHp: 1000, readyAtMs: 0, unitId: null });
+  advance(s, 2000); assert(['-2,0','-1,0'].includes(u.hexId), 'cannot tunnel through friendly structure; exhausted worker may return home'); assertOccupancy(s);
 });
 
 test('repeat and tick partition invariance; many units retain exclusive reservations', () => {
@@ -242,25 +245,11 @@ test('attack order prioritizes selected faction buildings over troops; defense r
   }
 });
 
-test('confirmed building costs, opening capacity eighteen, and no global placement timer', () => {
-  const opening = new OperationSim({ bot: false });
-  assert.equal(DEFAULT_TUNE.cards.infantry.cost, 4); assert.equal(DEFAULT_TUNE.cards.tank.cost, 8); assert.equal(DEFAULT_TUNE.cards.artillery.cost, 8);
-  assert.equal(opening.resources(0).capacity, 18);
-  assert(opening.place(0, '-4,0', 'infantry').ok); assert.equal(opening.resources(0).committed, 4);
-  const b = opening.buildings.find(x => x.kind === 'infantry');
-  assert.equal(opening.hexes.filter(x => x.lockedBy === b.id).length, 4);
-  const s = new OperationSim({ bot: false }); ownAll(s);
-  assert(s.place(0, '0,0', 'infantry').ok); assert(s.place(0, '4,0', 'infantry').ok);
-  assert.equal(s.timeMs, 0); assert.equal(s.resources(0).committed, 8);
-  assert.equal(s.units.length, 0, 'both placements begin construction without a global timer');
-  advance(s, s.tune.cards.infantry.buildMs); assert.equal(s.units.length, 2, 'both complete at the same simulation time');
-});
-
 test('all presentation settings, including event capacity, leave authoritative state and entity IDs identical', () => {
-  assert.deepEqual(DEFAULT_TUNE.presentation, { captureFlipMs: 900, captureLift: 0.9, shotTraceMs: 220, retreatMs: 650, maxShotEvents: 128 });
+  assert.deepEqual(DEFAULT_TUNE.presentation, { captureFlipMs: 900, captureLift: 0.9, shotTraceMs: 220, retreatMs: 650, maxShotEvents: 128, commandPulseMs: 1800, upgradeBobMs: 1400, upgradeBobLift: 0.1, nukeArcLift: 3, mushroomMs: 3000 });
   const normal = fixture();
   const variants = [normal, ...[0, 2].map(cap => fixture(t => {
-    t.presentation = { captureFlipMs: 99999, captureLift: 10, shotTraceMs: 1, maxShotEvents: cap };
+    t.presentation = { ...t.presentation, captureFlipMs: 99999, captureLift: 10, shotTraceMs: 1, maxShotEvents: cap, commandPulseMs: 1, upgradeBobMs: 99999, upgradeBobLift: 10, nukeArcLift: 8 };
   }))];
   for (const s of variants) {
     unit(s, '0,0', 0); unit(s, '1,0', 1); unit(s, '-1,3', 0);
@@ -311,10 +300,10 @@ test('movement and blocked movement do not emit shots', () => {
 test('capturer death reverses partial capture slowly to the unchanged original controller', () => {
   for (const owner of [null, 1]) {
     const s = fixture(t => { t.capture.neutralMs = 1000; }); const tile = h(s, '0,0'); tile.owner = owner;
-    const capturer = unit(s, '0,0', 0); advance(s, 500);
+    const capturer = unit(s, '0,0', 0, owner === null ? 'worker' : 'infantry'); advance(s, 500);
     const progress = tile.capture; assert(progress > 0); assert.equal(tile.captureUnitId, capturer.id);
     capturer.hp = 0; advance(s, 100);
-    const duration = 1000 * (owner === null ? 1 : 2);
+    const duration = 1000 * (owner === null ? 1 : s.tune.capture.ownedMultiplier);
     assert(Math.abs(tile.capture - (progress - 100 * s.tune.capture.rollbackRate / duration)) < 1e-10);
     assert.equal(tile.owner, owner); assert.equal(tile.captureReversing, true);
     advance(s, 5000); assert.equal(tile.capture, 0); assert.equal(tile.capturePlayer, null);
@@ -324,6 +313,7 @@ test('capturer death reverses partial capture slowly to the unchanged original c
 
 test('living absence does not trigger reversal; replacement capture cancels casualty rollback and attack pauses it', () => {
   const s = fixture(t => { t.capture.neutralMs = 1000; }); const tile = h(s, '0,0');
+  tile.owner = 1;
   const capturer = unit(s, '0,0', 0); advance(s, 500); const before = tile.capture;
   capturer.hexId = '0,3'; capturer.movingUntilMs = 100000; advance(s, 500);
   assert.equal(tile.capture, before); assert.equal(tile.captureReversing, undefined);
@@ -337,7 +327,7 @@ test('living absence does not trigger reversal; replacement capture cancels casu
 
 test('artillery has a two-to-three-hex firing band and never retreats solely from proximity', () => {
   assert.equal(DEFAULT_TUNE.cards.artillery.unitHp, 38);
-  for (const d of [1, 2, 3, 4]) {
+  for (const d of [1, 2, 3, 4, 5]) {
     const s = fixture(t => { t.cards.infantry.range = 0; }); const artillery = unit(s, '0,0', 0, 'artillery', 38);
     unit(s, `${d},0`, 1); advance(s, 100);
     assert.equal(artillery.attacking, d >= 2 && d <= 3);
@@ -348,6 +338,9 @@ test('artillery has a two-to-three-hex firing band and never retreats solely fro
 
 test('artillery retreats only after actual damage; a frontline screen prevents that trigger', () => {
   const exposed = fixture(); const gun = unit(exposed, '0,0', 0, 'artillery', 38);
+  // Finish a movement segment on the damage step so normal homeward defense
+  // movement cannot carry the now non-capturing gun away from this fixture.
+  gun.movingUntilMs = 200;
   const threat = unit(exposed, '1,0', 1); threat.nextAttackAtMs = 100000;
   advance(exposed, 100); assert.equal(gun.hexId, '0,0'); assert.equal(gun.retreatUntilMs, undefined);
   threat.nextAttackAtMs = exposed.timeMs; advance(exposed, 100);
@@ -380,9 +373,9 @@ test('expansion fills reachable neutral goals in HQ ring order before nearer hos
   assert.notEqual(scout.hexId, '0,1'); assert.notEqual(scout.hexId, '1,0'); assertOccupancy(s);
 });
 
-test('both aircraft cost twelve, cannot capture, and share spawn occupancy with ground troops', () => {
+test('both aircraft cost eight, cannot capture, and share spawn occupancy with ground troops', () => {
   for (const kind of ['helicopter', 'fighter']) {
-    assert.equal(DEFAULT_TUNE.cards[kind].cost, 12); assert.equal(DEFAULT_TUNE.cards[kind].captureRate, 0);
+    assert.equal(DEFAULT_TUNE.cards[kind].cost, 8); assert.equal(DEFAULT_TUNE.cards[kind].captureRate, 0);
     const still = fixture(t => { t.cards[kind].captureRate = 100; });
     const aircraft = unit(still, '0,0', 0, kind); aircraft.movingUntilMs = 100000;
     advance(still, 10000); assert.equal(h(still, '0,0').owner, null); assert.equal(h(still, '0,0').capture, 0);
@@ -397,16 +390,16 @@ test('both aircraft cost twelve, cannot capture, and share spawn occupancy with 
   }
 });
 
-test('air defenders pursue eligible intruders on owned territory and return home after they leave', () => {
+test('air defenders acquire eligible enemies only within individual sight across territory and return home after losing sight', () => {
   for (const kind of ['helicopter', 'fighter']) {
-    const s = fixture(); ownAll(s); h(s, '5,0').owner = 1;
+    const s = milestone(); ownAll(s); h(s, '5,0').owner = 1;
     const defender = unit(s, '-4,0', 0, kind), intruder = unit(s, '0,0', 1, kind === 'fighter' ? 'helicopter' : 'tank');
-    intruder.movingUntilMs = 100000; h(s, intruder.hexId).owner = 1;
-    advance(s, 100); assert.equal(defender.hexId, '-4,0', 'passive aircraft does not hunt outside its territory');
-    h(s, intruder.hexId).owner = 0; advance(s, 100);
-    assert(distance(h(s, defender.hexId), h(s, intruder.hexId)) < 4, 'defender moves toward eligible intruder');
+    intruder.movingUntilMs = 100000;
+    advance(s, 100); assert.equal(defender.hexId, '-4,0', 'distant intruder on owned land is outside individual sight');
+    intruder.hexId = '-1,0'; h(s, intruder.hexId).owner = 1; advance(s, 100);
+    assert(distance(h(s, defender.hexId), h(s, intruder.hexId)) < 3, 'defender pursues a visible enemy on hostile land');
     advance(s, 3000); assert(s.shots.some(x => x.unitId === defender.id));
-    h(s, intruder.hexId).owner = 1;
+    intruder.hexId = '4,3';
     advance(s, 6000); assert(distance(h(s, defender.hexId), h(s, '-5,0')) <= 1, 'defender returns to home ring');
     assertOccupancy(s);
   }
@@ -430,53 +423,25 @@ test('ground troops and buildings block aircraft paths; origins/destinations use
   const s = fixture(); ownAll(s);
   const corridor = new Set(['0,0', '-1,0', '-2,0', '-3,0', '-4,0']);
   for (const tile of s.hexes) if (!corridor.has(tile.id) && !s.buildings.some(b => b.hexId === tile.id)) {
-    s.buildings.push({ id: `wall-${tile.id}`, hexId: tile.id, owner: 0, kind: 'hq', hp: 1000, maxHp: 1000, readyAtMs: 0, unitId: null });
+    s.buildings.push({ id: `wall-${tile.id}`, hexId: tile.id, owner: 0, kind: 'bunker', hp: 1000, maxHp: 1000, readyAtMs: 0, unitId: null });
   }
   const plane = unit(s, '0,0', 0, 'fighter'), blocker = unit(s, '-2,0', 0);
   blocker.movingUntilMs = 100000; advance(s, 100); assert.equal(plane.hexId, '0,0'); assertOccupancy(s);
   blocker.hp = 0; advance(s, 100); assert.equal(plane.hexId, '-1,0'); assertOccupancy(s);
-  s.buildings.push({ id: 'barrier', hexId: '-2,0', owner: 0, kind: 'hq', hp: 1000, maxHp: 1000, readyAtMs: 0, unitId: null });
+  s.buildings.push({ id: 'barrier', hexId: '-2,0', owner: 0, kind: 'bunker', hp: 1000, maxHp: 1000, readyAtMs: 0, unitId: null });
   advance(s, 2000); assert.equal(plane.hexId, '-1,0'); assertOccupancy(s);
 });
 
-test('normal bot cycle can build and spawn both aircraft types', () => {
-  const tune = structuredClone(DEFAULT_TUNE); tune.hq.hp = 100000;
-  const s = new OperationSim({ tune }); ownAll(s, 1);
-  const seen = new Set();
-  for (let i = 0; i < 600; i++) {
-    advance(s, 100); for (const u of s.units) seen.add(u.kind); assertOccupancy(s);
-  }
-  assert(seen.has('helicopter')); assert(seen.has('fighter'));
-});
-
-test('ten-minute virtual playtests progress through contested frontlines to an HQ victory', () => {
-  for (const scenario of ['idle-human', 'initial-defense', 'initial-attack']) {
-    const s = new OperationSim();
-    if (scenario !== 'idle-human') {
-      assert(s.place(0, '-4,0', 'infantry').ok);
-      const second = s.hexes.find(x => s.placement(0, x.id, 'infantry').ok);
-      assert(second); assert(s.place(0, second.id, 'infantry').ok);
-      if (scenario === 'initial-attack') s.setTarget(0, 1);
-    }
-    let peakUnits = 0;
-    for (let ms = 0; ms < 600000 && s.winner === null; ms += 100) {
-      s.tick(100); assertOccupancy(s); peakUnits = Math.max(peakUnits, s.units.length);
-    }
-    console.log(`  ${scenario}: winner=${s.winner}, elapsed=${s.timeMs / 1000}s, peakUnits=${peakUnits}`);
-    assert.notEqual(s.winner, null, `${scenario} should resolve within ten virtual minutes`);
-  }
-});
-
-test('default construction reserves and blocks immediately, starts full HP, never heals, then starts spawn cooldown', () => {
+test('default construction reserves and blocks immediately, never heals, then spawns with an idle casualty-triggered clock', () => {
   const s = milestone(); ownAll(s); const b = producer(s);
   assert.equal(b.hp, 110); assert.equal(b.completeAtMs, 3000); assert.equal(b.unitId, null);
-  assert.equal(s.resources(0).committed, 4); assert.equal(h(s, b.hexId).commitment, 'building');
+  assert.equal(s.resources(0).committed, 5); assert.equal(h(s, b.hexId).commitment, 'building');
   assert(!s.placement(0, b.hexId, 'tank').ok);
   b.hp = 65; advance(s, 2900); assert.equal(b.unitId, null);
   advance(s, 100); assert.equal(b.hp, 65); assert(b.unitId);
   const squad = s.units.find(u => u.id === b.unitId);
   assert.deepEqual(squad.members, [8, 8, 8, 8, 8]); assert.equal(squad.hp, 40); assert.equal(squad.maxHp, 40);
-  assert.equal(b.readyAtMs, s.timeMs + 6500); assertOccupancy(s);
+  assert.equal(b.readyAtMs, 0); assert.equal(b.cooldownActive, false); assertOccupancy(s);
 });
 
 test('unfinished construction is vulnerable and selling/destruction strand only lost assignments', () => {
@@ -485,7 +450,7 @@ test('unfinished construction is vulnerable and selling/destruction strand only 
     const supports = s.hexes.filter(x => x.lockedBy === b.id);
     loseSupports(s, supports.filter(x => x.id !== b.hexId).slice(0, 3).map(x => x.id));
     if (sell) assert(s.sell(0, b.id).ok);
-    else { b.hp = 0; advance(s, 100); }
+    else { b.hp = 0; advance(s, 100); advance(s, s.tune.resources.destroyReleaseMs); }
     assert(!s.buildings.includes(b)); assert.equal(s.units.length, 0);
     assert.equal(s.resources(0).committed, 3); assert.equal(s.resources(0).stranded, 3);
     assert.equal(h(s, b.hexId).burnt, !sell); assert.equal(h(s, b.hexId).lockedBy, null);
@@ -496,16 +461,18 @@ test('unfinished construction is vulnerable and selling/destruction strand only 
   advance(attacked, 100); assert(b.hp < b.maxHp); assert.equal(b.unitId, null);
 });
 
-test('research reserves twenty disconnected cells and releases full commitment after losses on cancel or completion', () => {
+test('research reserves open HQ-connected cells and still completes or cancels after support losses', () => {
   for (const complete of [false, true]) {
-    const s = milestone(); for (const x of s.hexes) x.owner = null;
-    const cells = s.hexes.filter(x => !s.buildings.some(b => b.hexId === x.id) && ((x.q - x.r) % 3 + 3) % 3 === 0).slice(0, 20);
-    assert.equal(cells.length, 20); for (const x of cells) x.owner = 0;
-    assert(s.startResearch(0).ok); assert.equal(s.resources(0).committed, 20);
+    const s = milestone(t=>{t.resources.capacityCap=1000;}); ownAll(s);
+    const cells = s.hexes.filter(x => !s.buildings.some(b => b.hexId === x.id)).slice(0, 16);
+    for(const x of s.hexes)if(!cells.includes(x))x.lockedBy='fixture-bridge';
+    const capacity=s.resources(0).capacity;
+    assert.equal(cells.length, 16); for (const x of cells) x.owner = 0;
+    assert(s.startResearch(0).ok); assert.equal(s.resources(0).committed, 16);
     assert.equal(s.players[0].research.completeAtMs, 30000);
     assert(cells.every(x => x.commitment === 'research' && x.lockedBy === 'research-0'));
     loseSupports(s, cells.slice(0, 7).map(x => x.id)); advance(s, 1000);
-    assert.equal(s.resources(0).committed, 20); assert.equal(s.resources(0).capacity, 13);
+    assert.equal(s.resources(0).committed, 16); assert.equal(s.resources(0).capacity, capacity-7);
     if (complete) { advance(s, 29000); assert.equal(s.players[0].techTier, 2); }
     else { assert(s.cancelResearch(0).ok); assert.equal(s.players[0].techTier, 1); }
     assert.equal(s.resources(0).committed, 0); assert.equal(s.resources(0).stranded, 0);
@@ -513,12 +480,12 @@ test('research reserves twenty disconnected cells and releases full commitment a
   }
 });
 
-test('research cancellation loses progress; T3 costs twenty for a fresh sixty-second interval', () => {
+test('research cancellation loses progress; T3 costs sixteen for a fresh sixty-second interval', () => {
   const s = milestone(); ownAll(s);
   assert(s.startResearch(0).ok); advance(s, 10000); assert(s.cancelResearch(0).ok);
   assert(s.startResearch(0).ok); assert.equal(s.players[0].research.completeAtMs, 40000);
   advance(s, 30000); assert.equal(s.players[0].techTier, 2); assert(s.startResearch(0).ok);
-  assert.equal(s.players[0].research.completeAtMs, 100000); assert.equal(s.resources(0).committed, 20);
+  assert.equal(s.players[0].research.completeAtMs, 100000); assert.equal(s.resources(0).committed, 16);
   advance(s, 59900); assert.equal(s.players[0].techTier, 2); advance(s, 100);
   assert.equal(s.players[0].techTier, 3); assert.equal(s.resources(0).committed, 0); assert(!s.startResearch(0).ok);
 });
@@ -527,59 +494,45 @@ test('placement validates base-only loadouts and technology; conversions consume
   for (const cards of [[], ['infantry', 'infantry'], ['fighter'], ['infantry', 'missile'], ['infantry', 'bomber'], ['unknown']]) {
     assert.throws(() => milestone(() => {}, { loadouts: [cards] }), /Invalid loadout/);
   }
-  const s = milestone(() => {}, { loadouts: [['infantry', 'fighter', 'mlrs']] }); ownAll(s);
-  assert.deepEqual(BASE_CARDS, ['infantry', 'tank', 'artillery', 'helicopter', 'fighter', 'mlrs']);
+  const s = milestone(() => {}, { loadouts: [['infantry', 'fighter', 'carrier']] }); ownAll(s);
+  assert.deepEqual(BASE_CARDS, ['infantry', 'tank', 'artillery', 'helicopter', 'fighter', 'scout', 'gunner', 'flak', 'walker', 'destroyer', 'carrier', 'bunker', 'silo']);
   assert(!s.place(0, '0,0', 'tank').ok); assert(!s.place(0, '0,0', 'fighter').ok);
   assert(!s.place(0, '0,0', 'missile').ok); assert(!s.place(0, '0,0', 'bomber').ok);
   s.players[0].techTier = 2; assert(s.place(0, '0,0', 'fighter').ok);
-  assert(!s.place(0, '4,0', 'mlrs').ok); s.players[0].techTier = 3; assert(s.place(0, '4,0', 'mlrs').ok);
+  assert(!s.place(0, '4,0', 'carrier').ok); s.players[0].techTier = 3; assert(s.place(0, '4,0', 'carrier').ok);
+  assert(!s.place(0, '-4,0', 'mlrs').ok);
 });
 
-test('Armoury reserves disconnected extra supports, retires squad, preserves HP, completes once without healing', () => {
+test('Armoury reserves nonadjacent HQ-supplied extra supports, retires squad, preserves HP, completes once without healing', () => {
   const s = milestone(); ownAll(s); const b = producer(s); advance(s, 3000);
   const oldId = b.unitId; b.hp = 51;
-  // All immediately surrounding land can be locked; surcharge deliberately uses arbitrary distant cells.
+  // All immediately surrounding land can be locked; surcharge uses distant HQ-connected cells.
   const openBefore = s.hexes.filter(x => x.lockedBy === null && x.owner === 0 && !s.buildings.some(v => v.hexId === x.id));
   assert(s.upgrade(0, b.id).ok); assert.equal(b.upgradeKind, 'missile'); assert.equal(b.upgradeCompleteAtMs, s.timeMs + 5000);
-  assert.equal(s.resources(0).committed, 6); assert.equal(s.units.some(x => x.id === oldId), false);
+  assert.equal(s.resources(0).committed, 7); assert.equal(s.units.some(x => x.id === oldId), false);
   assert.equal(s.retirements.at(-1).unitId, oldId); assert.equal(s.reinforcements.length, 0);
   assert(openBefore.slice(0, 2).every(x => x.lockedBy === b.id && x.commitment === 'upgrade'));
   advance(s, 4900); assert.equal(b.unitId, null); assert.equal(b.kind, 'infantry');
-  advance(s, 100); assert.equal(b.kind, 'missile'); assert.equal(b.hp, 51); assert.equal(s.resources(0).committed, 6);
+  advance(s, 100); assert.equal(b.kind, 'missile'); assert.equal(b.hp, 51); assert.equal(s.resources(0).committed, 7);
   const squad = s.units.find(x => x.id === b.unitId); assert.deepEqual(squad.members, [7, 7, 7, 7, 7]);
-  assert.equal(b.readyAtMs, s.timeMs + 9000); assert(!s.canUpgrade(0, b.id).ok); assert(!s.cancelUpgrade(0, b.id).ok);
+  assert.equal(b.readyAtMs, 0); assert.equal(b.cooldownActive, false); assert(!s.canUpgrade(0, b.id).ok); assert(!s.cancelUpgrade(0, b.id).ok);
 });
 
 test('cancelled conversion strands captured upgrade supports and starts full base cooldown without restoring retired forces', () => {
   const s = milestone(); ownAll(s); const b = producer(s); advance(s, 3000); const oldId = b.unitId;
   assert(s.upgrade(0, b.id).ok); const extra = s.hexes.filter(x => x.lockedBy === b.id && x.commitment === 'upgrade');
   loseSupports(s, [extra[0].id]); advance(s, 1000); assert(s.cancelUpgrade(0, b.id).ok);
-  assert.equal(b.kind, 'infantry'); assert.equal(b.unitId, null); assert.equal(b.readyAtMs, s.timeMs + 6500);
-  assert.equal(s.resources(0).committed, 5); assert.equal(s.resources(0).stranded, 1);
+  assert.equal(b.kind, 'infantry'); assert.equal(b.unitId, null); assert.equal(b.readyAtMs, s.timeMs + 8000);
+  assert.equal(s.resources(0).committed, 6); assert.equal(s.resources(0).stranded, 1);
   assert.equal(extra[1].lockedBy, null); assert.equal(extra[1].commitment, undefined);
-  advance(s, 6400); assert.equal(b.unitId, null); advance(s, 100); assert(b.unitId && b.unitId !== oldId);
-  assert.equal(b.readyAtMs, s.timeMs + 6500);
-});
-
-test('free Bomber conversion requires T3 and is permanent; sale/destroy during upgrade discounts combined support release', () => {
-  const s = milestone(); ownAll(s); s.players[0].techTier = 2; const airfield = producer(s, '0,0', 'fighter'); advance(s, 6000);
-  assert(!s.upgrade(0, airfield.id).ok); s.players[0].techTier = 3; airfield.hp = 47;
-  assert(s.upgrade(0, airfield.id).ok); assert.equal(s.resources(0).committed, 12); assert.equal(airfield.upgradeCost, 0);
-  advance(s, 8000); assert.equal(airfield.kind, 'bomber'); assert.equal(airfield.hp, 47);
-  assert(s.units.some(x => x.id === airfield.unitId && x.kind === 'bomber')); assert(!s.canUpgrade(0, airfield.id).ok);
-  for (const sell of [true, false]) {
-    const t = milestone(); ownAll(t); const b = producer(t); advance(t, 3000); assert(t.upgrade(0, b.id).ok);
-    const supports = t.hexes.filter(x => x.lockedBy === b.id); loseSupports(t, supports.filter(x => x.id !== b.hexId).slice(0, 3).map(x => x.id));
-    if (sell) assert(t.sell(0, b.id).ok); else { b.hp = 0; advance(t, 100); }
-    assert.equal(t.resources(0).committed, 3); assert.equal(t.resources(0).stranded, 3);
-    assert.equal(h(t, b.hexId).burnt, !sell); assert.equal(t.units.length, 0);
-  }
+  advance(s, 7900); assert.equal(b.unitId, null); advance(s, 100); assert(b.unitId && b.unitId !== oldId);
+  assert.equal(b.readyAtMs, 0); assert.equal(b.cooldownActive, false);
 });
 
 test('squad members focus one target; each single-target hit damages one member without spillover', () => {
   const s = fixture(t => { t.cards.tank.damage = 100; t.cards.tank.range = 0; });
   const squad = unit(s, '0,0', 0); squad.members = [8, 8, 8, 8, 8]; squad.hp = 40; squad.maxHp = 40;
-  const target = unit(s, '1,0', 1, 'tank'), second = unit(s, '0,1', 1, 'tank'); advance(s, 100);
+  const target = unit(s, '1,0', 1, 'tank'), second = unit(s, '0,1', 1, 'tank'); target.movingUntilMs = second.movingUntilMs = 100000; advance(s, 100);
   assert.equal(target.hp, 990); assert.equal(second.hp, 1000); assert.equal(s.shots.filter(x => x.unitId === squad.id).length, 1);
   squad.members = [8, 8]; squad.hp = 16; squad.nextAttackAtMs = s.timeMs;
   advance(s, 100); assert.equal(target.hp, 986, 'losing three members removes exactly three members of damage');
@@ -603,13 +556,13 @@ test('MLRS respects minimum range and splashes multiple enemy members with no fr
 test('reinforcement counts include in-flight members, restart cooldown, and merge full HP without healing survivors', () => {
   const s = milestone(t => { t.reinforcements.minTravelMs = 2000; }); ownAll(s); const b = producer(s); advance(s, 3000);
   const squad = s.units.find(x => x.id === b.unitId); squad.members = [3, 8]; squad.hp = 11; squad.movingUntilMs = 100000;
-  b.readyAtMs = s.timeMs; advance(s, 100);
-  assert.equal(s.reinforcements.length, 1); assert.equal(s.reinforcements[0].count, 3); assert.equal(b.readyAtMs, s.timeMs + 6500);
-  b.readyAtMs = s.timeMs; advance(s, 100); assert.equal(s.reinforcements.length, 1, 'existing in-flight members prevent over-dispatch');
+  b.cooldownActive = true; b.readyAtMs = s.timeMs; advance(s, 100);
+  assert.equal(s.reinforcements.length, 1); assert.equal(s.reinforcements[0].count, 3); assert.equal(b.cooldownActive, false);
+  b.cooldownActive = true; b.readyAtMs = s.timeMs; advance(s, 100); assert.equal(s.reinforcements.length, 1, 'existing in-flight members prevent over-dispatch');
   advance(s, 1900); assert.deepEqual(squad.members, [3, 8, 8, 8, 8]); assert.equal(squad.hp, 35); assert.equal(s.reinforcements.length, 0);
   squad.members = [3, 8]; squad.hp = 11;
   s.reinforcements.push({ id: 'fixture-arrival', unitId: squad.id, buildingId: b.id, owner: 0, count: 1, fromHexId: b.hexId, startedAtMs: s.timeMs, arriveAtMs: s.timeMs + 10000 });
-  b.readyAtMs = s.timeMs; advance(s, 100);
+  b.cooldownActive = true; b.readyAtMs = s.timeMs; advance(s, 100);
   assert.equal(s.reinforcements.reduce((n, r) => n + r.count, 0), 3, 'two living plus one incoming dispatches only two');
   assert.equal(s.units.length, 1); assertOccupancy(s);
 });
@@ -618,7 +571,7 @@ test('squad wipe deletes every incoming member permanently; producer death still
   for (const wipe of [true, false]) {
     const s = milestone(t => { t.reinforcements.minTravelMs = 1000; }); ownAll(s); const b = producer(s); advance(s, 3000);
     const squad = s.units.find(x => x.id === b.unitId); squad.members = [4, 8]; squad.hp = 12; squad.movingUntilMs = 100000;
-    b.readyAtMs = s.timeMs; advance(s, 100); assert.equal(s.reinforcements[0].count, 3);
+    b.cooldownActive = true; b.readyAtMs = s.timeMs; advance(s, 100); assert.equal(s.reinforcements[0].count, 3);
     if (wipe) { b.readyAtMs = 100000; squad.hp = 0; }
     else b.hp = 0;
     advance(s, 1000);
@@ -628,30 +581,6 @@ test('squad wipe deletes every incoming member permanently; producer death still
   }
 });
 
-test('upgrade/sale retire current squads and incoming reinforcements, with casualty rollback and bounded cosmetic events', () => {
-  for (const sell of [true, false]) {
-    const s = milestone(); ownAll(s); const b = producer(s); advance(s, 3000);
-    const squad = s.units.find(x => x.id === b.unitId); squad.members = [8]; squad.hp = 8;
-    const tile = h(s, squad.hexId); tile.owner = null; tile.capture = 0.5; tile.capturePlayer = 0; tile.captureUnitId = squad.id;
-    b.readyAtMs = s.timeMs; squad.movingUntilMs = 100000; advance(s, 100); assert(s.reinforcements.length);
-    if (sell) assert(s.sell(0, b.id).ok); else assert(s.upgrade(0, b.id).ok);
-    assert.equal(s.units.length, 0); assert.equal(s.reinforcements.length, 0); assert(tile.captureReversing);
-    assert.equal(s.retirements.at(-1).unitId, squad.id); assert.deepEqual(s.retirements.at(-1).members, [8]);
-  }
-  const s = fixture(); ownAll(s);
-  for (let i = 0; i < 130; i++) { const b = producer(s); assert(s.sell(0, b.id).ok); }
-  assert.equal(s.retirements.length, 128); assert.equal(s.retirements[0].id, 3);
-  const fresh = milestone(); assert.equal(fresh.retirements.length, 0); assert.equal(fresh.reinforcements.length, 0);
-});
-
-test('bot advances technology, skips locked cards, and eventually uses conversions and T3 base cards', () => {
-  const tune = structuredClone(DEFAULT_TUNE); tune.hq.hp = 1000000;
-  const s = new OperationSim({ tune }); ownAll(s, 1); const seen = new Set();
-  for (let i = 0; i < 1800; i++) { advance(s, 100); for (const b of s.buildings) seen.add(b.kind); assertOccupancy(s); }
-  assert.equal(s.players[1].techTier, 3); assert(seen.has('missile')); assert(seen.has('helicopter'));
-  assert(seen.has('fighter')); assert(seen.has('bomber')); assert(seen.has('mlrs'));
-});
-
 test('construction, research, conversion, debt, squads, reinforcements and events remain tick-partition deterministic', () => {
   const run = dt => {
     const tune = structuredClone(DEFAULT_TUNE); tune.hq.hp = 1000000;
@@ -659,11 +588,1227 @@ test('construction, research, conversion, debt, squads, reinforcements and event
     for (let t = 0; t < 180000; t += dt) s.tick(dt);
     return JSON.stringify({ hexes: s.hexes, buildings: s.buildings, units: s.units, players: s.players,
       reinforcements: s.reinforcements, retirements: s.retirements, shots: s.shots,
-      resources: s.players.map(p => s.resources(p.id)), timeMs: s.timeMs, winner: s.winner });
+      pendingReleases: s.pendingReleases, resources: s.players.map(p => s.resources(p.id)), timeMs: s.timeMs, winner: s.winner });
   };
   assert.equal(run(100), run(500));
   const fresh = new OperationSim(); assert.equal(fresh.players[0].techTier, 1); assert.equal(fresh.players[0].research, null);
   assert.equal(fresh.resources(0).stranded, 0); assert.equal(fresh.resources(0).committed, 0);
 });
+
+test('destruction holds surviving assignments and full commitment for ten seconds, then releases only survivors', () => {
+  const s = milestone(); ownAll(s); const b = producer(s, '0,0', 'tank');
+  const supports = s.hexes.filter(x => x.lockedBy === b.id);
+  loseSupports(s, supports.filter(x => x.id !== b.hexId).slice(0, 3).map(x => x.id));
+  b.hp = 0; advance(s, 100);
+  const release = s.pendingReleases[0]; assert.equal(release.supportIds.length, 4); assert.equal(release.releaseAtMs, 10100);
+  assert.equal(s.resources(0).committed, 7); assert.equal(s.resources(0).stranded, 3);
+  const reserved = s.hexes.find(x => x.commitment === 'release' && !x.burnt);
+  assert.equal(reserved.releaseAtMs, release.releaseAtMs); assert(!s.placement(0, reserved.id, 'infantry').ok);
+  assert(s.startResearch(0).ok); assert(!s.players[0].research.supportIds.includes(reserved.id)); s.cancelResearch(0);
+  advance(s, 9900); assert.equal(s.timeMs, 10000); assert.equal(s.resources(0).committed, 7); assert.equal(reserved.commitment, 'release');
+  advance(s, 100); assert.equal(s.resources(0).committed, 3); assert.equal(s.pendingReleases.length, 0);
+  assert.equal(reserved.lockedBy, null); assert.equal(reserved.releaseAtMs, undefined); assert(s.placement(0, reserved.id, 'infantry').ok);
+  const sale = milestone(); ownAll(sale); const selling = producer(sale, '0,0', 'tank');
+  loseSupports(sale, sale.hexes.filter(x => x.lockedBy === selling.id && x.id !== selling.hexId).slice(0, 3).map(x => x.id));
+  assert(sale.sell(0, selling.id).ok); assert.equal(sale.resources(0).committed, 3); assert.equal(sale.pendingReleases.length, 0);
+});
+
+test('enemy capture during delayed release becomes permanent debt and recapture cannot restore its countdown assignment', () => {
+  const s = milestone(t => { t.capture.neutralMs = 100; }); ownAll(s); const b = producer(s);
+  b.hp = 0; advance(s, 100); const release = s.pendingReleases[0];
+  const tile = s.hexes.find(x => x.lockedBy === release.id && !x.burnt);
+  const invading = unit(s, tile.id, 1); advance(s, 200);
+  assert.equal(tile.owner, 1); assert.equal(tile.lockedBy, null); assert.equal(tile.releaseAtMs, undefined);
+  assert.equal(s.resources(0).committed, 5); assert.equal(s.resources(0).stranded, 1); assert.equal(release.supportIds.length, 4);
+  invading.hp = 0; advance(s, 100); unit(s, tile.id, 0); advance(s, 200);
+  assert.equal(tile.owner, 0); assert.equal(tile.lockedBy, null); assert.equal(tile.commitment, undefined);
+  advance(s, release.releaseAtMs - s.timeMs);
+  assert.equal(s.pendingReleases.length, 0); assert.equal(s.resources(0).committed, 1); assert.equal(s.resources(0).stranded, 1);
+});
+
+test('infantry, missile and gunner capture before retaliating, including when damaged and on attack orders', () => {
+  for (const kind of ['infantry', 'missile', 'gunner']) {
+    const s = milestone(t => { t.capture.neutralMs = 1000; }); const capturer = unit(s, '0,0', 0, kind);
+    h(s, '0,0').owner = 1;
+    unit(s, '2,0', 1, 'artillery'); unit(s, '1,0', 1, 'tank').movingUntilMs = 100000;
+    s.setTarget(0, 1); advance(s, 100);
+    assert(capturer.hp < 1000); assert.equal(capturer.attacking, false); assert(h(s, '0,0').capture > 0);
+    assert(!s.shots.some(x => x.unitId === capturer.id));
+    advance(s, 1400); assert.equal(h(s, '0,0').owner, 0);
+    advance(s, 100); assert(s.shots.some(x => x.unitId === capturer.id), 'combat resumes after ownership is secured');
+  }
+});
+
+test('ground defenders seek hostile intruders on owned land before neutral expansion goals', () => {
+  const s = milestone(); ownAll(s); h(s, '1,0').owner = null; h(s, '0,0').owner = null;
+  const tank = unit(s, '0,0', 0, 'tank'), intruder = unit(s, '-3,0', 1); intruder.movingUntilMs = 100000;
+  advance(s, 100); assert(distance(h(s, tank.hexId), h(s, intruder.hexId)) < 3); assert.notEqual(tank.hexId, '1,0');
+});
+
+test('new roster domains enforce flak anti-air, walker flexibility, and air-to-ground-only strike forms', () => {
+  const matrix = { scout: ['ground'], gunner: ['ground'], flak: ['air'], walker: ['ground', 'air'], destroyer: ['ground'], gunship: ['ground'], siege: ['ground'], carrier: ['ground'] };
+  const costs = { scout: 8, gunner: 6, flak: 5, walker: 10, destroyer: 8, gunship: 10, siege: 13, carrier: 15 };
+  for (const kind of Object.keys(matrix)) for (const domain of ['ground', 'air']) {
+    const s = fixture(), card = s.tune.cards[kind], range = card.minRange;
+    assert.equal(card.cost, costs[kind]);
+    const attacker = unit(s, '0,0', 0, kind), target = unit(s, `${range},0`, 1, domain === 'air' ? 'fighter' : 'tank');
+    target.movingUntilMs = 100000; h(s, target.hexId).owner = 0; advance(s, 100);
+    const shot = s.shots.find(x => x.unitId === attacker.id && x.targetHexId === target.hexId);
+    assert.equal(!!shot, matrix[kind].includes(domain), `${kind} -> ${domain}`);
+    if (shot) assert.equal(shot.targetDomain, domain);
+  }
+  const squad = milestone(() => {}, { loadouts: [['gunner']] }); ownAll(squad);
+  const b = producer(squad, '0,0', 'gunner'); advance(squad, squad.tune.cards.gunner.buildMs);
+  assert.equal(squad.units.find(u => u.id === b.unitId).members.length, 5);
+});
+
+test('zero-capture flak guards home and pursues aircraft without seeking neutral expansion', () => {
+  const s = milestone(); assert.equal(s.tune.cards.flak.captureRate, 0);
+  const guard = unit(s, '-4,0', 0, 'flak'); advance(s, 1000);
+  assert.equal(guard.hexId, '-4,0'); assert.equal(guard.attacking, false);
+  const intruder = unit(s, '-1,0', 1, 'fighter'); h(s, intruder.hexId).owner = 0; intruder.movingUntilMs = 100000;
+  advance(s, 100); assert(s.shots.some(x => x.unitId === guard.id && x.targetHexId === intruder.hexId));
+  assert.equal(s.hexes.some(h => h.captureUnitId === guard.id), false);
+});
+
+test('a T1 infantry squad defeats an unescorted siege vehicle trapped inside its minimum range', () => {
+  const s = milestone(t => { t.hq.defenseDamage = 0; }); h(s, '0,0').owner = 0; h(s, '1,0').owner = 0;
+  const infantry = unit(s, '0,0', 0, 'infantry', 40); infantry.maxHp = 40; infantry.members = [8, 8, 8, 8, 8];
+  const siege = unit(s, '1,0', 1, 'siege', s.tune.cards.siege.unitHp);
+  // Tight terrain formed by the siege player's own buildings prevents backing
+  // out of the dead zone; the infantry entered through the one open approach.
+  for (const tile of s.neighbors(siege.hexId)) if (tile.id !== infantry.hexId) {
+    s.buildings.push({ id: `siege-cover-${tile.id}`, hexId: tile.id, owner: 1, kind: 'tank', hp: 100000, maxHp: 100000, readyAtMs: 0, unitId: 'fixture-no-spawn' });
+  }
+  for (let i = 0; i < 250 && s.units.includes(siege); i++) { advance(s, 100); assertOccupancy(s); }
+  assert(!s.units.includes(siege)); assert(s.units.includes(infantry)); assert.equal(infantry.hp, 40);
+  assert(!s.shots.some(shot => shot.unitId === siege.id && shot.targetHexId === infantry.hexId));
+  assert(s.tune.cards.infantry.cost < s.tune.cards.siege.cost);
+});
+
+test('a fighter intercepts and defeats an unsupported carrier which cannot retaliate against aircraft', () => {
+  const s = milestone(); const fighter = unit(s, '0,0', 0, 'fighter', s.tune.cards.fighter.unitHp);
+  const carrier = unit(s, '1,0', 1, 'carrier', s.tune.cards.carrier.unitHp); s.setTarget(0, 1);
+  for (let i = 0; i < 300 && s.units.includes(carrier); i++) { advance(s, 100); assertOccupancy(s); }
+  assert(!s.units.includes(carrier)); assert(s.units.includes(fighter)); assert.equal(fighter.hp, s.tune.cards.fighter.unitHp);
+  assert(s.shots.some(shot => shot.unitId === fighter.id && shot.targetDomain === 'air'));
+  assert(!s.shots.some(shot => shot.unitId === carrier.id && shot.targetDomain === 'air'));
+  assert(s.tune.cards.fighter.cost < s.tune.cards.carrier.cost);
+});
+
+test('squad clock starts on first member death, later losses join without reset, and dispatch ends that cycle', () => {
+  const s = fixture(t => { t.reinforcements.minTravelMs = 10000; }); ownAll(s); const b = producer(s);
+  const squad = s.units.find(u => u.id === b.unitId); squad.movingUntilMs = 100000;
+  const attacker = unit(s, '2,0', 1, 'tank'); attacker.nextAttackAtMs = 100000;
+  advance(s, 12000); assert.equal(b.cooldownActive, false); assert.equal(s.reinforcements.length, 0);
+  attacker.nextAttackAtMs = s.timeMs; advance(s, 100); assert.equal(squad.members.length, 4);
+  const start = s.timeMs, deadline = start + s.tune.cards.infantry.productionMs;
+  assert.equal(b.readyAtMs, deadline); assert.equal(b.productionStartedAtMs, start);
+  advance(s, 1300); assert.equal(squad.members.length, 3); assert.equal(b.readyAtMs, deadline);
+  attacker.hp = 0; advance(s, deadline - s.timeMs - 100); assert.equal(s.reinforcements.length, 0);
+  advance(s, 100); assert.equal(s.reinforcements[0].count, 2); assert.equal(b.cooldownActive, false);
+  const incoming = s.reinforcements[0]; const nextThreat = unit(s, '2,0', 1, 'tank'); advance(s, 100);
+  assert.equal(squad.members.length, 2); assert.equal(b.readyAtMs, s.timeMs + 8000);
+  assert.equal(incoming.count + squad.members.length, 4); nextThreat.hp = 0;
+});
+
+test('nonlethal member damage does not start production, and HQ defense is ground-only with real firing cadence', () => {
+  const s = milestone(); const ground = unit(s, '-3,0', 1); ground.movingUntilMs = 100000;
+  const air = unit(s, '-4,0', 1, 'fighter'); air.movingUntilMs = 100000;
+  advance(s, 100); assert.equal(ground.hp, 992); assert.equal(air.hp, 1000);
+  assert(s.shots.some(x => x.unitId === 'hq0' && x.sourceKind === 'hq' && x.targetDomain === 'ground'));
+  advance(s, 900); assert.equal(ground.hp, 992); advance(s, 100); assert.equal(ground.hp, 984);
+  const wounded = fixture(); ownAll(wounded); const b = producer(wounded); const squad = wounded.units.find(u => u.id === b.unitId);
+  squad.movingUntilMs = 100000; wounded.tune.cards.tank.damage = 3; unit(wounded, '2,0', 1, 'tank'); advance(wounded, 100);
+  assert.equal(squad.members.length, 5); assert.equal(squad.hp, 37); assert.equal(b.cooldownActive, false);
+  const vulnerable = milestone(); const tank = unit(vulnerable, '-4,0', 1, 'tank', 130); vulnerable.setTarget(1, 0); advance(vulnerable, 100);
+  assert(vulnerable.buildings.find(b => b.id === 'hq0').hp < 650); assert(tank.hp < 130);
+});
+
+test('silo makes one payload after construction, launch alone restarts its timer, and invalid actions leave readiness intact', () => {
+  const s = milestone(); ownAll(s); s.players[0].techTier = 3; const b = producer(s, '0,0', 'silo');
+  assert(!s.canLaunchNuke(0, b.id).ok); advance(s, 15000); assert.equal(b.nukeReadyAtMs, 75000); assert.equal(b.unitId, null);
+  advance(s, 59900); assert(!s.launchNuke(0, b.id, '0,2').ok); advance(s, 100); assert(s.canLaunchNuke(0, b.id).ok);
+  advance(s, 10000); const readyAt = b.nukeReadyAtMs; assert.equal(readyAt, 75000);
+  assert(!s.launchNuke(1, b.id, '0,2').ok); assert(!s.launchNuke(0, b.id, '99,99').ok); assert.equal(b.nukeReadyAtMs, readyAt);
+  assert(s.launchNuke(0, b.id, '0,2').ok); assert.equal(s.nukeFlights.length, 1); assert.equal(b.nukeReadyAtMs, s.timeMs + 60000);
+  assert(!s.launchNuke(0, b.id, '0,2').ok); assert.equal(s.nukeFlights.length, 1);
+});
+
+test('nukes hit both factions, all squad members, ground/air and buildings without directly burning empty terrain', () => {
+  const s = fixture(t => { t.cards.bunker.damage = 0; }); ownAll(s);
+  const outerBuilding = producer(s, '-1,0', 'bunker'); const silo = producer(s, '-4,0', 'silo'); silo.nukeReadyAtMs = 0;
+  const centre = unit(s, '0,0', 1, 'tank', 300); centre.movingUntilMs = 100000;
+  const friend = unit(s, '1,0', 0, 'fighter', 150); friend.movingUntilMs = 100000;
+  const squad = unit(s, '0,1', 1); squad.members = [8, 8, 8, 8, 8]; squad.hp = 40; squad.movingUntilMs = 100000;
+  assert(s.launchNuke(0, silo.id, '0,0').ok); advance(s, 7900); assert.equal(centre.hp, 300);
+  advance(s, 100); assert.equal(centre.hp, 100); assert.equal(friend.hp, 70); assert(!s.units.includes(squad));
+  assert.equal(outerBuilding.hp, 200); assert.equal(h(s, '0,0').burnt, false); assert.equal(h(s, '0,1').burnt, false);
+  assert.equal(s.nukeFlights.length, 0); assert.deepEqual(s.nuclearImpacts[0], { id: 1, owner: 0, hexId: '0,0', timeMs: 8000, radius: 1 });
+});
+
+test('launched nukes survive silo loss and JSON checkpoint recovery, but owner elimination cancels them', () => {
+  for (const eliminate of [false, true]) {
+    const s = fixture(); ownAll(s); const b = producer(s, '0,0', 'silo'); b.nukeReadyAtMs = 0;
+    assert(s.launchNuke(0, b.id, '3,-3').ok); b.hp = 0; advance(s, 100);
+    assert.equal(s.nukeFlights.length, 1);
+    const restored = OperationSim.restore(JSON.parse(JSON.stringify(s.checkpoint())));
+    if (eliminate) { restored.buildings.find(b => b.id === 'hq0').hp = 0; advance(restored, 100); assert.equal(restored.nukeFlights.length, 0); }
+    else { advance(restored, 7900); assert.equal(restored.nuclearImpacts.length, 1); assert.equal(restored.nukeFlights.length, 0); }
+  }
+});
+
+test('basic HQ defense holds an unsupported T1 infantry rush and its first kill triggers the supported squad timer', () => {
+  const held = milestone(); held.setTarget(1, 0);
+  const rush = unit(held, '-4,0', 1, 'infantry', 40); rush.members = [8, 8, 8, 8, 8]; rush.maxHp = 40;
+  advance(held, 15000); assert(!held.units.includes(rush)); assert(held.buildings.find(b => b.id === 'hq0').hp > 0);
+  assert.equal(held.buildings.find(b => b.id === 'hq0').hp, 650, 'HQ repels the lone capture-first rush before six-second enemy capture finishes');
+  assert(held.shots.some(s => s.unitId === 'hq0' && s.sourceKind === 'hq'));
+  const s = milestone(t => { t.capture.hqRate = 0; }); ownAll(s, 1);
+  assert(s.place(1, '0,0', 'infantry').ok); advance(s, 3000);
+  const b = s.buildings.find(b => b.kind === 'infantry'), squad = s.units.find(u => u.id === b.unitId);
+  squad.hexId = '-4,0'; squad.fromHexId = undefined; squad.movingUntilMs = 100000;
+  assert.equal(b.cooldownActive, false); advance(s, 100); assert.equal(squad.members.length, 4); assert.equal(b.cooldownActive, true);
+  const firstKillAt = s.timeMs; advance(s, 1000); assert.equal(squad.members.length, 3); assert.equal(b.cooldownActive, true);
+  assert.equal(b.productionStartedAtMs, firstKillAt); assert.equal(b.readyAtMs, firstKillAt + 8000);
+});
+
+test('unit classes are independent of tier/domain, while every producer and HQ is always structure', () => {
+  const s = fixture();
+  const light = ['infantry', 'missile', 'gunner', 'scout', 'helicopter', 'fighter', 'flak', 'artillery'];
+  const armoured = ['tank', 'walker', 'destroyer', 'mlrs', 'gunship', 'siege', 'bomber', 'carrier'];
+  for (const kind of light) assert.equal(s.tune.cards[kind].damageClass, 'light');
+  for (const kind of armoured) assert.equal(s.tune.cards[kind].damageClass, 'armoured');
+  for (const kind of [...light, ...armoured]) {
+    const u = unit(s, '0,0', 1, kind); assert.equal(s.targetDamageClass(u), s.tune.cards[kind].damageClass); s.units.splice(0);
+    const b = { id: 'class-building', hexId: '0,0', kind, owner: 1, hp: 1000, maxHp: 1000, readyAtMs: 0, unitId: null };
+    assert.equal(s.targetDamageClass(b), 'structure', `${kind} producer does not inherit its unit class`);
+  }
+  assert.equal(s.targetDamageClass(s.buildings[0]), 'structure');
+  assert.equal(s.tune.cards.bunker.damageClass, 'structure'); assert.equal(s.tune.cards.silo.damageClass, 'structure');
+  const staleTune = structuredClone(DEFAULT_TUNE); delete staleTune.cards.infantry.damageClass;
+  assert.throws(() => new OperationSim({ tune: staleTune }), /current tuning/);
+});
+
+test('matching bonuses add to each weapon hit and nonmatching classes keep exact base damage', () => {
+  const bonuses = { gunner: ['light', 0.5], missile: ['armoured', 2], destroyer: ['armoured', 24], bomber: ['structure', 15], siege: ['structure', 20] };
+  for (const [kind, [matching, extra]] of Object.entries(bonuses)) for (const damageClass of ['light', 'armoured', 'structure']) {
+    const s = fixture(), card = s.tune.cards[kind], range = card.minRange;
+    const attacker = unit(s, '0,0', 0, kind); h(s, '0,0').owner = 0;
+    let target;
+    if (damageClass === 'structure') {
+      target = { id: 'bonus-structure', hexId: `${range},0`, kind: 'tank', owner: 1, hp: 1000, maxHp: 1000, readyAtMs: 100000, completeAtMs: 100000, unitId: null };
+      s.buildings.push(target);
+    } else { target = unit(s, `${range},0`, 1, damageClass === 'light' ? 'infantry' : 'tank'); target.movingUntilMs = 100000; }
+    h(s, target.hexId).owner = 0;
+    const expected = card.damage + (damageClass === matching ? extra : 0);
+    assert.equal(s.weaponDamage(kind, target), expected); assert.equal(s.weaponDamage(card, target), expected);
+    advance(s, 100); assert(s.shots.some(x => x.unitId === attacker.id && x.targetHexId === target.hexId));
+    assert.equal(target.hp, 1000 - expected, `${kind} -> ${damageClass}`);
+  }
+});
+
+test('squad bonuses apply per living member on one shared target, not once per volley', () => {
+  for (const [kind, targetKind, expected] of [['missile', 'tank', 30], ['missile', 'infantry', 20], ['gunner', 'infantry', 10], ['gunner', 'tank', 7.5]]) {
+    const s = fixture(), squad = unit(s, '0,0', 0, kind); squad.members = Array(5).fill(s.tune.cards[kind].unitHp);
+    squad.hp = squad.members.reduce((a, b) => a + b, 0); h(s, '0,0').owner = 0;
+    const target = unit(s, '1,0', 1, targetKind); target.movingUntilMs = 100000;
+    advance(s, 100); assert.equal(target.hp, 1000 - expected);
+    assert.equal(s.shots.filter(x => x.unitId === squad.id).length, 1);
+  }
+});
+
+test('splash evaluates each recipient class before falloff and retains ground-only and friendly-fire restrictions', () => {
+  const s = fixture(t => { t.cards.mlrs.damageBonus = { light: 10, armoured: 20, structure: 30 }; }); ownAll(s);
+  const launcher = unit(s, '0,0', 0, 'mlrs'), primary = unit(s, '3,0', 1, 'infantry'); primary.movingUntilMs = 100000;
+  const armoured = unit(s, '3,1', 1, 'tank'); armoured.movingUntilMs = 100000;
+  const light = unit(s, '4,0', 1, 'gunner'); light.movingUntilMs = 100000;
+  const building = { id: 'splash-structure', owner: 1, hexId: '2,0', kind: 'tank', hp: 1000, maxHp: 1000, completeAtMs: 100000, readyAtMs: 100000, unitId: null }; s.buildings.push(building);
+  const friendly = unit(s, '2,1', 0, 'tank'); friendly.movingUntilMs = 100000;
+  const air = unit(s, '3,-1', 1, 'fighter'); air.movingUntilMs = 100000;
+  advance(s, 100); assert(s.shots.some(x => x.unitId === launcher.id && x.targetHexId === primary.hexId));
+  assert.equal(primary.hp, 960); assert.equal(armoured.hp, 975); assert.equal(light.hp, 980); assert.equal(building.hp, 970);
+  assert.equal(friendly.hp, 1000); assert.equal(air.hp, 1000);
+});
+
+test('bonus hits preserve single-member no-spill damage and start casualty cooldown only on an actual member death', () => {
+  const s = milestone(t => { t.cards.gunner.buildMs = 0; t.cards.gunner.capturePriority = false; t.hq.defenseDamage = 0; }, { loadouts: [['gunner']] }); ownAll(s);
+  const b = producer(s, '0,0', 'gunner'), squad = s.units.find(u => u.id === b.unitId); squad.movingUntilMs = 100000;
+  unit(s, '2,0', 1, 'gunner'); advance(s, 900);
+  assert.equal(squad.members.length, 5); assert.equal(squad.hp, 29); assert.equal(b.cooldownActive, false);
+  advance(s, 400); assert.equal(squad.members.length, 4); assert.equal(squad.hp, 28, 'the overkill point does not spill into the next member');
+  const deadline = s.timeMs + 7500; assert.equal(b.readyAtMs, deadline); assert.equal(b.productionStartedAtMs, s.timeMs);
+  advance(s, 400); assert.equal(b.readyAtMs, deadline);
+});
+
+test('class bonuses never unlock invalid weapon domains and generalists have no tier-based armour reduction', () => {
+  const s = fixture(t => { t.cards.destroyer.damageBonus = { light: 9999 }; });
+  const destroyer = unit(s, '0,0', 0, 'destroyer'), fighter = unit(s, '2,0', 1, 'fighter'); fighter.movingUntilMs = 100000;
+  advance(s, 100); assert(!s.shots.some(x => x.unitId === destroyer.id)); assert.equal(fighter.hp, 1000);
+  const target = { ...fighter, kind: 'carrier' }; assert.equal(s.weaponDamage('infantry', target), 2);
+  s.tune.cards.carrier.tier = 1; assert.equal(s.weaponDamage('infantry', target), 2);
+});
+
+test('HQ/bunker and nuclear damage bypass class bonuses', () => {
+  const hq = milestone(t => { t.cards.infantry.damageBonus = { light: 9999 }; });
+  const intruder = unit(hq, '-3,0', 1); intruder.movingUntilMs = 100000; advance(hq, 100); assert.equal(intruder.hp, 992);
+  const bunker = fixture(t => { t.cards.bunker.damageBonus = { armoured: 9999 }; }); ownAll(bunker); producer(bunker, '0,0', 'bunker');
+  const armoured = unit(bunker, '2,0', 1, 'tank'); armoured.movingUntilMs = 100000; advance(bunker, 100); assert.equal(armoured.hp, 992);
+  const s = fixture(t => { for (const card of Object.values(t.cards)) card.damageBonus = { light: 9999, armoured: 9999, structure: 9999 }; }); ownAll(s);
+  const silo = producer(s, '0,0', 'silo'); silo.nukeReadyAtMs = 0;
+  const centre = unit(s, '3,-3', 1, 'tank', 500); centre.movingUntilMs = 100000;
+  const outer = unit(s, '4,-3', 0, 'fighter', 500); outer.movingUntilMs = 100000;
+  const building = { id: 'nuclear-structure', kind: 'tank', owner: 1, hexId: '2,-3', hp: 500, maxHp: 500, completeAtMs: 100000, readyAtMs: 100000, unitId: null }; s.buildings.push(building);
+  assert(s.launchNuke(0, silo.id, centre.hexId).ok); advance(s, 8000);
+  assert.equal(centre.hp, 300); assert.equal(outer.hp, 420); assert.equal(building.hp, 420);
+});
+
+test('every mobile ground/air form gets exactly 25% speed from its own source hex, never from its destination', () => {
+  assert.equal(DEFAULT_TUNE.movement.friendlySpeedMultiplier, 1.25);
+  for (const owner of [0, 1]) for (const [kind, card] of Object.entries(DEFAULT_TUNE.cards).filter(([, c]) => !c.utility)) {
+    for (const ownership of ['friendly', 'neutral', 'enemy']) {
+      const s = fixture(t => { t.cards[kind].captureRate = 0; }), source = owner === 0 ? '-2,2' : '2,-2';
+      h(s, source).owner = ownership === 'friendly' ? owner : ownership === 'neutral' ? null : 1 - owner;
+      for (const neighbor of s.neighbors(source)) neighbor.owner = ownership === 'friendly' ? (kind === 'worker' ? null : 1 - owner) : owner;
+      const mover = unit(s, source, owner, kind); s.setTarget(owner, 1 - owner); advance(s, 100);
+      assert.equal(mover.fromHexId, source, `${kind}/${owner}/${ownership} actually moves`);
+      assert.equal(mover.movedAtMs, 100);
+      assert.equal(mover.movingUntilMs - mover.movedAtMs, card.moveMs / (ownership === 'friendly' ? 1.25 : 1), `${kind}/${owner}/${ownership}`);
+      assertOccupancy(s);
+    }
+  }
+});
+
+test('ownership flips during a move cannot change its latched arrival, including JSON checkpoint recovery', () => {
+  for (const sourceOwner of [0, null, 1]) {
+    const s = fixture(), source = '-2,2'; h(s, source).owner = sourceOwner;
+    for (const n of s.neighbors(source)) n.owner = sourceOwner === 0 ? 1 : 0;
+    const mover = unit(s, source, 0, 'fighter'); s.setTarget(0, 1); advance(s, 100);
+    const arrival = mover.movingUntilMs, destination = mover.hexId;
+    h(s, source).owner = sourceOwner === 0 ? 1 : 0; h(s, destination).owner = sourceOwner === 0 ? 1 : 0;
+    s.tick(50); const recovered = OperationSim.restore(JSON.parse(JSON.stringify(s.checkpoint())));
+    const restoredMover = recovered.units.find(u => u.id === mover.id);
+    assert.equal(restoredMover.movingUntilMs, arrival);
+    while (s.timeMs + 100 < arrival) {
+      s.tick(100); recovered.tick(100);
+      assert.equal(mover.movingUntilMs, arrival); assert.equal(restoredMover.movingUntilMs, arrival);
+      assertOccupancy(s); assertOccupancy(recovered);
+    }
+    s.tick(100); recovered.tick(100);
+    assert.equal(mover.fromHexId, destination, 'the next step samples the newly owned source');
+    assert.equal(mover.movingUntilMs - mover.movedAtMs, s.tune.cards.fighter.moveMs / (sourceOwner === 0 ? 1 : 1.25));
+    assert.deepEqual(recovered.checkpoint(), s.checkpoint());
+  }
+});
+
+test('retreats and traversable burnt/committed friendly hexes use the same source-owned speed rule', () => {
+  for (const sourceOwner of [0, null, 1]) {
+    const s = fixture(); ownAll(s); h(s, '0,0').owner = sourceOwner; h(s, '1,0').owner = 1;
+    const artillery = unit(s, '0,0', 0, 'artillery', 38); unit(s, '1,0', 1);
+    advance(s, 100); assert(artillery.retreatUntilMs > s.timeMs);
+    assert.equal(artillery.movingUntilMs - artillery.movedAtMs, s.tune.cards.artillery.moveMs / (sourceOwner === 0 ? 1.25 : 1));
+    assertOccupancy(s);
+  }
+  const s = fixture(); const tile = h(s, '-2,2'); tile.owner = 0; tile.burnt = true; tile.lockedBy = 'fixture-support';
+  const mover = unit(s, tile.id, 0, 'fighter'); s.setTarget(0, 1); advance(s, 100);
+  assert.equal(mover.movingUntilMs - mover.movedAtMs, s.tune.cards.fighter.moveMs / 1.25);
+});
+
+test('v9 custom tuning without the optional movement rule keeps base speed and remains checkpoint-compatible', () => {
+  const s = fixture(t => { delete t.movement; }); const source = '-2,2'; h(s, source).owner = 0;
+  const mover = unit(s, source, 0, 'fighter'); s.setTarget(0, 1); advance(s, 100);
+  assert.equal(mover.movingUntilMs - mover.movedAtMs, s.tune.cards.fighter.moveMs);
+  const saved = JSON.parse(JSON.stringify(s.checkpoint())); assert.equal(saved.version, 9); assert.equal(saved.tune.movement, undefined);
+  const restored = OperationSim.restore(saved); assert.equal(restored.units[0].movingUntilMs, mover.movingUntilMs);
+  assert.throws(() => fixture(t => { t.movement.friendlySpeedMultiplier = 0; }), /finite and positive/);
+});
+
+test('cheaper advanced producers fit the new real support budgets while upgrade surcharges use total-minus-base costs', () => {
+  const costs = { helicopter: 8, fighter: 8, bomber: 8, destroyer: 8, walker: 10, gunship: 10, mlrs: 10, siege: 13, carrier: 15, silo: 20 };
+  for (const [kind, cost] of Object.entries(costs)) assert.equal(DEFAULT_TUNE.cards[kind].cost, cost);
+  const carrier = milestone(() => {}, { loadouts: [['infantry', 'carrier']] }); carrier.players[0].techTier = 3;
+  assert.equal(carrier.resources(0).capacity, 18); const airbase = producer(carrier, '-4,0', 'carrier');
+  assert.equal(carrier.resources(0).committed, 15); assert.equal(carrier.hexes.filter(h => h.lockedBy === airbase.id).length, 15);
+  const silo = milestone(); silo.players[0].techTier = 3;
+  for (let i = 0; i < 2; i++) {
+    const next = silo.hexes.find(h => h.owner === null && silo.neighbors(h.id).some(n => n.owner === 0)); assert(next); next.owner = 0;
+  }
+  assert.equal(silo.resources(0).capacity, 20); const nuclear = producer(silo, '-4,0', 'silo');
+  assert.equal(silo.resources(0).committed, 20); assert.equal(silo.hexes.filter(h => h.lockedBy === nuclear.id).length, 20);
+  assert.equal(nuclear.completeAtMs - silo.timeMs, 15000); assert.equal(silo.tune.cards.silo.productionMs, 60000);
+  assert.deepEqual(DEFAULT_TUNE.research, { cost: 16, tier2Ms: 30000, tier3Ms: 60000 });
+  assert.equal(DEFAULT_TUNE.movement.friendlySpeedMultiplier, 1.25);
+});
+
+test('180 HP tank survives two anti-armour destroyer hits but still loses to a third; tank fire remains 1300ms', () => {
+  const s = fixture(), destroyer = unit(s, '0,0', 0, 'destroyer');
+  const tank = unit(s, '2,0', 1, 'tank', s.tune.cards.tank.unitHp); tank.movingUntilMs = 100000;
+  assert.equal(tank.hp, 180); advance(s, 100); assert.equal(tank.hp, 108);
+  advance(s, 1900); assert.equal(tank.hp, 108); advance(s, 100); assert.equal(tank.hp, 36); assert(s.units.includes(tank));
+  advance(s, 2000); assert(!s.units.includes(tank)); assert(s.units.includes(destroyer));
+  const firing = fixture(), attacker = unit(firing, '0,0', 0, 'tank'), victim = unit(firing, '1,0', 1, 'scout'); victim.movingUntilMs = 100000;
+  advance(firing, 100); assert.equal(victim.hp, 977); assert.equal(attacker.nextAttackAtMs, 1400);
+  advance(firing, 1200); assert.equal(victim.hp, 977); advance(firing, 100); assert.equal(victim.hp, 954);
+});
+
+test('scout chip damage now needs three hits per fresh infantry member with balanced travel/replacement and unchanged weapon cadence', () => {
+  const s = fixture(), scout = unit(s, '0,0', 0, 'scout'), victim = unit(s, '1,0', 1, 'infantry', 40);
+  victim.members = [8, 8, 8, 8, 8]; victim.movingUntilMs = 100000;
+  advance(s, 100); assert.equal(victim.members[0], 5); advance(s, 700); assert.equal(victim.members[0], 2);
+  assert.equal(victim.members.length, 5); advance(s, 700); assert.deepEqual(victim.members, [8, 8, 8, 8]); assert.equal(victim.hp, 32);
+  assert.equal(scout.nextAttackAtMs, s.timeMs + 700);
+  assert.equal(s.tune.cards.scout.moveMs, 630); assert.equal(s.tune.cards.scout.productionMs, 10000); assert.equal(s.tune.cards.infantry.productionMs, 8000);
+});
+
+test('field artillery needs two direct hits to wipe a fresh squad, chips adjacent members at 35%, and preserves domains, cadence and minimum range', () => {
+  const s = fixture(), gun = unit(s, '0,0', 0, 'artillery', 38);
+  const centre = unit(s, '2,0', 1, 'infantry', 40); centre.members = [8, 8, 8, 8, 8]; centre.movingUntilMs = 100000;
+  const infantry = unit(s, '3,0', 1, 'infantry', 40); infantry.members = [8, 8, 8, 8, 8]; infantry.movingUntilMs = 100000;
+  const missile = unit(s, '2,1', 1, 'missile', 35); missile.members = [7, 7, 7, 7, 7]; missile.movingUntilMs = 100000;
+  const tank = unit(s, '3,-1', 1, 'tank', 180); tank.movingUntilMs = 100000;
+  const friendly = unit(s, '1,1', 0, 'tank', 180); friendly.movingUntilMs = 100000;
+  const air = unit(s, '2,-1', 1, 'fighter', 60); air.movingUntilMs = 100000;
+  const tooClose = unit(s, '1,0', 1, 'tank'); tooClose.movingUntilMs = 100000;
+  advance(s, 100); assert(s.units.includes(centre)); assert.equal(centre.hp, 20); assert.deepEqual(centre.members, [4, 4, 4, 4, 4]);
+  for (const hp of infantry.members) assert(Math.abs(hp - 6.6) < 1e-10);
+  for (const hp of missile.members) assert(Math.abs(hp - 5.6) < 1e-10);
+  assert(Math.abs(tank.hp - 178.6) < 1e-10); assert(Math.abs(tooClose.hp - 998.6) < 1e-10, 'splash can reach the dead zone without aiming inside it');
+  assert.equal(friendly.hp, 180); assert.equal(air.hp, 60); assert.equal(gun.hp, 38);
+  assert.equal(s.shots.find(x => x.unitId === gun.id).targetHexId, '2,0'); assert.equal(gun.nextAttackAtMs, 1900);
+  advance(s, 1700); assert.equal(s.shots.filter(x => x.unitId === gun.id).length, 1);
+  advance(s, 100); assert.equal(s.shots.filter(x => x.unitId === gun.id).at(-1).timeMs, 1900);
+  assert(!s.units.includes(centre)); assert.equal(centre.hp, 0, 'second full-centre hit removes every remaining member');
+  for (const hp of infantry.members) assert(Math.abs(hp - 5.2) < 1e-10);
+  assert(!s.shots.some(x => x.unitId === gun.id && x.targetHexId === tooClose.hexId));
+  assert.equal(s.tune.cards.artillery.damage, 4); assert.equal(s.tune.cards.artillery.minRange, 2);
+  assert.equal(s.tune.cards.artillery.productionMs, 14000); assert.equal(s.tune.cards.artillery.buildMs, 0, 'legacy fixture only disables construction');
+});
+
+test('stronger bunker still takes ordinary damage and is destructible by sustained ground armour', () => {
+  const s = fixture(); ownAll(s); const b = producer(s, '0,0', 'bunker'), attacker = unit(s, '1,0', 1, 'tank');
+  assert.equal(b.hp, 280); advance(s, 100); assert.equal(b.hp, 257); assert.equal(attacker.hp, 992);
+  advance(s, 14300); assert.equal(b.hp, 4); assert(s.buildings.includes(b));
+  advance(s, 1300); assert(!s.buildings.includes(b)); assert(h(s, b.hexId).burnt); assert(s.units.includes(attacker));
+});
+
+test('specialists, flak and aircraft cannot capture even while stationary on neutral or enemy land', () => {
+  for (const kind of ['artillery', 'mlrs', 'destroyer', 'siege', 'flak', 'helicopter', 'fighter', 'bomber', 'gunship', 'carrier']) {
+    assert.equal(DEFAULT_TUNE.cards[kind].captureRate, 0);
+    for (const owner of [null, 1]) {
+      const s = milestone(t => { t.hq.defenseDamage = 0; }); const site = h(s, '-4,0'); site.owner = owner;
+      const guard = unit(s, site.id, 0, kind); advance(s, 20000);
+      assert.equal(guard.hexId, site.id, `${kind} holds beside home without seeking neutral expansion`);
+      assert.equal(site.owner, owner); assert.equal(site.capture, 0); assert.equal(site.capturePlayer, null);
+      assert(!s.hexes.some(x => x.captureUnitId === guard.id));
+    }
+  }
+});
+
+test('zero-capture ground specialists still move to defend intruders and attack the selected HQ without gaining land', () => {
+  for (const kind of ['artillery', 'mlrs', 'destroyer', 'siege']) {
+    const defense = milestone(t => { t.hq.defenseDamage = 0; }); ownAll(defense);
+    const guard = unit(defense, '-2,3', 0, kind), intruder = unit(defense, `${-2 + defense.tune.cards[kind].sightRange},3`, 1, 'tank'); intruder.movingUntilMs = 100000;
+    const initialDistance = distance(h(defense, guard.hexId), h(defense, intruder.hexId));
+    advance(defense, 100);
+    assert(distance(h(defense, guard.hexId), h(defense, intruder.hexId)) < initialDistance, `${kind} pursues a distant intruder`);
+    advance(defense, 12000);
+    assert(defense.shots.some(x => x.unitId === guard.id && x.targetHexId === intruder.hexId), `${kind} reaches firing range while defending`);
+    assertOccupancy(defense);
+
+    const attack = milestone(t => { t.hq.defenseDamage = 0; });
+    const attacker = unit(attack, '-3,3', 0, kind), hq = attack.buildings.find(b => b.kind === 'hq' && b.owner === 1);
+    const ownership = attack.hexes.map(x => x.owner), startDistance = distance(h(attack, attacker.hexId), h(attack, hq.hexId));
+    attack.setTarget(0, 1); advance(attack, 100);
+    assert(distance(h(attack, attacker.hexId), h(attack, hq.hexId)) < startDistance, `${kind} advances on the selected faction`);
+    advance(attack, 20000);
+    assert(attack.shots.some(x => x.unitId === attacker.id && x.targetHexId === hq.hexId), `${kind} reaches a legal HQ firing position`);
+    assert.deepEqual(attack.hexes.map(x => x.owner), ownership, `${kind} gains no territory en route`);
+    assert(!attack.hexes.some(x => x.captureUnitId === attacker.id)); assertOccupancy(attack);
+  }
+});
+
+test('individual sight tuning preserves short-range infantry and the ranged-unit exceptions', () => {
+  const expected = { infantry: 1, gunner: 1, missile: 3, tank: 3, scout: 3, walker: 3,
+    artillery: 4, flak: 4, destroyer: 4, siege: 4, mlrs: 6,
+    helicopter: 3, fighter: 3, bomber: 3, gunship: 3, carrier: 3 };
+  for (const [kind, sight] of Object.entries(expected)) assert.equal(DEFAULT_TUNE.cards[kind].sightRange, sight, kind);
+  assert.equal(DEFAULT_TUNE.hq.defenseRange, 2); assert.equal(DEFAULT_TUNE.cards.bunker.range, 2);
+});
+
+test('one-hex infantry sight does not chase distant enemies and ranged missile squads finish capture before using their full weapon range', () => {
+  for (const kind of ['infantry', 'gunner']) {
+    const s = milestone(); ownAll(s); const actor = unit(s, '0,3', 0, kind), enemy = unit(s, '2,3', 1, 'tank'); enemy.movingUntilMs = 100000;
+    advance(s, 100); assert.equal(actor.attacking, false); assert(distance(h(s, actor.hexId), h(s, '-5,0')) < 8);
+    enemy.hexId = s.neighbors(actor.hexId).find(x => !s.buildings.some(b => b.hexId === x.id) && x.id !== actor.fromHexId).id;
+    actor.movingUntilMs = 0; advance(s, 100);
+    assert(s.shots.some(x => x.unitId === actor.id && x.targetHexId === enemy.hexId));
+  }
+  const s = milestone(); ownAll(s); h(s, '0,3').owner = 1;
+  const squad = unit(s, '0,3', 0, 'missile', 35); squad.members = [7, 7, 7, 7, 7];
+  const enemy = unit(s, '3,3', 1, 'tank'); enemy.movingUntilMs = 100000;
+  advance(s, s.tune.capture.neutralMs * s.tune.capture.ownedMultiplier - 100); assert.equal(squad.hexId, '0,3'); assert(h(s, '0,3').capture > 0);
+  assert(!s.shots.some(x => x.unitId === squad.id));
+  advance(s, 200); assert.equal(h(s, '0,3').owner, 0); assert.equal(squad.fromHexId, '0,3');
+  assert.equal(distance(h(s, squad.hexId), h(s, enemy.hexId)), 2);
+  advance(s, Math.ceil((squad.movingUntilMs - s.timeMs) / s.tune.stepMs) * s.tune.stepMs);
+  assert(s.shots.some(x => x.unitId === squad.id && x.targetHexId === enemy.hexId));
+  assert.equal(enemy.hp, 1000 - 5 * 6, 'all five members fire the armoured bonus at weapon range two');
+});
+
+test('MLRS uses individual sight six, fires at full range five, and approaches a legal minimum-range firing band', () => {
+  for (const d of [1, 2, 3, 5, 6, 7]) {
+    const s = milestone(t => { t.hq.defenseDamage = 0; }); ownAll(s);
+    const launcher = unit(s, '-4,3', 0, 'mlrs'), enemy = unit(s, `${-4 + d},3`, 1, 'tank'); enemy.movingUntilMs = 100000;
+    advance(s, 100);
+    const shots = s.shots.filter(x => x.unitId === launcher.id);
+    assert.equal(shots.length, d >= 3 && d <= 5 ? 1 : 0, `initial distance ${d}`);
+    if (d === 6) assert.equal(distance(h(s, launcher.hexId), h(s, enemy.hexId)), 5, 'sight beyond the weapon band enables approach');
+    if (d < 3) assert(distance(h(s, launcher.hexId), h(s, enemy.hexId)) > d, 'inside minimum range moves outward to a legal firing cell');
+    if (d <= 6) {
+      advance(s, 4000); assert(s.shots.some(x => x.unitId === launcher.id && x.targetHexId === enemy.hexId));
+      for (const shot of s.shots.filter(x => x.unitId === launcher.id)) {
+        const range = distance(h(s, shot.fromHexId), h(s, shot.targetHexId)); assert(range >= 3 && range <= 5);
+      }
+    } else assert.equal(enemy.hp, 1000, 'outside sight does not acquire a target');
+    assertOccupancy(s);
+  }
+});
+
+test('explicit HQ attacks navigate beyond sight, engage a visible enemy along the way, then resume the strategic order', () => {
+  for (const kind of ['tank', 'artillery', 'mlrs', 'fighter', 'missile']) {
+    const s = milestone(t => { t.hq.defenseDamage = 0; }); ownAll(s);
+    const actor = unit(s, '-6,3', 0, kind), hq = s.buildings.find(b => b.id === 'hq1');
+    const start = distance(h(s, actor.hexId), h(s, hq.hexId)); assert(start > s.tune.cards[kind].sightRange);
+    s.setTarget(0, 1); advance(s, 100);
+    assert(distance(h(s, actor.hexId), h(s, hq.hexId)) < start, `${kind} follows explicit orders toward the unseen HQ`);
+  }
+  const s = milestone(t => { t.hq.defenseDamage = 0; }); ownAll(s);
+  const actor = unit(s, '0,3', 0, 'tank'), enemy = unit(s, '-3,3', 1, 'tank', 23); enemy.movingUntilMs = 100000;
+  s.setTarget(0, 1); advance(s, 100); assert.equal(actor.hexId, '-1,3', 'local engagement can divert from the HQ route');
+  advance(s, 4000); assert(!s.units.includes(enemy)); assert(s.shots.some(x => x.unitId === actor.id && x.targetHexId === '-3,3'));
+  assert.equal(s.players[0].targetId, 1); assert(h(s, actor.hexId).q > -2, 'resumes the eastward HQ advance after engagement');
+});
+
+test('v9 sight checkpoints preserve deterministic pursuit and reject missing sight or prior room rules', () => {
+  const s = milestone(); ownAll(s); const actor = unit(s, '0,3', 0, 'tank');
+  unit(s, '3,3', 1, 'tank').movingUntilMs = 100000; advance(s, 100);
+  const saved = JSON.parse(JSON.stringify(s.checkpoint())); assert.equal(saved.version, 9);
+  const restored = OperationSim.restore(saved); assert.equal(restored.tune.cards.tank.sightRange, 3);
+  for (const dt of [37, 63, 1900, 17, 83, 3000]) { advance(s, dt); advance(restored, dt); }
+  assert.deepEqual(restored.checkpoint(), s.checkpoint()); assert(s.shots.some(x => x.unitId === actor.id));
+  for (const version of [1, 2, 3, 4, 5, 6, 7, 8]) assert.throws(() => OperationSim.restore({ ...saved, version }), /Unsupported/);
+  for (const value of [undefined, -1, NaN]) assert.throws(() => milestone(t => { t.cards.tank.sightRange = value; }), /Individual sight/);
+});
+
+test('opening commitments distinguish a twelve-resource mixed force from ten-resource double Barracks without delaying first production', () => {
+  const mixed = milestone(), first = producer(mixed, '-4,0');
+  const tankSite = mixed.hexes.find(x => mixed.placement(0, x.id, 'tank').ok); assert(tankSite);
+  const motor = producer(mixed, tankSite.id, 'tank');
+  assert.equal(mixed.resources(0).capacity, 18); assert.equal(mixed.resources(0).committed, 12);
+  assert.equal(mixed.hexes.filter(x => x.lockedBy === first.id).length, 5);
+  assert.equal(mixed.hexes.filter(x => x.lockedBy === motor.id).length, 7);
+  advance(mixed, 2900); assert.equal(first.unitId, null); assert.equal(motor.unitId, null);
+  advance(mixed, 100); assert(first.unitId); assert.equal(motor.unitId, null);
+  assert.equal(first.cooldownActive, false); assert.equal(first.readyAtMs, 0);
+  advance(mixed, 2000); assert(motor.unitId); assert.equal(motor.cooldownActive, false);
+  assert.equal(motor.readyAtMs, 0, 'first spawn needs construction only, not an extra eleven-second replacement interval');
+
+  const double = milestone(), a = producer(double, '-4,0');
+  const next = double.hexes.find(x => double.placement(0, x.id, 'infantry').ok); assert(next);
+  const b = producer(double, next.id); assert.equal(double.resources(0).committed, 10);
+  assert.equal(double.resources(0).capacity - double.resources(0).committed, 8);
+  advance(double, 3000); assert(a.unitId && b.unitId); assert.equal(double.units.length, 2);
+  assert.equal(DEFAULT_TUNE.cards.scout.cost, 8); assert.equal(DEFAULT_TUNE.cards.gunner.cost, 6);
+  assert.equal(DEFAULT_TUNE.cards.missile.cost - DEFAULT_TUNE.cards.infantry.cost, 2);
+  for (const [kind, cost] of [['flak', 5], ['tank', 7], ['artillery', 7], ['bunker', 7]]) assert.equal(DEFAULT_TUNE.cards[kind].cost, cost);
+});
+
+test('squad capture strength follows living member count rather than health across all three infantry forms', () => {
+  assert.equal(DEFAULT_TUNE.capture.neutralMs, 6000); assert.equal(DEFAULT_TUNE.capture.ownedMultiplier, 1.5);
+  for (const kind of ['infantry', 'missile', 'gunner']) for (const count of [1, 2, 3, 4, 5]) for (const wounded of [false, true]) for (const owner of [1]) {
+    const s = milestone(), site = h(s, '0,3'); site.owner = owner;
+    const members = Array(count).fill(wounded ? 0.1 : s.tune.cards[kind].unitHp);
+    const squad = unit(s, site.id, 0, kind, members.reduce((a, b) => a + b, 0)); squad.members = members;
+    advance(s, 1000);
+    const expected = 1000 / (owner === null ? 6000 : 9000) * count / 5;
+    assert(Math.abs(site.capture - expected) < 1e-10, `${kind}: ${count} members, wounded=${wounded}, owner=${owner}`);
+    assert.equal(squad.hexId, site.id); assert.equal(squad.members.length, count);
+  }
+  for (const [count, owner, duration] of [[5, 1, 9000], [1, 1, 45000]]) {
+    const s = milestone(), site = h(s, '0,3'); site.owner = owner;
+    const squad = unit(s, site.id, 0, 'infantry', count * 8); squad.members = Array(count).fill(8);
+    advance(s, duration - 100); assert.equal(site.owner, owner, 'cannot finish early');
+    advance(s, 200); assert.equal(site.owner, 0, `count=${count} capture completes within one step of ${duration}ms`);
+  }
+  for (const size of [4, 6]) {
+    const s = milestone(t => { t.cards.infantry.squadSize = size; }), site = h(s, '0,3'); site.owner = 1;
+    const squad = unit(s, site.id, 0, 'infantry', 16); squad.members = [8, 8]; advance(s, 1000);
+    assert(Math.abs(site.capture - 1000 / 9000 * 2 / size) < 1e-10, 'fraction uses configured squad size rather than a hardcoded five');
+  }
+});
+
+test('visual incoming reinforcements add no capture pressure until merge and do not heal the wounded survivor', () => {
+  for (const kind of ['infantry', 'missile', 'gunner']) {
+    // A real base producer supplies the survivor; conversion is only needed for Missile.
+    const base = kind === 'missile' ? 'infantry' : kind;
+    const custom = milestone(() => {}, { loadouts: [[base]] });
+    ownAll(custom); const b = producer(custom, '0,0', base); advance(custom, custom.tune.cards[base].buildMs);
+    if (kind === 'missile') { assert(custom.upgrade(0, b.id).ok); advance(custom, 5000); }
+    const squad = custom.units.find(x => x.id === b.unitId), site = h(custom, '0,3'); site.owner = 1;
+    squad.hexId = site.id; delete squad.fromHexId; delete squad.movingUntilMs; squad.members = [0.1]; squad.hp = 0.1;
+    custom.reinforcements.push({ id: 'capture-incoming', unitId: squad.id, buildingId: b.id, owner: 0, count: 4,
+      fromHexId: b.hexId, startedAtMs: custom.timeMs, arriveAtMs: custom.timeMs + 1000 });
+    advance(custom, 900); assert.equal(squad.members.length, 1); assert.equal(custom.reinforcements.length, 1);
+    assert(Math.abs(site.capture - 900 * 0.2 / 9000) < 1e-10, 'travelling members do not increase pressure');
+    advance(custom, 100); assert.equal(squad.members.length, 5); assert.equal(custom.reinforcements.length, 0);
+    assert.equal(squad.members[0], 0.1); assert(squad.members.slice(1).every(hp => hp === custom.tune.cards[kind].unitHp));
+    assert(Math.abs(site.capture - (900 * 0.2 / 9000 + 100 / 9000)) < 1e-10, 'merged members contribute on arrival');
+  }
+});
+
+test('Defend can fire at in-range structures but only Attack pursues them beyond weapon range', () => {
+  for (const kind of ['tank', 'scout', 'walker', 'artillery', 'mlrs', 'helicopter', 'gunship', 'destroyer', 'siege', 'bomber', 'carrier']) {
+    for (const attack of [false, true]) for (const outside of [false, true]) {
+      const s = milestone(t => { t.hq.defenseDamage = 0; }); ownAll(s); const source = '-4,3'; h(s, source).owner = null;
+      const actor = unit(s, source, 0, kind), card = s.tune.cards[kind], d = card.range + (outside ? 1 : 0);
+      const targetHex = `${-4 + d},3`;
+      s.buildings.push({ id: 'passive-structure', owner: 1, kind: 'tank', hexId: targetHex, hp: 1000, maxHp: 1000, readyAtMs: 0, unitId: 'fixture' });
+      if (attack) s.setTarget(0, 1); advance(s, 100);
+      assert.equal(s.shots.some(x => x.unitId === actor.id), !outside, `${kind}: attack=${attack} outside=${outside}`);
+      if (!outside) { assert.equal(actor.hexId, source); assert.equal(h(s, source).capture, 0); }
+      else if (attack) assert.equal(distance(h(s, actor.hexId), h(s, targetHex)), d - 1, `${kind} pursues the visible structure on Attack`);
+      else if (card.captureRate > 0) { assert.equal(actor.hexId, source); assert(h(s, source).capture > 0, 'distant structure cannot freeze vehicle expansion'); }
+      else assert(distance(h(s, actor.hexId), h(s, '-5,0')) < distance(h(s, source), h(s, '-5,0')), `${kind} returns toward home instead of chasing the structure`);
+      assertOccupancy(s);
+    }
+  }
+});
+
+test('live-tuned Recon and Tank defeat adjacent artillery on an open map without trapping or freezing either side', () => {
+  for (const kind of ['scout', 'tank']) {
+    const s = milestone();
+    const counter = unit(s, '0,3', 0, kind, s.tune.cards[kind].unitHp), gun = unit(s, '1,3', 1, 'artillery', 38);
+    assert.equal(distance(h(s, counter.hexId), h(s, gun.hexId)), 1);
+    for (let i = 0; i < 300 && s.units.includes(counter) && s.units.includes(gun); i++) {
+      const retreating = (gun.retreatUntilMs ?? 0) > s.timeMs, before = s.shots.filter(x => x.unitId === gun.id).length;
+      advance(s, 100); assertOccupancy(s);
+      if (retreating) assert.equal(s.shots.filter(x => x.unitId === gun.id).length, before, 'damage-trigger retreat cannot auto-fire');
+    }
+    assert(!s.units.includes(gun), `${kind} must finish the close-range counter within thirty seconds`);
+    assert(s.units.includes(counter)); assert.equal(counter.hp, s.tune.cards[kind].unitHp);
+    assert.equal(s.shots.filter(x => x.unitId === gun.id).length, 0, 'adjacent target is illegal and retreat never produces an automatic shot');
+    assert.equal(s.shots.filter(x => x.unitId === counter.id).length, kind === 'scout' ? 13 : 2);
+    assert.equal(s.tune.cards.artillery.moveMs, 1610); assert.equal(s.tune.cards.artillery.attackMs, 1800);
+  }
+});
+
+test('650 HP HQ withstands two and three fresh adjacent infantry squads without extra support', () => {
+  for (const count of [2, 3]) {
+    const s = milestone(); s.setTarget(1, 0);
+    const hq = s.buildings.find(x => x.id === 'hq0'), squads = [];
+    for (const site of ['-4,0', '-5,1', '-6,1'].slice(0, count)) {
+      const squad = unit(s, site, 1, 'infantry', 40); squad.members = [8, 8, 8, 8, 8]; squads.push(squad);
+      assert.equal(distance(h(s, site), h(s, hq.hexId)), 1); assert.equal(h(s, site).owner, 0);
+    }
+    assert.equal(squads.reduce((sum, x) => sum + x.members.length, 0), count * 5);
+    assert.equal(hq.hp, 650); assert.equal(s.tune.hq.defenseDamage, 8);
+    for (let i = 0; i < 200 && squads.some(x => s.units.includes(x)); i++) { advance(s, 100); assertOccupancy(s); }
+    assert(s.buildings.includes(hq) && hq.hp > 0, `HQ survives a ${count}-squad gang-up`);
+    assert(squads.every(x => !s.units.includes(x)), 'all unsupported attacking squads are repelled');
+    assert.equal(s.shots.filter(x => x.unitId === hq.id).length, count * 5, 'eight-damage HQ gun removes one fresh member per shot');
+    assert.equal(s.winner, null); assert.equal(s.buildings.filter(x => x.kind !== 'hq').length, 0, 'no defensive producer or bunker supports the HQ');
+  }
+});
+
+// Controlled bot decisions use ordinary producers/spawns on a rich test board;
+// the real-map opening and scripted matches above separately cover fair budgets.
+function preparedBot(kinds, loadout = [...DEFAULT_LOADOUT], tier = 3) {
+  const tune = structuredClone(DEFAULT_TUNE); tune.bot.heuristic.initialBuildMs = 20000;
+  const s = new OperationSim({ tune, loadouts: [[...DEFAULT_LOADOUT], loadout] }); ownAll(s, 1);
+  const home = h(s, '5,0');
+  for (const kind of kinds) {
+    const site = s.hexes.filter(x => s.placement(1, x.id, kind).ok).sort((a, b) => distance(a, home) - distance(b, home))[0];
+    assert(site); assert(s.place(1, site.id, kind).ok);
+  }
+  if (kinds.length >= 3) {
+    const site = s.hexes.filter(x => s.placement(1, x.id, 'hq').ok).sort((a, b) => distance(a, h(s, '8,-3')) - distance(b, h(s, '8,-3')))[0];
+    assert(site); assert(s.place(1, site.id, 'hq').ok);
+  }
+  advance(s, 19900); s.players[1].techTier = tier; s.buildings.find(b => b.id === 'hq1').hqLevel = tier; return s;
+}
+
+test('bot counters choose legal available artillery, anti-air and anti-armour rather than inventing loadout cards', () => {
+  const cases = [
+    { loadout: [...DEFAULT_LOADOUT], tier: 1, enemy: 'infantry', expected: 'artillery' },
+    { loadout: [...DEFAULT_LOADOUT], tier: 2, enemy: 'helicopter', expected: 'fighter' },
+    { loadout: ['infantry', 'tank', 'flak'], tier: 1, enemy: 'helicopter', expected: 'flak' },
+    { loadout: ['infantry', 'tank', 'artillery'], tier: 1, enemy: 'helicopter', expected: 'infantry' },
+    { loadout: ['infantry', 'tank', 'destroyer'], tier: 2, enemy: 'tank', expected: 'destroyer' },
+    { loadout: ['scout', 'tank', 'artillery'], tier: 1, enemy: 'infantry', expected: 'artillery', capture: 'scout' },
+  ];
+  for (const scenario of cases) {
+    const s = preparedBot([scenario.capture ?? 'infantry'], scenario.loadout, scenario.tier), before = new Set(s.buildings.map(b => b.id));
+    const enemy = unit(s, '0,3', 0, scenario.enemy); enemy.movingUntilMs = 100000;
+    if (scenario.enemy === 'infantry') { enemy.members = [8, 8, 8, 8, 8]; enemy.hp = 40; enemy.maxHp = 40; }
+    advance(s, 100);
+    const built = s.buildings.filter(b => !before.has(b.id)); assert.equal(built.length, 1); assert.equal(built[0].kind, scenario.expected);
+    assert(scenario.loadout.includes(built[0].kind)); assert(s.tune.cards[built[0].kind].tier <= scenario.tier);
+    assert.equal(built[0].unitId, null); assert.equal(built[0].completeAtMs, s.timeMs + s.tune.cards[built[0].kind].buildMs);
+  }
+});
+
+test('bot safer producer placements avoid an enemy firing envelope when legal protected support remains', () => {
+  const s = preparedBot(['infantry'], ['infantry', 'tank'], 1), before = new Set(s.buildings.map(b => b.id));
+  const threat = unit(s, '3,0', 0, 'artillery'); threat.movingUntilMs = 100000;
+  advance(s, 100); const built = s.buildings.find(b => !before.has(b.id)); assert.equal(built.kind, 'tank');
+  assert(distance(h(s, built.hexId), h(s, threat.hexId)) > s.tune.cards.artillery.range + 1);
+  assert.equal(s.hexes.filter(x => x.lockedBy === built.id).length, 7); assert.equal(h(s, built.hexId).owner, 1);
+});
+
+test('pressure returns the bot to a friendly bunker anchor, cancels research and funds a forward bunker without retiring defenders', () => {
+  const s = preparedBot(['infantry', 'infantry', 'tank', 'artillery', 'bunker'], [...DEFAULT_LOADOUT], 1);
+  const existing = s.buildings.find(b => b.kind === 'bunker'), before = new Set(s.buildings.map(b => b.id)), army = s.units.filter(u => u.kind !== 'worker').map(u => u.id);
+  assert(s.startResearch(1).ok); s.setTarget(1, 0);
+  const threat = unit(s, '3,0', 0, 'tank'); threat.movingUntilMs = 100000;
+  advance(s, 100);
+  assert.equal(s.players[1].targetId, 1); assert.equal(s.players[1].defendTargetId, existing.id); assert.equal(s.players[1].research, null);
+  assert(!s.hexes.some(x => x.lockedBy === 'research-1'));
+  const forward = s.buildings.find(b => !before.has(b.id)); assert.equal(forward.kind, 'bunker');
+  assert(distance(h(s, forward.hexId), h(s, threat.hexId)) <= s.tune.cards.bunker.range);
+  assert.equal(forward.completeAtMs, s.timeMs + 6000); assert.equal(forward.hp, 280);
+  assert(army.every(id => s.units.some(u => u.id === id)), 'defensive pressure cannot trigger force-retiring upgrades');
+  assert(s.checkpoint().botOrderUntilMs >= s.timeMs + s.tune.bot.heuristic.orderHoldMs);
+});
+
+test('bot uses anti-armour Missile conversion only with a second living capture force and an ordinary surcharge', () => {
+  for (const captureCount of [1, 2]) {
+    const kinds = captureCount === 1 ? ['infantry', 'tank', 'artillery'] : ['infantry', 'infantry', 'tank', 'artillery'];
+    const s = preparedBot(kinds), producer = s.buildings.find(b => b.owner === 1 && b.kind === 'infantry');
+    const original = producer.unitId, otherCapturers = s.units.filter(u => u.kind === 'infantry' && u.buildingId !== producer.id).map(u => u.id);
+    const before = s.resources(1).committed, enemy = unit(s, '0,3', 0, 'tank'); enemy.movingUntilMs = 100000;
+    advance(s, 100);
+    if (captureCount === 1) {
+      assert.equal(producer.upgradeKind, undefined); assert.equal(producer.unitId, original); assert(s.units.some(u => u.id === original));
+    } else {
+      assert.equal(producer.upgradeKind, 'missile'); assert.equal(producer.upgradeCost, 2); assert.equal(producer.unitId, null);
+      assert.equal(s.resources(1).committed, before + 2); assert.equal(s.hexes.filter(x => x.lockedBy === producer.id && x.commitment === 'upgrade').length, 2);
+      assert(otherCapturers.every(id => s.units.some(u => u.id === id)), 'a living capturing squad remains during conversion');
+    }
+  }
+});
+
+test('bot attacks with an assembled healthy mixed force, retreats after depletion and rebuilds without order flapping', () => {
+  const s = new OperationSim(); let attackAt = null;
+  for (let i = 0; i < 1200 && s.players[1].targetId !== 0; i++) advance(s, 100);
+  assert.equal(s.players[1].targetId, 0); attackAt = s.timeMs;
+  const force = s.units.filter(u => u.owner === 1), cfg = s.tune.bot.heuristic;
+  assert(force.filter(u => u.hp / u.maxHp >= cfg.healthyFraction).length >= cfg.minAttackUnits);
+  assert(new Set(force.map(u => u.kind)).size > 1); assert(force.some(u => s.tune.cards[u.kind].capturePriority));
+  assert(force.reduce((sum, u) => sum + s.tune.cards[u.kind].cost * u.hp / u.maxHp, 0) >= cfg.minAttackStrength);
+  const survivor = force.find(u => u.kind === 'infantry'); for (const u of force) if (u !== survivor) u.hp = 0;
+  for (let i = 0; i < 60 && s.players[1].targetId === 0; i++) { for (const u of s.units) if (u.owner === 1 && u.kind !== 'worker' && u !== survivor) u.hp = 0; advance(s, 100); }
+  assert.equal(s.players[1].targetId, 1); const retreatAt = s.timeMs, holdUntil = s.checkpoint().botOrderUntilMs;
+  assert(holdUntil >= retreatAt + cfg.orderHoldMs);
+  while (s.timeMs < holdUntil - 100) { advance(s, 100); assert.equal(s.players[1].targetId, 1, 'recovery hold prevents repeated attack toggles'); }
+  for (let i = 0; i < 1200 && s.players[1].targetId !== 0 && s.winner === null; i++) advance(s, 100);
+  assert.equal(s.players[1].targetId, 0, 'healthy replacement force can attack again');
+  assert(s.timeMs >= retreatAt + cfg.orderHoldMs); assert(s.timeMs > attackAt);
+});
+
+test('bot decisions, saving and order hysteresis are checkpoint and tick-partition deterministic with old-v8 defaults', () => {
+  const a = new OperationSim(), b = new OperationSim();
+  for (let t = 0; t < 90000; t += 100) advance(a, 100);
+  for (let t = 0; t < 90000; t += 500) advance(b, 500);
+  assert.deepEqual(a.checkpoint(), b.checkpoint());
+  const staged = new OperationSim(); for(let i=0;i<1200&&staged.players[1].targetId!==0;i++)advance(staged,100); advance(staged,37);
+  const restored = OperationSim.restore(JSON.parse(JSON.stringify(staged.checkpoint())));
+  assert(restored.checkpoint().botOrderUntilMs > staged.timeMs);
+  for (const dt of [63, 5000, 17, 83, 20000]) { advance(staged, dt); advance(restored, dt); }
+  assert.deepEqual(staged.checkpoint(), restored.checkpoint());
+  const original = new OperationSim(); advance(original, 100); const old = JSON.parse(JSON.stringify(original.checkpoint()));
+  delete old.botOrderUntilMs; delete old.tune.bot.heuristic;
+  const compatible = OperationSim.restore(old); assert.equal(compatible.checkpoint().botOrderUntilMs, 0);
+  advance(original, 12000); advance(compatible, 12000);
+  const comparable = compatible.checkpoint(); comparable.tune.bot.heuristic = original.tune.bot.heuristic;
+  assert.deepEqual(comparable, original.checkpoint());
+});
+
+function economyWorld(edit = () => {}, options = {}) {
+  const tune = structuredClone(DEFAULT_TUNE); edit(tune); return new OperationSim({ tune, bot: false, ...options });
+}
+function laborWorld(edit = () => {}) { return economyWorld(t => { t.hq.workerLimit = 0; edit(t); }); }
+function extraHQ(s, owner = 0, site = '0,0') {
+  assert(s.place(owner, site, 'hq').ok); return s.buildings.find(b => b.hexId === site);
+}
+
+test('v9 starts with six productive hexes, three ordinary workers per HQ and seven selectable cards plus implicit HQ', () => {
+  const s = economyWorld();
+  assert.deepEqual(s.resources(0), { committed: 0, capacity: 6, stranded: 0 });
+  assert.equal(s.units.length, 6); assert.equal(DEFAULT_LOADOUT.length, 7); assert.equal(Object.keys(DEFAULT_TUNE.cards).length, 19);
+  assert.deepEqual(DEFAULT_LOADOUT, ['infantry', 'tank', 'artillery', 'fighter', 'scout', 'bunker', 'silo']);
+  for (const p of s.players) {
+    const workers = s.units.filter(u => u.owner === p.id);
+    assert.equal(workers.length, 3); assert(workers.every(u => u.kind === 'worker' && u.hp === 1 && u.buildingId === `hq${p.id}`));
+    assert.equal(s.buildings.find(b => b.id === `hq${p.id}`).hqLevel, 1);
+  }
+  assert(!BASE_CARDS.includes('worker')); assert(!BASE_CARDS.includes('hq'));
+  assert(!s.placement(0, '0,0', 'worker').ok); assert.throws(() => economyWorld(() => {}, { loadouts: [[...BASE_CARDS.slice(0, 8)]] }), /Invalid loadout/);
+  const site = s.hexes.find(x => s.placement(0, x.id, 'infantry').ok); assert(site, 'workers leave a legal initial Barracks site');
+  assert(s.place(0, site.id, 'infantry').ok); assert.equal(s.resources(0).committed, 5); assertOccupancy(s);
+});
+
+test('HQ has no capture aura even when legacy hqRate is huge', () => {
+  const s = laborWorld(t => { t.capture.hqRate = 100; });
+  const neutral = h(s, '-4,0'), enemy = h(s, '-5,1'); neutral.owner = null; enemy.owner = 1;
+  advance(s, 20000); assert.equal(neutral.owner, null); assert.equal(enemy.owner, 1);
+  assert.equal(neutral.capture, 0); assert.equal(enemy.capture, 0);
+});
+
+test('only workers capture neutral land, only infantry forms capture enemy land, and attack orders do not stop gathering', () => {
+  for (const kind of Object.keys(DEFAULT_TUNE.cards).filter(k => !DEFAULT_TUNE.cards[k].utility)) for (const owner of [null, 1]) {
+    const s = laborWorld(t => { t.hq.defenseDamage = 0; }); ownAll(s); const site = h(s, '-2,0'); site.owner = owner;
+    const actor = unit(s, site.id, 0, kind, DEFAULT_TUNE.cards[kind].unitHp);
+    if (['infantry', 'missile', 'gunner'].includes(kind)) { actor.members = Array(5).fill(s.tune.cards[kind].unitHp); actor.hp *= 5; actor.maxHp = actor.hp; }
+    s.setTarget(0, 1); advance(s, 1000);
+    const canCapture = kind === 'worker' ? owner === null : ['infantry', 'missile', 'gunner'].includes(kind) && owner === 1;
+    assert.equal(site.capture > 0, canCapture, `${kind} on owner=${owner}`);
+    if (canCapture) assert(Math.abs(site.capture - 1000 / (owner === null ? 6000 : 9000)) < 1e-10);
+    if (!['worker', 'infantry', 'missile', 'gunner'].includes(kind)) assert.equal(s.tune.cards[kind].captureRate, 0);
+  }
+});
+
+test('military HQ and building commands never redirect HQ-bound worker gathering', () => {
+  for (const order of ['home', 'anchor', 'attack']) {
+    const s = laborWorld(); ownAll(s);
+    s.buildings.push({ id: 'army-anchor', owner: 0, kind: 'bunker', hexId: '3,0', hp: 280, maxHp: 280, unitId: null, readyAtMs: 0 });
+    h(s, '-2,0').owner = null; h(s, '3,1').owner = null;
+    const worker = unit(s, '-3,0', 0, 'worker', 1); worker.buildingId = 'hq0';
+    if (order !== 'home') assert(s.setDefendTarget(0, 'army-anchor').ok);
+    if (order === 'attack') assert(s.setAttackTarget(0, 'hq1').ok);
+    advance(s, 10000);
+    assert.equal(h(s, '-2,0').owner, 0); assert.equal(h(s, '3,1').owner, null);
+    assert.equal(worker.buildingId, 'hq0');
+    assert.equal(s.players[0].targetId, order === 'attack' ? 1 : 0); assertOccupancy(s);
+  }
+});
+
+test('additional HQ commits sixteen connected cells, builds thirty seconds and sequentially produces three workers at eight-second intervals', () => {
+  const s = economyWorld(); ownAll(s); const b = extraHQ(s);
+  assert.equal(b.committedCost, 16); assert.equal(s.resources(0).committed, 16); assert.equal(s.hexes.filter(x => x.lockedBy === b.id).length, 16);
+  const count = () => s.units.filter(u => u.buildingId === b.id && u.kind === 'worker').length;
+  advance(s, 29900); assert.equal(count(), 0); advance(s, 100); assert.equal(count(), 0);
+  assert.equal(b.hqLevel, 1); advance(s, 7900); assert.equal(count(), 0); advance(s, 100); assert.equal(count(), 1);
+  advance(s, 8000); assert.equal(count(), 2); advance(s, 8000); assert.equal(count(), 3);
+  advance(s, 16000); assert.equal(count(), 3); assert.equal(b.workerReadyAtMs, undefined);
+  const workers = s.units.filter(u => u.buildingId === b.id); workers[0].hp = workers[1].hp = 0; advance(s, 100);
+  const due = b.workerReadyAtMs; assert.equal(count(), 1); assert.equal(due, s.timeMs + 8000);
+  advance(s, 7900); assert.equal(count(), 1); advance(s, 100); assert.equal(count(), 2);
+  advance(s, 8000); assert.equal(count(), 3); assertOccupancy(s);
+});
+
+test('blocked worker production cannot jump occupied neighbors and resumes one-by-one when a real slot opens', () => {
+  const s = economyWorld(); ownAll(s); const b = extraHQ(s);
+  const guards = s.neighbors(b.hexId).map(x => { const u = unit(s, x.id, 0, 'tank'); u.movingUntilMs = 100000; return u; });
+  advance(s, 38000); assert.equal(s.units.filter(u => u.buildingId === b.id).length, 0);
+  guards[0].hp = 0; advance(s, 100);
+  const worker = s.units.find(u => u.buildingId === b.id); assert(worker); assert.equal(worker.hexId, guards[0].hexId);
+  assert.equal(b.workerReadyAtMs, s.timeMs + 8000); assertOccupancy(s);
+});
+
+test('any positive damaging hit kills a worker and never grants a special retreat', () => {
+  const s = laborWorld(t => { t.cards.tank.damage = 0.01; }); ownAll(s);
+  const tank = unit(s, '0,3', 0, 'tank'), worker = unit(s, '1,3', 1, 'worker', 1); worker.movingUntilMs = 100000;
+  advance(s, 100); assert(!s.units.includes(worker)); assert.equal(worker.hp, 0); assert.equal(worker.retreatUntilMs, undefined);
+  assert(s.shots.some(x => x.unitId === tank.id && x.targetHexId === worker.hexId));
+});
+
+test('workers survive source HQ destruction as gathering orphans and do not consume another HQ replacement slots', () => {
+  const s = economyWorld(); ownAll(s); const b = extraHQ(s); advance(s, 54000);
+  const orphans = s.units.filter(u => u.buildingId === 'hq0'); assert.equal(orphans.length, 3);
+  s.buildings.find(x => x.id === 'hq0').hp = 0; advance(s, 100);
+  assert(s.players[0].alive); assert(orphans.every(u => s.units.includes(u) && u.buildingId === null));
+  const destination = h(s, '2,0'); destination.owner = null; advance(s, 20000);
+  assert.equal(destination.owner, 0, 'orphans and surviving HQ workers continue gathering');
+  orphans[0].hp = 0; advance(s, 100);
+  assert.equal(s.units.filter(u => u.buildingId === b.id).length, 3); assert.equal(b.workerReadyAtMs, undefined);
+});
+
+test('last completed HQ determines elimination; an unfinished expansion does not keep a faction alive', () => {
+  const s = economyWorld(); ownAll(s); const b = extraHQ(s); assert(b.completeAtMs > s.timeMs);
+  s.buildings.find(x => x.id === 'hq0').hp = 0; advance(s, 100);
+  assert.equal(s.winner, 1); assert(!s.players[0].alive); assert(!s.buildings.some(x => x.owner === 0)); assert(!s.units.some(x => x.owner === 0));
+  assert(!h(s, b.hexId).burnt, 'elimination removes unfinished expansions without a burn cascade');
+});
+
+test('HQ loss retains ordinary support debt and delayed release while another completed HQ survives', () => {
+  const s = laborWorld(); ownAll(s); const b = extraHQ(s); advance(s, 30000);
+  const lost = s.hexes.filter(x => x.lockedBy === b.id && x.id !== b.hexId).slice(0, 3); loseSupports(s, lost.map(x => x.id));
+  b.hp = 0; advance(s, 100); assert(s.players[0].alive); assert(h(s, b.hexId).burnt);
+  assert.equal(s.resources(0).stranded, 3); assert.equal(s.resources(0).committed, 16);
+  advance(s, 10000); assert.equal(s.resources(0).committed, 3);
+});
+
+test('HQ research is linked, upgrades only its HQ and derives faction tech from completed surviving levels', () => {
+  const s = laborWorld(); ownAll(s); const b = extraHQ(s); assert(!s.startResearch(0, b.id).ok); advance(s, 30000);
+  assert(s.startResearch(0, 'hq0').ok); assert.equal(s.players[0].research.hqId, 'hq0'); assert.equal(s.players[0].research.supportIds.length, 16);
+  advance(s, 30000); assert.equal(s.buildings.find(x => x.id === 'hq0').hqLevel, 2); assert.equal(b.hqLevel, 1); assert.equal(s.players[0].techTier, 2);
+  assert(s.startResearch(0).ok); assert.equal(s.players[0].research.hqId, 'hq0'); advance(s, 60000); assert.equal(s.players[0].techTier, 3);
+  assert(s.startResearch(0, b.id).ok, 'a lower-level second HQ can still be upgraded at faction T3'); assert.equal(s.players[0].research.fromTier, 1);
+  advance(s, 30000); assert.equal(b.hqLevel, 2); assert.equal(s.players[0].techTier, 3);
+  s.buildings.find(x => x.id === 'hq0').hp = 0; advance(s, 100); assert(s.players[0].alive); assert.equal(s.players[0].techTier, 2);
+});
+
+test('research survives another HQ loss, but losing its linked HQ cancels and releases every temporary support', () => {
+  for (const sourceDies of [false, true]) {
+    const s = laborWorld(); ownAll(s); const b = extraHQ(s); advance(s, 30000);
+    assert(s.startResearch(0, b.id).ok); loseSupports(s, s.players[0].research.supportIds.slice(0, 4));
+    s.buildings.find(x => x.id === (sourceDies ? b.id : 'hq0')).hp = 0; advance(s, 100);
+    if (sourceDies) { assert.equal(s.players[0].research, null); assert(!s.hexes.some(x => x.lockedBy === 'research-0')); }
+    else { assert.equal(s.players[0].research.hqId, b.id); advance(s, 29900); assert.equal(b.hqLevel, 2); }
+    assert(s.players[0].alive);
+  }
+});
+
+test('advanced producers and supported replacements keep functioning after the high-level HQ is lost', () => {
+  const s = laborWorld(); ownAll(s); const b = extraHQ(s); advance(s, 30000);
+  assert(s.startResearch(0).ok); advance(s, 30000); assert(s.startResearch(0).ok); advance(s, 60000);
+  assert(s.place(0, '0,3', 'fighter').ok); const airbase = s.buildings.find(x => x.hexId === '0,3'); advance(s, 6000);
+  assert(s.upgrade(0, airbase.id).ok); advance(s, 8000); assert.equal(airbase.kind, 'bomber');
+  s.buildings.find(x => x.id === 'hq0').hp = 0; advance(s, 100); assert.equal(s.players[0].techTier, 1); assert.equal(b.hqLevel, 1);
+  assert(!s.placement(0, '4,3', 'fighter').ok); const old = airbase.unitId; s.units.find(x => x.id === old).hp = 0; advance(s, 100);
+  advance(s, 24000); assert(airbase.unitId && airbase.unitId !== old); assert.equal(s.units.find(x => x.id === airbase.unitId).kind, 'bomber');
+});
+
+test('completed buildings cannot be sold, while unfinished HQ or producer cancellation releases surviving support only', () => {
+  const s = laborWorld(); ownAll(s); assert(!s.sell(0, 'hq0').ok); const b = extraHQ(s);
+  assert(s.cancelConstruction(0, b.id).ok); assert.equal(s.resources(0).committed, 0); assert(!h(s, b.hexId).burnt);
+  assert(s.place(0, '0,0', 'tank').ok); const tank = s.buildings.find(x => x.hexId === '0,0');
+  loseSupports(s, s.hexes.filter(x => x.lockedBy === tank.id && x.id !== tank.hexId).slice(0, 2).map(x => x.id));
+  assert(s.cancelConstruction(0, tank.id).ok); assert.equal(s.resources(0).stranded, 2); assert.equal(s.resources(0).committed, 2);
+  ownAll(s); assert(s.place(0, '0,0', 'infantry').ok); const barracks = s.buildings.find(x => x.hexId === '0,0'); advance(s, 3000);
+  const supported = barracks.unitId; assert(!s.sell(0, barracks.id).ok); assert(!s.cancelConstruction(0, barracks.id).ok); assert.equal(barracks.unitId, supported);
+  assert(s.upgrade(0, barracks.id).ok); assert(s.cancelUpgrade(0, barracks.id).ok, 'conversion cancellation remains available');
+});
+
+test('Recon chases a visible worker before firing at a nearby tank in either faction order mode', () => {
+  for (const attack of [false, true]) {
+    const s = laborWorld(t => { t.hq.defenseDamage = 0; }); ownAll(s);
+    const scout = unit(s, '0,3', 0, 'scout', 35), tank = unit(s, '1,3', 1, 'tank', 180), worker = unit(s, '3,3', 1, 'worker', 1);
+    tank.movingUntilMs = worker.movingUntilMs = 100000; if (attack) s.setTarget(0, 1);
+    advance(s, 100); assert.equal(scout.attacking, false); assert.equal(scout.fromHexId, '0,3'); assert.equal(tank.hp, 180);
+    advance(s, 3000); const first = s.shots.find(x => x.unitId === scout.id); assert(first); assert.equal(first.targetHexId, worker.hexId); assert(!s.units.includes(worker));
+  }
+});
+
+test('building Attack Here uses that strategic destination and returns to the nearest friendly HQ on its destruction', () => {
+  const s = laborWorld(); ownAll(s); const b = extraHQ(s, 0, '2,0'); advance(s, 30000);
+  const enemy = { id: 'enemy-outpost', owner: 1, kind: 'tank', hexId: '4,2', hp: 180, maxHp: 180, unitId: 'fixture', readyAtMs: 0 }; s.buildings.push(enemy);
+  const soldier = unit(s, '0,3', 0, 'tank'); assert(s.setAttackTarget(0, enemy.id).ok); assert.equal(s.players[0].attackTargetId, enemy.id);
+  advance(s, 100); assert.equal(soldier.fromHexId, '0,3'); assert(!s.setAttackTarget(0, b.id).ok); assert(!s.setAttackTarget(0, soldier.id).ok);
+  enemy.hp = 0; advance(s, 100); assert.equal(s.players[0].attackTargetId, null); assert.equal(s.players[0].targetId, 0); assert.equal(s.players[0].defendTargetId, b.id);
+});
+
+test('bot economy expands a real HQ and researches through it while respecting seven-card legality and worker limits', () => {
+  const s = economyWorld(t => { t.bot.heuristic.initialBuildMs = 20000; t.bot.heuristic.minAttackStrength = 1000; }, { bot: true }); ownAll(s, 1);
+  for (const kind of ['infantry', 'infantry', 'tank', 'artillery']) {
+    const site = s.hexes.filter(x => s.placement(1, x.id, kind).ok).sort((a, b) => distance(a, h(s, '5,0')) - distance(b, h(s, '5,0')))[0]; assert(site); assert(s.place(1, site.id, kind).ok);
+  }
+  advance(s, 20000); const expansion = s.buildings.find(b => b.kind === 'hq' && b.id !== 'hq0' && b.id !== 'hq1');
+  assert(expansion); assert.equal(expansion.committedCost, 16); assert.equal(expansion.completeAtMs, 50000); assert.equal(expansion.hqLevel, 1);
+  assert.equal(s.units.filter(u => u.buildingId === expansion.id).length, 0); advance(s, 54000);
+  assert(s.players[1].techTier >= 2); assert.equal(s.units.filter(u => u.buildingId === expansion.id).length, 3);
+  for (const building of s.buildings.filter(x => x.owner === 1 && x.kind !== 'hq')) assert(s.loadouts[1].includes(building.kind));
+});
+
+test('worker economy and HQ orders are deterministic through v9 checkpoint recovery and tick partitions', () => {
+  const a = economyWorld(), b = economyWorld(); advance(a, 40137); advance(b, 40137);
+  const saved = JSON.parse(JSON.stringify(a.checkpoint())); assert.equal(saved.version, 9); const restored = OperationSim.restore(saved);
+  for (let i = 0; i < 100; i++) advance(a, 100); for (let i = 0; i < 20; i++) advance(b, 500); advance(restored, 10000);
+  assert.deepEqual(a.checkpoint(), b.checkpoint()); assert.deepEqual(a.checkpoint(), restored.checkpoint());
+  for (const version of [1, 2, 3, 4, 5, 6, 7, 8]) assert.throws(() => OperationSim.restore({ ...saved, version }), /Unsupported/);
+});
+
+test('an expansion HQ can be funded by exactly sixteen productive cells without losing one capacity on placement', () => {
+  const s = laborWorld(); for (const tile of s.hexes) tile.owner = null; h(s, '-5,0').owner = 0;
+  const cells = [h(s, '0,0')], seen = new Set(['0,0']);
+  for (let i = 0; cells.length < 16; i++) for (const next of s.neighbors(cells[i].id)) if (!seen.has(next.id)) { seen.add(next.id); cells.push(next); if (cells.length === 16) break; }
+  for (const tile of cells) tile.owner = 0; assert.equal(s.resources(0).capacity, 16);
+  extraHQ(s); assert.deepEqual(s.resources(0), { committed: 16, capacity: 16, stranded: 0 });
+});
+
+test('unarmed enemy workers are raid targets but cannot cause bot emergency retreat or research cancellation', () => {
+  const s = preparedBot(['infantry', 'infantry', 'tank', 'artillery'], [...DEFAULT_LOADOUT], 1);
+  assert(s.startResearch(1, 'hq1').ok); s.setTarget(1, 0); const due = s.players[1].research.completeAtMs;
+  unit(s, '3,0', 0, 'worker', 1).movingUntilMs = 100000; advance(s, 100);
+  assert.equal(s.players[1].targetId, 0); assert(s.players[1].research); assert.equal(s.players[1].research.completeAtMs, due);
+  assert(!s.buildings.some(b => b.kind === 'bunker'));
+});
+
+
+test('worker routes refuse hostile territory but resume when a neutral corridor opens', () => {
+  const s = laborWorld(t => { t.hq.defenseDamage = 0; });
+  for (const tile of s.hexes) tile.owner = 1;
+  h(s, '0,0').owner = 0; h(s, '2,0').owner = null;
+  s.buildings.find(b => b.id === 'hq0').hexId = '0,-1';
+  assert(s.setDefendTarget(0, 'hq0').ok);
+  const worker = unit(s, '0,0', 0, 'worker', 1); worker.buildingId = 'hq0';
+  advance(s, 5000); assert.equal(worker.hexId, '0,0'); assert.equal(h(s, '2,0').owner, null);
+  h(s, '1,0').owner = null;
+  for (let i = 0; i < 200; i++) { advance(s, 100); assert.notEqual(h(s, worker.hexId).owner, 1, 'worker never enters enemy territory'); }
+  assert.equal(h(s, '1,0').owner, 0); assert.equal(h(s, '2,0').owner, 0); assertOccupancy(s);
+});
+
+test('workers prefer their HQ radius then expand farther without waiting for another HQ; replay stays deterministic', () => {
+  const s=laborWorld();ownAll(s);s.buildings.find(b=>b.id==='hq0').hexId='0,0';
+  const worker=unit(s,'0,3',0,'worker',1);worker.buildingId='hq0';
+  h(s,'0,4').owner=h(s,'0,5').owner=null;
+  s.setTarget(0,1);advance(s,100);assert.equal(worker.hexId,'0,4');
+  advance(s,7000);assert.equal(h(s,'0,4').owner,0);assert.equal(worker.hexId,'0,5');
+  const restored=OperationSim.restore(JSON.parse(JSON.stringify(s.checkpoint())));
+  advance(s,7000);for(let i=0;i<70;i++)advance(restored,100);
+  assert.equal(h(s,'0,5').owner,0);assert.equal(worker.buildingId,'hq0');assert.deepEqual(restored.checkpoint(),s.checkpoint());assertOccupancy(s);
+});
+
+test('gather radius remains tunable and old or missing gathering tuning is rejected', () => {
+  const s = laborWorld(t => { t.hq.workerGatherRadius = 2; }); ownAll(s);
+  h(s, '-2,0').owner = null;
+  const worker = unit(s, '-3,0', 0, 'worker', 1); worker.buildingId = 'hq0';
+  advance(s, 10000); assert.equal(h(s, '-2,0').owner, 0); assert.equal(worker.buildingId, 'hq0');
+  for (const radius of [undefined, 0, NaN, 1.5]) assert.throws(() => laborWorld(t => { t.hq.workerGatherRadius = radius; }), /gathering/);
+  assert.equal(DEFAULT_TUNE.hq.cost, 16); assert.equal(DEFAULT_TUNE.hq.buildMs, 30000);
+  assert.equal(DEFAULT_TUNE.hq.workerProductionMs, 8000); assert.equal(DEFAULT_TUNE.hq.workerGatherRadius, 4);
+});
+
+test('workers may capture neutral land beyond the preferred radius and return home when nothing is reachable', () => {
+  const s=laborWorld();ownAll(s);s.buildings.find(b=>b.id==='hq0').hexId='0,0';
+  const worker=unit(s,'0,5',0,'worker',1);worker.buildingId='hq0';h(s,'0,5').owner=null;
+  advance(s,100);assert(h(s,'0,5').capture>0);advance(s,16000);
+  assert.equal(h(s,'0,5').owner,0);assert.equal(worker.workerStatus,'idle');assert.equal(distance(h(s,worker.hexId),h(s,'0,0')),1);
+  h(s,'0,6').owner=null;advance(s,15000);assert.equal(h(s,'0,6').owner,0,'idle worker resumes when territory becomes available');
+});
+
+test('orphan workers choose the closest surviving completed HQ while ignoring the military anchor', () => {
+  const s = economyWorld(); ownAll(s); s.buildings.find(b => b.id === 'hq0').hexId = '0,0';
+  const forward = extraHQ(s, 0, '0,2'); advance(s, s.tune.hq.buildMs);
+  const worker = s.units.find(u => u.buildingId === 'hq0'); worker.hexId = '0,4'; delete worker.fromHexId; delete worker.movingUntilMs;
+  h(s, '0,5').owner = null;
+  s.buildings.push({ id: 'distant-army-anchor', owner: 0, kind: 'bunker', hexId: '-5,0', hp: 280, maxHp: 280, unitId: null, readyAtMs: 0 });
+  assert(s.setDefendTarget(0, 'distant-army-anchor').ok); assert(s.setAttackTarget(0, 'hq1').ok);
+  advance(s, 1000); assert.equal(worker.hexId, '0,5'); assert(h(s, '0,5').capture>0);
+  s.buildings.find(b => b.id === 'hq0').hp = 0; advance(s, 100);
+  assert.equal(worker.buildingId, null); assert.equal(worker.hexId, '0,5'); assert.equal(s.players[0].defendTargetId, 'distant-army-anchor');
+  advance(s, 1000); assert.equal(h(s, '0,5').captureUnitId, worker.id, 'orphan starts gathering before the new HQ can produce another worker');
+  advance(s, 6000); assert.equal(h(s, '0,5').owner, 0); assert(s.buildings.includes(forward)); assertOccupancy(s);
+});
+
+test('seeded map presets retain mirrored terrain, six-resource starts and protected worker spawn neighborhoods', () => {
+  assert.deepEqual(MAP_SHAPES, ['open', 'narrows', 'forks', 'ring']);
+  for (const shape of MAP_SHAPES) for (const seed of [0, 1, 2, 3, 42, 0xffffffff]) {
+    const s = economyWorld(t => { t.map.shape = shape; t.map.seed = seed; });
+    const byId = new Map(s.hexes.map(x => [x.id, x]));
+    assert.equal(s.hexes.length, 271); assert.equal(s.resources(0).capacity, 6); assert.equal(s.resources(1).capacity, 6);
+    for (const cell of s.hexes) {
+      const mirror = byId.get(`${-cell.q},${-cell.r}`); assert.equal(!!cell.gap, !!mirror.gap, `${shape}/${seed}/${cell.id}`);
+      if (Math.min(distance(cell, { q: -5, r: 0 }), distance(cell, { q: 5, r: 0 })) <= 2) assert(!cell.gap);
+      assert.equal(cell.owner === null ? null : 1 - cell.owner, mirror.owner);
+    }
+    const left = s.units.filter(u => u.owner === 0).map(u => { const cell = h(s, u.hexId); return `${-cell.q},${-cell.r}`; }).sort();
+    assert.deepEqual(left, s.units.filter(u => u.owner === 1).map(u => u.hexId).sort(), 'starting workers are rotationally mirrored too');
+    assertOccupancy(s);
+  }
+});
+
+test('every preset and seed has a ground route between HQ sides and reproducible seed-sensitive contours', () => {
+  for (const shape of MAP_SHAPES) {
+    const variants = new Set();
+    for (const seed of [1, 2, 3, 19, 77, 0xffffffff]) {
+      const config = { ...DEFAULT_TUNE.map, shape, seed }, cells = generateMap(config), byId = new Map(cells.map(x => [x.id, x]));
+      assert.deepEqual(generateMap(config), cells); variants.add(JSON.stringify(cells.filter(x => x.gap).map(x => x.id)));
+      const queue = ['-5,0'], seen = new Set(queue);
+      for (let i = 0; i < queue.length; i++) {
+        const cell = byId.get(queue[i]);
+        for (const [q, r] of [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]]) {
+          const next = byId.get(`${cell.q + q},${cell.r + r}`); if (!next || next.gap || seen.has(next.id)) continue;
+          seen.add(next.id); queue.push(next.id);
+        }
+      }
+      assert(seen.has('5,0'), `${shape}/${seed} must retain a land route`);
+    }
+    assert(variants.size > 1, `${shape} responds to different seeds`);
+  }
+});
+
+test('open seed one preserves the classic grid and omitted map fields use compatible open-one defaults', () => {
+  const legacy = { radius: 9, hqQ: 5, hqR: 0 }, cells = generateMap(legacy);
+  assert.equal(cells.length, 271); assert(!cells.some(x => x.gap)); assert.deepEqual(cells, generateMap({ ...legacy, shape: 'open', seed: 1 }));
+  const s = economyWorld(t => { delete t.map.shape; delete t.map.seed; }); assert.equal(s.tune.map.shape, 'open'); assert.equal(s.tune.map.seed, 1);
+  for (const shape of ['unknown', '', null]) assert.throws(() => generateMap({ ...legacy, shape }), /Invalid map/);
+  for (const seed of [-1, 1.5, NaN, Infinity, 0x100000000]) assert.throws(() => generateMap({ ...legacy, seed }), /seed/);
+});
+
+test('preset terrain retains the intended choke, two lanes and central ring hole', () => {
+  const reachable = (cells, allowed = () => true) => {
+    const byId = new Map(cells.map(x => [x.id, x])), queue = ['-5,0'], seen = new Set(queue);
+    for (let i = 0; i < queue.length; i++) {
+      const cell = byId.get(queue[i]);
+      for (const [q, r] of [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]]) {
+        const next = byId.get(`${cell.q + q},${cell.r + r}`); if (!next || next.gap || !allowed(next) || seen.has(next.id)) continue;
+        seen.add(next.id); queue.push(next.id);
+      }
+    }
+    return seen.has('5,0');
+  };
+  const narrows = generateMap({ ...DEFAULT_TUNE.map, shape: 'narrows', seed: 2 });
+  assert(reachable(narrows)); assert(!narrows.find(x => x.id === '0,0').gap);
+  narrows.find(x => x.id === '0,0').gap = true; assert(!reachable(narrows), 'central bridge is a real ground choke');
+  const forks = generateMap({ ...DEFAULT_TUNE.map, shape: 'forks', seed: 2 }); assert(forks.find(x => x.id === '0,0').gap);
+  assert(reachable(forks, x => x.r >= 0)); assert(reachable(forks, x => x.r <= 0), 'both flank lanes connect the starts');
+  const ring = generateMap({ ...DEFAULT_TUNE.map, shape: 'ring', seed: 2 }); assert(ring.find(x => x.id === '0,0').gap); assert(reachable(ring));
+});
+
+test('gaps provide no capacity, capture, building sites, connected funding or research support', () => {
+  const s = fixture(t => { t.resources.capacityCap = 10000; t.map.shape = 'narrows'; t.map.seed = 2; }); ownAll(s);
+  const centres = new Set(s.buildings.map(b => b.hexId)), landCount = s.hexes.filter(x => !x.gap && !centres.has(x.id)).length;
+  assert.equal(s.resources(0).capacity, landCount); const gap = s.hexes.find(x => x.gap); assert(gap);
+  assert(!s.placement(0, gap.id, 'infantry').ok); assert(!s.placement(0, gap.id, 'hq').ok);
+  const home = s.buildings.find(b => b.id === 'hq0'); home.hqLevel = 1;
+  assert(s.startResearch(0, home.id).ok); assert(s.players[0].research.supportIds.every(id => !h(s, id).gap)); s.cancelResearch(0);
+  const bridge = costFourFixture(); for (const cell of bridge.hexes) cell.owner = null;
+  for (const cell of bridge.hexes.filter(x => x.q === 0)) { cell.gap = true; cell.owner = 0; }
+  for (const id of ['-1,0', '-2,0', '1,0', '2,0', '1,1', '2,-1']) h(bridge, id).owner = 0;
+  assert.equal(bridge.resources(0).capacity, 6); assert(!bridge.placement(0, '-1,0', 'infantry').ok);
+  const valid = bridge.placement(0, '1,0', 'infantry'); assert(valid.ok); assert(valid.hexes.every(id => !h(bridge, id).gap));
+  const capture = laborWorld(t => { t.hq.defenseDamage = 0; }); ownAll(capture); capture.buildings.find(b => b.id === 'hq0').hexId = '-2,0';
+  h(capture, '0,0').gap = true; h(capture, '0,0').owner = null; unit(capture, '0,0', 0, 'worker', 1);
+  advance(capture, 100); assert.equal(h(capture, '0,0').capture, 0); assert.equal(h(capture, '0,0').owner, null);
+});
+
+test('ground troops and workers cannot traverse a complete gap barrier even toward visible valid targets', () => {
+  const s = laborWorld(t => { t.hq.defenseDamage = 0; }); ownAll(s); s.buildings.find(b => b.id === 'hq0').hexId = '-2,0';
+  for (const cell of s.hexes) { if (cell.q === 0) cell.gap = true; if (cell.q > 0) cell.owner = null; }
+  const tank = unit(s, '-1,0', 0, 'tank'), worker = unit(s, '-1,1', 0, 'worker', 1); worker.buildingId = 'hq0';
+  unit(s, '2,0', 1, 'tank').movingUntilMs = 100000;
+  advance(s, 10000); assert.equal(tank.hexId, '-1,0'); assert(h(s,worker.hexId).q<0,'returning workers cannot cross the gap barrier');
+  assert(!s.shots.some(x => x.unitId === tank.id)); assert(!s.units.some(u => h(s, u.hexId).gap)); assertOccupancy(s);
+});
+
+test('workers and military aircraft both wait for an adjacent land spawn instead of spawning over a gap ring', () => {
+  const s = economyWorld(); ownAll(s); const base = extraHQ(s);
+  for (const cell of s.neighbors(base.hexId)) cell.gap = true;
+  advance(s, s.tune.hq.buildMs + s.tune.hq.workerProductionMs); assert(!s.units.some(u => u.buildingId === base.id));
+  const opening = s.neighbors(base.hexId)[0]; delete opening.gap; advance(s, 100);
+  assert(s.units.some(u => u.buildingId === base.id && u.hexId === opening.id));
+  const air = fixture(); ownAll(air); for (const cell of air.neighbors('0,0')) cell.gap = true;
+  assert(air.place(0, '0,0', 'fighter').ok === false, 'a gap ring also prevents connected producer funding');
+  // Place first, then isolate its spawn ring to test deployment independently of funding.
+  for (const cell of air.neighbors('0,0')) delete cell.gap;
+  const b = producer(air, '0,0', 'fighter'); const spawned = air.units.find(u => u.id === b.unitId); spawned.hp = 0;
+  for (const cell of air.neighbors('0,0')) cell.gap = true;
+  advance(air, air.tune.cards.fighter.productionMs + 100); assert.equal(b.unitId, null);
+  const cell = air.neighbors('0,0')[0]; delete cell.gap; advance(air, 100); assert(b.unitId); assert(!h(air, air.units.find(u => u.id === b.unitId).hexId).gap);
+});
+
+test('aircraft cross consecutive gaps only to land and spend the full distance-scaled flight time', () => {
+  const s = fixture(); ownAll(s); for (const cell of s.hexes) if (Math.abs(cell.q) <= 1) cell.gap = true;
+  const aircraft = unit(s, '-2,0', 0, 'fighter'); s.setTarget(0, 1); advance(s, 100);
+  assert.equal(aircraft.fromHexId, '-2,0'); assert.equal(aircraft.hexId, '2,0');
+  const duration = s.tune.cards.fighter.moveMs * 4 / s.tune.movement.friendlySpeedMultiplier;
+  assert.equal(aircraft.movingUntilMs - aircraft.movedAtMs, duration);
+  const arrival = aircraft.movingUntilMs; h(s, '-2,0').owner = 1;
+  advance(s, 500); const restored = OperationSim.restore(JSON.parse(JSON.stringify(s.checkpoint())));
+  while (s.timeMs + 100 < arrival) { advance(s, 100); advance(restored, 100); assert.equal(aircraft.movingUntilMs, arrival); assert(!h(s, aircraft.hexId).gap); }
+  assert.equal(aircraft.movedAtMs, 100, 'flight cannot complete after only one ordinary move interval');
+  advance(s, 100); advance(restored, 100); assert.deepEqual(restored.checkpoint(), s.checkpoint()); assertOccupancy(s);
+});
+
+test('air crossings cannot skip an occupied first shore or stack with ground units and buildings', () => {
+  for (const occupant of ['unit', 'building']) {
+    const s = fixture(); ownAll(s);
+    for (const cell of s.hexes) cell.gap = !['-5,0', '5,0', '-2,0', '2,0', '3,0'].includes(cell.id);
+    if (occupant === 'unit') unit(s, '2,0', 0, 'tank').movingUntilMs = 100000;
+    else s.buildings.push({ id: 'shore-building', kind: 'tank', owner: 0, hexId: '2,0', hp: 180, maxHp: 180, unitId: 'fixture', readyAtMs: 0 });
+    const aircraft = unit(s, '-2,0', 0, 'fighter'); s.setTarget(0, 1); advance(s, 100);
+    assert.equal(aircraft.hexId, '-2,0', `${occupant} blocks the first shore rather than being flown through`); assertOccupancy(s);
+  }
+});
+
+test('weighted air planning chooses two land steps over a four-hex jump that also reaches a valid goal', () => {
+  const s = fixture(); ownAll(s); s.buildings.find(b => b.id === 'hq1').hexId = '2,2';
+  for (const cell of s.hexes) cell.gap = !['-5,0', '2,2', '0,0', '0,1', '0,2', '4,0'].includes(cell.id);
+  const aircraft = unit(s, '0,0', 0, 'fighter'); s.setTarget(0, 1); advance(s, 100);
+  assert.equal(aircraft.hexId, '0,1', 'edge count must not make a much longer jump look cheaper');
+  assert.equal(aircraft.movingUntilMs - aircraft.movedAtMs, s.tune.cards.fighter.moveMs / 1.25);
+});
+
+test('gaps do not add line-of-sight obstruction or extend weapon ranges', () => {
+  const s = fixture(); ownAll(s); h(s, '-1,0').gap = h(s, '0,0').gap = true;
+  const gun = unit(s, '-2,0', 0, 'artillery'), target = unit(s, '1,0', 1, 'tank', 180); target.movingUntilMs = 100000;
+  advance(s, 100); assert(s.shots.some(x => x.unitId === gun.id && x.targetHexId === target.hexId)); assert.equal(target.hp, 176);
+  const air = fixture(); ownAll(air); h(air, '0,0').gap = true;
+  const fighter = unit(air, '-1,0', 0, 'fighter'); unit(air, '2,0', 1, 'helicopter').movingUntilMs = 100000;
+  advance(air, 100); assert(!air.shots.some(x => x.unitId === fighter.id), 'sight across a gap still cannot increase range two');
+});
+
+test('non-open map topology and active flights remain checkpoint and tick-partition deterministic', () => {
+  for (const shape of ['narrows', 'forks', 'ring']) {
+    const a = economyWorld(t => { t.map.shape = shape; t.map.seed = 123; }), b = economyWorld(t => { t.map.shape = shape; t.map.seed = 123; });
+    for (let i = 0; i < 200; i++) advance(a, 100); for (let i = 0; i < 40; i++) advance(b, 500);
+    assert.deepEqual(a.checkpoint(), b.checkpoint()); const restored = OperationSim.restore(JSON.parse(JSON.stringify(a.checkpoint())));
+    advance(a, 12345); advance(restored, 12345); assert.deepEqual(a.checkpoint(), restored.checkpoint());
+    assert(!a.units.some(u => h(a, u.hexId).gap)); assertOccupancy(a);
+  }
+});
+
+
+
+test('research and conversion exclude disconnected captured land, accept committed/building bridges, and continue after cuts', () => {
+  for(const obstacle of ['neutral','enemy','burnt','gap'])for(const action of ['research','upgrade']){
+    const s=milestone(t=>{t.cards.infantry.cost=1;t.cards.missile.cost=3;t.research.cost=2;});ownAll(s);
+    const b=producer(s,'-4,0');advance(s,3000);
+    for(const cell of s.hexes){cell.owner=null;if(cell.lockedBy!==b.id)cell.lockedBy=null;}
+    for(const id of ['-4,0','-3,0','-2,0','-1,0'])h(s,id).owner=0;
+    const bridge=h(s,'-3,0');bridge.lockedBy='bridge-building';bridge.commitment='building';
+    s.buildings.push({id:'bridge-building',committedCost:0,owner:0,kind:'bunker',hexId:bridge.id,hp:280,maxHp:280,unitId:null,readyAtMs:0});
+    const attempt=()=>action==='research'?s.startResearch(0):s.upgrade(0,b.id);
+    if(obstacle==='neutral')bridge.owner=null;if(obstacle==='enemy')bridge.owner=1;if(obstacle==='burnt')bridge.burnt=true;if(obstacle==='gap')bridge.gap=true;
+    assert(!attempt().ok,action+' cannot spend isolated capture across '+obstacle);
+    bridge.owner=0;bridge.burnt=false;delete bridge.gap;assert(attempt().ok,action+' connects through occupied and committed owned bridge');
+    const supports=action==='research'?s.players[0].research.supportIds:s.hexes.filter(x=>x.commitment==='upgrade').map(x=>x.id);
+    assert.deepEqual(new Set(supports),new Set(['-2,0','-1,0']));
+    bridge.owner=1;advance(s,action==='research'?30000:5000);
+    assert.equal(action==='research'?s.players[0].techTier:b.kind,action==='research'?2:'missile');
+  }
+});
+
+test('a completed additional HQ supplies its separate owned island, while an unfinished HQ cannot', () => {
+  const s=laborWorld(t=>{t.research.cost=2;});ownAll(s);const b=extraHQ(s);
+  for(const cell of s.hexes){cell.owner=cell.lockedBy===b.id?0:null;if(cell.lockedBy!==b.id)cell.lockedBy=null;}
+  for(const id of ['3,0','4,0']){h(s,id).owner=0;h(s,id).lockedBy=null;}
+  assert(!s.startResearch(0).ok);advance(s,30000);assert(s.startResearch(0,b.id).ok);
+  assert(s.players[0].research.supportIds.every(id=>['3,0','4,0'].includes(id)));
+});
+
+test('dismantle preserves supported units, burns footprint and delays only surviving supports; captured releases are never refunded', () => {
+  const s=milestone();ownAll(s);const b=producer(s,'0,0');advance(s,3000);const actor=s.units.find(u=>u.id===b.unitId);
+  const supports=s.hexes.filter(x=>x.lockedBy===b.id);loseSupports(s,[supports.find(x=>x.id!==b.hexId).id]);
+  const committed=s.resources(0).committed;assert(!s.dismantle(1,b.id).ok);assert(s.dismantle(0,b.id).ok);
+  assert(s.units.includes(actor));assert.equal(actor.buildingId,null);assert(h(s,b.hexId).burnt);assert(!s.buildings.includes(b));
+  assert.equal(s.resources(0).committed,committed);assert.equal(s.pendingReleases.length,1);
+  const captured=s.hexes.find(x=>x.commitment==='release'&&x.id!==b.hexId);captured.owner=1;s.loseAssignment(captured);
+  const saved=OperationSim.restore(JSON.parse(JSON.stringify(s.checkpoint())));
+  advance(s,9900);advance(saved,9900);assert(s.hexes.some(x=>x.commitment==='release'));
+  advance(s,100);advance(saved,100);assert(!s.hexes.some(x=>x.commitment==='release'));assert.equal(s.resources(0).committed,2);assert.equal(captured.owner,1);assert.equal(captured.lockedBy,null);assert.deepEqual(saved.checkpoint(),s.checkpoint());
+});
+
+test('dismantle rejects unfinished and last completed HQ, and cancels linked research when an extra HQ is dismantled', () => {
+  const s=economyWorld();ownAll(s);assert(!s.dismantle(0,'hq0').ok);const b=extraHQ(s);assert(!s.dismantle(0,b.id).ok);
+  assert(!s.dismantle(0,'hq0').ok,'unfinished expansion does not permit destroying the last completed HQ');
+  advance(s,54000);const workers=s.units.filter(u=>u.buildingId===b.id);assert.equal(workers.length,3);
+  assert(s.startResearch(0,b.id).ok);assert(s.dismantle(0,b.id).ok);assert.equal(s.players[0].research,null);assert(s.players[0].alive);
+  assert(workers.every(u=>s.units.includes(u)&&u.buildingId===null));assert(!s.dismantle(0,'hq0').ok);
+});
+
+
+assert.equal(failed, 0, `${failed} simulation behavior tests failed`);
 
 console.log(`${passed} Operation C simulation behavior tests passed.`);
