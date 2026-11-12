@@ -185,7 +185,9 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   // Every hit is reported with where it landed; the shield effect shows only while the shield holds.
   assert(hits.length > 1 && hits.every((h) => h.id === 2));
   assert(hits.slice(0, -1).every((h) => h.shielded), 'hits while the shield holds are shielded');
-  assert.equal(hits[hits.length - 1].shielded, false, 'the hit that reaches the hull is not');
+  // The breaking hit is shielded only if some shield was left to soak part of it.
+  assert.equal(hits[hits.length - 1].shielded, tune.ship.maxShield % tune.weapon.damage !== 0, 'the hit that reaches the hull');
+  near(tune.ship.maxHp - b.hp, hits.length * tune.weapon.damage - tune.ship.maxShield, 1e-9, 'overflow goes to the hull');
   assert(hits.every((h) => h.x < 1200 && Math.abs(h.y - 1000) < 40), 'impacts land on the side facing the shooter');
   assert.equal(b.shield, 0, 'shield emptied before the hull is touched');
   assert(b.hp < tune.ship.maxHp && b.hp > 0);
