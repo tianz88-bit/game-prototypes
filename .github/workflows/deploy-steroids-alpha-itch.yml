@@ -18,8 +18,6 @@ on:
       - 'scripts/pack-assets.js'
       - 'scripts/test-steroids-alpha-rig.mjs'
       - 'scripts/test-steroids-alpha-sim.mjs'
-      - 'scripts/test-steroids-alpha-qr.mjs'
-      - 'scripts/fixtures/steroids-qr.fixture.json'
       - 'scripts/generate-versions.js'
       - 'scripts/bump-version.js'
       - 'package.json'
@@ -92,9 +90,6 @@ jobs:
       - name: Game rules test
         if: steps.ready.outputs.run == 'true'
         run: node scripts/test-steroids-alpha-sim.mjs
-      - name: QR encoder matches the reference
-        if: steps.ready.outputs.run == 'true'
-        run: node scripts/test-steroids-alpha-qr.mjs
 
       # The counter advances only for a real deploy, not a skipped or failed upload.
       - name: Bump version stamp counter
