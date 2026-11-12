@@ -2,6 +2,8 @@
 
 Permanent public route: `/game-prototypes/prototypes/steroids-alpha-lab/`, directly below the live game on the hub. The lab starts from the canonical game calibration, gameplay tune and client tune. Browser drafts persist under `steroids-alpha:calibration-lab:v1`; importing/exporting JSON is supported. Load live settings reads the server's active version; bundled defaults are a fallback. The ship stage uses the approved reference rig/FFD and production movement step. Weapon rates/DPS are calculated; this is not a network/combat practice arena.
 
+Import settings accepts both Export all settings and Export calibration files. A calibration-only import changes the rig without replacing game stats or the draft's publishing baseline. It preserves authored four-facing offsets and validates the complete rig before applying anything. Invalid imports leave the current draft intact.
+
 ## Private publish path
 
 Fetch and pack production art, then prepare the lab art:

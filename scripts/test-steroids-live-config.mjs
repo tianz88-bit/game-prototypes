@@ -2,11 +2,27 @@ import assert from 'node:assert/strict';
 import {build} from 'esbuild';
 import {createHash,webcrypto} from 'node:crypto';
 import {createPublisher,WORKFLOW} from './steroids-lab-server.mjs';
-const result=await build({stdin:{contents:`export * from './prototypes/steroids-alpha/sim/liveConfig.ts';export * from './prototypes/steroids-alpha/server/src/configStore.ts';export * from './prototypes/steroids-alpha/server/src/configAuth.ts';export * from './prototypes/steroids-alpha/server/src/room.ts';export * from './prototypes/steroids-alpha/sim/protocol.ts';export * from './prototypes/steroids-alpha-lab/preview.ts';export {currentData} from './prototypes/steroids-alpha-lab/draft.ts';`,resolveDir:process.cwd(),loader:'ts'},bundle:true,platform:'node',format:'esm',write:false});
+const result=await build({stdin:{contents:`export * from './prototypes/steroids-alpha/sim/liveConfig.ts';export * from './prototypes/steroids-alpha/server/src/configStore.ts';export * from './prototypes/steroids-alpha/server/src/configAuth.ts';export * from './prototypes/steroids-alpha/server/src/room.ts';export * from './prototypes/steroids-alpha/sim/protocol.ts';export * from './prototypes/steroids-alpha-lab/preview.ts';export {currentData,importSettings,baseVersion} from './prototypes/steroids-alpha-lab/draft.ts';`,resolveDir:process.cwd(),loader:'ts'},bundle:true,platform:'node',format:'esm',write:false});
 const S=await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));
 const base=S.defaultConfig();assert.deepEqual(S.validateConfig(base),base);
 for(const mutate of [d=>d.tune.world.width++,d=>d.tune.net.tickHz++,d=>d.tune.ship.minSpeed=500,d=>d.tune.weapon.fireIntervalSteps=.5,d=>d.calibration.modules.canopy.order.left=2,d=>d.calibration.modules.cockpit.width=Infinity,d=>d.tune.asteroid.radius.push(2),d=>d.clientTune.render.partTextureMax=8]){const d=structuredClone(base);mutate(d);assert.throws(()=>S.validateConfig(d));}
 const edited=structuredClone(base);edited.tune.ship.maxSpeed=400;S.validateConfig(edited);
+// Exercise the real import handler: calibration-only export must preserve all edited poses and stats.
+const priorGlobals={document:globalThis.document,window:globalThis.window,localStorage:globalThis.localStorage};
+const draftStorage=new Map();let configEvents=0;
+globalThis.document={querySelector:()=>({textContent:''})};globalThis.window={dispatchEvent:()=>{configEvents++;}};globalThis.localStorage={setItem:(k,v)=>draftStorage.set(k,v)};
+try{
+ const original=structuredClone(S.currentData()),rig=structuredClone(original.calibration);
+ rig.modules.cockpit.offsets={up:{x:0,y:-50},right:{x:35,y:-20},down:{x:0,y:50},left:{x:-35,y:-20}};
+ const baselineVersion=S.baseVersion;
+ S.importSettings(JSON.parse(JSON.stringify(rig)));
+ assert.deepEqual(S.currentData().calibration,rig);assert.deepEqual(S.currentData().tune,original.tune);assert.deepEqual(S.currentData().clientTune,original.clientTune);assert.equal(S.baseVersion,baselineVersion);
+ const roundtrip=JSON.parse(JSON.stringify(S.currentData()));S.importSettings(roundtrip);assert.deepEqual(S.currentData(),roundtrip);
+ const reference=await import('../prototypes/steroids-alpha-lab/rig.mjs');
+ for(const angle of [0,45,90,135,180,225,270,315])for(const part of reference.modules)assert.deepEqual(reference.pose(part,angle,S.currentData().calibration),reference.pose(part,angle,rig),'Roundtrip preserves pose for '+part.id+' at '+angle);
+ const beforeBad=structuredClone(S.currentData()),events=configEvents;assert.throws(()=>S.importSettings({version:7,modules:{}}));assert.deepEqual(S.currentData(),beforeBad);assert.equal(configEvents,events);
+ assert.ok(draftStorage.size);S.importSettings(original);
+}finally{for(const [key,value]of Object.entries(priorGlobals)){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}}
 const input={accelerate:true,brake:false,left:false,right:false};
 S.resetPreview();const slow=S.advancePreview(0,input,1/30).speed;
 S.currentData().tune.ship.acceleration*=2;S.resetPreview();const fast=S.advancePreview(0,input,1/30).speed;

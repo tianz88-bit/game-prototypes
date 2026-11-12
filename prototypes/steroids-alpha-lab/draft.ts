@@ -1,5 +1,6 @@
 import { defaultConfig, validateConfig, parseRecord } from '../steroids-alpha/sim/liveConfig';
 import type { ConfigData } from '../steroids-alpha/sim/liveConfig';
+import { checkCalibration } from '../steroids-alpha/src/render/shipRig';
 
 export const CONFIG_URL = 'https://steroids-alpha-server.tianz-88.workers.dev/config';
 const STORAGE = 'steroids-alpha:calibration-lab:v1';
@@ -18,6 +19,14 @@ export function remember(): void {
 export function replace(next: unknown, version = baseVersion): void {
   draft = validateConfig(next); baseVersion = version;
   remember(); window.dispatchEvent(new Event('lab-config'));
+}
+/** Calibration exports contain only the rig. Keep the current game stats and baseline intact. */
+export function importSettings(value: unknown): void {
+  const rig = value as {version?:unknown;modules?:unknown} | null;
+  const calibrationOnly = !!rig && typeof rig === 'object' && 'version' in rig && 'modules' in rig;
+  if (calibrationOnly) checkCalibration(value);
+  replace(calibrationOnly ? {...draft, calibration:value} : value);
+  message(calibrationOnly ? 'Imported calibration. Game stats are unchanged; live settings are unchanged.' : 'Imported settings as a browser draft. Live settings are unchanged.');
 }
 export function download(value: unknown, name: string): void {
   const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' }));
@@ -77,7 +86,8 @@ export function mountDraft(): void {
   $('#publish').onclick = () => void publish().catch(e => message(e.message));
   (document.querySelector('#import') as HTMLInputElement).onchange = async e => {
     const file = (e.target as HTMLInputElement).files?.[0]; if (!file) return;
-    try { const value = JSON.parse(await file.text()); replace(value); message('Imported settings as a browser draft. Live settings are unchanged.'); } catch (error) { message((error as Error).message); }
+    try { importSettings(JSON.parse(await file.text())); } catch (error) { message((error as Error).message); }
+    finally { (e.target as HTMLInputElement).value = ''; }
   };
 }
 const friendly = (s: string): string => s.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, x=>x.toUpperCase());
