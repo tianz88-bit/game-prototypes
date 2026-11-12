@@ -319,7 +319,7 @@ export class Room {
   private broadcastRoster(): void {
     const players = [...this.players.values(), ...this.bots.values()];
     this.rosterKey = players.map((p) => `${p.id}:${Math.round(p.ship.hullMax)}:${p.kills}`).join(',');
-    this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.round(p.ship.hullMax) })) }));
+    this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.round(p.ship.hullMax), bot: this.bots.has(p.id) })) }));
   }
 
   /**

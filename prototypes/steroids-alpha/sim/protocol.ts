@@ -63,6 +63,8 @@ export interface RosterEntry {
   kills: number;
   /** Hull maximum (power, the minerals invested): the leaderboard ranks by this. */
   power: number;
+  /** Authoritative roster metadata; names never determine bot identity. Absent on older servers. */
+  bot?: boolean;
 }
 
 /** Player names: trimmed, printable, at most 16 characters; empty means none given. */

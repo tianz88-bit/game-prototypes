@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 codex codex/steroids-bot-readability
+DID: Authoritative diamond bot tags and quiet bot text/board styling; full graphics brief delivered and session status reconciled.
+FILES: src/scenes/flight.ts sim/protocol.ts server/src/room.ts scripts/test-steroids-live-config.mjs BUILD_STATUS.md GFX_BRIEF.md
+SEAM: optional roster.bot boolean from server-owned bot map; absent flag stays unmarked. Binary protocol remains 14; client + Worker deploy together. Gameplay/calibration unchanged.
+CROSS: protocol.ts/room.ts additive read-only bot metadata; live-config room test confirms a human named BOT Impostor remains bot:false.
+FOR claude: Typecheck/build/rig/sim/live-config pass; live two-client + four-bot flags verified, desktop/DPR2 bot/human-name-spoof fixtures inspected; zero errors, baseline pacing. Optional new physical power-tier modules remain an owner art decision.
+
 ## 2026-11-13 codex codex/steroids-vfx
 DID: Stylized explosion rays/smoke, clearer directional shield hits (8-hit render cap), square dash charge, boosted engine cores/streaks and beveled turrets; threats draw after explosions.
 FILES: src/render/{worldArt,shipView}.ts src/scenes/flight.ts
@@ -97,10 +104,3 @@ FILES: sim/ship.ts sim/world.ts tune.json src/scenes/flight.ts scripts/test-ster
 SEAM: none
 CROSS: none
 FOR codex: dash bar is a placeholder (flight.ts drawTouch, beside the heat bar).
-
-## 2026-11-12 claude dash-commit
-DID: no steering during dash boost; charge 0.8 s; boost 4.5 s (3x distance); cooldown 6 s. Confirmed ram damage hits shields first (test).
-FILES: sim/ship.ts sim/liveConfig.ts tune.json scripts/test-steroids-alpha-sim.mjs
-SEAM: none
-CROSS: none
-FOR codex: dash charge effect now lasts 0.8 s; boost trail lasts 4.5 s.
