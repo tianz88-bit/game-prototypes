@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 codex codex/steroids-variety-drones
+DID: Three asteroid outline/material families, three amber mineral forms, distinct lance/paired-tracer/drone rounds, and hovering weapon drones with detached shadows/animated stabilizers.
+FILES: src/render/worldArt.ts src/scenes/flight.ts src/net/client.ts
+SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
+CROSS: src/net/client.ts attaches a fixed cosmetic gun-side look to transient visual bullets; no wire or prediction changes.
+FOR claude: Typecheck/build/rig/sim pass; desktop/DPR2 variants inspected, two-client/bot pacing unchanged, zero errors. 900 outline cases enclose collision circles. Drone aim/muzzle slots and all combat tuning preserved.
+
 ## 2026-11-13 codex codex/steroids-bot-readability
 DID: Authoritative diamond bot tags and quiet bot text/board styling; full graphics brief delivered and session status reconciled.
 FILES: src/scenes/flight.ts sim/protocol.ts server/src/room.ts scripts/test-steroids-live-config.mjs BUILD_STATUS.md GFX_BRIEF.md
@@ -97,10 +104,3 @@ FILES: sim/ship.ts tune.json scripts/test-steroids-alpha-sim.mjs
 SEAM: none
 CROSS: none
 FOR codex: nothing.
-
-## 2026-11-12 claude dash-retune
-DID: dash = 0.8 s charge (steering locked) + 0.7 s boost at 4x top speed (steering free); cooldown 8 s; yellow dash bar by the heat bar; swept collision for rams/rocks.
-FILES: sim/ship.ts sim/world.ts tune.json src/scenes/flight.ts scripts/test-steroids-alpha-sim.mjs
-SEAM: none
-CROSS: none
-FOR codex: dash bar is a placeholder (flight.ts drawTouch, beside the heat bar).
