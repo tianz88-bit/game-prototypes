@@ -42,6 +42,43 @@ export interface ShipInput {
   fire: boolean;
 }
 
+/**
+ * Power: minerals are the hull. A ship starts at ship.maxHp and grows by collecting minerals up to
+ * ship.powerCap. Growth has diminishing returns (square root): guns hit harder, but the ship gets
+ * slower and bigger (an easier target). Every mineral also raises the shield's maximum.
+ * Returns 0 for a fresh ship and 1 at the cap.
+ */
+export function powerLevel(hp: number, tune: Tune): number {
+  const base = tune.ship.maxHp;
+  const span = tune.ship.powerCap - base;
+  if (span <= 0) return 0;
+  return Math.sqrt(Math.max(0, Math.min(1, (hp - base) / span)));
+}
+
+/** Top speed (and dash speed) after the power penalty. Never below the minimum speed. */
+export function topSpeed(hp: number, tune: Tune): number {
+  return Math.max(tune.ship.minSpeed, tune.ship.maxSpeed * (1 - tune.ship.speedPenaltyAtCap * powerLevel(hp, tune)));
+}
+
+export function dashSpeed(hp: number, tune: Tune): number {
+  return Math.max(tune.ship.minSpeed, tune.ship.dashSpeed * (1 - tune.ship.speedPenaltyAtCap * powerLevel(hp, tune)));
+}
+
+/** Hit radius: bigger ships are easier to hit and to ram with. */
+export function shipRadius(hp: number, tune: Tune): number {
+  return tune.ship.radius * (1 + tune.ship.radiusBonusAtCap * powerLevel(hp, tune));
+}
+
+/** Gun damage multiplier from power. */
+export function damageScale(hp: number, tune: Tune): number {
+  return 1 + tune.ship.damageBonusAtCap * powerLevel(hp, tune);
+}
+
+/** Shield maximum: the base shield plus one point per mineral above the starting hull. */
+export function maxShield(hp: number, tune: Tune): number {
+  return tune.ship.maxShield + Math.max(0, Math.min(hp, tune.ship.powerCap) - tune.ship.maxHp);
+}
+
 export function newShip(x: number, y: number, heading: number, speed: number): ShipState {
   return { x, y, heading, speed, dashTime: 0, dashCd: 0, hp: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0 };
 }
@@ -67,8 +104,9 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune)
   }
   const thrust = Math.max(-1, Math.min(1, input.thrust));
   s.speed += thrust * (thrust > 0 ? tune.ship.acceleration : tune.ship.braking) * dt;
-  s.speed = Math.max(tune.ship.minSpeed, Math.min(tune.ship.maxSpeed, s.speed));
-  const speed = s.dashTime > 0 ? Math.max(tune.ship.dashSpeed, s.speed) : s.speed;
+  // Power makes a ship slower: both caps come down as it grows.
+  s.speed = Math.max(tune.ship.minSpeed, Math.min(topSpeed(s.hp, tune), s.speed));
+  const speed = s.dashTime > 0 ? Math.max(dashSpeed(s.hp, tune), s.speed) : s.speed;
   s.dashTime = Math.max(0, s.dashTime - dt);
   s.dashCd = Math.max(0, s.dashCd - dt);
 
@@ -101,12 +139,14 @@ export function muzzleShot(s: ShipState, tune: Tune): Shot {
   const side = s.shots % 2 === 1 ? 1 : -1;
   const c = Math.cos(s.heading);
   const sn = Math.sin(s.heading);
-  const f = tune.weapon.muzzleForward;
-  const l = tune.weapon.muzzleSide * side;
+  // The guns grow with the ship (see shipRadius), so shots still leave from the drawn wing tips.
+  const grow = shipRadius(s.hp, tune) / tune.ship.radius;
+  const f = tune.weapon.muzzleForward * grow;
+  const l = tune.weapon.muzzleSide * grow * side;
   const v = tune.weapon.bulletSpeed + s.speed;
   // The guns sit out on the wings, so each is angled slightly inward: the two streams cross at
   // convergeDistance ahead of the nose instead of passing either side of a target dead ahead.
-  const dir = s.heading - side * Math.atan2(tune.weapon.muzzleSide, tune.weapon.convergeDistance);
+  const dir = s.heading - side * Math.atan2(tune.weapon.muzzleSide * grow, tune.weapon.convergeDistance);
   return {
     x: wrap(s.x + c * f - sn * l, tune.world.width),
     y: wrap(s.y + sn * f + c * l, tune.world.height),

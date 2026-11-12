@@ -60,19 +60,18 @@ export class Room {
   /** Game rules for this planet: ships, bullets, asteroids. Its tick is the room's clock. */
   private world: World;
 
-  /** shipHp overrides ship.maxHp for local test runs only (see TEST_SHIP_HP in index.ts). */
+  /** shipHp (any value) makes ships take no damage, for local test runs only (see TEST_SHIP_HP in index.ts). */
   private config:ConfigRecord=bundledRecord();
   private tune=structuredClone(TUNE);
   constructor(private shipHp?: number, private refreshConfig:()=>void=()=>{}) {
-    if(shipHp)this.tune.ship.maxHp=shipHp;
     this.world = new World(this.tune);
+    if(shipHp)this.world.invulnerable=true;
   }
   /** Called between fixed ticks. Announce a complete version before its new snapshots. */
   applyConfig(record:ConfigRecord):void{
     if(record.version===this.config.version)return;
     this.config=record;
     for(const group of ['ship','weapon','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
-    if(this.shipHp)this.tune.ship.maxHp=this.shipHp;
     for(const p of this.players.values()){
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
       p.ship.hp=Math.min(this.tune.ship.maxHp,p.ship.hp);
@@ -112,7 +111,7 @@ export class Room {
     this.send(player,JSON.stringify({type:'config',record:this.config}));
     this.send(player, encodeWelcome(id, this.tick));
     this.send(player, encodeAsteroids([...this.world.asteroids.values()]));
-    this.send(player, JSON.stringify({ type: 'pickups', add: [...this.world.pickups.values()].map(({ id, x, y }) => ({ id, x, y })), remove: [] }));
+    this.send(player, JSON.stringify({ type: 'pickups', add: [...this.world.pickups.values()].map(({ id, x, y, kind, value }) => ({ id, x, y, kind, value })), remove: [] }));
     this.send(player, this.snapshotFor(player));
     this.broadcastRoster();
     this.start();
@@ -222,6 +221,11 @@ export class Room {
         if (killer && !dead.has(killer.id)) killer.kills++;
       }
     }
+    // Power changes all the time; the leaderboard hears about it twice a second at most.
+    if (this.tick % Math.max(1, Math.round(this.tune.net.tickHz / 2)) === 0) {
+      const key = [...this.players.values()].map((p) => `${p.id}:${Math.round(p.ship.hp)}`).join(',');
+      if (key !== this.rosterKey) this.broadcastRoster();
+    }
     if (this.tick % this.snapshotEvery === 0 || dead.size) {
       for (const p of this.players.values()) {
         if (this.tick % this.snapshotEvery === 0 || dead.has(p.id)) this.send(p, this.snapshotFor(p));
@@ -240,9 +244,12 @@ export class Room {
     }
   }
 
-  /** Names and kills for the leaderboard and name tags. */
+  /** Names, kills and power (hull, i.e. minerals carried) for the leaderboard and name tags. */
+  private rosterKey = '';
   private broadcastRoster(): void {
-    this.broadcast(JSON.stringify({ type: 'roster', players: [...this.players.values()].map((p) => ({ id: p.id, name: p.name, kills: p.kills })) }));
+    const players = [...this.players.values()];
+    this.rosterKey = players.map((p) => `${p.id}:${Math.round(p.ship.hp)}`).join(',');
+    this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.round(p.ship.hp) })) }));
   }
 
   private broadcast(buf: ArrayBuffer | string): void {

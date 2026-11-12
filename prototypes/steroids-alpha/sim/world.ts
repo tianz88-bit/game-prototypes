@@ -2,7 +2,7 @@
 // Pure game rules with no networking, so it runs in the Cloudflare room and in Node tests alike.
 // The room steps each ship with its input, then calls step() once per tick and sends out the events.
 import type { Tune } from './tune';
-import { muzzleShot, newShip, stepShip } from './ship';
+import { damageScale, maxShield, muzzleShot, newShip, shipRadius, stepShip } from './ship';
 import type { ShipInput, ShipState } from './ship';
 import { asteroidMass, asteroidPos, splitAsteroid } from './asteroids';
 import type { Asteroid } from './asteroids';
@@ -10,6 +10,8 @@ import { wrap, wrapDelta } from './wrap';
 
 interface Bullet {
   owner: number;
+  /** Damage, fixed when fired from the shooter's power at that moment. */
+  damage: number;
   x: number;
   y: number;
   vx: number;
@@ -26,11 +28,16 @@ export interface ShotEvent {
   side: number;
 }
 
-/** A health boost lying on the planet. */
+/**
+ * Something lying on the planet to fly into: a health boost (heals), or minerals (value points of
+ * hull and shield; dropped by asteroids and spilled by damaged or destroyed ships).
+ */
 export interface Pickup {
   id: number;
   x: number;
   y: number;
+  kind: 'heal' | 'mineral';
+  value: number;
 }
 
 export interface DeathEvent {
@@ -66,12 +73,15 @@ export class World {
   /** Steps of contact immunity left per ship. */
   private grace = new Map<number, number>();
   private nextAsteroidId = 1;
-  readonly pickups = new Map<number, Pickup & { expires: number }>();
+  /** from: the ship that spilled it, which cannot take it back until lockedUntil (a tick). */
+  readonly pickups = new Map<number, Pickup & { expires: number; from: number; lockedUntil: number }>();
   private nextPickupId = 1;
   /** Tick of the last damage each ship took, for shield regeneration. */
   private lastHit = new Map<number, number>();
   private events: WorldEvents = noEvents();
   private readonly dt: number;
+  /** Test servers only (TEST_SHIP_HP): ships take no damage, so a browser check can fly freely. */
+  invulnerable = false;
 
   constructor(
     private readonly tune: Tune,
@@ -121,7 +131,7 @@ export class World {
     stepShip(s, input, this.dt, this.tune);
     if (s.shots !== before) {
       const shot = muzzleShot(s, this.tune);
-      this.bullets.push({ owner: id, x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: this.tune.weapon.bulletLifeSteps });
+      this.bullets.push({ owner: id, damage: this.tune.weapon.damage * damageScale(s.hp, this.tune), x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: this.tune.weapon.bulletLifeSteps });
       this.events.shots.push({ owner: id, ...shot });
     }
   }
@@ -150,7 +160,7 @@ export class World {
         for (const a of this.asteroids.values()) {
           const p = pos.get(a.id);
           if (!p || !hits(b.x, b.y, p.x, p.y, t.asteroid.radius[a.size] + t.weapon.bulletRadius)) continue;
-          this.damageAsteroid(a, p, t.weapon.damage, b.vx, b.vy, pos);
+          this.damageAsteroid(a, p, b.damage, b.vx, b.vy, pos);
           spent = true;
           break;
         }
@@ -158,8 +168,8 @@ export class World {
       if (!spent) {
         for (const [id, s] of this.ships) {
           if (id === b.owner || s.hp <= 0) continue;
-          if (!hits(b.x, b.y, s.x, s.y, t.ship.radius + t.weapon.bulletRadius)) continue;
-          this.damageShip(id, s, t.weapon.damage, b.owner, b.x, b.y);
+          if (!hits(b.x, b.y, s.x, s.y, shipRadius(s.hp, t) + t.weapon.bulletRadius)) continue;
+          this.damageShip(id, s, b.damage, b.owner, b.x, b.y);
           spent = true;
           break;
         }
@@ -179,7 +189,8 @@ export class World {
       if (s.hp <= 0) continue;
       for (const a of this.asteroids.values()) {
         const p = pos.get(a.id);
-        if (!p || !hits(s.x, s.y, p.x, p.y, t.asteroid.radius[a.size] + t.ship.radius)) continue;
+        const sr = shipRadius(s.hp, t);
+        if (!p || !hits(s.x, s.y, p.x, p.y, t.asteroid.radius[a.size] + sr)) continue;
         let dx = wrapDelta(p.x, s.x, W);
         let dy = wrapDelta(p.y, s.y, H);
         const len = Math.hypot(dx, dy);
@@ -190,7 +201,7 @@ export class World {
           dx /= len;
           dy /= len;
         }
-        this.damageShip(id, s, t.asteroid.contactDamage[a.size], 0, wrap(s.x + dx * t.ship.radius, W), wrap(s.y + dy * t.ship.radius, H));
+        this.damageShip(id, s, t.asteroid.contactDamage[a.size], 0, wrap(s.x + dx * sr, W), wrap(s.y + dy * sr, H));
         s.kx = -dx * t.ship.knockbackSpeed;
         s.ky = -dy * t.ship.knockbackSpeed;
         this.destroyAsteroid(a, p, t.asteroid.ramDamage, dx, dy, pos);
@@ -199,14 +210,20 @@ export class World {
       }
     }
 
-    // Health boosts: the first ship to touch one is healed; unclaimed ones fade away.
+    // Pickups: the first ship to touch one takes it; unclaimed ones fade away. A health boost heals a
+    // share of the starting hull; minerals add their value to hull and shield, up to the power cap.
     for (const k of this.pickups.values()) {
       let by = 0;
       if (this.tick >= k.expires) by = -1;
       else {
         for (const [id, s] of this.ships) {
-          if (s.hp <= 0 || !hits(s.x, s.y, k.x, k.y, t.asteroid.pickupRadius + t.ship.radius)) continue;
-          s.hp = Math.min(t.ship.maxHp, s.hp + t.ship.maxHp * t.asteroid.healthHealFraction);
+          if (s.hp <= 0 || (id === k.from && this.tick < k.lockedUntil)) continue;
+          if (!hits(s.x, s.y, k.x, k.y, t.asteroid.pickupRadius + shipRadius(s.hp, t))) continue;
+          if (k.kind === 'heal') s.hp = Math.min(t.ship.powerCap, s.hp + t.ship.maxHp * t.asteroid.healthHealFraction);
+          else {
+            s.hp = Math.min(t.ship.powerCap, s.hp + k.value);
+            s.shield = Math.min(maxShield(s.hp, t), s.shield + k.value);
+          }
           by = id;
           break;
         }
@@ -220,9 +237,12 @@ export class World {
     // Shields come back after a quiet spell.
     const quiet = Math.round(t.ship.shieldRegenDelaySeconds * t.net.tickHz);
     for (const [id, s] of this.ships) {
-      if (s.hp <= 0 || s.shield >= t.ship.maxShield) continue;
+      const top = maxShield(s.hp, t);
+      // Losing hull also lowers the shield's maximum.
+      if (s.shield > top) s.shield = top;
+      if (s.hp <= 0 || s.shield >= top) continue;
       if (this.tick - (this.lastHit.get(id) ?? -Infinity) < quiet) continue;
-      s.shield = Math.min(t.ship.maxShield, s.shield + t.ship.maxShield * t.ship.shieldRegenPerSecond * this.dt);
+      s.shield = Math.min(top, s.shield + top * t.ship.shieldRegenPerSecond * this.dt);
     }
 
     if (this.tick % t.net.tickHz === 0) this.populate();
@@ -249,10 +269,45 @@ export class World {
     if (s.hp <= 0) return;
     this.lastHit.set(id, this.tick);
     this.events.hits.push({ id, x: atX, y: atY, shielded: s.shield > 0 });
+    if (this.invulnerable) return;
     const absorbed = Math.min(s.shield, damage);
     s.shield -= absorbed;
+    const before = s.hp;
     s.hp = Math.max(0, s.hp - (damage - absorbed));
+    // Hull is minerals: some of what is knocked off spills where the ship is, for anyone to collect.
+    // A destroyed ship loses everything and spills a share of all it carried.
+    const t = this.tune;
+    const spill = s.hp === 0 ? before * t.ship.deathSpillFraction : (before - s.hp) * t.ship.hullSpillFraction;
+    this.spillMinerals(s.x, s.y, spill, s.hp === 0 ? 90 : 40, id);
     if (s.hp === 0) this.events.deaths.push({ id, x: s.x, y: s.y, killer: attacker });
+  }
+
+  /** Drop value points of minerals around (x, y), in a few chunks scattered within reach. */
+  private spillMinerals(x: number, y: number, value: number, reach: number, from = 0): void {
+    const t = this.tune;
+    if (value < 1) return;
+    const chunks = Math.min(t.asteroid.mineralChunksMax, Math.ceil(value / t.asteroid.mineralChunkValue));
+    const each = value / chunks;
+    for (let i = 0; i < chunks; i++) {
+      const a = this.rng() * Math.PI * 2;
+      const d = (chunks === 1 ? 0 : 0.4 + this.rng() * 0.6) * reach;
+      this.addPickup(wrap(x + Math.cos(a) * d, t.world.width), wrap(y + Math.sin(a) * d, t.world.height), 'mineral', each, from);
+    }
+  }
+
+  private addPickup(x: number, y: number, kind: Pickup['kind'], value: number, from = 0): void {
+    const t = this.tune;
+    // Keep the planet from filling with pickups: the oldest go first.
+    if (this.pickups.size >= t.asteroid.pickupsMax) {
+      const oldest = this.pickups.keys().next().value as number;
+      this.pickups.delete(oldest);
+      this.events.pickupsGone.push({ id: oldest, by: 0 });
+    }
+    const id = this.nextPickupId;
+    this.nextPickupId = this.nextPickupId >= 0xffff ? 1 : this.nextPickupId + 1;
+    const k = { id, x, y, kind, value: Math.round(value * 10) / 10, expires: this.tick + Math.round(t.asteroid.pickupLifeSeconds * t.net.tickHz), from, lockedUntil: this.tick + Math.round(t.ship.spillLockSeconds * t.net.tickHz) };
+    this.pickups.set(id, k);
+    this.events.pickups.push({ id, x, y, kind, value: k.value });
   }
 
   /** Smash an asteroid outright (a ship flew into it): it splits as if this hit had destroyed it. */
@@ -270,12 +325,9 @@ export class World {
     this.asteroids.delete(a.id);
     pos.delete(a.id);
     this.events.gone.push({ id: a.id, x: at.x, y: at.y });
-    if (this.rng() < this.tune.asteroid.healthDropChance) {
-      const k = { id: this.nextPickupId, x: at.x, y: at.y, expires: this.tick + Math.round(this.tune.asteroid.pickupLifeSeconds * this.tune.net.tickHz) };
-      this.nextPickupId = this.nextPickupId >= 0xffff ? 1 : this.nextPickupId + 1;
-      this.pickups.set(k.id, k);
-      this.events.pickups.push({ id: k.id, x: k.x, y: k.y });
-    }
+    // Every destroyed asteroid leaves minerals; sometimes a health boost as well.
+    this.spillMinerals(at.x, at.y, this.tune.asteroid.mineralYield[a.size], this.tune.asteroid.radius[a.size] * 0.5);
+    if (this.rng() < this.tune.asteroid.healthDropChance) this.addPickup(at.x, at.y, 'heal', 0);
     for (const child of splitAsteroid(a, at, dirX, dirY, damage, this.tick, () => this.newAsteroidId(), this.rng, this.tune)) {
       this.asteroids.set(child.id, child);
       pos.set(child.id, { x: child.x, y: child.y });

@@ -2,7 +2,10 @@
 
 Owner calibration ffc177fd2833 is live (12 November2026), with exact JSON readback and unchanged game/render stats. Hosted publishing is prepared and closed pending owner approval of Cloudflare Access; local publisher remains stopped.
 
-Combat feel batch done and adjusted after the owner's play sessions: dash
+.io power loop in: minerals from asteroids are the hull, raise the shield
+maximum, spill when hit, and make ships hit harder but slower and bigger,
+with a cap; the leaderboard ranks by power. Before that, combat feel was
+adjusted after the owner's play sessions: dash
 back (0.5 s at 450 px/s, top speed 350), faster shield regen, asteroid
 outlines matched to their hitboxes, longer plume at top speed, pilot counts
 on planet select, the pilot name typeable on phones, leaderboard chips. Also in: explosion and death screen, marker-mode throttle, ramming,
@@ -70,6 +73,24 @@ server is live and the itch page is public and unlisted.
 - Thruster plume: longer (particles live longer and stretch) over the top
   quarter of the speed range, longest at max speed or in a dash; both engines
   run strong at max speed (`render.thrusterTopSpeedStretch`, 1 = twice as long).
+- Power (owner idea, Claude's balance; all in `tune.json`):
+  - Hull = minerals. Start 50 (`ship.maxHp`), cap 500 (`ship.powerCap`).
+    Asteroids drop 5/3/2 minerals by size (`asteroid.mineralYield`), so a
+    whole large rock is worth 19. A bot farming alone went 50 to 191 in 70 s.
+  - Shield maximum = 50 + minerals above the start (500 at the cap). Regen
+    is 20% of the maximum per second after 5 s quiet.
+  - Growth level is the square root of how far to the cap. At the cap: guns
+    x2 (`damageBonusAtCap` 1), top and dash speed -30% (350 to 245,
+    `speedPenaltyAtCap`), hit radius and drawn size +50% (`radiusBonusAtCap`).
+    Guns move out with the size, so shots leave the drawn wing tips.
+  - Hull damage spills 50% of the hull lost (`hullSpillFraction`); death
+    spills 50% of everything (`deathSpillFraction`). Spills are locked to
+    the victim for 3 s (`spillLockSeconds`). Chunks of about 5, at most 12
+    per spill, at most 200 pickups on a planet (oldest go first).
+  - HUD: "POWER n" over the bars. The hull bar is measured against the most
+    you carried this life. Leaderboard chips show and rank by power.
+  - `TEST_SHIP_HP` now just makes ships take no damage (local checks only);
+    a huge hull would have counted as maximum power.
 - Planet select shows "N pilots" under each planet, from a new Worker route
   `GET /planets`, refreshed every 5 s (`net.planetCountRefreshMs`).
 - Pilot name: typed on the menu, saved in `steroids-alpha:save:v1`, sent
@@ -120,20 +141,24 @@ server is live and the itch page is public and unlisted.
   the gun mounts are wider than a small asteroid or a ship.
 - A new ship drops in at the candidate point farthest from any asteroid and
   has two seconds of contact immunity.
-- Protocol version is 7 (5 added shield, knockback and the JSON frames for
-  roster, deaths, hits and pickups; 6 removed the dash; 7 restored it). Client and server deploy together;
+- Protocol version is 8 (5 added shield, knockback and the JSON frames; 6
+  removed the dash; 7 restored it; 8 added power to the roster and
+  kind/value to pickups). Client and server deploy together;
   old clients reload once. Validated live settings still need no rebuild.
 - Live settings published before the shield existed are upgraded on load
   (`upgradeConfig` in `sim/liveConfig.ts`): missing new fields are filled
   from the bundled values, removed ones (such as the dash) are dropped, and
   an old hull is split half hull, half shield.
-- `TEST_SHIP_HP` (a `--var` on `wrangler dev`) raises ship hull points for the
+- `TEST_SHIP_HP` (a `--var` on `wrangler dev`) makes ships take no damage for the
   local browser check only. Unset in production.
 - Weapon, asteroid and speed values in tune.json are first values, not tuned
   by playing.
 
 ## Open questions
 
+- Power balance is a first pass (owner delegated it). It's untested with
+  real players: snowballing, how hard a capped ship is to kill (1000 hull
+  and shield at the cap), and how fast the cap comes.
 - The phone name fix is verified with emulated touch taps in Chromium, not
   yet on a real iPhone or Android keyboard.
 - Frame rate of the planet shader on real phones is unmeasured. It does the

@@ -92,6 +92,7 @@ if (DEBUG) {
       deathButtons: () => flight()?.deathButtonZones() ?? [],
       explosions: () => flight()?.explosionCount() ?? 0,
       pickups: () => flight()?.net.pickups.size ?? 0,
+      pickupList: () => [...(flight()?.net.pickups.values() ?? [])],
       shieldHits: () => flight()?.shieldHitCount ?? 0,
       /** Debug only: an explosion at your ship, to review the effect. */
       boom: () => flight()?.debugExplosion(),

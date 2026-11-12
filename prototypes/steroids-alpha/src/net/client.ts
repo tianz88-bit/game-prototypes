@@ -36,6 +36,7 @@ export type NetFx =
   | { kind: 'spark'; x: number; y: number }
   | { kind: 'explosion'; x: number; y: number }
   | { kind: 'heal'; x: number; y: number }
+  | { kind: 'mineral'; x: number; y: number }
   | { kind: 'shield'; id: number; x: number; y: number };
 
 interface Timed {
@@ -71,7 +72,7 @@ export class NetClient {
   /** Names and kills of everyone on the planet, by id. */
   roster = new Map<number, RosterEntry>();
   /** Health boosts lying on the planet. */
-  readonly pickups = new Map<number, { id: number; x: number; y: number }>();
+  readonly pickups = new Map<number, { id: number; x: number; y: number; kind: 'heal' | 'mineral'; value: number }>();
   /** Set when our own ship is destroyed: where, and who did it (0 = an asteroid). */
   death: { x: number; y: number; killer: number; killerName: string } | null = null;
   /** Every asteroid on the planet, by id. */
@@ -147,7 +148,7 @@ export class NetClient {
   }
 
   /** Roster, deaths and pickups arrive as JSON text frames. */
-  private handleText(msg: { type?: string; hits?: { id: number; x: number; y: number; shielded: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number }[]; remove?: { id: number; by: number }[] }): void {
+  private handleText(msg: { type?: string; hits?: { id: number; x: number; y: number; shielded: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral'; value: number }[]; remove?: { id: number; by: number }[] }): void {
     if (msg.type === 'roster' && Array.isArray(msg.players)) {
       this.roster = new Map(msg.players.map((p) => [p.id, p]));
     } else if (msg.type === 'deaths' && Array.isArray(msg.deaths)) {
@@ -163,7 +164,7 @@ export class NetClient {
       for (const g of msg.remove ?? []) {
         const k = this.pickups.get(g.id);
         this.pickups.delete(g.id);
-        if (k && g.by) this.fx.push({ kind: 'heal', x: k.x, y: k.y });
+        if (k && g.by) this.fx.push({ kind: k.kind === 'mineral' ? 'mineral' : 'heal', x: k.x, y: k.y });
       }
     }
   }

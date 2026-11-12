@@ -2,7 +2,7 @@
 //
 // Needs the server and a client build running first:
 //   npx --yes wrangler@4.143.0 dev --config prototypes/steroids-alpha/server/wrangler.jsonc --ip 127.0.0.1 --port 8787 --var TEST_SHIP_HP:100000
-//   (TEST_SHIP_HP keeps the test ships alive through asteroid hits; deaths are covered by test-steroids-alpha-sim.mjs)
+//   (any TEST_SHIP_HP makes test ships take no damage; deaths are covered by test-steroids-alpha-sim.mjs)
 //   npm run build && npx vite preview --host 127.0.0.1 --port 4173 --strictPort
 // Then:
 //   node scripts/screenshot-steroids-alpha.mjs http://127.0.0.1:4173/prototypes/steroids-alpha/ <output-dir>

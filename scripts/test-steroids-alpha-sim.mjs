@@ -221,7 +221,7 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   assert.equal(a.hp, tune.ship.maxHp);
 }
 
-// --- Health boosts: dropped by destroyed asteroids, heal 25% of the hull, capped; expire unclaimed. ---
+// --- Pickups: destroyed asteroids drop minerals (by size) and sometimes a health boost. ---
 {
   const t = { ...tune, asteroid: { ...tune.asteroid, targetMass: 0, healthDropChance: 1 } };
   const w = new S.World(t, rng(5));
@@ -229,31 +229,106 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   const s = placeShip(w, 1, 1000, 1000, 0);
   s.speed = 0;
   w.tune.ship.minSpeed = 0;
-  const r = rock(w, 2, 1300, 1000, 0, 0, 1);
+  const r = rock(w, 2, 1300, 1000, 0, 0, 2);
   let pickups = [];
   for (let i = 0; i < 120 && w.asteroids.has(r.id); i++) {
     w.stepShip(1, { ...idle, fire: true, thrust: -1 });
     w.step();
     pickups.push(...w.drain().pickups);
   }
-  assert.equal(pickups.length, 1, 'a destroyed asteroid dropped a health boost');
+  const heals = pickups.filter((k) => k.kind === 'heal');
+  const minerals = pickups.filter((k) => k.kind === 'mineral');
+  assert.equal(heals.length, 1, 'a destroyed asteroid dropped a health boost');
+  near(minerals.reduce((m, k) => m + k.value, 0), tune.asteroid.mineralYield[2], 0.2, 'and its size of minerals');
+  // A health boost heals 25% of the starting hull.
   s.hp = 10;
-  s.x = pickups[0].x; s.y = pickups[0].y;
+  s.x = heals[0].x; s.y = heals[0].y;
+  for (const k of minerals) w.pickups.delete(k.id);
   w.step();
   const ev = w.drain();
-  near(s.hp, 10 + tune.ship.maxHp * tune.asteroid.healthHealFraction, 1e-9, 'heals 25% of the hull');
-  assert.deepEqual(ev.pickupsGone, [{ id: pickups[0].id, by: 1 }]);
-  // Capped at full hull.
+  near(s.hp, 10 + tune.ship.maxHp * tune.asteroid.healthHealFraction, 1e-9, 'heals 25% of the starting hull');
+  assert.deepEqual(ev.pickupsGone, [{ id: heals[0].id, by: 1 }]);
+  // Unclaimed pickups expire.
   const w2 = new S.World(t, rng(6));
   w2.drain();
-  const s2 = placeShip(w2, 1, 1000, 1000, 0);
-  w2.pickups.set(9, { id: 9, x: s2.x, y: s2.y, expires: w2.tick + 100 });
-  w2.step();
-  assert.equal(s2.hp, tune.ship.maxHp, 'never heals past full');
-  // Unclaimed boosts expire.
-  w2.pickups.set(10, { id: 10, x: 3500, y: 3500, expires: w2.tick + 3 });
+  w2.pickups.set(10, { id: 10, x: 3500, y: 3500, kind: 'heal', value: 0, from: 0, lockedUntil: 0, expires: w2.tick + 3 });
   for (let i = 0; i < 4; i++) w2.step();
   assert(!w2.pickups.has(10), 'expires when nobody takes it');
+}
+
+// --- Power: minerals are hull; each also raises the shield maximum; capped. ---
+{
+  const sh = tune.ship;
+  const w = emptyWorld();
+  const s = placeShip(w, 1, 1000, 1000, 0);
+  w.pickups.set(1, { id: 1, x: s.x, y: s.y, kind: 'mineral', value: 40, from: 0, lockedUntil: 0, expires: w.tick + 100 });
+  w.step();
+  assert.equal(s.hp, sh.maxHp + 40, 'minerals add hull');
+  assert.equal(S.maxShield(s.hp, tune), sh.maxShield + 40, 'and raise the shield maximum');
+  assert.equal(s.shield, sh.maxShield + 40, 'and fill that much shield');
+  w.pickups.set(2, { id: 2, x: s.x, y: s.y, kind: 'mineral', value: 100000, from: 0, lockedUntil: 0, expires: w.tick + 100 });
+  w.step();
+  assert.equal(s.hp, sh.powerCap, 'hull stops at the power cap');
+  assert.equal(S.maxShield(s.hp, tune), sh.maxShield + sh.powerCap - sh.maxHp);
+  // Scaling: nothing at the start, full effect at the cap, square-root growth in between.
+  assert.equal(S.powerLevel(sh.maxHp, tune), 0);
+  assert.equal(S.powerLevel(sh.powerCap, tune), 1);
+  near(S.powerLevel(sh.maxHp + (sh.powerCap - sh.maxHp) / 4, tune), 0.5, 1e-9, 'diminishing returns');
+  near(S.topSpeed(sh.powerCap, tune), sh.maxSpeed * (1 - sh.speedPenaltyAtCap), 1e-9, 'capped ship is slower');
+  near(S.shipRadius(sh.powerCap, tune), sh.radius * (1 + sh.radiusBonusAtCap), 1e-9, 'and bigger');
+  near(S.damageScale(sh.powerCap, tune), 1 + sh.damageBonusAtCap, 1e-9, 'and hits harder');
+  // A capped ship cannot reach the old top speed.
+  const fast = S.newShip(0, 0, 0, sh.maxSpeed);
+  fast.hp = sh.powerCap;
+  S.stepShip(fast, { ...idle, thrust: 1 }, 1 / tune.net.tickHz, tune);
+  near(fast.speed, S.topSpeed(sh.powerCap, tune), 1e-9, 'speed capped by power');
+  // Regen is a share of the (bigger) maximum: one quiet second refills shieldRegenPerSecond of it.
+  s.shield = 0;
+  for (let i = 0; i < tune.net.tickHz; i++) w.step();
+  near(s.shield, S.maxShield(s.hp, tune) * sh.shieldRegenPerSecond, S.maxShield(s.hp, tune) * 0.05, 'regen is a % of max shield');
+}
+
+// --- Spills: hull damage spills minerals the victim cannot take straight back; death spills a share of all. ---
+{
+  const sh = tune.ship;
+  const w = emptyWorld();
+  const a = placeShip(w, 1, 1000, 1000, 0);
+  const b = placeShip(w, 2, 1200, 1000, Math.PI / 2);
+  a.speed = b.speed = sh.minSpeed;
+  b.shield = 0;
+  b.hp = 200;
+  const added = [];
+  let killed = null;
+  for (let i = 0; i < 900 && !killed; i++) {
+    a.x = 1000; a.y = 1000; a.heading = 0;
+    b.x = 1200; b.y = 1000; b.shield = 0;
+    w.stepShip(1, { ...idle, fire: true });
+    w.step();
+    const ev = w.drain();
+    added.push(...ev.pickups);
+    if (ev.deaths.length) killed = ev.deaths[0];
+  }
+  assert(killed && killed.id === 2, 'b destroyed');
+  const spilled = added.reduce((m, k) => m + k.value, 0);
+  // Hull spills while alive (half of the 200 lost) plus half of what was left at the killing blow.
+  assert(spilled >= 200 * sh.hullSpillFraction * 0.8 && spilled <= 200, `spilled minerals (${spilled.toFixed(1)})`);
+  assert(added.every((k) => k.kind === 'mineral'));
+  // b was locked out of its own spill (it never grew back while being shot).
+  assert(w.pickups.size > 0);
+  // Bullets of a bigger ship hit harder.
+  const w2 = emptyWorld();
+  const big = placeShip(w2, 1, 1000, 1000, 0);
+  const tgt = placeShip(w2, 2, 1200, 1000, Math.PI / 2);
+  big.hp = sh.powerCap;
+  tgt.hp = sh.powerCap;
+  const full = S.maxShield(tgt.hp, tune);
+  tgt.shield = full;
+  for (let i = 0; i < 60 && tgt.shield === full; i++) {
+    big.x = 1000; big.y = 1000; big.heading = 0; tgt.x = 1200; tgt.y = 1000;
+    w2.stepShip(1, { ...idle, fire: true });
+    w2.step();
+  }
+  near(full - tgt.shield, tune.weapon.damage * (1 + sh.damageBonusAtCap), 1e-6, 'capped damage per hit');
 }
 
 // --- Older published live settings upgrade: missing fields filled; the hull pool split into hull + shield. ---
@@ -423,4 +498,4 @@ assert.equal(S.cleanName(null), '');
   assert(sh.dashCd > 0, 'dash on cooldown');
 }
 
-console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, ramming, health boosts, kill credit and settings upgrade all pass.');
+console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, minerals, spills, ramming, health boosts, kill credit and settings upgrade all pass.');

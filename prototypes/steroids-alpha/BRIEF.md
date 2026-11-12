@@ -153,7 +153,20 @@ All names, ships, pilots and art are original. Nothing is copied from either.
   pushed apart in opposite directions (owner decision). The ship still takes
   contact damage.
 - Health boost (owner decision): destroyed asteroids sometimes drop a pickup
-  that restores 25% of the hull.
+  that restores 25% of the starting hull.
+- Power, .io style (owner decisions, 12 November 2026):
+  - Minerals are the hull (one pool). Every destroyed asteroid drops
+    minerals by size; collecting them adds hull, up to a cap.
+  - Each mineral also adds a point to the shield maximum. Shield regen is a
+    percentage of the maximum.
+  - Hull damage spills part of what was lost as minerals anyone can collect
+    (the victim cannot take them straight back). Death loses everything and
+    spills a share for others.
+  - More power: guns hit harder, but the ship is slower (dash too) and bigger
+    (an easier target). Growth has diminishing returns and caps out.
+  - The leaderboard ranks by power.
+  - Arena only for now: minerals do not go to the stash.
+  - Balancing is Claude's call.
 - Destroyed ship (owner decision): it explodes, then the player chooses
   Respawn (same planet, fresh ship) or Menu.
 - Kills leaderboard on every planet (owner decision): one chip per player

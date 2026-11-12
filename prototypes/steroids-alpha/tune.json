@@ -35,7 +35,14 @@
     "radius": 26,
     "contactGraceSeconds": 0.5,
     "knockbackSpeed": 320,
-    "knockbackDecayPerSecond": 5
+    "knockbackDecayPerSecond": 5,
+    "powerCap": 500,
+    "damageBonusAtCap": 1,
+    "speedPenaltyAtCap": 0.3,
+    "radiusBonusAtCap": 0.5,
+    "hullSpillFraction": 0.5,
+    "deathSpillFraction": 0.5,
+    "spillLockSeconds": 3
   },
   "weapon": {
     "fireIntervalSteps": 4,
@@ -63,6 +70,10 @@
     "healthDropChance": 0.15,
     "healthHealFraction": 0.25,
     "pickupLifeSeconds": 20,
-    "pickupRadius": 34
+    "pickupRadius": 34,
+    "mineralYield": [5, 3, 2],
+    "mineralChunkValue": 5,
+    "mineralChunksMax": 12,
+    "pickupsMax": 200
   }
 }
