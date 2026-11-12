@@ -1,8 +1,10 @@
 ## Current milestone
 
+Codex graphics pass (13 November, PR #448): planet shader adds stationary craters/dust, channel banks, twilight colour and a stronger sunlit atmosphere. Typecheck, build, 396-pose rig parity and sim pass. Inspected Brave desktop 1280x720 and phone 844x390 DPR2, with two clients + four bots; no console errors after suppressing the missing favicon request. Headless frame pacing matches unchanged main (32.04 vs 32.06 FPS; both p95 31.6ms), which demonstrates no measured regression here, not 60 FPS phone hardware performance. The legacy browser harness fails its early keyboard-turn assertion on both builds; this is not a passing full gameplay check. GFX_BRIEF items 2-8 remain queued.
+
 Bounty tracker and in-flight missile lock crosshairs in (12 November). Graphics brief for Codex in GFX_BRIEF.md. Missiles and mines in (12 November): two new shop items with their own buttons and held, auto-refilling charges. Before that: bots on Planet A, dash retune, shop, overheat, aim assist.
 
-Owner calibration ffc177fd2833 is live (12 November2026), with exact JSON readback and unchanged game/render stats. Hosted publishing is prepared and closed pending owner approval of Cloudflare Access; local publisher remains stopped.
+Owner calibration ffc177fd2833 is live (12 November2026), with exact JSON readback and unchanged game/render stats. Hosted publishing has owner-approved Cloudflare Access configured for /manage/ and the owner email only; anonymous /manage/ redirects to sign-in, public /config and /health remain accessible. Real owner email-code sign-in and browser publish still await verification; local publisher remains stopped.
 
 Auto turrets in (1 per 100 minerals, max 4). .io power loop in: minerals from asteroids are the hull, raise the shield
 maximum, spill when hit, and make ships hit harder but slower and bigger,
@@ -20,7 +22,7 @@ server is live and the itch page is public and unlisted.
 ## What was implemented
 
 - Permanent Calibration & Balance Lab below the live itch link on the GitHub hub, with approved reference rig/FFD, shared movement preview, validated browser drafts, JSON import/export and allowlisted stat controls.
-- Hosted /manage/ owner publishing verifies Cloudflare Access signatures, issuer, audience, expiry and one owner. It remains closed until Access is configured. Existing GitHub OIDC workflow publishing remains unchanged. No local companion or browser write credential is needed.
+- Hosted /manage/ owner publishing verifies Cloudflare Access signatures, issuer, audience, expiry and one owner. Access is configured; a real owner email-code sign-in and publish still need verification. Existing GitHub OIDC workflow publishing remains unchanged. No local companion or browser write credential is needed.
 - Transactional PlanetConfig storage retains a content-hashed active version and ten prior versions, rejects stale publications, and delivers updates to rooms within 15 seconds. Config records precede new snapshots; prediction and rendering follow server-issued values without a game rebuild.
 - Input floods cannot buy extra movement steps; server queues, packet rates/sizes and sequence windows are bounded.
 
