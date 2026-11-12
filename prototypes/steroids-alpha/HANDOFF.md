@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-12 claude dash-1.8x
+DID: dash boost at 1.8x top speed (dashSpeedFactor 1.8); published live.
+FILES: tune.json
+SEAM: none
+CROSS: none
+FOR codex: nothing.
+
 ## 2026-11-12 claude dash-3x
 DID: dash boost at 3x top speed (dashSpeedFactor 3), 0.8 s; published live.
 FILES: tune.json
