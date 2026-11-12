@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 codex codex/steroids-asteroids
+DID: sunlit asteroid facets, inset pits, damage cracks, hard outline and split/impact debris.
+FILES: src/render/worldArt.ts src/scenes/flight.ts
+SEAM: none; existing rockShape/collision geometry, fx events and gameplay unchanged.
+CROSS: none (shared flight drawing only)
+FOR claude: typecheck/build/rig/sim pass; Brave desktop + DPR2 phone fixtures inspected; two clients + bots 32.04 FPS, p95 31.6ms, zero console errors. Remaining graphics work continues.
+
 ## 2026-11-13 codex PR #448
 DID: stationary craters/dust, sand banks, cool night/warm twilight and sunlit atmosphere, shader only; silence missing favicon request.
 FILES: src/render/planetGround.ts index.html BUILD_STATUS.md
@@ -98,9 +105,3 @@ SEAM: none (ShipState.speed can now exceed top speed briefly)
 CROSS: none
 FOR codex: plume can read speed > top speed during/after a dash (speedTrail clamps to 1).
 
-## 2026-11-12 claude share-qr
-DID: menu QR code of the itch page ("Scan to join"); tap copies the link (copy on pointerup via intents.copyZone). In-house QR encoder src/ui/qr.ts, verified vs python-qrcode.
-FILES: src/ui/qr.ts src/scenes/menu.ts src/input/intents.ts src/base.ts scripts/test-steroids-alpha-qr.mjs scripts/fixtures/steroids-qr.fixture.json .github/workflows/deploy-steroids-alpha-itch.yml
-SEAM: none
-CROSS: none
-FOR codex: menu QR panel is plain (white card + labels); restyle freely, keep the quiet zone (4 modules) and high contrast.
