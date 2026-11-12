@@ -683,7 +683,9 @@ export class FlightScene extends Phaser.Scene {
 
   /** The pilot's name, just under the ship's ring. */
   private placeTag(id: number, at: { x: number; y: number; scale: number; visible: boolean }, mine: boolean): void {
-    const name = this.net.roster.get(id)?.name;
+    const entry=this.net.roster.get(id);
+    const name=entry?.name;
+    const bot=entry?.bot===true;
     let tag = this.tags.get(id);
     if (!name) {
       tag?.setVisible(false);
@@ -693,7 +695,10 @@ export class FlightScene extends Phaser.Scene {
       tag = text(this, 0, 0, '', 11, mine ? '#9fefff' : '#ffc9a8').setOrigin(0.5, 0).setDepth(30);
       this.tags.set(id, tag);
     }
-    if (tag.text !== name) tag.setText(name);
+    const label=bot?`◇ ${name}`:name;
+    if (tag.text !== label) tag.setText(label);
+    const colour=mine?'#9fefff':bot?'#a9bdcf':'#ffc9a8';
+    if(tag.style.color!==colour)tag.setColor(colour);
     const below = (clientTune.render.shipRingRadius * clientTune.render.shipScale + 4) * at.scale;
     tag.setPosition(at.x, at.y + below).setVisible(at.visible);
   }
@@ -768,14 +773,18 @@ export class FlightScene extends Phaser.Scene {
       // The bounty holder's rank shows a gold star.
       const rankLabel = bounty ? '★' : `${rank + 1}`;
       if (chip.rankT.text !== rankLabel) chip.rankT.setText(rankLabel).setColor(bounty ? '#ffd23a' : '#8fa2c8');
-      if (chip.nameT.text !== r.name) {
-        chip.nameT.setText(r.name);
+      const displayName=r.bot===true?`◇ ${r.name}`:r.name;
+      const nameKey=displayName+':'+cw;
+      if (chip.nameKey !== nameKey) {
+        chip.nameKey=nameKey;
+        chip.nameT.setText(displayName);
         // Long names are cut to fit between the rank and the kills pill.
         const room = cw - 26 - 40 - 34;
-        let n = r.name;
+        let n = displayName;
         while (chip.nameT.width > room && n.length > 1) chip.nameT.setText((n = n.slice(0, -1)) + '…');
       }
-      chip.nameT.setColor(mine ? '#9fefff' : '#dfe8ff');
+      const colour=mine?'#9fefff':r.bot===true?'#a9bdcf':'#dfe8ff';
+      if(chip.nameT.style.color!==colour)chip.nameT.setColor(colour);
       if (chip.killsT.text !== `${r.power}`) chip.killsT.setText(`${r.power}`);
       // Player kills only (asteroids never score), next to the power pill.
       const frags = `${r.kills} KO`;
@@ -1042,6 +1051,7 @@ interface BoardChip {
   mine?: boolean;
   lastGlow?: number;
   bounty?: boolean;
+  nameKey?: string;
 }
 
 interface DrawnShip {

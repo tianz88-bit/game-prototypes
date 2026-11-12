@@ -1,6 +1,8 @@
 ## Current milestone
 
-Codex graphics pass (13 November, PR #448): planet shader adds stationary craters/dust, channel banks, twilight colour and a stronger sunlit atmosphere. Typecheck, build, 396-pose rig parity and sim pass. Inspected Brave desktop 1280x720 and phone 844x390 DPR2, with two clients + four bots; no console errors after suppressing the missing favicon request. Headless frame pacing matches unchanged main (32.04 vs 32.06 FPS; both p95 31.6ms), which demonstrates no measured regression here, not 60 FPS phone hardware performance. The legacy browser harness fails its early keyboard-turn assertion on both builds; this is not a passing full gameplay check. GFX_BRIEF items 2-8 remain queued.
+Graphics brief delivered (13 November): planet surface (#448), faceted/damaged asteroids (#449), crystal/medical pickups (#450), missiles/mines/lock cues (#451), bounty badges/trackers (#452), unified canvas UI and phone control clearance (#453), explosion/shield/dash/thruster/turret polish (#454), and authoritative bot markers in this change. Desktop 1280x720 and phone 844x390 DPR2 fixtures inspected per item; real relocated STEER taps pass. Typecheck/build/396-pose rig/sim and live-config validation pass. Two clients plus four bots keep the unchanged-main headless pacing (about 32 FPS, p95 31.6ms) with zero console/page errors. Real phone hardware performance remains unmeasured. The older full browser harness has an early keyboard-turn assertion failure reproduced on unchanged main; no claim that full suite passed. New physical power-tier ship modules remain an owner art decision.
+
+Agent Comms completed the owner-approved D1 CI-token update: existing token now has D1: Edit plus Workers Scripts: Edit, GitHub secret unchanged. Stash database 02a083da-e0b9-4ae8-9a7d-d7c0fa292b40 still has zero tables; no schema, binding or migration was created. Actual CI D1 execution awaits Claude's server persistence work.
 
 Bounty tracker and in-flight missile lock crosshairs in (12 November). Graphics brief for Codex in GFX_BRIEF.md. Missiles and mines in (12 November): two new shop items with their own buttons and held, auto-refilling charges. Before that: bots on Planet A, dash retune, shop, overheat, aim assist.
 
@@ -351,7 +353,7 @@ server is live and the itch page is public and unlisted.
 
 ## Next proposed step
 
-Codex works through GFX_BRIEF.md (planet surface, asteroids, power-ups, ordnance, UI). Owner plays missiles and mines and adjusts numbers through the live settings. Then FFD tilt through a Phaser mesh (the last missing piece of the approved rig),
+Owner reviews the delivered GFX_BRIEF pass and plays missiles/mines, adjusting gameplay numbers through live settings. Claude can proceed with D1 schema/binding/migrations and investigate the existing browser-harness assertion. Future art work: FFD tilt through a Phaser mesh (the last missing piece of the approved rig),
 then ground props with horizon clipping. Owner checks the planet
 view on a real phone for frame rate.
 

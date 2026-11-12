@@ -57,3 +57,9 @@ Lane: codex (render). Claude keeps the rules. Read COLLAB.md first. Log every pu
 
 - Any new raster art (rock sprites, crystal sprites, UI icons) is the owner's to make; Codex lists
   what would help most.
+
+## Delivered pass — 13 November 2026
+
+Items 1–7 delivered in PRs #448–454. Item 8 adds server-authoritative bot markers in this change; human names cannot opt into the bot marker. Existing turret tiers also use visible shop pips and polished mounts. New physical power-tier parts remain an owner art decision.
+
+Each item has inspected desktop/DPR2 phone captures and passing typecheck/build/rig/sim checks. Final live-config tests cover RGB boundaries, old settings migration and bot-name impersonation. Headless two-client + four-bot pacing matches the baseline (about 32 FPS, p95 31.6ms); real phone hardware remains to be measured. No new raster assets or gameplay tuning changes. The legacy full browser check retains a baseline-reproduced early keyboard-turn assertion failure; it is not reported as passing.
