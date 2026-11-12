@@ -7,6 +7,7 @@ import { TUNE } from '../../sim/tune';
 import { PLANETS } from '../../sim/planets';
 import type { PlanetId } from '../../sim/planets';
 import { maxShield, shipRadius } from '../../sim/ship';
+import { TURRET_MOUNTS, turretCount } from '../../sim/turrets';
 import type { ShipState } from '../../sim/ship';
 import { wrapDelta } from '../../sim/wrap';
 import { DEBUG, DEBUG_ROTATION, logicalSize } from '../base';
@@ -53,6 +54,9 @@ export class FlightScene extends Phaser.Scene {
   private board = new Map<number, BoardChip>();
   private boardTitle!: Phaser.GameObjects.Text;
   private powerText!: Phaser.GameObjects.Text;
+  /** Turrets, drawn over the ships. Aim per ship and turret comes from the shots the server reports. */
+  private turretGfx!: Phaser.GameObjects.Graphics;
+  private turretAim = new Map<number, { angle: number[]; firedAt: number[] }>();
   /** Most hull this ship has carried in this life (the hull bar's full mark). */
   private hullPeak = 0;
   /** Buttons on the death screen, in logical pixels. */
@@ -97,6 +101,7 @@ export class FlightScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(SPACE);
     this.ground = new PlanetGround(this, 1);
     this.world = this.add.graphics().setDepth(15);
+    this.turretGfx = this.add.graphics().setDepth(23);
     this.overlay = this.add.graphics().setDepth(900);
     const { w } = logicalSize();
     this.status = text(this, w / 2, 6, '', 12, '#b8c6e6').setOrigin(0.5, 0).setDepth(950);
@@ -134,6 +139,7 @@ export class FlightScene extends Phaser.Scene {
     this.view = { cx, cy, w, h, k: h / clientTune.render.referenceHeight };
     this.ground.update(w, h, this.view.k, this.frame);
 
+    this.turretGfx.clear();
     const alive = new Set<number>();
     if (own) {
       alive.add(this.net.myId);
@@ -149,11 +155,18 @@ export class FlightScene extends Phaser.Scene {
         this.ships.delete(id);
         this.tags.get(id)?.destroy();
         this.tags.delete(id);
+        this.turretAim.delete(id);
       }
     }
 
     for (const f of this.net.drainFx()) {
       if (f.kind === 'shot') this.ships.get(f.id)?.fire(f.side);
+      else if (f.kind === 'turret') {
+        let aim = this.turretAim.get(f.id);
+        if (!aim) this.turretAim.set(f.id, (aim = { angle: [], firedAt: [] }));
+        aim.angle[f.index] = f.angle;
+        aim.firedAt[f.index] = this.time.now;
+      }
       else if (f.kind === 'explosion') this.explosions.push(new Explosion(f.x, f.y));
       else if (f.kind === 'shield') {
         // Direction from the ship to the impact, on screen.
@@ -248,6 +261,48 @@ export class FlightScene extends Phaser.Scene {
     this.placeTag(id, at, mine);
     // Ships darken 30% on the night side (owner decision); asteroids and pickups only 10%.
     ship.update({ ...at, brightness: this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0 }, s, this.time.now);
+    this.drawTurrets(id, s, at);
+  }
+
+  /**
+   * Placeholder turrets: a small dome with a barrel on each earned mount. A turret points where it last
+   * fired and, after a quiet second, swings back to face forward. A short flash marks each shot.
+   */
+  private drawTurrets(id: number, s: ShipState, at: { x: number; y: number; scale: number; visible: boolean }): void {
+    const n = turretCount(s.hp, TUNE);
+    if (!n || !at.visible) return;
+    let aim = this.turretAim.get(id);
+    if (!aim) this.turretAim.set(id, (aim = { angle: [], firedAt: [] }));
+    const now = this.time.now;
+    const g = this.turretGfx;
+    const light = this.objectLight(clientTune.render.nightShipDim);
+    const c = Math.cos(s.heading);
+    const sn = Math.sin(s.heading);
+    // at.scale already includes the ship's growth; mounts are in base-size ship units.
+    const k = at.scale;
+    for (let i = 0; i < n; i++) {
+      const m = TURRET_MOUNTS[i];
+      const x = at.x + (c * m.forward - sn * m.right) * k;
+      const y = at.y + (sn * m.forward + c * m.right) * k;
+      const quiet = now - (aim.firedAt[i] ?? -1e9) > 1000;
+      const prev = aim.angle[i] ?? s.heading;
+      const want = quiet ? s.heading : prev;
+      const d = ((want - prev + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      const a = prev + d * 0.15;
+      aim.angle[i] = a;
+      const r = 5.5 * k;
+      const tint = (v: number): number => Math.round(v * light);
+      g.lineStyle(Math.max(2, 3 * k), (tint(0xcf) << 16) | (tint(0xd8) << 8) | tint(0xe6), 1);
+      g.lineBetween(x, y, x + Math.cos(a) * r * 2, y + Math.sin(a) * r * 2);
+      g.fillStyle((tint(0x3a) << 16) | (tint(0x4a) << 8) | tint(0x66), 1);
+      g.fillCircle(x, y, r);
+      g.lineStyle(1.5, (tint(0x9f) << 16) | (tint(0xef) << 8) | tint(0xff), 0.9);
+      g.strokeCircle(x, y, r);
+      if (now - (aim.firedAt[i] ?? -1e9) < 70) {
+        g.fillStyle(0xffffff, 0.9);
+        g.fillCircle(x + Math.cos(a) * r * 2.2, y + Math.sin(a) * r * 2.2, r * 0.6);
+      }
+    }
   }
 
   private drawTouch(w: number, h: number): void {
@@ -491,11 +546,11 @@ export class FlightScene extends Phaser.Scene {
       g.strokePoints(pts, true);
     }
     for (const b of this.net.bullets) {
-      const len = 0.018;
+      const len = b.small ? 0.012 : 0.018;
       const head = this.toScreen(b.x, b.y);
       const tail = this.toScreen(b.x - b.vx * len, b.y - b.vy * len);
       if (!head.visible || !tail.visible) continue;
-      g.lineStyle(Math.max(1.5, 3 * head.scale), b.mine ? 0x9ff3ff : 0xffb37a, 1);
+      g.lineStyle(Math.max(1, (b.small ? 1.6 : 3) * head.scale), b.mine ? (b.small ? 0xd6fbff : 0x9ff3ff) : b.small ? 0xffd9b0 : 0xffb37a, 1);
       g.lineBetween(head.x, head.y, tail.x, tail.y);
     }
     // Health boosts: a pulsing green cross in a ring. Minerals: amber crystals, bigger for more value.

@@ -6,6 +6,7 @@ import { TUNE, stepSeconds } from '../../sim/tune';
 import { copyShip } from '../../sim/ship';
 import type { ShipInput, ShipState } from '../../sim/ship';
 import { World } from '../../sim/world';
+import { TURRET_SIDE } from '../../sim/turrets';
 import { CLOSE, MSG, cleanName, decodeClient, encodeAsteroids, encodeGone, encodePing, encodeShots, encodeSnapshot, encodeWelcome } from '../../sim/protocol';
 import type { SnapshotShip } from '../../sim/protocol';
 import { wrapDist2 } from '../../sim/wrap';
@@ -71,7 +72,7 @@ export class Room {
   applyConfig(record:ConfigRecord):void{
     if(record.version===this.config.version)return;
     this.config=record;
-    for(const group of ['ship','weapon','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
+    for(const group of ['ship','weapon','turret','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
     for(const p of this.players.values()){
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
       p.ship.hp=Math.min(this.tune.ship.maxHp,p.ship.hp);
@@ -204,9 +205,10 @@ export class Room {
     if (ev.asteroids.length) this.broadcast(encodeAsteroids(ev.asteroids));
     if (ev.gone.length) this.broadcast(encodeGone(ev.gone));
     if (ev.shots.length) {
-      // Each player hears every shot but their own, which they already drew when they fired.
+      // Each player hears every shot but their own main-gun shots, which they drew when they fired.
+      // Turret shots are the server's decision, so their owner hears those too.
       for (const p of this.players.values()) {
-        const others = ev.shots.filter((s) => s.owner !== p.id);
+        const others = ev.shots.filter((s) => s.owner !== p.id || s.side >= TURRET_SIDE);
         if (others.length) this.send(p, encodeShots(this.tick, others));
       }
     }

@@ -13,6 +13,7 @@ const sim = path.join(root, 'prototypes/steroids-alpha/sim');
 const tmp = mkdtempSync(path.join(os.tmpdir(), 'steroids-sim-'));
 const entry = `export * from ${JSON.stringify(path.join(sim, 'world.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'ship.ts'))};
+export * from ${JSON.stringify(path.join(sim, 'turrets.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'asteroids.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'protocol.ts'))};
 export * as thrusters from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/src/render/thrusters.ts'))};
@@ -331,6 +332,72 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   near(full - tgt.shield, tune.weapon.damage * (1 + sh.damageBonusAtCap), 1e-6, 'capped damage per hit');
 }
 
+// --- Turrets: one per massPerTurret above the start, max 4; capped turning; range; weak shots. ---
+{
+  const tt = tune.turret;
+  const base = tune.ship.maxHp;
+  assert.equal(S.turretCount(base, tune), 0, 'a fresh ship has no turrets');
+  assert.equal(S.turretCount(base + tt.massPerTurret - 1, tune), 0);
+  assert.equal(S.turretCount(base + tt.massPerTurret, tune), 1, 'first turret at massPerTurret');
+  assert.equal(S.turretCount(base + 3 * tt.massPerTurret, tune), 3);
+  assert.equal(S.turretCount(100000, tune), 4, 'caps at 4');
+  // One turret, a rock just inside range behind the ship: the turret turns at its capped rate, then fires.
+  const w = emptyWorld();
+  const s = placeShip(w, 1, 1000, 1000, 0);
+  s.speed = 0;
+  w.tune.ship.minSpeed = 0;
+  s.hp = base + tt.massPerTurret;
+  s.shield = S.maxShield(s.hp, tune);
+  const mount = S.turretPosition(s, 0, tune);
+  const target = rock(w, 0, mount.x - (tt.range + tune.asteroid.radius[0] - 20), mount.y, 0, 0, 1000);
+  const shots = [];
+  let firstShot = -1;
+  for (let i = 0; i < 60; i++) {
+    w.stepShip(1, { ...idle, thrust: -1 });
+    w.step();
+    const ev = w.drain();
+    const mine = ev.shots.filter((x) => x.side >= S.TURRET_SIDE);
+    if (mine.length && firstShot < 0) firstShot = i;
+    shots.push(...mine);
+  }
+  // Turning half a circle at turnRate takes at least PI / turnRate seconds.
+  assert(firstShot >= Math.floor((Math.PI - tt.aimTolerance) / tt.turnRate * tune.net.tickHz) - 1, `turret turned at its capped rate (${firstShot} steps)`);
+  assert(shots.length >= 2 && shots.every((x) => x.side === S.TURRET_SIDE && x.vx < 0), 'it fires at the rock behind');
+  // Out of range: nothing to shoot.
+  const w2 = emptyWorld();
+  const s2 = placeShip(w2, 1, 1000, 1000, 0);
+  s2.speed = 0;
+  w2.tune.ship.minSpeed = 0;
+  s2.hp = base + tt.massPerTurret;
+  rock(w2, 2, 1000, 1000 + tt.range + tune.asteroid.radius[2] + 60, 0, 0, 1000);
+  let fired = 0;
+  for (let i = 0; i < 90; i++) {
+    w2.stepShip(1, { ...idle, thrust: -1 });
+    w2.step();
+    fired += w2.drain().shots.length;
+  }
+  assert.equal(fired, 0, 'nothing in range, no shots');
+  // Ships first, and the shots are weak: the enemy shield loses turret.damage per hit.
+  const w3 = emptyWorld();
+  const a = placeShip(w3, 1, 1000, 1000, 0);
+  const b = placeShip(w3, 2, 1000, 1250, 0);
+  a.speed = b.speed = 0;
+  w3.tune.ship.minSpeed = 0;
+  a.hp = base + tt.massPerTurret;
+  rock(w3, 0, 1000, 760, 0, 0, 1000);
+  const full = b.shield;
+  const shots3 = [];
+  for (let i = 0; i < 90 && b.shield === full; i++) {
+    a.x = 1000; a.y = 1000; b.x = 1000; b.y = 1250;
+    w3.stepShip(1, { ...idle, thrust: -1 });
+    w3.stepShip(2, { ...idle, thrust: -1 });
+    w3.step();
+    shots3.push(...w3.drain().shots);
+  }
+  assert(shots3.length && shots3.every((x) => x.vy > 0), 'turret prefers the enemy ship over a rock');
+  near(full - b.shield, tt.damage, 1e-9, 'turret shots do turret.damage');
+}
+
 // --- Older published live settings upgrade: missing fields filled; the hull pool split into hull + shield. ---
 {
   const L = S.liveConfig;
@@ -346,6 +413,7 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   for (const k of ['dashButtonRadius', 'dashButtonMargin']) delete old.clientTune.touch[k];
   old.clientTune.touch.fireButtonMargin = 34;
   delete old.clientTune.render.thrusterTopSpeedStretch;
+  delete old.tune.turret; // published before turrets existed
   const up = L.validateConfig(old);
   assert.equal(up.tune.ship.maxHp, 50, 'old hull pool halved');
   assert.equal(up.tune.ship.maxShield, 50, 'the other half becomes shield');
@@ -354,6 +422,7 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   assert.equal(up.tune.ship.dashSpeed, base.tune.ship.dashSpeed, 'dash settings come back from the defaults');
   assert(!('fireButtonMargin' in up.clientTune.touch), 'the removed fire margin is dropped');
   assert.equal(up.clientTune.render.thrusterTopSpeedStretch, base.clientTune.render.thrusterTopSpeedStretch);
+  assert.deepEqual(up.tune.turret, base.tune.turret, 'turret settings come from the defaults');
   assert.deepEqual(L.validateConfig(base), base, 'current settings pass unchanged');
 }
 
@@ -498,4 +567,4 @@ assert.equal(S.cleanName(null), '');
   assert(sh.dashCd > 0, 'dash on cooldown');
 }
 
-console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, minerals, spills, ramming, health boosts, kill credit and settings upgrade all pass.');
+console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, minerals, spills, turrets, ramming, health boosts, kill credit and settings upgrade all pass.');

@@ -54,6 +54,16 @@
     "muzzleForward": 14,
     "convergeDistance": 420
   },
+  "turret": {
+    "massPerTurret": 100,
+    "max": 4,
+    "range": 380,
+    "turnRate": 4,
+    "aimTolerance": 0.12,
+    "fireIntervalSteps": 12,
+    "damage": 2,
+    "bulletSpeed": 750
+  },
   "asteroid": {
     "radius": [70, 42, 22],
     "hp": [60, 30, 12],
