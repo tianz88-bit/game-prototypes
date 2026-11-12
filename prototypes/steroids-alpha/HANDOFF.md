@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-12 claude dash-commit
+DID: no steering during dash boost; charge 0.8 s; boost 4.5 s (3x distance); cooldown 6 s. Confirmed ram damage hits shields first (test).
+FILES: sim/ship.ts sim/liveConfig.ts tune.json scripts/test-steroids-alpha-sim.mjs
+SEAM: none
+CROSS: none
+FOR codex: dash charge effect now lasts 0.8 s; boost trail lasts 4.5 s.
+
 ## 2026-11-12 claude hex-sphere-shield
 DID: shield hit effect redone as a hex-tiled sphere (owner reference): orthographic hex grid, glowing rim, hit-side cells flash. Live settings 5087bc96d49a (new dash values).
 FILES: src/render/shipView.ts

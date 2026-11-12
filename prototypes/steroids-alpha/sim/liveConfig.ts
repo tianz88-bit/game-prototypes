@@ -82,7 +82,7 @@ export function validateConfig(input: unknown): ConfigData {
   }
   const s = value.tune.ship, w = value.tune.weapon;
   if (!(s.minSpeed <= s.cruiseSpeed && s.cruiseSpeed <= s.maxSpeed && s.maxSpeed > 0)) fail('Keep minimum ≤ cruise ≤ maximum speed');
-  if (!(s.dashSpeedFactor >= 1 && s.dashSpeedFactor <= 4) || !(s.dashChargeSeconds >= 0 && s.dashChargeSeconds <= 2) || !(s.dashDuration > 0 && s.dashDuration <= 5) || !(s.dashCooldown >= s.dashChargeSeconds + s.dashDuration)) fail('Dash: speed 1-4x top speed, charge 0-2 s, boost up to 5 s, cooldown at least charge + boost');
+  if (!(s.dashSpeedFactor >= 1 && s.dashSpeedFactor <= 4) || !(s.dashChargeSeconds >= 0 && s.dashChargeSeconds <= 2) || !(s.dashDuration > 0 && s.dashDuration <= 8) || !(s.dashCooldown >= s.dashChargeSeconds + s.dashDuration)) fail('Dash: speed 1-4x top speed, charge 0-2 s, boost up to 8 s, cooldown at least charge + boost');
   if (s.acceleration <= 0 || s.braking <= 0 || s.radius <= 0 || s.maxHp <= 0) fail('Acceleration, braking, radius and hull must be positive');
   if (!(s.powerCap >= s.maxHp) || s.speedPenaltyAtCap < 0 || s.speedPenaltyAtCap >= 1 || s.radiusBonusAtCap < 0 || s.hullSpillFraction < 0 || s.hullSpillFraction > 1 || s.deathSpillFraction < 0 || s.deathSpillFraction > 1 || s.spillLockSeconds < 0) fail('Power: cap at least the starting hull, bonuses and penalties in range, spill fractions 0..1');
   { const t = value.tune.turret; if (!(t.range > 0) || !(t.turnRate > 0) || t.aimTolerance <= 0 || !Number.isInteger(t.fireIntervalSteps) || t.fireIntervalSteps < 1 || t.damage < 0 || !(t.bulletSpeed > 0)) fail('Turret stats out of range'); }

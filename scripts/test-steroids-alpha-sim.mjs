@@ -547,6 +547,7 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   assert.deepEqual([rams[0].id, rams[0].target], [1, 2]);
   near(bFull - (b.hp + b.shield), tune.ship.dashRamDamage, 1e-6, 'ram damage to the target');
   near(aFull - (a.hp + a.shield), tune.ship.dashRamSelfDamage, 1e-6, 'a bump to the rammer');
+  assert.equal(b.hp, tune.ship.maxHp, 'ram damage is taken by the shield first');
   assert(push.b > 0 && push.a <= 0, 'pushed apart');
   // Gun upgrades make rams hit harder too.
   near(S.damageScale({ ...a, damageTier: 2 }, tune), 1 + 2 * tune.shop.damagePerTier, 1e-9);
@@ -738,12 +739,16 @@ assert.equal(S.cleanName(null), '');
   near(sh.heading, Math.PI / 2, 1e-6, 'boosts the way held when the charge completed');
   let n = 0;
   let y0 = sh.y;
+  const startY = sh.y;
   while (sh.dashTime > 0) {
     y0 = sh.y;
-    S.stepShip(sh, { ...idle, thrust: -1 }, dt, tune);
+    // Steering is ignored during the boost: the player committed to the direction.
+    S.stepShip(sh, { ...idle, thrust: -1, turn: 1, aim: 0 }, dt, tune);
     near((sh.y - y0) / dt, boost, 1e-6, 'boost speed holds while braking');
+    near(sh.heading, Math.PI / 2, 1e-9, 'no steering during the boost');
     n++;
   }
+  near(sh.y - startY, boost * tune.ship.dashDuration, boost * 2 * dt, 'boost distance = dash speed x duration');
   assert(Math.abs(n * dt - tune.ship.dashDuration) <= 2 * dt, `boost lasts dashDuration (${n} steps)`);
   S.stepShip(sh, { ...idle, thrust: 0 }, dt, tune);
   near(sh.speed, boost - tune.ship.braking * dt, 1e-6, 'eases out of the boost');
