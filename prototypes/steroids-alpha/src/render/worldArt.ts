@@ -97,3 +97,20 @@ export function drawOrdnance(g: Phaser.GameObjects.Graphics, o: OrdnanceView,
   if(o.hp<1){g.fillStyle(0x0d1524,.9);g.fillRect(x-12*k,y-23*k,24*k,4*k);
     g.fillStyle(signal,1);g.fillRect(x-12*k,y-23*k,24*k*Math.max(0,o.hp),4*k);}
 }
+
+export function drawExplosionCore(g:Phaser.GameObjects.Graphics,at:{x:number;y:number;scale:number},t:number):void {
+  const {x,y}=at,k=at.scale;
+  if(t>.08 && t<.7){
+    g.fillStyle(0x29313e,.25*(1-t/.7));
+    for(let i=0;i<5;i++){const a=i*2.4,d=(28+t*65)*k;g.fillCircle(x+Math.cos(a)*d,y+Math.sin(a)*d,(16+t*22)*k);}
+  }
+  if(t<.32){
+    const f=t/.32,r=(25+65*Math.sqrt(f))*k;
+    g.fillStyle(0xff8854,.55*(1-f));
+    for(let i=0;i<6;i++){const a=i*Math.PI/3;g.fillTriangle(x+Math.cos(a)*r*1.45,y+Math.sin(a)*r*1.45,
+      x+Math.cos(a-.4)*r*.5,y+Math.sin(a-.4)*r*.5,x+Math.cos(a+.4)*r*.5,y+Math.sin(a+.4)*r*.5);}
+    g.fillStyle(0xffbf6c,.75*(1-f));g.fillCircle(x,y,r*.6);
+    g.fillStyle(0xfff4cd,.9*(1-f));g.fillCircle(x,y,r*.34);
+  }
+  if(t<.08){g.fillStyle(0xe5fbff,1-t/.08);g.fillCircle(x,y,(22+80*t)*k);}
+}

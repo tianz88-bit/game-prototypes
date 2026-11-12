@@ -122,7 +122,7 @@ export class ShipView {
       if (k) img.setScale(scale * k.scaleX, scale * k.scaleY);
     }
     this.container.setPosition(x, y).setScale(scale);
-    this.updateExhaust(dt / 1000, demand, angle, timeMs, at);
+    this.updateExhaust(dt / 1000, demand, angle, timeMs, at, boosting);
     this.drawShield(at, timeMs);
     this.shadow
       .setPosition(at.shadowX, at.shadowY)
@@ -149,8 +149,9 @@ export class ShipView {
   }
 
   /** Exhaust lives in ship-relative units and is drawn at the ship's place and scale on screen. */
-  private updateExhaust(dt: number, demand: ThrusterInput, angle: number, timeMs: number, at: ShipPlacement): void {
-    this.exhaust.update(dt, demand, [this.nozzle('engineL', angle, timeMs), this.nozzle('engineR', angle, timeMs)], clientTune.render.thrusterTopSpeedStretch);
+  private updateExhaust(dt: number, demand: ThrusterInput, angle: number, timeMs: number, at: ShipPlacement, boosting: boolean): void {
+    const nozzles:[NozzleOrigin,NozzleOrigin]=[this.nozzle('engineL',angle,timeMs),this.nozzle('engineR',angle,timeMs)];
+    this.exhaust.update(dt, demand, nozzles, clientTune.render.thrusterTopSpeedStretch);
     const g = this.exhaustGfx;
     g.clear();
     const s = at.scale;
@@ -166,6 +167,16 @@ export class ShipView {
       }
       g.fillPoints(pts, true);
     };
+    for(let i=0;i<nozzles.length;i++){
+      const n=nozzles[i],a=n.angle*Math.PI/180,len=n.width*(this.exhaust.strong[i]?1.5: .7)*(boosting?1.6:1);
+      g.fillStyle(0x73d9ff,.25);rect(n.x,n.y,n.width*.65,len,a,len*.4);
+      g.fillStyle(0xe8fdff,.85);rect(n.x,n.y,n.width*.24,n.width*.38,a,n.width*.12);
+    }
+    if(boosting){const a=angle*Math.PI/180,dx=-Math.sin(a),dy=Math.cos(a),sx=Math.cos(a),sy=Math.sin(a);
+      g.lineStyle(Math.max(1,s*2),0x9befff,.4);
+      for(const side of [-1,1])for(let i=0;i<3;i++){const start=20+i*14,end=start+24-i*4,off=side*(16+i*7);
+        g.lineBetween(at.x+(dx*start+sx*off)*s,at.y+(dy*start+sy*off)*s,at.x+(dx*end+sx*off)*s,at.y+(dy*end+sy*off)*s);}
+    }
     for (const p of this.exhaust.particles) {
       const a = 1 - p.age / p.life;
       g.fillStyle(p.colour, a * a);
@@ -199,19 +210,21 @@ export class ShipView {
     const g = this.shieldGfx;
     g.clear();
     const LIFE = 500;
-    this.shieldHits = this.shieldHits.filter((h) => timeMs - h.at < LIFE);
+    this.shieldHits = this.shieldHits.filter((h) => timeMs - h.at < LIFE).slice(-8);
     g.setVisible(at.visible && this.shieldHits.length > 0);
     if (!at.visible || !this.shieldHits.length) return;
     const R = clientTune.render.shipRingRadius * clientTune.render.shipScale * at.scale * 1.2;
     let bubble = 0;
     for (const h of this.shieldHits) bubble = Math.max(bubble, 1 - (timeMs - h.at) / LIFE);
     // Body and rim glow.
-    g.fillStyle(0x0b2a6a, 0.28 * bubble);
+    g.fillStyle(0x0b2a6a, 0.16 * bubble);
     g.fillCircle(at.x, at.y, R);
-    for (let k = 0; k < 4; k++) {
+    for (let k = 0; k < 3; k++) {
       g.lineStyle(6 - k * 1.4, 0x3a8cff, (0.12 + k * 0.12) * bubble);
       g.strokeCircle(at.x, at.y, R - k * 1.5);
     }
+    for(const hit of this.shieldHits){const fade=1-(timeMs-hit.at)/LIFE;
+      g.lineStyle(Math.max(1,at.scale*3),0xc9f7ff,fade*.8);g.beginPath();g.arc(at.x,at.y,R,hit.angle-.28,hit.angle+.28);g.strokePath();}
     // Hex cells on the sphere: centres on a flat hex grid in sphere-angle units (|p| = 1 is the rim),
     // mapped by the orthographic view of a sphere: screen radius = sin(|p| x 90 degrees) x R.
     const project = (u: number, v: number): { x: number; y: number } | null => {
@@ -249,10 +262,10 @@ export class ShipView {
         }
         if (pts.length < 6) continue;
         if (flash > 0.03) {
-          g.fillStyle(0x6fd0ff, 0.8 * flash);
+          g.fillStyle(0x6fd0ff, 0.5 * flash);
           g.fillPoints(pts, true);
         }
-        g.lineStyle(flash > 0.03 ? 2 : 1, flash > 0.03 ? 0xd6f4ff : 0x5aa8ff, Math.max(0.35 * bubble, flash));
+        g.lineStyle(flash > 0.03 ? 2 : 1, flash > 0.03 ? 0xd6f4ff : 0x5aa8ff, Math.max(0.22 * bubble, flash));
         g.strokePoints(pts, true);
       }
     }

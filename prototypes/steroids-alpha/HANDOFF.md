@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 codex codex/steroids-vfx
+DID: Stylized explosion rays/smoke, clearer directional shield hits (8-hit render cap), square dash charge, boosted engine cores/streaks and beveled turrets; threats draw after explosions.
+FILES: src/render/{worldArt,shipView}.ts src/scenes/flight.ts
+SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
+CROSS: none (render/shared drawing)
+FOR claude: Typecheck/build/rig/sim pass; desktop/DPR2 phone charge, boost, shield, turret and explosion fixtures inspected. 2 clients + bots baseline pacing, zero errors. Particle emission, rig poses and combat timings unchanged.
+
 ## 2026-11-13 codex codex/steroids-ui
 DID: Shared canvas panels/palette for shop, board, bars, weapons/touch, menu/name/QR and death; tier pips, action glyphs and compact phone board.
 FILES: client.tune.json src/render/ui.ts src/scenes/{flight,menu}.ts sim/liveConfig.ts scripts/test-steroids-live-config.mjs
@@ -97,10 +104,3 @@ FILES: sim/ship.ts sim/liveConfig.ts tune.json scripts/test-steroids-alpha-sim.m
 SEAM: none
 CROSS: none
 FOR codex: dash charge effect now lasts 0.8 s; boost trail lasts 4.5 s.
-
-## 2026-11-12 claude hex-sphere-shield
-DID: shield hit effect redone as a hex-tiled sphere (owner reference): orthographic hex grid, glowing rim, hit-side cells flash. Live settings 5087bc96d49a (new dash values).
-FILES: src/render/shipView.ts
-SEAM: none
-CROSS: src/render/shipView.ts (drawShield)
-FOR codex: the owner's reference is a glowing blue sphere of hexagons; refine colours/glow freely.
