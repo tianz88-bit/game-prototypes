@@ -1122,15 +1122,20 @@ assert.equal(S.cleanName(null), '');
     for (let i = 0; i < 31; i++) room.step();
     assert.equal(bounty(s1).id, b.id, 'passes to a stronger player');
     void ids;
-    // Missile lock on the wire: the target id travels with the missile.
-    a.ship.x = 1000; a.ship.y = 1000; a.ship.heading = 0;
-    b.ship.x = 1400; b.ship.y = 1000;
-    a.ship.missileTier = 1;
-    a.ship.missileCharges = 1;
-    room.world.stepShip(a.id, { ...idle, missile: true });
-    for (let i = 0; i < 3; i++) room.step();
-    const ord = s2.sent.filter((x) => typeof x !== 'string').map((x) => S.decodeServer(x)).filter((x) => x && x.type === S.MSG.ORDNANCE).pop();
-    assert(ord && ord.items.some((o) => o.kind === 0 && o.owner === a.id && o.target === b.id), 'target sees the missile locked on them');
+    // Isolate wire delivery from the random bounty battle: bots can attract the
+    // lock and rocks can destroy the missile before its first streamed frame.
+    const wire = new S.Room(1);
+    wire.tune.asteroid.targetMass = 0;
+    wire.world.asteroids.clear();
+    const source = new Sock(), target = new Sock();
+    wire.join(source, 'Source'); wire.join(target, 'Target'); wire.stop();
+    const [shooter, receiver] = [...wire.players.values()];
+    Object.assign(shooter.ship, { x: 1000, y: 1000, heading: 0, missileTier: 1, missileCharges: 1 });
+    Object.assign(receiver.ship, { x: 1400, y: 1000 });
+    wire.world.stepShip(shooter.id, { ...idle, missile: true });
+    for (let i = 0; i < 3; i++) wire.step();
+    const ord = target.sent.filter((x) => typeof x !== 'string').map((x) => S.decodeServer(x)).filter((x) => x && x.type === S.MSG.ORDNANCE).pop();
+    assert(ord && ord.items.some((o) => o.kind === 0 && o.owner === shooter.id && o.target === receiver.id), 'target sees the missile locked on them');
   }
   // Wire: ordnance frames round-trip; inputs carry the two new flags.
   {
