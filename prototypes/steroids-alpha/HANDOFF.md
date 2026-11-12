@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 codex codex/steroids-missile-wire-fixture
+DID: Isolate the missile wire test from random bots and asteroid collisions so client deployment is reliable.
+FILES: scripts/test-steroids-alpha-sim.mjs
+SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
+CROSS: scripts/test-steroids-alpha-sim.mjs fixture only; separate no-bot room with zero asteroid population.
+FOR claude: Five consecutive full simulation suites pass; missile owner/target still asserted through real Room.step binary frames. No production changes.
+
 ## 2026-11-13 codex codex/steroids-hull-hit-feedback
 DID: Directional hot-core impact sparks and subtle 140ms own-hull border flashes; the centre remains clear and repeated hits never stack opacity.
 FILES: sim/world.ts src/net/client.ts src/scenes/flight.ts src/render/worldArt.ts scripts/test-steroids-alpha-sim.mjs BUILD_STATUS.md
@@ -97,10 +104,3 @@ FILES: sim/bots.ts sim/planets.ts sim/liveConfig.ts server/src/{room,index}.ts s
 SEAM: none on the wire (bots are ordinary ships in snapshots/roster). PLANETS[].bots flag. New tune group bots.
 CROSS: ../steroids-alpha-lab/draft.ts (Bots group)
 FOR codex: bots use the same rig; a distinct tint or marker for bot ships could help readability.
-
-## 2026-11-12 claude dash-1.8x
-DID: dash boost at 1.8x top speed (dashSpeedFactor 1.8); published live.
-FILES: tune.json
-SEAM: none
-CROSS: none
-FOR codex: nothing.
