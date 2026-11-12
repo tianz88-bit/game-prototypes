@@ -157,9 +157,11 @@ export class NetClient {
   }
 
   /** Roster, deaths and pickups arrive as JSON text frames. */
-  private handleText(msg: { type?: string; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral'; value: number }[]; remove?: { id: number; by: number }[] }): void {
+  private handleText(msg: { type?: string; id?: number; x?: number; y?: number; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral'; value: number }[]; remove?: { id: number; by: number }[] }): void {
     if (msg.type === 'roster' && Array.isArray(msg.players)) {
       this.roster = new Map(msg.players.map((p) => [p.id, p]));
+    } else if (msg.type === 'bounty' && typeof msg.id === 'number') {
+      this.bounty = msg.id ? { id: msg.id, x: Number(msg.x) || 0, y: Number(msg.y) || 0 } : null;
     } else if (msg.type === 'deaths' && Array.isArray(msg.deaths)) {
       for (const d of msg.deaths) {
         this.fx.push({ kind: 'explosion', x: d.x, y: d.y });
@@ -346,6 +348,8 @@ export class NetClient {
   private mineQueued = false;
   /** Missiles and mines near us (server's view), with when each list arrived. */
   ordnance = new Map<number, OrdnanceView & { at: number }>();
+  /** The strongest real player carries the bounty (server, twice a second); null when nobody does. */
+  bounty: { id: number; x: number; y: number } | null = null;
 
   /** Ask the server for a shop purchase (it decides); tier is the one on offer, so a double tap buys once. */
   buy(item: number, tier: number): void {

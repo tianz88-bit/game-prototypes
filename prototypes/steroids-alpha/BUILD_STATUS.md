@@ -1,6 +1,6 @@
 ## Current milestone
 
-Missiles and mines in (12 November): two new shop items with their own buttons and held, auto-refilling charges. Before that: bots on Planet A, dash retune, shop, overheat, aim assist.
+Bounty tracker and in-flight missile lock crosshairs in (12 November). Graphics brief for Codex in GFX_BRIEF.md. Missiles and mines in (12 November): two new shop items with their own buttons and held, auto-refilling charges. Before that: bots on Planet A, dash retune, shop, overheat, aim assist.
 
 Owner calibration ffc177fd2833 is live (12 November2026), with exact JSON readback and unchanged game/render stats. Hosted publishing is prepared and closed pending owner approval of Cloudflare Access; local publisher remains stopped.
 
@@ -240,6 +240,15 @@ server is live and the itch page is public and unlisted.
     for its whole flight do 35, so they need the main gun (16 a hit) to
     finish it.
   - Bots fire missiles while engaging and drop mines while fleeing.
+- Bounty: the server marks the strongest real player (two or more players
+  needed; bots never; the holder keeps it on a tie) and sends id + position
+  twice a second (`bounty` JSON frame). The holder gets a gold ring and star;
+  everyone else gets a gold arrow on an inner screen ellipse with
+  "<name> <distance>m" while the holder is out of view, and a gold star on
+  the leaderboard chip. The holder sees "BOUNTY ON YOU". Marker only.
+- Missile lock in flight: missiles carry their target on the wire. The pilot
+  who fired and the target both see a red turning crosshair on the target;
+  the target also sees a blinking MISSILE LOCK.
 - `sim/world.ts` holds all of these rules with no networking, so the same code
   runs in the Cloudflare room and in Node tests.
 - `scripts/test-steroids-alpha-sim.mjs`: rules test (throttle, fire rate,
@@ -259,7 +268,7 @@ server is live and the itch page is public and unlisted.
   the gun mounts are wider than a small asteroid or a ship.
 - A new ship drops in at the candidate point farthest from any asteroid and
   has two seconds of contact immunity.
-- Protocol version is 13 (13: missiles and mines: 2 input flags, 16 more ship bytes, ORDNANCE frame and `blasts` JSON frame; 12: dash charge and hull maximum; 10: heat, turrets, dash aim, BUY; 11: shield and gun tiers. Earlier: 5 added shield, knockback and the JSON frames; 6
+- Protocol version is 14 (14: missile target in ORDNANCE; 13: missiles and mines: 2 input flags, 16 more ship bytes, ORDNANCE frame and `blasts` JSON frame; 12: dash charge and hull maximum; 10: heat, turrets, dash aim, BUY; 11: shield and gun tiers. Earlier: 5 added shield, knockback and the JSON frames; 6
   removed the dash; 7 restored it; 8 added power and pickup kinds; 9 turret
   shots reach their owner). Client and server deploy together;
   old clients reload once. Validated live settings still need no rebuild.
@@ -275,6 +284,8 @@ server is live and the itch page is public and unlisted.
 
 ## Open questions
 
+- Bounty needs at least two real players on the planet (Claude's call: with one player there is nobody to hunt them). BRIEF.md records it; owner may want otherwise.
+- Tracker distance is shown in world pixels as "m".
 - Missile and mine numbers (damage, hp, refill, lock cone, shop floors 120/100 and costs) are Claude's first pass under the owner's rules; untested with real players. BRIEF.md now records the rules.
 - Mine blasts hurt only enemy ships, not asteroids; missiles do hit asteroids. Owner may want either changed.
 - Copy-on-tap inside itch's frame is untested on a real phone; if itch
@@ -338,7 +349,7 @@ server is live and the itch page is public and unlisted.
 
 ## Next proposed step
 
-Owner plays missiles and mines and adjusts numbers through the live settings. Then FFD tilt through a Phaser mesh (the last missing piece of the approved rig),
+Codex works through GFX_BRIEF.md (planet surface, asteroids, power-ups, ordnance, UI). Owner plays missiles and mines and adjusts numbers through the live settings. Then FFD tilt through a Phaser mesh (the last missing piece of the approved rig),
 then ground props with horizon clipping. Owner checks the planet
 view on a real phone for frame rate.
 

@@ -205,6 +205,12 @@ All names, ships, pilots and art are original. Nothing is copied from either.
   Missiles lock onto ships only and home. Mines are visible and steer slowly
   toward nearby enemy ships before going off. Both can be shot down: they
   survive one or two turrets, and the main gun is needed to finish them.
+- Bounty (owner, 12 November): the strongest real player (bots never) carries a
+  bounty marker; other pilots see a tracker at the screen edge pointing to them.
+  Marker only, no extra reward (owner). Needs two or more players on the planet.
+- Missile lock (owner, 12 November): a locked missile in flight shows a lock
+  crosshair on its target for both the pilot who fired and the target (the
+  target only once the missile is launched).
 - Shield hit effect: a glowing sphere tiled with hexagons around the craft
   (owner reference image); some hexagons on the hit side flash (owner).
 - Dash ram (owner picked): dashing into a ship damages it, scaled by gun

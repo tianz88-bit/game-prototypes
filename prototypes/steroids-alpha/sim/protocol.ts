@@ -19,7 +19,7 @@
 //                    u8 missileTier, u8 mineTier, u8 missileCharges, u8 mineCharges, f32 missileCd, f32 mineCd,
 //                    u16 missileShots, u16 mineShots
 //   ORDNANCE  u8 type, u16 count, count x (u16 id, u8 kind 0 missile / 1 mine, u16 owner, f32 x, f32 y,
-//             f32 heading, u8 hp percent, u8 armed): missiles and mines near you, every snapshot
+//             f32 heading, u8 hp percent, u8 armed, u16 target): missiles and mines near you, every snapshot
 //   PONG      u8 type, f64 clientTimeMs
 //   ASTEROIDS u8 type, u16 count, count x (u16 id, u8 size, f32 x, f32 y, f32 vx, f32 vy, u32 t0, f32 hp)
 //             New asteroids, or ones whose hp changed. Sent in full to a client when it joins.
@@ -30,7 +30,7 @@ import type { ShipInput, ShipState } from './ship';
 import type { Asteroid } from './asteroids';
 import type { ShotEvent } from './world';
 
-export const PROTOCOL_VERSION = 13;
+export const PROTOCOL_VERSION = 14;
 
 export const MSG = {
   INPUT: 1,
@@ -90,6 +90,8 @@ export interface OrdnanceView {
   id: number;
   kind: 0 | 1;
   owner: number;
+  /** Ship a missile is locked on (0: none; always 0 for mines). */
+  target: number;
   x: number;
   y: number;
   heading: number;
@@ -121,7 +123,7 @@ const SHIP_BYTES = 2 + 4 * 10 + 1 + 2 + 4 + 1 + 3 + 8 + 4 + 8 + 4;
 const ASTEROID_BYTES = 2 + 1 + 4 * 4 + 4 + 4;
 const GONE_BYTES = 2 + 4 * 2;
 const SHOT_BYTES = 2 + 4 * 4 + 1;
-const ORDNANCE_BYTES = 2 + 1 + 2 + 4 * 3 + 1 + 1;
+const ORDNANCE_BYTES = 2 + 1 + 2 + 4 * 3 + 1 + 1 + 2;
 
 export function encodeInput(input: ShipInput): ArrayBuffer {
   const buf = new ArrayBuffer(INPUT_BYTES);
@@ -245,6 +247,7 @@ export function encodeOrdnance(items: OrdnanceView[]): ArrayBuffer {
     v.setFloat32(o + 13, it.heading, true);
     v.setUint8(o + 17, Math.max(0, Math.min(100, Math.round(it.hp * 100))));
     v.setUint8(o + 18, it.armed ? 1 : 0);
+    v.setUint16(o + 19, it.target, true);
     o += ORDNANCE_BYTES;
   }
   return buf;
@@ -392,6 +395,7 @@ export function decodeServer(buf: ArrayBuffer): ServerMessage | null {
         heading: v.getFloat32(o + 13, true),
         hp: v.getUint8(o + 17) / 100,
         armed: v.getUint8(o + 18) === 1,
+        target: v.getUint16(o + 19, true),
       });
       o += ORDNANCE_BYTES;
     }
