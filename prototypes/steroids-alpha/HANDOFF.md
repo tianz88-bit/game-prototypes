@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 codex codex/steroids-ordnance
+DID: Missile hull/fins, blue-white ignition and bounded curved smoke history; spiked armed/unarmed mines, trigger dashes and HP; distinct blast debris and segmented lock crosshairs.
+FILES: src/render/worldArt.ts src/scenes/flight.ts
+SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
+CROSS: none (render/shared drawing)
+FOR claude: Typecheck/build/rig/sim pass. Brave desktop + DPR2 phone ordnance fixtures inspected; 2 clients + bots, baseline frame pacing and no console/page errors; no projectile rules or lock-selection changes.
+
 ## 2026-11-13 codex codex/steroids-pickups
 DID: Faceted amber mineral crystals with value scaling, bob and sparkle; medical capsules and floating heal crosses; collection shards.
 FILES: src/render/worldArt.ts src/scenes/flight.ts
@@ -97,10 +104,3 @@ FILES: sim/{ship,shop,turrets,world,protocol,liveConfig}.ts server/src/room.ts s
 SEAM: protocol 11. ShipState + heat, overheated, turrets, shieldTier, damageTier. ShipInput + dashAim. maxShield/damageScale take ShipState. Fx kind 'ram'. New tune groups shop, weapon.assist*/heat*.
 CROSS: ../steroids-alpha-lab (preview dashAim, Shop group); src/render untouched.
 FOR codex: placeholders to style: shop buttons, heat bar, ram ring. Ship could show shield/gun tiers visually.
-
-## 2026-11-12 claude damage-balance
-DID: gun damage 12 (was 10), damage at power cap 3x (was 2x); published live db8d064d62a4.
-FILES: tune.json scripts/test-steroids-alpha-sim.mjs
-SEAM: none
-CROSS: none
-FOR codex: nothing.

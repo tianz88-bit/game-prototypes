@@ -25,7 +25,7 @@ import { Explosion } from '../render/explosion';
 import { loadSave } from '../save';
 import type { ShipPlacement } from '../render/shipView';
 import { missileLock } from '../../sim/ordnance';
-import { drawRock, drawPickup } from '../render/worldArt';
+import { drawRock, drawPickup, drawOrdnance } from '../render/worldArt';
 
 const W = TUNE.world.width;
 const H = TUNE.world.height;
@@ -45,6 +45,7 @@ export class FlightScene extends Phaser.Scene {
   private coords!: Phaser.GameObjects.Text;
   private schemeLabel!: Phaser.GameObjects.Text;
   private world!: Phaser.GameObjects.Graphics;
+  private missileTrails = new Map<number, {x:number;y:number;at:number}[]>();
   private effects: { x: number; y: number; at: number; r: number; ms: number; colour: number; chips?: number; heal?: boolean }[] = [];
   private explosions: Explosion[] = [];
   /** Where each ship was last drawn (world), to aim shield hits. */
@@ -210,9 +211,9 @@ export class FlightScene extends Phaser.Scene {
       }
       else if (f.kind === 'blast') {
         // Shot down: a small white pop. Went off: an orange ring the size of the blast.
-        if (f.shot) this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.r, ms: 220, colour: 0xffffff });
+        if (f.shot) this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: Math.min(24,f.r), ms: 240, colour: 0xffffff, chips: 5 });
         else {
-          this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.r, ms: f.ordnance === 'mine' ? 480 : 320, colour: 0xff8a3a });
+          this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.r, ms: f.ordnance === 'mine' ? 480 : 320, colour: 0xff8a3a, chips: 12 });
           this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.r * 0.5, ms: 200, colour: 0xfff2c4 });
         }
       } else if (f.kind === 'ram') {
@@ -383,16 +384,12 @@ export class FlightScene extends Phaser.Scene {
 
   /** Locked missile crosshair: a red ring with four inward ticks, slowly turning and pulsing. */
   private drawCrosshair(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number, now: number): void {
-    const pulse = 0.75 + 0.25 * Math.sin(now / 90);
-    const rot = now / 600;
-    g.lineStyle(2, 0xff3a2a, 0.95 * pulse);
-    g.strokeCircle(x, y, r);
-    for (let i = 0; i < 4; i++) {
-      const a = rot + (i * Math.PI) / 2;
-      g.lineBetween(x + Math.cos(a) * r * 1.25, y + Math.sin(a) * r * 1.25, x + Math.cos(a) * r * 0.65, y + Math.sin(a) * r * 0.65);
-    }
-    g.fillStyle(0xff3a2a, 0.9 * pulse);
-    g.fillCircle(x, y, Math.max(1.5, r * 0.06));
+    const pulse=.8+.2*Math.sin(now/130),rot=now/1500;
+    g.lineStyle(5,0x182333,.9);g.strokeCircle(x,y,r);
+    g.lineStyle(2,0xff7859,pulse);
+    for(let i=0;i<4;i++){const a=rot+i*Math.PI/2;g.beginPath();g.arc(x,y,r,a+.12,a+1.15);g.strokePath();
+      g.lineBetween(x+Math.cos(a)*r*1.2,y+Math.sin(a)*r*1.2,x+Math.cos(a)*r*.85,y+Math.sin(a)*r*.85);}
+    g.fillStyle(0xfff0c7,pulse);g.fillCircle(x,y,Math.max(1.2,r*.035));
   }
 
   /**
@@ -843,42 +840,25 @@ export class FlightScene extends Phaser.Scene {
       const ahead = o.kind === 0 ? Math.min(0.12, (tNow - o.at) / 1000) * TUNE.missile.maxSpeed * 0.85 : 0;
       const at = this.toScreen(o.x + Math.cos(o.heading) * ahead, o.y + Math.sin(o.heading) * ahead);
       if (!at.visible) continue;
-      const mineOwn = o.owner === this.net.myId;
-      const k = at.scale;
-      const c = Math.cos(o.heading);
-      const sn = Math.sin(o.heading);
-      if (o.kind === 0) {
-        g.lineStyle(Math.max(2, 4 * k), mineOwn ? 0xd6fbff : 0xffc9a8, 1);
-        g.lineBetween(at.x - c * 9 * k, at.y - sn * 9 * k, at.x + c * 9 * k, at.y + sn * 9 * k);
-        g.fillStyle(0xffa64a, 0.6 + 0.4 * Math.sin(now / 40));
-        g.fillCircle(at.x - c * 13 * k, at.y - sn * 13 * k, 4 * k);
-      } else {
-        const blink = o.armed && Math.floor(now / 250) % 2 === 0;
-        g.lineStyle(1, mineOwn ? 0x5fe3ff : 0xff6b5a, o.armed ? 0.25 : 0.1);
-        g.strokeCircle(at.x, at.y, TUNE.mine.triggerRadius * k);
-        g.fillStyle(0x3a3f4a, 1);
-        g.fillCircle(at.x, at.y, 9 * k);
-        for (let s = 0; s < 6; s++) {
-          const a = (s / 6) * Math.PI * 2 + now / 900;
-          g.fillCircle(at.x + Math.cos(a) * 12 * k, at.y + Math.sin(a) * 12 * k, 2.5 * k);
-        }
-        g.fillStyle(blink ? 0xff3a2a : mineOwn ? 0x5fe3ff : 0xff8a6a, 1);
-        g.fillCircle(at.x, at.y, 3.5 * k);
+      if(o.kind===0){
+        let trail=this.missileTrails.get(o.id);
+        if(!trail)this.missileTrails.set(o.id,trail=[]);
+        if(!trail.length || now-trail[trail.length-1].at>40)trail.push({x:o.x,y:o.y,at:now});
+        while(trail.length>8 || (trail.length && now-trail[0].at>360))trail.shift();
+        for(let i=0;i<trail.length;i++){const q=this.toScreen(trail[i].x,trail[i].y);if(!q.visible)continue;
+          g.fillStyle(0x93b4c5,.18*(i+1)/trail.length);g.fillCircle(q.x,q.y,(2+(trail.length-i)*.65)*q.scale);}
       }
-      if (o.hp < 1) {
-        g.fillStyle(0x000000, 0.5);
-        g.fillRect(at.x - 10 * k, at.y - 20 * k, 20 * k, 3 * k);
-        g.fillStyle(0xffffff, 0.9);
-        g.fillRect(at.x - 10 * k, at.y - 20 * k, 20 * k * o.hp, 3 * k);
-      }
+      drawOrdnance(g,o,at,o.owner===this.net.myId,now,TUNE.mine.triggerRadius);
     }
+    for(const id of this.missileTrails.keys())if(!this.net.ordnance.has(id))this.missileTrails.delete(id);
+
     // Missile lock: brackets on the ship a missile would lock onto now.
     const me = this.net.predicted;
     if (me && me.missileCharges > 0 && !this.net.death) {
       const ships = this.net.remoteRender().map((r) => [r.id, r.s] as [number, ShipState]);
       const lock = missileLock(this.net.myId, me, ships, TUNE);
       const tgt = ships.find(([id]) => id === lock)?.[1];
-      if (tgt) {
+      if (tgt && this.toScreen(tgt.x,tgt.y).visible) {
         const at = this.toScreen(tgt.x, tgt.y);
         const R = 34 * at.scale;
         const L = 10 * at.scale;
