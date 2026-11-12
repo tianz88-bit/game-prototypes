@@ -761,22 +761,22 @@ assert.equal(S.cleanName(null), '');
   const startY = sh.y;
   while (sh.dashTime > 0) {
     y0 = sh.y;
-    S.stepShip(sh, { ...idle, thrust: -1 }, dt, tune);
+    S.stepShip(sh, { ...idle, thrust: -1, turn: 1 }, dt, tune);
     near((sh.y - y0) / dt, boost, 1e-6, 'boost speed holds while braking');
+    near(sh.heading, Math.PI / 2, 1e-9, 'no steering during the boost either');
     n++;
   }
   near(sh.y - startY, boost * tune.ship.dashDuration, boost * 2 * dt, 'boost distance = dash speed x duration');
   assert(Math.abs(n * dt - tune.ship.dashDuration) <= 2 * dt, `boost lasts dashDuration (${n} steps)`);
   S.stepShip(sh, { ...idle, thrust: 0 }, dt, tune);
-  near(sh.speed, boost - tune.ship.braking * dt, 1e-6, 'eases out of the boost');
+  // Above top speed the extra bleeds at the braking rate; at 1x the boost is top speed already.
+  near(sh.speed, Math.max(tune.ship.maxSpeed, boost - tune.ship.braking * dt), 1e-6, 'eases out of the boost');
   for (let i = 0; i < 6 * tune.net.tickHz; i++) S.stepShip(sh, { ...idle, thrust: 0 }, dt, tune);
   near(sh.speed, tune.ship.maxSpeed, 1e-6, 'settles at top speed when coasting');
-  // Steering works during the boost.
-  const c = S.newShip(0, 0, 0, tune.ship.cruiseSpeed);
-  c.hp = c.hullMax = tune.ship.maxHp;
-  c.dashTime = 1;
-  S.stepShip(c, { ...idle, turn: 1 }, dt, tune);
-  assert(c.heading > 0, 'steering is free during the boost');
+  // Steering returns once the boost is over.
+  const before = sh.heading;
+  S.stepShip(sh, { ...idle, turn: 1 }, dt, tune);
+  assert(sh.heading > before, 'steering is back after the dash');
   // No direction held: straight on.
   const b = S.newShip(0, 0, 0.3, tune.ship.cruiseSpeed);
   b.hullMax = b.hp = tune.ship.maxHp;

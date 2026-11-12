@@ -186,8 +186,9 @@ All names, ships, pilots and art are original. Nothing is copied from either.
 - Dash (owner design, Thunderdogs reference, 12 November): press dash to
   start a 0.8 s charge (energy effect) during which the ship cannot steer;
   hold a direction during the charge, and when it completes the ship snaps to
-  that direction and boosts at 4x top speed for 0.7 s (1.5 s total, about
-  980 px), ignoring braking; steering is free during the boost. Cooldown 8 s,
+  that direction and boosts at the ship's own top speed for 0.8 s (1.6 s
+  total, about 280 px for a fresh ship), ignoring braking. Steering is locked for the whole dash, charge
+  and boost (owner, 12 November). Cooldown 8 s,
   shown by a yellow bar next to the gun heat bar. Dash ram damage hits shields
   first, like any damage. Touch: stick direction; keyboard: hold
   S (back) or A/D (sides) during the charge.
