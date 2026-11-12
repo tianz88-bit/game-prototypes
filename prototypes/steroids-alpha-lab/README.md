@@ -4,22 +4,15 @@ Permanent public route: `/game-prototypes/prototypes/steroids-alpha-lab/`, direc
 
 Import settings accepts both Export all settings and Export calibration files. A calibration-only import changes the rig without replacing game stats or the draft's publishing baseline. It preserves authored four-facing offsets and validates the complete rig before applying anything. Invalid imports leave the current draft intact.
 
-## Private publish path
+## Hosted owner publishing
 
-Fetch and pack production art, then prepare the lab art:
+Publish to live opens the existing game Worker at /manage/. Cloudflare Access signs in the owner using email codes. The Worker independently verifies the Access RS256 signature, fixed team issuer, application audience, expiration and exact owner email. Only /manage/ is protected; /config, /health and gameplay sockets remain public. The GitHub OIDC publish workflow remains available unchanged.
 
-```
-node scripts/fetch-assets.js steroids-alpha steroids-alpha_human-nomad-v1_assets.zip
-node scripts/pack-assets.js steroids-alpha
-node scripts/prepare-steroids-lab.mjs
-npm run steroids:lab
-```
+The lab passes its draft through a URL fragment and a checked-origin popup handshake. The admin page requires explicit review and Publish; opening or signing in never writes data. It also imports calibration-only exports while preserving live game stats. Same-origin JSON/custom-header checks, bounded validation and the existing transactional expected-version guard protect writes. No CORS write permission, permanent browser credential, local program or polling service is needed.
 
-The public Publish button opens `http://127.0.0.1:5192/` with the draft in a URL fragment (not an HTTP query or a credential). In that private tab, Publish requires the existing GitHub CLI login on this PC. No access token enters the public page. The loopback companion checks Host, Origin, content type, custom header, session, payload size and active-version conflicts, and dispatches only the fixed main-branch publishing workflow. Open drafts elsewhere can still edit/export; publishing currently requires this PC's private companion, not a phone-only administrator login.
+Deployment is closed until these dashboard-managed Worker variables are set: ADMIN_ACCESS_TEAM (team subdomain), ADMIN_ACCESS_AUD (application audience), ADMIN_OWNER_EMAIL (one permitted owner). keep_vars preserves these on deployments. Do not commit the owner's email to the public repository. Configure a self-hosted Access application for steroids-alpha-server.tianz-88.workers.dev/manage only, with an Allow policy for that owner and email-code login. Do not protect the entire game Worker. Enabling the Access application requires the owner's confirmation; missing config returns503 and an invalid/missing identity returns401.
 
-The private companion must be running before opening that link. A stopped companion produces a connection-refused page and sends no publish request. On this PC, `outputs/steroids-alpha/Start Private Publisher.cmd` starts it hidden outside the chat's temporary command session. Restart it after rebooting the PC. Keep its checkout current when the game adds tune fields. The companion retains ten observed live records locally; drafts based on an older version can continue only when that known baseline and the current live data are exactly equal after schema migration. Actual changed values and unknown baselines still require review.
-
-GitHub Actions supplies a short-lived OIDC identity. The Worker verifies signature, issuer, audience, repository, main ref, exact workflow, event and expiration, validates data, then compare-and-swaps a content-hashed version in the PlanetConfig Durable Object. Ten previous versions remain in storage. A rejected/stale publish keeps active settings unchanged. Reimport a previous export to publish a rollback. No permanent new publishing token is used.
+Previous loopback launcher files are legacy tooling; the private publisher is stopped at the owner's request. This hosted path does not depend on them. The owner has already authorized and received the exact calibration update ffc177fd2833; gameplay/render stats were preserved.
 
 Connected rooms poll the internal config store every 15 seconds and announce the entire active record before a fresh snapshot. Client prediction and authoritative simulation switch to the same version; old queued inputs are discarded across cutover. Existing hull is capped, not healed. Calibration changes rebuild rendered ships/shadow; client visual data is applied at runtime. World/network/DPR/touch/texture-resolution changes are locked and require code deployment. The initial protocol-v4 deployment requires clients to reload once; subsequent settings changes require no client or Worker rebuild.
 

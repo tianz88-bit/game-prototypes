@@ -1,5 +1,13 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-12 codex proto/steroids-alpha/hosted-publisher
+DID: owner's calibration is live (ffc177fd2833); hosted owner publisher prepared, closed until Access setup is approved; local publisher stays off.
+FILES: ../steroids-alpha-lab/* server/src/admin*.ts server/src/index.ts server/wrangler.jsonc scripts/test-steroids-live-config.mjs
+SEAM: new protected /manage/ browser admin route and lab popup handoff; GitHub OIDC and gameplay wire remain unchanged.
+CROSS: minimal authenticated server route, preserved dashboard vars and boundary tests (Claude's lane).
+FOR claude: admin trusts Access issuer/audience/exact owner, then uses existing config CAS; no need to run a PC companion; setup awaiting owner approval.
+
+
 ## 2026-11-12 claude collab-setup
 DID: added COLLAB.md (lanes, seams, comms) and this log.
 FILES: COLLAB.md HANDOFF.md AGENTS.md CLAUDE.md

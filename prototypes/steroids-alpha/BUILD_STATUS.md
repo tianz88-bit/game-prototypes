@@ -1,5 +1,7 @@
 ## Current milestone
 
+Owner calibration ffc177fd2833 is live (12 November2026), with exact JSON readback and unchanged game/render stats. Hosted publishing is prepared and closed pending owner approval of Cloudflare Access; local publisher remains stopped.
+
 Combat feel batch done and adjusted after the owner's first play: dash
 removed, the pilot name now typeable on phones, leaderboard as animated
 chips. Also in: explosion and death screen, marker-mode throttle, ramming,
@@ -12,7 +14,7 @@ server is live and the itch page is public and unlisted.
 ## What was implemented
 
 - Permanent Calibration & Balance Lab below the live itch link on the GitHub hub, with approved reference rig/FFD, shared movement preview, validated browser drafts, JSON import/export and allowlisted stat controls.
-- Private Publish to live companion uses existing GitHub login and a fixed main-branch workflow. The Worker verifies the short-lived OIDC signature and repository/branch/workflow/audience/expiry before activating data. No browser write credential.
+- Hosted /manage/ owner publishing verifies Cloudflare Access signatures, issuer, audience, expiry and one owner. It remains closed until Access is configured. Existing GitHub OIDC workflow publishing remains unchanged. No local companion or browser write credential is needed.
 - Transactional PlanetConfig storage retains a content-hashed active version and ten prior versions, rejects stale publications, and delivers updates to rooms within 15 seconds. Config records precede new snapshots; prediction and rendering follow server-issued values without a game rebuild.
 - Input floods cannot buy extra movement steps; server queues, packet rates/sizes and sequence windows are bounded.
 
@@ -149,7 +151,7 @@ server is live and the itch page is public and unlisted.
 
 ## Known issues
 
-- Publishing needs the private publisher on the owner's PC (npm run steroids:lab); phone-only administrator login is not included.
+- Hosted publishing awaits direct owner confirmation to create the Access application and set its issuer/audience/owner variables. Until enabled, /manage/ remains closed.
 - Baseline cheat resistance is in place, but player authentication, anonymous multi-session abuse, bots/aim automation and competitive telemetry remain future work.
 
 - Not yet tested on a real phone or over a real network.

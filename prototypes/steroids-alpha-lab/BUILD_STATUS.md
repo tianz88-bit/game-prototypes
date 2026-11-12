@@ -1,17 +1,17 @@
 ## Current milestone
-Preserve edited ship positions through calibration export and import.
+Hosted owner-only publishing; exact owner calibration already live.
 
 ## What was implemented
-Import accepts both calibration-only exports and full settings exports. Calibration imports preserve current game stats and publishing baseline, validate all module poses before applying, and refresh the displayed rig. Invalid files leave the current draft intact. The same file can be selected again after an import.
+The owner's supplied calibration is active as ffc177fd2833, with exact readback and unchanged game/render stats. Public Publish opens a hosted /manage/ page, passes the draft through a fragment and checked-origin handshake, and requires explicit sign-in, review and Publish. Imports preserve calibrated poses and current game stats.
 
 ## Key technical decisions
-Calibration-only files are merged into the current draft rather than interpreted as full settings. Authored offsets are preserved exactly; Y sign and parent offsets are unchanged. Full settings retain their existing validation and migration path.
+Cloudflare Access email sign-in plus independent server signature, issuer, audience, expiry and exact-owner checks. Same-origin writes, bounded shared validation and existing CAS. GitHub workflow OIDC remains unchanged. No resident PC process. Dashboard auth variables remain outside the public repo and survive deploys via keep_vars.
 
 ## Open questions
-None for the import repair.
+Owner approval is required to create the scoped Access application and set its trusted team, audience and owner identity. Automatic approval review blocked entering that creation flow until concrete scope is confirmed.
 
 ## Known issues
-The private publisher was stopped at the owner's request. No memory leak or CPU-spike cause has been established, and the publisher will remain off. Publishing requires deliberately starting it again.
+The hosted admin remains closed until Access is configured; real signed-in browser publishing cannot yet be verified. The private publisher is stopped. No CPU/memory leak cause has been established. The temporary launcher alternative was dropped in favor of the owner's hosted-admin choice.
 
 ## Next proposed step
-Import the edited calibration in the permanent public lab and verify the four cockpit poses before any future publish.
+Enable Access only on /manage/ for the owner's approved email, configure Worker identity variables, and verify real sign-in and publish readback. Continue using COLLAB.md and HANDOFF.md for every push.
