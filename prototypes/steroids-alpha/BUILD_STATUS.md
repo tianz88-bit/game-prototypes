@@ -91,6 +91,14 @@ server is live and the itch page is public and unlisted.
     you carried this life. Leaderboard chips show and rank by power.
   - `TEST_SHIP_HP` now just makes ships take no damage (local checks only);
     a huge hull would have counted as maximum power.
+- Dash fix (owner report: "dashing doesn't boost"): a released marker stick
+  brakes, and that braking used to run during the dash, so the ship snapped
+  back to minimum speed as soon as it ended (and the speed readout never
+  showed the boost). Now a dash sets speed to dash speed and holds it for
+  the dash whatever the stick says. Afterwards, any speed above top speed
+  bleeds off at the braking rate (also when gaining power), instead of
+  snapping. Measured on an emulated phone: 140 → 450 for 0.5 s, then a
+  smooth 0.9 s ease back down.
 - Auto turrets (`tune.json` → `turret`, live-tunable, lab group "Turrets"):
   - One per 100 minerals above the starting hull (power 150, 250, 350, 450),
     max 4. Rear pair first, then the front pair (`sim/turrets.ts` mounts,

@@ -98,15 +98,22 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune)
   }
   s.heading = angleDelta(s.heading, 0);
 
+  // A dash sets the ship's speed to dash speed and holds it for the dash, whatever the stick says
+  // (a released marker stick would otherwise brake through it). Afterwards the extra speed bleeds
+  // off at the braking rate back to top speed, so the boost carries instead of snapping off.
   if (input.dash && s.dashCd <= 0) {
     s.dashTime = tune.ship.dashDuration;
     s.dashCd = tune.ship.dashCooldown;
   }
-  const thrust = Math.max(-1, Math.min(1, input.thrust));
-  s.speed += thrust * (thrust > 0 ? tune.ship.acceleration : tune.ship.braking) * dt;
   // Power makes a ship slower: both caps come down as it grows.
-  s.speed = Math.max(tune.ship.minSpeed, Math.min(topSpeed(s.hp, tune), s.speed));
-  const speed = s.dashTime > 0 ? Math.max(dashSpeed(s.hp, tune), s.speed) : s.speed;
+  const top = topSpeed(s.hp, tune);
+  if (s.dashTime > 0) s.speed = Math.max(s.speed, dashSpeed(s.hp, tune));
+  else {
+    const thrust = Math.max(-1, Math.min(1, input.thrust));
+    if (s.speed > top) s.speed = Math.max(top, s.speed - tune.ship.braking * dt + Math.min(0, thrust) * tune.ship.braking * dt);
+    else s.speed = Math.max(tune.ship.minSpeed, Math.min(top, s.speed + thrust * (thrust > 0 ? tune.ship.acceleration : tune.ship.braking) * dt));
+  }
+  const speed = s.speed;
   s.dashTime = Math.max(0, s.dashTime - dt);
   s.dashCd = Math.max(0, s.dashCd - dt);
 

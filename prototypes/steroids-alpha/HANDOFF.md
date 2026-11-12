@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-12 claude dash-fix
+DID: dash holds dash speed through braking (released marker stick); excess speed above top bleeds at braking rate instead of snapping.
+FILES: sim/ship.ts scripts/test-steroids-alpha-sim.mjs
+SEAM: none (ShipState.speed can now exceed top speed briefly)
+CROSS: none
+FOR codex: plume can read speed > top speed during/after a dash (speedTrail clamps to 1).
+
 ## 2026-11-12 claude share-qr
 DID: menu QR code of the itch page ("Scan to join"); tap copies the link (copy on pointerup via intents.copyZone). In-house QR encoder src/ui/qr.ts, verified vs python-qrcode.
 FILES: src/ui/qr.ts src/scenes/menu.ts src/input/intents.ts src/base.ts scripts/test-steroids-alpha-qr.mjs scripts/fixtures/steroids-qr.fixture.json .github/workflows/deploy-steroids-alpha-itch.yml
