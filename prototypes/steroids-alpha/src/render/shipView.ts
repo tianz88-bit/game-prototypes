@@ -190,8 +190,9 @@ export class ShipView {
   }
 
   /**
-   * Blocked hits: a honeycomb of blue hexagon cells lights up on the shield bubble where the hit landed,
-   * brightest at the impact and fading outward, with a faint flash of the whole bubble.
+   * Blocked hits: the shield shows as a bubble of hexagon cells around the craft (two staggered rings).
+   * The whole bubble appears faintly for a moment; only the cells on the side that was hit flash,
+   * brightest at the impact and fading around the bubble.
    */
   private drawShield(at: ShipPlacement, timeMs: number): void {
     const g = this.shieldGfx;
@@ -200,36 +201,39 @@ export class ShipView {
     this.shieldHits = this.shieldHits.filter((h) => timeMs - h.at < LIFE);
     g.setVisible(at.visible && this.shieldHits.length > 0);
     if (!at.visible || !this.shieldHits.length) return;
-    const R = clientTune.render.shipRingRadius * clientTune.render.shipScale * at.scale * 1.12;
-    const hex = R * 0.34;
-    for (const h of this.shieldHits) {
-      const k = (timeMs - h.at) / LIFE;
-      const fade = 1 - k;
-      // The whole bubble flashes briefly, then the hex patch holds where the hit landed.
-      g.fillStyle(0x2f8cff, 0.22 * fade);
-      g.fillCircle(at.x, at.y, R);
-      g.lineStyle(2.5, 0x6fd0ff, 0.9 * fade);
-      g.strokeCircle(at.x, at.y, R);
-      // A honeycomb patch centred on the impact: one cell, its ring of six, fading outward.
-      const ix = at.x + Math.cos(h.angle) * R * 0.9;
-      const iy = at.y + Math.sin(h.angle) * R * 0.9;
-      const cells: [number, number, number][] = [[0, 0, 1]];
-      for (let n = 0; n < 6; n++) {
-        const t = h.angle + Math.PI / 6 + (n * Math.PI) / 3;
-        cells.push([Math.cos(t) * hex * 1.73, Math.sin(t) * hex * 1.73, 0.6]);
+    const R = clientTune.render.shipRingRadius * clientTune.render.shipScale * at.scale * 1.15;
+    const COUNT = 16; // cells per ring
+    const hex = ((Math.PI * 2 * R) / COUNT) * 0.36;
+    // How bright each cell is: the strongest of the current hits, by angular distance to each impact.
+    const lit = (ang: number): { flash: number; bubble: number } => {
+      let flash = 0;
+      let bubble = 0;
+      for (const h of this.shieldHits) {
+        const k = (timeMs - h.at) / LIFE;
+        const fade = 1 - k;
+        bubble = Math.max(bubble, fade);
+        const off = Math.abs(((ang - h.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+        const spread = Math.max(0, 1 - off / (Math.PI / 3)); // hit side: within 60 degrees
+        flash = Math.max(flash, fade * spread * spread);
       }
-      for (const [dx, dy, w] of cells) {
-        const a = fade * w;
-        const cx = ix + dx;
-        const cy = iy + dy;
+      return { flash, bubble };
+    };
+    for (const [row, radius] of [[0, R], [1, R + hex * 1.5]] as const) {
+      for (let c = 0; c < COUNT; c++) {
+        const ang = ((c + (row ? 0.5 : 0)) / COUNT) * Math.PI * 2;
+        const { flash, bubble } = lit(ang);
+        const cx = at.x + Math.cos(ang) * radius;
+        const cy = at.y + Math.sin(ang) * radius;
         const pts: Phaser.Math.Vector2[] = [];
         for (let v = 0; v < 6; v++) {
-          const t = h.angle + (v * Math.PI) / 3;
-          pts.push(new Phaser.Math.Vector2(cx + Math.cos(t) * hex * 0.94, cy + Math.sin(t) * hex * 0.94));
+          const t = ang + (v * Math.PI) / 3;
+          pts.push(new Phaser.Math.Vector2(cx + Math.cos(t) * hex, cy + Math.sin(t) * hex));
         }
-        g.fillStyle(0x3aa8ff, 0.75 * a);
-        g.fillPoints(pts, true);
-        g.lineStyle(3, 0xbfeaff, a);
+        if (flash > 0.02) {
+          g.fillStyle(0x3aa8ff, 0.7 * flash);
+          g.fillPoints(pts, true);
+        }
+        g.lineStyle(flash > 0.02 ? 2.5 : 1.2, flash > 0.02 ? 0xbfeaff : 0x6fc8ff, Math.max(0.18 * bubble, flash));
         g.strokePoints(pts, true);
       }
     }

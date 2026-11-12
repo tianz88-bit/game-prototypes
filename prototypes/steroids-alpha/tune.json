@@ -25,9 +25,10 @@
     "acceleration": 220,
     "braking": 300,
     "turnRate": 3.2,
-    "dashSpeed": 450,
-    "dashDuration": 0.5,
-    "dashCooldown": 1.6,
+    "dashSpeedFactor": 2,
+    "dashChargeSeconds": 0.5,
+    "dashDuration": 1.5,
+    "dashCooldown": 4,
     "maxHp": 50,
     "maxShield": 50,
     "shieldRegenDelaySeconds": 5,
@@ -77,7 +78,8 @@
     "shieldPerTier": 60,
     "damageFloors": [90, 140, 190, 240],
     "damageCosts": [45, 55, 65, 75],
-    "damagePerTier": 0.25
+    "damagePerTier": 0.25,
+    "gunHeatPerTier": 0.2
   },
   "asteroid": {
     "radius": [70, 42, 22],

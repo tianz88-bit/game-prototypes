@@ -122,10 +122,24 @@ server is live and the itch page is public and unlisted.
   to 5° toward a target, ships before asteroids (`weapon.assist*`). The
   server decides; the client predicts its own shots with the same rule
   against what it sees.
-- Aimed dash: touch marker mode dashes toward the stick; craft mode
-  relative to the nose (pull back = 180); keyboard Shift+S = 180, Shift+A/D
-  = 90°, plain Shift = straight. Verified Shift+S flips heading by π in the
-  browser.
+- Dash, charge and boost (owner design, replaces the instant dash): press →
+  0.5 s charge (`ship.dashChargeSeconds`; placeholder energy ring and sparks,
+  plus an arrow on your own ship showing the held direction) → the ship
+  snaps to the direction held at that moment and boosts at 2x top speed
+  (`dashSpeedFactor`) for 1.5 s (`dashDuration`), ignoring the brake, then
+  eases down. Cooldown 4 s from the press. The client sends the held
+  direction every step (`dashAim`). Browser: holding S during the charge
+  sent the boost straight back at 700 px/s.
+- Hull maximum (power) vs current hull: `ShipState.hullMax`. Minerals repair
+  first, then grow the maximum (to the 500 cap). Shop prices come off the
+  maximum; current hull only drops if above the new maximum. Floors check
+  the maximum. Speed, size, death spill and the leaderboard use the maximum.
+  The HUD reads "HULL current/max". Also fixed: a live-settings update used to
+  clamp every ship's hull to the starting 50.
+- Gun tiers add 20% heat capacity each (`shop.gunHeatPerTier`).
+- Leaderboard chips show "n KO" (player kills only) beside the power pill.
+- Shield hit effect: a bubble of 2 staggered rings of hexagons around the
+  craft shows faintly; cells within 60° of the hit flash (`render/shipView.ts`).
 - Dash ram: a dashing ship that touches another deals 30 x gun scale, takes
   8 itself, both are thrown apart (smaller further), once per dash; orange
   ring effect. Verified in the rules test and with a real Room (fake
@@ -202,7 +216,7 @@ server is live and the itch page is public and unlisted.
   the gun mounts are wider than a small asteroid or a ship.
 - A new ship drops in at the candidate point farthest from any asteroid and
   has two seconds of contact immunity.
-- Protocol version is 11 (10: heat, turrets, dash aim, BUY; 11: shield and gun tiers. Earlier: 5 added shield, knockback and the JSON frames; 6
+- Protocol version is 12 (12: dash charge and hull maximum; 10: heat, turrets, dash aim, BUY; 11: shield and gun tiers. Earlier: 5 added shield, knockback and the JSON frames; 6
   removed the dash; 7 restored it; 8 added power and pickup kinds; 9 turret
   shots reach their owner). Client and server deploy together;
   old clients reload once. Validated live settings still need no rebuild.

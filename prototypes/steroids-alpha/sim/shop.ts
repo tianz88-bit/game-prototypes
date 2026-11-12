@@ -1,5 +1,5 @@
-// The shop (owner design): upgrades bought with minerals, which are the hull. Each item has 4 tiers;
-// tier i needs at least <item>Floors[i] power and costs <item>Costs[i] minerals. Upgrades last until
+// The shop (owner design): upgrades bought with minerals, paid from the hull maximum (power). Each
+// item has 4 tiers; tier i needs at least <item>Floors[i] power and costs <item>Costs[i] minerals. Upgrades last until
 // the ship is destroyed. Pure rules shared by server (which decides) and client (which shows offers).
 import type { Tune } from './tune';
 import type { ShipState } from './ship';
@@ -25,7 +25,7 @@ export function shopOffer(s: ShipState, item: ShopItem, tune: Tune): { tier: num
 /** Whether the ship could buy item now. */
 export function canBuy(s: ShipState, item: ShopItem, tune: Tune): boolean {
   const o = shopOffer(s, item, tune);
-  return !!o && s.hp > 0 && s.hp >= o.floor && s.hp - o.cost >= 1;
+  return !!o && s.hp > 0 && s.hullMax >= o.floor && s.hullMax - o.cost >= 1;
 }
 
 /**
@@ -35,7 +35,10 @@ export function canBuy(s: ShipState, item: ShopItem, tune: Tune): boolean {
 export function buy(s: ShipState, item: ShopItem, tier: number, tune: Tune): boolean {
   const o = shopOffer(s, item, tune);
   if (!o || o.tier !== tier || !canBuy(s, item, tune)) return false;
-  s.hp -= o.cost;
+  // The price comes off the hull maximum (power). Current hull only drops if it is above the new
+  // maximum: a damaged ship keeps the hull it has (owner design).
+  s.hullMax -= o.cost;
+  s.hp = Math.min(s.hp, s.hullMax);
   s[TIER_FIELD[item]]++;
   return true;
 }

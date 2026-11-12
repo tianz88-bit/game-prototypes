@@ -50,6 +50,8 @@ export class FlightScene extends Phaser.Scene {
   /** Shield hits shown so far (test hook). */
   shieldHitCount = 0;
   ramCount = 0;
+  /** Frames the dash charge effect was drawn (test hook). */
+  dashChargeFrames = 0;
   /** Name tags under ships, by ship id. */
   private tags = new Map<number, Phaser.GameObjects.Text>();
   /** Leaderboard chips by ship id; each slides to its rank's position. */
@@ -60,8 +62,6 @@ export class FlightScene extends Phaser.Scene {
   /** Turrets, drawn over the ships. Aim per ship and turret comes from the shots the server reports. */
   private turretGfx!: Phaser.GameObjects.Graphics;
   private turretAim = new Map<number, { angle: number[]; firedAt: number[] }>();
-  /** Most hull this ship has carried in this life (the hull bar's full mark). */
-  private hullPeak = 0;
   /** Buttons on the death screen, in logical pixels. */
   private deathButtons: { id: 'respawn' | 'menu'; x: number; y: number; w: number; h: number; label: Phaser.GameObjects.Text }[] = [];
   private deathShownAt = 0;
@@ -80,7 +80,6 @@ export class FlightScene extends Phaser.Scene {
     this.explosions = [];
     this.effects = [];
     this.deathShownAt = 0;
-    this.hullPeak = 0;
     this.net.connect();
     this.build();
     this.game.events.on('dpr', this.build, this);
@@ -112,7 +111,7 @@ export class FlightScene extends Phaser.Scene {
     this.coords = text(this, 8, 16, '', 10, '#7d8db0').setDepth(950).setVisible(DEBUG);
     this.schemeLabel = text(this, 0, 0, '', 11, '#dfe8ff').setOrigin(0.5).setDepth(951).setVisible(false);
     this.message = text(this, w / 2, logicalSize().h * 0.3, '', 18, '#ffffff').setOrigin(0.5).setDepth(950);
-    this.boardTitle = text(this, 0, 0, 'POWER', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
+    this.boardTitle = text(this, 0, 0, 'KO · POWER', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
     this.powerText = text(this, 0, 0, '', 11, '#ffd98a').setOrigin(0.5, 1).setDepth(950).setVisible(false);
     this.shopTexts = SHOP_ITEMS.map(() => ({
       title: text(this, 0, 0, '', 12, '#ffffff').setOrigin(0, 0.5).setDepth(951).setVisible(false),
@@ -132,7 +131,7 @@ export class FlightScene extends Phaser.Scene {
     }
     if (intents.consume('scheme')) intents.toggleScheme();
     const heading = this.net.predicted?.heading ?? 0;
-    this.net.update({ ...intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed), dash, dashAim: dash ? intents.dashAim(heading) : NaN, fire: intents.fire });
+    this.net.update({ ...intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed), dash, dashAim: intents.dashAim(heading), fire: intents.fire });
     // Shop: each tap asks the server for the tier on offer now; the server checks power and price.
     for (const item of intents.consumeBuys()) {
       const p = this.net.predicted;
@@ -272,7 +271,7 @@ export class FlightScene extends Phaser.Scene {
     this.shipAt.set(id, { x: s.x, y: s.y });
     const at = this.toScreen(s.x, s.y);
     // Power makes ships bigger: drawn at the same growth as their hit radius.
-    at.scale *= shipRadius(s.hp, TUNE) / TUNE.ship.radius;
+    at.scale *= shipRadius(s.hullMax, TUNE) / TUNE.ship.radius;
     // The hard shadow lies on the ground, away from the sun.
     const sh = shipShadow(this.frame.sun, clientTune.render.shadowReach);
     sh.x+=CALIBRATION.shadow.x-SHADOW_ANCHOR.x;sh.y+=CALIBRATION.shadow.y-SHADOW_ANCHOR.y;
@@ -281,6 +280,41 @@ export class FlightScene extends Phaser.Scene {
     // Ships darken 30% on the night side (owner decision); asteroids and pickups only 10%.
     ship.update({ ...at, brightness: this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0 }, s, this.time.now);
     this.drawTurrets(id, s, at);
+    if (s.dashCharge > 0) this.drawDashCharge(s, at, mine);
+  }
+
+  /**
+   * Dash wind-up (placeholder effect): energy sparks converge on the ship and a ring tightens as the
+   * charge fills. On your own ship an arrow shows where the boost will go (the direction held now).
+   */
+  private drawDashCharge(s: ShipState, at: { x: number; y: number; scale: number; visible: boolean }, mine: boolean): void {
+    if (!at.visible) return;
+    this.dashChargeFrames++;
+    const g = this.turretGfx;
+    const k = 1 - s.dashCharge / TUNE.ship.dashChargeSeconds; // 0 → 1 as it charges
+    const now = this.time.now;
+    const R = clientTune.render.shipRingRadius * clientTune.render.shipScale * at.scale;
+    g.lineStyle(2 + 2 * k, 0x9fefff, 0.35 + 0.5 * k);
+    g.strokeCircle(at.x, at.y, R * (2.1 - 1.0 * k));
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2 + now / 260;
+      const d = R * (2.3 - 1.3 * ((k + i * 0.1) % 1));
+      g.fillStyle(0xd6fbff, 0.5 + 0.5 * k);
+      g.fillCircle(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d, 1.6 + 1.6 * k);
+    }
+    if (mine) {
+      const aim = intents.dashAim(s.heading);
+      const dir = Number.isFinite(aim) ? aim : s.heading;
+      const tip = R * 2.6;
+      const bx = at.x + Math.cos(dir) * R * 1.4;
+      const by = at.y + Math.sin(dir) * R * 1.4;
+      const tx = at.x + Math.cos(dir) * tip;
+      const ty = at.y + Math.sin(dir) * tip;
+      g.lineStyle(3, 0xffffff, 0.85);
+      g.lineBetween(bx, by, tx, ty);
+      g.fillStyle(0xffffff, 0.9);
+      g.fillTriangle(tx + Math.cos(dir) * 8, ty + Math.sin(dir) * 8, tx + Math.cos(dir + 2.4) * 8, ty + Math.sin(dir + 2.4) * 8, tx + Math.cos(dir - 2.4) * 8, ty + Math.sin(dir - 2.4) * 8);
+    }
   }
 
   /**
@@ -370,11 +404,10 @@ export class FlightScene extends Phaser.Scene {
     this.powerText.setVisible(!!p && !this.net.death);
     if (p && !this.net.death) {
       const bw = Math.min(220, w * 0.5);
-      this.hullPeak = Math.max(this.hullPeak, p.hp, TUNE.ship.maxHp);
-      const hull = Math.max(0, Math.min(1, p.hp / this.hullPeak));
+      const hull = Math.max(0, Math.min(1, p.hp / Math.max(1, p.hullMax)));
       const shield = Math.max(0, Math.min(1, p.shield / maxShield(p, TUNE)));
-      const capped = p.hp >= TUNE.ship.powerCap;
-      this.powerText.setPosition(w / 2, h - 30).setText(capped ? `POWER ${Math.round(p.hp)}  MAX` : `POWER ${Math.round(p.hp)}`);
+      const capped = p.hullMax >= TUNE.ship.powerCap;
+      this.powerText.setPosition(w / 2, h - 30).setText(`HULL ${Math.round(p.hp)}/${Math.round(p.hullMax)}${capped ? '  MAX' : ''}`);
       g.fillStyle(0x000000, 0.45);
       g.fillRect(w / 2 - bw / 2, h - 27, bw, 6);
       g.fillRect(w / 2 - bw / 2, h - 16, bw, 8);
@@ -486,8 +519,9 @@ export class FlightScene extends Phaser.Scene {
         const rankT = text(this, 0, 0, '', 11, '#8fa2c8').setOrigin(0, 0.5);
         const nameT = text(this, 0, 0, '', 12).setOrigin(0, 0.5);
         const killsT = text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5);
-        const box = this.add.container(right - cw / 2, target, [g, rankT, nameT, killsT]).setDepth(950);
-        chip = { box, g, rankT, nameT, killsT, y: target, kills: r.kills, rank, poppedAt: -1e9, climbedAt: -1e9, width: 0 };
+        const fragsT = text(this, 0, 0, '', 11, '#ffb37a').setOrigin(1, 0.5);
+        const box = this.add.container(right - cw / 2, target, [g, rankT, nameT, fragsT, killsT]).setDepth(950);
+        chip = { box, g, rankT, nameT, killsT, fragsT, y: target, kills: r.kills, rank, poppedAt: -1e9, climbedAt: -1e9, width: 0 };
         this.board.set(r.id, chip);
       }
       if (r.kills > chip.kills) chip.poppedAt = now;
@@ -516,6 +550,7 @@ export class FlightScene extends Phaser.Scene {
         g.fillStyle(pop > 0 ? 0xffb34a : mine ? 0x2a7f9c : 0x2a3550, 1);
         g.fillRoundedRect(cw / 2 - pw - 3, -BOARD_CHIP_H / 2 + 3, pw, BOARD_CHIP_H - 6, (BOARD_CHIP_H - 6) / 2);
         chip.killsT.setPosition(cw / 2 - pw / 2 - 3, 0);
+        chip.fragsT.setPosition(cw / 2 - pw - 8, 0);
         chip.rankT.setPosition(-cw / 2 + 9, 0);
         chip.nameT.setPosition(-cw / 2 + 26, 0);
         chip.width = cw;
@@ -527,12 +562,15 @@ export class FlightScene extends Phaser.Scene {
       if (chip.nameT.text !== r.name) {
         chip.nameT.setText(r.name);
         // Long names are cut to fit between the rank and the kills pill.
-        const room = cw - 26 - 40;
+        const room = cw - 26 - 40 - 34;
         let n = r.name;
         while (chip.nameT.width > room && n.length > 1) chip.nameT.setText((n = n.slice(0, -1)) + '…');
       }
       chip.nameT.setColor(mine ? '#9fefff' : '#dfe8ff');
       if (chip.killsT.text !== `${r.power}`) chip.killsT.setText(`${r.power}`);
+      // Player kills only (asteroids never score), next to the power pill.
+      const frags = `${r.kills} KO`;
+      if (chip.fragsT.text !== frags) chip.fragsT.setText(frags);
       // A chip on the move draws over the one it is passing.
       chip.box.setPosition(right - cw / 2, chip.y).setScale(1 + 0.12 * Math.sin(pop * Math.PI)).setDepth(glow > 0 ? 951 : 950);
     });
@@ -743,7 +781,7 @@ function rockShape(id: number, r: number): { x: number; y: number }[] {
   return pts;
 }
 
-const BOARD_CHIP_W = 170;
+const BOARD_CHIP_W = 200;
 const BOARD_CHIP_H = 22;
 
 interface BoardChip {
@@ -752,6 +790,8 @@ interface BoardChip {
   rankT: Phaser.GameObjects.Text;
   nameT: Phaser.GameObjects.Text;
   killsT: Phaser.GameObjects.Text;
+  /** Player kills this life. */
+  fragsT: Phaser.GameObjects.Text;
   /** Current (gliding) y; the chip eases toward its rank's slot. */
   y: number;
   kills: number;

@@ -118,6 +118,7 @@ export class World {
     }
     const ship = newShip(best.x, best.y, this.rng() * Math.PI * 2 - Math.PI, t.ship.cruiseSpeed);
     ship.hp = t.ship.maxHp;
+    ship.hullMax = t.ship.maxHp;
     ship.shield = t.ship.maxShield;
     this.ships.set(id, ship);
     // A moment of immunity so nobody is destroyed by an asteroid drifting through the drop zone.
@@ -199,7 +200,7 @@ export class World {
       if (!spent) {
         for (const [id, s] of this.ships) {
           if (id === b.owner || s.hp <= 0) continue;
-          if (!hits(b.x, b.y, s.x, s.y, shipRadius(s.hp, t) + t.weapon.bulletRadius)) continue;
+          if (!hits(b.x, b.y, s.x, s.y, shipRadius(s.hullMax, t) + t.weapon.bulletRadius)) continue;
           this.damageShip(id, s, b.damage, b.owner, b.x, b.y);
           spent = true;
           break;
@@ -217,10 +218,10 @@ export class World {
         continue;
       }
       if (s.hp <= 0 || this.rammed.has(id)) continue;
-      const sr = shipRadius(s.hp, t);
+      const sr = shipRadius(s.hullMax, t);
       for (const [oid, o] of this.ships) {
         if (oid === id || o.hp <= 0) continue;
-        const or = shipRadius(o.hp, t);
+        const or = shipRadius(o.hullMax, t);
         if (!hits(s.x, s.y, o.x, o.y, sr + or)) continue;
         let dx = wrapDelta(o.x, s.x, W);
         let dy = wrapDelta(o.y, s.y, H);
@@ -251,7 +252,7 @@ export class World {
       if (s.hp <= 0) continue;
       for (const a of this.asteroids.values()) {
         const p = pos.get(a.id);
-        const sr = shipRadius(s.hp, t);
+        const sr = shipRadius(s.hullMax, t);
         if (!p || !hits(s.x, s.y, p.x, p.y, t.asteroid.radius[a.size] + sr)) continue;
         let dx = wrapDelta(p.x, s.x, W);
         let dy = wrapDelta(p.y, s.y, H);
@@ -280,10 +281,15 @@ export class World {
       else {
         for (const [id, s] of this.ships) {
           if (s.hp <= 0 || (id === k.from && this.tick < k.lockedUntil)) continue;
-          if (!hits(s.x, s.y, k.x, k.y, t.asteroid.pickupRadius + shipRadius(s.hp, t))) continue;
-          if (k.kind === 'heal') s.hp = Math.min(t.ship.powerCap, s.hp + t.ship.maxHp * t.asteroid.healthHealFraction);
+          if (!hits(s.x, s.y, k.x, k.y, t.asteroid.pickupRadius + shipRadius(s.hullMax, t))) continue;
+          // A health boost repairs (up to the hull maximum).
+          if (k.kind === 'heal') s.hp = Math.min(s.hullMax, s.hp + t.ship.maxHp * t.asteroid.healthHealFraction);
           else {
-            s.hp = Math.min(t.ship.powerCap, s.hp + k.value);
+            // Minerals repair damage first; the rest grows the hull maximum (power), up to the cap.
+            const repair = Math.min(k.value, Math.max(0, s.hullMax - s.hp));
+            const grow = Math.min(k.value - repair, Math.max(0, t.ship.powerCap - s.hullMax));
+            s.hullMax += grow;
+            s.hp += repair + grow;
             s.shield = Math.min(maxShield(s, t), s.shield + k.value);
           }
           by = id;
@@ -391,7 +397,8 @@ export class World {
     // Hull is minerals: some of what is knocked off spills where the ship is, for anyone to collect.
     // A destroyed ship loses everything and spills a share of all it carried.
     const t = this.tune;
-    const spill = s.hp === 0 ? before * t.ship.deathSpillFraction : (before - s.hp) * t.ship.hullSpillFraction;
+    // Destroyed: a share of everything carried (the hull maximum) spills.
+    const spill = s.hp === 0 ? s.hullMax * t.ship.deathSpillFraction : (before - s.hp) * t.ship.hullSpillFraction;
     this.spillMinerals(s.x, s.y, spill, s.hp === 0 ? 90 : 40, id);
     if (s.hp === 0) this.events.deaths.push({ id, x: s.x, y: s.y, killer: attacker });
   }

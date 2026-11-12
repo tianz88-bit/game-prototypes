@@ -7,5 +7,5 @@ export function advancePreview(heading: number,input: Record<string,boolean>,del
  while(accumulator>=dt){stepShip(ship,{seq:0,turn:(input.right?1:0)-(input.left?1:0),aim:NaN,thrust:(input.accelerate?1:0)-(input.brake?1:0),dash:!!input.dash,fire:false,dashAim:NaN},dt,tune);accumulator-=dt;}
  const easing=1-Math.exp(-9*Math.min(.1,delta)),accel=ship.speed-previous;
  pitch+=((accel>0?-13:accel<0?17:0)-pitch)*easing;bank+=(((input.left?1:0)-(input.right?1:0))*22-bank)*easing;
- return {speed:ship.dashTime>0?Math.max(tune.ship.dashSpeed,ship.speed):ship.speed,pitch,bank,yawDelta:((ship.heading*180/Math.PI+90-start+540)%360)-180};
+ return {speed:ship.speed,pitch,bank,yawDelta:((ship.heading*180/Math.PI+90-start+540)%360)-180};
 }

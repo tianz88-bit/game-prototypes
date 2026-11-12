@@ -97,6 +97,7 @@ if (DEBUG) {
       pickupList: () => [...(flight()?.net.pickups.values() ?? [])],
       shieldHits: () => flight()?.shieldHitCount ?? 0,
       rams: () => flight()?.ramCount ?? 0,
+      dashChargeFrames: () => flight()?.dashChargeFrames ?? 0,
       /** Debug only: an explosion at your ship, to review the effect. */
       boom: () => flight()?.debugExplosion(),
       /** Debug only: a blocked hit on your ship, to review the shield effect. */
@@ -113,7 +114,7 @@ if (DEBUG) {
       shareBox: () => (game.scene.getScene('menu') as MenuScene).shareBox,
       own: () => flight()?.net.ownRender() ?? null,
       /** Your ship's top speed now (power lowers it). */
-      topSpeed: () => { const o = flight()?.net.predicted; return o ? topSpeed(o.hp, TUNE) : 0; },
+      topSpeed: () => { const o = flight()?.net.predicted; return o ? topSpeed(o.hullMax, TUNE) : 0; },
       corrections: () => ({ ...(flight()?.net.corrections ?? { snapshots: 0, count: 0, max: 0 }) }),
       resetCorrections: () => {
         const n = flight()?.net;
