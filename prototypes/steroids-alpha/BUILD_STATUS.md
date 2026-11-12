@@ -178,6 +178,15 @@ server is live and the itch page is public and unlisted.
   - Uses the repo's existing `qrcode` library (as Punchies, mp-console and
     suits-mp do). An in-house encoder was written first and then removed
     when it turned out the library was already a dependency (owner decision).
+- Bots (`sim/bots.ts`, `tune.json` → `bots`, live-tunable, lab group "Bots"):
+  Planet A only (`PLANETS[].bots`), 4 of them, only while a real player is in
+  the room; they all leave with the last player and respawn 5 s after
+  dying. Named "BOT Vega" and so on, on the leaderboard; their kills count, and
+  killing one counts. Brain: fight the nearest ship within 700 (leading the
+  target, aim wobble ±7°, fire in bursts that stop at 85% heat and resume
+  at 40%, dash in occasionally), flee below 30% hull, otherwise collect
+  minerals, shoot rocks, avoid ramming them, wander; buys upgrades now and
+  then. Planet select counts real pilots only.
 - Planet select shows "N pilots" under each planet, from a new Worker route
   `GET /planets`, refreshed every 5 s (`net.planetCountRefreshMs`).
 - Pilot name: typed on the menu, saved in `steroids-alpha:save:v1`, sent

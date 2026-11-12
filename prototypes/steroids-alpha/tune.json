@@ -81,6 +81,18 @@
     "damagePerTier": 0.25,
     "gunHeatPerTier": 0.2
   },
+  "bots": {
+    "count": 4,
+    "respawnSeconds": 5,
+    "engageRange": 700,
+    "preferredRange": 320,
+    "collectRange": 600,
+    "fleeHullFraction": 0.3,
+    "aimErrorDeg": 7,
+    "fireConeDeg": 10,
+    "burstHeat": 0.85,
+    "resumeHeat": 0.4
+  },
   "asteroid": {
     "radius": [70, 42, 22],
     "hp": [60, 30, 12],

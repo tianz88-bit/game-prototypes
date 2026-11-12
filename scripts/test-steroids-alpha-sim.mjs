@@ -15,6 +15,8 @@ const entry = `export * from ${JSON.stringify(path.join(sim, 'world.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'ship.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'turrets.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'shop.ts'))};
+export * from ${JSON.stringify(path.join(sim, 'bots.ts'))};
+export { Room } from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/server/src/room.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'asteroids.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'protocol.ts'))};
 export * as thrusters from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/src/render/thrusters.ts'))};
@@ -570,6 +572,93 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   assert(!w.asteroids.has(r.id), 'the rock in the path was hit, not skipped');
 }
 
+// --- Bots: decisions (fight, flee, farm, buy) and the room rules (Planet A only, only with players). ---
+{
+  const bt = tune.bots;
+  const fixed = () => 0.5; // no wobble, no random dashes or buys
+  // Fight: an enemy ahead in range, guns cool: aim at it and fire.
+  {
+    const w = emptyWorld();
+    const bot = placeShip(w, 1, 1000, 1000, 0);
+    placeShip(w, 2, 1300, 1000, Math.PI / 2).speed = 0;
+    const { input } = S.botThink(1, bot, w, S.newBrain(fixed), tune, fixed);
+    assert(Math.abs(input.aim) < 0.1 && input.fire, 'engages an enemy ahead');
+  }
+  // Bursts: near the heat limit it holds fire until cooled.
+  {
+    const w = emptyWorld();
+    const bot = placeShip(w, 1, 1000, 1000, 0);
+    placeShip(w, 2, 1300, 1000, 0);
+    bot.heat = bt.burstHeat + 0.01;
+    const brain = S.newBrain(fixed);
+    assert(!S.botThink(1, bot, w, brain, tune, fixed).input.fire, 'stops at the burst heat');
+    bot.heat = bt.resumeHeat - 0.01;
+    assert(S.botThink(1, bot, w, brain, tune, fixed).input.fire, 'resumes once cooled');
+  }
+  // Flee: badly hurt, it turns away from the threat at full throttle.
+  {
+    const w = emptyWorld();
+    const bot = placeShip(w, 1, 1000, 1000, 0);
+    placeShip(w, 2, 1300, 1000, 0);
+    bot.hp = bot.hullMax * (bt.fleeHullFraction - 0.1);
+    const { input } = S.botThink(1, bot, w, S.newBrain(fixed), tune, fixed);
+    assert(Math.abs(Math.abs(input.aim) - Math.PI) < 0.1 && input.thrust === 1 && !input.fire, 'flees when hurt');
+  }
+  // Farm: no enemy, a rock in range: shoot it; a mineral nearby: go for it.
+  {
+    const w = emptyWorld();
+    const bot = placeShip(w, 1, 1000, 1000, 0);
+    rock(w, 0, 1500, 1000, 0, 0);
+    assert(S.botThink(1, bot, w, S.newBrain(fixed), tune, fixed).input.fire, 'shoots rocks when idle');
+    w.pickups.set(7, { id: 7, x: 1000, y: 1300, kind: 'mineral', value: 5, from: 0, lockedUntil: 0, expires: w.tick + 100 });
+    const go = S.botThink(1, bot, w, S.newBrain(fixed), tune, fixed).input;
+    assert(Math.abs(go.aim - Math.PI / 2) < 0.1, 'goes for minerals');
+  }
+  // Shop: buys what it can afford (rng below the 2% gate).
+  {
+    const w = emptyWorld();
+    const bot = placeShip(w, 1, 1000, 1000, 0);
+    bot.hp = bot.hullMax = 300;
+    const { buy } = S.botThink(1, bot, w, S.newBrain(() => 0), tune, () => 0);
+    assert(buy && w.buy(1, buy.item, buy.tier), 'buys an affordable upgrade');
+  }
+  // Room: bots only on a bot planet, only while a player is there; they respawn after dying.
+  {
+    class Sock extends EventTarget { sent = []; send(v) { this.sent.push(v); } close() { this.dispatchEvent(new Event('close')); } }
+    const ships = (room) => room.world.ships.size;
+    const pvp = new S.Room(1);
+    pvp.setBots(false);
+    pvp.join(new Sock(), 'P');
+    pvp.stop();
+    for (let i = 0; i < 30; i++) pvp.step();
+    assert.equal(ships(pvp), 1, 'no bots on the PvP planet');
+    const room = new S.Room();
+    room.setBots(true);
+    room.stop();
+    for (let i = 0; i < 10; i++) room.step();
+    assert.equal(ships(room), 0, 'no bots without players');
+    const sock = new Sock();
+    room.join(sock, 'P');
+    room.stop();
+    for (let i = 0; i < 30; i++) room.step();
+    assert.equal(ships(room), 1 + bt.count, 'bots join with a player');
+    const roster = JSON.parse(sock.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).filter((m) => m.type === 'roster').map((m) => JSON.stringify(m)).pop());
+    assert.equal(roster.players.filter((r) => r.name.startsWith('BOT ')).length, bt.count, 'bots are on the leaderboard');
+    // Destroy one bot: it is replaced after respawnSeconds.
+    const botId = [...room.bots.keys()][0];
+    room.world.ships.get(botId).hp = 1;
+    room.world.ships.get(botId).shield = 0;
+    room.world['damageShip'](botId, room.world.ships.get(botId), 10, 0, 0, 0);
+    room.step();
+    assert(!room.bots.has(botId), 'a destroyed bot leaves');
+    room.world.invulnerable = true; // the rest keep fighting while we wait; no other losses meanwhile
+    for (let i = 0; i < bt.respawnSeconds * tune.net.tickHz + 5; i++) room.step();
+    assert.equal(room.bots.size, bt.count, 'and is replaced after respawnSeconds');
+    sock.close();
+    assert.equal(ships(room), 0, 'bots leave with the last player');
+  }
+}
+
 // --- Older published live settings upgrade: missing fields filled; the hull pool split into hull + shield. ---
 {
   const L = S.liveConfig;
@@ -786,4 +875,4 @@ assert.equal(S.cleanName(null), '');
   near(b.heading, 0.3, 1e-9, 'no direction held: straight ahead');
 }
 
-console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, ramming, health boosts, kill credit and settings upgrade all pass.');
+console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, bots, ramming, health boosts, kill credit and settings upgrade all pass.');
