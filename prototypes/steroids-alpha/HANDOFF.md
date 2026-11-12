@@ -1,11 +1,11 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
-## 2026-11-13 codex proto/steroids-alpha/graphics-surface
-DID: shader-only shallow craters, dust variation, sand banks, cool night/warm twilight and a brighter sunlit atmosphere; first graphics item, draft pending performance/DPR-2 checks.
-FILES: src/render/planetGround.ts BUILD_STATUS.md
+## 2026-11-13 codex PR #448
+DID: stationary craters/dust, sand banks, cool night/warm twilight and sunlit atmosphere, shader only; silence missing favicon request.
+FILES: src/render/planetGround.ts index.html BUILD_STATUS.md
 SEAM: none; projection, sun, calibration, inputs and gameplay values unchanged.
 CROSS: none
-FOR claude: typecheck/build/rig/sim pass; Brave desktop/phone DPR1 and two clients + bots inspected without console errors; exact DPR2/headless performance still unverified. Remaining GFX_BRIEF items stay queued.
+FOR claude: typecheck/build/396-pose rig/sim pass; Brave desktop + 844x390 DPR2, two clients + 4 bots, no console errors. Frame parity: main 32.04 vs pass 32.06 FPS, both p95 31.6ms. Legacy keyboard-turn check fails on both main and pass; investigate harness separately. GFX_BRIEF items 2-8 remain queued.
 
 ## 2026-11-12 claude bounty-lock
 DID: bounty marker on the strongest real player (2+ players, bots never) + gold edge tracker for others; in-flight missile lock crosshair for firer and target, MISSILE LOCK warning. GFX_BRIEF.md for codex.
