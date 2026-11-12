@@ -25,7 +25,7 @@
     "acceleration": 220,
     "braking": 300,
     "turnRate": 3.2,
-    "dashSpeedFactor": 3,
+    "dashSpeedFactor": 1.8,
     "dashChargeSeconds": 0.8,
     "dashDuration": 0.8,
     "dashCooldown": 8,
