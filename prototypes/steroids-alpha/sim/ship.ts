@@ -10,12 +10,19 @@ export interface ShipState {
   heading: number;
   /** Forward speed in px/s, between ship.minSpeed and ship.maxSpeed. A ship never stops. */
   speed: number;
-  /** Seconds of dash left. */
+  /** Seconds of dash charge left (the 0.5 s wind-up before the boost); 0 when not charging. */
+  dashCharge: number;
+  /** Seconds of dash boost left. */
   dashTime: number;
   /** Seconds until dash is available again. */
   dashCd: number;
-  /** Hull points. Changed only by the server; 0 means destroyed. */
+  /** Hull points now. Changed only by the server; 0 means destroyed. */
   hp: number;
+  /**
+   * Hull maximum, which is the ship's power: minerals raise it (after repairing any damage), shop
+   * purchases spend it. hp never exceeds it. Speed, size and the leaderboard follow it.
+   */
+  hullMax: number;
   /** Shield points, taken before the hull. Changed only by the server. */
   shield: number;
   /** Knockback velocity (from ramming an asteroid), added to forward motion and decaying away. */
@@ -46,7 +53,10 @@ export interface ShipInput {
   thrust: number;
   /** Dash requested on this step. */
   dash: boolean;
-  /** Aimed dash: the heading (radians) to snap to as the dash starts, or NaN to dash straight ahead. */
+  /**
+   * Dash direction held this step (radians), or NaN for straight ahead. Sent every step while the
+   * dash charges; the direction held when the charge completes is where the boost goes.
+   */
   dashAim: number;
   /** Fire held on this step. */
   fire: boolean;
@@ -65,13 +75,19 @@ export function powerLevel(hp: number, tune: Tune): number {
   return Math.sqrt(Math.max(0, Math.min(1, (hp - base) / span)));
 }
 
-/** Top speed (and dash speed) after the power penalty. Never below the minimum speed. */
+/** Top speed after the power penalty. Never below the minimum speed. Takes hullMax (power). */
 export function topSpeed(hp: number, tune: Tune): number {
   return Math.max(tune.ship.minSpeed, tune.ship.maxSpeed * (1 - tune.ship.speedPenaltyAtCap * powerLevel(hp, tune)));
 }
 
+/** Dash boost speed: dashSpeedFactor times this ship's top speed. */
 export function dashSpeed(hp: number, tune: Tune): number {
-  return Math.max(tune.ship.minSpeed, tune.ship.dashSpeed * (1 - tune.ship.speedPenaltyAtCap * powerLevel(hp, tune)));
+  return topSpeed(hp, tune) * tune.ship.dashSpeedFactor;
+}
+
+/** How much heat the guns hold: gun upgrades add shop.gunHeatPerTier each (more shots before locking). */
+export function heatCapacity(s: ShipState, tune: Tune): number {
+  return 1 + s.damageTier * tune.shop.gunHeatPerTier;
 }
 
 /** Hit radius: bigger ships are easier to hit and to ram with. */
@@ -90,11 +106,11 @@ export function maxShield(s: ShipState, tune: Tune): number {
 }
 
 export function newShip(x: number, y: number, heading: number, speed: number): ShipState {
-  return { x, y, heading, speed, dashTime: 0, dashCd: 0, hp: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0 };
+  return { x, y, heading, speed, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0 };
 }
 
 export function copyShip(s: ShipState): ShipState {
-  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier };
+  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier };
 }
 
 /** Advance one fixed step. Mutates and returns s. */
@@ -108,18 +124,25 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune)
   }
   s.heading = angleDelta(s.heading, 0);
 
-  // A dash sets the ship's speed to dash speed and holds it for the dash, whatever the stick says
-  // (a released marker stick would otherwise brake through it). Afterwards the extra speed bleeds
-  // off at the braking rate back to top speed, so the boost carries instead of snapping off.
-  if (input.dash && s.dashCd <= 0) {
-    s.dashTime = tune.ship.dashDuration;
+  // Dash (owner design, Thunderdogs-like): pressing it starts a dashChargeSeconds wind-up. While it
+  // charges the player holds a direction; when it completes the ship snaps to that direction and
+  // boosts at dashSpeedFactor x top speed for dashDuration, ignoring the brake. Afterwards the extra
+  // speed bleeds off at the braking rate back to top speed.
+  if (input.dash && s.dashCd <= 0 && s.dashCharge <= 0 && s.dashTime <= 0) {
+    s.dashCharge = tune.ship.dashChargeSeconds;
     s.dashCd = tune.ship.dashCooldown;
-    // An aimed dash snaps the nose round first: a 180 without the slow turn.
-    if (Number.isFinite(input.dashAim)) s.heading = angleDelta(input.dashAim, 0);
+  }
+  if (s.dashCharge > 0) {
+    s.dashCharge = Math.max(0, s.dashCharge - dt);
+    if (s.dashCharge <= 1e-9) {
+      s.dashCharge = 0;
+      s.dashTime = tune.ship.dashDuration;
+      if (Number.isFinite(input.dashAim)) s.heading = angleDelta(input.dashAim, 0);
+    }
   }
   // Power makes a ship slower: both caps come down as it grows.
-  const top = topSpeed(s.hp, tune);
-  if (s.dashTime > 0) s.speed = Math.max(s.speed, dashSpeed(s.hp, tune));
+  const top = topSpeed(s.hullMax, tune);
+  if (s.dashTime > 0) s.speed = Math.max(s.speed, dashSpeed(s.hullMax, tune));
   else {
     const thrust = Math.max(-1, Math.min(1, input.thrust));
     if (s.speed > top) s.speed = Math.max(top, s.speed - tune.ship.braking * dt + Math.min(0, thrust) * tune.ship.braking * dt);
@@ -144,7 +167,7 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune)
   if (input.fire && s.fireCd === 0 && !s.overheated) {
     s.fireCd = w.fireIntervalSteps;
     s.shots = (s.shots + 1) & 0xffff;
-    s.heat = Math.min(1, s.heat + w.heatPerShot);
+    s.heat = Math.min(1, s.heat + w.heatPerShot / heatCapacity(s, tune));
     if (s.heat >= 1) s.overheated = true;
   }
   return s;
@@ -193,7 +216,7 @@ export function muzzleShot(s: ShipState, tune: Tune, targets: readonly AssistTar
   const c = Math.cos(s.heading);
   const sn = Math.sin(s.heading);
   // The guns grow with the ship (see shipRadius), so shots still leave from the drawn wing tips.
-  const grow = shipRadius(s.hp, tune) / tune.ship.radius;
+  const grow = shipRadius(s.hullMax, tune) / tune.ship.radius;
   const f = tune.weapon.muzzleForward * grow;
   const l = tune.weapon.muzzleSide * grow * side;
   const v = tune.weapon.bulletSpeed + s.speed;

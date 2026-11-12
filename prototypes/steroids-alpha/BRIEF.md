@@ -183,9 +183,18 @@ All names, ships, pilots and art are original. Nothing is copied from either.
   compensate.
 - Aim assist (owner request): a narrow cone ahead of the ship bends shots
   slightly toward a target, ships before asteroids.
-- Aimed dash (owner idea): the dash can snap the ship to a new heading (a
-  180 instead of a slow turn): stick direction on touch, S/A/D + Shift on
-  keyboard.
+- Dash (owner design, Thunderdogs reference, 12 November): press dash to
+  start a 0.5 s charge (energy effect); hold a direction during the charge,
+  and when it completes the ship snaps to that direction and boosts at 2x top
+  speed for 1.5 s, ignoring braking. Touch: stick direction; keyboard: hold
+  S (back) or A/D (sides) during the charge.
+- Hull: power is the hull maximum. Minerals repair damage first, then raise
+  the maximum. Shop purchases lower the maximum; current hull only drops if
+  it is above the new maximum (owner design, 12 November).
+- Gun upgrades also hold 20% more heat per tier (owner).
+- Leaderboard shows each player's kills (players only) and power.
+- Shield hit effect: a bubble of hexagons around the craft; only the hit
+  side flashes (owner).
 - Dash ram (owner picked): dashing into a ship damages it, scaled by gun
   upgrades, and throws both apart.
 - Destroyed ship (owner decision): it explodes, then the player chooses

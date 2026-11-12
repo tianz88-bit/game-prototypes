@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-12 claude dash-charge-hullmax
+DID: dash = 0.5s charge (hold direction) then 2x top speed for 1.5s; hull max separate from hull (minerals repair then grow; buying spends the max); gun tiers +20% heat; leaderboard KO count; shield hit = hexagon bubble, hit side flashes.
+FILES: sim/{ship,shop,world,turrets,protocol,liveConfig}.ts server/src/room.ts src/{net/client,scenes/flight,main}.ts src/render/shipView.ts tune.json
+SEAM: protocol 12. ShipState + dashCharge, hullMax (power/size/speed use hullMax). dashSpeed(hp) = topSpeed x dashSpeedFactor; heatCapacity(s). dashAim sent every step.
+CROSS: src/render/shipView.ts drawShield rewritten (hex bubble); flight.ts drawDashCharge placeholder.
+FOR codex: style the dash charge (flight.ts drawDashCharge; dashCharge 0..0.5s) and boost trail; the hex bubble is yours to refine.
+
 ## 2026-11-12 claude shop-overheat
 DID: shop (turret/shield/guns, 4 tiers each, power floor + mineral cost; top-left one-tap buttons, keys 1/2/3), gun overheat (+damage 16), aim assist cone, aimed dash, dash ram. Power no longer scales damage/shield. QR now uses the repo's qrcode lib (own encoder removed).
 FILES: sim/{ship,shop,turrets,world,protocol,liveConfig}.ts server/src/room.ts src/{input/intents,net/client,scenes/flight,scenes/menu,main,liveConfig}.ts tune.json

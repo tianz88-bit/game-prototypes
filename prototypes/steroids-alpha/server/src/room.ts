@@ -75,7 +75,7 @@ export class Room {
     for(const group of ['ship','weapon','turret','shop','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
     for(const p of this.players.values()){
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
-      p.ship.hp=Math.min(this.tune.ship.maxHp,p.ship.hp);
+      p.ship.hullMax=Math.min(this.tune.ship.powerCap,p.ship.hullMax);p.ship.hp=Math.min(p.ship.hullMax,p.ship.hp);
       p.ship.shield=Math.min(this.tune.ship.maxShield,p.ship.shield);
       if(p.queue.length)p.last=p.queue[p.queue.length-1];p.queue=[];p.deficit=0;p.deficitTicks=0;p.owedDash=false;p.started=false;
       this.send(p,JSON.stringify({type:'config',record}));this.send(p,this.snapshotFor(p));
@@ -233,7 +233,7 @@ export class Room {
     }
     // Power changes all the time; the leaderboard hears about it twice a second at most.
     if (this.tick % Math.max(1, Math.round(this.tune.net.tickHz / 2)) === 0) {
-      const key = [...this.players.values()].map((p) => `${p.id}:${Math.round(p.ship.hp)}`).join(',');
+      const key = [...this.players.values()].map((p) => `${p.id}:${Math.round(p.ship.hullMax)}:${p.kills}`).join(',');
       if (key !== this.rosterKey) this.broadcastRoster();
     }
     if (this.tick % this.snapshotEvery === 0 || dead.size) {
@@ -258,8 +258,8 @@ export class Room {
   private rosterKey = '';
   private broadcastRoster(): void {
     const players = [...this.players.values()];
-    this.rosterKey = players.map((p) => `${p.id}:${Math.round(p.ship.hp)}`).join(',');
-    this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.round(p.ship.hp) })) }));
+    this.rosterKey = players.map((p) => `${p.id}:${Math.round(p.ship.hullMax)}:${p.kills}`).join(',');
+    this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.round(p.ship.hullMax) })) }));
   }
 
   private broadcast(buf: ArrayBuffer | string): void {

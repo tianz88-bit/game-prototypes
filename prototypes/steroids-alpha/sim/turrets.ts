@@ -24,7 +24,7 @@ export const TURRET_SIDE = 10;
 /** World position of turret i on ship s. Mounts move out as the ship grows. */
 export function turretPosition(s: ShipState, i: number, tune: Tune): { x: number; y: number } {
   const m = TURRET_MOUNTS[i];
-  const grow = shipRadius(s.hp, tune) / tune.ship.radius;
+  const grow = shipRadius(s.hullMax, tune) / tune.ship.radius;
   const c = Math.cos(s.heading);
   const sn = Math.sin(s.heading);
   return {

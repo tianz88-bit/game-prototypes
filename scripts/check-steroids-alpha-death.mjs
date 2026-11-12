@@ -77,7 +77,8 @@ try {
   for (const k of ['w', 'a', 'd']) await page.keyboard.up(k);
   assert(firstRam, 'the ship rammed an asteroid');
   assert(firstRam.after.shield < firstRam.before.shield, 'ramming damaged the shield first');
-  assert.equal(firstRam.after.hp, firstRam.before.hp, 'hull untouched while the shield held');
+  // The broken rock's minerals can be collected in the same tick, so the hull may go up, never down.
+  assert(firstRam.after.hp >= firstRam.before.hp, 'hull not damaged while the shield held');
   assert(shieldShown > 0, 'the shield effect showed for the blocked hit');
   const death = await api(() => window.__steroids.death());
   assert(death, 'the ship was destroyed');

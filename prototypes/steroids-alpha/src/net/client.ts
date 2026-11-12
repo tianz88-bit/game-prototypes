@@ -292,14 +292,13 @@ export class NetClient {
     const deltaMs = this.lastFrameAt ? now - this.lastFrameAt : 0;
     this.lastFrameAt = now;
     // A dash pressed between two fixed steps is kept for the next step.
-    if (input.dash && !this.dashQueued) this.dashAimQueued = input.dashAim;
     this.dashQueued ||= input.dash;
     if (this.predicted && this.status === 'open' && !this.death) {
       this.accumulator += Math.min(deltaMs, 250);
       while (this.accumulator >= STEP_MS) {
         this.accumulator -= STEP_MS;
         // Round to the 32-bit floats that go on the wire, so prediction uses exactly what the server gets.
-        const cmd: ShipInput = { seq: ++this.seq, turn: Math.fround(input.turn), aim: Math.fround(input.aim), thrust: Math.fround(input.thrust), dash: this.dashQueued, fire: input.fire, dashAim: this.dashQueued ? Math.fround(this.dashAimQueued) : NaN };
+        const cmd: ShipInput = { seq: ++this.seq, turn: Math.fround(input.turn), aim: Math.fround(input.aim), thrust: Math.fround(input.thrust), dash: this.dashQueued, fire: input.fire, dashAim: Math.fround(input.dashAim) };
         this.dashQueued = false;
         this.pending.push(cmd);
         if (this.pending.length > 120) this.pending.shift();
@@ -328,7 +327,6 @@ export class NetClient {
   }
 
   private dashQueued = false;
-  private dashAimQueued = NaN;
 
   /** Ask the server for a shop purchase (it decides); tier is the one on offer, so a double tap buys once. */
   buy(item: number, tier: number): void {
