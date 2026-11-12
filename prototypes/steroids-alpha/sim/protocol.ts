@@ -1,4 +1,4 @@
-// Protocol v5: binary game frames are little-endian. The server also sends JSON text frames:
+// Protocol v6: binary game frames are little-endian. The server also sends JSON text frames:
 //   {type:'config',record:ConfigRecord}            before welcome/cutover snapshots
 //   {type:'roster',players:[{id,name,kills}]}      whenever someone joins, leaves, scores or dies
 //   {type:'deaths',deaths:[{id,x,y,killer}]}       ships destroyed (killer 0 = an asteroid)
@@ -7,12 +7,12 @@
 // Clients never send configuration; their socket accepts only bounded intent/ping frames.
 //
 // Client -> server
-//   INPUT     u8 type, u32 seq, f32 turn, f32 aim, f32 thrust, u8 flags (bit0 dash, bit1 fire)
+//   INPUT     u8 type, u32 seq, f32 turn, f32 aim, f32 thrust, u8 flags (bit0 fire)
 //   PING      u8 type, f64 clientTimeMs
 // Server -> client
 //   WELCOME   u8 type, u16 yourId, u32 tick
 //   SNAPSHOT  u8 type, u32 tick, u32 ackSeq, u16 count, count x SHIP
-//             SHIP = u16 id, f32 x, f32 y, f32 heading, f32 speed, f32 dashTime, f32 dashCd,
+//             SHIP = u16 id, f32 x, f32 y, f32 heading, f32 speed,
 //                    f32 hp, f32 shield, f32 kx, f32 ky, u8 fireCd, u16 shots
 //   PONG      u8 type, f64 clientTimeMs
 //   ASTEROIDS u8 type, u16 count, count x (u16 id, u8 size, f32 x, f32 y, f32 vx, f32 vy, u32 t0, f32 hp)
@@ -23,7 +23,7 @@ import type { ShipInput, ShipState } from './ship';
 import type { Asteroid } from './asteroids';
 import type { ShotEvent } from './world';
 
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 
 export const MSG = {
   INPUT: 1,
@@ -78,7 +78,7 @@ export type ClientMessage =
   | { type: typeof MSG.PING; clientTime: number };
 
 const INPUT_BYTES = 18;
-const SHIP_BYTES = 2 + 4 * 10 + 1 + 2;
+const SHIP_BYTES = 2 + 4 * 8 + 1 + 2;
 const ASTEROID_BYTES = 2 + 1 + 4 * 4 + 4 + 4;
 const GONE_BYTES = 2 + 4 * 2;
 const SHOT_BYTES = 2 + 4 * 4 + 1;
@@ -91,7 +91,7 @@ export function encodeInput(input: ShipInput): ArrayBuffer {
   v.setFloat32(5, input.turn, true);
   v.setFloat32(9, input.aim, true);
   v.setFloat32(13, input.thrust, true);
-  v.setUint8(17, (input.dash ? 1 : 0) | (input.fire ? 2 : 0));
+  v.setUint8(17, input.fire ? 1 : 0);
   return buf;
 }
 
@@ -126,14 +126,12 @@ export function encodeSnapshot(tick: number, ackSeq: number, ships: SnapshotShip
     v.setFloat32(o + 6, s.y, true);
     v.setFloat32(o + 10, s.heading, true);
     v.setFloat32(o + 14, s.speed, true);
-    v.setFloat32(o + 18, s.dashTime, true);
-    v.setFloat32(o + 22, s.dashCd, true);
-    v.setFloat32(o + 26, s.hp, true);
-    v.setFloat32(o + 30, s.shield, true);
-    v.setFloat32(o + 34, s.kx, true);
-    v.setFloat32(o + 38, s.ky, true);
-    v.setUint8(o + 42, s.fireCd);
-    v.setUint16(o + 43, s.shots, true);
+    v.setFloat32(o + 18, s.hp, true);
+    v.setFloat32(o + 22, s.shield, true);
+    v.setFloat32(o + 26, s.kx, true);
+    v.setFloat32(o + 30, s.ky, true);
+    v.setUint8(o + 34, s.fireCd);
+    v.setUint16(o + 35, s.shots, true);
     o += SHIP_BYTES;
   }
   return buf;
@@ -210,8 +208,7 @@ export function decodeClient(buf: ArrayBuffer): ClientMessage | null {
         turn: Number.isFinite(turn) ? Math.max(-1, Math.min(1, turn)) : 0,
         aim: Number.isFinite(aim) && Math.abs(aim) <= Math.PI * 2 ? aim : NaN,
         thrust: Number.isFinite(thrust) ? Math.max(-1, Math.min(1, thrust)) : 0,
-        dash: (flags & 1) === 1,
-        fire: (flags & 2) === 2,
+        fire: (flags & 1) === 1,
       },
     };
   }
@@ -237,14 +234,12 @@ export function decodeServer(buf: ArrayBuffer): ServerMessage | null {
         y: v.getFloat32(o + 6, true),
         heading: v.getFloat32(o + 10, true),
         speed: v.getFloat32(o + 14, true),
-        dashTime: v.getFloat32(o + 18, true),
-        dashCd: v.getFloat32(o + 22, true),
-        hp: v.getFloat32(o + 26, true),
-        shield: v.getFloat32(o + 30, true),
-        kx: v.getFloat32(o + 34, true),
-        ky: v.getFloat32(o + 38, true),
-        fireCd: v.getUint8(o + 42),
-        shots: v.getUint16(o + 43, true),
+        hp: v.getFloat32(o + 18, true),
+        shield: v.getFloat32(o + 22, true),
+        kx: v.getFloat32(o + 26, true),
+        ky: v.getFloat32(o + 30, true),
+        fireCd: v.getUint8(o + 34),
+        shots: v.getUint16(o + 35, true),
       });
       o += SHIP_BYTES;
     }

@@ -12,7 +12,7 @@ const initialCalibration=structuredClone(draft.calibration);
 let calibration=draft.calibration,selected='canopy',direction='up',angle=0,spinning=false,lastAngle=0,recoilAt=-1e6,dirty=0,saveTimer,saveQueue=Promise.resolve(),shadowDirty=true;
 const assets=[...new Set(modules.map(m=>m.asset))];
 let flight=flightSeed();const heldKeys=new Set(),heldActions=new Map(),flightPulses=new Map();
-const keyActions={Shift:'dash',w:'accelerate',ArrowUp:'accelerate',s:'brake',ArrowDown:'brake',a:'left',ArrowLeft:'left',d:'right',ArrowRight:'right'};
+const keyActions={w:'accelerate',ArrowUp:'accelerate',s:'brake',ArrowDown:'brake',a:'left',ArrowLeft:'left',d:'right',ArrowRight:'right'};
 const editing=e=>e.target.matches('input,select,textarea')||e.target.isContentEditable;
 const inputKey=e=>e.key.length===1?e.key.toLowerCase():e.key;
 window.addEventListener('keydown',e=>{if(editing(e)||e.ctrlKey||e.metaKey||e.altKey)return;const key=inputKey(e);if(keyActions[key]||e.code==='Space'){e.preventDefault();if(e.code==='Space'){if(!e.repeat)$('#fire').click();}else heldKeys.add(key);}});
@@ -24,7 +24,7 @@ for(const b of document.querySelectorAll('[data-flight]')){
  b.onlostpointercapture=e=>heldActions.delete(e.pointerId);
  b.onclick=e=>{if(!b.dataset.pressedAt||e.timeStamp-Number(b.dataset.pressedAt)<180)flightPulses.set(b.dataset.flight,performance.now()+900);};
 }
-const flightInput=()=>Object.fromEntries(['accelerate','brake','left','right','dash'].map(action=>[action,[...heldKeys].some(k=>keyActions[k]===action)||[...heldActions.values()].includes(action)||(flightPulses.get(action)||0)>performance.now()]));
+const flightInput=()=>Object.fromEntries(['accelerate','brake','left','right'].map(action=>[action,[...heldKeys].some(k=>keyActions[k]===action)||[...heldActions.values()].includes(action)||(flightPulses.get(action)||0)>performance.now()]));
 const assetUrl=id=>new URL('ship-art/human-nomad-v1-'+id+'.png',location.href).href;
 for(const m of modules){const o=document.createElement('option');o.value=m.id;o.textContent=m.label;$('#module').append(o);}$('#module').value=selected;
 for(const id of assets){const f=document.createElement('figure');const img=new Image();img.src=assetUrl(id);img.alt=id;const cap=document.createElement('figcaption');cap.textContent=id;f.append(img,cap);$('#parts').append(f);}

@@ -141,8 +141,7 @@ All names, ships, pilots and art are original. Nothing is copied from either.
 - Primary fire from equipped weapon(s), fixed forward. Default (confirm):
   wing guns are angled slightly inward so the two streams cross ahead of the
   nose, instead of passing either side of a target dead ahead.
-- Dash: short burst of speed on a cooldown or energy cost.
-- Energy meter shared by firing and dashing (exact rules to confirm).
+- No dash (owner decision, 12 November 2026: removed from the game).
 - Hull HP; destroyed at 0.
 - Shield (owner decision): a blue meter that takes damage before the hull.
   It equals 50% of the original hull, and the hull was halved to make room
@@ -156,8 +155,10 @@ All names, ships, pilots and art are original. Nothing is copied from either.
   that restores 25% of the hull.
 - Destroyed ship (owner decision): it explodes, then the player chooses
   Respawn (same planet, fresh ship) or Menu.
-- Kills leaderboard on every planet (owner decision): sorted by kills and
-  re-ordering itself live. A player's kills reset to 0 when they die.
+- Kills leaderboard on every planet (owner decision): one chip per player
+  (rank, name, kills), sorted by kills. Chips slide to their new places when
+  the order changes, and a chip pops when its kills go up. A player's kills
+  reset to 0 when they die.
 - Night side (owner decision): ships are drawn 30% darker at full night;
   asteroids and pickups only 10%. The ground goes fully dark.
 
@@ -174,7 +175,7 @@ Both schemes are supported (owner decision), through the intent layer:
   most of the way (thrust follows the push on a curve, `touch.markerThrustCurve`).
 - Default (confirm): keyboard uses craft-relative (A/D rotate, W/S throttle);
   the phone stick defaults to direction marker with a toggle to
-  craft-relative. Fire, dash and warp are buttons on both.
+  craft-relative. Fire and warp are buttons on both.
 - Both schemes share the same turn rate and speed limits, so neither has an
   advantage.
 
@@ -268,7 +269,7 @@ lockdown, warp progress and extraction.
 
 ## Tuning
 
-All feel values (speeds, turn rates, dash, energy, fire rates, damage,
+All feel values (speeds, turn rates, fire rates, damage,
 lockdown duration, warp acceleration, warp speed, warp distance, asteroid counts, sizes and split behaviour,
 tick and snapshot rates) live in `tune.json`, shared by client and server.
 Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
@@ -348,6 +349,8 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 - Shield of 50% of the old hull, hull halved; regen after 5 s at 5%/s; blue
   hexagon hit effect.
 - Ships 30% darker on the night side; other objects 10%.
+- Dash removed entirely (button, key and mechanic), 12 November 2026.
+- Pilot name must be typeable on phones (tap the box, the keyboard opens).
 
 ## Open questions
 

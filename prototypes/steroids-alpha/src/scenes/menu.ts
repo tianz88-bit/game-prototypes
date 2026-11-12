@@ -18,8 +18,10 @@ export interface MenuButton {
 }
 
 /**
- * Phones only open their keyboard for a real text field, so the name box is drawn on the canvas but
- * typing goes to one invisible input element. Nothing else on the page is DOM.
+ * Phones only open their keyboard when the player taps a real text field themselves (a field focused
+ * from script does not count on iOS, and a touch's pointerdown is not a user gesture). So the name box
+ * is drawn on the canvas and one see-through input element sits exactly on top of it: the tap lands on
+ * the field and the browser opens the keyboard. Nothing else on the page is DOM.
  */
 let field: HTMLInputElement | null = null;
 function nameField(): HTMLInputElement {
@@ -30,8 +32,11 @@ function nameField(): HTMLInputElement {
     field.autocomplete = 'off';
     field.spellcheck = false;
     field.setAttribute('aria-label', 'Pilot name');
-    // 16px stops iOS zooming in; off-screen and transparent, but focusable.
-    field.style.cssText = 'position:fixed;left:-1000px;top:0;width:200px;font-size:16px;opacity:0;';
+    field.enterKeyHint = 'done';
+    // 16px stops iOS zooming in. The canvas draws the text and caret, so the field shows nothing itself.
+    field.style.cssText =
+      'position:fixed;display:none;margin:0;padding:0;border:0;outline:none;background:transparent;' +
+      'color:transparent;caret-color:transparent;font-size:16px;z-index:5;touch-action:manipulation;';
     document.body.appendChild(field);
   }
   return field;
@@ -52,7 +57,9 @@ export class MenuScene extends Phaser.Scene {
     this.game.events.on('dpr', this.layout, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('dpr', this.layout, this);
-      nameField().blur();
+      const f = nameField();
+      f.blur();
+      f.style.display = 'none';
       intents.textBox = null;
     });
     nameField().onkeydown = (e) => {
@@ -77,7 +84,11 @@ export class MenuScene extends Phaser.Scene {
     intents.textBox = { zone: { x: w / 2, y: ny, hw: bw / 2, hh: 18 }, field: nameField() };
     this.nameFrame = this.add.rectangle(w / 2, ny, bw, 36, 0x0d1424).setStrokeStyle(2, 0x5a6b8f);
     this.nameText = text(this, w / 2 - bw / 2 + 12, ny, '', 16).setOrigin(0, 0.5);
-    nameField().value = loadSave().name ?? '';
+    const f = nameField();
+    // Opening the keyboard resizes the page and re-runs this layout; keep what is being typed.
+    if (document.activeElement !== f) f.value = loadSave().name ?? '';
+    const r = this.game.canvas.getBoundingClientRect();
+    Object.assign(f.style, { display: 'block', left: `${r.left + w / 2 - bw / 2}px`, top: `${r.top + ny - 18}px`, width: `${bw}px`, height: '36px' });
 
     text(this, w / 2, ny + 34, 'Choose a planet to drop into', 14, '#8fa2c8').setOrigin(0.5);
     const bh = Math.min(64, Math.max(44, (h - (ny + 60) - 24) / 2 - 12));
@@ -100,7 +111,7 @@ export class MenuScene extends Phaser.Scene {
     this.nameFrame.setStrokeStyle(2, editing ? 0x9fd8ff : 0x5a6b8f);
     for (const t of intents.drainTaps()) {
       const n = this.nameBox;
-      // Focus and blur already happened in the tap itself (Intents.textBox).
+      // Taps on the name box belong to the text field over it.
       if (Math.abs(t.x - n.x) <= n.w / 2 && Math.abs(t.y - n.y) <= n.h / 2) continue;
       const b = this.buttons.find((b) => Math.abs(t.x - b.x) <= b.w / 2 && Math.abs(t.y - b.y) <= b.h / 2);
       if (b) {

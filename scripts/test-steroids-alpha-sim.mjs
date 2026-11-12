@@ -28,7 +28,7 @@ function rng(seed = 1) {
   let s = seed;
   return () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646;
 }
-const idle = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false };
+const idle = { seq: 0, turn: 0, aim: NaN, thrust: 0, fire: false };
 const near = (a, b, eps, what) => assert(Math.abs(a - b) <= eps, `${what}: ${a} vs ${b}`);
 
 // --- Throttle: accelerate to the maximum, brake to the minimum, never stop. ---
@@ -266,11 +266,16 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   for (const k of ['healthDropChance', 'healthHealFraction', 'pickupLifeSeconds', 'pickupRadius']) delete old.tune.asteroid[k];
   delete old.clientTune.touch.markerThrustCurve;
   old.clientTune.touch.speedBand = 40; // a field the game has since removed
+  Object.assign(old.tune.ship, { dashSpeed: 640, dashDuration: 0.22, dashCooldown: 1.6 }); // dash was removed
+  Object.assign(old.clientTune.touch, { dashButtonRadius: 46, dashButtonMargin: 34 });
+  delete old.clientTune.touch.fireButtonMargin;
   const up = L.validateConfig(old);
   assert.equal(up.tune.ship.maxHp, 50, 'old hull pool halved');
   assert.equal(up.tune.ship.maxShield, 50, 'the other half becomes shield');
   assert.equal(up.tune.asteroid.healthHealFraction, base.tune.asteroid.healthHealFraction, 'new fields get defaults');
   assert(!('speedBand' in up.clientTune.touch), 'removed fields are dropped');
+  assert(!('dashSpeed' in up.tune.ship) && !('dashButtonRadius' in up.clientTune.touch), 'dash settings are dropped');
+  assert.equal(up.clientTune.touch.fireButtonMargin, base.clientTune.touch.fireButtonMargin);
   assert.deepEqual(L.validateConfig(base), base, 'current settings pass unchanged');
 }
 
@@ -292,11 +297,11 @@ assert.equal(S.cleanName(null), '');
 
 // --- Wire format round trips. ---
 {
-  const input = { seq: 77, turn: -0.5, aim: NaN, thrust: 1, dash: true, fire: true };
+  const input = { seq: 77, turn: -0.5, aim: NaN, thrust: 1, fire: true };
   const back = S.decodeClient(S.encodeInput(input)).input;
   assert.deepEqual({ ...back, aim: 0 }, { ...input, aim: 0 });
   assert(Number.isNaN(back.aim));
-  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashTime: 0, dashCd: 0.5, hp: 40, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41 };
+  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, hp: 40, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41 };
   assert.deepEqual(S.decodeServer(S.encodeSnapshot(1234, 55, [ship])), { type: S.MSG.SNAPSHOT, tick: 1234, ackSeq: 55, ships: [ship] });
   const rockRec = { id: 3, size: 1, x: 10.5, y: 20.25, vx: -30, vy: 12.5, t0: 900, hp: 30 };
   assert.deepEqual(S.decodeServer(S.encodeAsteroids([rockRec])).asteroids, [rockRec]);

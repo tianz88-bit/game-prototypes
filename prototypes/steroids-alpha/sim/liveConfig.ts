@@ -81,7 +81,7 @@ export function validateConfig(input: unknown): ConfigData {
     if (v < 0 || v > 10000) fail(`${group}.${key}: value must be 0–10000`);
   }
   const s = value.tune.ship, w = value.tune.weapon;
-  if (!(s.minSpeed <= s.cruiseSpeed && s.cruiseSpeed <= s.maxSpeed && s.maxSpeed > 0 && s.dashSpeed >= s.minSpeed)) fail('Keep minimum ≤ cruise ≤ maximum speed');
+  if (!(s.minSpeed <= s.cruiseSpeed && s.cruiseSpeed <= s.maxSpeed && s.maxSpeed > 0)) fail('Keep minimum ≤ cruise ≤ maximum speed');
   if (s.acceleration <= 0 || s.braking <= 0 || s.radius <= 0 || s.maxHp <= 0) fail('Acceleration, braking, radius and hull must be positive');
   if (s.shieldRegenPerSecond > 1 || value.tune.asteroid.healthDropChance > 1 || value.tune.asteroid.healthHealFraction > 1) fail('Shield regeneration, drop chance and heal fraction are fractions (0–1)');
   if (!Number.isInteger(w.fireIntervalSteps) || w.fireIntervalSteps < 1 || w.fireIntervalSteps > 255 || !Number.isInteger(w.bulletLifeSteps) || w.bulletLifeSteps < 1 || w.bulletLifeSteps > 900) fail('Weapon step counts must be positive integers (interval ≤255; life ≤900)');
