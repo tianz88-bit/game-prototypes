@@ -26,7 +26,7 @@ import { loadSave } from '../save';
 import type { ShipPlacement } from '../render/shipView';
 import { missileLock } from '../../sim/ordnance';
 import { UI, css, panel, controlFace } from '../render/ui';
-import { drawRock, drawPickup, drawOrdnance, drawExplosionCore } from '../render/worldArt';
+import { drawRock, drawPickup, drawOrdnance, drawExplosionCore, drawBullet, drawDrone } from '../render/worldArt';
 
 const W = TUNE.world.width;
 const H = TUNE.world.height;
@@ -368,22 +368,7 @@ export class FlightScene extends Phaser.Scene {
       const d = ((want - prev + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
       const a = prev + d * 0.15;
       aim.angle[i] = a;
-      const r = 5.5 * k;
-      const tint = (v: number): number => Math.round(v * light);
-      g.lineStyle(Math.max(3, 5 * k),0x1a2638,1);
-      g.lineBetween(x,y,x+Math.cos(a)*r*2,y+Math.sin(a)*r*2);
-      g.lineStyle(Math.max(2, 3 * k), (tint(0xcf) << 16) | (tint(0xd8) << 8) | tint(0xe6), 1);
-      g.lineBetween(x, y, x + Math.cos(a) * r * 2, y + Math.sin(a) * r * 2);
-      g.fillStyle((tint(0x3a) << 16) | (tint(0x4a) << 8) | tint(0x66), 1);
-      g.fillCircle(x, y, r);
-      g.fillStyle(0x8aa9b5,.7*light);g.fillEllipse(x+this.frame.sun.x*r*.25,y+this.frame.sun.y*r*.25,r*1.2,r*.75);
-      g.lineStyle(1.5, (tint(0x9f) << 16) | (tint(0xef) << 8) | tint(0xff), 0.9);
-      g.strokeCircle(x, y, r);
-      if (now - (aim.firedAt[i] ?? -1e9) < 70) {
-        g.fillStyle(0xffffff, 0.9);
-        const tx=x+Math.cos(a)*r*2.2,ty=y+Math.sin(a)*r*2.2;
-        g.fillTriangle(tx+Math.cos(a)*r*1.8,ty+Math.sin(a)*r*1.8,tx-Math.sin(a)*r*.65,ty+Math.cos(a)*r*.65,tx+Math.sin(a)*r*.65,ty-Math.cos(a)*r*.65);
-      }
+      drawDrone(g,x,y,k,a,now,id+i,light,now-(aim.firedAt[i]??-1e9)<70);
     }
   }
 
@@ -929,8 +914,7 @@ export class FlightScene extends Phaser.Scene {
       const head = this.toScreen(b.x, b.y);
       const tail = this.toScreen(b.x - b.vx * len, b.y - b.vy * len);
       if (!head.visible || !tail.visible) continue;
-      g.lineStyle(Math.max(1, (b.small ? 1.6 : 3) * head.scale), b.mine ? (b.small ? 0xd6fbff : 0x9ff3ff) : b.small ? 0xffd9b0 : 0xffb37a, 1);
-      g.lineBetween(head.x, head.y, tail.x, tail.y);
+      drawBullet(g,head,tail,b.mine,!!b.small,b.look??0);
     }
     // Missiles and mines. Missiles are carried forward from the last snapshot so they fly smoothly.
     const tNow = performance.now();
@@ -1015,13 +999,12 @@ function rockShape(id: number, r: number): { x: number; y: number }[] {
   if (!pts) {
     pts = [];
     let seed = id * 9301 + 49297;
-    const n = 11;
+    const n = [8,12,6][id%3];
     for (let i = 0; i < n; i++) {
       seed = (seed * 9301 + 49297) % 233280;
-      // Corners sit at 100-112% of the hit radius, so even the flat edges between them stay within
-      // 4% of the circle the server collides with: no hits against empty space.
-      const k = 1 + (seed / 233280) * 0.12;
-      const a = (i / n) * Math.PI * 2;
+      // Each family encloses the full collision circle, including its flat edges.
+      const k = (1.015 + (seed / 233280) * 0.10) / Math.cos(Math.PI/n);
+      const a = (i / n) * Math.PI * 2 + (id%7)*.17;
       pts.push({ x: Math.cos(a) * r * k, y: Math.sin(a) * r * k });
     }
     if (shapes.size > 400) shapes.clear();

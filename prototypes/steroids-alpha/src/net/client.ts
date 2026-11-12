@@ -30,6 +30,8 @@ export interface VisualBullet {
   mine: boolean;
   /** A turret shot: drawn smaller. */
   small?: boolean;
+  /** Cosmetic gun family, fixed when the shot is created. */
+  look?: number;
 }
 
 /** Things the scene should show once: a gun firing, an asteroid breaking, a bullet striking. */
@@ -223,7 +225,7 @@ export class NetClient {
           this.fx.push({ kind: 'turret', id: s.owner, index: s.side - TURRET_SIDE, angle: Math.atan2(s.vy, s.vx) });
           continue;
         }
-        this.bullets.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, life: TUNE.weapon.bulletLifeSteps * STEP_MS, mine: false });
+        this.bullets.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, life: TUNE.weapon.bulletLifeSteps * STEP_MS, mine: false, look:s.side===1?0:1 });
         this.fx.push({ kind: 'shot', id: s.owner, side: s.side });
       }
       return;
@@ -330,7 +332,7 @@ export class NetClient {
             ...this.asteroidRender().map((r) => ({ x: r.x, y: r.y, ship: false })),
           ];
           const shot = muzzleShot(this.predicted, TUNE, targets);
-          this.bullets.push({ x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: TUNE.weapon.bulletLifeSteps * STEP_MS, mine: true });
+          this.bullets.push({ x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: TUNE.weapon.bulletLifeSteps * STEP_MS, mine: true, look:shot.side===1?0:1 });
           this.fx.push({ kind: 'shot', id: this.myId, side: shot.side });
         }
       }

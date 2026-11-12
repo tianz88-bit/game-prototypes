@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 codex codex/steroids-variety-drones
+DID: Three asteroid outline/material families, three amber mineral forms, distinct lance/paired-tracer/drone rounds, and hovering weapon drones with detached shadows/animated stabilizers.
+FILES: src/render/worldArt.ts src/scenes/flight.ts src/net/client.ts
+SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
+CROSS: src/net/client.ts attaches a fixed cosmetic gun-side look to transient visual bullets; no wire or prediction changes.
+FOR claude: Typecheck/build/rig/sim pass; desktop/DPR2 variants inspected, two-client/bot capture ~56 FPS on AMD D3D11, zero errors. 900 outline cases enclose collision circles. Drone aim/muzzle slots and all combat tuning preserved.
+
 ## 2026-11-13 claude bot-spread
 DID: bots spawn anywhere on the planet, best of 32 points by distance to the nearest ship, clear of rocks (bots.spawnRockClearance 200). Players still drop at the centre.
 FILES: sim/world.ts server/src/room.ts tune.json scripts/test-steroids-alpha-sim.mjs
@@ -94,13 +101,6 @@ FOR codex: nothing.
 ## 2026-11-12 claude dash-3x
 DID: dash boost at 3x top speed (dashSpeedFactor 3), 0.8 s; published live.
 FILES: tune.json
-SEAM: none
-CROSS: none
-FOR codex: nothing.
-
-## 2026-11-12 claude dash-lock
-DID: steering locked for the whole dash (charge + boost); boost 0.8 s at the ship's top speed (dashSpeedFactor 1), per owner.
-FILES: sim/ship.ts tune.json scripts/test-steroids-alpha-sim.mjs
 SEAM: none
 CROSS: none
 FOR codex: nothing.
