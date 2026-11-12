@@ -36,7 +36,7 @@ export interface Stick {
   dy: number;
 }
 
-type Press = 'primary' | 'secondary' | 'pause' | 'scheme';
+type Press = 'primary' | 'secondary' | 'pause' | 'scheme' | 'copied' | 'copyFailed';
 
 export class Intents {
   /** Keyboard steering, -1 .. 1. */
@@ -57,6 +57,13 @@ export class Intents {
    * tap event itself, or phones do not open their keyboard.
    */
   textBox: { zone: Zone; field: HTMLInputElement } | null = null;
+  /**
+   * A tap here copies text to the clipboard. Phones only allow the clipboard during a finger lift,
+   * so the copy happens on pointerup (pressed and released inside the zone); the scene reads the
+   * outcome as the 'copied' or 'copyFailed' press.
+   */
+  copyZone: { zone: Zone; text: string } | null = null;
+  private copyPointer: number | null = null;
   dashButton: Zone | null = null;
   fireButton: Zone | null = null;
   schemeButton: Zone | null = null;
@@ -175,6 +182,7 @@ export class Intents {
     const y = e.clientY;
     this.taps.push({ x, y });
     const hit = (z: Zone | null): boolean => !!z && Math.abs(x - z.x) <= z.hw && Math.abs(y - z.y) <= z.hh;
+    if (hit(this.copyZone?.zone ?? null)) this.copyPointer = e.pointerId;
     // The text field sits over its box and takes its own taps; a tap anywhere else closes the keyboard.
     if (this.textBox && !hit(this.textBox.zone)) this.textBox.field.blur();
     if (hit(this.dashButton)) {
@@ -210,6 +218,13 @@ export class Intents {
   }
 
   private onUp(e: PointerEvent): void {
+    if (e.pointerId === this.copyPointer) {
+      this.copyPointer = null;
+      const c = this.copyZone;
+      if (c && Math.abs(e.clientX - c.zone.x) <= c.zone.hw && Math.abs(e.clientY - c.zone.y) <= c.zone.hh) {
+        copyText(c.text).then((ok) => this.presses.add(ok ? 'copied' : 'copyFailed'));
+      }
+    }
     if (e.pointerId === this.stickPointer) this.endStick();
     if (e.pointerId === this.firePointer) this.firePointer = null;
   }
@@ -218,6 +233,37 @@ export class Intents {
     this.stickPointer = null;
     this.stick = null;
   }
+}
+
+/**
+ * Copy text: the async clipboard API where allowed, else the older copy command (which still works in
+ * embedded frames such as itch's that do not grant clipboard permission). Must run inside a user gesture.
+ */
+function copyText(text: string): Promise<boolean> {
+  const legacy = (): boolean => {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.readOnly = true; // no on-screen keyboard
+    area.style.cssText = 'position:fixed;left:-1000px;top:0;opacity:0;font-size:16px;';
+    document.body.appendChild(area);
+    area.select();
+    area.setSelectionRange(0, text.length);
+    let ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch {
+      ok = false;
+    }
+    area.remove();
+    return ok;
+  };
+  // Try the old way first while the gesture is certainly still active, then the async API.
+  if (legacy()) return Promise.resolve(true);
+  if (!navigator.clipboard?.writeText) return Promise.resolve(false);
+  return navigator.clipboard.writeText(text).then(
+    () => true,
+    () => false,
+  );
 }
 
 export const intents = new Intents();

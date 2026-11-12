@@ -3,7 +3,8 @@
 import Phaser from 'phaser';
 import { PLANETS } from '../../sim/planets';
 import type { PlanetId } from '../../sim/planets';
-import { logicalSize, serverOrigin } from '../base';
+import { SHARE_URL, logicalSize, serverOrigin } from '../base';
+import { encodeQr } from '../ui/qr';
 import { intents } from '../input/intents';
 import { fitCamera, text, versionStamp } from './common';
 import { cleanName } from '../../sim/protocol';
@@ -62,6 +63,7 @@ export class MenuScene extends Phaser.Scene {
       f.blur();
       f.style.display = 'none';
       intents.textBox = null;
+      intents.copyZone = null;
     });
     nameField().onkeydown = (e) => {
       if (e.key === 'Enter') nameField().blur();
@@ -102,8 +104,39 @@ export class MenuScene extends Phaser.Scene {
       this.countText.set(p.id, text(this, x, y + (bh > 52 ? 16 : 12), '', 12, '#c9d6f2').setOrigin(0.5));
       return { id: p.id, x, y, w: bw, h: bh };
     });
+    this.drawShare(w, h, bw);
     versionStamp(this);
     this.showCounts();
+  }
+
+  /** Share: a QR code of the game's page beside the menu; tapping it copies the link. */
+  shareBox: { x: number; y: number; size: number } | null = null;
+  private shareHint!: Phaser.GameObjects.Text;
+  private shareHintUntil = 0;
+  private drawShare(w: number, h: number, bw: number): void {
+    const side = (w - bw) / 2;
+    const size = Math.floor(Math.min(150, side - 40, h * 0.42));
+    intents.copyZone = null;
+    this.shareBox = null;
+    if (size < 72) return; // no room beside the menu (very narrow screens)
+    const x = w / 2 + bw / 2 + side / 2;
+    const y = h * 0.5 - 14;
+    const grid = encodeQr(SHARE_URL);
+    const n = grid.length + 8; // 4-module quiet zone each side
+    const cell = size / n;
+    const g = this.add.graphics();
+    g.fillStyle(0xffffff, 1);
+    g.fillRoundedRect(x - size / 2, y - size / 2, size, size, 6);
+    g.fillStyle(0x05070d, 1);
+    grid.forEach((row, r) =>
+      row.forEach((dark, c) => {
+        if (dark) g.fillRect(x - size / 2 + (c + 4) * cell, y - size / 2 + (r + 4) * cell, Math.ceil(cell), Math.ceil(cell));
+      }),
+    );
+    text(this, x, y + size / 2 + 8, 'Scan to join', 12, '#dfe8ff').setOrigin(0.5, 0);
+    this.shareHint = text(this, x, y + size / 2 + 26, 'Tap to copy link', 11, '#8fa2c8').setOrigin(0.5, 0);
+    this.shareBox = { x, y, size };
+    intents.copyZone = { zone: { x, y, hw: size / 2, hh: size / 2 }, text: SHARE_URL };
   }
 
   /** Pilots on each planet, from the server; refreshed every few seconds while the menu is open. */
@@ -135,6 +168,16 @@ export class MenuScene extends Phaser.Scene {
   }
 
   update(time: number): void {
+    const copied = intents.consume('copied');
+    const failed = intents.consume('copyFailed');
+    if (this.shareHint?.active && (copied || failed)) {
+      this.shareHint.setText(copied ? 'Link copied!' : SHARE_URL.replace('https://', '')).setColor(copied ? '#7dff9a' : '#ffd98a');
+      this.shareHintUntil = time + (copied ? 1800 : 6000);
+    }
+    if (this.shareHint?.active && this.shareHintUntil && time > this.shareHintUntil) {
+      this.shareHint.setText('Tap to copy link').setColor('#8fa2c8');
+      this.shareHintUntil = 0;
+    }
     if (time - this.countsAt > clientTune.net.planetCountRefreshMs) {
       this.countsAt = time;
       void this.pollCounts();

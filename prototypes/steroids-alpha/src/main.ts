@@ -107,6 +107,7 @@ if (DEBUG) {
       zones: () => ({ dash: intents.dashButton, scheme: intents.schemeButton, fire: intents.fireButton }),
       menuButtons: () => (game.scene.getScene('menu') as MenuScene).buttons,
       menuCounts: () => (game.scene.getScene('menu') as MenuScene).countLabels(),
+      shareBox: () => (game.scene.getScene('menu') as MenuScene).shareBox,
       own: () => flight()?.net.ownRender() ?? null,
       corrections: () => ({ ...(flight()?.net.corrections ?? { snapshots: 0, count: 0, max: 0 }) }),
       resetCorrections: () => {
