@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {build} from 'esbuild';
 import {createHash,webcrypto} from 'node:crypto';
 import {createPublisher,WORKFLOW} from './steroids-lab-server.mjs';
-const result=await build({stdin:{contents:`export * from './prototypes/steroids-alpha/sim/liveConfig.ts';export * from './prototypes/steroids-alpha/server/src/configStore.ts';export * from './prototypes/steroids-alpha/server/src/configAuth.ts';export * from './prototypes/steroids-alpha/server/src/room.ts';export * from './prototypes/steroids-alpha/sim/protocol.ts';export * from './prototypes/steroids-alpha-lab/preview.ts';export {currentData,importSettings,baseVersion} from './prototypes/steroids-alpha-lab/draft.ts';`,resolveDir:process.cwd(),loader:'ts'},bundle:true,platform:'node',format:'esm',write:false});
+const result=await build({stdin:{contents:`export * from './prototypes/steroids-alpha/sim/liveConfig.ts';export * from './prototypes/steroids-alpha/server/src/configStore.ts';export * from './prototypes/steroids-alpha/server/src/configAuth.ts';export * from './prototypes/steroids-alpha/server/src/room.ts';export * from './prototypes/steroids-alpha/sim/protocol.ts';export * from './prototypes/steroids-alpha-lab/preview.ts';export * from './prototypes/steroids-alpha/server/src/adminAuth.ts';export * from './prototypes/steroids-alpha/server/src/admin.ts';export {default as worker} from './prototypes/steroids-alpha/server/src/index.ts';export {currentData,importSettings,baseVersion} from './prototypes/steroids-alpha-lab/draft.ts';`,resolveDir:process.cwd(),loader:'ts'},bundle:true,platform:'node',format:'esm',write:false});
 const S=await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));
 const base=S.defaultConfig();assert.deepEqual(S.validateConfig(base),base);
 for(const mutate of [d=>d.tune.world.width++,d=>d.tune.net.tickHz++,d=>d.tune.ship.minSpeed=500,d=>d.tune.weapon.fireIntervalSteps=.5,d=>d.calibration.modules.canopy.order.left=2,d=>d.calibration.modules.cockpit.width=Infinity,d=>d.tune.asteroid.radius.push(2),d=>d.clientTune.render.partTextureMax=8]){const d=structuredClone(base);mutate(d);assert.throws(()=>S.validateConfig(d));}
@@ -59,3 +59,32 @@ try{
  assert.equal((await (await post('load',{baseVersion:legacyRecord.version})).json()).compatible,false,'Real balance changes still require review');
 }finally{server.closeAllConnections();await new Promise(r=>server.close(r));}
 console.log('PASS: config validation, atomic stale-write rejection/history, real OIDC signature and claim rejection, live room cutover, input flood/oversize limits, private publisher CSRF/session/fixed-workflow boundaries');
+
+// Hosted owner publishing: real Access signatures, owner restriction and same-origin writes.
+{
+ const owner='owner@example.test',aud='1'.repeat(64),issuer='https://test-owner-admin.cloudflareaccess.com';
+ const accessClaims={iss:issuer,aud:[aud],email:owner,iat:now,exp:now+3600};
+ const sign=async(patch={},h={alg:'RS256',kid:'test-key'})=>{const h64=Buffer.from(JSON.stringify(h)).toString('base64url'),p64=Buffer.from(JSON.stringify({...accessClaims,...patch})).toString('base64url'),body=h64+'.'+p64;return body+'.'+Buffer.from(await webcrypto.subtle.sign('RSASSA-PKCS1-v1_5',keys.privateKey,Buffer.from(body))).toString('base64url');};
+ const token=await sign(),adminStore=new Storage();let writes=0;
+ const env={ADMIN_ACCESS_TEAM:'test-owner-admin',ADMIN_ACCESS_AUD:aud,ADMIN_OWNER_EMAIL:owner,PLANET_CONFIG:{idFromName:n=>n,get:()=>({fetch:async req=>{if(req.method==='GET')return Response.json((await adminStore.get('settings'))?.active??S.bundledRecord());writes++;const p=await req.json();try{return Response.json(await S.publishConfig(adminStore,p.expectedVersion,p.data,p.actor));}catch(e){return Response.json({error:e.message},{status:409});}}})}};
+ const origin='https://steroids-alpha-server.tianz-88.workers.dev';
+ const request=(route='/manage/',options={})=>new Request(origin+route,{...options,headers:{'Cf-Access-Jwt-Assertion':token,...options.headers}});
+ globalThis.fetch=async url=>{assert.equal(url,issuer+'/cdn-cgi/access/certs');return Response.json({keys:[jwk]});};
+ try{
+  assert.equal(S.adminConfigured({}),false);assert.equal((await S.adminResponse(request(),{...env,ADMIN_ACCESS_AUD:undefined})).status,503);
+  assert.equal((await S.adminResponse(new Request(origin+'/manage/'),env)).status,401);
+  for(const patch of [{email:'other@example.test'},{aud:['2'.repeat(64)]},{iss:'https://attacker.example'},{exp:now-1},{iat:now+1000}])await assert.rejects(S.authorizeAdmin(request('/manage/',{headers:{'Cf-Access-Jwt-Assertion':await sign(patch)}}),env));
+  await assert.rejects(S.authorizeAdmin(request('/manage/',{headers:{'Cf-Access-Jwt-Assertion':await sign({}, {alg:'none',kid:'test-key'})}}),env));
+  const forged=token.slice(0,token.lastIndexOf('.')+1)+Buffer.alloc(256).toString('base64url');await assert.rejects(S.authorizeAdmin(request('/manage/',{headers:{'Cf-Access-Jwt-Assertion':forged}}),env));
+  const html=await S.adminResponse(request(),env);assert.equal(html.status,200);assert.match(await html.text(),/Publish settings/);assert.match(html.headers.get('Content-Security-Policy'),/frame-ancestors 'none'/);
+  assert.equal((await S.adminResponse(request('/manage/app.js'),env)).status,200);
+  const headers={Origin:origin,'Content-Type':'application/json','X-Steroids-Admin':'1','Sec-Fetch-Site':'same-origin'};
+  const payload={expectedVersion:'bundled',data:edited};const post=(extra={},body=payload)=>S.adminResponse(request('/manage/api/publish',{method:'POST',headers:{...headers,...extra},body:JSON.stringify(body)}),env);
+  for(const patch of [{Origin:'https://evil.example'},{'X-Steroids-Admin':'0'},{'Sec-Fetch-Site':'cross-site'},{'Content-Type':'text/plain'}])assert.equal((await post(patch)).status,403);
+  const bad=structuredClone(payload);bad.data.tune.net.tickHz=1000;assert.equal((await post({},bad)).status,400);assert.equal(writes,0);
+  const saved=await post();assert.equal(saved.status,200);const record=await saved.json();assert.equal(record.actor,'Owner (web)');assert.equal(JSON.stringify(record).includes(owner),false);assert.deepEqual(record.data,edited);
+  assert.equal((await post()).status,409);assert.equal((await S.adminResponse(request('/manage/api/live'),env)).status,200);
+  assert.equal((await S.worker.fetch(new Request(origin+'/health'),env)).status,200);assert.equal((await S.worker.fetch(new Request(origin+'/config'),env)).status,200);assert.equal((await S.worker.fetch(new Request(origin+'/manage/'),env)).status,401);
+ }finally{globalThis.fetch=realFetch;}
+ console.log('PASS: hosted Access signature, owner/audience/issuer/expiry restrictions, fail-closed setup, CSRF guards, bounded validation, atomic publish and unchanged public routes');
+}

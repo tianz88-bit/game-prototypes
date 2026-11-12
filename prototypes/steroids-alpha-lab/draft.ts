@@ -6,7 +6,9 @@ export const CONFIG_URL = 'https://steroids-alpha-server.tianz-88.workers.dev/co
 const STORAGE = 'steroids-alpha:calibration-lab:v1';
 export let draft = defaultConfig();
 export let baseVersion = 'bundled';
-let session = '';
+let publishWindow:Window|null=null;
+let pendingPublish:{data:ConfigData;baseVersion:string}|null=null;
+const PUBLISH_ORIGIN='https://steroids-alpha-server.tianz-88.workers.dev';
 const $ = (s: string) => document.querySelector(s) as HTMLElement;
 export function message(text: string): void { $('#saveStatus').textContent = text; }
 export function remember(): void {
@@ -39,36 +41,18 @@ export async function loadLive(): Promise<void> {
   const record = parseRecord(await response.json()); replace(record.data, record.version);
   message(`Loaded live settings ${record.version.slice(0, 12)}. Edits remain a draft until Publish.`);
 }
-async function localRequest(path: string, body: unknown): Promise<any> {
-  const r = await fetch('/api/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Steroids-Local': '1' }, body: JSON.stringify(body) });
-  const result = await r.json(); if (!r.ok) throw Error(result.error || 'Publisher request failed'); return result;
-}
-export function isPublisher(): boolean { return location.hostname === '127.0.0.1' && location.port === '5192'; }
 async function publish(): Promise<void> {
   validateConfig(draft);
-  if (!isPublisher()) {
-    const payload = encodeURIComponent(JSON.stringify({ data: draft, baseVersion }));
-    window.open('http://127.0.0.1:5192/#draft=' + payload, '_blank', 'noopener');
-    message('Opened the private publisher on this PC. If it is not running, follow the Publisher setup below. No live change has been made.'); return;
-  }
-  const loaded = await localRequest('load', {baseVersion}); session = loaded.session;
-  if (loaded.version !== baseVersion && !loaded.compatible) throw Error('Live settings changed since this draft. Export it, load live settings, and review your changes before publishing.');
-  const result = await localRequest('publish', { session, data: draft });
-  const a = document.createElement('a'); a.href = result.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'View authenticated publish run';
-  $('#publishResult').replaceChildren(a);
-  message('Publish queued. Waiting for validation and activation; queued does not mean live.');
-  let tries = 0;
-  const check = async (): Promise<void> => {
-    try {
-      const r = await localRequest('status', { session });
-      if (r.active) { baseVersion = r.version; remember(); message(`Live settings active: ${r.version.slice(0,12)}. Connected rooms receive the update shortly.`); return; }
-      if (r.failed) { message('Publish failed. Live settings remain unchanged. Open the workflow run for details.'); return; }
-      if (++tries < 90) setTimeout(() => void check(), 4000);
-      else message('Publish is still pending. Check the workflow link, then Load live settings to verify.');
-    } catch (e) { message((e as Error).message); }
-  }; setTimeout(() => void check(), 4000);
+  pendingPublish={data:structuredClone(draft),baseVersion};
+  publishWindow=window.open(PUBLISH_ORIGIN+'/manage/#draft='+encodeURIComponent(JSON.stringify(pendingPublish)),'steroids-owner-publish');
+  message(publishWindow?'Sign in on the hosted publisher, review this draft, then click Publish to live there. Nothing runs on this PC.':'Allow the publisher tab to open, then click Publish again.');
 }
 export function mountDraft(): void {
+  window.addEventListener('message',e=>{
+    if(e.origin!==PUBLISH_ORIGIN||e.source!==publishWindow||!pendingPublish)return;
+    if(e.data?.type==='steroids-publisher-ready')publishWindow!.postMessage({type:'steroids-lab-draft',draft:pendingPublish},PUBLISH_ORIGIN);
+    if(e.data?.type==='steroids-published'&&typeof e.data.version==='string'&&/^[a-f0-9]{64}$/.test(e.data.version)){baseVersion=e.data.version;remember();message('Live settings active: '+baseVersion.slice(0,12)+'.');}
+  });
   document.querySelector('#labBuild')!.textContent='Source '+__GIT_SHA__;
   let restored=false;
   try { const saved = JSON.parse(localStorage.getItem(STORAGE) || 'null'); if (saved) { restored=true; draft = validateConfig(saved.data); baseVersion = saved.baseVersion || 'bundled'; message('Restored browser draft. Live settings are unchanged.'); } }

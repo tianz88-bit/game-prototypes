@@ -1,5 +1,7 @@
 import { authorizePublisher, readBounded } from './configAuth';
 import { parseRecord } from '../../sim/liveConfig';
+import {adminResponse} from './admin';
+import type {AdminEnv} from './adminAuth';
 export { PlanetConfig } from './configStore';
 // Steroids-Alpha server: a Worker that routes /ws/<planet> to that planet's room.
 // v1 runs one room per planet; the matchmaker (more rooms when full) comes later.
@@ -21,7 +23,7 @@ interface RoomNamespace {
   get(id: unknown): RoomStub;
 }
 
-interface Env {
+interface Env extends AdminEnv {
   PLANET_ROOMS: RoomNamespace;
   PLANET_CONFIG: RoomNamespace;
   /** Testing only (a `--var` on `wrangler dev`): ship hull points, so the browser check's ships survive. Unset in production. */
@@ -31,6 +33,7 @@ interface Env {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if(url.pathname==='/manage'||url.pathname.startsWith('/manage/'))return adminResponse(request,env);
 
     if (url.pathname === '/config' && request.method==='GET') {
       const r=await env.PLANET_CONFIG.get(env.PLANET_CONFIG.idFromName('active')).fetch(new Request('https://internal/config'));
