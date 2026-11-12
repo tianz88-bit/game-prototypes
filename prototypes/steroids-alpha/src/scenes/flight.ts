@@ -26,7 +26,7 @@ import { loadSave } from '../save';
 import type { ShipPlacement } from '../render/shipView';
 import { missileLock } from '../../sim/ordnance';
 import { UI, css, panel, controlFace } from '../render/ui';
-import { drawRock, drawPickup, drawOrdnance, drawExplosionCore, drawBullet, drawDrone } from '../render/worldArt';
+import { drawRock, drawPickup, drawOrdnance, drawExplosionCore, drawBullet, drawDrone, drawHitSpark } from '../render/worldArt';
 
 const W = TUNE.world.width;
 const H = TUNE.world.height;
@@ -46,8 +46,10 @@ export class FlightScene extends Phaser.Scene {
   private coords!: Phaser.GameObjects.Text;
   private schemeLabel!: Phaser.GameObjects.Text;
   private world!: Phaser.GameObjects.Graphics;
+  private hullBorder!: Phaser.GameObjects.Graphics;
+  private hullHitAt=-1e9;
   private missileTrails = new Map<number, {x:number;y:number;at:number}[]>();
-  private effects: { x: number; y: number; at: number; r: number; ms: number; colour: number; chips?: number; heal?: boolean }[] = [];
+  private effects: { x: number; y: number; at: number; r: number; ms: number; colour: number; chips?: number; heal?: boolean; sparkAngle?: number }[] = [];
   private explosions: Explosion[] = [];
   /** Where each ship was last drawn (world), to aim shield hits. */
   private shipAt = new Map<number, { x: number; y: number }>();
@@ -90,6 +92,7 @@ export class FlightScene extends Phaser.Scene {
     this.net = new NetClient(this.planet, loadSave().name ?? '');
     this.explosions = [];
     this.effects = [];
+    this.hullHitAt=-1e9;
     this.deathShownAt = 0;
     this.net.connect();
     this.build();
@@ -119,6 +122,7 @@ export class FlightScene extends Phaser.Scene {
     this.world = this.add.graphics().setDepth(15);
     this.turretGfx = this.add.graphics().setDepth(23);
     this.overlay = this.add.graphics().setDepth(900);
+    this.hullBorder=this.add.graphics().setDepth(940);
     const { w } = logicalSize();
     this.status = text(this, w / 2, 6, '', 12, '#b8c6e6').setOrigin(0.5, 0).setDepth(950);
     this.coords = text(this, 8, 16, '', 10, '#7d8db0').setDepth(950).setVisible(DEBUG);
@@ -199,6 +203,12 @@ export class FlightScene extends Phaser.Scene {
         aim.angle[f.index] = f.angle;
         aim.firedAt[f.index] = this.time.now;
       }
+      else if (f.kind === 'hull') {
+        if(f.id===this.net.myId)this.hullHitAt=this.time.now;
+        const ship=this.shipAt.get(f.id);
+        const angle=ship?Math.atan2(wrapDelta(f.y,ship.y,H),wrapDelta(f.x,ship.x,W)):0;
+        this.effects.push({x:f.x,y:f.y,at:this.time.now,r:30,ms:220,colour:0xffd49c,sparkAngle:angle});
+      } else if(f.kind==='spark')this.effects.push({x:f.x,y:f.y,at:this.time.now,r:24,ms:190,colour:0xffdfa3,sparkAngle:f.angle??0});
       else if (f.kind === 'explosion') this.explosions.push(new Explosion(f.x, f.y));
       else if (f.kind === 'shield') {
         // Direction from the ship to the impact, on screen.
@@ -227,6 +237,7 @@ export class FlightScene extends Phaser.Scene {
     }
     this.drawWorld();
     this.drawTouch(w, h);
+    this.drawHullBorder(w,h);
     this.drawStatus(own);
     this.drawBoard(w);
 
@@ -893,6 +904,7 @@ export class FlightScene extends Phaser.Scene {
       const at = this.toScreen(e.x, e.y);
       if (!at.visible) continue;
       const k = (this.time.now - e.at) / e.ms;
+      if(e.sparkAngle!==undefined){drawHitSpark(g,at,k,e.sparkAngle,e.x+e.y);continue;}
       g.lineStyle(3, e.colour, (1 - k) * (e.chips ? .4 : 1));
       g.strokeCircle(at.x, at.y, e.r * (0.4 + k) * at.scale);
       if (e.heal) {
@@ -969,6 +981,16 @@ export class FlightScene extends Phaser.Scene {
     }
     this.lockedOnMe = lockedOnMe;
 
+  }
+
+  /** Local hull damage only: seven fading border bands, never a centre-screen overlay. */
+  private drawHullBorder(w:number,h:number):void {
+    const g=this.hullBorder;g.clear();
+    const age=this.time.now-this.hullHitAt;
+    if(age<0 || age>=140)return;
+    const fade=(1-age/140)**2;
+    for(let i=0;i<7;i++){const inset=i*4+2;
+      g.lineStyle(4,0xffa67d,.075*fade*(1-i/7)**2);g.strokeRect(inset,inset,w-inset*2,h-inset*2);}
   }
 
   private drawStatus(own: ShipState | null): void {

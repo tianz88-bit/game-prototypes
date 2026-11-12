@@ -126,6 +126,19 @@ export function drawDrone(g:Phaser.GameObjects.Graphics,x:number,y:number,k:numb
   if(firing){const q=p(14,0),l=p(10,-3),rr=p(10,3);g.fillStyle(0xf8ffd9,1);g.fillTriangle(q.x,q.y,l.x,l.y,rr.x,rr.y);}
 }
 
+export function drawHitSpark(g:Phaser.GameObjects.Graphics,at:{x:number;y:number;scale:number},t:number,angle:number,seed:number):void {
+  const k=at.scale,fade=(1-t)**2,travel=1-(1-t)**2;
+  for(let i=0;i<9;i++){
+    const a=angle+(i-4)*.25+Math.sin(seed+i*7)*.12;
+    const d=(3+travel*(18+(i%3)*8))*k,len=(4+9*(1-t))*k,c=Math.cos(a),s=Math.sin(a);
+    g.lineStyle(Math.max(.8,(i%3===0?2.3:1.4)*k),i%3===0?0xff9561:i%3===1?0xffd785:0xf2fff1,fade);
+    g.lineBetween(at.x+c*d,at.y+s*d,at.x+c*(d+len),at.y+s*(d+len));
+  }
+  if(t<.3){const r=(4+6*t)*k;g.fillStyle(0xfff7d7,(1-t/.3)*.9);g.fillRect(at.x-r,at.y-k,r*2,k*2);g.fillRect(at.x-k,at.y-r,k*2,r*2);}
+  g.fillStyle(0x586576,fade*.85);
+  for(let i=0;i<2;i++){const a=angle+(i?1:-1),d=travel*18*k;g.fillRect(at.x+Math.cos(a)*d,at.y+Math.sin(a)*d,3*k,2*k);}
+}
+
 export function drawOrdnance(g: Phaser.GameObjects.Graphics, o: OrdnanceView,
   at: {x: number; y: number; scale: number}, own: boolean, now: number, triggerRadius: number): void {
   const {x,y}=at,k=at.scale,signal=own?0x75e7ff:0xff8664;

@@ -40,7 +40,7 @@ export type NetFx =
   /** A turret on ship id fired at angle (radians, world). */
   | { kind: 'turret'; id: number; index: number; angle: number }
   | { kind: 'burst'; x: number; y: number; size: number }
-  | { kind: 'spark'; x: number; y: number }
+  | { kind: 'spark'; x: number; y: number; angle?: number }
   | { kind: 'explosion'; x: number; y: number }
   | { kind: 'heal'; x: number; y: number }
   /** A dash ram landed here. */
@@ -48,7 +48,8 @@ export type NetFx =
   /** A missile or mine went off (r = blast radius); shot: it was shot down. */
   | { kind: 'blast'; x: number; y: number; r: number; ordnance: 'missile' | 'mine'; shot: boolean }
   | { kind: 'mineral'; x: number; y: number }
-  | { kind: 'shield'; id: number; x: number; y: number };
+  | { kind: 'shield'; id: number; x: number; y: number }
+  | { kind: 'hull'; id: number; x: number; y: number };
 
 interface Timed {
   t: number;
@@ -159,7 +160,7 @@ export class NetClient {
   }
 
   /** Roster, deaths and pickups arrive as JSON text frames. */
-  private handleText(msg: { type?: string; id?: number; x?: number; y?: number; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral'; value: number }[]; remove?: { id: number; by: number }[] }): void {
+  private handleText(msg: { type?: string; id?: number; x?: number; y?: number; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean; hull?: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral'; value: number }[]; remove?: { id: number; by: number }[] }): void {
     if (msg.type === 'roster' && Array.isArray(msg.players)) {
       this.roster = new Map(msg.players.map((p) => [p.id, p]));
     } else if (msg.type === 'bounty' && typeof msg.id === 'number') {
@@ -171,7 +172,10 @@ export class NetClient {
         if (d.id === this.myId) this.death = { x: d.x, y: d.y, killer: d.killer, killerName: this.roster.get(d.killer)?.name ?? '' };
       }
     } else if (msg.type === 'hits' && Array.isArray(msg.hits)) {
-      for (const h of msg.hits) if (h.shielded) this.fx.push({ kind: 'shield', id: h.id, x: h.x, y: h.y });
+      for (const h of msg.hits) {
+        if (h.shielded) this.fx.push({ kind: 'shield', id: h.id, x: h.x, y: h.y });
+        if (h.hull===true || (h.hull===undefined && !h.shielded)) this.fx.push({ kind: 'hull', id: h.id, x: h.x, y: h.y });
+      }
     } else if (msg.type === 'blasts' && Array.isArray(msg.blasts)) {
       for (const b of msg.blasts) this.fx.push({ kind: 'blast', x: b.x, y: b.y, r: b.r, ordnance: b.kind, shot: b.shot });
     } else if (msg.type === 'rams' && Array.isArray(msg.rams)) {
@@ -371,7 +375,7 @@ export class NetClient {
       if (b.life <= 0) return false;
       const near = (x: number, y: number, r: number): boolean => wrapDelta(b.x, x, W) ** 2 + wrapDelta(b.y, y, H) ** 2 <= r * r;
       const struck = rocks.some((k) => near(k.p.x, k.p.y, k.r)) || (b.mine && ships.some((s) => near(s.x, s.y, TUNE.ship.radius)));
-      if (struck) this.fx.push({ kind: 'spark', x: b.x, y: b.y });
+      if (struck) this.fx.push({ kind: 'spark', x: b.x, y: b.y, angle: Math.atan2(-b.vy,-b.vx) });
       return !struck;
     });
   }

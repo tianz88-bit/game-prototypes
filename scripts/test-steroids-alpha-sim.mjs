@@ -175,6 +175,13 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   assert.equal(s.kx, 0, 'knockback decays to nothing');
 }
 
+// Hull presentation metadata follows actual damage, including spillover and invulnerability.
+for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,false],[1,4,false,true],[0,4,false,true],[0,4,true,false],[0,0,false,false]]){
+ const w=emptyWorld(),ship=placeShip(w,1,1000,1000,0);ship.shield=shield;w.invulnerable=invulnerable;
+ const before=ship.hp;w['damageShip'](1,ship,damage,0,1000,1000);const hit=w.drain().hits.at(-1);
+ assert.equal(hit.hull,want);assert.equal(hit.hull,ship.hp<before);assert.equal(hit.shielded,shield>0);
+}
+
 // --- Shield: absorbs first, overflow reaches the hull, regenerates after a quiet spell. ---
 {
   const w = emptyWorld();
