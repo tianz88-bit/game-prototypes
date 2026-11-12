@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 import { PLANETS } from '../../sim/planets';
 import type { PlanetId } from '../../sim/planets';
 import { SHARE_URL, logicalSize, serverOrigin } from '../base';
-import { encodeQr } from '../ui/qr';
+import QRCode from 'qrcode';
 import { intents } from '../input/intents';
 import { fitCamera, text, versionStamp } from './common';
 import { cleanName } from '../../sim/protocol';
@@ -121,18 +121,21 @@ export class MenuScene extends Phaser.Scene {
     if (size < 72) return; // no room beside the menu (very narrow screens)
     const x = w / 2 + bw / 2 + side / 2;
     const y = h * 0.5 - 14;
-    const grid = encodeQr(SHARE_URL);
-    const n = grid.length + 8; // 4-module quiet zone each side
+    // The repo's shared QR library (also used by Punchies, mp-console and suits-mp).
+    const qr = QRCode.create(SHARE_URL, { errorCorrectionLevel: 'M' });
+    const cells = qr.modules.size;
+    const n = cells + 8; // 4-module quiet zone each side
     const cell = size / n;
     const g = this.add.graphics();
     g.fillStyle(0xffffff, 1);
     g.fillRoundedRect(x - size / 2, y - size / 2, size, size, 6);
     g.fillStyle(0x05070d, 1);
-    grid.forEach((row, r) =>
-      row.forEach((dark, c) => {
-        if (dark) g.fillRect(x - size / 2 + (c + 4) * cell, y - size / 2 + (r + 4) * cell, Math.ceil(cell), Math.ceil(cell));
-      }),
-    );
+    for (let r = 0; r < cells; r++) {
+      for (let c = 0; c < cells; c++) {
+        if (qr.modules.get(r, c)) g.fillRect(x - size / 2 + (c + 4) * cell, y - size / 2 + (r + 4) * cell, Math.ceil(cell), Math.ceil(cell));
+      }
+    }
+
     text(this, x, y + size / 2 + 8, 'Scan to join', 12, '#dfe8ff').setOrigin(0.5, 0);
     this.shareHint = text(this, x, y + size / 2 + 26, 'Tap to copy link', 11, '#8fa2c8').setOrigin(0.5, 0);
     this.shareBox = { x, y, size };
