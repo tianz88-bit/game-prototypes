@@ -553,6 +553,23 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   near(S.damageScale({ ...a, damageTier: 2 }, tune), 1 + 2 * tune.shop.damagePerTier, 1e-9);
 }
 
+// --- Swept collision: a dashing ship moving further than a rock's size per step still hits it. ---
+{
+  const w = emptyWorld();
+  const s = placeShip(w, 1, 1000, 1000, 0);
+  // A small rock just past where the ship is now; the next step jumps clean over it.
+  const r = rock(w, 2, 1000 + 120, 1000, 0, 0);
+  s.speed = 0;
+  s.dashTime = 1;
+  s.hp = s.hullMax = 500;
+  w.tune.ship.minSpeed = 0;
+  const jump = 240 * tune.net.tickHz; // 240 px in one step, far more than ship + rock size
+  s.speed = jump;
+  w.stepShip(1, { ...idle, thrust: 0 });
+  w.step();
+  assert(!w.asteroids.has(r.id), 'the rock in the path was hit, not skipped');
+}
+
 // --- Older published live settings upgrade: missing fields filled; the hull pool split into hull + shield. ---
 {
   const L = S.liveConfig;
@@ -731,8 +748,10 @@ assert.equal(S.cleanName(null), '');
   assert(sh.dashCharge > 0 && sh.dashTime === 0, 'pressing dash starts the charge');
   let charge = 1;
   while (sh.dashCharge > 0) {
-    // The direction held changes during the charge; the last one counts.
-    S.stepShip(sh, { ...idle, thrust: -1, dashAim: Math.PI / 2 }, dt, tune);
+    // The direction held changes during the charge; the last one counts. Steering is locked meanwhile.
+    const before = sh.heading;
+    S.stepShip(sh, { ...idle, thrust: -1, turn: 1, dashAim: Math.PI / 2 }, dt, tune);
+    if (sh.dashCharge > 0) near(sh.heading, before, 1e-12, 'no steering while charging');
     charge++;
   }
   assert(Math.abs(charge * dt - tune.ship.dashChargeSeconds) <= dt, `charge lasts dashChargeSeconds (${charge} steps)`);
@@ -742,18 +761,22 @@ assert.equal(S.cleanName(null), '');
   const startY = sh.y;
   while (sh.dashTime > 0) {
     y0 = sh.y;
-    // Steering is ignored during the boost: the player committed to the direction.
-    S.stepShip(sh, { ...idle, thrust: -1, turn: 1, aim: 0 }, dt, tune);
+    S.stepShip(sh, { ...idle, thrust: -1 }, dt, tune);
     near((sh.y - y0) / dt, boost, 1e-6, 'boost speed holds while braking');
-    near(sh.heading, Math.PI / 2, 1e-9, 'no steering during the boost');
     n++;
   }
   near(sh.y - startY, boost * tune.ship.dashDuration, boost * 2 * dt, 'boost distance = dash speed x duration');
   assert(Math.abs(n * dt - tune.ship.dashDuration) <= 2 * dt, `boost lasts dashDuration (${n} steps)`);
   S.stepShip(sh, { ...idle, thrust: 0 }, dt, tune);
   near(sh.speed, boost - tune.ship.braking * dt, 1e-6, 'eases out of the boost');
-  for (let i = 0; i < 3 * tune.net.tickHz; i++) S.stepShip(sh, { ...idle, thrust: 0 }, dt, tune);
+  for (let i = 0; i < 6 * tune.net.tickHz; i++) S.stepShip(sh, { ...idle, thrust: 0 }, dt, tune);
   near(sh.speed, tune.ship.maxSpeed, 1e-6, 'settles at top speed when coasting');
+  // Steering works during the boost.
+  const c = S.newShip(0, 0, 0, tune.ship.cruiseSpeed);
+  c.hp = c.hullMax = tune.ship.maxHp;
+  c.dashTime = 1;
+  S.stepShip(c, { ...idle, turn: 1 }, dt, tune);
+  assert(c.heading > 0, 'steering is free during the boost');
   // No direction held: straight on.
   const b = S.newShip(0, 0, 0.3, tune.ship.cruiseSpeed);
   b.hullMax = b.hp = tune.ship.maxHp;

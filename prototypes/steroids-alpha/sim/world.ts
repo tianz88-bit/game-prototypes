@@ -82,6 +82,8 @@ export class World {
   private nextPickupId = 1;
   /** Turret aim (radians, world) and steps until each can fire again, per ship. */
   private turrets = new Map<number, { angle: number[]; cd: number[] }>();
+  /** Where each ship was before its last step, so fast (dashing) ships collide along their path. */
+  private prev = new Map<number, { x: number; y: number }>();
   /** Ships whose current dash has already rammed someone. */
   private rammed = new Set<number>();
   /** Tick of the last damage each ship took, for shield regeneration. */
@@ -151,6 +153,7 @@ export class World {
     this.lastHit.delete(id);
     this.turrets.delete(id);
     this.rammed.delete(id);
+    this.prev.delete(id);
   }
 
   /** Advance one ship by one step with the given input, spawning its bullet if it fired. */
@@ -158,6 +161,7 @@ export class World {
     const s = this.ships.get(id);
     if (!s) return;
     const before = s.shots;
+    this.prev.set(id, { x: s.x, y: s.y });
     stepShip(s, input, this.dt, this.tune);
     if (s.shots !== before) {
       const shot = muzzleShot(s, this.tune, this.assistTargets(id));
@@ -222,7 +226,7 @@ export class World {
       for (const [oid, o] of this.ships) {
         if (oid === id || o.hp <= 0) continue;
         const or = shipRadius(o.hullMax, t);
-        if (!hits(s.x, s.y, o.x, o.y, sr + or)) continue;
+        if (!this.sweptHit(id, s, o.x, o.y, sr + or)) continue;
         let dx = wrapDelta(o.x, s.x, W);
         let dy = wrapDelta(o.y, s.y, H);
         const len = Math.hypot(dx, dy) || 1;
@@ -253,7 +257,7 @@ export class World {
       for (const a of this.asteroids.values()) {
         const p = pos.get(a.id);
         const sr = shipRadius(s.hullMax, t);
-        if (!p || !hits(s.x, s.y, p.x, p.y, t.asteroid.radius[a.size] + sr)) continue;
+        if (!p || !this.sweptHit(id, s, p.x, p.y, t.asteroid.radius[a.size] + sr)) continue;
         let dx = wrapDelta(p.x, s.x, W);
         let dy = wrapDelta(p.y, s.y, H);
         const len = Math.hypot(dx, dy);
@@ -366,6 +370,25 @@ export class World {
       }
       st.angle.length = st.cd.length = n;
     }
+  }
+
+  /**
+   * Did ship id pass within r of (x, y) during its last step? Checks the whole segment it travelled,
+   * so a dashing ship (about 47 px a step) cannot skip through a rock or a ship between ticks.
+   */
+  private sweptHit(id: number, s: ShipState, x: number, y: number, r: number): boolean {
+    const W = this.tune.world.width;
+    const H = this.tune.world.height;
+    const from = this.prev.get(id) ?? s;
+    const ex = wrapDelta(s.x, from.x, W);
+    const ey = wrapDelta(s.y, from.y, H);
+    const tx = wrapDelta(x, from.x, W);
+    const ty = wrapDelta(y, from.y, H);
+    const len2 = ex * ex + ey * ey;
+    const k = len2 > 0 ? Math.max(0, Math.min(1, (tx * ex + ty * ey) / len2)) : 0;
+    const dx = tx - ex * k;
+    const dy = ty - ey * k;
+    return dx * dx + dy * dy <= r * r;
   }
 
   /** Ids travel as 16 bits: wrap around, skipping any still in use. */
