@@ -26,7 +26,7 @@ import { loadSave } from '../save';
 import type { ShipPlacement } from '../render/shipView';
 import { missileLock } from '../../sim/ordnance';
 import { UI, css, panel, controlFace } from '../render/ui';
-import { drawRock, drawPickup, drawOrdnance } from '../render/worldArt';
+import { drawRock, drawPickup, drawOrdnance, drawExplosionCore } from '../render/worldArt';
 
 const W = TUNE.world.width;
 const H = TUNE.world.height;
@@ -320,12 +320,12 @@ export class FlightScene extends Phaser.Scene {
     const now = this.time.now;
     const R = clientTune.render.shipRingRadius * clientTune.render.shipScale * at.scale;
     g.lineStyle(2 + 2 * k, 0x9fefff, 0.35 + 0.5 * k);
-    g.strokeCircle(at.x, at.y, R * (2.1 - 1.0 * k));
+    for(let i=0;i<4;i++){g.beginPath();g.arc(at.x,at.y,R*(2.1-k),i*Math.PI/2+.12,i*Math.PI/2+1.35);g.strokePath();}
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2 + now / 260;
       const d = R * (2.3 - 1.3 * ((k + i * 0.1) % 1));
       g.fillStyle(0xd6fbff, 0.5 + 0.5 * k);
-      g.fillCircle(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d, 1.6 + 1.6 * k);
+      const size=2+3*k;g.fillRect(at.x+Math.cos(a)*d-size/2,at.y+Math.sin(a)*d-size/2,size,size*1.4);
     }
     if (mine) {
       const aim = intents.dashAim(s.heading);
@@ -370,15 +370,19 @@ export class FlightScene extends Phaser.Scene {
       aim.angle[i] = a;
       const r = 5.5 * k;
       const tint = (v: number): number => Math.round(v * light);
+      g.lineStyle(Math.max(3, 5 * k),0x1a2638,1);
+      g.lineBetween(x,y,x+Math.cos(a)*r*2,y+Math.sin(a)*r*2);
       g.lineStyle(Math.max(2, 3 * k), (tint(0xcf) << 16) | (tint(0xd8) << 8) | tint(0xe6), 1);
       g.lineBetween(x, y, x + Math.cos(a) * r * 2, y + Math.sin(a) * r * 2);
       g.fillStyle((tint(0x3a) << 16) | (tint(0x4a) << 8) | tint(0x66), 1);
       g.fillCircle(x, y, r);
+      g.fillStyle(0x8aa9b5,.7*light);g.fillEllipse(x+this.frame.sun.x*r*.25,y+this.frame.sun.y*r*.25,r*1.2,r*.75);
       g.lineStyle(1.5, (tint(0x9f) << 16) | (tint(0xef) << 8) | tint(0xff), 0.9);
       g.strokeCircle(x, y, r);
       if (now - (aim.firedAt[i] ?? -1e9) < 70) {
         g.fillStyle(0xffffff, 0.9);
-        g.fillCircle(x + Math.cos(a) * r * 2.2, y + Math.sin(a) * r * 2.2, r * 0.6);
+        const tx=x+Math.cos(a)*r*2.2,ty=y+Math.sin(a)*r*2.2;
+        g.fillTriangle(tx+Math.cos(a)*r*1.8,ty+Math.sin(a)*r*1.8,tx-Math.sin(a)*r*.65,ty+Math.cos(a)*r*.65,tx+Math.sin(a)*r*.65,ty-Math.cos(a)*r*.65);
       }
     }
   }
@@ -848,6 +852,69 @@ export class FlightScene extends Phaser.Scene {
       drawRock(g, pts, at, r * at.scale, ROCK_FILL[a.size], light, this.frame.sun,
         a.hp / TUNE.asteroid.hp[a.size], flash, a.id);
     }
+    // Cosmetic bob and sparkle never alter the server's pickup position or collection radius.
+    for (const item of this.net.pickups.values()) {
+      const at = this.toScreen(item.x, item.y);
+      if (!at.visible) continue;
+      const mineral = item.kind === 'mineral';
+      const r = (mineral ? 7 + Math.sqrt(item.value) * 3 : TUNE.asteroid.pickupRadius * .6) * at.scale;
+      drawPickup(g, at, r, mineral, item.id, now);
+    }
+    // Ship explosions.
+    const dt = Math.min(0.05, this.game.loop.delta / 1000);
+    this.explosions = this.explosions.filter((x) => !x.done);
+    for (const x of this.explosions) {
+      x.update(dt);
+      const at = this.toScreen(x.x, x.y);
+      if (!at.visible) continue;
+      const t = x.age / Explosion.LIFE;
+      drawExplosionCore(g,at,t);
+      g.lineStyle(4 * at.scale + 1, 0xffc070, Math.max(0, 1 - t * 1.6));
+      g.strokeCircle(at.x, at.y, (20 + 220 * t) * at.scale);
+      g.lineStyle(2 * at.scale + 1, 0xffffff, Math.max(0, 0.7 - t * 1.4));
+      g.strokeCircle(at.x, at.y, (10 + 140 * t) * at.scale);
+      for (const s of x.sparks) {
+        const a = 1 - x.age / s.life;
+        if (a <= 0) continue;
+        const p = this.toScreen(x.x + s.x, x.y + s.y);
+        if (!p.visible) continue;
+        g.fillStyle(s.colour, a);
+        const c = Math.cos(s.angle);
+        const sn = Math.sin(s.angle);
+        const hw = (s.w / 2) * p.scale;
+        const hh = (s.h / 2) * p.scale;
+        g.fillPoints(
+          [
+            new Phaser.Math.Vector2(p.x - c * hw + sn * hh, p.y - sn * hw - c * hh),
+            new Phaser.Math.Vector2(p.x + c * hw + sn * hh, p.y + sn * hw - c * hh),
+            new Phaser.Math.Vector2(p.x + c * hw - sn * hh, p.y + sn * hw + c * hh),
+            new Phaser.Math.Vector2(p.x - c * hw - sn * hh, p.y - sn * hw + c * hh),
+          ],
+          true,
+        );
+      }
+    }
+    this.effects = this.effects.filter((e) => this.time.now - e.at < e.ms);
+    for (const e of this.effects) {
+      const at = this.toScreen(e.x, e.y);
+      if (!at.visible) continue;
+      const k = (this.time.now - e.at) / e.ms;
+      g.lineStyle(3, e.colour, (1 - k) * (e.chips ? .4 : 1));
+      g.strokeCircle(at.x, at.y, e.r * (0.4 + k) * at.scale);
+      if (e.heal) {
+        g.fillStyle(e.colour, 1-k);
+        for(let i=0;i<3;i++) {const x=at.x+(i-1)*12*at.scale,y=at.y-(10+k*35+i*5)*at.scale,r=3*at.scale;
+          g.fillRect(x-r*.35,y-r,r*.7,r*2);g.fillRect(x-r,y-r*.35,r*2,r*.7);}
+      }
+      for (let i = 0; i < (e.chips ?? 0); i++) {
+        const a = i * 2.399 + e.x + e.y;
+        const d = e.r * (0.2 + k * 1.5) * at.scale;
+        const size = Math.max(1, (3 + i % 3) * at.scale * (1 - k * .4));
+        g.fillStyle(i % 3 ? 0xa88b76 : e.colour, 1 - k);
+        g.fillRect(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d, size, size * .7);
+      }
+    }
+    // Threat silhouettes and lock cues always draw after translucent explosion/collection effects.
     for (const b of this.net.bullets) {
       const len = b.small ? 0.012 : 0.018;
       const head = this.toScreen(b.x, b.y);
@@ -908,79 +975,7 @@ export class FlightScene extends Phaser.Scene {
       }
     }
     this.lockedOnMe = lockedOnMe;
-    // Cosmetic bob and sparkle never alter the server's pickup position or collection radius.
-    for (const item of this.net.pickups.values()) {
-      const at = this.toScreen(item.x, item.y);
-      if (!at.visible) continue;
-      const mineral = item.kind === 'mineral';
-      const r = (mineral ? 7 + Math.sqrt(item.value) * 3 : TUNE.asteroid.pickupRadius * .6) * at.scale;
-      drawPickup(g, at, r, mineral, item.id, now);
-    }
-    // Ship explosions.
-    const dt = Math.min(0.05, this.game.loop.delta / 1000);
-    this.explosions = this.explosions.filter((x) => !x.done);
-    for (const x of this.explosions) {
-      x.update(dt);
-      const at = this.toScreen(x.x, x.y);
-      if (!at.visible) continue;
-      const t = x.age / Explosion.LIFE;
-      // Fireball: swells fast, then fades from yellow-white to orange.
-      if (t < 0.4) {
-        const f = t / 0.4;
-        g.fillStyle(0xff7a2e, 0.85 * (1 - f));
-        g.fillCircle(at.x, at.y, (40 + 70 * Math.sqrt(f)) * at.scale);
-        g.fillStyle(0xffd27a, 0.9 * (1 - f));
-        g.fillCircle(at.x, at.y, (26 + 40 * Math.sqrt(f)) * at.scale);
-      }
-      if (t < 0.12) {
-        g.fillStyle(0xffffff, 1 - t / 0.12);
-        g.fillCircle(at.x, at.y, (30 + 60 * t) * at.scale);
-      }
-      g.lineStyle(4 * at.scale + 1, 0xffc070, Math.max(0, 1 - t * 1.6));
-      g.strokeCircle(at.x, at.y, (20 + 220 * t) * at.scale);
-      g.lineStyle(2 * at.scale + 1, 0xffffff, Math.max(0, 0.7 - t * 1.4));
-      g.strokeCircle(at.x, at.y, (10 + 140 * t) * at.scale);
-      for (const s of x.sparks) {
-        const a = 1 - x.age / s.life;
-        if (a <= 0) continue;
-        const p = this.toScreen(x.x + s.x, x.y + s.y);
-        if (!p.visible) continue;
-        g.fillStyle(s.colour, a);
-        const c = Math.cos(s.angle);
-        const sn = Math.sin(s.angle);
-        const hw = (s.w / 2) * p.scale;
-        const hh = (s.h / 2) * p.scale;
-        g.fillPoints(
-          [
-            new Phaser.Math.Vector2(p.x - c * hw + sn * hh, p.y - sn * hw - c * hh),
-            new Phaser.Math.Vector2(p.x + c * hw + sn * hh, p.y + sn * hw - c * hh),
-            new Phaser.Math.Vector2(p.x + c * hw - sn * hh, p.y + sn * hw + c * hh),
-            new Phaser.Math.Vector2(p.x - c * hw - sn * hh, p.y - sn * hw + c * hh),
-          ],
-          true,
-        );
-      }
-    }
-    this.effects = this.effects.filter((e) => this.time.now - e.at < e.ms);
-    for (const e of this.effects) {
-      const at = this.toScreen(e.x, e.y);
-      if (!at.visible) continue;
-      const k = (this.time.now - e.at) / e.ms;
-      g.lineStyle(3, e.colour, (1 - k) * (e.chips ? .4 : 1));
-      g.strokeCircle(at.x, at.y, e.r * (0.4 + k) * at.scale);
-      if (e.heal) {
-        g.fillStyle(e.colour, 1-k);
-        for(let i=0;i<3;i++) {const x=at.x+(i-1)*12*at.scale,y=at.y-(10+k*35+i*5)*at.scale,r=3*at.scale;
-          g.fillRect(x-r*.35,y-r,r*.7,r*2);g.fillRect(x-r,y-r*.35,r*2,r*.7);}
-      }
-      for (let i = 0; i < (e.chips ?? 0); i++) {
-        const a = i * 2.399 + e.x + e.y;
-        const d = e.r * (0.2 + k * 1.5) * at.scale;
-        const size = Math.max(1, (3 + i % 3) * at.scale * (1 - k * .4));
-        g.fillStyle(i % 3 ? 0xa88b76 : e.colour, 1 - k);
-        g.fillRect(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d, size, size * .7);
-      }
-    }
+
   }
 
   private drawStatus(own: ShipState | null): void {
