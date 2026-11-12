@@ -15,9 +15,8 @@
     "markerThrustCurve": 2,
     "schemeButtonWidth": 112,
     "schemeButtonHeight": 30,
-    "dashButtonRadius": 46,
-    "dashButtonMargin": 34,
-    "fireButtonRadius": 46
+    "fireButtonRadius": 46,
+    "fireButtonMargin": 34
   },
   "render": {
     "gridSpacing": 200,

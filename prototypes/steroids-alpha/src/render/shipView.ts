@@ -70,9 +70,9 @@ export class ShipView {
 
   /**
    * headingRad uses game convention (0 = +x). timeMs drives idle motion. speed (world units a second)
-   * and boosting (dash) drive the thrusters: accelerating fires both engines, turning fires the outside one.
+   * drives the thrusters: accelerating fires both engines, turning fires the outside one.
    */
-  update(at: ShipPlacement, headingRad: number, timeMs: number, speed: number, boosting: boolean): void {
+  update(at: ShipPlacement, headingRad: number, timeMs: number, speed: number): void {
     this.exhaustGfx.setVisible(at.visible);
     this.container.setVisible(at.visible);
     this.shadow.setVisible(at.visible && at.shadowAlpha > 0.01);
@@ -99,7 +99,7 @@ export class ShipView {
     const t = clientTune.render;
     const accel = this.lastSpeed === null ? 0 : ((speed - this.lastSpeed) / dt) * 1000;
     const degPerSec = (dA / dt) * 1000;
-    if (boosting || accel > t.thrusterAccel) this.demandUntil.throttle = timeMs + t.thrusterHoldMs;
+    if (accel > t.thrusterAccel) this.demandUntil.throttle = timeMs + t.thrusterHoldMs;
     if (degPerSec < -t.thrusterTurnDegPerSec) this.demandUntil.left = timeMs + t.thrusterHoldMs;
     if (degPerSec > t.thrusterTurnDegPerSec) this.demandUntil.right = timeMs + t.thrusterHoldMs;
     const demand: ThrusterInput = { throttle: timeMs < this.demandUntil.throttle, left: timeMs < this.demandUntil.left, right: timeMs < this.demandUntil.right };

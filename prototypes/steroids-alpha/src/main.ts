@@ -83,6 +83,11 @@ if (DEBUG) {
       light: () => flight()?.lighting() ?? null,
       roster: () => [...(flight()?.net.roster.values() ?? [])],
       board: () => flight()?.boardOrder() ?? [],
+      /** Debug only: bump a player's kills on this client, to review the leaderboard animation. */
+      fakeKill: (id: number) => {
+        const r = flight()?.net.roster.get(id);
+        if (r) r.kills++;
+      },
       death: () => flight()?.net.death ?? null,
       deathButtons: () => flight()?.deathButtonZones() ?? [],
       explosions: () => flight()?.explosionCount() ?? 0,
@@ -98,7 +103,7 @@ if (DEBUG) {
       splits: () => flight()?.net.splits ?? 0,
       bullets: () => flight()?.net.bullets.length ?? 0,
       status: () => flight()?.net.status ?? 'menu',
-      zones: () => ({ dash: intents.dashButton, scheme: intents.schemeButton, fire: intents.fireButton }),
+      zones: () => ({ scheme: intents.schemeButton, fire: intents.fireButton }),
       menuButtons: () => (game.scene.getScene('menu') as MenuScene).buttons,
       own: () => flight()?.net.ownRender() ?? null,
       corrections: () => ({ ...(flight()?.net.corrections ?? { snapshots: 0, count: 0, max: 0 }) }),

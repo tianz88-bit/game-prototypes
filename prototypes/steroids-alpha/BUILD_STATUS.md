@@ -1,8 +1,9 @@
 ## Current milestone
 
-Combat feel batch done: pilot names, kills leaderboard, explosion and
-death screen, marker-mode throttle, ramming, health boosts, shield with hex
-hit effect, darker ships at night. Still integrating the owner's environment
+Combat feel batch done and adjusted after the owner's first play: dash
+removed, the pilot name now typeable on phones, leaderboard as animated
+chips. Also in: explosion and death screen, marker-mode throttle, ramming,
+health boosts, shield with hex hit effect, darker ships at night. Still integrating the owner's environment
 handoff v09 (from Codex) in steps: the planet view, fixed-sun lighting and
 thruster exhaust are done. Next: FFD tilt, then ground props with horizon
 clipping, then the cloud transition, solo space hub and practice planet. The
@@ -51,16 +52,24 @@ server is live and the itch page is public and unlisted.
 - Thruster exhaust (port of the handoff's ThrusterVFX, same rates, sizes and
   colours): steady idle, a burst when throttle or a turn starts, strong
   emission while held, outside engine on turns. Driven by how each ship is
-  actually moving, so it also shows on other players' ships. A dash counts
-  as throttle. Replaces the placeholder dash flame.
+  actually moving, so it also shows on other players' ships.
 - Terrain art is generated at pack time from the handoff's own SVG
   definitions and checked against its manifest hashes; nothing is committed.
 - Hull points with a bar; bullets also damage other players' ships.
-- Pilot name: typed on the menu (a canvas box backed by a hidden input so
-  phones get their keyboard), saved in `steroids-alpha:save:v1`, sent when
-  joining, shown under every ship.
-- Kills leaderboard, top right: rows slide to their new rank when the order
-  changes. The server credits a kill to the living shooter; a player's kills
+- Dash removed (owner decision): no button, no Shift/K key, no dash in the
+  ship rules, tune.json or the wire format. The fire button moved into the
+  bottom-right corner (`touch.fireButtonMargin`, the old dash margin). The
+  calibration lab's preview lost its Dash button too.
+- Pilot name: typed on the menu, saved in `steroids-alpha:save:v1`, sent
+  when joining, shown under every ship. The box is drawn on the canvas with
+  a see-through text field placed exactly over it, so a tap lands on a real
+  field and the phone opens its keyboard (the earlier hidden field was
+  focused from script, which phones ignore). The field is hidden outside
+  the menu.
+- Kills leaderboard, top right: one chip per player (rank, name, kills
+  pill; your chip outlined in cyan). Chips slide to their new rank when the
+  order changes; a chip whose kills go up pops with an orange pill, and a
+  climbing chip glows and draws over the one it passes. The server credits a kill to the living shooter; a player's kills
   reset to 0 on death (a respawn is a new ship).
 - Death: white flash, fireball, rings and a spark spray for every destroyed
   ship. Your own death shows "Destroyed by <name>" (or "Your ship was
@@ -99,12 +108,13 @@ server is live and the itch page is public and unlisted.
   the gun mounts are wider than a small asteroid or a ship.
 - A new ship drops in at the candidate point farthest from any asteroid and
   has two seconds of contact immunity.
-- Protocol version is 5 (ship state adds shield and knockback; JSON frames
-  for roster, deaths, hits and pickups). Client and server deploy together;
+- Protocol version is 6 (5 added shield, knockback and the JSON frames for
+  roster, deaths, hits and pickups; 6 removed the dash fields). Client and server deploy together;
   old clients reload once. Validated live settings still need no rebuild.
 - Live settings published before the shield existed are upgraded on load
   (`upgradeConfig` in `sim/liveConfig.ts`): missing new fields are filled
-  from the bundled values and an old hull is split half hull, half shield.
+  from the bundled values, removed ones (such as the dash) are dropped, and
+  an old hull is split half hull, half shield.
 - `TEST_SHIP_HP` (a `--var` on `wrangler dev`) raises ship hull points for the
   local browser check only. Unset in production.
 - Weapon, asteroid and speed values in tune.json are first values, not tuned
@@ -112,6 +122,8 @@ server is live and the itch page is public and unlisted.
 
 ## Open questions
 
+- The phone name fix is verified with emulated touch taps in Chromium, not
+  yet on a real iPhone or Android keyboard.
 - Frame rate of the planet shader on real phones is unmeasured. It does the
   projection per pixel; in this headless test without a GPU it halved the
   frame rate. If phones struggle, switch to the handoff's mesh approach.

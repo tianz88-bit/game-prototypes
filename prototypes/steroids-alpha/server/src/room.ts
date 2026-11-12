@@ -31,12 +31,10 @@ interface Player {
   ship: ShipState;
   /** Inputs received and not yet applied, oldest first. */
   queue: ShipInput[];
-  /** Last applied input, repeated (without dash) when the queue runs dry. */
+  /** Last applied input, repeated when the queue runs dry. */
   last: ShipInput;
   /** Steps simulated with a guessed input because the real one was late. Late inputs fill these slots and are dropped. */
   deficit: number;
-  /** A dash from a dropped late input, applied on the next step. */
-  owedDash: boolean;
   /** Keeps incoming messages in arrival order when any must be read asynchronously. */
   reading: Promise<void>;
   /** False until the first input arrives. */
@@ -52,7 +50,7 @@ interface Player {
 }
 
 
-const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false };
+const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, thrust: 0, fire: false };
 
 export class Room {
   private players = new Map<number, Player>();
@@ -77,7 +75,7 @@ export class Room {
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
       p.ship.hp=Math.min(this.tune.ship.maxHp,p.ship.hp);
       p.ship.shield=Math.min(this.tune.ship.maxShield,p.ship.shield);
-      if(p.queue.length)p.last=p.queue[p.queue.length-1];p.queue=[];p.deficit=0;p.deficitTicks=0;p.owedDash=false;p.started=false;
+      if(p.queue.length)p.last=p.queue[p.queue.length-1];p.queue=[];p.deficit=0;p.deficitTicks=0;p.started=false;
       this.send(p,JSON.stringify({type:'config',record}));this.send(p,this.snapshotFor(p));
     }
   }
@@ -102,7 +100,7 @@ export class Room {
     }
     const id = this.allocateId();
     const spawn = this.world.addShip(id);
-    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0 };
+    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0 };
     this.players.set(id, player);
 
     ws.addEventListener('message', (e: MessageEvent) => this.onMessage(player, e.data));
@@ -265,7 +263,6 @@ export class Room {
     }
     while (p.deficit > 0 && p.queue.length) {
       const late = p.queue.shift() as ShipInput;
-      p.owedDash ||= late.dash;
       p.last = late;
       p.deficit--;
     }
@@ -282,10 +279,8 @@ export class Room {
       const input = p.queue.shift();
       if (input) p.last = input;
       else if (p.deficit < TUNE.net.maxGuessedSteps) p.deficit++;
-      // A guessed step repeats the last input without its dash; a dash owed from a dropped input applies now.
-      const dash = (input ? input.dash : false) || p.owedDash;
-      p.owedDash = false;
-      this.world.stepShip(p.id, { ...(input ?? p.last), dash });
+      // A guessed step repeats the last input.
+      this.world.stepShip(p.id, input ?? p.last);
     }
   }
 

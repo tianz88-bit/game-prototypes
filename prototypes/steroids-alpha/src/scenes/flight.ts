@@ -48,8 +48,8 @@ export class FlightScene extends Phaser.Scene {
   shieldHitCount = 0;
   /** Name tags under ships, by ship id. */
   private tags = new Map<number, Phaser.GameObjects.Text>();
-  /** Leaderboard rows by ship id; each slides to its rank's position. */
-  private board = new Map<number, { text: Phaser.GameObjects.Text; y: number }>();
+  /** Leaderboard chips by ship id; each slides to its rank's position. */
+  private board = new Map<number, BoardChip>();
   private boardTitle!: Phaser.GameObjects.Text;
   /** Buttons on the death screen, in logical pixels. */
   private deathButtons: { id: 'respawn' | 'menu'; x: number; y: number; w: number; h: number; label: Phaser.GameObjects.Text }[] = [];
@@ -75,7 +75,6 @@ export class FlightScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('dpr', this.build, this);
       this.net.close();
-      intents.dashButton = null;
       intents.schemeButton = null;
       intents.fireButton = null;
     });
@@ -106,13 +105,12 @@ export class FlightScene extends Phaser.Scene {
   update(): void {
     if(this.lastConfigVersion!==configVersion){for(const ship of this.ships.values())ship.destroy();this.ships.clear();if(shipArtStatus==='ready')buildShadow(this);this.lastConfigVersion=configVersion;}
     const dead = !!this.net.death || this.net.status === 'destroyed';
-    const dash = intents.consume('secondary');
     if (!dead) {
       intents.consume('primary');
       intents.consume('pause'); // No leaving during lockdown; warp-out comes in milestone 3.
     }
     if (intents.consume('scheme')) intents.toggleScheme();
-    this.net.update({ ...intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed), dash, fire: intents.fire });
+    this.net.update({ ...intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed), fire: intents.fire });
 
     const { w, h } = logicalSize();
     const own = this.net.ownRender();
@@ -260,23 +258,18 @@ export class FlightScene extends Phaser.Scene {
     }
     this.schemeLabel.setVisible(intents.touch);
     if (!intents.touch) {
-      intents.dashButton = null;
       intents.schemeButton = null;
       intents.fireButton = null;
       return;
     }
-    // Fire button: left of the dash button, held to shoot.
+    // Fire button: bottom right, held to shoot.
     const fr = clientTune.touch.fireButtonRadius;
-    const fb = { x: w - clientTune.touch.dashButtonMargin * 2 - clientTune.touch.dashButtonRadius * 2 - fr, y: h - clientTune.touch.dashButtonMargin - fr };
+    const fb = { x: w - clientTune.touch.fireButtonMargin - fr, y: h - clientTune.touch.fireButtonMargin - fr };
     intents.fireButton = { x: fb.x, y: fb.y, hw: fr * 1.2, hh: fr * 1.2 };
     g.fillStyle(0xff8a4a, intents.fire ? 0.5 : 0.25);
     g.fillCircle(fb.x, fb.y, fr);
     g.lineStyle(2, 0xffc9a8, 0.8);
     g.strokeCircle(fb.x, fb.y, fr);
-    const r = clientTune.touch.dashButtonRadius;
-    const m = clientTune.touch.dashButtonMargin;
-    const b = { x: w - m - r, y: h - m - r, r };
-    intents.dashButton = { x: b.x, y: b.y, hw: r * 1.3, hh: r * 1.3 };
     // Steering scheme toggle, top right under the status line.
     const bw = clientTune.touch.schemeButtonWidth;
     const bh = clientTune.touch.schemeButtonHeight;
@@ -287,18 +280,6 @@ export class FlightScene extends Phaser.Scene {
     g.lineStyle(1, 0xffffff, 0.45);
     g.strokeRoundedRect(sb.x - bw / 2, sb.y - bh / 2, bw, bh, 8);
     this.schemeLabel.setPosition(sb.x, sb.y).setText(intents.scheme === 'marker' ? 'STEER: MARKER' : 'STEER: CRAFT');
-    const cd = this.net.predicted?.dashCd ?? 0;
-    const ready = cd <= 0;
-    g.fillStyle(0xffffff, ready ? 0.22 : 0.08);
-    g.fillCircle(b.x, b.y, r);
-    g.lineStyle(2, 0xffffff, ready ? 0.7 : 0.3);
-    g.strokeCircle(b.x, b.y, r);
-    if (!ready) {
-      g.lineStyle(4, 0xffd27a, 0.9);
-      g.beginPath();
-      g.arc(b.x, b.y, r - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - cd / TUNE.ship.dashCooldown));
-      g.strokePath();
-    }
     const st = intents.stick;
     if (st) {
       g.lineStyle(2, 0xffffff, 0.35);
@@ -325,32 +306,82 @@ export class FlightScene extends Phaser.Scene {
     tag.setPosition(at.x, at.y + below).setVisible(at.visible);
   }
 
-  /** Kills leaderboard, top right. Rows glide to their new place when the order changes. */
+  /**
+   * Kills leaderboard, top right: one chip per player (rank, name, kills). When the order changes the
+   * chips slide to their new places; a chip whose kills just went up pops and flashes, and one that
+   * climbed gets a brief glow while it moves.
+   */
   private drawBoard(w: number): void {
     const rows = [...this.net.roster.values()].sort((a, b) => b.kills - a.kills || a.id - b.id).slice(0, 8);
+    const cw = Math.min(BOARD_CHIP_W, w * 0.34);
     const right = w - 10;
     const top = intents.touch ? 46 + clientTune.touch.schemeButtonHeight + 10 : 30;
-    const line = 16;
+    const now = this.time.now;
     this.boardTitle.setPosition(right, top).setVisible(rows.length > 0);
     const keep = new Set(rows.map((r) => r.id));
-    for (const [id, row] of this.board) {
+    for (const [id, chip] of this.board) {
       if (!keep.has(id)) {
-        row.text.destroy();
+        chip.box.destroy();
         this.board.delete(id);
       }
     }
     rows.forEach((r, rank) => {
-      const target = top + 14 + rank * line;
-      let row = this.board.get(r.id);
-      if (!row) {
-        row = { text: text(this, right, target, '', 12).setOrigin(1, 0).setDepth(950), y: target };
-        this.board.set(r.id, row);
+      const target = top + 15 + BOARD_CHIP_H / 2 + rank * (BOARD_CHIP_H + 4);
+      let chip = this.board.get(r.id);
+      if (!chip) {
+        const g = this.add.graphics();
+        const rankT = text(this, 0, 0, '', 11, '#8fa2c8').setOrigin(0, 0.5);
+        const nameT = text(this, 0, 0, '', 12).setOrigin(0, 0.5);
+        const killsT = text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5);
+        const box = this.add.container(right - cw / 2, target, [g, rankT, nameT, killsT]).setDepth(950);
+        chip = { box, g, rankT, nameT, killsT, y: target, kills: r.kills, rank, poppedAt: -1e9, climbedAt: -1e9, width: 0 };
+        this.board.set(r.id, chip);
       }
-      row.y += (target - row.y) * 0.18;
-      if (Math.abs(target - row.y) < 0.3) row.y = target;
-      const label = `${r.name}  ${r.kills}`;
-      if (row.text.text !== label) row.text.setText(label);
-      row.text.setColor(r.id === this.net.myId ? '#9fefff' : '#dfe8ff').setPosition(right, row.y);
+      if (r.kills > chip.kills) chip.poppedAt = now;
+      if (rank < chip.rank) chip.climbedAt = now;
+      chip.kills = r.kills;
+      chip.rank = rank;
+      chip.y += (target - chip.y) * 0.18;
+      if (Math.abs(target - chip.y) < 0.3) chip.y = target;
+
+      const mine = r.id === this.net.myId;
+      const pop = Math.max(0, 1 - (now - chip.poppedAt) / 600);
+      const glow = Math.max(pop, Math.max(0, 1 - (now - chip.climbedAt) / 700) * 0.6);
+      if (chip.width !== cw || pop > 0 || glow > 0 || chip.mine !== mine || chip.lastGlow !== 0) {
+        const g = chip.g;
+        g.clear();
+        g.fillStyle(mine ? 0x123447 : 0x141c2e, 0.82);
+        g.fillRoundedRect(-cw / 2, -BOARD_CHIP_H / 2, cw, BOARD_CHIP_H, BOARD_CHIP_H / 2);
+        if (glow > 0) {
+          g.fillStyle(0xffd27a, 0.35 * glow);
+          g.fillRoundedRect(-cw / 2, -BOARD_CHIP_H / 2, cw, BOARD_CHIP_H, BOARD_CHIP_H / 2);
+        }
+        g.lineStyle(1.5, mine ? 0x5fe3ff : 0x3d4a66, mine ? 0.9 : 0.8);
+        g.strokeRoundedRect(-cw / 2, -BOARD_CHIP_H / 2, cw, BOARD_CHIP_H, BOARD_CHIP_H / 2);
+        // Kills pill on the right.
+        const pw = 30;
+        g.fillStyle(pop > 0 ? 0xffb34a : mine ? 0x2a7f9c : 0x2a3550, 1);
+        g.fillRoundedRect(cw / 2 - pw - 3, -BOARD_CHIP_H / 2 + 3, pw, BOARD_CHIP_H - 6, (BOARD_CHIP_H - 6) / 2);
+        chip.killsT.setPosition(cw / 2 - pw / 2 - 3, 0);
+        chip.rankT.setPosition(-cw / 2 + 9, 0);
+        chip.nameT.setPosition(-cw / 2 + 26, 0);
+        chip.width = cw;
+        chip.mine = mine;
+        chip.lastGlow = glow;
+      }
+      const rankLabel = `${rank + 1}`;
+      if (chip.rankT.text !== rankLabel) chip.rankT.setText(rankLabel);
+      if (chip.nameT.text !== r.name) {
+        chip.nameT.setText(r.name);
+        // Long names are cut to fit between the rank and the kills pill.
+        const room = cw - 26 - 40;
+        let n = r.name;
+        while (chip.nameT.width > room && n.length > 1) chip.nameT.setText((n = n.slice(0, -1)) + '…');
+      }
+      chip.nameT.setColor(mine ? '#9fefff' : '#dfe8ff');
+      if (chip.killsT.text !== `${r.kills}`) chip.killsT.setText(`${r.kills}`);
+      // A chip on the move draws over the one it is passing.
+      chip.box.setPosition(right - cw / 2, chip.y).setScale(1 + 0.12 * Math.sin(pop * Math.PI)).setDepth(glow > 0 ? 951 : 950);
     });
   }
 
@@ -543,6 +574,26 @@ function rockShape(id: number, r: number): { x: number; y: number }[] {
   return pts;
 }
 
+const BOARD_CHIP_W = 170;
+const BOARD_CHIP_H = 22;
+
+interface BoardChip {
+  box: Phaser.GameObjects.Container;
+  g: Phaser.GameObjects.Graphics;
+  rankT: Phaser.GameObjects.Text;
+  nameT: Phaser.GameObjects.Text;
+  killsT: Phaser.GameObjects.Text;
+  /** Current (gliding) y; the chip eases toward its rank's slot. */
+  y: number;
+  kills: number;
+  rank: number;
+  poppedAt: number;
+  climbedAt: number;
+  width: number;
+  mine?: boolean;
+  lastGlow?: number;
+}
+
 interface DrawnShip {
   fire(side: number): void;
   shieldHit(angle: number): void;
@@ -559,8 +610,7 @@ class RigShip implements DrawnShip {
   }
 
   update(at: ShipPlacement, s: ShipState, timeMs: number): void {
-    // A dash counts as full throttle for the exhaust.
-    this.view.update(at, s.heading, timeMs, s.speed, s.dashTime > 0);
+    this.view.update(at, s.heading, timeMs, s.speed);
   }
 
   fire(side: number): void {
@@ -589,10 +639,6 @@ class PlaceholderShip implements DrawnShip {
     const size = clientTune.render.shipSize;
     g.clear();
     g.setVisible(at.visible);
-    if (s.dashTime > 0) {
-      g.fillStyle(0xffd27a, 0.85);
-      g.fillTriangle(-size * 0.5, -size * 0.3, -size * 0.5, size * 0.3, -size * 1.4, 0);
-    }
     g.fillStyle(this.mine ? 0x5fe3ff : 0xff8a4a, 1);
     g.fillPoints(
       [
