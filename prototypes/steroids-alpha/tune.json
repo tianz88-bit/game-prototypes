@@ -37,7 +37,7 @@
     "knockbackSpeed": 320,
     "knockbackDecayPerSecond": 5,
     "powerCap": 500,
-    "damageBonusAtCap": 1,
+    "damageBonusAtCap": 2,
     "speedPenaltyAtCap": 0.3,
     "radiusBonusAtCap": 0.5,
     "hullSpillFraction": 0.5,
@@ -49,7 +49,7 @@
     "bulletSpeed": 900,
     "bulletLifeSteps": 24,
     "bulletRadius": 6,
-    "damage": 10,
+    "damage": 12,
     "muzzleSide": 34,
     "muzzleForward": 14,
     "convergeDistance": 420

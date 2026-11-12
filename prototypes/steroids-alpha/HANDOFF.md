@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-12 claude damage-balance
+DID: gun damage 12 (was 10), damage at power cap 3x (was 2x); published live db8d064d62a4.
+FILES: tune.json scripts/test-steroids-alpha-sim.mjs
+SEAM: none
+CROSS: none
+FOR codex: nothing.
+
 ## 2026-11-12 claude dash-fix
 DID: dash holds dash speed through braking (released marker stick); excess speed above top bleeds at braking rate instead of snapping.
 FILES: sim/ship.ts scripts/test-steroids-alpha-sim.mjs

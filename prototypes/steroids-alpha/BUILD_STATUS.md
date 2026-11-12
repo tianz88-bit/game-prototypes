@@ -77,10 +77,14 @@ server is live and the itch page is public and unlisted.
   - Hull = minerals. Start 50 (`ship.maxHp`), cap 500 (`ship.powerCap`).
     Asteroids drop 5/3/2 minerals by size (`asteroid.mineralYield`), so a
     whole large rock is worth 19. A bot farming alone went 50 to 191 in 70 s.
+  - Rebalanced 12 November (owner agreed; fights took too long): gun damage
+    10 → 12, damage at the cap 2x → 3x (`damageBonusAtCap` 2). At 40%
+    accuracy: equal ships at 250 die in about 6 s (was 9), at 500 in about
+    9 s (was 15). Published live (db8d064d62a4).
   - Shield maximum = 50 + minerals above the start (500 at the cap). Regen
     is 20% of the maximum per second after 5 s quiet.
   - Growth level is the square root of how far to the cap. At the cap: guns
-    x2 (`damageBonusAtCap` 1), top and dash speed -30% (350 to 245,
+    x3 (`damageBonusAtCap` 2), top and dash speed -30% (350 to 245,
     `speedPenaltyAtCap`), hit radius and drawn size +50% (`radiusBonusAtCap`).
     Guns move out with the size, so shots leave the drawn wing tips.
   - Hull damage spills 50% of the hull lost (`hullSpillFraction`); death
