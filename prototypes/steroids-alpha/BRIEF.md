@@ -197,6 +197,8 @@ All names, ships, pilots and art are original. Nothing is copied from either.
   it is above the new maximum (owner design, 12 November).
 - Gun upgrades also hold 20% more heat per tier (owner).
 - Leaderboard shows each player's kills (players only) and power.
+- Bots (owner, 12 November): AI pilots on Planet A only, present only while
+  at least one real player is there. Planet B is players-only PvP.
 - Shield hit effect: a glowing sphere tiled with hexagons around the craft
   (owner reference image); some hexagons on the hit side flash (owner).
 - Dash ram (owner picked): dashing into a ship damages it, scaled by gun
@@ -354,7 +356,8 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 ## Out of scope (binding for v1)
 
 - More than 2 PvP planets and 1 practice planet.
-- Bots / AI enemy ships (replaced by asteroids; may return later).
+- Bots / AI enemy ships on Planet B (owner, 12 November: Planet A has bots,
+  Planet B stays players-only PvP).
 - Clouds over the map during play.
 - Shared space (other players in the space hub).
 - A true-sphere gameplay model (wrapping map rendered as a sphere instead).

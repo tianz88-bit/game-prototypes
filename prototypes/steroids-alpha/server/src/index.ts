@@ -102,7 +102,11 @@ export class PlanetRoom {
     const client = pair[0];
     const server = pair[1];
     acceptBinary(server);
-    this.room.join(server, new URL(request.url).searchParams.get('name'));
+    const url = new URL(request.url);
+    // The planet this room serves (from /ws/<planet>): Planet A has bots, Planet B does not.
+    const planet = PLANETS.find((p) => url.pathname === `/ws/${p.id}`);
+    if (planet) this.room.setBots(planet.bots);
+    this.room.join(server, url.searchParams.get('name'));
     return new Response(null, { status: 101, webSocket: client } as ResponseInit);
   }
 }

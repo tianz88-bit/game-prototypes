@@ -7,6 +7,8 @@ import { copyShip } from '../../sim/ship';
 import type { ShipInput, ShipState } from '../../sim/ship';
 import { World } from '../../sim/world';
 import { TURRET_SIDE } from '../../sim/turrets';
+import { BOT_NAMES, botThink, newBrain } from '../../sim/bots';
+import type { BotBrain } from '../../sim/bots';
 import { BUY_BYTES, INPUT_BYTES, PING_BYTES, CLOSE, MSG, cleanName, decodeClient, encodeAsteroids, encodeGone, encodePing, encodeShots, encodeSnapshot, encodeWelcome } from '../../sim/protocol';
 import type { SnapshotShip } from '../../sim/protocol';
 import { wrapDist2 } from '../../sim/wrap';
@@ -72,7 +74,7 @@ export class Room {
   applyConfig(record:ConfigRecord):void{
     if(record.version===this.config.version)return;
     this.config=record;
-    for(const group of ['ship','weapon','turret','shop','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
+    for(const group of ['ship','weapon','turret','shop','bots','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
     for(const p of this.players.values()){
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
       p.ship.hullMax=Math.min(this.tune.ship.powerCap,p.ship.hullMax);p.ship.hp=Math.min(p.ship.hullMax,p.ship.hp);
@@ -92,6 +94,50 @@ export class Room {
 
   get playerCount(): number {
     return this.players.size;
+  }
+
+  /**
+   * AI pilots (owner: Planet A only). They exist only while at least one real player is on the
+   * planet: they join when someone does, respawn after respawnSeconds, and all leave with the last
+   * player. Set once from the planet the room serves.
+   */
+  private botsEnabled = false;
+  private bots = new Map<number, { id: number; name: string; kills: number; brain: BotBrain; ship: ShipState }>();
+  private botRespawnAt: number[] = [];
+  setBots(enabled: boolean): void {
+    this.botsEnabled = enabled;
+  }
+
+  private stepBots(): void {
+    const want = this.botsEnabled && this.players.size > 0 ? Math.max(0, Math.min(this.tune.bots.count, TUNE.net.maxPlayersPerRoom - this.players.size)) : 0;
+    // Too many (players joined, or the last player left): the newest go first.
+    while (this.bots.size > want) {
+      const last = [...this.bots.keys()].pop() as number;
+      this.removeBot(last);
+    }
+    // Too few: one at a time, once their respawn delay is over.
+    this.botRespawnAt = this.botRespawnAt.filter((t) => t > this.tick);
+    if (this.bots.size + this.botRespawnAt.length < want) this.addBot();
+    for (const b of this.bots.values()) {
+      const { input, buy } = botThink(b.id, b.ship, this.world, b.brain, this.tune, Math.random);
+      if (buy) this.world.buy(b.id, buy.item, buy.tier);
+      this.world.stepShip(b.id, input);
+    }
+  }
+
+  private addBot(): void {
+    const id = this.allocateId();
+    const used = new Set([...this.bots.values()].map((b) => b.name));
+    const name = `BOT ${BOT_NAMES.find((n) => !used.has(`BOT ${n}`)) ?? id}`;
+    const ship = this.world.addShip(id);
+    this.bots.set(id, { id, name, kills: 0, brain: newBrain(Math.random), ship });
+    this.broadcastRoster();
+  }
+
+  private removeBot(id: number): void {
+    if (!this.bots.delete(id)) return;
+    this.world.removeShip(id);
+    this.broadcastRoster();
   }
 
   /** Attach a freshly accepted socket. Returns false (and closes it) when the room is full. */
@@ -124,7 +170,7 @@ export class Room {
     for (;;) {
       const id = this.nextId;
       this.nextId = this.nextId >= 0xffff ? 1 : this.nextId + 1;
-      if (!this.players.has(id)) return id;
+      if (!this.players.has(id) && !this.bots.has(id)) return id;
     }
   }
 
@@ -174,6 +220,7 @@ export class Room {
   private leave(id: number): void {
     if (!this.players.delete(id)) return;
     this.world.removeShip(id);
+    if (this.players.size === 0) for (const b of [...this.bots.keys()]) this.removeBot(b);
     this.broadcastRoster();
     if (this.players.size === 0) this.stop();
   }
@@ -207,6 +254,7 @@ export class Room {
   private step(): void {
     for (const b of this.buys.splice(0)) if (this.players.has(b.id)) this.world.buy(b.id, b.item, b.tier);
     for (const p of this.players.values()) this.stepPlayer(p);
+    this.stepBots();
     this.world.step();
     const ev = this.world.drain();
     if (ev.asteroids.length) this.broadcast(encodeAsteroids(ev.asteroids));
@@ -227,19 +275,25 @@ export class Room {
       // Everyone sees the explosion; whoever fired the killing shot scores.
       this.broadcast(JSON.stringify({ type: 'deaths', deaths: ev.deaths }));
       for (const d of ev.deaths) {
-        const killer = d.killer ? this.players.get(d.killer) : undefined;
+        const killer = d.killer ? (this.players.get(d.killer) ?? this.bots.get(d.killer)) : undefined;
         if (killer && !dead.has(killer.id)) killer.kills++;
       }
     }
     // Power changes all the time; the leaderboard hears about it twice a second at most.
     if (this.tick % Math.max(1, Math.round(this.tune.net.tickHz / 2)) === 0) {
-      const key = [...this.players.values()].map((p) => `${p.id}:${Math.round(p.ship.hullMax)}:${p.kills}`).join(',');
+      const key = [...this.players.values(), ...this.bots.values()].map((p) => `${p.id}:${Math.round(p.ship.hullMax)}:${p.kills}`).join(',');
       if (key !== this.rosterKey) this.broadcastRoster();
     }
     if (this.tick % this.snapshotEvery === 0 || dead.size) {
       for (const p of this.players.values()) {
         if (this.tick % this.snapshotEvery === 0 || dead.has(p.id)) this.send(p, this.snapshotFor(p));
       }
+    }
+    // A destroyed bot leaves too and a new one comes after respawnSeconds.
+    for (const id of dead) {
+      if (!this.bots.has(id)) continue;
+      this.removeBot(id);
+      this.botRespawnAt.push(this.tick + Math.round(this.tune.bots.respawnSeconds * this.tune.net.tickHz));
     }
     // A destroyed ship leaves the planet. (Wrecks and loot come with the stash milestone.)
     for (const id of dead) {
@@ -257,7 +311,7 @@ export class Room {
   /** Names, kills and power (hull, i.e. minerals carried) for the leaderboard and name tags. */
   private rosterKey = '';
   private broadcastRoster(): void {
-    const players = [...this.players.values()];
+    const players = [...this.players.values(), ...this.bots.values()];
     this.rosterKey = players.map((p) => `${p.id}:${Math.round(p.ship.hullMax)}:${p.kills}`).join(',');
     this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.round(p.ship.hullMax) })) }));
   }
@@ -310,7 +364,7 @@ export class Room {
   private snapshotFor(p: Player): ArrayBuffer {
     const r2 = TUNE.net.interestRadius * TUNE.net.interestRadius;
     const ships: SnapshotShip[] = [{ id: p.id, ...copyShip(p.ship) }];
-    for (const o of this.players.values()) {
+    for (const o of [...this.players.values(), ...this.bots.values()]) {
       if (o.id === p.id) continue;
       if (wrapDist2(o.ship.x, o.ship.y, p.ship.x, p.ship.y, TUNE.world.width, TUNE.world.height) > r2) continue;
       ships.push({ id: o.id, ...copyShip(o.ship) });

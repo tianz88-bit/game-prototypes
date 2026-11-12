@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-12 claude bots
+DID: AI bots on Planet A only, only while real players are present (4, respawn 5 s). Planet B stays PvP. Bots fight (lead + wobble, burst fire, dash), flee when hurt, farm, buy upgrades; on leaderboard as "BOT <name>".
+FILES: sim/bots.ts sim/planets.ts sim/liveConfig.ts server/src/{room,index}.ts src/liveConfig.ts tune.json scripts/test-steroids-alpha-sim.mjs
+SEAM: none on the wire (bots are ordinary ships in snapshots/roster). PLANETS[].bots flag. New tune group bots.
+CROSS: ../steroids-alpha-lab/draft.ts (Bots group)
+FOR codex: bots use the same rig; a distinct tint or marker for bot ships could help readability.
+
 ## 2026-11-12 claude dash-1.8x
 DID: dash boost at 1.8x top speed (dashSpeedFactor 1.8); published live.
 FILES: tune.json
