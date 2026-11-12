@@ -130,7 +130,7 @@ export class Room {
     const id = this.allocateId();
     const used = new Set([...this.bots.values()].map((b) => b.name));
     const name = `BOT ${BOT_NAMES.find((n) => !used.has(`BOT ${n}`)) ?? id}`;
-    const ship = this.world.addShip(id);
+    const ship = this.world.addShip(id, true); // spread out, away from players
     this.bots.set(id, { id, name, kills: 0, brain: newBrain(Math.random), ship });
     this.broadcastRoster();
   }

@@ -198,7 +198,8 @@ All names, ships, pilots and art are original. Nothing is copied from either.
 - Gun upgrades also hold 20% more heat per tier (owner).
 - Leaderboard shows each player's kills (players only) and power.
 - Bots (owner, 12 November): AI pilots on Planet A only, present only while
-  at least one real player is there. Planet B is players-only PvP.
+  at least one real player is there. Planet B is players-only PvP. Bots spawn
+  spread over the planet, as far from every ship as possible (owner).
 - Missiles and mines (owner, 12 November): shop items with four tiers; each
   tier adds a charge. Charges refill automatically one at a time and are held
   until used. Two buttons with symbols and charge counts (keyboard Q and E).
