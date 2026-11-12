@@ -190,50 +190,69 @@ export class ShipView {
   }
 
   /**
-   * Blocked hits: the shield shows as a bubble of hexagon cells around the craft (two staggered rings).
-   * The whole bubble appears faintly for a moment; only the cells on the side that was hit flash,
-   * brightest at the impact and fading around the bubble.
+   * Blocked hits (owner reference: a glowing sphere tiled with hexagons). The shield shows as a sphere
+   * seen from above: a hex grid wrapped onto it, so cells shrink and flatten toward the rim, a translucent
+   * blue body and a glowing rim. On a hit the sphere fades in; some cells on the hit side (picked by a
+   * fixed pattern, so it reads as pieces lighting up) flash bright, strongest nearest the impact.
    */
   private drawShield(at: ShipPlacement, timeMs: number): void {
     const g = this.shieldGfx;
     g.clear();
-    const LIFE = 450;
+    const LIFE = 500;
     this.shieldHits = this.shieldHits.filter((h) => timeMs - h.at < LIFE);
     g.setVisible(at.visible && this.shieldHits.length > 0);
     if (!at.visible || !this.shieldHits.length) return;
-    const R = clientTune.render.shipRingRadius * clientTune.render.shipScale * at.scale * 1.15;
-    const COUNT = 16; // cells per ring
-    const hex = ((Math.PI * 2 * R) / COUNT) * 0.36;
-    // How bright each cell is: the strongest of the current hits, by angular distance to each impact.
-    const lit = (ang: number): { flash: number; bubble: number } => {
-      let flash = 0;
-      let bubble = 0;
-      for (const h of this.shieldHits) {
-        const k = (timeMs - h.at) / LIFE;
-        const fade = 1 - k;
-        bubble = Math.max(bubble, fade);
-        const off = Math.abs(((ang - h.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-        const spread = Math.max(0, 1 - off / (Math.PI / 3)); // hit side: within 60 degrees
-        flash = Math.max(flash, fade * spread * spread);
-      }
-      return { flash, bubble };
+    const R = clientTune.render.shipRingRadius * clientTune.render.shipScale * at.scale * 1.2;
+    let bubble = 0;
+    for (const h of this.shieldHits) bubble = Math.max(bubble, 1 - (timeMs - h.at) / LIFE);
+    // Body and rim glow.
+    g.fillStyle(0x0b2a6a, 0.28 * bubble);
+    g.fillCircle(at.x, at.y, R);
+    for (let k = 0; k < 4; k++) {
+      g.lineStyle(6 - k * 1.4, 0x3a8cff, (0.12 + k * 0.12) * bubble);
+      g.strokeCircle(at.x, at.y, R - k * 1.5);
+    }
+    // Hex cells on the sphere: centres on a flat hex grid in sphere-angle units (|p| = 1 is the rim),
+    // mapped by the orthographic view of a sphere: screen radius = sin(|p| x 90 degrees) x R.
+    const project = (u: number, v: number): { x: number; y: number } | null => {
+      const r = Math.hypot(u, v);
+      if (r >= 1) return null;
+      const k = r < 1e-6 ? 1 : Math.sin((r * Math.PI) / 2) / r;
+      return { x: at.x + u * k * R, y: at.y + v * k * R };
     };
-    for (const [row, radius] of [[0, R], [1, R + hex * 1.5]] as const) {
-      for (let c = 0; c < COUNT; c++) {
-        const ang = ((c + (row ? 0.5 : 0)) / COUNT) * Math.PI * 2;
-        const { flash, bubble } = lit(ang);
-        const cx = at.x + Math.cos(ang) * radius;
-        const cy = at.y + Math.sin(ang) * radius;
-        const pts: Phaser.Math.Vector2[] = [];
-        for (let v = 0; v < 6; v++) {
-          const t = ang + (v * Math.PI) / 3;
-          pts.push(new Phaser.Math.Vector2(cx + Math.cos(t) * hex, cy + Math.sin(t) * hex));
+    const cell = 0.2; // hex radius in sphere-angle units
+    const dx = cell * Math.sqrt(3);
+    const dy = cell * 1.5;
+    for (let row = -6; row <= 6; row++) {
+      for (let col = -6; col <= 6; col++) {
+        const u = col * dx + (row & 1 ? dx / 2 : 0);
+        const v = row * dy;
+        const r = Math.hypot(u, v);
+        if (r > 0.93) continue;
+        const centre = project(u, v);
+        if (!centre) continue;
+        // Flash: cells facing the hit, a fixed half of them (pieces), brightest near the impact.
+        let flash = 0;
+        const ang = Math.atan2(v, u);
+        for (const h of this.shieldHits) {
+          const fade = 1 - (timeMs - h.at) / LIFE;
+          const off = Math.abs(((ang - h.angle + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+          const side = Math.max(0, 1 - off / (Math.PI / 2.4)) * Math.min(1, r * 1.6);
+          const pick = ((row * 7 + col * 13) & 3) !== 0 ? 1 : 0.25;
+          flash = Math.max(flash, fade * side * side * pick);
         }
-        if (flash > 0.02) {
-          g.fillStyle(0x3aa8ff, 0.7 * flash);
+        const pts: Phaser.Math.Vector2[] = [];
+        for (let n = 0; n < 6; n++) {
+          const t = Math.PI / 6 + (n * Math.PI) / 3;
+          const q = project(u + Math.cos(t) * cell * 0.86, v + Math.sin(t) * cell * 0.86);
+          if (q) pts.push(new Phaser.Math.Vector2(q.x, q.y));
+        }
+        if (pts.length < 6) continue;
+        if (flash > 0.03) {
+          g.fillStyle(0x6fd0ff, 0.8 * flash);
           g.fillPoints(pts, true);
         }
-        g.lineStyle(flash > 0.02 ? 2.5 : 1.2, flash > 0.02 ? 0xbfeaff : 0x6fc8ff, Math.max(0.18 * bubble, flash));
+        g.lineStyle(flash > 0.03 ? 2 : 1, flash > 0.03 ? 0xd6f4ff : 0x5aa8ff, Math.max(0.35 * bubble, flash));
         g.strokePoints(pts, true);
       }
     }

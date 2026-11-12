@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-12 claude hex-sphere-shield
+DID: shield hit effect redone as a hex-tiled sphere (owner reference): orthographic hex grid, glowing rim, hit-side cells flash. Live settings 5087bc96d49a (new dash values).
+FILES: src/render/shipView.ts
+SEAM: none
+CROSS: src/render/shipView.ts (drawShield)
+FOR codex: the owner's reference is a glowing blue sphere of hexagons; refine colours/glow freely.
+
 ## 2026-11-12 claude dash-charge-hullmax
 DID: dash = 0.5s charge (hold direction) then 2x top speed for 1.5s; hull max separate from hull (minerals repair then grow; buying spends the max); gun tiers +20% heat; leaderboard KO count; shield hit = hexagon bubble, hit side flashes.
 FILES: sim/{ship,shop,world,turrets,protocol,liveConfig}.ts server/src/room.ts src/{net/client,scenes/flight,main}.ts src/render/shipView.ts tune.json
