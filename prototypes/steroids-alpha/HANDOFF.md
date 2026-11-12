@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 codex proto/steroids-alpha/graphics-surface
+DID: shader-only shallow craters, dust variation, sand banks, cool night/warm twilight and a brighter sunlit atmosphere; first graphics item, draft pending performance/DPR-2 checks.
+FILES: src/render/planetGround.ts BUILD_STATUS.md
+SEAM: none; projection, sun, calibration, inputs and gameplay values unchanged.
+CROSS: none
+FOR claude: typecheck/build/rig/sim pass; Brave desktop/phone DPR1 and two clients + bots inspected without console errors; exact DPR2/headless performance still unverified. Remaining GFX_BRIEF items stay queued.
+
 ## 2026-11-12 claude bounty-lock
 DID: bounty marker on the strongest real player (2+ players, bots never) + gold edge tracker for others; in-flight missile lock crosshair for firer and target, MISSILE LOCK warning. GFX_BRIEF.md for codex.
 FILES: server/src/room.ts sim/protocol.ts src/net/client.ts src/scenes/flight.ts scripts/test-steroids-alpha-sim.mjs GFX_BRIEF.md
@@ -97,15 +104,3 @@ FILES: src/ui/qr.ts src/scenes/menu.ts src/input/intents.ts src/base.ts scripts/
 SEAM: none
 CROSS: none
 FOR codex: menu QR panel is plain (white card + labels); restyle freely, keep the quiet zone (4 modules) and high contrast.
-
-## 2026-11-12 claude turrets
-DID: auto turrets (1 per 100 minerals, max 4): lock nearest enemy ship else asteroid within 380, turn ≤4 rad/s, 2 dmg shots. Live settings republished (00d655a775e4: top 350, regen 20%).
-FILES: sim/turrets.ts sim/world.ts sim/liveConfig.ts server/src/room.ts src/net/client.ts src/scenes/flight.ts src/liveConfig.ts tune.json
-SEAM: protocol 9. SHOTS side 10+i = turret i (TURRET_SIDE). Fx kind 'turret' {id,index,angle}. VisualBullet.small. tune.turret group (live-tunable).
-CROSS: ../steroids-alpha-lab/draft.ts (added 'Turrets' stat group).
-FOR codex: turret domes/barrels/muzzle flash drawn in flight.ts drawTurrets as placeholders; mounts in sim/turrets.ts TURRET_MOUNTS (base-size ship units) should line up with the art; adjust mounts there if needed.
-
-## Open for codex (from BUILD_STATUS next steps)
-- FFD pitch/bank tilt on the in-game rig (Phaser mesh); lab already has it.
-- Ground props with horizon clipping.
-- Cloud-layer entry/exit transition visuals.
