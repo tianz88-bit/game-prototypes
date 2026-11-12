@@ -6,6 +6,13 @@ const result=await build({stdin:{contents:`export * from './prototypes/steroids-
 const S=await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));
 const base=S.defaultConfig();assert.deepEqual(S.validateConfig(base),base);
 for(const mutate of [d=>d.tune.world.width++,d=>d.tune.net.tickHz++,d=>d.tune.ship.minSpeed=500,d=>d.tune.weapon.fireIntervalSteps=.5,d=>d.calibration.modules.canopy.order.left=2,d=>d.calibration.modules.cockpit.width=Infinity,d=>d.tune.asteroid.radius.push(2),d=>d.clientTune.render.partTextureMax=8]){const d=structuredClone(base);mutate(d);assert.throws(()=>S.validateConfig(d));}
+// Only the six UI RGB fields accept 24-bit integers; normal tuning limits stay intact.
+for(const key of ['uiPanel','uiBorder','uiAccent','uiGold','uiDanger','uiText']){
+ for(const value of [0,0xffffff]){const d=structuredClone(base);d.clientTune.render[key]=value;assert.equal(S.validateConfig(d).clientTune.render[key],value);}
+ for(const value of [-1,.5,0x1000000,Infinity]){const d=structuredClone(base);d.clientTune.render[key]=value;assert.throws(()=>S.validateConfig(d));}
+}
+{const d=structuredClone(base);d.clientTune.render.referenceHeight=0xffffff;assert.throws(()=>S.validateConfig(d));}
+{const d=structuredClone(base);for(const key of Object.keys(d.clientTune.render).filter(k=>k.startsWith('ui')))delete d.clientTune.render[key];assert.deepEqual(S.validateConfig(d).clientTune.render,base.clientTune.render);}
 const edited=structuredClone(base);edited.tune.ship.maxSpeed=400;S.validateConfig(edited);
 // Exercise the real import handler: calibration-only export must preserve all edited poses and stats.
 const priorGlobals={document:globalThis.document,window:globalThis.window,localStorage:globalThis.localStorage};
