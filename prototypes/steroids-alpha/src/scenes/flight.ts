@@ -423,6 +423,18 @@ export class FlightScene extends Phaser.Scene {
       const flash = hot && Math.floor(this.time.now / 150) % 2 === 0;
       g.fillStyle(hot ? (flash ? 0xffffff : 0xff4a3a) : p.heat > 0.7 ? 0xff8a3a : 0xffc14a, 0.95);
       g.fillRect(hx, h - 8 - 19 * p.heat, 6, 19 * p.heat);
+      // Dash: a yellow upright bar beside the heat bar. It refills over the cooldown and is full when
+      // the dash is ready; while charging it pulses white as the charge fills.
+      const dx = hx + 10;
+      g.fillStyle(0x000000, 0.45);
+      g.fillRect(dx, h - 27, 6, 19);
+      const sh = TUNE.ship;
+      const charging = p.dashCharge > 0;
+      const fill = charging ? 1 - p.dashCharge / sh.dashChargeSeconds : p.dashTime > 0 ? p.dashTime / sh.dashDuration : 1 - Math.max(0, p.dashCd) / sh.dashCooldown;
+      const ready = !charging && p.dashTime <= 0 && p.dashCd <= 0;
+      const pulse = charging && Math.floor(this.time.now / 100) % 2 === 0;
+      g.fillStyle(charging ? (pulse ? 0xffffff : 0xfff07a) : ready ? 0xffe14a : 0xb89a2a, 0.95);
+      g.fillRect(dx, h - 8 - 19 * fill, 6, 19 * fill);
     }
     this.drawShop(p);
     this.schemeLabel.setVisible(intents.touch);
