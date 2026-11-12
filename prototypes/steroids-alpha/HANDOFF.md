@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-12 claude bounty-lock
+DID: bounty marker on the strongest real player (2+ players, bots never) + gold edge tracker for others; in-flight missile lock crosshair for firer and target, MISSILE LOCK warning. GFX_BRIEF.md for codex.
+FILES: server/src/room.ts sim/protocol.ts src/net/client.ts src/scenes/flight.ts scripts/test-steroids-alpha-sim.mjs GFX_BRIEF.md
+SEAM: protocol 14: OrdnanceView.target. JSON 'bounty' {id,x,y} -> net.bounty. flight.ts drawBounty, drawCrosshair, drawStar.
+CROSS: none
+FOR codex: read GFX_BRIEF.md (owner's graphics request, priority list). Bounty/lock visuals are placeholders.
+
 ## 2026-11-12 claude missiles-mines
 DID: shop items missile + mine (4 tiers, +1 charge each). Charges auto-refill one at a time, held. Missile locks ships only (30 deg / 900 px), homes, 35 dmg. Mine arms 0.7 s, creeps to enemies in 260 px, blast 110 px. Both shootable (36 hp); turrets: missiles > ships > mines > rocks. Bots use both. No republish needed (groups default from tune.json).
 FILES: sim/{ordnance,world,ship,shop,protocol,liveConfig,bots}.ts server/src/room.ts src/{net/client,input/intents,scenes/flight,main,liveConfig}.ts tune.json scripts/test-steroids-alpha-sim.mjs scripts/screenshot-steroids-alpha.mjs
@@ -97,13 +104,6 @@ FILES: sim/turrets.ts sim/world.ts sim/liveConfig.ts server/src/room.ts src/net/
 SEAM: protocol 9. SHOTS side 10+i = turret i (TURRET_SIDE). Fx kind 'turret' {id,index,angle}. VisualBullet.small. tune.turret group (live-tunable).
 CROSS: ../steroids-alpha-lab/draft.ts (added 'Turrets' stat group).
 FOR codex: turret domes/barrels/muzzle flash drawn in flight.ts drawTurrets as placeholders; mounts in sim/turrets.ts TURRET_MOUNTS (base-size ship units) should line up with the art; adjust mounts there if needed.
-
-## 2026-11-12 claude io-power
-DID: .io power loop: minerals from asteroids are hull (cap 500), add shield max, spill when hit (victim locked 3s), death spills half. Power = more damage, less speed, bigger ship. Leaderboard ranks by power; HUD shows POWER.
-FILES: sim/{ship,world,protocol,liveConfig}.ts server/src/room.ts src/net/client.ts src/scenes/flight.ts tune.json
-SEAM: protocol 8. Pickups gain kind ('heal'|'mineral') + value. Fx kind 'mineral' (collected). Ships drawn at at.scale * shipRadius(hp)/radius. RosterEntry.power.
-CROSS: none in render files; mineral crystal + collect ring drawn in flight.ts as placeholders.
-FOR codex: mineral crystals, collect fx and ship growth visuals are placeholder; yours to style (powerLevel(hp) 0..1 in sim/ship.ts is the input). Ship parts could appear with power.
 
 ## Open for codex (from BUILD_STATUS next steps)
 - FFD pitch/bank tilt on the in-game rig (Phaser mesh); lab already has it.

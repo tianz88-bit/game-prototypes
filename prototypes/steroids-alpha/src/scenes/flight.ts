@@ -61,6 +61,11 @@ export class FlightScene extends Phaser.Scene {
   private powerText!: Phaser.GameObjects.Text;
   /** Charge counts on the missile and mine buttons. */
   private weaponTexts: Phaser.GameObjects.Text[] = [];
+  /** Bounty label: over the holder's ship, at the edge tracker, or "BOUNTY ON YOU". */
+  private bountyText!: Phaser.GameObjects.Text;
+  private lockedOnMe = false;
+  /** Shown to a pilot with a missile locked on them in flight. */
+  private lockText!: Phaser.GameObjects.Text;
   private shopTexts: { title: Phaser.GameObjects.Text; sub: Phaser.GameObjects.Text }[] = [];
   /** Turrets, drawn over the ships. Aim per ship and turret comes from the shots the server reports. */
   private turretGfx!: Phaser.GameObjects.Graphics;
@@ -117,6 +122,8 @@ export class FlightScene extends Phaser.Scene {
     this.schemeLabel = text(this, 0, 0, '', 11, '#dfe8ff').setOrigin(0.5).setDepth(951).setVisible(false);
     this.message = text(this, w / 2, logicalSize().h * 0.3, '', 18, '#ffffff').setOrigin(0.5).setDepth(950);
     this.boardTitle = text(this, 0, 0, 'KO · POWER', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
+    this.bountyText = text(this, 0, 0, '', 11, '#ffd23a').setOrigin(0.5).setDepth(953).setVisible(false);
+    this.lockText = text(this, 0, 0, 'MISSILE LOCK', 13, '#ff5a3a').setOrigin(0.5).setDepth(953).setVisible(false);
     this.weaponTexts = [0, 1].map(() => text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(952).setVisible(false));
     this.powerText = text(this, 0, 0, '', 11, '#ffd98a').setOrigin(0.5, 1).setDepth(950).setVisible(false);
     this.shopTexts = SHOP_ITEMS.map(() => ({
@@ -373,6 +380,86 @@ export class FlightScene extends Phaser.Scene {
     }
   }
 
+  /** Locked missile crosshair: a red ring with four inward ticks, slowly turning and pulsing. */
+  private drawCrosshair(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number, now: number): void {
+    const pulse = 0.75 + 0.25 * Math.sin(now / 90);
+    const rot = now / 600;
+    g.lineStyle(2, 0xff3a2a, 0.95 * pulse);
+    g.strokeCircle(x, y, r);
+    for (let i = 0; i < 4; i++) {
+      const a = rot + (i * Math.PI) / 2;
+      g.lineBetween(x + Math.cos(a) * r * 1.25, y + Math.sin(a) * r * 1.25, x + Math.cos(a) * r * 0.65, y + Math.sin(a) * r * 0.65);
+    }
+    g.fillStyle(0xff3a2a, 0.9 * pulse);
+    g.fillCircle(x, y, Math.max(1.5, r * 0.06));
+  }
+
+  /**
+   * Bounty (owner design): the strongest real player is marked with a gold ring and label; other
+   * pilots get a gold arrow at the screen edge pointing to them while they are out of view. The
+   * holder sees "BOUNTY ON YOU". Also the MISSILE LOCK warning for a pilot being chased.
+   */
+  private drawBounty(p: ShipState | null, w: number, h: number): void {
+    const g = this.overlay;
+    const now = this.time.now;
+    this.lockText.setVisible(!!p && this.lockedOnMe && Math.floor(now / 200) % 2 === 0).setPosition(w / 2, h * 0.3);
+    const b = this.net.bounty;
+    this.bountyText.setVisible(false);
+    if (!p || !b || this.net.death) return;
+    const pulse = 0.7 + 0.3 * Math.sin(now / 200);
+    if (b.id === this.net.myId) {
+      const at = this.toScreen(p.x, p.y);
+      g.lineStyle(2, 0xffd23a, 0.6 * pulse);
+      g.strokeCircle(at.x, at.y, 46 * at.scale * shipRadius(p.hullMax, TUNE) / TUNE.ship.radius);
+      this.bountyText.setVisible(true).setText('BOUNTY ON YOU').setPosition(w / 2, h * 0.3 + 18);
+      return;
+    }
+    // Where the holder is: their drawn position when in view range, else the bounty frame's.
+    const seen = this.net.remoteRender().find((r) => r.id === b.id)?.s;
+    const bx = seen?.x ?? b.x;
+    const by = seen?.y ?? b.y;
+    const name = this.net.roster.get(b.id)?.name ?? '';
+    const at = this.toScreen(bx, by);
+    const margin = 28;
+    if (at.visible && at.x > margin && at.x < w - margin && at.y > margin && at.y < h - margin) {
+      const r = 46 * at.scale * (seen ? shipRadius(seen.hullMax, TUNE) / TUNE.ship.radius : 1);
+      g.lineStyle(2, 0xffd23a, 0.85 * pulse);
+      g.strokeCircle(at.x, at.y, r);
+      g.fillStyle(0xffd23a, 0.9);
+      this.drawStar(g, at.x, at.y - r - 12, 7);
+      this.bountyText.setVisible(true).setText('BOUNTY').setPosition(at.x, at.y - r - 26);
+      return;
+    }
+    // Off screen: an arrow toward the holder (the world wraps; take the short way), on an ellipse
+    // just inside the screen edge so it stays clear of the corner HUD (shop, buttons).
+    const dx = wrapDelta(bx, p.x, W);
+    const dy = wrapDelta(by, p.y, H);
+    const a = Math.atan2(dy, dx);
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    const x = w / 2 + c * w * 0.4;
+    const y = h / 2 + s * h * 0.38;
+    g.fillStyle(0xffd23a, 0.9 * pulse);
+    g.fillTriangle(x + c * 16, y + s * 16, x - c * 6 - s * 11, y - s * 6 + c * 11, x - c * 6 + s * 11, y - s * 6 - c * 11);
+    g.fillStyle(0x2a1d05, 0.9);
+    this.drawStar(g, x, y, 4.5);
+    const dist = Math.round(Math.hypot(dx, dy) / 100) * 100;
+    this.bountyText
+      .setVisible(true)
+      .setText(`${name} ${dist}m`)
+      .setPosition(x - c * 40, y - s * 24);
+  }
+
+  private drawStar(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number): void {
+    const pts: Phaser.Math.Vector2[] = [];
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI) / 5;
+      const rr = i % 2 === 0 ? r : r * 0.45;
+      pts.push(new Phaser.Math.Vector2(x + Math.cos(a) * rr, y + Math.sin(a) * rr));
+    }
+    g.fillPoints(pts, true);
+  }
+
   /**
    * Missile and mine buttons, shown once bought: a symbol, the charges held, and a ring refilling the
    * next charge. Touch: above the fire and dash buttons. Keyboard: small badges (Q, E) by the bars.
@@ -518,6 +605,7 @@ export class FlightScene extends Phaser.Scene {
     }
     this.drawShop(p);
     this.drawWeapons(p, w, h);
+    this.drawBounty(p, w, h);
     this.schemeLabel.setVisible(intents.touch);
     if (!intents.touch) {
       intents.dashButton = null;
@@ -650,8 +738,10 @@ export class FlightScene extends Phaser.Scene {
         chip.mine = mine;
         chip.lastGlow = glow;
       }
-      const rankLabel = `${rank + 1}`;
-      if (chip.rankT.text !== rankLabel) chip.rankT.setText(rankLabel);
+      // The bounty holder's rank shows a gold star.
+      const bounty = this.net.bounty?.id === r.id;
+      const rankLabel = bounty ? '★' : `${rank + 1}`;
+      if (chip.rankT.text !== rankLabel) chip.rankT.setText(rankLabel).setColor(bounty ? '#ffd23a' : '#8fa2c8');
       if (chip.nameT.text !== r.name) {
         chip.nameT.setText(r.name);
         // Long names are cut to fit between the rank and the kills pill.
@@ -800,6 +890,23 @@ export class FlightScene extends Phaser.Scene {
         }
       }
     }
+    // Missiles in flight: a lock crosshair on the target, seen by the pilot who fired and by the
+    // pilot it is locked on (owner design); the target also gets a MISSILE LOCK warning.
+    let lockedOnMe = false;
+    for (const o of this.net.ordnance.values()) {
+      if (o.kind !== 0 || !o.target) continue;
+      if (o.target === this.net.myId && me && !this.net.death) {
+        lockedOnMe = true;
+        const at = this.toScreen(me.x, me.y);
+        this.drawCrosshair(g, at.x, at.y, 40 * at.scale * shipRadius(me.hullMax, TUNE) / TUNE.ship.radius, now);
+      } else if (o.owner === this.net.myId) {
+        const tgt = this.net.remoteRender().find((r) => r.id === o.target)?.s;
+        if (!tgt) continue;
+        const at = this.toScreen(tgt.x, tgt.y);
+        if (at.visible) this.drawCrosshair(g, at.x, at.y, 40 * at.scale * shipRadius(tgt.hullMax, TUNE) / TUNE.ship.radius, now);
+      }
+    }
+    this.lockedOnMe = lockedOnMe;
     // Health boosts: a pulsing green cross in a ring. Minerals: amber crystals, bigger for more value.
     const pulse = 0.75 + 0.25 * Math.sin(now / 160);
     for (const k of this.net.pickups.values()) {

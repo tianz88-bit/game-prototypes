@@ -285,6 +285,7 @@ export class Room {
     if (this.tick % Math.max(1, Math.round(this.tune.net.tickHz / 2)) === 0) {
       const key = [...this.players.values(), ...this.bots.values()].map((p) => `${p.id}:${Math.round(p.ship.hullMax)}:${p.kills}`).join(',');
       if (key !== this.rosterKey) this.broadcastRoster();
+      this.broadcastBounty();
     }
     if (this.tick % this.snapshotEvery === 0 || dead.size) {
       for (const p of this.players.values()) {
@@ -319,6 +320,25 @@ export class Room {
     const players = [...this.players.values(), ...this.bots.values()];
     this.rosterKey = players.map((p) => `${p.id}:${Math.round(p.ship.hullMax)}:${p.kills}`).join(',');
     this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.round(p.ship.hullMax) })) }));
+  }
+
+  /**
+   * Bounty (owner design): a marker on the strongest real player (bots never carry it), with
+   * their position, so everyone else can track them from anywhere on the planet. Needs at least
+   * two players. The holder keeps it on a tie, so it does not flicker between equals.
+   */
+  private bountyId = 0;
+  private broadcastBounty(): void {
+    const humans = [...this.players.values()].filter((p) => p.ship.hp > 0);
+    let leader = 0;
+    if (humans.length >= 2) {
+      const top = Math.max(...humans.map((p) => p.ship.hullMax));
+      const holder = this.players.get(this.bountyId);
+      leader = holder && holder.ship.hp > 0 && holder.ship.hullMax >= top ? holder.id : humans.find((p) => p.ship.hullMax === top)!.id;
+    }
+    this.bountyId = leader;
+    const s = this.players.get(leader)?.ship;
+    this.broadcast(JSON.stringify({ type: 'bounty', id: leader, x: s ? Math.round(s.x) : 0, y: s ? Math.round(s.y) : 0 }));
   }
 
   private broadcast(buf: ArrayBuffer | string): void {
@@ -386,7 +406,7 @@ export class Room {
     for (const o of this.world.ordnance.values()) {
       if (wrapDist2(o.x, o.y, p.ship.x, p.ship.y, TUNE.world.width, TUNE.world.height) > r2) continue;
       const max = o.kind === 'missile' ? this.tune.missile.hp : this.tune.mine.hp;
-      items.push({ id: o.id, kind: o.kind === 'missile' ? 0 : 1, owner: o.owner, x: o.x, y: o.y, heading: o.heading, hp: o.hp / max, armed: this.tick >= o.armAt });
+      items.push({ id: o.id, kind: o.kind === 'missile' ? 0 : 1, owner: o.owner, target: o.target, x: o.x, y: o.y, heading: o.heading, hp: o.hp / max, armed: this.tick >= o.armAt });
     }
     return encodeOrdnance(items);
   }

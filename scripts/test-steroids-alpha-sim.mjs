@@ -1071,21 +1071,62 @@ assert.equal(S.cleanName(null), '');
     assert(it && it.kind === 1 && !it.armed, 'nearby mine streamed, not yet armed');
     near(it.hp, 0.5, 0.01, 'hp sent as a fraction');
   }
+  // Bounty: the strongest real player, never a bot, only with two or more players; the holder
+  // keeps it on a tie; its position goes to everyone. A launched missile's lock reaches clients.
+  {
+    class Sock extends EventTarget { sent = []; send(v) { this.sent.push(v); } close() { this.dispatchEvent(new Event('close')); } }
+    const bounty = (sock) => sock.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).filter((m) => m.type === 'bounty').pop();
+    const room = new S.Room();
+    room.setBots(true);
+    const s1 = new Sock();
+    room.join(s1, 'A');
+    room.stop();
+    for (let i = 0; i < 31; i++) room.step();
+    assert.equal(bounty(s1).id, 0, 'no bounty with one player (bots never carry it)');
+    const ids = [...room.players.keys()];
+    for (const b of room.bots.values()) b.ship.hullMax = 999;
+    const s2 = new Sock();
+    room.join(s2, 'B');
+    room.stop();
+    const [a, b] = [...room.players.values()];
+    a.ship.hullMax = 120;
+    b.ship.hullMax = 80;
+    for (let i = 0; i < 31; i++) room.step();
+    const m = bounty(s2);
+    assert.equal(m.id, a.id, 'the stronger player carries the bounty, not the stronger bots');
+    assert.deepEqual([m.x, m.y], [Math.round(a.ship.x), Math.round(a.ship.y)], 'holder position sent');
+    b.ship.hullMax = 120;
+    for (let i = 0; i < 31; i++) room.step();
+    assert.equal(bounty(s1).id, a.id, 'holder keeps it on a tie');
+    b.ship.hullMax = 121;
+    for (let i = 0; i < 31; i++) room.step();
+    assert.equal(bounty(s1).id, b.id, 'passes to a stronger player');
+    void ids;
+    // Missile lock on the wire: the target id travels with the missile.
+    a.ship.x = 1000; a.ship.y = 1000; a.ship.heading = 0;
+    b.ship.x = 1400; b.ship.y = 1000;
+    a.ship.missileTier = 1;
+    a.ship.missileCharges = 1;
+    room.world.stepShip(a.id, { ...idle, missile: true });
+    for (let i = 0; i < 3; i++) room.step();
+    const ord = s2.sent.filter((x) => typeof x !== 'string').map((x) => S.decodeServer(x)).filter((x) => x && x.type === S.MSG.ORDNANCE).pop();
+    assert(ord && ord.items.some((o) => o.kind === 0 && o.owner === a.id && o.target === b.id), 'target sees the missile locked on them');
+  }
   // Wire: ordnance frames round-trip; inputs carry the two new flags.
   {
     const items = [
-      { id: 7, kind: 0, owner: 3, x: 12.5, y: 99.25, heading: 1.25, hp: 0.5, armed: true },
-      { id: 8, kind: 1, owner: 4, x: 1, y: 2, heading: -2, hp: 1, armed: false },
+      { id: 7, kind: 0, owner: 3, target: 9, x: 12.5, y: 99.25, heading: 1.25, hp: 0.5, armed: true },
+      { id: 8, kind: 1, owner: 4, target: 0, x: 1, y: 2, heading: -2, hp: 1, armed: false },
     ];
     const back = S.decodeServer(S.encodeOrdnance(items));
     assert.equal(back.type, S.MSG.ORDNANCE);
     assert.equal(back.items.length, 2);
     for (let i = 0; i < 2; i++) {
-      for (const k of ['id', 'kind', 'owner', 'armed']) assert.equal(back.items[i][k], items[i][k], `ordnance ${k}`);
+      for (const k of ['id', 'kind', 'owner', 'target', 'armed']) assert.equal(back.items[i][k], items[i][k], `ordnance ${k}`);
       for (const k of ['x', 'y', 'heading']) near(back.items[i][k], items[i][k], 1e-4, `ordnance ${k}`);
       near(back.items[i].hp, items[i].hp, 0.01, 'ordnance hp');
     }
   }
 }
 
-console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, bots, ramming, health boosts, kill credit, missiles, mines and settings upgrade all pass.');
+console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, bots, ramming, health boosts, kill credit, missiles, mines, bounty and settings upgrade all pass.');
