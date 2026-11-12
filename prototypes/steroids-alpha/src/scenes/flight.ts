@@ -6,6 +6,7 @@ import Phaser from 'phaser';
 import { TUNE } from '../../sim/tune';
 import { PLANETS } from '../../sim/planets';
 import type { PlanetId } from '../../sim/planets';
+import { maxShield, shipRadius } from '../../sim/ship';
 import type { ShipState } from '../../sim/ship';
 import { wrapDelta } from '../../sim/wrap';
 import { DEBUG, DEBUG_ROTATION, logicalSize } from '../base';
@@ -51,6 +52,9 @@ export class FlightScene extends Phaser.Scene {
   /** Leaderboard chips by ship id; each slides to its rank's position. */
   private board = new Map<number, BoardChip>();
   private boardTitle!: Phaser.GameObjects.Text;
+  private powerText!: Phaser.GameObjects.Text;
+  /** Most hull this ship has carried in this life (the hull bar's full mark). */
+  private hullPeak = 0;
   /** Buttons on the death screen, in logical pixels. */
   private deathButtons: { id: 'respawn' | 'menu'; x: number; y: number; w: number; h: number; label: Phaser.GameObjects.Text }[] = [];
   private deathShownAt = 0;
@@ -69,6 +73,7 @@ export class FlightScene extends Phaser.Scene {
     this.explosions = [];
     this.effects = [];
     this.deathShownAt = 0;
+    this.hullPeak = 0;
     this.net.connect();
     this.build();
     this.game.events.on('dpr', this.build, this);
@@ -98,7 +103,8 @@ export class FlightScene extends Phaser.Scene {
     this.coords = text(this, 8, 16, '', 10, '#7d8db0').setDepth(950).setVisible(DEBUG);
     this.schemeLabel = text(this, 0, 0, '', 11, '#dfe8ff').setOrigin(0.5).setDepth(951).setVisible(false);
     this.message = text(this, w / 2, logicalSize().h * 0.3, '', 18, '#ffffff').setOrigin(0.5).setDepth(950);
-    this.boardTitle = text(this, 0, 0, 'KILLS', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
+    this.boardTitle = text(this, 0, 0, 'POWER', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
+    this.powerText = text(this, 0, 0, '', 11, '#ffd98a').setOrigin(0.5, 1).setDepth(950).setVisible(false);
     versionStamp(this);
   }
 
@@ -159,6 +165,7 @@ export class FlightScene extends Phaser.Scene {
           this.shieldHitCount++;
         }
       }
+      else if (f.kind === 'mineral') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 18, ms: 260, colour: 0xffc14a });
       else if (f.kind === 'heal') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: TUNE.asteroid.pickupRadius, ms: 400, colour: 0x7dff9a });
       else this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.kind === 'burst' ? TUNE.asteroid.radius[f.size] : 9, ms: f.kind === 'burst' ? 320 : 110, colour: 0xffe2b0 });
     }
@@ -232,6 +239,8 @@ export class FlightScene extends Phaser.Scene {
     }
     this.shipAt.set(id, { x: s.x, y: s.y });
     const at = this.toScreen(s.x, s.y);
+    // Power makes ships bigger: drawn at the same growth as their hit radius.
+    at.scale *= shipRadius(s.hp, TUNE) / TUNE.ship.radius;
     // The hard shadow lies on the ground, away from the sun.
     const sh = shipShadow(this.frame.sun, clientTune.render.shadowReach);
     sh.x+=CALIBRATION.shadow.x-SHADOW_ANCHOR.x;sh.y+=CALIBRATION.shadow.y-SHADOW_ANCHOR.y;
@@ -244,12 +253,18 @@ export class FlightScene extends Phaser.Scene {
   private drawTouch(w: number, h: number): void {
     const g = this.overlay;
     g.clear();
-    // Shield (blue, taken first) over hull (green), bottom centre.
+    // Shield (blue, taken first) over hull (green), bottom centre. Hull is minerals, so the bar is
+    // measured against the most this ship has carried: losing minerals empties it, collecting refills
+    // it, and growing past the old best keeps it full. Power (hull points) is written above.
     const p = this.net.predicted;
+    this.powerText.setVisible(!!p && !this.net.death);
     if (p && !this.net.death) {
       const bw = Math.min(220, w * 0.5);
-      const hull = Math.max(0, Math.min(1, p.hp / TUNE.ship.maxHp));
-      const shield = Math.max(0, Math.min(1, p.shield / TUNE.ship.maxShield));
+      this.hullPeak = Math.max(this.hullPeak, p.hp, TUNE.ship.maxHp);
+      const hull = Math.max(0, Math.min(1, p.hp / this.hullPeak));
+      const shield = Math.max(0, Math.min(1, p.shield / maxShield(p.hp, TUNE)));
+      const capped = p.hp >= TUNE.ship.powerCap;
+      this.powerText.setPosition(w / 2, h - 30).setText(capped ? `POWER ${Math.round(p.hp)}  MAX` : `POWER ${Math.round(p.hp)}`);
       g.fillStyle(0x000000, 0.45);
       g.fillRect(w / 2 - bw / 2, h - 27, bw, 6);
       g.fillRect(w / 2 - bw / 2, h - 16, bw, 8);
@@ -326,12 +341,12 @@ export class FlightScene extends Phaser.Scene {
   }
 
   /**
-   * Kills leaderboard, top right: one chip per player (rank, name, kills). When the order changes the
-   * chips slide to their new places; a chip whose kills just went up pops and flashes, and one that
-   * climbed gets a brief glow while it moves.
+   * Power leaderboard, top right: one chip per player (rank, name, power = minerals carried). When the
+   * order changes the chips slide to their new places; a chip pops orange when that player scores a
+   * kill, and one that climbed gets a brief glow while it moves.
    */
   private drawBoard(w: number): void {
-    const rows = [...this.net.roster.values()].sort((a, b) => b.kills - a.kills || a.id - b.id).slice(0, 8);
+    const rows = [...this.net.roster.values()].sort((a, b) => b.power - a.power || a.id - b.id).slice(0, 8);
     const cw = Math.min(BOARD_CHIP_W, w * 0.34);
     const right = w - 10;
     const top = intents.touch ? 46 + clientTune.touch.schemeButtonHeight + 10 : 30;
@@ -377,8 +392,8 @@ export class FlightScene extends Phaser.Scene {
         }
         g.lineStyle(1.5, mine ? 0x5fe3ff : 0x3d4a66, mine ? 0.9 : 0.8);
         g.strokeRoundedRect(-cw / 2, -BOARD_CHIP_H / 2, cw, BOARD_CHIP_H, BOARD_CHIP_H / 2);
-        // Kills pill on the right.
-        const pw = 30;
+        // Power pill on the right.
+        const pw = 34;
         g.fillStyle(pop > 0 ? 0xffb34a : mine ? 0x2a7f9c : 0x2a3550, 1);
         g.fillRoundedRect(cw / 2 - pw - 3, -BOARD_CHIP_H / 2 + 3, pw, BOARD_CHIP_H - 6, (BOARD_CHIP_H - 6) / 2);
         chip.killsT.setPosition(cw / 2 - pw / 2 - 3, 0);
@@ -398,7 +413,7 @@ export class FlightScene extends Phaser.Scene {
         while (chip.nameT.width > room && n.length > 1) chip.nameT.setText((n = n.slice(0, -1)) + '…');
       }
       chip.nameT.setColor(mine ? '#9fefff' : '#dfe8ff');
-      if (chip.killsT.text !== `${r.kills}`) chip.killsT.setText(`${r.kills}`);
+      if (chip.killsT.text !== `${r.power}`) chip.killsT.setText(`${r.power}`);
       // A chip on the move draws over the one it is passing.
       chip.box.setPosition(right - cw / 2, chip.y).setScale(1 + 0.12 * Math.sin(pop * Math.PI)).setDepth(glow > 0 ? 951 : 950);
     });
@@ -483,11 +498,25 @@ export class FlightScene extends Phaser.Scene {
       g.lineStyle(Math.max(1.5, 3 * head.scale), b.mine ? 0x9ff3ff : 0xffb37a, 1);
       g.lineBetween(head.x, head.y, tail.x, tail.y);
     }
-    // Health boosts: a pulsing green cross in a ring.
+    // Health boosts: a pulsing green cross in a ring. Minerals: amber crystals, bigger for more value.
     const pulse = 0.75 + 0.25 * Math.sin(now / 160);
     for (const k of this.net.pickups.values()) {
       const at = this.toScreen(k.x, k.y);
       if (!at.visible) continue;
+      if (k.kind === 'mineral') {
+        const r = (7 + Math.sqrt(k.value) * 3) * at.scale;
+        const spin = now / 900 + k.id;
+        const pts = [0, 1, 2, 3].map((i) => {
+          const a = spin + (i * Math.PI) / 2;
+          const rr = i % 2 ? r * 0.6 : r;
+          return new Phaser.Math.Vector2(at.x + Math.cos(a) * rr, at.y + Math.sin(a) * rr);
+        });
+        g.fillStyle(shade(0xffc14a), 0.95);
+        g.fillPoints(pts, true);
+        g.lineStyle(1.5, 0xfff1c4, pulse);
+        g.strokePoints(pts, true);
+        continue;
+      }
       const r = TUNE.asteroid.pickupRadius * 0.6 * at.scale;
       g.fillStyle(0x0f3a1e, 0.75);
       g.fillCircle(at.x, at.y, r * 1.25);

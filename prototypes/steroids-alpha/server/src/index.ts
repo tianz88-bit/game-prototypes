@@ -26,7 +26,7 @@ interface RoomNamespace {
 interface Env extends AdminEnv {
   PLANET_ROOMS: RoomNamespace;
   PLANET_CONFIG: RoomNamespace;
-  /** Testing only (a `--var` on `wrangler dev`): ship hull points, so the browser check's ships survive. Unset in production. */
+  /** Testing only (a `--var` on `wrangler dev`): when set, ships take no damage, so the browser check can fly freely. Unset in production. */
   TEST_SHIP_HP?: string;
 }
 

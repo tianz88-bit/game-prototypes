@@ -1,9 +1,9 @@
-// Protocol v7: binary game frames are little-endian. The server also sends JSON text frames:
+// Protocol v8: binary game frames are little-endian. The server also sends JSON text frames:
 //   {type:'config',record:ConfigRecord}            before welcome/cutover snapshots
-//   {type:'roster',players:[{id,name,kills}]}      whenever someone joins, leaves, scores or dies
+//   {type:'roster',players:[{id,name,kills,power}]} on join/leave, and when anyone's power changes (2 Hz max)
 //   {type:'deaths',deaths:[{id,x,y,killer}]}       ships destroyed (killer 0 = an asteroid)
 //   {type:'hits',hits:[{id,x,y,shielded}]}         where ships were hit, and whether the shield took it
-//   {type:'pickups',add:[{id,x,y}],remove:[{id,by}]} health boosts dropped, taken (by = ship id) or expired (by 0)
+//   {type:'pickups',add:[{id,x,y,kind,value}],remove:[{id,by}]} health boosts and minerals dropped, taken (by = ship id) or expired (by 0)
 // Clients never send configuration; their socket accepts only bounded intent/ping frames.
 //
 // Client -> server
@@ -23,7 +23,7 @@ import type { ShipInput, ShipState } from './ship';
 import type { Asteroid } from './asteroids';
 import type { ShotEvent } from './world';
 
-export const PROTOCOL_VERSION = 7;
+export const PROTOCOL_VERSION = 8;
 
 export const MSG = {
   INPUT: 1,
@@ -52,6 +52,8 @@ export interface RosterEntry {
   id: number;
   name: string;
   kills: number;
+  /** Hull points, which are the minerals carried: the leaderboard ranks by this. */
+  power: number;
 }
 
 /** Player names: trimmed, printable, at most 16 characters; empty means none given. */

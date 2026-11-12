@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-12 claude io-power
+DID: .io power loop: minerals from asteroids are hull (cap 500), add shield max, spill when hit (victim locked 3s), death spills half. Power = more damage, less speed, bigger ship. Leaderboard ranks by power; HUD shows POWER.
+FILES: sim/{ship,world,protocol,liveConfig}.ts server/src/room.ts src/net/client.ts src/scenes/flight.ts tune.json
+SEAM: protocol 8. Pickups gain kind ('heal'|'mineral') + value. Fx kind 'mineral' (collected). Ships drawn at at.scale * shipRadius(hp)/radius. RosterEntry.power.
+CROSS: none in render files; mineral crystal + collect ring drawn in flight.ts as placeholders.
+FOR codex: mineral crystals, collect fx and ship growth visuals are placeholder; yours to style (powerLevel(hp) 0..1 in sim/ship.ts is the input). Ship parts could appear with power.
+
 ## 2026-11-12 claude dash-back
 DID: dash restored (0.5s @450, top 350), shield regen 20%/s, rock outlines now cover hitboxes (fixes "invisible" rams), plume longer near top speed, pilot counts on planet select (GET /planets).
 FILES: sim/* server/src/{room,index}.ts src/{input,net,scenes}/* src/render/{shipView,thrusters}.ts tune.json client.tune.json
