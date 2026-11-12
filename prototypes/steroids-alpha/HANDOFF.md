@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-12 claude share-qr
+DID: menu QR code of the itch page ("Scan to join"); tap copies the link (copy on pointerup via intents.copyZone). In-house QR encoder src/ui/qr.ts, verified vs python-qrcode.
+FILES: src/ui/qr.ts src/scenes/menu.ts src/input/intents.ts src/base.ts scripts/test-steroids-alpha-qr.mjs scripts/fixtures/steroids-qr.fixture.json .github/workflows/deploy-steroids-alpha-itch.yml
+SEAM: none
+CROSS: none
+FOR codex: menu QR panel is plain (white card + labels); restyle freely, keep the quiet zone (4 modules) and high contrast.
+
 ## 2026-11-12 claude turrets
 DID: auto turrets (1 per 100 minerals, max 4): lock nearest enemy ship else asteroid within 380, turn ≤4 rad/s, 2 dmg shots. Live settings republished (00d655a775e4: top 350, regen 20%).
 FILES: sim/turrets.ts sim/world.ts sim/liveConfig.ts server/src/room.ts src/net/client.ts src/scenes/flight.ts src/liveConfig.ts tune.json

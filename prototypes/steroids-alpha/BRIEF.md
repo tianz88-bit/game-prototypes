@@ -373,6 +373,9 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 - Thruster plume grows longer near top speed and in a dash.
 - Planet select shows the pilot count on each planet.
 - Pilot name must be typeable on phones (tap the box, the keyboard opens).
+- Main menu QR code of the game's itch page for quick joining; tapping it
+  copies the link (owner decision, 12 November 2026). The QR encoder is
+  written in-house rather than added as a dependency (owner choice).
 
 ## Open questions
 

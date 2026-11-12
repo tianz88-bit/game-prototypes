@@ -37,3 +37,9 @@ export const DEBUG_ROTATION = DEBUG && params.get('rot') !== null ? Number(param
 
 /** Planet given in the URL, which skips the menu. */
 export const URL_PLANET = params.get('planet');
+
+/**
+ * The game's public page, for the menu's share QR code and copy link. Inside itch the game runs in a
+ * frame on itch's file server, so location.href would not be a link people can open (owner decision).
+ */
+export const SHARE_URL = 'https://daily-daily-games.itch.io/steroids-alpha';
