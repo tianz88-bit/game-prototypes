@@ -4,10 +4,11 @@
 //                direction marker the ship steers toward a direction; pushing further
 //                                 accelerates harder; letting go eases back to minimum speed
 //   primary    fire (held), also taps on menu buttons
-//   secondary  dash
+//   secondary  dash, aimed (see dashAim)
+//   buy        shop purchases (one-tap buttons top left, or number keys)
 //   pause      back
 // Devices: keyboard is craft-relative (A/D or left/right rotate, W/S or up/down throttle,
-// Shift or K dash, Space or J fire). Touch: floating stick on the left half, in the scheme
+// Shift or K dash (with S for a 180, A or D for 90 degrees), Space or J fire, 1/2/3 buy turret/shield/guns). Touch: floating stick on the left half, in the scheme
 // chosen with the on-screen STEER button (remembered per browser), plus fire and dash buttons.
 import { clientTune } from '../clientTune';
 import { TUNE } from '../../sim/tune';
@@ -65,6 +66,36 @@ export class Intents {
   copyZone: { zone: Zone; text: string } | null = null;
   private copyPointer: number | null = null;
   dashButton: Zone | null = null;
+  /** One-tap shop buttons (top left in flight); a tap queues that item. */
+  shopZones: { item: number; zone: Zone }[] = [];
+  private buys: number[] = [];
+
+  /** Shop items asked for since the last call (item numbers, see SHOP_ITEMS). */
+  consumeBuys(): number[] {
+    return this.buys.splice(0);
+  }
+
+  /**
+   * Where an aimed dash should point (radians, world), or NaN for straight ahead. heading is the
+   * ship's current heading. Touch: the stick's direction, absolute in marker mode and relative to
+   * the nose in craft mode (pull back = 180). Keyboard: hold S for a 180, A or D for 90 left or right.
+   */
+  dashAim(heading: number): number {
+    if (this.portraitBlocked) return NaN;
+    const st = this.stick;
+    if (st) {
+      const r = clientTune.touch.joystickRadius;
+      const nx = st.dx / r;
+      const ny = st.dy / r;
+      if (Math.hypot(nx, ny) < clientTune.touch.deadZone) return NaN;
+      return this.scheme === 'marker' ? Math.atan2(ny, nx) : heading + Math.atan2(nx, -ny);
+    }
+    const h = (k: string): boolean => this.held.has(k);
+    if (h('s') || h('arrowdown')) return heading + Math.PI;
+    if (h('a') || h('arrowleft')) return heading - Math.PI / 2;
+    if (h('d') || h('arrowright')) return heading + Math.PI / 2;
+    return NaN;
+  }
   fireButton: Zone | null = null;
   schemeButton: Zone | null = null;
 
@@ -128,6 +159,7 @@ export class Intents {
       if (k === ' ' || k === 'j') this.presses.add('primary');
       if (k === 'escape') this.presses.add('pause');
       if (k === 'shift' || k === 'k') this.presses.add('secondary');
+      if (k === '1' || k === '2' || k === '3') this.buys.push(Number(k) - 1);
     }
     if (down) this.held.add(k);
     else this.held.delete(k);
@@ -185,6 +217,12 @@ export class Intents {
     if (hit(this.copyZone?.zone ?? null)) this.copyPointer = e.pointerId;
     // The text field sits over its box and takes its own taps; a tap anywhere else closes the keyboard.
     if (this.textBox && !hit(this.textBox.zone)) this.textBox.field.blur();
+    for (const s of this.shopZones) {
+      if (hit(s.zone)) {
+        this.buys.push(s.item);
+        return;
+      }
+    }
     if (hit(this.dashButton)) {
       this.presses.add('secondary');
       return;

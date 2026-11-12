@@ -1,7 +1,7 @@
-// Auto turrets: a ship earns one for every turret.massPerTurret of minerals above its starting hull,
-// up to turret.max. Each turret turns toward the nearest enemy ship or asteroid inside turret.range
-// at no more than turret.turnRate, and fires small, weak shots once it is lined up. Losing minerals
-// loses turrets. Pure rules: the server runs them; clients only draw what the server reports.
+// Auto turrets, bought in the shop (sim/shop.ts), up to 4. Each turret turns toward the nearest
+// enemy ship or asteroid inside turret.range at no more than turret.turnRate, and fires small, weak
+// shots once it is lined up. Bought turrets stay until the ship is destroyed. Pure rules: the server
+// runs them; clients only draw what the server reports.
 import type { Tune } from './tune';
 import { shipRadius } from './ship';
 import type { ShipState } from './ship';
@@ -20,12 +20,6 @@ export const TURRET_MOUNTS: readonly { forward: number; right: number }[] = [
 
 /** Turret shots travel with side = TURRET_SIDE + turret index (main guns use -1 and 1). */
 export const TURRET_SIDE = 10;
-
-export function turretCount(hp: number, tune: Tune): number {
-  const t = tune.turret;
-  if (t.massPerTurret <= 0) return 0;
-  return Math.max(0, Math.min(t.max, TURRET_MOUNTS.length, Math.floor((hp - tune.ship.maxHp) / t.massPerTurret)));
-}
 
 /** World position of turret i on ship s. Mounts move out as the ship grows. */
 export function turretPosition(s: ShipState, i: number, tune: Tune): { x: number; y: number } {

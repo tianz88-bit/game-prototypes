@@ -37,32 +37,47 @@
     "knockbackSpeed": 320,
     "knockbackDecayPerSecond": 5,
     "powerCap": 500,
-    "damageBonusAtCap": 2,
     "speedPenaltyAtCap": 0.3,
     "radiusBonusAtCap": 0.5,
     "hullSpillFraction": 0.5,
     "deathSpillFraction": 0.5,
-    "spillLockSeconds": 3
+    "spillLockSeconds": 3,
+    "dashRamDamage": 30,
+    "dashRamSelfDamage": 8
   },
   "weapon": {
     "fireIntervalSteps": 4,
     "bulletSpeed": 900,
     "bulletLifeSteps": 24,
     "bulletRadius": 6,
-    "damage": 12,
+    "damage": 16,
     "muzzleSide": 34,
     "muzzleForward": 14,
-    "convergeDistance": 420
+    "convergeDistance": 420,
+    "assistConeDeg": 10,
+    "assistRange": 650,
+    "assistMaxDeg": 5,
+    "heatPerShot": 0.113,
+    "coolPerSecond": 0.35,
+    "unlockHeat": 0.3
   },
   "turret": {
-    "massPerTurret": 100,
-    "max": 4,
     "range": 380,
     "turnRate": 4,
     "aimTolerance": 0.12,
     "fireIntervalSteps": 12,
     "damage": 2,
     "bulletSpeed": 750
+  },
+  "shop": {
+    "turretFloors": [100, 150, 200, 250],
+    "turretCosts": [50, 60, 70, 80],
+    "shieldFloors": [80, 130, 180, 230],
+    "shieldCosts": [40, 50, 60, 70],
+    "shieldPerTier": 60,
+    "damageFloors": [90, 140, 190, 240],
+    "damageCosts": [45, 55, 65, 75],
+    "damagePerTier": 0.25
   },
   "asteroid": {
     "radius": [70, 42, 22],

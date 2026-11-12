@@ -81,10 +81,10 @@ server is live and the itch page is public and unlisted.
     10 → 12, damage at the cap 2x → 3x (`damageBonusAtCap` 2). At 40%
     accuracy: equal ships at 250 die in about 6 s (was 9), at 500 in about
     9 s (was 15). Published live (db8d064d62a4).
-  - Shield maximum = 50 + minerals above the start (500 at the cap). Regen
-    is 20% of the maximum per second after 5 s quiet.
-  - Growth level is the square root of how far to the cap. At the cap: guns
-    x3 (`damageBonusAtCap` 2), top and dash speed -30% (350 to 245,
+  - Shield maximum = 50 + shop shield tiers. Regen is 20% of the maximum
+    per second after 5 s quiet.
+  - Growth level is the square root of how far to the cap. At the cap: top
+    and dash speed -30% (350 to 245,
     `speedPenaltyAtCap`), hit radius and drawn size +50% (`radiusBonusAtCap`).
     Guns move out with the size, so shots leave the drawn wing tips.
   - Hull damage spills 50% of the hull lost (`hullSpillFraction`); death
@@ -103,10 +103,36 @@ server is live and the itch page is public and unlisted.
   bleeds off at the braking rate (also when gaining power), instead of
   snapping. Measured on an emulated phone: 140 → 450 for 0.5 s, then a
   smooth 0.9 s ease back down.
+- Shop (`sim/shop.ts`, `tune.json` → `shop`, lab group "Shop"): one-tap
+  buttons top left (keyboard 1/2/3) for TURRET, SHIELD and GUNS, each 4
+  tiers with a power floor and a mineral cost paid from the hull:
+  - Turrets: floors 100/150/200/250, costs 50/60/70/80.
+  - Shield: +60 maximum per tier; floors 80/130/180/230, costs 40/50/60/70.
+  - Guns: +25% damage per tier (2x at 4); floors 90/140/190/240, costs
+    45/55/65/75. Gun tiers also scale dash ram damage.
+  - The client sends BUY (item, tier on offer); the server applies it at the
+    next tick and refuses wrong tiers, so a double tap buys once. Buttons go
+    bright green when affordable. Replaces power-based damage and shield
+    scaling (owner, 12 November).
+- Overheat: each shot adds 11.3% heat; heat cools 35%/s; at 100% the guns
+  lock until 30% (2 s). About 2 s of held fire overheats. Upright heat bar
+  right of the health bars, red and flashing while locked. Gun damage 12 →
+  16 to compensate (bursts hit hard, sustained fire is lower).
+- Aim assist: within 10° ahead of each muzzle and 650 range, shots bend up
+  to 5° toward a target, ships before asteroids (`weapon.assist*`). The
+  server decides; the client predicts its own shots with the same rule
+  against what it sees.
+- Aimed dash: touch marker mode dashes toward the stick; craft mode
+  relative to the nose (pull back = 180); keyboard Shift+S = 180, Shift+A/D
+  = 90°, plain Shift = straight. Verified Shift+S flips heading by π in the
+  browser.
+- Dash ram: a dashing ship that touches another deals 30 x gun scale, takes
+  8 itself, both are thrown apart (smaller further), once per dash; orange
+  ring effect. Verified in the rules test and with a real Room (fake
+  sockets) that broadcasts the `rams` frame.
 - Auto turrets (`tune.json` → `turret`, live-tunable, lab group "Turrets"):
-  - One per 100 minerals above the starting hull (power 150, 250, 350, 450),
-    max 4. Rear pair first, then the front pair (`sim/turrets.ts` mounts,
-    scaled with ship size). Losing minerals loses turrets.
+  - Bought in the shop, max 4. Rear pair first, then the front pair
+    (`sim/turrets.ts` mounts, scaled with ship size). Kept until death.
   - Each targets the nearest enemy ship in range (380), else the nearest
     asteroid, turns at most 4 rad/s, fires when within 0.12 rad: 2 damage
     every 12 steps (2.5 shots/s), shots at 750 px/s that fly about range.
@@ -123,11 +149,9 @@ server is live and the itch page is public and unlisted.
   because phones only allow the clipboard then. The link is fixed in
   `src/base.ts` (`SHARE_URL`), because inside itch the page address is itch's
   file server.
-  - Encoder: `src/ui/qr.ts`, in-house (owner chose no dependency): byte
-    mode, level M, versions 1-6. It matches python-qrcode bit for bit on
-    every mask (`scripts/test-steroids-alpha-qr.mjs` and its fixture, also run in
-    the itch deploy). ZXing decoded 153 of 153 test codes, and the code
-    decodes from real desktop and phone screenshots.
+  - Uses the repo's existing `qrcode` library (as Punchies, mp-console and
+    suits-mp do). An in-house encoder was written first and then removed
+    when it turned out the library was already a dependency (owner decision).
 - Planet select shows "N pilots" under each planet, from a new Worker route
   `GET /planets`, refreshed every 5 s (`net.planetCountRefreshMs`).
 - Pilot name: typed on the menu, saved in `steroids-alpha:save:v1`, sent
@@ -178,7 +202,7 @@ server is live and the itch page is public and unlisted.
   the gun mounts are wider than a small asteroid or a ship.
 - A new ship drops in at the candidate point farthest from any asteroid and
   has two seconds of contact immunity.
-- Protocol version is 9 (5 added shield, knockback and the JSON frames; 6
+- Protocol version is 11 (10: heat, turrets, dash aim, BUY; 11: shield and gun tiers. Earlier: 5 added shield, knockback and the JSON frames; 6
   removed the dash; 7 restored it; 8 added power and pickup kinds; 9 turret
   shots reach their owner). Client and server deploy together;
   old clients reload once. Validated live settings still need no rebuild.
@@ -193,8 +217,6 @@ server is live and the itch page is public and unlisted.
 
 ## Open questions
 
-- The QR encoder is generic and could become a shared package
-  (`packages/qr`) if another prototype wants share codes.
 - Copy-on-tap inside itch's frame is untested on a real phone; if itch
   blocks copying, the link is shown instead.
 - Power balance is a first pass (owner delegated it). It's untested with

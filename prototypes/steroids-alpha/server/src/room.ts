@@ -7,7 +7,7 @@ import { copyShip } from '../../sim/ship';
 import type { ShipInput, ShipState } from '../../sim/ship';
 import { World } from '../../sim/world';
 import { TURRET_SIDE } from '../../sim/turrets';
-import { CLOSE, MSG, cleanName, decodeClient, encodeAsteroids, encodeGone, encodePing, encodeShots, encodeSnapshot, encodeWelcome } from '../../sim/protocol';
+import { BUY_BYTES, INPUT_BYTES, PING_BYTES, CLOSE, MSG, cleanName, decodeClient, encodeAsteroids, encodeGone, encodePing, encodeShots, encodeSnapshot, encodeWelcome } from '../../sim/protocol';
 import type { SnapshotShip } from '../../sim/protocol';
 import { wrapDist2 } from '../../sim/wrap';
 
@@ -53,7 +53,7 @@ interface Player {
 }
 
 
-const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false };
+const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN };
 
 export class Room {
   private players = new Map<number, Player>();
@@ -72,7 +72,7 @@ export class Room {
   applyConfig(record:ConfigRecord):void{
     if(record.version===this.config.version)return;
     this.config=record;
-    for(const group of ['ship','weapon','turret','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
+    for(const group of ['ship','weapon','turret','shop','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
     for(const p of this.players.values()){
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
       p.ship.hp=Math.min(this.tune.ship.maxHp,p.ship.hp);
@@ -132,7 +132,7 @@ export class Room {
     if(Date.now()-player.budgetAt>=1000){player.budgetAt=Date.now();player.packets=0;}
     if(++player.packets>120){player.ws.close(1008,'input rate exceeded');return;}
     const bytes=data instanceof ArrayBuffer?data.byteLength:data instanceof Blob?data.size:0;
-    if(bytes!==9&&bytes!==18){player.ws.close(CLOSE.BAD_PROTOCOL,'invalid input size');return;}
+    if(bytes!==PING_BYTES&&bytes!==INPUT_BYTES&&bytes!==BUY_BYTES){player.ws.close(CLOSE.BAD_PROTOCOL,'invalid input size');return;}
     if (typeof data === 'string' || data === null || typeof data !== 'object') {
       player.ws.close(CLOSE.BAD_PROTOCOL, 'binary only');
       return;
@@ -157,6 +157,11 @@ export class Room {
     if (!msg) return;
     if (msg.type === MSG.PING) {
       this.send(player, encodePing(MSG.PONG, msg.clientTime));
+      return;
+    }
+    // Shop purchases wait for the next tick, so they land between whole steps like everything else.
+    if (msg.type === MSG.BUY) {
+      if (this.buys.length < 64) this.buys.push({ id: player.id, item: msg.item, tier: msg.tier });
       return;
     }
     // Ignore replays and out-of-order inputs.
@@ -198,7 +203,9 @@ export class Room {
     if (now - this.lastStepAt > stepMs * 4) this.lastStepAt = now;
   }
 
+  private buys: { id: number; item: number; tier: number }[] = [];
   private step(): void {
+    for (const b of this.buys.splice(0)) if (this.players.has(b.id)) this.world.buy(b.id, b.item, b.tier);
     for (const p of this.players.values()) this.stepPlayer(p);
     this.world.step();
     const ev = this.world.drain();
@@ -213,6 +220,7 @@ export class Room {
       }
     }
     if (ev.hits.length) this.broadcast(JSON.stringify({ type: 'hits', hits: ev.hits }));
+    if (ev.rams.length) this.broadcast(JSON.stringify({ type: 'rams', rams: ev.rams }));
     if (ev.pickups.length || ev.pickupsGone.length) this.broadcast(JSON.stringify({ type: 'pickups', add: ev.pickups, remove: ev.pickupsGone }));
     const dead = new Set(ev.deaths.map((d) => d.id));
     if (ev.deaths.length) {

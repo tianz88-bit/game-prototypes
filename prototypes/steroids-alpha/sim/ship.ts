@@ -1,7 +1,7 @@
 // Ship movement. Pure and deterministic: the client runs it to predict its own
 // ship and the server runs it as the authority, so both must call it the same way.
 import type { Tune } from './tune';
-import { angleDelta, wrap } from './wrap';
+import { angleDelta, wrap, wrapDelta } from './wrap';
 
 export interface ShipState {
   x: number;
@@ -23,6 +23,14 @@ export interface ShipState {
   ky: number;
   /** Whole steps until the guns can fire again. */
   fireCd: number;
+  /** Gun heat, 0..1. Each shot adds weapon.heatPerShot; it cools at weapon.coolPerSecond. */
+  heat: number;
+  /** Overheated: the guns are locked until heat falls to weapon.unlockHeat. */
+  overheated: boolean;
+  /** Shop upgrades bought (0-4 each); see sim/shop.ts. */
+  turrets: number;
+  shieldTier: number;
+  damageTier: number;
   /** Shots fired so far (wraps at 65536). Odd shots use the right gun, even the left. */
   shots: number;
 }
@@ -38,14 +46,16 @@ export interface ShipInput {
   thrust: number;
   /** Dash requested on this step. */
   dash: boolean;
+  /** Aimed dash: the heading (radians) to snap to as the dash starts, or NaN to dash straight ahead. */
+  dashAim: number;
   /** Fire held on this step. */
   fire: boolean;
 }
 
 /**
  * Power: minerals are the hull. A ship starts at ship.maxHp and grows by collecting minerals up to
- * ship.powerCap. Growth has diminishing returns (square root): guns hit harder, but the ship gets
- * slower and bigger (an easier target). Every mineral also raises the shield's maximum.
+ * ship.powerCap. Growth has diminishing returns (square root): the ship gets slower and bigger (an
+ * easier target). Firepower and shield come from shop upgrades bought with minerals (sim/shop.ts).
  * Returns 0 for a fresh ship and 1 at the cap.
  */
 export function powerLevel(hp: number, tune: Tune): number {
@@ -69,22 +79,22 @@ export function shipRadius(hp: number, tune: Tune): number {
   return tune.ship.radius * (1 + tune.ship.radiusBonusAtCap * powerLevel(hp, tune));
 }
 
-/** Gun damage multiplier from power. */
-export function damageScale(hp: number, tune: Tune): number {
-  return 1 + tune.ship.damageBonusAtCap * powerLevel(hp, tune);
+/** Gun (and dash ram) damage multiplier: bought in the shop, damagePerTier per tier. */
+export function damageScale(s: ShipState, tune: Tune): number {
+  return 1 + s.damageTier * tune.shop.damagePerTier;
 }
 
-/** Shield maximum: the base shield plus one point per mineral above the starting hull. */
-export function maxShield(hp: number, tune: Tune): number {
-  return tune.ship.maxShield + Math.max(0, Math.min(hp, tune.ship.powerCap) - tune.ship.maxHp);
+/** Shield maximum: the base shield plus shieldPerTier for each shield upgrade bought. */
+export function maxShield(s: ShipState, tune: Tune): number {
+  return tune.ship.maxShield + s.shieldTier * tune.shop.shieldPerTier;
 }
 
 export function newShip(x: number, y: number, heading: number, speed: number): ShipState {
-  return { x, y, heading, speed, dashTime: 0, dashCd: 0, hp: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0 };
+  return { x, y, heading, speed, dashTime: 0, dashCd: 0, hp: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0 };
 }
 
 export function copyShip(s: ShipState): ShipState {
-  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots };
+  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier };
 }
 
 /** Advance one fixed step. Mutates and returns s. */
@@ -104,6 +114,8 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune)
   if (input.dash && s.dashCd <= 0) {
     s.dashTime = tune.ship.dashDuration;
     s.dashCd = tune.ship.dashCooldown;
+    // An aimed dash snaps the nose round first: a 180 without the slow turn.
+    if (Number.isFinite(input.dashAim)) s.heading = angleDelta(input.dashAim, 0);
   }
   // Power makes a ship slower: both caps come down as it grows.
   const top = topSpeed(s.hp, tune);
@@ -124,10 +136,16 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune)
   s.ky = Math.abs(s.ky * k) < 0.5 ? 0 : s.ky * k;
 
   // Guns: the cooldown counts whole steps, so client and server always agree on which step fires.
+  // Heat: firing adds it, it always cools; at full the guns lock until it drops to unlockHeat.
+  const w = tune.weapon;
   if (s.fireCd > 0) s.fireCd--;
-  if (input.fire && s.fireCd === 0) {
-    s.fireCd = tune.weapon.fireIntervalSteps;
+  s.heat = Math.max(0, s.heat - w.coolPerSecond * dt);
+  if (s.overheated && s.heat <= w.unlockHeat) s.overheated = false;
+  if (input.fire && s.fireCd === 0 && !s.overheated) {
+    s.fireCd = w.fireIntervalSteps;
     s.shots = (s.shots + 1) & 0xffff;
+    s.heat = Math.min(1, s.heat + w.heatPerShot);
+    if (s.heat >= 1) s.overheated = true;
   }
   return s;
 }
@@ -142,7 +160,35 @@ export interface Shot {
 }
 
 /** The bullet a ship has just fired (call right after a step in which shots increased). */
-export function muzzleShot(s: ShipState, tune: Tune): Shot {
+/** Something the aim assist may bend shots toward: position, and whether it is a ship (preferred). */
+export interface AssistTarget {
+  x: number;
+  y: number;
+  ship: boolean;
+}
+
+/**
+ * Aim assist (owner request): within a narrow cone ahead of a shot, bend it slightly toward a target,
+ * ships before asteroids, by at most weapon.assistMaxDeg. Returns the adjusted direction (radians).
+ */
+export function assistDirection(x: number, y: number, dir: number, targets: readonly AssistTarget[], tune: Tune): number {
+  const w = tune.weapon;
+  const cone = (w.assistConeDeg * Math.PI) / 180;
+  const maxBend = (w.assistMaxDeg * Math.PI) / 180;
+  if (cone <= 0 || maxBend <= 0 || !targets.length) return dir;
+  let best: { off: number; ship: boolean } | null = null;
+  for (const t of targets) {
+    const dx = wrapDelta(t.x, x, tune.world.width);
+    const dy = wrapDelta(t.y, y, tune.world.height);
+    if (dx * dx + dy * dy > w.assistRange * w.assistRange) continue;
+    const off = angleDelta(Math.atan2(dy, dx), dir);
+    if (Math.abs(off) > cone) continue;
+    if (!best || (t.ship && !best.ship) || (t.ship === best.ship && Math.abs(off) < Math.abs(best.off))) best = { off, ship: t.ship };
+  }
+  return best ? dir + Math.max(-maxBend, Math.min(maxBend, best.off)) : dir;
+}
+
+export function muzzleShot(s: ShipState, tune: Tune, targets: readonly AssistTarget[] = []): Shot {
   const side = s.shots % 2 === 1 ? 1 : -1;
   const c = Math.cos(s.heading);
   const sn = Math.sin(s.heading);
@@ -153,10 +199,13 @@ export function muzzleShot(s: ShipState, tune: Tune): Shot {
   const v = tune.weapon.bulletSpeed + s.speed;
   // The guns sit out on the wings, so each is angled slightly inward: the two streams cross at
   // convergeDistance ahead of the nose instead of passing either side of a target dead ahead.
-  const dir = s.heading - side * Math.atan2(tune.weapon.muzzleSide * grow, tune.weapon.convergeDistance);
+  const x = wrap(s.x + c * f - sn * l, tune.world.width);
+  const y = wrap(s.y + sn * f + c * l, tune.world.height);
+  const base = s.heading - side * Math.atan2(tune.weapon.muzzleSide * grow, tune.weapon.convergeDistance);
+  const dir = assistDirection(x, y, base, targets, tune);
   return {
-    x: wrap(s.x + c * f - sn * l, tune.world.width),
-    y: wrap(s.y + sn * f + c * l, tune.world.height),
+    x,
+    y,
     vx: Math.cos(dir) * v,
     vy: Math.sin(dir) * v,
     side,

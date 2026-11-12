@@ -157,21 +157,37 @@ All names, ships, pilots and art are original. Nothing is copied from either.
 - Power, .io style (owner decisions, 12 November 2026):
   - Minerals are the hull (one pool). Every destroyed asteroid drops
     minerals by size; collecting them adds hull, up to a cap.
-  - Each mineral also adds a point to the shield maximum. Shield regen is a
-    percentage of the maximum.
+  - Shield regen is a percentage of the shield maximum. (Originally each
+    mineral raised the shield maximum; superseded 12 November: shield and gun
+    damage are now shop upgrades.)
   - Hull damage spills part of what was lost as minerals anyone can collect
     (the victim cannot take them straight back). Death loses everything and
     spills a share for others.
-  - More power: guns hit harder, but the ship is slower (dash too) and bigger
-    (an easier target). Growth has diminishing returns and caps out.
+  - More power: the ship is slower (dash too) and bigger (an easier target).
+    Growth has diminishing returns and caps out. Firepower comes from the
+    shop, not from power (12 November).
   - The leaderboard ranks by power.
   - Arena only for now: minerals do not go to the stash.
   - Balancing is Claude's call.
-- Auto turrets (owner decision, 12 November 2026): a ship earns a turret
-  for every X minerals of mass (Claude chose 100), up to 4. Turrets fire on
-  their own at enemy ships and asteroids within a lock-on radius, turn no
-  faster than a capped rate, and do tiny but real damage. Losing minerals
-  loses turrets.
+- Shop (owner design, 12 November 2026): upgrades bought with minerals
+  (which are the hull), from one-tap buttons at the top left. Each upgrade
+  has 4 tiers; each tier has a power floor and a mineral cost (e.g. 100/50:
+  needs 100 power, costs 50). Bought upgrades last until the ship is
+  destroyed. Items: auto turrets, shield maximum, main gun damage. Mines and
+  homing missiles are planned next.
+- Auto turrets (owner decision): fire on their own at enemy ships and
+  asteroids within a lock-on radius, turn no faster than a capped rate, do
+  tiny but real damage. Bought in the shop (up to 4).
+- Main guns overheat (owner idea): about 2 s of continuous fire locks them
+  until they cool, so firing has to be timed. Damage per shot was raised to
+  compensate.
+- Aim assist (owner request): a narrow cone ahead of the ship bends shots
+  slightly toward a target, ships before asteroids.
+- Aimed dash (owner idea): the dash can snap the ship to a new heading (a
+  180 instead of a slow turn): stick direction on touch, S/A/D + Shift on
+  keyboard.
+- Dash ram (owner picked): dashing into a ship damages it, scaled by gun
+  upgrades, and throws both apart.
 - Destroyed ship (owner decision): it explodes, then the player chooses
   Respawn (same planet, fresh ship) or Menu.
 - Kills leaderboard on every planet (owner decision): one chip per player
