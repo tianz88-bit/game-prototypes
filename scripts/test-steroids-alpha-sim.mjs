@@ -17,6 +17,7 @@ export * from ${JSON.stringify(path.join(sim, 'turrets.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'shop.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'bots.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'ordnance.ts'))};
+export * from ${JSON.stringify(path.join(sim, 'wrap.ts'))};
 export { Room } from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/server/src/room.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'asteroids.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'protocol.ts'))};
@@ -643,6 +644,18 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
     room.stop();
     for (let i = 0; i < 30; i++) room.step();
     assert.equal(ships(room), 1 + bt.count, 'bots join with a player');
+    // Bots spread out over the planet instead of arriving on top of the player (owner).
+    {
+      const W = tune.world.width;
+      const d = (p, q) => Math.hypot(S.wrapDelta(p.x, q.x, W), S.wrapDelta(p.y, q.y, tune.world.height));
+      const player = [...room.players.values()][0].ship;
+      const bots = [...room.bots.values()].map((b) => b.ship);
+      const nearPlayer = Math.min(...bots.map((b) => d(b, player)));
+      assert(nearPlayer > 900, `bots spawn well away from the player (${nearPlayer.toFixed(0)} px)`);
+      let nearBot = Infinity;
+      for (let i = 0; i < bots.length; i++) for (let j = i + 1; j < bots.length; j++) nearBot = Math.min(nearBot, d(bots[i], bots[j]));
+      assert(nearBot > 600, `bots spread apart (${nearBot.toFixed(0)} px)`);
+    }
     const roster = JSON.parse(sock.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).filter((m) => m.type === 'roster').map((m) => JSON.stringify(m)).pop());
     assert.equal(roster.players.filter((r) => r.name.startsWith('BOT ')).length, bt.count, 'bots are on the leaderboard');
     // Destroy one bot: it is replaced after respawnSeconds.

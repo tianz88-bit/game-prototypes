@@ -129,9 +129,14 @@ export class World {
     this.populate();
   }
 
-  addShip(id: number): ShipState {
+  /**
+   * spread: anywhere on the planet, as far as possible from every other ship (bots, owner request:
+   * they must not arrive on top of a player). Otherwise the drop zone near the map centre.
+   */
+  addShip(id: number, spread = false): ShipState {
     const t = this.tune;
-    // Everyone drops in near the map centre for now; real spawn points come with loot.
+    if (spread) return this.placeNewShip(id, this.spreadPoint());
+    // Players drop in near the map centre for now; real spawn points come with loot.
     // Pick the candidate point farthest from any asteroid, so nobody arrives beside a rock.
     let best = { x: t.world.width / 2, y: t.world.height / 2, clear: -1 };
     for (let i = 0; i < 12; i++) {
@@ -146,6 +151,41 @@ export class World {
       }
       if (clear > best.clear) best = { x, y, clear };
     }
+    return this.placeNewShip(id, best);
+  }
+
+  /** Clearance from the nearest asteroid edge at (x, y). */
+  private rockClearance(x: number, y: number): number {
+    const t = this.tune;
+    let clear = Infinity;
+    for (const rock of this.asteroids.values()) {
+      const p = asteroidPos(rock, this.tick, t);
+      clear = Math.min(clear, Math.hypot(wrapDelta(x, p.x, t.world.width), wrapDelta(y, p.y, t.world.height)) - t.asteroid.radius[rock.size]);
+    }
+    return clear;
+  }
+
+  /**
+   * Best of many random points on the whole planet: the one farthest from the nearest ship, among
+   * those clear of asteroids (spawn.rockClearance) when any are.
+   */
+  private spreadPoint(): { x: number; y: number } {
+    const t = this.tune;
+    let best = { x: this.rng() * t.world.width, y: this.rng() * t.world.height, score: -Infinity };
+    for (let i = 0; i < 32; i++) {
+      const x = this.rng() * t.world.width;
+      const y = this.rng() * t.world.height;
+      let near = t.world.width + t.world.height;
+      for (const s of this.ships.values()) near = Math.min(near, Math.hypot(wrapDelta(x, s.x, t.world.width), wrapDelta(y, s.y, t.world.height)));
+      const rock = this.rockClearance(x, y);
+      const score = rock >= t.bots.spawnRockClearance ? near : near - 1e6;
+      if (score > best.score) best = { x, y, score };
+    }
+    return best;
+  }
+
+  private placeNewShip(id: number, best: { x: number; y: number }): ShipState {
+    const t = this.tune;
     const ship = newShip(best.x, best.y, this.rng() * Math.PI * 2 - Math.PI, t.ship.cruiseSpeed);
     ship.hp = t.ship.maxHp;
     ship.hullMax = t.ship.maxHp;
