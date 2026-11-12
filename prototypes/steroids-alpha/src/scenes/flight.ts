@@ -25,7 +25,7 @@ import { Explosion } from '../render/explosion';
 import { loadSave } from '../save';
 import type { ShipPlacement } from '../render/shipView';
 import { missileLock } from '../../sim/ordnance';
-import { drawRock } from '../render/worldArt';
+import { drawRock, drawPickup } from '../render/worldArt';
 
 const W = TUNE.world.width;
 const H = TUNE.world.height;
@@ -45,7 +45,7 @@ export class FlightScene extends Phaser.Scene {
   private coords!: Phaser.GameObjects.Text;
   private schemeLabel!: Phaser.GameObjects.Text;
   private world!: Phaser.GameObjects.Graphics;
-  private effects: { x: number; y: number; at: number; r: number; ms: number; colour: number; chips?: number }[] = [];
+  private effects: { x: number; y: number; at: number; r: number; ms: number; colour: number; chips?: number; heal?: boolean }[] = [];
   private explosions: Explosion[] = [];
   /** Where each ship was last drawn (world), to aim shield hits. */
   private shipAt = new Map<number, { x: number; y: number }>();
@@ -219,8 +219,8 @@ export class FlightScene extends Phaser.Scene {
         this.ramCount++;
         this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 70, ms: 380, colour: 0xffa04a });
         this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 34, ms: 200, colour: 0xffffff });
-      } else if (f.kind === 'mineral') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 18, ms: 260, colour: 0xffc14a });
-      else if (f.kind === 'heal') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: TUNE.asteroid.pickupRadius, ms: 400, colour: 0x7dff9a });
+      } else if (f.kind === 'mineral') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 24, ms: 420, colour: 0xffc14a, chips: 8 });
+      else if (f.kind === 'heal') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: TUNE.asteroid.pickupRadius, ms: 500, colour: 0x7dff9a, heal: true });
       else this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.kind === 'burst' ? TUNE.asteroid.radius[f.size] : 9, ms: f.kind === 'burst' ? 420 : 180, colour: 0xffc78a, chips: f.kind === 'burst' ? 10 : 4 });
     }
     this.drawWorld();
@@ -812,7 +812,6 @@ export class FlightScene extends Phaser.Scene {
     g.clear();
     const now = performance.now();
     const light = this.objectLight();
-    const shade = (c: number): number => (Math.round(((c >> 16) & 255) * light) << 16) | (Math.round(((c >> 8) & 255) * light) << 8) | Math.round((c & 255) * light);
     for (const { a, x, y } of this.net.asteroidRender()) {
       const r = TUNE.asteroid.radius[a.size];
       if (!this.toScreen(x, y).visible) continue;
@@ -907,33 +906,13 @@ export class FlightScene extends Phaser.Scene {
       }
     }
     this.lockedOnMe = lockedOnMe;
-    // Health boosts: a pulsing green cross in a ring. Minerals: amber crystals, bigger for more value.
-    const pulse = 0.75 + 0.25 * Math.sin(now / 160);
-    for (const k of this.net.pickups.values()) {
-      const at = this.toScreen(k.x, k.y);
+    // Cosmetic bob and sparkle never alter the server's pickup position or collection radius.
+    for (const item of this.net.pickups.values()) {
+      const at = this.toScreen(item.x, item.y);
       if (!at.visible) continue;
-      if (k.kind === 'mineral') {
-        const r = (7 + Math.sqrt(k.value) * 3) * at.scale;
-        const spin = now / 900 + k.id;
-        const pts = [0, 1, 2, 3].map((i) => {
-          const a = spin + (i * Math.PI) / 2;
-          const rr = i % 2 ? r * 0.6 : r;
-          return new Phaser.Math.Vector2(at.x + Math.cos(a) * rr, at.y + Math.sin(a) * rr);
-        });
-        g.fillStyle(shade(0xffc14a), 0.95);
-        g.fillPoints(pts, true);
-        g.lineStyle(1.5, 0xfff1c4, pulse);
-        g.strokePoints(pts, true);
-        continue;
-      }
-      const r = TUNE.asteroid.pickupRadius * 0.6 * at.scale;
-      g.fillStyle(0x0f3a1e, 0.75);
-      g.fillCircle(at.x, at.y, r * 1.25);
-      g.lineStyle(2, 0x7dff9a, pulse);
-      g.strokeCircle(at.x, at.y, r * 1.25);
-      g.fillStyle(0x7dff9a, pulse);
-      g.fillRect(at.x - r * 0.25, at.y - r * 0.8, r * 0.5, r * 1.6);
-      g.fillRect(at.x - r * 0.8, at.y - r * 0.25, r * 1.6, r * 0.5);
+      const mineral = item.kind === 'mineral';
+      const r = (mineral ? 7 + Math.sqrt(item.value) * 3 : TUNE.asteroid.pickupRadius * .6) * at.scale;
+      drawPickup(g, at, r, mineral, item.id, now);
     }
     // Ship explosions.
     const dt = Math.min(0.05, this.game.loop.delta / 1000);
@@ -987,6 +966,11 @@ export class FlightScene extends Phaser.Scene {
       const k = (this.time.now - e.at) / e.ms;
       g.lineStyle(3, e.colour, (1 - k) * (e.chips ? .4 : 1));
       g.strokeCircle(at.x, at.y, e.r * (0.4 + k) * at.scale);
+      if (e.heal) {
+        g.fillStyle(e.colour, 1-k);
+        for(let i=0;i<3;i++) {const x=at.x+(i-1)*12*at.scale,y=at.y-(10+k*35+i*5)*at.scale,r=3*at.scale;
+          g.fillRect(x-r*.35,y-r,r*.7,r*2);g.fillRect(x-r,y-r*.35,r*2,r*.7);}
+      }
       for (let i = 0; i < (e.chips ?? 0); i++) {
         const a = i * 2.399 + e.x + e.y;
         const d = e.r * (0.2 + k * 1.5) * at.scale;

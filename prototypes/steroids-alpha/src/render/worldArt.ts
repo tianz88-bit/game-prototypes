@@ -42,3 +42,31 @@ export function drawRock(
     g.lineBetween(cx + c * radius * .3 - s * radius * .12, cy + s * radius * .3 + c * radius * .12, at.x + c * radius * .85, at.y + s * radius * .85);
   }
 }
+
+/** Shared, low-cost pickup silhouettes: amber facets for value, a medical cross for healing. */
+export function drawPickup(g: Phaser.GameObjects.Graphics, at: {x: number; y: number; scale: number},
+  radius: number, mineral: boolean, id: number, now: number): void {
+  const r = radius, x = at.x, y = at.y + Math.sin(now / 460 + id) * 2 * at.scale;
+  const pulse = .65 + .35 * Math.sin(now / 310 + id);
+  const colour = mineral ? 0xffbe4b : 0x75ffa8;
+  g.fillStyle(colour, .08 + .04 * pulse);
+  g.fillCircle(x, y, r * 1.6);
+  g.fillStyle(0x172537, .75);
+  if (mineral) {
+    const pts = [{x, y:y-r}, {x:x+r*.65,y:y-r*.18}, {x:x+r*.44,y:y+r*.65}, {x:x-r*.42,y:y+r}, {x:x-r*.67,y:y-r*.12}];
+    g.fillPoints(pts, true);
+    g.fillStyle(0xf08b31, 1); g.fillPoints(pts, true);
+    g.fillStyle(0xffd66c, 1);g.fillTriangle(x,y-r,x-r*.67,y-r*.12,x-r*.08,y+r*.5);
+    g.fillStyle(0xfff0b3, 1);g.fillTriangle(x,y-r,x+r*.65,y-r*.18,x+r*.05,y+r*.25);
+    g.lineStyle(Math.max(1,at.scale*1.5),0x5c351f,1);g.strokePoints(pts,true);
+    g.lineStyle(Math.max(.8,at.scale),0xffefb3,.9);g.lineBetween(x-r*.08,y+r*.5,x-r*.42,y+r);
+  } else {
+    g.fillRoundedRect(x-r*1.15,y-r*1.15,r*2.3,r*2.3,r*.35);
+    g.lineStyle(Math.max(1,at.scale*1.8),colour,.85);g.strokeRoundedRect(x-r*1.15,y-r*1.15,r*2.3,r*2.3,r*.35);
+    g.fillStyle(0x29b779,1);g.fillRect(x-r*.3,y-r*.7,r*.6,r*1.6);g.fillRect(x-r*.8,y-r*.2,r*1.6,r*.6);
+    g.fillStyle(0xc0ffd1,1);g.fillRect(x-r*.25,y-r*.8,r*.5,r*1.4);g.fillRect(x-r*.7,y-r*.3,r*1.4,r*.5);
+  }
+  const a = now / 1000 + id, sx=x+Math.cos(a)*r*1.35, sy=y+Math.sin(a)*r;
+  g.lineStyle(Math.max(.8,at.scale),0xfff6d8,.5+.4*pulse);
+  g.lineBetween(sx-r*.18,sy,sx+r*.18,sy);g.lineBetween(sx,sy-r*.25,sx,sy+r*.25);
+}
