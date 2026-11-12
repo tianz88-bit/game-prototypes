@@ -10,6 +10,7 @@ import { fitCamera, text, versionStamp } from './common';
 import { cleanName } from '../../sim/protocol';
 import { loadSave, writeSave } from '../save';
 import { clientTune } from '../clientTune';
+import { UI, css, panel } from '../render/ui';
 
 export interface MenuButton {
   id: PlanetId;
@@ -76,9 +77,14 @@ export class MenuScene extends Phaser.Scene {
     this.countText.clear();
     fitCamera(this);
     const { w, h } = logicalSize();
-    this.add.rectangle(w / 2, h / 2, w, h, 0x05070d);
+    this.add.rectangle(w / 2, h / 2, w, h, 0x07101c);
+    const backdrop=this.add.graphics();
+    backdrop.lineStyle(1,UI.uiBorder,.16);
+    for(let i=0;i<12;i++)backdrop.lineBetween(i*w/8-h*.3,0,i*w/8+h*.3,h);
+    backdrop.lineStyle(1,UI.uiAccent,.18);backdrop.strokeCircle(w*.13,h*.7,h*.32);backdrop.strokeCircle(w*.13,h*.7,h*.27);
+    backdrop.lineStyle(3,UI.uiGold,.75);backdrop.lineBetween(w/2-40,h*.11-20,w/2+40,h*.11-20);
     const title = Math.min(40, w / 10, h / 9);
-    text(this, w / 2, h * 0.11, 'STEROIDS-ALPHA', title, '#e8f0ff').setOrigin(0.5);
+    text(this, w / 2, h * 0.11, 'STEROIDS-ALPHA', title, css(UI.uiText)).setOrigin(0.5);
 
     // Pilot name.
     const bw = Math.min(320, w - 48);
@@ -86,7 +92,8 @@ export class MenuScene extends Phaser.Scene {
     text(this, w / 2 - bw / 2, ny - 30, 'PILOT NAME', 11, '#8fa2c8');
     this.nameBox = { x: w / 2, y: ny, w: bw, h: 36 };
     intents.textBox = { zone: { x: w / 2, y: ny, hw: bw / 2, hh: 18 }, field: nameField() };
-    this.nameFrame = this.add.rectangle(w / 2, ny, bw, 36, 0x0d1424).setStrokeStyle(2, 0x5a6b8f);
+    panel(this.add.graphics(),w/2-bw/2,ny-18,bw,36,UI.uiBorder);
+    this.nameFrame = this.add.rectangle(w / 2, ny, bw, 36, UI.uiPanel,0).setStrokeStyle(1, UI.uiBorder);
     this.nameText = text(this, w / 2 - bw / 2 + 12, ny, '', 16).setOrigin(0, 0.5);
     const f = nameField();
     // Opening the keyboard resizes the page and re-runs this layout; keep what is being typed.
@@ -99,7 +106,8 @@ export class MenuScene extends Phaser.Scene {
     this.buttons = PLANETS.map((p, i) => {
       const x = w / 2;
       const y = ny + 60 + bh / 2 + i * (bh + 12);
-      this.add.rectangle(x, y, bw, bh, p.colour).setStrokeStyle(2, 0x9fb4e0);
+      const card=this.add.graphics();panel(card,x-bw/2,y-bh/2,bw,bh,UI.uiAccent,true);
+      card.fillStyle(p.colour,.8);card.fillRoundedRect(x-bw/2+5,y-bh/2+5,5,bh-10,2);
       text(this, x, y - (bh > 52 ? 8 : 6), p.label, 22).setOrigin(0.5);
       this.countText.set(p.id, text(this, x, y + (bh > 52 ? 16 : 12), '', 12, '#c9d6f2').setOrigin(0.5));
       return { id: p.id, x, y, w: bw, h: bh };
@@ -127,6 +135,7 @@ export class MenuScene extends Phaser.Scene {
     const n = cells + 8; // 4-module quiet zone each side
     const cell = size / n;
     const g = this.add.graphics();
+    panel(g,x-size/2-8,y-size/2-8,size+16,size+16,UI.uiBorder);
     g.fillStyle(0xffffff, 1);
     g.fillRoundedRect(x - size / 2, y - size / 2, size, size, 6);
     g.fillStyle(0x05070d, 1);
@@ -190,7 +199,7 @@ export class MenuScene extends Phaser.Scene {
     const name = cleanName(input.value);
     const caret = editing && Math.floor(time / 500) % 2 === 0 ? '|' : '';
     this.nameText.setText(name || editing ? name + caret : 'Tap to enter a name').setColor(name || editing ? '#e8f0ff' : '#6d7a96');
-    this.nameFrame.setStrokeStyle(2, editing ? 0x9fd8ff : 0x5a6b8f);
+    this.nameFrame.setStrokeStyle(1, editing ? UI.uiAccent : UI.uiBorder);
     for (const t of intents.drainTaps()) {
       const n = this.nameBox;
       // Taps on the name box belong to the text field over it.

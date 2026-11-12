@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 codex codex/steroids-ui
+DID: Shared canvas panels/palette for shop, board, bars, weapons/touch, menu/name/QR and death; tier pips, action glyphs and compact phone board.
+FILES: client.tune.json src/render/ui.ts src/scenes/{flight,menu}.ts sim/liveConfig.ts scripts/test-steroids-live-config.mjs
+SEAM: STEER face + intents.schemeButton move together to bottom-left; render.ui* palette defaults added, older configs upgraded without overwriting tuning. Other zones/gameplay/calibration unchanged.
+CROSS: sim/liveConfig.ts bounds only six UI RGB paths to integer 0..0xffffff and corners to 0..16; scripts/test-steroids-live-config.mjs boundary/migration coverage; menu styling only.
+FOR claude: Typecheck/build/rig/sim/live-config pass; desktop + DPR2 phone HUD/menu/death inspected; real STEER taps toggle both ways. 2 clients + bots baseline pacing, zero errors. QR quiet zone retained.
+
 ## 2026-11-13 codex codex/steroids-markers
 DID: Gold segmented bounty rings and star badges, backed/clamped tracker labels, matching board accent and a persistent framed MISSILE LOCK warning.
 FILES: src/scenes/flight.ts
@@ -97,10 +104,3 @@ FILES: src/render/shipView.ts
 SEAM: none
 CROSS: src/render/shipView.ts (drawShield)
 FOR codex: the owner's reference is a glowing blue sphere of hexagons; refine colours/glow freely.
-
-## 2026-11-12 claude dash-charge-hullmax
-DID: dash = 0.5s charge (hold direction) then 2x top speed for 1.5s; hull max separate from hull (minerals repair then grow; buying spends the max); gun tiers +20% heat; leaderboard KO count; shield hit = hexagon bubble, hit side flashes.
-FILES: sim/{ship,shop,world,turrets,protocol,liveConfig}.ts server/src/room.ts src/{net/client,scenes/flight,main}.ts src/render/shipView.ts tune.json
-SEAM: protocol 12. ShipState + dashCharge, hullMax (power/size/speed use hullMax). dashSpeed(hp) = topSpeed x dashSpeedFactor; heatCapacity(s). dashAim sent every step.
-CROSS: src/render/shipView.ts drawShield rewritten (hex bubble); flight.ts drawDashCharge placeholder.
-FOR codex: style the dash charge (flight.ts drawDashCharge; dashCharge 0..0.5s) and boost trail; the hex bubble is yours to refine.

@@ -25,6 +25,7 @@ import { Explosion } from '../render/explosion';
 import { loadSave } from '../save';
 import type { ShipPlacement } from '../render/shipView';
 import { missileLock } from '../../sim/ordnance';
+import { UI, css, panel, controlFace } from '../render/ui';
 import { drawRock, drawPickup, drawOrdnance } from '../render/worldArt';
 
 const W = TUNE.world.width;
@@ -514,10 +515,7 @@ export class FlightScene extends Phaser.Scene {
       const x = touch ? (i === 0 ? w - m * 2 - dr * 2 - fr : w - m - dr) : w / 2 + Math.min(220, w * 0.5) / 2 + 74 + i * 64;
       const y = touch ? h - m - (i === 0 ? fr * 2 : dr * 2) - 14 - r : h - 30;
       const ready = sl.charges > 0;
-      g.fillStyle(sl.kind === 'missile' ? 0x3a1d12 : 0x2a1230, ready ? 0.8 : 0.45);
-      g.fillCircle(x, y, r);
-      g.lineStyle(2, ready ? 0xffd27a : 0x6d5a3a, 0.9);
-      g.strokeCircle(x, y, r);
+      controlFace(g,x,y,r,sl.kind==='missile'?UI.uiAccent:UI.uiGold,ready);
       if (sl.charges < sl.tier && sl.cd > 0) {
         g.lineStyle(3, 0x7fd6ff, 0.9);
         g.beginPath();
@@ -575,13 +573,11 @@ export class FlightScene extends Phaser.Scene {
       const y = 38 + i * (bh + 6);
       const offer = shopOffer(p, item, TUNE);
       const can = canBuy(p, item, TUNE);
-      g.fillStyle(can ? 0x1d3a2a : 0x151c2c, 0.85);
-      g.fillRoundedRect(x, y, bw, bh, 8);
-      g.lineStyle(1.5, can ? 0x7dff9a : 0x3d4a66, can ? 0.95 : 0.8);
-      g.strokeRoundedRect(x, y, bw, bh, 8);
+      panel(g,x,y,bw,bh,can?UI.uiAccent:UI.uiBorder,can);
+      for(let level=0;level<4;level++){g.fillStyle(level<shopTier(p,item)?UI.uiGold:UI.uiBorder,.85);g.fillRect(x+bw-8-level*5,y+8,3,4);}
       const key = intents.touch ? '' : `[${i + 1}] `;
       const t = this.shopTexts[i];
-      t.title.setPosition(x + 10, y + 11).setText(`${key}${labels[item]} ${shopTier(p, item)}/4`).setColor(can ? '#ffffff' : '#8fa2c8');
+      t.title.setPosition(x + 10, y + 11).setText(`${key}${labels[item]} ${shopTier(p, item)}/4`).setColor(css(can?UI.uiText:0x91a5bb));
       t.sub
         .setPosition(x + 10, y + 25)
         .setText(offer ? `needs ${offer.floor} · costs ${offer.cost}` : 'maxed')
@@ -600,6 +596,7 @@ export class FlightScene extends Phaser.Scene {
     this.powerText.setVisible(!!p && !this.net.death);
     if (p && !this.net.death) {
       const bw = Math.min(220, w * 0.5);
+      panel(g,w/2-bw/2-9,h-50,bw+38,46,UI.uiBorder);
       const hull = Math.max(0, Math.min(1, p.hp / Math.max(1, p.hullMax)));
       const shield = Math.max(0, Math.min(1, p.shield / maxShield(p, TUNE)));
       const capped = p.hullMax >= TUNE.ship.powerCap;
@@ -607,9 +604,9 @@ export class FlightScene extends Phaser.Scene {
       g.fillStyle(0x000000, 0.45);
       g.fillRect(w / 2 - bw / 2, h - 27, bw, 6);
       g.fillRect(w / 2 - bw / 2, h - 16, bw, 8);
-      g.fillStyle(0x5fc8ff, 0.95);
+      g.fillStyle(UI.uiAccent, 0.95);
       g.fillRect(w / 2 - bw / 2, h - 27, bw * shield, 6);
-      g.fillStyle(hull > 0.35 ? 0x6fe08a : 0xff6b5a, 0.95);
+      g.fillStyle(hull > 0.35 ? 0x7ee0ad : UI.uiDanger, 0.95);
       g.fillRect(w / 2 - bw / 2, h - 16, bw * hull, 8);
       // Gun heat: a short upright bar right of the health bars; red and flashing while locked.
       const hx = w / 2 + bw / 2 + 8;
@@ -650,26 +647,21 @@ export class FlightScene extends Phaser.Scene {
     const fr = clientTune.touch.fireButtonRadius;
     const fb = { x: w - m * 2 - r * 2 - fr, y: h - m - fr };
     intents.fireButton = { x: fb.x, y: fb.y, hw: fr * 1.2, hh: fr * 1.2 };
-    g.fillStyle(0xff8a4a, intents.fire ? 0.5 : 0.25);
-    g.fillCircle(fb.x, fb.y, fr);
-    g.lineStyle(2, 0xffc9a8, 0.8);
-    g.strokeCircle(fb.x, fb.y, fr);
-    // Steering scheme toggle, top right under the status line.
+    controlFace(g,fb.x,fb.y,fr,UI.uiDanger,intents.fire);
+    g.lineStyle(2,UI.uiDanger,.9);g.strokeCircle(fb.x,fb.y,fr*.22);
+    for(let i=0;i<4;i++){const a=i*Math.PI/2;g.lineBetween(fb.x+Math.cos(a)*fr*.32,fb.y+Math.sin(a)*fr*.32,fb.x+Math.cos(a)*fr*.48,fb.y+Math.sin(a)*fr*.48);}
+    // Steering toggle moves with its intent zone, clear of the compact leaderboard.
     const bw = clientTune.touch.schemeButtonWidth;
     const bh = clientTune.touch.schemeButtonHeight;
-    const sb = { x: w - 10 - bw / 2, y: 46 + bh / 2 };
+    const sb = { x: 10 + bw / 2, y: h - 12 - bh / 2 };
     intents.schemeButton = { x: sb.x, y: sb.y, hw: bw / 2 + 6, hh: bh / 2 + 6 };
-    g.fillStyle(0xffffff, 0.12);
-    g.fillRoundedRect(sb.x - bw / 2, sb.y - bh / 2, bw, bh, 8);
-    g.lineStyle(1, 0xffffff, 0.45);
-    g.strokeRoundedRect(sb.x - bw / 2, sb.y - bh / 2, bw, bh, 8);
+    panel(g,sb.x-bw/2,sb.y-bh/2,bw,bh,UI.uiBorder);
     this.schemeLabel.setPosition(sb.x, sb.y).setText(intents.scheme === 'marker' ? 'STEER: MARKER' : 'STEER: CRAFT');
     const cd = this.net.predicted?.dashCd ?? 0;
     const ready = cd <= 0;
-    g.fillStyle(0xffffff, ready ? 0.22 : 0.08);
-    g.fillCircle(b.x, b.y, r);
-    g.lineStyle(2, 0xffffff, ready ? 0.7 : 0.3);
-    g.strokeCircle(b.x, b.y, r);
+    controlFace(g,b.x,b.y,r,UI.uiAccent,ready);
+    g.lineStyle(3,UI.uiAccent,ready?.95:.4);
+    for(let i=0;i<3;i++){const x=b.x-12+i*10;g.lineBetween(x,b.y-10,x+8,b.y);g.lineBetween(x+8,b.y,x,b.y+10);}
     if (!ready) {
       g.lineStyle(4, 0xffd27a, 0.9);
       g.beginPath();
@@ -711,7 +703,8 @@ export class FlightScene extends Phaser.Scene {
     const rows = [...this.net.roster.values()].sort((a, b) => b.power - a.power || a.id - b.id).slice(0, 8);
     const cw = Math.min(BOARD_CHIP_W, w * 0.34);
     const right = w - 10;
-    const top = intents.touch ? 46 + clientTune.touch.schemeButtonHeight + 10 : 30;
+    const top = intents.touch ? 12 : 30;
+    const ch=intents.touch?17:BOARD_CHIP_H;
     const now = this.time.now;
     this.boardTitle.setPosition(right, top).setVisible(rows.length > 0);
     const keep = new Set(rows.map((r) => r.id));
@@ -722,7 +715,7 @@ export class FlightScene extends Phaser.Scene {
       }
     }
     rows.forEach((r, rank) => {
-      const target = top + 15 + BOARD_CHIP_H / 2 + rank * (BOARD_CHIP_H + 4);
+      const target = top + 15 + ch / 2 + rank * (ch + (intents.touch?2:4));
       let chip = this.board.get(r.id);
       if (!chip) {
         const g = this.add.graphics();
@@ -748,18 +741,17 @@ export class FlightScene extends Phaser.Scene {
       if (chip.width !== cw || pop > 0 || glow > 0 || chip.mine !== mine || chip.lastGlow !== 0 || chip.bounty !== bounty) {
         const g = chip.g;
         g.clear();
-        g.fillStyle(mine ? 0x123447 : 0x141c2e, 0.82);
-        g.fillRoundedRect(-cw / 2, -BOARD_CHIP_H / 2, cw, BOARD_CHIP_H, BOARD_CHIP_H / 2);
+        panel(g,-cw/2,-ch/2,cw,ch,bounty?UI.uiGold:mine?UI.uiAccent:UI.uiBorder,mine);
         if (glow > 0) {
           g.fillStyle(0xffd27a, 0.35 * glow);
-          g.fillRoundedRect(-cw / 2, -BOARD_CHIP_H / 2, cw, BOARD_CHIP_H, BOARD_CHIP_H / 2);
+          g.fillRoundedRect(-cw / 2, -ch / 2, cw, ch, ch / 2);
         }
         g.lineStyle(1.5, bounty ? 0xffd36d : mine ? 0x5fe3ff : 0x3d4a66, bounty || mine ? 0.95 : 0.8);
-        g.strokeRoundedRect(-cw / 2, -BOARD_CHIP_H / 2, cw, BOARD_CHIP_H, BOARD_CHIP_H / 2);
+        g.strokeRoundedRect(-cw / 2, -ch / 2, cw, ch, Math.min(UI.uiRadius,ch/3));
         // Power pill on the right.
         const pw = 34;
         g.fillStyle(pop > 0 ? 0xffb34a : mine ? 0x2a7f9c : 0x2a3550, 1);
-        g.fillRoundedRect(cw / 2 - pw - 3, -BOARD_CHIP_H / 2 + 3, pw, BOARD_CHIP_H - 6, (BOARD_CHIP_H - 6) / 2);
+        g.fillRoundedRect(cw / 2 - pw - 3, -ch / 2 + 3, pw, ch - 6, (ch - 6) / 2);
         chip.killsT.setPosition(cw / 2 - pw / 2 - 3, 0);
         chip.fragsT.setPosition(cw / 2 - pw - 8, 0);
         chip.rankT.setPosition(-cw / 2 + 9, 0);
@@ -809,13 +801,11 @@ export class FlightScene extends Phaser.Scene {
     // The buttons appear after the explosion has had a moment.
     const ready = this.time.now - this.deathShownAt > 700;
     const g = this.overlay;
+    if(ready){g.fillStyle(0x050b15,.55);g.fillRect(0,0,w,h);panel(g,w/2-165,h*.3-28,330,116,UI.uiDanger);}
     for (const b of this.deathButtons) {
       b.label.setVisible(ready);
       if (!ready) continue;
-      g.fillStyle(b.id === 'respawn' ? 0x2c6e8f : 0x3a3f52, 0.9);
-      g.fillRoundedRect(b.x - b.w / 2, b.y - b.h / 2, b.w, b.h, 10);
-      g.lineStyle(2, 0xdfe8ff, 0.7);
-      g.strokeRoundedRect(b.x - b.w / 2, b.y - b.h / 2, b.w, b.h, 10);
+      panel(g,b.x-b.w/2,b.y-b.h/2,b.w,b.h,b.id==='respawn'?UI.uiAccent:UI.uiBorder,b.id==='respawn');
     }
     let choice: 'respawn' | 'menu' | null = null;
     for (const t of intents.drainTaps()) {

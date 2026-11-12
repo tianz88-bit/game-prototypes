@@ -23,7 +23,9 @@ const fail = (message: string): never => { throw new Error(message); };
 
 function sameShape(value: unknown, base: unknown, path = 'config'): void {
   if (typeof base === 'number') {
-    if (typeof value !== 'number' || !Number.isFinite(value) || Math.abs(value) > 100000) fail(`${path}: enter a finite value within range`);
+    const colour = /^config\.clientTune\.render\.ui(Panel|Border|Accent|Gold|Danger|Text)$/.test(path);
+    if (typeof value !== 'number' || !Number.isFinite(value) ||
+      (colour ? !Number.isInteger(value) || value < 0 || value > 0xffffff : Math.abs(value) > 100000)) fail(`${path}: enter a finite value within range`);
     return;
   }
   if (!value || typeof value !== 'object' || Array.isArray(value) !== Array.isArray(base)) fail(`${path}: invalid structure`);
@@ -98,7 +100,11 @@ export function validateConfig(input: unknown): ConfigData {
   const p = value.tune.planet, r = value.clientTune.render;
   if (Math.abs(p.rotationDegPerSec)>12 || Math.abs(p.sunElevationDeg)>90 || Math.abs(p.sunAzimuthDeg)>360) fail('Planet lighting values out of range');
   if (r.shipScale<.05 || r.shipScale>1 || r.planetRadius<450 || r.planetRadius>3000 || r.referenceHeight<300 || r.referenceHeight>1600 || r.haloWidth<0 || r.haloWidth>200 || r.shadowReach<0 || r.shadowReach>120 || r.nightObjectDim<0 || r.nightObjectDim>1 || r.nightShipDim<0 || r.nightShipDim>1 || r.thrusterTopSpeedStretch<0 || r.thrusterTopSpeedStretch>4) fail('Visual settings out of range');
-  for (const n of Object.values(r)) if(n<0 || n>10000) fail('Visual setting out of range');
+  for (const [key,n] of Object.entries(r)) {
+    if (/^ui(Panel|Border|Accent|Gold|Danger|Text)$/.test(key)) continue; // RGB is bounded in sameShape.
+    if(n<0 || n>10000) fail('Visual setting out of range');
+  }
+  if (r.uiRadius > 16) fail('UI corners must stay within 0–16 pixels');
   return value;
 }
 export function parseRecord(input: unknown): ConfigRecord {

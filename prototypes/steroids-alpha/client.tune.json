@@ -36,6 +36,13 @@
     "thrusterHoldMs": 140,
     "thrusterTopSpeedStretch": 1,
     "shipRingRadius": 190,
-    "partTextureMax": 256
+    "partTextureMax": 256,
+    "uiPanel": 1319217,
+    "uiBorder": 4414578,
+    "uiAccent": 7527667,
+    "uiGold": 16764016,
+    "uiDanger": 16746348,
+    "uiText": 15398125,
+    "uiRadius": 6
   }
 }
