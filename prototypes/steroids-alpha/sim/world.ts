@@ -83,7 +83,7 @@ export interface WorldEvents {
   /** Ships destroyed this tick. */
   deaths: DeathEvent[];
   /** Hits on ships: where the hit landed, and whether the shield took it (for the shield effect). */
-  hits: { id: number; x: number; y: number; shielded: boolean }[];
+  hits: { id: number; x: number; y: number; shielded: boolean; hull: boolean }[];
   /** Health boosts dropped, and boosts taken (by = ship id) or expired (by = 0). */
   pickups: Pickup[];
   pickupsGone: { id: number; by: number }[];
@@ -653,7 +653,7 @@ export class World {
   private damageShip(id: number, s: ShipState, damage: number, attacker: number, atX: number, atY: number): void {
     if (s.hp <= 0) return;
     this.lastHit.set(id, this.tick);
-    this.events.hits.push({ id, x: atX, y: atY, shielded: s.shield > 0 });
+    this.events.hits.push({ id, x: atX, y: atY, shielded: s.shield > 0, hull: !this.invulnerable && damage > s.shield });
     if (this.invulnerable) return;
     const absorbed = Math.min(s.shield, damage);
     s.shield -= absorbed;

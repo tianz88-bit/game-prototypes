@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 codex codex/steroids-hull-hit-feedback
+DID: Directional hot-core impact sparks and subtle 140ms own-hull border flashes; the centre remains clear and repeated hits never stack opacity.
+FILES: sim/world.ts src/net/client.ts src/scenes/flight.ts src/render/worldArt.ts scripts/test-steroids-alpha-sim.mjs BUILD_STATUS.md
+SEAM: additive hits[].hull fact, NetFx hull + optional spark.angle; binary protocol unchanged. Client + Worker deploy together. Damage math, stats and calibration unchanged.
+CROSS: World.damageShip reports actual hull damage (false for invulnerability); client forwards facts, sim tests cover six shield/hull cases.
+FOR claude: Typecheck/build/rig/sim/live-config pass. Desktop/DPR2 pixel checks: shield/remote quiet, own hull flashes, zero interior changes, complete clearing. Six damage cases cover shields/overflow/invulnerability. ~56 FPS AMD D3D11, zero browser errors.
+
 ## 2026-11-13 codex codex/steroids-variety-drones
 DID: Three asteroid outline/material families, three amber mineral forms, distinct lance/paired-tracer/drone rounds, and hovering weapon drones with detached shadows/animated stabilizers.
 FILES: src/render/worldArt.ts src/scenes/flight.ts src/net/client.ts
@@ -93,13 +100,6 @@ FOR codex: bots use the same rig; a distinct tint or marker for bot ships could 
 
 ## 2026-11-12 claude dash-1.8x
 DID: dash boost at 1.8x top speed (dashSpeedFactor 1.8); published live.
-FILES: tune.json
-SEAM: none
-CROSS: none
-FOR codex: nothing.
-
-## 2026-11-12 claude dash-3x
-DID: dash boost at 3x top speed (dashSpeedFactor 3), 0.8 s; published live.
 FILES: tune.json
 SEAM: none
 CROSS: none
