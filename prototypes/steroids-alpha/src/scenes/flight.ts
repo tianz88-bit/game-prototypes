@@ -441,8 +441,11 @@ export class FlightScene extends Phaser.Scene {
     const a = Math.atan2(dy, dx);
     const c = Math.cos(a);
     const s = Math.sin(a);
-    const x = w / 2 + c * w * 0.4;
+    let x = w / 2 + c * w * 0.4;
     const y = h / 2 + s * h * 0.38;
+    const boardBottom=Math.max(0,...[...this.board.values()].map(chip=>chip.y+BOARD_CHIP_H/2))+24;
+    if(y<260 && x<190)x=190;
+    if(y<boardBottom && x>w-Math.min(BOARD_CHIP_W,w*.34)-35)x=w-Math.min(BOARD_CHIP_W,w*.34)-35;
     g.fillStyle(0x211e2d,.95);g.fillCircle(x,y,18);
     g.lineStyle(1,0xffd36d,.7);g.strokeCircle(x,y,18);
     g.fillStyle(0xffd23a, 0.9 * pulse);
@@ -459,8 +462,12 @@ export class FlightScene extends Phaser.Scene {
 
   private bountyPlate(w:number,h:number):void {
     const t=this.bountyText,pad=7,bw=t.width+pad*2,bh=t.height+8;
-    const x=Math.max(bw/2+4,Math.min(w-bw/2-4,t.x));
-    const y=Math.max(bh/2+4,Math.min(h-bh/2-4,t.y));t.setPosition(x,y);
+    let x=Math.max(bw/2+4,Math.min(w-bw/2-4,t.x));
+    const y=Math.max(bh/2+4,Math.min(h-bh/2-4,t.y));
+    const boardBottom=Math.max(0,...[...this.board.values()].map(chip=>chip.y+BOARD_CHIP_H/2))+20;
+    if(y<260 && x-bw/2<170)x=170+bw/2+5;
+    if(y<boardBottom && x+bw/2>w-Math.min(BOARD_CHIP_W,w*.34)-18)x=w-Math.min(BOARD_CHIP_W,w*.34)-23-bw/2;
+    t.setPosition(x,y);
     this.overlay.fillStyle(0x221f2c,.9);this.overlay.fillRoundedRect(x-bw/2,y-bh/2,bw,bh,4);
     this.overlay.lineStyle(1,0xbf9550,.8);this.overlay.strokeRoundedRect(x-bw/2,y-bh/2,bw,bh,4);
   }
