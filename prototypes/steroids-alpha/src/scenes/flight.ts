@@ -25,6 +25,7 @@ import { Explosion } from '../render/explosion';
 import { loadSave } from '../save';
 import type { ShipPlacement } from '../render/shipView';
 import { missileLock } from '../../sim/ordnance';
+import { drawRock } from '../render/worldArt';
 
 const W = TUNE.world.width;
 const H = TUNE.world.height;
@@ -44,7 +45,7 @@ export class FlightScene extends Phaser.Scene {
   private coords!: Phaser.GameObjects.Text;
   private schemeLabel!: Phaser.GameObjects.Text;
   private world!: Phaser.GameObjects.Graphics;
-  private effects: { x: number; y: number; at: number; r: number; ms: number; colour: number }[] = [];
+  private effects: { x: number; y: number; at: number; r: number; ms: number; colour: number; chips?: number }[] = [];
   private explosions: Explosion[] = [];
   /** Where each ship was last drawn (world), to aim shield hits. */
   private shipAt = new Map<number, { x: number; y: number }>();
@@ -220,7 +221,7 @@ export class FlightScene extends Phaser.Scene {
         this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 34, ms: 200, colour: 0xffffff });
       } else if (f.kind === 'mineral') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 18, ms: 260, colour: 0xffc14a });
       else if (f.kind === 'heal') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: TUNE.asteroid.pickupRadius, ms: 400, colour: 0x7dff9a });
-      else this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.kind === 'burst' ? TUNE.asteroid.radius[f.size] : 9, ms: f.kind === 'burst' ? 320 : 110, colour: 0xffe2b0 });
+      else this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.kind === 'burst' ? TUNE.asteroid.radius[f.size] : 9, ms: f.kind === 'burst' ? 420 : 180, colour: 0xffc78a, chips: f.kind === 'burst' ? 10 : 4 });
     }
     this.drawWorld();
     this.drawTouch(w, h);
@@ -825,10 +826,9 @@ export class FlightScene extends Phaser.Scene {
       }
       if (hidden) continue;
       const flash = now - (this.net.asteroidHitAt.get(a.id) ?? -1e9) < 90;
-      g.fillStyle(flash ? 0xffffff : shade(ROCK_FILL[a.size]), 1);
-      g.fillPoints(pts, true);
-      g.lineStyle(2, shade(0xd9c7a8), 0.8);
-      g.strokePoints(pts, true);
+      const at = this.toScreen(x, y);
+      drawRock(g, pts, at, r * at.scale, ROCK_FILL[a.size], light, this.frame.sun,
+        a.hp / TUNE.asteroid.hp[a.size], flash, a.id);
     }
     for (const b of this.net.bullets) {
       const len = b.small ? 0.012 : 0.018;
@@ -985,8 +985,15 @@ export class FlightScene extends Phaser.Scene {
       const at = this.toScreen(e.x, e.y);
       if (!at.visible) continue;
       const k = (this.time.now - e.at) / e.ms;
-      g.lineStyle(3, e.colour, 1 - k);
+      g.lineStyle(3, e.colour, (1 - k) * (e.chips ? .4 : 1));
       g.strokeCircle(at.x, at.y, e.r * (0.4 + k) * at.scale);
+      for (let i = 0; i < (e.chips ?? 0); i++) {
+        const a = i * 2.399 + e.x + e.y;
+        const d = e.r * (0.2 + k * 1.5) * at.scale;
+        const size = Math.max(1, (3 + i % 3) * at.scale * (1 - k * .4));
+        g.fillStyle(i % 3 ? 0xa88b76 : e.colour, 1 - k);
+        g.fillRect(at.x + Math.cos(a) * d, at.y + Math.sin(a) * d, size, size * .7);
+      }
     }
   }
 
