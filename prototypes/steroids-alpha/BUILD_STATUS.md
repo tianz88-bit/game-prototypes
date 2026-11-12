@@ -104,6 +104,18 @@ server is live and the itch page is public and unlisted.
 - Live settings: published version 00d655a775e4 on 12 November (top speed
   350, shield regen 20%, owner calibration unchanged), through the publish
   workflow at the owner's request.
+- Share QR on the menu: a QR code of https://daily-daily-games.itch.io/steroids-alpha
+  beside the planet list ("Scan to join"); tapping it copies the link and
+  shows "Link copied!" (or the link itself if the browser blocks copying).
+  Copying runs on finger lift through the intent layer (`intents.copyZone`),
+  because phones only allow the clipboard then. The link is fixed in
+  `src/base.ts` (`SHARE_URL`), because inside itch the page address is itch's
+  file server.
+  - Encoder: `src/ui/qr.ts`, in-house (owner chose no dependency): byte
+    mode, level M, versions 1-6. It matches python-qrcode bit for bit on
+    every mask (`scripts/test-steroids-alpha-qr.mjs` and its fixture, also run in
+    the itch deploy). ZXing decoded 153 of 153 test codes, and the code
+    decodes from real desktop and phone screenshots.
 - Planet select shows "N pilots" under each planet, from a new Worker route
   `GET /planets`, refreshed every 5 s (`net.planetCountRefreshMs`).
 - Pilot name: typed on the menu, saved in `steroids-alpha:save:v1`, sent
@@ -169,6 +181,10 @@ server is live and the itch page is public and unlisted.
 
 ## Open questions
 
+- The QR encoder is generic and could become a shared package
+  (`packages/qr`) if another prototype wants share codes.
+- Copy-on-tap inside itch's frame is untested on a real phone; if itch
+  blocks copying, the link is shown instead.
 - Power balance is a first pass (owner delegated it). It's untested with
   real players: snowballing, how hard a capped ship is to kill (1000 hull
   and shield at the cap), and how fast the cap comes.
