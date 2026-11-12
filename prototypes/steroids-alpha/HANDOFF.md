@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-12 claude dash-lock
+DID: steering locked for the whole dash (charge + boost), per owner.
+FILES: sim/ship.ts scripts/test-steroids-alpha-sim.mjs
+SEAM: none
+CROSS: none
+FOR codex: nothing.
+
 ## 2026-11-12 claude dash-retune
 DID: dash = 0.8 s charge (steering locked) + 0.7 s boost at 4x top speed (steering free); cooldown 8 s; yellow dash bar by the heat bar; swept collision for rams/rocks.
 FILES: sim/ship.ts sim/world.ts tune.json src/scenes/flight.ts scripts/test-steroids-alpha-sim.mjs

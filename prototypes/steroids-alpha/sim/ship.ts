@@ -115,9 +115,9 @@ export function copyShip(s: ShipState): ShipState {
 
 /** Advance one fixed step. Mutates and returns s. */
 export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune): ShipState {
-  // No steering while the dash charges: the ship holds course while the player picks the boost
-  // direction (owner design). Steering is free again during the boost.
-  const maxTurn = s.dashCharge > 0 ? 0 : tune.ship.turnRate * dt;
+  // No steering for the whole dash, charge and boost (owner design): the ship holds course while
+  // the player picks the boost direction, then commits to it. Steering returns when the boost ends.
+  const maxTurn = s.dashCharge > 0 || s.dashTime > 0 ? 0 : tune.ship.turnRate * dt;
   if (Number.isFinite(input.aim)) {
     const diff = angleDelta(input.aim, s.heading);
     s.heading += Math.max(-maxTurn, Math.min(maxTurn, diff));
