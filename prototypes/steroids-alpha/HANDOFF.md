@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 codex codex/steroids-pickups
+DID: Faceted amber mineral crystals with value scaling, bob and sparkle; medical capsules and floating heal crosses; collection shards.
+FILES: src/render/worldArt.ts src/scenes/flight.ts
+SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
+CROSS: none (render/shared drawing)
+FOR claude: Typecheck/build/rig/sim pass. Brave desktop + DPR2 phone fixtures inspected; 2 clients + 4 bots 32.06 FPS, p95 31.6ms, zero console/page errors.
+
 ## 2026-11-13 codex codex/steroids-asteroids
 DID: sunlit asteroid facets, inset pits, damage cracks, hard outline and split/impact debris.
 FILES: src/render/worldArt.ts src/scenes/flight.ts
@@ -97,11 +104,3 @@ FILES: tune.json scripts/test-steroids-alpha-sim.mjs
 SEAM: none
 CROSS: none
 FOR codex: nothing.
-
-## 2026-11-12 claude dash-fix
-DID: dash holds dash speed through braking (released marker stick); excess speed above top bleeds at braking rate instead of snapping.
-FILES: sim/ship.ts scripts/test-steroids-alpha-sim.mjs
-SEAM: none (ShipState.speed can now exceed top speed briefly)
-CROSS: none
-FOR codex: plume can read speed > top speed during/after a dash (speedTrail clamps to 1).
-
