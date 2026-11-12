@@ -77,13 +77,14 @@ export function validateConfig(input: unknown): ConfigData {
   for (const group of ['world','net'] as const) if (JSON.stringify(value.tune[group]) !== JSON.stringify(base.tune[group])) fail(`${group} settings require a code deployment`);
   for (const group of ['net','dpr','touch'] as const) if (JSON.stringify(value.clientTune[group]) !== JSON.stringify(base.clientTune[group])) fail(`Client ${group} settings require a code deployment`);
   if (value.clientTune.render.partTextureMax !== base.clientTune.render.partTextureMax) fail('Texture resolution requires a code deployment');
-  for (const group of ['ship','weapon','asteroid'] as const) for (const [key, n] of Object.entries(value.tune[group])) for (const v of Array.isArray(n) ? n : [n]) {
+  for (const group of ['ship','weapon','turret','asteroid'] as const) for (const [key, n] of Object.entries(value.tune[group])) for (const v of Array.isArray(n) ? n : [n]) {
     if (v < 0 || v > 10000) fail(`${group}.${key}: value must be 0–10000`);
   }
   const s = value.tune.ship, w = value.tune.weapon;
   if (!(s.minSpeed <= s.cruiseSpeed && s.cruiseSpeed <= s.maxSpeed && s.maxSpeed > 0 && s.dashSpeed >= s.minSpeed)) fail('Keep minimum ≤ cruise ≤ maximum speed');
   if (s.acceleration <= 0 || s.braking <= 0 || s.radius <= 0 || s.maxHp <= 0) fail('Acceleration, braking, radius and hull must be positive');
   if (!(s.powerCap >= s.maxHp) || s.damageBonusAtCap < 0 || s.speedPenaltyAtCap < 0 || s.speedPenaltyAtCap >= 1 || s.radiusBonusAtCap < 0 || s.hullSpillFraction < 0 || s.hullSpillFraction > 1 || s.deathSpillFraction < 0 || s.deathSpillFraction > 1 || s.spillLockSeconds < 0) fail('Power: cap at least the starting hull, bonuses and penalties in range, spill fractions 0..1');
+  { const t = value.tune.turret; if (!Number.isInteger(t.max) || t.max < 0 || t.max > 4 || !(t.massPerTurret > 0) || !(t.range > 0) || !(t.turnRate > 0) || t.aimTolerance <= 0 || !Number.isInteger(t.fireIntervalSteps) || t.fireIntervalSteps < 1 || t.damage < 0 || !(t.bulletSpeed > 0)) fail('Turret settings out of range (at most 4 turrets)'); }
   { const a = value.tune.asteroid; if (!(a.mineralChunkValue > 0) || !Number.isInteger(a.mineralChunksMax) || a.mineralChunksMax < 1 || !Number.isInteger(a.pickupsMax) || a.pickupsMax < 1) fail('Mineral chunks and pickup limits must be positive whole numbers'); }
   if (s.shieldRegenPerSecond > 1 || value.tune.asteroid.healthDropChance > 1 || value.tune.asteroid.healthHealFraction > 1) fail('Shield regeneration, drop chance and heal fraction are fractions (0–1)');
   if (!Number.isInteger(w.fireIntervalSteps) || w.fireIntervalSteps < 1 || w.fireIntervalSteps > 255 || !Number.isInteger(w.bulletLifeSteps) || w.bulletLifeSteps < 1 || w.bulletLifeSteps > 900) fail('Weapon step counts must be positive integers (interval ≤255; life ≤900)');

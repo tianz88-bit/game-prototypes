@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-12 claude turrets
+DID: auto turrets (1 per 100 minerals, max 4): lock nearest enemy ship else asteroid within 380, turn ≤4 rad/s, 2 dmg shots. Live settings republished (00d655a775e4: top 350, regen 20%).
+FILES: sim/turrets.ts sim/world.ts sim/liveConfig.ts server/src/room.ts src/net/client.ts src/scenes/flight.ts src/liveConfig.ts tune.json
+SEAM: protocol 9. SHOTS side 10+i = turret i (TURRET_SIDE). Fx kind 'turret' {id,index,angle}. VisualBullet.small. tune.turret group (live-tunable).
+CROSS: ../steroids-alpha-lab/draft.ts (added 'Turrets' stat group).
+FOR codex: turret domes/barrels/muzzle flash drawn in flight.ts drawTurrets as placeholders; mounts in sim/turrets.ts TURRET_MOUNTS (base-size ship units) should line up with the art; adjust mounts there if needed.
+
 ## 2026-11-12 claude io-power
 DID: .io power loop: minerals from asteroids are hull (cap 500), add shield max, spill when hit (victim locked 3s), death spills half. Power = more damage, less speed, bigger ship. Leaderboard ranks by power; HUD shows POWER.
 FILES: sim/{ship,world,protocol,liveConfig}.ts server/src/room.ts src/net/client.ts src/scenes/flight.ts tune.json

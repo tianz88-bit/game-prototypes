@@ -12,6 +12,7 @@ import type { ShipInput, ShipState } from '../../sim/ship';
 import { CLOSE, MSG, PROTOCOL_VERSION, decodeServer, encodeInput, encodePing } from '../../sim/protocol';
 import type { RosterEntry, ServerMessage, SnapshotShip } from '../../sim/protocol';
 import { angleDelta, wrap, wrapDelta } from '../../sim/wrap';
+import { TURRET_SIDE } from '../../sim/turrets';
 import type { PlanetId } from '../../sim/planets';
 import { clientTune } from '../clientTune';
 import { SIM_LAG_MS, serverOrigin } from '../base';
@@ -27,11 +28,15 @@ export interface VisualBullet {
   /** Milliseconds left. */
   life: number;
   mine: boolean;
+  /** A turret shot: drawn smaller. */
+  small?: boolean;
 }
 
 /** Things the scene should show once: a gun firing, an asteroid breaking, a bullet striking. */
 export type NetFx =
   | { kind: 'shot'; id: number; side: number }
+  /** A turret on ship id fired at angle (radians, world). */
+  | { kind: 'turret'; id: number; index: number; angle: number }
   | { kind: 'burst'; x: number; y: number; size: number }
   | { kind: 'spark'; x: number; y: number }
   | { kind: 'explosion'; x: number; y: number }
@@ -202,6 +207,12 @@ export class NetClient {
     }
     if (msg.type === MSG.SHOTS) {
       for (const s of msg.shots) {
+        if (s.side >= TURRET_SIDE) {
+          const life = ((TUNE.turret.range + 60) / TUNE.turret.bulletSpeed) * 1000;
+          this.bullets.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, life, mine: s.owner === this.myId, small: true });
+          this.fx.push({ kind: 'turret', id: s.owner, index: s.side - TURRET_SIDE, angle: Math.atan2(s.vy, s.vx) });
+          continue;
+        }
         this.bullets.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, life: TUNE.weapon.bulletLifeSteps * STEP_MS, mine: false });
         this.fx.push({ kind: 'shot', id: s.owner, side: s.side });
       }

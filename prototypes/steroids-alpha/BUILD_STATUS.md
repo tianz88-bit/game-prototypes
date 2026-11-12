@@ -2,7 +2,7 @@
 
 Owner calibration ffc177fd2833 is live (12 November2026), with exact JSON readback and unchanged game/render stats. Hosted publishing is prepared and closed pending owner approval of Cloudflare Access; local publisher remains stopped.
 
-.io power loop in: minerals from asteroids are the hull, raise the shield
+Auto turrets in (1 per 100 minerals, max 4). .io power loop in: minerals from asteroids are the hull, raise the shield
 maximum, spill when hit, and make ships hit harder but slower and bigger,
 with a cap; the leaderboard ranks by power. Before that, combat feel was
 adjusted after the owner's play sessions: dash
@@ -91,6 +91,19 @@ server is live and the itch page is public and unlisted.
     you carried this life. Leaderboard chips show and rank by power.
   - `TEST_SHIP_HP` now just makes ships take no damage (local checks only);
     a huge hull would have counted as maximum power.
+- Auto turrets (`tune.json` → `turret`, live-tunable, lab group "Turrets"):
+  - One per 100 minerals above the starting hull (power 150, 250, 350, 450),
+    max 4. Rear pair first, then the front pair (`sim/turrets.ts` mounts,
+    scaled with ship size). Losing minerals loses turrets.
+  - Each targets the nearest enemy ship in range (380), else the nearest
+    asteroid, turns at most 4 rad/s, fires when within 0.12 rad: 2 damage
+    every 12 steps (2.5 shots/s), shots at 750 px/s that fly about range.
+  - Server-side only. Turret shots go to every client, owner included
+    (side 10+i in SHOTS); clients aim the drawn turret from the shots and
+    swing it forward after a quiet second. Placeholder domes and barrels.
+- Live settings: published version 00d655a775e4 on 12 November (top speed
+  350, shield regen 20%, owner calibration unchanged), through the publish
+  workflow at the owner's request.
 - Planet select shows "N pilots" under each planet, from a new Worker route
   `GET /planets`, refreshed every 5 s (`net.planetCountRefreshMs`).
 - Pilot name: typed on the menu, saved in `steroids-alpha:save:v1`, sent
@@ -141,9 +154,9 @@ server is live and the itch page is public and unlisted.
   the gun mounts are wider than a small asteroid or a ship.
 - A new ship drops in at the candidate point farthest from any asteroid and
   has two seconds of contact immunity.
-- Protocol version is 8 (5 added shield, knockback and the JSON frames; 6
-  removed the dash; 7 restored it; 8 added power to the roster and
-  kind/value to pickups). Client and server deploy together;
+- Protocol version is 9 (5 added shield, knockback and the JSON frames; 6
+  removed the dash; 7 restored it; 8 added power and pickup kinds; 9 turret
+  shots reach their owner). Client and server deploy together;
   old clients reload once. Validated live settings still need no rebuild.
 - Live settings published before the shield existed are upgraded on load
   (`upgradeConfig` in `sim/liveConfig.ts`): missing new fields are filled
@@ -186,10 +199,6 @@ server is live and the itch page is public and unlisted.
 
 ## Known issues
 
-- Live settings override tune.json: the published record (ffc177fd2833)
-  still has top speed 380 and shield regen 5%, so the new 350 and 20% only
-  apply once a new record is published. The dash values are new fields, so
-  they arrive from tune.json.
 - The two-client browser check is flaky in the current cloud environment
   (prediction-correction and bullet-count asserts), on unchanged main too.
   Prediction measured directly per flight phase shows 0 corrections.

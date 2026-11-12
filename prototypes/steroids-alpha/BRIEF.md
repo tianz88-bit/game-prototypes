@@ -167,6 +167,11 @@ All names, ships, pilots and art are original. Nothing is copied from either.
   - The leaderboard ranks by power.
   - Arena only for now: minerals do not go to the stash.
   - Balancing is Claude's call.
+- Auto turrets (owner decision, 12 November 2026): a ship earns a turret
+  for every X minerals of mass (Claude chose 100), up to 4. Turrets fire on
+  their own at enemy ships and asteroids within a lock-on radius, turn no
+  faster than a capped rate, and do tiny but real damage. Losing minerals
+  loses turrets.
 - Destroyed ship (owner decision): it explodes, then the player chooses
   Respawn (same planet, fresh ship) or Menu.
 - Kills leaderboard on every planet (owner decision): one chip per player

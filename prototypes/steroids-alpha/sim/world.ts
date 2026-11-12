@@ -6,7 +6,8 @@ import { damageScale, maxShield, muzzleShot, newShip, shipRadius, stepShip } fro
 import type { ShipInput, ShipState } from './ship';
 import { asteroidMass, asteroidPos, splitAsteroid } from './asteroids';
 import type { Asteroid } from './asteroids';
-import { wrap, wrapDelta } from './wrap';
+import { wrap, wrapDelta, angleDelta } from './wrap';
+import { TURRET_SIDE, turretCount, turretPosition } from './turrets';
 
 interface Bullet {
   owner: number;
@@ -76,6 +77,8 @@ export class World {
   /** from: the ship that spilled it, which cannot take it back until lockedUntil (a tick). */
   readonly pickups = new Map<number, Pickup & { expires: number; from: number; lockedUntil: number }>();
   private nextPickupId = 1;
+  /** Turret aim (radians, world) and steps until each can fire again, per ship. */
+  private turrets = new Map<number, { angle: number[]; cd: number[] }>();
   /** Tick of the last damage each ship took, for shield regeneration. */
   private lastHit = new Map<number, number>();
   private events: WorldEvents = noEvents();
@@ -121,6 +124,7 @@ export class World {
     this.ships.delete(id);
     this.grace.delete(id);
     this.lastHit.delete(id);
+    this.turrets.delete(id);
   }
 
   /** Advance one ship by one step with the given input, spawning its bullet if it fired. */
@@ -149,6 +153,8 @@ export class World {
       const dy = wrapDelta(y, oy, H);
       return dx * dx + dy * dy <= r * r;
     };
+
+    this.stepTurrets(pos);
 
     // Bullets.
     const kept: Bullet[] = [];
@@ -246,6 +252,59 @@ export class World {
     }
 
     if (this.tick % t.net.tickHz === 0) this.populate();
+  }
+
+  /**
+   * Turrets: each turns toward the nearest enemy ship or asteroid in range (ships first), at a capped
+   * rate, and fires once lined up. With nothing in range they swing back to face forward.
+   */
+  private stepTurrets(pos: Map<number, { x: number; y: number }>): void {
+    const t = this.tune;
+    const tt = t.turret;
+    const W = t.world.width;
+    const H = t.world.height;
+    for (const [id, s] of this.ships) {
+      const n = s.hp > 0 ? turretCount(s.hp, t) : 0;
+      if (!n) {
+        this.turrets.delete(id);
+        continue;
+      }
+      let st = this.turrets.get(id);
+      if (!st) this.turrets.set(id, (st = { angle: [], cd: [] }));
+      for (let i = 0; i < n; i++) {
+        st.angle[i] ??= s.heading;
+        st.cd[i] ??= 0;
+        if (st.cd[i] > 0) st.cd[i]--;
+        const at = turretPosition(s, i, t);
+        type Target = { dx: number; dy: number; d: number; ship: boolean };
+        let best = null as Target | null;
+        const consider = (x: number, y: number, r: number, ship: boolean): void => {
+          const dx = wrapDelta(x, at.x, W);
+          const dy = wrapDelta(y, at.y, H);
+          const d = Math.hypot(dx, dy);
+          if (d - r > tt.range) return;
+          if (!best || (ship && !best.ship) || (ship === best.ship && d < best.d)) best = { dx, dy, d, ship };
+        };
+        for (const [oid, o] of this.ships) if (oid !== id && o.hp > 0) consider(o.x, o.y, 0, true);
+        for (const a of this.asteroids.values()) {
+          const p = pos.get(a.id);
+          if (p) consider(p.x, p.y, t.asteroid.radius[a.size], false);
+        }
+        const target = best as Target | null;
+        const want = target ? Math.atan2(target.dy, target.dx) : s.heading;
+        const diff = angleDelta(want, st.angle[i]);
+        const step = tt.turnRate * this.dt;
+        st.angle[i] = angleDelta(st.angle[i] + Math.max(-step, Math.min(step, diff)), 0);
+        if (!target || st.cd[i] > 0 || Math.abs(angleDelta(want, st.angle[i])) > tt.aimTolerance) continue;
+        st.cd[i] = tt.fireIntervalSteps;
+        const vx = Math.cos(st.angle[i]) * tt.bulletSpeed;
+        const vy = Math.sin(st.angle[i]) * tt.bulletSpeed;
+        const life = Math.ceil(((tt.range + 60) / tt.bulletSpeed) * t.net.tickHz);
+        this.bullets.push({ owner: id, damage: tt.damage, x: at.x, y: at.y, vx, vy, life });
+        this.events.shots.push({ owner: id, x: at.x, y: at.y, vx, vy, side: TURRET_SIDE + i });
+      }
+      st.angle.length = st.cd.length = n;
+    }
   }
 
   /** Ids travel as 16 bits: wrap around, skipping any still in use. */

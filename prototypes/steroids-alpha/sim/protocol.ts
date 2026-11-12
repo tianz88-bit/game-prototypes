@@ -1,4 +1,4 @@
-// Protocol v8: binary game frames are little-endian. The server also sends JSON text frames:
+// Protocol v9: binary game frames are little-endian. The server also sends JSON text frames:
 //   {type:'config',record:ConfigRecord}            before welcome/cutover snapshots
 //   {type:'roster',players:[{id,name,kills,power}]} on join/leave, and when anyone's power changes (2 Hz max)
 //   {type:'deaths',deaths:[{id,x,y,killer}]}       ships destroyed (killer 0 = an asteroid)
@@ -19,11 +19,12 @@
 //             New asteroids, or ones whose hp changed. Sent in full to a client when it joins.
 //   GONE      u8 type, u16 count, count x (u16 id, f32 x, f32 y)   asteroids destroyed, and where
 //   SHOTS     u8 type, u32 tick, u16 count, count x (u16 owner, f32 x, f32 y, f32 vx, f32 vy, i8 side)
+//             side: -1/1 main guns, 10+i turret i (sim/turrets.ts)
 import type { ShipInput, ShipState } from './ship';
 import type { Asteroid } from './asteroids';
 import type { ShotEvent } from './world';
 
-export const PROTOCOL_VERSION = 8;
+export const PROTOCOL_VERSION = 9;
 
 export const MSG = {
   INPUT: 1,
