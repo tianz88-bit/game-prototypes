@@ -27,14 +27,19 @@ for(let i=1;i<=70;i++)room.onMessage(player,S.encodeInput({seq:i,turn:0,aim:NaN,
 room.applyConfig(active);assert.equal(player.queue.length,0);assert.equal(player.started,false);assert.ok(socket.sent.some(x=>typeof x==='string'&&JSON.parse(x).record?.version===active.version));
 for(let i=0;i<60;i++)room.onMessage(player,S.encodePing(S.MSG.PING,1));assert.equal(socket.closed,1008,'Excess packet rate rejected');
 const otherRoom=new S.Room(),bad=new Socket();otherRoom.join(bad);otherRoom.stop();const p=[...otherRoom.players.values()][0];otherRoom.onMessage(p,new ArrayBuffer(100000));assert.equal(bad.closed,S.CLOSE.BAD_PROTOCOL);
-let liveRecord=S.bundledRecord(),calls=[];const server=createPublisher({model:S,staticDir:'.',live:async()=>liveRecord,api:async(endpoint,body)=>{calls.push({endpoint,body});return {workflow_runs:[]};}});await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin='http://127.0.0.1:'+server.address().port;
+const legacy=S.defaultConfig();legacy.tune.ship.maxHp+=legacy.tune.ship.maxShield;delete legacy.tune.ship.maxShield;
+const legacyRecord={...S.bundledRecord(),version:'a'.repeat(64),data:legacy};let savedRecords=[];
+let liveRecord=S.bundledRecord(),calls=[];const server=createPublisher({model:S,staticDir:'.',knownRecords:[legacyRecord],saveRecords:async records=>{savedRecords=records;},live:async()=>liveRecord,api:async(endpoint,body)=>{calls.push({endpoint,body});return {workflow_runs:[]};}});await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin='http://127.0.0.1:'+server.address().port;
 const post=(route,body,headers={})=>fetch(origin+'/api/'+route,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json','X-Steroids-Local':'1',...headers},body:JSON.stringify(body)});
 try{
  assert.equal((await post('load',{}, {Origin:'https://evil.example'})).status,403);assert.equal((await post('load',{}, {'X-Steroids-Local':'0'})).status,403);assert.equal(calls.length,0);
+ assert.equal((await (await post('load',{baseVersion:legacyRecord.version})).json()).compatible,true,'Equivalent migrated baseline preserves draft without false conflict');
+ assert.equal((await (await post('load',{baseVersion:'b'.repeat(64)})).json()).compatible,false,'Unknown baseline never bypasses stale-write protection');assert.ok(savedRecords.some(r=>r.version==='bundled'));
  const {session}=await (await post('load',{})).json();assert.equal((await post('publish',{session:'forged',data:edited})).status,409);
  const invalid=structuredClone(edited);invalid.tune.net.tickHz=999;assert.equal((await post('publish',{session,data:invalid})).status,400);assert.equal(calls.length,0);
  assert.equal((await fetch(origin+'/.git/config')).status,404);
  assert.equal((await post('publish',{session,data:edited})).status,200);assert.equal(calls.length,1);assert.equal(calls[0].endpoint,`actions/workflows/${WORKFLOW}/dispatches`);assert.equal(calls[0].body.ref,'main');assert.equal(calls[0].body.inputs.expected_version,'bundled');
  liveRecord=active;assert.equal((await (await post('status',{session})).json()).active,true);assert.equal((await post('publish',{session,data:edited})).status,409);
+ assert.equal((await (await post('load',{baseVersion:legacyRecord.version})).json()).compatible,false,'Real balance changes still require review');
 }finally{server.closeAllConnections();await new Promise(r=>server.close(r));}
 console.log('PASS: config validation, atomic stale-write rejection/history, real OIDC signature and claim rejection, live room cutover, input flood/oversize limits, private publisher CSRF/session/fixed-workflow boundaries');

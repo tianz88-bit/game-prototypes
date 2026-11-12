@@ -42,8 +42,8 @@ async function publish(): Promise<void> {
     window.open('http://127.0.0.1:5192/#draft=' + payload, '_blank', 'noopener');
     message('Opened the private publisher on this PC. If it is not running, follow the Publisher setup below. No live change has been made.'); return;
   }
-  const loaded = await localRequest('load', {}); session = loaded.session;
-  if (loaded.version !== baseVersion) throw Error('Live settings changed since this draft. Export it, load live settings, and review your changes before publishing.');
+  const loaded = await localRequest('load', {baseVersion}); session = loaded.session;
+  if (loaded.version !== baseVersion && !loaded.compatible) throw Error('Live settings changed since this draft. Export it, load live settings, and review your changes before publishing.');
   const result = await localRequest('publish', { session, data: draft });
   const a = document.createElement('a'); a.href = result.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'View authenticated publish run';
   $('#publishResult').replaceChildren(a);

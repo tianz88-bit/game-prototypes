@@ -1,17 +1,17 @@
 ## Current milestone
-Permanent calibration and balance lab with authenticated live settings publication.
+Repair private live publishing after the background companion stopped.
 
 ## What was implemented
-Hub link below the live game; reference layered rig and FFD; shared movement preview; validated browser drafts/import/export; live readback; private Publish button; canonical configuration formats shared with the authoritative server.
+Restarted the companion outside the chat command lifetime; supplied a local restart shortcut. Updated the private checkout to the current game contract. Retained ten observed baseline records so equivalent migrated settings do not falsely block older drafts. Existing drafts remain intact.
 
 ## Key technical decisions
-Static GitHub Pages preview has no write credentials. Publishing opens the private loopback companion on this PC and dispatches the fixed main-branch GitHub workflow. OIDC verification and a transactional Durable Object protect activation and stale writes. Protocol v4 sends active data to clients; subsequent changes do not rebuild the game. Core game values stay unchanged by default.
+Publishing remains loopback-only and uses the existing authenticated main-branch workflow. A version mismatch may proceed only when an independently observed historical baseline normalizes to exactly the current live data; unknown baselines and real changes still require review. No authentication or compare-and-swap checks were removed.
 
 ## Open questions
-A future phone-only publishing login would need a separate authenticated administrator flow. The present lab does not include one.
+Publishing after a PC reboot requires starting the companion again; hosted administration remains separate scope.
 
 ## Known issues
-Reference FFD still uses the original Canvas adapter in this tooling stage; production mesh integration is separate. Weapons are summarized by rate/DPS rather than a combat arena. Painted source highlights remain baked.
+The public page cannot start a stopped local process. The supplied Windows shortcut starts it hidden. This change does not alter gameplay tuning or complete the production FFD port.
 
 ## Next proposed step
-Use the permanent lab to tune the approved rig and game data, then finish the production per-part mesh port and compare it with the reference.
+Use Publish from the permanent lab; keep the private companion checkout current when the game's configuration contract changes.

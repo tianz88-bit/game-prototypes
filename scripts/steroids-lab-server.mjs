@@ -12,8 +12,10 @@ export function githubCli(gh='gh'){
   const result=new Promise((resolve,reject)=>{let out='';child.stdout.on('data',c=>out+=c);child.on('error',()=>reject(Error('GitHub CLI is unavailable. Sign in with gh auth login in your terminal.')));child.on('close',code=>{if(code)reject(Error('GitHub request failed; check existing gh authentication and repository access.'));else{try{resolve(out.trim()?JSON.parse(out):{});}catch{reject(Error('Invalid GitHub response'));}}});});child.stdin.end(body?JSON.stringify(body):undefined);return result;
  };
 }
-export function createPublisher({api,model,staticDir,live=async()=>{const r=await fetch('https://steroids-alpha-server.tianz-88.workers.dev/config',{cache:'no-store'});if(!r.ok)throw Error('Live settings unavailable');return model.parseRecord(await r.json());}}){
+export function createPublisher({api,model,staticDir,knownRecords=[],saveRecords=async()=>{},live=async()=>{const r=await fetch('https://steroids-alpha-server.tianz-88.workers.dev/config',{cache:'no-store'});if(!r.ok)throw Error('Live settings unavailable');return model.parseRecord(await r.json());}}){
  const sessions=new Map();let publishing=false;
+ const records=new Map();for(const record of knownRecords){try{records.set(record.version,model.parseRecord(record));}catch{}}
+ const remember=async record=>{records.set(record.version,record);while(records.size>10)records.delete(records.keys().next().value);await saveRecords([...records.values()]);};
  const fail=(message,status=400)=>Object.assign(Error(message),{status});
  const server=http.createServer(async(req,res)=>{
   res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://steroids-alpha-server.tianz-88.workers.dev; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
@@ -24,7 +26,7 @@ export function createPublisher({api,model,staticDir,live=async()=>{const r=awai
    if(url.pathname.startsWith('/api/')){
     if(req.method!=='POST'||req.headers.origin!==origin||req.headers['content-type']!=='application/json'||req.headers['x-steroids-local']!=='1'||(req.headers['sec-fetch-site']&&req.headers['sec-fetch-site']!=='same-origin'))throw fail('Private same-origin publisher only',403);
     let text='';for await(const c of req){text+=c;if(Buffer.byteLength(text)>32768)throw fail('Settings too large',413);}let body;try{body=JSON.parse(text);}catch{throw fail('Invalid JSON');}
-    if(url.pathname==='/api/load'){const record=await live(),session=randomBytes(32).toString('hex');if(sessions.size>32)sessions.delete(sessions.keys().next().value);sessions.set(session,{version:record.version,at:Date.now()});return json(200,{session,version:record.version});}
+    if(url.pathname==='/api/load'){const record=await live(),session=randomBytes(32).toString('hex');const previous=records.get(body.baseVersion);const compatible=!!previous&&JSON.stringify(model.validateConfig(previous.data))===JSON.stringify(model.validateConfig(record.data));await remember(record);if(sessions.size>32)sessions.delete(sessions.keys().next().value);sessions.set(session,{version:record.version,at:Date.now()});return json(200,{session,version:record.version,compatible});}
     const baseline=sessions.get(body.session);if(!baseline||Date.now()-baseline.at>3600000)throw fail('Load live settings before publishing',409);
     if(url.pathname==='/api/status'){
      const record=await live();let runs=[];if(baseline.requestedAt){const result=await api(`actions/workflows/${WORKFLOW}/runs?event=workflow_dispatch&per_page=8`);runs=result.workflow_runs.filter(r=>r.created_at>=baseline.requestedAt);}
