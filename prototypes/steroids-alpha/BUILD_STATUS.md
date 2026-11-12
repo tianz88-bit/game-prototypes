@@ -2,9 +2,10 @@
 
 Owner calibration ffc177fd2833 is live (12 November2026), with exact JSON readback and unchanged game/render stats. Hosted publishing is prepared and closed pending owner approval of Cloudflare Access; local publisher remains stopped.
 
-Combat feel batch done and adjusted after the owner's first play: dash
-removed, the pilot name now typeable on phones, leaderboard as animated
-chips. Also in: explosion and death screen, marker-mode throttle, ramming,
+Combat feel batch done and adjusted after the owner's play sessions: dash
+back (0.5 s at 450 px/s, top speed 350), faster shield regen, asteroid
+outlines matched to their hitboxes, longer plume at top speed, pilot counts
+on planet select, the pilot name typeable on phones, leaderboard chips. Also in: explosion and death screen, marker-mode throttle, ramming,
 health boosts, shield with hex hit effect, darker ships at night. Still integrating the owner's environment
 handoff v09 (from Codex) in steps: the planet view, fixed-sun lighting and
 thruster exhaust are done. Next: FFD tilt, then ground props with horizon
@@ -58,10 +59,19 @@ server is live and the itch page is public and unlisted.
 - Terrain art is generated at pack time from the handoff's own SVG
   definitions and checked against its manifest hashes; nothing is committed.
 - Hull points with a bar; bullets also damage other players' ships.
-- Dash removed (owner decision): no button, no Shift/K key, no dash in the
-  ship rules, tune.json or the wire format. The fire button moved into the
-  bottom-right corner (`touch.fireButtonMargin`, the old dash margin). The
-  calibration lab's preview lost its Dash button too.
+- Dash (removed and restored on 12 November at the owner's request): touch
+  button bottom right with a cooldown ring, Shift or K on keyboard, 0.5 s at
+  450 px/s (`ship.dashSpeed/dashDuration/dashCooldown`). Top speed 350 px/s.
+  The lab preview has its Dash button again.
+- "Invisible collisions": measured in the browser, client and server agree
+  (ship and rock overlapped by the client's own positions at every hit). The
+  rock outline was drawn at 78-108% of the hit radius, so rams landed on empty
+  space. Corners now sit at 100-112%, so the outline covers the hit circle.
+- Thruster plume: longer (particles live longer and stretch) over the top
+  quarter of the speed range, longest at max speed or in a dash; both engines
+  run strong at max speed (`render.thrusterTopSpeedStretch`, 1 = twice as long).
+- Planet select shows "N pilots" under each planet, from a new Worker route
+  `GET /planets`, refreshed every 5 s (`net.planetCountRefreshMs`).
 - Pilot name: typed on the menu, saved in `steroids-alpha:save:v1`, sent
   when joining, shown under every ship. The box is drawn on the canvas with
   a see-through text field placed exactly over it, so a tap lands on a real
@@ -86,7 +96,7 @@ server is live and the itch page is public and unlisted.
 - Health boost: 15% of destroyed asteroids drop a green cross that heals 25%
   of the hull; it disappears after 20 s.
 - Shield: hull 50 + shield 50 (was hull 100). The shield takes damage first,
-  regenerates after 5 s without damage at 5% a second. Blue bar above the
+  regenerates after 5 s without damage at 20% a second. Blue bar above the
   green hull bar. A blocked hit lights a honeycomb of blue hexagons on the
   shield bubble where it landed (hits now carry their impact point).
 - Night side: ships 30% darker (`render.nightShipDim`), asteroids and pickups
@@ -110,8 +120,8 @@ server is live and the itch page is public and unlisted.
   the gun mounts are wider than a small asteroid or a ship.
 - A new ship drops in at the candidate point farthest from any asteroid and
   has two seconds of contact immunity.
-- Protocol version is 6 (5 added shield, knockback and the JSON frames for
-  roster, deaths, hits and pickups; 6 removed the dash fields). Client and server deploy together;
+- Protocol version is 7 (5 added shield, knockback and the JSON frames for
+  roster, deaths, hits and pickups; 6 removed the dash; 7 restored it). Client and server deploy together;
   old clients reload once. Validated live settings still need no rebuild.
 - Live settings published before the shield existed are upgraded on load
   (`upgradeConfig` in `sim/liveConfig.ts`): missing new fields are filled
@@ -151,6 +161,13 @@ server is live and the itch page is public and unlisted.
 
 ## Known issues
 
+- Live settings override tune.json: the published record (ffc177fd2833)
+  still has top speed 380 and shield regen 5%, so the new 350 and 20% only
+  apply once a new record is published. The dash values are new fields, so
+  they arrive from tune.json.
+- The two-client browser check is flaky in the current cloud environment
+  (prediction-correction and bullet-count asserts), on unchanged main too.
+  Prediction measured directly per flight phase shows 0 corrections.
 - Hosted publishing awaits direct owner confirmation to create the Access application and set its issuer/audience/owner variables. Until enabled, /manage/ remains closed.
 - Baseline cheat resistance is in place, but player authentication, anonymous multi-session abuse, bots/aim automation and competitive telemetry remain future work.
 

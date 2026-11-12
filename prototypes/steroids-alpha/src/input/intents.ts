@@ -4,11 +4,11 @@
 //                direction marker the ship steers toward a direction; pushing further
 //                                 accelerates harder; letting go eases back to minimum speed
 //   primary    fire (held), also taps on menu buttons
-//   secondary  unbound (the dash was removed)
+//   secondary  dash
 //   pause      back
 // Devices: keyboard is craft-relative (A/D or left/right rotate, W/S or up/down throttle,
-// Space or J fire). Touch: floating stick on the left half, in the scheme
-// chosen with the on-screen STEER button (remembered per browser), plus a fire button.
+// Shift or K dash, Space or J fire). Touch: floating stick on the left half, in the scheme
+// chosen with the on-screen STEER button (remembered per browser), plus fire and dash buttons.
 import { clientTune } from '../clientTune';
 import { TUNE } from '../../sim/tune';
 import { loadSave, writeSave } from '../save';
@@ -57,6 +57,7 @@ export class Intents {
    * tap event itself, or phones do not open their keyboard.
    */
   textBox: { zone: Zone; field: HTMLInputElement } | null = null;
+  dashButton: Zone | null = null;
   fireButton: Zone | null = null;
   schemeButton: Zone | null = null;
 
@@ -119,6 +120,7 @@ export class Intents {
     if (down && !this.held.has(k)) {
       if (k === ' ' || k === 'j') this.presses.add('primary');
       if (k === 'escape') this.presses.add('pause');
+      if (k === 'shift' || k === 'k') this.presses.add('secondary');
     }
     if (down) this.held.add(k);
     else this.held.delete(k);
@@ -175,6 +177,10 @@ export class Intents {
     const hit = (z: Zone | null): boolean => !!z && Math.abs(x - z.x) <= z.hw && Math.abs(y - z.y) <= z.hh;
     // The text field sits over its box and takes its own taps; a tap anywhere else closes the keyboard.
     if (this.textBox && !hit(this.textBox.zone)) this.textBox.field.blur();
+    if (hit(this.dashButton)) {
+      this.presses.add('secondary');
+      return;
+    }
     if (hit(this.fireButton)) {
       this.firePointer = e.pointerId;
       return;

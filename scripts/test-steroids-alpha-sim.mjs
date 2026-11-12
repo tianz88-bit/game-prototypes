@@ -28,7 +28,7 @@ function rng(seed = 1) {
   let s = seed;
   return () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646;
 }
-const idle = { seq: 0, turn: 0, aim: NaN, thrust: 0, fire: false };
+const idle = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false };
 const near = (a, b, eps, what) => assert(Math.abs(a - b) <= eps, `${what}: ${a} vs ${b}`);
 
 // --- Throttle: accelerate to the maximum, brake to the minimum, never stop. ---
@@ -266,16 +266,19 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   for (const k of ['healthDropChance', 'healthHealFraction', 'pickupLifeSeconds', 'pickupRadius']) delete old.tune.asteroid[k];
   delete old.clientTune.touch.markerThrustCurve;
   old.clientTune.touch.speedBand = 40; // a field the game has since removed
-  Object.assign(old.tune.ship, { dashSpeed: 640, dashDuration: 0.22, dashCooldown: 1.6 }); // dash was removed
-  Object.assign(old.clientTune.touch, { dashButtonRadius: 46, dashButtonMargin: 34 });
-  delete old.clientTune.touch.fireButtonMargin;
+  // Settings published while the dash was removed (12 Nov): no dash fields, an extra fire margin.
+  for (const k of ['dashSpeed', 'dashDuration', 'dashCooldown']) delete old.tune.ship[k];
+  for (const k of ['dashButtonRadius', 'dashButtonMargin']) delete old.clientTune.touch[k];
+  old.clientTune.touch.fireButtonMargin = 34;
+  delete old.clientTune.render.thrusterTopSpeedStretch;
   const up = L.validateConfig(old);
   assert.equal(up.tune.ship.maxHp, 50, 'old hull pool halved');
   assert.equal(up.tune.ship.maxShield, 50, 'the other half becomes shield');
   assert.equal(up.tune.asteroid.healthHealFraction, base.tune.asteroid.healthHealFraction, 'new fields get defaults');
   assert(!('speedBand' in up.clientTune.touch), 'removed fields are dropped');
-  assert(!('dashSpeed' in up.tune.ship) && !('dashButtonRadius' in up.clientTune.touch), 'dash settings are dropped');
-  assert.equal(up.clientTune.touch.fireButtonMargin, base.clientTune.touch.fireButtonMargin);
+  assert.equal(up.tune.ship.dashSpeed, base.tune.ship.dashSpeed, 'dash settings come back from the defaults');
+  assert(!('fireButtonMargin' in up.clientTune.touch), 'the removed fire margin is dropped');
+  assert.equal(up.clientTune.render.thrusterTopSpeedStretch, base.clientTune.render.thrusterTopSpeedStretch);
   assert.deepEqual(L.validateConfig(base), base, 'current settings pass unchanged');
 }
 
@@ -297,11 +300,11 @@ assert.equal(S.cleanName(null), '');
 
 // --- Wire format round trips. ---
 {
-  const input = { seq: 77, turn: -0.5, aim: NaN, thrust: 1, fire: true };
+  const input = { seq: 77, turn: -0.5, aim: NaN, thrust: 1, dash: true, fire: true };
   const back = S.decodeClient(S.encodeInput(input)).input;
   assert.deepEqual({ ...back, aim: 0 }, { ...input, aim: 0 });
   assert(Number.isNaN(back.aim));
-  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, hp: 40, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41 };
+  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashTime: 0, dashCd: 0.5, hp: 40, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41 };
   assert.deepEqual(S.decodeServer(S.encodeSnapshot(1234, 55, [ship])), { type: S.MSG.SNAPSHOT, tick: 1234, ackSeq: 55, ships: [ship] });
   const rockRec = { id: 3, size: 1, x: 10.5, y: 20.25, vx: -30, vy: 12.5, t0: 900, hp: 30 };
   assert.deepEqual(S.decodeServer(S.encodeAsteroids([rockRec])).asteroids, [rockRec]);
@@ -389,6 +392,35 @@ assert.equal(S.cleanName(null), '');
   small.spawn({ ...origins[0], particleScale: 0.375 }, true);
   near(small.particles[0].w / big.particles[0].w, 0.375, 1e-12, 'particles scale with the craft');
   near(small.particles[0].vy / big.particles[0].vy, 0.375, 1e-12, 'particle speed scales with the craft');
+  // At top speed both engines run strong and the plume is longer (taller, longer-lived particles).
+  const slow = new ThrusterVFX(() => 0.5);
+  const fast = new ThrusterVFX(() => 0.5);
+  for (let i = 0; i < 30; i++) {
+    slow.update(1 / 60, idleIn, origins, 1);
+    fast.update(1 / 60, { ...idleIn, speedTrail: 1 }, origins, 1);
+  }
+  assert.deepEqual(fast.strong, [true, true], 'top speed keeps both engines strong');
+  const longest = (v) => Math.max(...v.particles.map((p) => p.life));
+  assert(longest(fast) > longest(slow) * 1.5, 'top-speed plume lasts longer');
 }
 
-console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, shield, ramming, health boosts, kill credit and settings upgrade all pass.');
+// --- Dash and top speed: dash holds dashSpeed for dashDuration, then the cap is maxSpeed again. ---
+{
+  const sh = S.newShip(0, 0, 0, tune.ship.maxSpeed);
+  const steps = Math.round(tune.ship.dashDuration * tune.net.tickHz);
+  let x0 = sh.x;
+  S.stepShip(sh, { ...idle, thrust: 1, dash: true }, 1 / tune.net.tickHz, tune);
+  near((sh.x - x0) * tune.net.tickHz, tune.ship.dashSpeed, 1e-6, 'dash moves at dashSpeed');
+  let n = 1;
+  while (sh.dashTime > 0) {
+    S.stepShip(sh, { ...idle, thrust: 1 }, 1 / tune.net.tickHz, tune);
+    n++;
+  }
+  assert(Math.abs(n - steps) <= 1, `dash lasts dashDuration (${n} steps)`);
+  x0 = sh.x;
+  S.stepShip(sh, { ...idle, thrust: 1 }, 1 / tune.net.tickHz, tune);
+  near((sh.x - x0) * tune.net.tickHz, tune.ship.maxSpeed, 1e-6, 'after the dash the cap is maxSpeed');
+  assert(sh.dashCd > 0, 'dash on cooldown');
+}
+
+console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, ramming, health boosts, kill credit and settings upgrade all pass.');

@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-12 claude dash-back
+DID: dash restored (0.5s @450, top 350), shield regen 20%/s, rock outlines now cover hitboxes (fixes "invisible" rams), plume longer near top speed, pilot counts on planet select (GET /planets).
+FILES: sim/* server/src/{room,index}.ts src/{input,net,scenes}/* src/render/{shipView,thrusters}.ts tune.json client.tune.json
+SEAM: protocol 7 (dash back in ShipState/input). ShipView.update(.., boosting) back. ThrusterInput.speedTrail + update(.., trailStretch). New clientTune.render.thrusterTopSpeedStretch.
+CROSS: src/render/thrusters.ts, src/render/shipView.ts, flight.ts rockShape, ../steroids-alpha-lab/ (Dash button back)
+FOR codex: restyle the top-speed plume if you like (speedTrail 0..1 is the input). Live record still has maxSpeed 380 / regen 0.05: needs a republish.
+
 ## 2026-11-12 codex proto/steroids-alpha/hosted-publisher
 DID: owner's calibration is live (ffc177fd2833); hosted owner publisher prepared, closed until Access setup is approved; local publisher stays off.
 FILES: ../steroids-alpha-lab/* server/src/admin*.ts server/src/index.ts server/wrangler.jsonc scripts/test-steroids-live-config.mjs

@@ -10,6 +10,10 @@ export interface ShipState {
   heading: number;
   /** Forward speed in px/s, between ship.minSpeed and ship.maxSpeed. A ship never stops. */
   speed: number;
+  /** Seconds of dash left. */
+  dashTime: number;
+  /** Seconds until dash is available again. */
+  dashCd: number;
   /** Hull points. Changed only by the server; 0 means destroyed. */
   hp: number;
   /** Shield points, taken before the hull. Changed only by the server. */
@@ -32,16 +36,18 @@ export interface ShipInput {
   aim: number;
   /** -1 (brake) .. 1 (accelerate); 0 holds the current speed. */
   thrust: number;
+  /** Dash requested on this step. */
+  dash: boolean;
   /** Fire held on this step. */
   fire: boolean;
 }
 
 export function newShip(x: number, y: number, heading: number, speed: number): ShipState {
-  return { x, y, heading, speed, hp: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0 };
+  return { x, y, heading, speed, dashTime: 0, dashCd: 0, hp: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0 };
 }
 
 export function copyShip(s: ShipState): ShipState {
-  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, hp: s.hp, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots };
+  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots };
 }
 
 /** Advance one fixed step. Mutates and returns s. */
@@ -55,10 +61,16 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune)
   }
   s.heading = angleDelta(s.heading, 0);
 
+  if (input.dash && s.dashCd <= 0) {
+    s.dashTime = tune.ship.dashDuration;
+    s.dashCd = tune.ship.dashCooldown;
+  }
   const thrust = Math.max(-1, Math.min(1, input.thrust));
   s.speed += thrust * (thrust > 0 ? tune.ship.acceleration : tune.ship.braking) * dt;
   s.speed = Math.max(tune.ship.minSpeed, Math.min(tune.ship.maxSpeed, s.speed));
-  const speed = s.speed;
+  const speed = s.dashTime > 0 ? Math.max(tune.ship.dashSpeed, s.speed) : s.speed;
+  s.dashTime = Math.max(0, s.dashTime - dt);
+  s.dashCd = Math.max(0, s.dashCd - dt);
 
   s.x = wrap(s.x + (Math.cos(s.heading) * speed + s.kx) * dt, tune.world.width);
   s.y = wrap(s.y + (Math.sin(s.heading) * speed + s.ky) * dt, tune.world.height);

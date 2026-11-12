@@ -103,8 +103,9 @@ if (DEBUG) {
       splits: () => flight()?.net.splits ?? 0,
       bullets: () => flight()?.net.bullets.length ?? 0,
       status: () => flight()?.net.status ?? 'menu',
-      zones: () => ({ scheme: intents.schemeButton, fire: intents.fireButton }),
+      zones: () => ({ dash: intents.dashButton, scheme: intents.schemeButton, fire: intents.fireButton }),
       menuButtons: () => (game.scene.getScene('menu') as MenuScene).buttons,
+      menuCounts: () => (game.scene.getScene('menu') as MenuScene).countLabels(),
       own: () => flight()?.net.ownRender() ?? null,
       corrections: () => ({ ...(flight()?.net.corrections ?? { snapshots: 0, count: 0, max: 0 }) }),
       resetCorrections: () => {

@@ -7,7 +7,8 @@
     "pingIntervalMs": 1000,
     "correctionDecay": 0.12,
     "snapCorrectionAbove": 250,
-    "remoteTimeoutMs": 1500
+    "remoteTimeoutMs": 1500,
+    "planetCountRefreshMs": 5000
   },
   "touch": {
     "joystickRadius": 64,
@@ -15,8 +16,9 @@
     "markerThrustCurve": 2,
     "schemeButtonWidth": 112,
     "schemeButtonHeight": 30,
-    "fireButtonRadius": 46,
-    "fireButtonMargin": 34
+    "dashButtonRadius": 46,
+    "dashButtonMargin": 34,
+    "fireButtonRadius": 46
   },
   "render": {
     "gridSpacing": 200,
@@ -32,6 +34,7 @@
     "thrusterTurnDegPerSec": 30,
     "thrusterAccel": 30,
     "thrusterHoldMs": 140,
+    "thrusterTopSpeedStretch": 1,
     "shipRingRadius": 190,
     "partTextureMax": 256
   }

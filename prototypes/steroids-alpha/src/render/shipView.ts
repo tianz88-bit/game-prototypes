@@ -7,6 +7,7 @@ import Phaser from 'phaser';
 import { MODULES, depth, layerBrightness, pose, recoilPose, rigAngle } from './shipRig';
 import { CALIBRATION, SHADOW_KEY, partKey } from './shipArt';
 import { clientTune } from '../clientTune';
+import { TUNE } from '../../sim/tune';
 import { ThrusterVFX } from './thrusters';
 import type { NozzleOrigin, ThrusterInput } from './thrusters';
 
@@ -70,9 +71,9 @@ export class ShipView {
 
   /**
    * headingRad uses game convention (0 = +x). timeMs drives idle motion. speed (world units a second)
-   * drives the thrusters: accelerating fires both engines, turning fires the outside one.
+   * and boosting (dash) drive the thrusters: accelerating fires both engines, turning fires the outside one.
    */
-  update(at: ShipPlacement, headingRad: number, timeMs: number, speed: number): void {
+  update(at: ShipPlacement, headingRad: number, timeMs: number, speed: number, boosting: boolean): void {
     this.exhaustGfx.setVisible(at.visible);
     this.container.setVisible(at.visible);
     this.shadow.setVisible(at.visible && at.shadowAlpha > 0.01);
@@ -99,10 +100,14 @@ export class ShipView {
     const t = clientTune.render;
     const accel = this.lastSpeed === null ? 0 : ((speed - this.lastSpeed) / dt) * 1000;
     const degPerSec = (dA / dt) * 1000;
-    if (accel > t.thrusterAccel) this.demandUntil.throttle = timeMs + t.thrusterHoldMs;
+    if (boosting || accel > t.thrusterAccel) this.demandUntil.throttle = timeMs + t.thrusterHoldMs;
     if (degPerSec < -t.thrusterTurnDegPerSec) this.demandUntil.left = timeMs + t.thrusterHoldMs;
     if (degPerSec > t.thrusterTurnDegPerSec) this.demandUntil.right = timeMs + t.thrusterHoldMs;
-    const demand: ThrusterInput = { throttle: timeMs < this.demandUntil.throttle, left: timeMs < this.demandUntil.left, right: timeMs < this.demandUntil.right };
+    // The plume lengthens over the top quarter of the speed range and is longest at max speed or in a dash.
+    const top = TUNE.ship.maxSpeed;
+    const from = top - (top - TUNE.ship.cruiseSpeed) / 2;
+    const speedTrail = boosting ? 1 : Math.max(0, Math.min(1, (speed - from) / Math.max(1, top - 1 - from)));
+    const demand: ThrusterInput = { throttle: timeMs < this.demandUntil.throttle, left: timeMs < this.demandUntil.left, right: timeMs < this.demandUntil.right, speedTrail };
     this.lastSpeed = speed;
     this.lastAngle = angle;
     this.lastTime = timeMs;
@@ -145,7 +150,7 @@ export class ShipView {
 
   /** Exhaust lives in ship-relative units and is drawn at the ship's place and scale on screen. */
   private updateExhaust(dt: number, demand: ThrusterInput, angle: number, timeMs: number, at: ShipPlacement): void {
-    this.exhaust.update(dt, demand, [this.nozzle('engineL', angle, timeMs), this.nozzle('engineR', angle, timeMs)]);
+    this.exhaust.update(dt, demand, [this.nozzle('engineL', angle, timeMs), this.nozzle('engineR', angle, timeMs)], clientTune.render.thrusterTopSpeedStretch);
     const g = this.exhaustGfx;
     g.clear();
     const s = at.scale;

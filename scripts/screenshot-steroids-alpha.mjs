@@ -8,7 +8,7 @@
 //   node scripts/screenshot-steroids-alpha.mjs http://127.0.0.1:4173/prototypes/steroids-alpha/ <output-dir>
 //
 // One desktop client (menu -> Planet A, keyboard) and one phone client (touch joystick
-// and fire button, with 120 ms of simulated round-trip lag) share a planet. Checks that
+// fire and dash buttons, with 120 ms of simulated round-trip lag) share a planet. Checks that
 // each sees the other, that prediction stays in step with the server, and that there are
 // no console errors.
 import assert from 'node:assert/strict';
@@ -174,9 +174,9 @@ try {
   await wait(1400);
   await desk.keyboard.up('w');
   const fast = (await api(desk, () => window.__steroids.own())).speed;
-  assert(fast > 360, `desktop W accelerated to near maximum speed (${fast.toFixed(0)})`);
+  assert(fast > 330, `desktop W accelerated to near maximum speed (${fast.toFixed(0)})`);
 
-  // Phone steers with the joystick (real touch events) toward screen-up.
+  // Phone steers with the joystick (real touch events) toward screen-up, then taps dash.
   const sx = vp.width * 0.25;
   const sy = vp.height * 0.7;
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: sx, y: sy, id: 1 }] });
@@ -190,7 +190,7 @@ try {
   assert(upErr < 0.15, `phone joystick steered toward up (heading ${steered.heading.toFixed(2)})`);
   // Direction marker: a stick pushed most of the way accelerates hard toward the maximum speed.
   assert.equal(await api(phone, () => window.__steroids.scheme()), 'marker');
-  assert(steered.speed > 340, `marker stick pushed far accelerates (${steered.speed.toFixed(0)})`);
+  assert(steered.speed > 320, `marker stick pushed far accelerates (${steered.speed.toFixed(0)})`);
   await phone.screenshot({ path: path.join(outDir, 'phone-joystick.png') });
   // Letting the stick go eases the ship back down to minimum speed.
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
@@ -221,6 +221,13 @@ try {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
   await touchAt(schemeZone, 7);
   await phone.waitForFunction(() => window.__steroids.scheme() === 'marker', null, { timeout: 2000 });
+
+  const dashBtn = (await api(phone, () => window.__steroids.zones())).dash;
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: dashBtn.x, y: dashBtn.y, id: 2 }] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await phone.waitForFunction(() => window.__steroids.own().dashCd > 0, null, { timeout: 2000 });
+  await wait(150);
+  await phone.screenshot({ path: path.join(outDir, 'phone-dash.png') });
 
   // Shooting: the phone makes strafing runs on the nearest asteroid (marker stick plus the fire
   // button held) until one is shot down and splits. Both clients must see the split.
