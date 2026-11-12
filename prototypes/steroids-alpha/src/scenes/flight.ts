@@ -7,7 +7,8 @@ import { TUNE } from '../../sim/tune';
 import { PLANETS } from '../../sim/planets';
 import type { PlanetId } from '../../sim/planets';
 import { maxShield, shipRadius } from '../../sim/ship';
-import { TURRET_MOUNTS, turretCount } from '../../sim/turrets';
+import { TURRET_MOUNTS } from '../../sim/turrets';
+import { SHOP_ITEMS, canBuy, shopOffer, shopTier } from '../../sim/shop';
 import type { ShipState } from '../../sim/ship';
 import { wrapDelta } from '../../sim/wrap';
 import { DEBUG, DEBUG_ROTATION, logicalSize } from '../base';
@@ -48,12 +49,14 @@ export class FlightScene extends Phaser.Scene {
   private shipAt = new Map<number, { x: number; y: number }>();
   /** Shield hits shown so far (test hook). */
   shieldHitCount = 0;
+  ramCount = 0;
   /** Name tags under ships, by ship id. */
   private tags = new Map<number, Phaser.GameObjects.Text>();
   /** Leaderboard chips by ship id; each slides to its rank's position. */
   private board = new Map<number, BoardChip>();
   private boardTitle!: Phaser.GameObjects.Text;
   private powerText!: Phaser.GameObjects.Text;
+  private shopTexts: { title: Phaser.GameObjects.Text; sub: Phaser.GameObjects.Text }[] = [];
   /** Turrets, drawn over the ships. Aim per ship and turret comes from the shots the server reports. */
   private turretGfx!: Phaser.GameObjects.Graphics;
   private turretAim = new Map<number, { angle: number[]; firedAt: number[] }>();
@@ -87,6 +90,7 @@ export class FlightScene extends Phaser.Scene {
       intents.dashButton = null;
       intents.schemeButton = null;
       intents.fireButton = null;
+      intents.shopZones = [];
     });
     intents.drainTaps();
   }
@@ -110,6 +114,10 @@ export class FlightScene extends Phaser.Scene {
     this.message = text(this, w / 2, logicalSize().h * 0.3, '', 18, '#ffffff').setOrigin(0.5).setDepth(950);
     this.boardTitle = text(this, 0, 0, 'POWER', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
     this.powerText = text(this, 0, 0, '', 11, '#ffd98a').setOrigin(0.5, 1).setDepth(950).setVisible(false);
+    this.shopTexts = SHOP_ITEMS.map(() => ({
+      title: text(this, 0, 0, '', 12, '#ffffff').setOrigin(0, 0.5).setDepth(951).setVisible(false),
+      sub: text(this, 0, 0, '', 10, '#c9d6f2').setOrigin(0, 0.5).setDepth(951).setVisible(false),
+    }));
     versionStamp(this);
   }
 
@@ -123,7 +131,14 @@ export class FlightScene extends Phaser.Scene {
       intents.consume('pause'); // No leaving during lockdown; warp-out comes in milestone 3.
     }
     if (intents.consume('scheme')) intents.toggleScheme();
-    this.net.update({ ...intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed), dash, fire: intents.fire });
+    const heading = this.net.predicted?.heading ?? 0;
+    this.net.update({ ...intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed), dash, dashAim: dash ? intents.dashAim(heading) : NaN, fire: intents.fire });
+    // Shop: each tap asks the server for the tier on offer now; the server checks power and price.
+    for (const item of intents.consumeBuys()) {
+      const p = this.net.predicted;
+      const name = SHOP_ITEMS[item];
+      if (p && name && shopOffer(p, name, TUNE)) this.net.buy(item, shopTier(p, name));
+    }
 
     const { w, h } = logicalSize();
     const own = this.net.ownRender();
@@ -178,7 +193,11 @@ export class FlightScene extends Phaser.Scene {
           this.shieldHitCount++;
         }
       }
-      else if (f.kind === 'mineral') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 18, ms: 260, colour: 0xffc14a });
+      else if (f.kind === 'ram') {
+        this.ramCount++;
+        this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 70, ms: 380, colour: 0xffa04a });
+        this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 34, ms: 200, colour: 0xffffff });
+      } else if (f.kind === 'mineral') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 18, ms: 260, colour: 0xffc14a });
       else if (f.kind === 'heal') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: TUNE.asteroid.pickupRadius, ms: 400, colour: 0x7dff9a });
       else this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.kind === 'burst' ? TUNE.asteroid.radius[f.size] : 9, ms: f.kind === 'burst' ? 320 : 110, colour: 0xffe2b0 });
     }
@@ -269,7 +288,7 @@ export class FlightScene extends Phaser.Scene {
    * fired and, after a quiet second, swings back to face forward. A short flash marks each shot.
    */
   private drawTurrets(id: number, s: ShipState, at: { x: number; y: number; scale: number; visible: boolean }): void {
-    const n = turretCount(s.hp, TUNE);
+    const n = Math.min(TURRET_MOUNTS.length, s.turrets);
     if (!n || !at.visible) return;
     let aim = this.turretAim.get(id);
     if (!aim) this.turretAim.set(id, (aim = { angle: [], firedAt: [] }));
@@ -305,6 +324,42 @@ export class FlightScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Shop, top left: one-tap buttons (keyboard 1/2/3) for the next tier of each upgrade: its tier n/4,
+   * the power it needs and its price in minerals. Bright when you can buy it, dim when you can't.
+   */
+  private drawShop(p: ShipState | null): void {
+    const g = this.overlay;
+    const show = !!p && !this.net.death;
+    for (const t of this.shopTexts) {
+      t.title.setVisible(show);
+      t.sub.setVisible(show);
+    }
+    intents.shopZones = [];
+    if (!p || !show) return;
+    const labels: Record<string, string> = { turret: 'TURRET', shield: 'SHIELD', damage: 'GUNS' };
+    const x = 10;
+    const bw = 150;
+    const bh = 36;
+    SHOP_ITEMS.forEach((item, i) => {
+      const y = 38 + i * (bh + 6);
+      const offer = shopOffer(p, item, TUNE);
+      const can = canBuy(p, item, TUNE);
+      g.fillStyle(can ? 0x1d3a2a : 0x151c2c, 0.85);
+      g.fillRoundedRect(x, y, bw, bh, 8);
+      g.lineStyle(1.5, can ? 0x7dff9a : 0x3d4a66, can ? 0.95 : 0.8);
+      g.strokeRoundedRect(x, y, bw, bh, 8);
+      const key = intents.touch ? '' : `[${i + 1}] `;
+      const t = this.shopTexts[i];
+      t.title.setPosition(x + 10, y + 11).setText(`${key}${labels[item]} ${shopTier(p, item)}/4`).setColor(can ? '#ffffff' : '#8fa2c8');
+      t.sub
+        .setPosition(x + 10, y + 25)
+        .setText(offer ? `needs ${offer.floor} · costs ${offer.cost}` : 'maxed')
+        .setColor(can ? '#bfffd0' : '#6d7a96');
+      intents.shopZones.push({ item: i, zone: { x: x + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
+    });
+  }
+
   private drawTouch(w: number, h: number): void {
     const g = this.overlay;
     g.clear();
@@ -317,7 +372,7 @@ export class FlightScene extends Phaser.Scene {
       const bw = Math.min(220, w * 0.5);
       this.hullPeak = Math.max(this.hullPeak, p.hp, TUNE.ship.maxHp);
       const hull = Math.max(0, Math.min(1, p.hp / this.hullPeak));
-      const shield = Math.max(0, Math.min(1, p.shield / maxShield(p.hp, TUNE)));
+      const shield = Math.max(0, Math.min(1, p.shield / maxShield(p, TUNE)));
       const capped = p.hp >= TUNE.ship.powerCap;
       this.powerText.setPosition(w / 2, h - 30).setText(capped ? `POWER ${Math.round(p.hp)}  MAX` : `POWER ${Math.round(p.hp)}`);
       g.fillStyle(0x000000, 0.45);
@@ -327,7 +382,16 @@ export class FlightScene extends Phaser.Scene {
       g.fillRect(w / 2 - bw / 2, h - 27, bw * shield, 6);
       g.fillStyle(hull > 0.35 ? 0x6fe08a : 0xff6b5a, 0.95);
       g.fillRect(w / 2 - bw / 2, h - 16, bw * hull, 8);
+      // Gun heat: a short upright bar right of the health bars; red and flashing while locked.
+      const hx = w / 2 + bw / 2 + 8;
+      g.fillStyle(0x000000, 0.45);
+      g.fillRect(hx, h - 27, 6, 19);
+      const hot = p.overheated;
+      const flash = hot && Math.floor(this.time.now / 150) % 2 === 0;
+      g.fillStyle(hot ? (flash ? 0xffffff : 0xff4a3a) : p.heat > 0.7 ? 0xff8a3a : 0xffc14a, 0.95);
+      g.fillRect(hx, h - 8 - 19 * p.heat, 6, 19 * p.heat);
     }
+    this.drawShop(p);
     this.schemeLabel.setVisible(intents.touch);
     if (!intents.touch) {
       intents.dashButton = null;

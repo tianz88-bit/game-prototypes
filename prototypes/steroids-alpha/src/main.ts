@@ -7,6 +7,8 @@ import { RotateScene } from './scenes/rotate';
 import { FlightScene } from './scenes/flight';
 import { mountDebugPanelIfRequested } from './debug/debugPanel';
 import { shipArtStatus } from './render/shipArt';
+import { TUNE } from '../sim/tune';
+import { topSpeed } from '../sim/ship';
 
 // The pixel buffer is logical size x DPR; Scale zoom of 1/DPR shows it at CSS size,
 // and every scene's camera zoom of DPR maps logical coordinates back onto it.
@@ -94,6 +96,7 @@ if (DEBUG) {
       pickups: () => flight()?.net.pickups.size ?? 0,
       pickupList: () => [...(flight()?.net.pickups.values() ?? [])],
       shieldHits: () => flight()?.shieldHitCount ?? 0,
+      rams: () => flight()?.ramCount ?? 0,
       /** Debug only: an explosion at your ship, to review the effect. */
       boom: () => flight()?.debugExplosion(),
       /** Debug only: a blocked hit on your ship, to review the shield effect. */
@@ -109,6 +112,8 @@ if (DEBUG) {
       menuCounts: () => (game.scene.getScene('menu') as MenuScene).countLabels(),
       shareBox: () => (game.scene.getScene('menu') as MenuScene).shareBox,
       own: () => flight()?.net.ownRender() ?? null,
+      /** Your ship's top speed now (power lowers it). */
+      topSpeed: () => { const o = flight()?.net.predicted; return o ? topSpeed(o.hp, TUNE) : 0; },
       corrections: () => ({ ...(flight()?.net.corrections ?? { snapshots: 0, count: 0, max: 0 }) }),
       resetCorrections: () => {
         const n = flight()?.net;

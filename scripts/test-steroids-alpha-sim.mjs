@@ -14,6 +14,7 @@ const tmp = mkdtempSync(path.join(os.tmpdir(), 'steroids-sim-'));
 const entry = `export * from ${JSON.stringify(path.join(sim, 'world.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'ship.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'turrets.ts'))};
+export * from ${JSON.stringify(path.join(sim, 'shop.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'asteroids.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'protocol.ts'))};
 export * as thrusters from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/src/render/thrusters.ts'))};
@@ -23,13 +24,16 @@ await build({ stdin: { contents: entry, resolveDir: sim, loader: 'ts' }, bundle:
 const S = await import(pathToFileURL(path.join(tmp, 'sim.mjs')).href);
 rmSync(tmp, { recursive: true, force: true });
 const tune = JSON.parse(readFileSync(path.join(root, 'prototypes/steroids-alpha/tune.json'), 'utf8'));
+// Shots fly straight in most cases below; the aim assist has its own section.
+const assistTune = structuredClone(tune);
+tune.weapon.assistMaxDeg = 0;
 const dt = 1 / tune.net.tickHz;
 
 function rng(seed = 1) {
   let s = seed;
   return () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646;
 }
-const idle = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false };
+const idle = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN };
 const near = (a, b, eps, what) => assert(Math.abs(a - b) <= eps, `${what}: ${a} vs ${b}`);
 
 // --- Throttle: accelerate to the maximum, brake to the minimum, never stop. ---
@@ -259,7 +263,7 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   assert(!w2.pickups.has(10), 'expires when nobody takes it');
 }
 
-// --- Power: minerals are hull; each also raises the shield maximum; capped. ---
+// --- Power: minerals are hull, capped; shield maximum and gun damage come from the shop. ---
 {
   const sh = tune.ship;
   const w = emptyWorld();
@@ -267,19 +271,21 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   w.pickups.set(1, { id: 1, x: s.x, y: s.y, kind: 'mineral', value: 40, from: 0, lockedUntil: 0, expires: w.tick + 100 });
   w.step();
   assert.equal(s.hp, sh.maxHp + 40, 'minerals add hull');
-  assert.equal(S.maxShield(s.hp, tune), sh.maxShield + 40, 'and raise the shield maximum');
-  assert.equal(s.shield, sh.maxShield + 40, 'and fill that much shield');
+  assert.equal(S.maxShield(s, tune), sh.maxShield, 'but do not raise the shield maximum');
   w.pickups.set(2, { id: 2, x: s.x, y: s.y, kind: 'mineral', value: 100000, from: 0, lockedUntil: 0, expires: w.tick + 100 });
   w.step();
   assert.equal(s.hp, sh.powerCap, 'hull stops at the power cap');
-  assert.equal(S.maxShield(s.hp, tune), sh.maxShield + sh.powerCap - sh.maxHp);
   // Scaling: nothing at the start, full effect at the cap, square-root growth in between.
   assert.equal(S.powerLevel(sh.maxHp, tune), 0);
   assert.equal(S.powerLevel(sh.powerCap, tune), 1);
   near(S.powerLevel(sh.maxHp + (sh.powerCap - sh.maxHp) / 4, tune), 0.5, 1e-9, 'diminishing returns');
   near(S.topSpeed(sh.powerCap, tune), sh.maxSpeed * (1 - sh.speedPenaltyAtCap), 1e-9, 'capped ship is slower');
   near(S.shipRadius(sh.powerCap, tune), sh.radius * (1 + sh.radiusBonusAtCap), 1e-9, 'and bigger');
-  near(S.damageScale(sh.powerCap, tune), 1 + sh.damageBonusAtCap, 1e-9, 'and hits harder');
+  near(S.damageScale(s, tune), 1, 1e-9, 'power alone does not raise damage');
+  s.shieldTier = 2;
+  s.damageTier = 3;
+  assert.equal(S.maxShield(s, tune), sh.maxShield + 2 * tune.shop.shieldPerTier, 'shield tiers raise the maximum');
+  near(S.damageScale(s, tune), 1 + 3 * tune.shop.damagePerTier, 1e-9, 'damage tiers raise damage');
   // A capped ship cannot reach the old top speed.
   const fast = S.newShip(0, 0, 0, sh.maxSpeed);
   fast.hp = sh.powerCap;
@@ -291,7 +297,7 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   // Regen is a share of the (bigger) maximum: one quiet second refills shieldRegenPerSecond of it.
   s.shield = 0;
   for (let i = 0; i < tune.net.tickHz; i++) w.step();
-  near(s.shield, S.maxShield(s.hp, tune) * sh.shieldRegenPerSecond, S.maxShield(s.hp, tune) * 0.05, 'regen is a % of max shield');
+  near(s.shield, S.maxShield(s, tune) * sh.shieldRegenPerSecond, S.maxShield(s, tune) * 0.05, 'regen is a % of max shield');
 }
 
 // --- Spills: hull damage spills minerals the victim cannot take straight back; death spills a share of all. ---
@@ -321,38 +327,61 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   assert(added.every((k) => k.kind === 'mineral'));
   // b was locked out of its own spill (it never grew back while being shot).
   assert(w.pickups.size > 0);
-  // Bullets of a bigger ship hit harder.
+  // Bullets of a ship with bought damage tiers hit harder.
   const w2 = emptyWorld();
   const big = placeShip(w2, 1, 1000, 1000, 0);
   const tgt = placeShip(w2, 2, 1200, 1000, Math.PI / 2);
-  big.hp = sh.powerCap;
-  tgt.hp = sh.powerCap;
-  const full = S.maxShield(tgt.hp, tune);
+  big.damageTier = 4;
+  tgt.shieldTier = 4;
+  const full = S.maxShield(tgt, tune);
   tgt.shield = full;
   for (let i = 0; i < 60 && tgt.shield === full; i++) {
     big.x = 1000; big.y = 1000; big.heading = 0; tgt.x = 1200; tgt.y = 1000;
     w2.stepShip(1, { ...idle, fire: true });
     w2.step();
   }
-  near(full - tgt.shield, tune.weapon.damage * (1 + sh.damageBonusAtCap), 1e-6, 'capped damage per hit');
+  near(full - tgt.shield, tune.weapon.damage * (1 + 4 * tune.shop.damagePerTier), 1e-6, 'damage per hit with 4 damage tiers');
 }
 
-// --- Turrets: one per massPerTurret above the start, max 4; capped turning; range; weak shots. ---
+// --- Turret shop: tier i needs floors[i] power and costs costs[i] minerals; 4 at most. Then turrets
+// turn at a capped rate, keep to their range, prefer ships, and do turret.damage. ---
 {
   const tt = tune.turret;
   const base = tune.ship.maxHp;
-  assert.equal(S.turretCount(base, tune), 0, 'a fresh ship has no turrets');
-  assert.equal(S.turretCount(base + tt.massPerTurret - 1, tune), 0);
-  assert.equal(S.turretCount(base + tt.massPerTurret, tune), 1, 'first turret at massPerTurret');
-  assert.equal(S.turretCount(base + 3 * tt.massPerTurret, tune), 3);
-  assert.equal(S.turretCount(100000, tune), 4, 'caps at 4');
+  {
+    const sp = tune.shop;
+    const w = emptyWorld();
+    const s = placeShip(w, 1, 1000, 1000, 0);
+    assert.equal(s.turrets, 0, 'a fresh ship has no turrets');
+    assert.equal(w.buy(1, 0, 0), false, 'below the floor: no sale');
+    s.hp = sp.turretFloors[0];
+    assert.equal(w.buy(1, 0, 1), false, 'wrong tier (a stale or repeated tap): no sale');
+    assert.equal(w.buy(1, 0, 0), true, 'at the floor: sold');
+    assert.equal(s.hp, sp.turretFloors[0] - sp.turretCosts[0], 'paid in minerals (hull)');
+    assert.equal(s.turrets, 1);
+    assert.equal(w.buy(1, 0, 0), false, 'the same tap again buys nothing');
+    s.hp = 100000;
+    for (let tier = 1; tier < 4; tier++) assert.equal(w.buy(1, 0, tier), true);
+    assert.equal(s.turrets, 4);
+    assert.equal(w.buy(1, 0, 4), false, '4 at most');
+    // Shield and gun upgrades work the same way, each on its own tier track.
+    for (let tier = 0; tier < 4; tier++) assert.equal(w.buy(1, 1, tier), true);
+    for (let tier = 0; tier < 4; tier++) assert.equal(w.buy(1, 2, tier), true);
+    assert.deepEqual([s.shieldTier, s.damageTier], [4, 4]);
+    assert.equal(w.buy(1, 3, 0), false, 'unknown item');
+    // The shield refills up to its new maximum over time.
+    s.shield = 0;
+    for (let i = 0; i < tune.net.tickHz * 6; i++) w.step();
+    assert.equal(s.shield, S.maxShield(s, tune), 'shield refills to the bought maximum');
+  }
   // One turret, a rock just inside range behind the ship: the turret turns at its capped rate, then fires.
   const w = emptyWorld();
   const s = placeShip(w, 1, 1000, 1000, 0);
   s.speed = 0;
   w.tune.ship.minSpeed = 0;
-  s.hp = base + tt.massPerTurret;
-  s.shield = S.maxShield(s.hp, tune);
+  s.hp = base;
+  s.turrets = 1;
+  s.shield = S.maxShield(s, tune);
   const mount = S.turretPosition(s, 0, tune);
   const target = rock(w, 0, mount.x - (tt.range + tune.asteroid.radius[0] - 20), mount.y, 0, 0, 1000);
   const shots = [];
@@ -373,7 +402,7 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   const s2 = placeShip(w2, 1, 1000, 1000, 0);
   s2.speed = 0;
   w2.tune.ship.minSpeed = 0;
-  s2.hp = base + tt.massPerTurret;
+  s2.turrets = 1;
   rock(w2, 2, 1000, 1000 + tt.range + tune.asteroid.radius[2] + 60, 0, 0, 1000);
   let fired = 0;
   for (let i = 0; i < 90; i++) {
@@ -388,7 +417,7 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   const b = placeShip(w3, 2, 1000, 1250, 0);
   a.speed = b.speed = 0;
   w3.tune.ship.minSpeed = 0;
-  a.hp = base + tt.massPerTurret;
+  a.turrets = 1;
   rock(w3, 0, 1000, 760, 0, 0, 1000);
   const full = b.shield;
   const shots3 = [];
@@ -401,6 +430,94 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   }
   assert(shots3.length && shots3.every((x) => x.vy > 0), 'turret prefers the enemy ship over a rock');
   near(full - b.shield, tt.damage, 1e-9, 'turret shots do turret.damage');
+}
+
+// --- Aim assist: shots bend toward a target in the cone, at most assistMaxDeg; ships before rocks. ---
+{
+  const t = assistTune;
+  const w0 = t.weapon;
+  const dir = 0;
+  const deg = (r) => (r * 180) / Math.PI;
+  const at = (angleDeg, dist) => ({ x: 1000 + Math.cos((angleDeg * Math.PI) / 180) * dist, y: 1000 + Math.sin((angleDeg * Math.PI) / 180) * dist });
+  near(S.assistDirection(1000, 1000, dir, [], t), 0, 1e-12, 'nothing to aim at: straight');
+  near(deg(S.assistDirection(1000, 1000, dir, [{ ...at(3, 300), ship: false }], t)), 3, 1e-9, 'small offsets are corrected fully');
+  near(deg(S.assistDirection(1000, 1000, dir, [{ ...at(w0.assistConeDeg - 1, 300), ship: false }], t)), w0.assistMaxDeg, 1e-9, 'bending is capped');
+  near(S.assistDirection(1000, 1000, dir, [{ ...at(w0.assistConeDeg + 2, 300), ship: true }], t), 0, 1e-12, 'outside the cone: ignored');
+  near(S.assistDirection(1000, 1000, dir, [{ ...at(2, w0.assistRange + 50), ship: true }], t), 0, 1e-12, 'out of range: ignored');
+  near(deg(S.assistDirection(1000, 1000, dir, [{ ...at(1, 200), ship: false }, { ...at(-4, 400), ship: true }], t)), -4, 1e-9, 'a ship wins over a closer rock');
+}
+
+// --- Overheat: firing heats the guns; at full they lock until cooled to unlockHeat. ---
+{
+  const w0 = tune.weapon;
+  const dt = 1 / tune.net.tickHz;
+  const sh = S.newShip(0, 0, 0, tune.ship.cruiseSpeed);
+  sh.hp = tune.ship.maxHp;
+  let shots = 0;
+  let steps = 0;
+  while (!sh.overheated && steps < 600) {
+    const before = sh.shots;
+    S.stepShip(sh, { ...idle, fire: true }, dt, tune);
+    if (sh.shots !== before) shots++;
+    steps++;
+  }
+  assert(sh.overheated, 'holding fire overheats');
+  const seconds = steps * dt;
+  assert(seconds > 1.5 && seconds < 2.6, `about 2 s of fire to overheat (${seconds.toFixed(2)} s, ${shots} shots)`);
+  // Locked: no shots until heat is back down to unlockHeat.
+  const lockedAt = sh.shots;
+  let lockSteps = 0;
+  while (sh.overheated && lockSteps < 600) {
+    S.stepShip(sh, { ...idle, fire: true }, dt, tune);
+    lockSteps++;
+  }
+  assert(sh.shots - lockedAt <= 1, 'no shots while overheated (the step it unlocks may fire)');
+  near(lockSteps * dt, (1 - w0.unlockHeat) / w0.coolPerSecond, 2 * dt, 'lock lasts until cooled to unlockHeat');
+  // Short bursts never lock.
+  const b = S.newShip(0, 0, 0, tune.ship.cruiseSpeed);
+  for (let i = 0; i < 30 * tune.net.tickHz; i++) S.stepShip(b, { ...idle, fire: i % 60 < 20 }, dt, tune);
+  assert(!b.overheated, 'bursts with pauses stay cool');
+}
+
+// --- Aimed dash: the nose snaps to dashAim as the dash starts; NaN dashes straight on. ---
+{
+  const dt = 1 / tune.net.tickHz;
+  const a = S.newShip(0, 0, 0, tune.ship.cruiseSpeed);
+  S.stepShip(a, { ...idle, dash: true, dashAim: Math.PI }, dt, tune);
+  near(Math.abs(a.heading), Math.PI, 1e-6, 'a 180 in one step');
+  const x0 = a.x;
+  S.stepShip(a, idle, dt, tune);
+  assert(a.x < x0, 'and it dashes the new way');
+  const b = S.newShip(0, 0, 0.3, tune.ship.cruiseSpeed);
+  S.stepShip(b, { ...idle, dash: true }, dt, tune);
+  near(b.heading, 0.3, 1e-9, 'no aim: straight ahead');
+  // No dash (cooldown): the aim does nothing.
+  S.stepShip(a, { ...idle, dash: true, dashAim: 0 }, dt, tune);
+  near(Math.abs(a.heading), Math.PI, 1e-6, 'aim ignored while the dash is cooling down');
+}
+
+// --- Dash ram: once per dash, scaled damage to the target, a bump to the rammer, both pushed apart. ---
+{
+  const w = emptyWorld();
+  const a = placeShip(w, 1, 1000, 1000, 0);
+  const b = placeShip(w, 2, 1000 + 3 * tune.ship.radius, 1000, 0);
+  a.speed = b.speed = tune.ship.minSpeed;
+  const bFull = b.hp + b.shield;
+  const aFull = a.hp + a.shield;
+  let rams = [];
+  for (let i = 0; i < 10; i++) {
+    w.stepShip(1, { ...idle, dash: i === 0 });
+    w.stepShip(2, idle);
+    w.step();
+    rams.push(...w.drain().rams);
+  }
+  assert.equal(rams.length, 1, 'one ram per dash');
+  assert.deepEqual([rams[0].id, rams[0].target], [1, 2]);
+  near(bFull - (b.hp + b.shield), tune.ship.dashRamDamage, 1e-6, 'ram damage to the target');
+  near(aFull - (a.hp + a.shield), tune.ship.dashRamSelfDamage, 1e-6, 'a bump to the rammer');
+  assert(b.kx > 0 && a.kx <= 0, 'pushed apart');
+  // Gun upgrades make rams hit harder too.
+  near(S.damageScale({ ...a, damageTier: 2 }, tune), 1 + 2 * tune.shop.damagePerTier, 1e-9);
 }
 
 // --- Older published live settings upgrade: missing fields filled; the hull pool split into hull + shield. ---
@@ -419,6 +536,8 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   old.clientTune.touch.fireButtonMargin = 34;
   delete old.clientTune.render.thrusterTopSpeedStretch;
   delete old.tune.turret; // published before turrets existed
+  for (const k of ['heatPerShot', 'coolPerSecond', 'unlockHeat']) delete old.tune.weapon[k];
+  for (const k of ['dashRamDamage', 'dashRamSelfDamage']) delete old.tune.ship[k];
   const up = L.validateConfig(old);
   assert.equal(up.tune.ship.maxHp, 50, 'old hull pool halved');
   assert.equal(up.tune.ship.maxShield, 50, 'the other half becomes shield');
@@ -428,6 +547,15 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   assert(!('fireButtonMargin' in up.clientTune.touch), 'the removed fire margin is dropped');
   assert.equal(up.clientTune.render.thrusterTopSpeedStretch, base.clientTune.render.thrusterTopSpeedStretch);
   assert.deepEqual(up.tune.turret, base.tune.turret, 'turret settings come from the defaults');
+  assert.equal(up.tune.weapon.heatPerShot, base.tune.weapon.heatPerShot, 'overheat settings come from the defaults');
+  // A record from the auto-turret days (massPerTurret, max) loses those and gains the shop tiers.
+  const auto = structuredClone(base);
+  auto.tune.turret = { massPerTurret: 100, max: 4, ...base.tune.turret };
+  auto.tune.ship.damageBonusAtCap = 2; // power used to scale damage
+  delete auto.tune.shop;
+  const upAuto = L.validateConfig(auto);
+  assert(!('massPerTurret' in upAuto.tune.turret) && !('damageBonusAtCap' in upAuto.tune.ship), 'old power-scaling settings are dropped');
+  assert.deepEqual(upAuto.tune.shop, base.tune.shop, 'the shop comes from the defaults');
   assert.deepEqual(L.validateConfig(base), base, 'current settings pass unchanged');
 }
 
@@ -449,11 +577,13 @@ assert.equal(S.cleanName(null), '');
 
 // --- Wire format round trips. ---
 {
-  const input = { seq: 77, turn: -0.5, aim: NaN, thrust: 1, dash: true, fire: true };
+  const input = { seq: 77, turn: -0.5, aim: NaN, thrust: 1, dash: true, fire: true, dashAim: -2.5 };
   const back = S.decodeClient(S.encodeInput(input)).input;
   assert.deepEqual({ ...back, aim: 0 }, { ...input, aim: 0 });
   assert(Number.isNaN(back.aim));
-  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashTime: 0, dashCd: 0.5, hp: 40, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41 };
+  assert(Number.isNaN(S.decodeClient(S.encodeInput({ ...input, dashAim: 99 })).input.dashAim), 'bad dash aims are dropped');
+  assert.deepEqual(S.decodeClient(S.encodeBuy(0, 2)), { type: S.MSG.BUY, item: 0, tier: 2 });
+  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashTime: 0, dashCd: 0.5, hp: 40, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1 };
   assert.deepEqual(S.decodeServer(S.encodeSnapshot(1234, 55, [ship])), { type: S.MSG.SNAPSHOT, tick: 1234, ackSeq: 55, ships: [ship] });
   const rockRec = { id: 3, size: 1, x: 10.5, y: 20.25, vx: -30, vy: 12.5, t0: 900, hp: 30 };
   assert.deepEqual(S.decodeServer(S.encodeAsteroids([rockRec])).asteroids, [rockRec]);
@@ -578,4 +708,4 @@ assert.equal(S.cleanName(null), '');
   assert(sh.dashCd > 0, 'dash on cooldown');
 }
 
-console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, minerals, spills, turrets, ramming, health boosts, kill credit and settings upgrade all pass.');
+console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, minerals, spills, turret shop, overheat, aim assist, aimed dash, dash ram, ramming, health boosts, kill credit and settings upgrade all pass.');

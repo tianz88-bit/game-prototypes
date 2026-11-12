@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-12 claude shop-overheat
+DID: shop (turret/shield/guns, 4 tiers each, power floor + mineral cost; top-left one-tap buttons, keys 1/2/3), gun overheat (+damage 16), aim assist cone, aimed dash, dash ram. Power no longer scales damage/shield. QR now uses the repo's qrcode lib (own encoder removed).
+FILES: sim/{ship,shop,turrets,world,protocol,liveConfig}.ts server/src/room.ts src/{input/intents,net/client,scenes/flight,scenes/menu,main,liveConfig}.ts tune.json
+SEAM: protocol 11. ShipState + heat, overheated, turrets, shieldTier, damageTier. ShipInput + dashAim. maxShield/damageScale take ShipState. Fx kind 'ram'. New tune groups shop, weapon.assist*/heat*.
+CROSS: ../steroids-alpha-lab (preview dashAim, Shop group); src/render untouched.
+FOR codex: placeholders to style: shop buttons, heat bar, ram ring. Ship could show shield/gun tiers visually.
+
 ## 2026-11-12 claude damage-balance
 DID: gun damage 12 (was 10), damage at power cap 3x (was 2x); published live db8d064d62a4.
 FILES: tune.json scripts/test-steroids-alpha-sim.mjs

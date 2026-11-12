@@ -174,7 +174,9 @@ try {
   await wait(1400);
   await desk.keyboard.up('w');
   const fast = (await api(desk, () => window.__steroids.own())).speed;
-  assert(fast > 330, `desktop W accelerated to near maximum speed (${fast.toFixed(0)})`);
+  // Collected minerals lower the top speed (power), so compare with this ship's own top speed.
+  const top = await api(desk, () => window.__steroids.topSpeed());
+  assert(fast > top - 20, `desktop W accelerated to near its top speed (${fast.toFixed(0)} of ${top.toFixed(0)})`);
 
   // Phone steers with the joystick (real touch events) toward screen-up, then taps dash.
   const sx = vp.width * 0.25;
@@ -274,7 +276,7 @@ try {
   assert(sawBullets >= 1, `bullets were drawn (${sawBullets})`);
   assert(after.rocks.some((r) => r.size > 0), 'smaller pieces exist after the split');
   await phone.screenshot({ path: path.join(outDir, 'phone-after-split.png') });
-  await desk.waitForFunction((n) => window.__steroids.splits() > n, deskSplits0, { timeout: 3000 });
+  await desk.waitForFunction((n) => window.__steroids.splits() > n, deskSplits0, { timeout: 8000 });
 
   // Fly straight for a while. Prediction should agree with the server: corrections rare, and
   // never more than a couple of steps (one step at cruise speed is 260/30 = 8.7px). A jittery

@@ -3,11 +3,12 @@
 // The room steps each ship with its input, then calls step() once per tick and sends out the events.
 import type { Tune } from './tune';
 import { damageScale, maxShield, muzzleShot, newShip, shipRadius, stepShip } from './ship';
-import type { ShipInput, ShipState } from './ship';
+import type { AssistTarget, ShipInput, ShipState } from './ship';
 import { asteroidMass, asteroidPos, splitAsteroid } from './asteroids';
 import type { Asteroid } from './asteroids';
 import { wrap, wrapDelta, angleDelta } from './wrap';
-import { TURRET_SIDE, turretCount, turretPosition } from './turrets';
+import { TURRET_SIDE, turretPosition } from './turrets';
+import { SHOP_ITEMS, buy } from './shop';
 
 interface Bullet {
   owner: number;
@@ -62,9 +63,11 @@ export interface WorldEvents {
   /** Health boosts dropped, and boosts taken (by = ship id) or expired (by = 0). */
   pickups: Pickup[];
   pickupsGone: { id: number; by: number }[];
+  /** Dash rams: who rammed whom, and where they met. */
+  rams: { id: number; target: number; x: number; y: number }[];
 }
 
-const noEvents = (): WorldEvents => ({ asteroids: [], gone: [], shots: [], deaths: [], hits: [], pickups: [], pickupsGone: [] });
+const noEvents = (): WorldEvents => ({ asteroids: [], gone: [], shots: [], deaths: [], hits: [], pickups: [], pickupsGone: [], rams: [] });
 
 export class World {
   tick = 0;
@@ -79,6 +82,8 @@ export class World {
   private nextPickupId = 1;
   /** Turret aim (radians, world) and steps until each can fire again, per ship. */
   private turrets = new Map<number, { angle: number[]; cd: number[] }>();
+  /** Ships whose current dash has already rammed someone. */
+  private rammed = new Set<number>();
   /** Tick of the last damage each ship took, for shield regeneration. */
   private lastHit = new Map<number, number>();
   private events: WorldEvents = noEvents();
@@ -120,11 +125,31 @@ export class World {
     return ship;
   }
 
+  /** What a ship's aim assist may pick: other living ships, and asteroids where they are now. */
+  assistTargets(id: number): AssistTarget[] {
+    const out: AssistTarget[] = [];
+    for (const [oid, o] of this.ships) if (oid !== id && o.hp > 0) out.push({ x: o.x, y: o.y, ship: true });
+    for (const a of this.asteroids.values()) {
+      const p = asteroidPos(a, this.tick, this.tune);
+      out.push({ x: p.x, y: p.y, ship: false });
+    }
+    return out;
+  }
+
+  /** A shop purchase from ship id (item: index in SHOP_ITEMS). Returns true if it went through. */
+  buy(id: number, item: number, tier: number): boolean {
+    const s = this.ships.get(id);
+    const name = SHOP_ITEMS[item];
+    if (!s || !name) return false;
+    return buy(s, name, tier, this.tune);
+  }
+
   removeShip(id: number): void {
     this.ships.delete(id);
     this.grace.delete(id);
     this.lastHit.delete(id);
     this.turrets.delete(id);
+    this.rammed.delete(id);
   }
 
   /** Advance one ship by one step with the given input, spawning its bullet if it fired. */
@@ -134,8 +159,8 @@ export class World {
     const before = s.shots;
     stepShip(s, input, this.dt, this.tune);
     if (s.shots !== before) {
-      const shot = muzzleShot(s, this.tune);
-      this.bullets.push({ owner: id, damage: this.tune.weapon.damage * damageScale(s.hp, this.tune), x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: this.tune.weapon.bulletLifeSteps });
+      const shot = muzzleShot(s, this.tune, this.assistTargets(id));
+      this.bullets.push({ owner: id, damage: this.tune.weapon.damage * damageScale(s, this.tune), x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: this.tune.weapon.bulletLifeSteps });
       this.events.shots.push({ owner: id, ...shot });
     }
   }
@@ -184,6 +209,37 @@ export class World {
     }
     this.bullets = kept;
 
+    // Dash ram: a dashing ship that hits another ship deals ram damage (scaled by its power like its
+    // guns), takes a small bump itself, and both are thrown apart, the smaller one further. Once per dash.
+    for (const [id, s] of this.ships) {
+      if (s.dashTime <= 0) {
+        this.rammed.delete(id);
+        continue;
+      }
+      if (s.hp <= 0 || this.rammed.has(id)) continue;
+      const sr = shipRadius(s.hp, t);
+      for (const [oid, o] of this.ships) {
+        if (oid === id || o.hp <= 0) continue;
+        const or = shipRadius(o.hp, t);
+        if (!hits(s.x, s.y, o.x, o.y, sr + or)) continue;
+        let dx = wrapDelta(o.x, s.x, W);
+        let dy = wrapDelta(o.y, s.y, H);
+        const len = Math.hypot(dx, dy) || 1;
+        dx /= len;
+        dy /= len;
+        this.rammed.add(id);
+        const k = t.ship.knockbackSpeed;
+        o.kx = dx * k * Math.min(2, sr / or);
+        o.ky = dy * k * Math.min(2, sr / or);
+        s.kx = -dx * k * 0.5 * Math.min(2, or / sr);
+        s.ky = -dy * k * 0.5 * Math.min(2, or / sr);
+        this.damageShip(oid, o, t.ship.dashRamDamage * damageScale(s, t), id, wrap(o.x - dx * or, W), wrap(o.y - dy * or, H));
+        this.damageShip(id, s, t.ship.dashRamSelfDamage, oid, wrap(s.x + dx * sr, W), wrap(s.y + dy * sr, H));
+        this.events.rams.push({ id, target: oid, x: wrap(s.x + dx * sr, W), y: wrap(s.y + dy * sr, H) });
+        break;
+      }
+    }
+
     // Ships against asteroids: the ship takes contact damage, the asteroid is smashed and splits, and
     // the two are pushed apart: the ship bounces back, the pieces fly on away from it.
     for (const [id, s] of this.ships) {
@@ -228,7 +284,7 @@ export class World {
           if (k.kind === 'heal') s.hp = Math.min(t.ship.powerCap, s.hp + t.ship.maxHp * t.asteroid.healthHealFraction);
           else {
             s.hp = Math.min(t.ship.powerCap, s.hp + k.value);
-            s.shield = Math.min(maxShield(s.hp, t), s.shield + k.value);
+            s.shield = Math.min(maxShield(s, t), s.shield + k.value);
           }
           by = id;
           break;
@@ -243,8 +299,7 @@ export class World {
     // Shields come back after a quiet spell.
     const quiet = Math.round(t.ship.shieldRegenDelaySeconds * t.net.tickHz);
     for (const [id, s] of this.ships) {
-      const top = maxShield(s.hp, t);
-      // Losing hull also lowers the shield's maximum.
+      const top = maxShield(s, t);
       if (s.shield > top) s.shield = top;
       if (s.hp <= 0 || s.shield >= top) continue;
       if (this.tick - (this.lastHit.get(id) ?? -Infinity) < quiet) continue;
@@ -264,7 +319,7 @@ export class World {
     const W = t.world.width;
     const H = t.world.height;
     for (const [id, s] of this.ships) {
-      const n = s.hp > 0 ? turretCount(s.hp, t) : 0;
+      const n = s.hp > 0 ? Math.min(4, s.turrets) : 0;
       if (!n) {
         this.turrets.delete(id);
         continue;

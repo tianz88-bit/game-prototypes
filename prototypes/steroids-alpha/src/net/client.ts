@@ -9,7 +9,7 @@ import { copyShip, muzzleShot, stepShip } from '../../sim/ship';
 import { asteroidPos } from '../../sim/asteroids';
 import type { Asteroid } from '../../sim/asteroids';
 import type { ShipInput, ShipState } from '../../sim/ship';
-import { CLOSE, MSG, PROTOCOL_VERSION, decodeServer, encodeInput, encodePing } from '../../sim/protocol';
+import { CLOSE, MSG, PROTOCOL_VERSION, decodeServer, encodeBuy, encodeInput, encodePing } from '../../sim/protocol';
 import type { RosterEntry, ServerMessage, SnapshotShip } from '../../sim/protocol';
 import { angleDelta, wrap, wrapDelta } from '../../sim/wrap';
 import { TURRET_SIDE } from '../../sim/turrets';
@@ -41,6 +41,8 @@ export type NetFx =
   | { kind: 'spark'; x: number; y: number }
   | { kind: 'explosion'; x: number; y: number }
   | { kind: 'heal'; x: number; y: number }
+  /** A dash ram landed here. */
+  | { kind: 'ram'; x: number; y: number }
   | { kind: 'mineral'; x: number; y: number }
   | { kind: 'shield'; id: number; x: number; y: number };
 
@@ -153,7 +155,7 @@ export class NetClient {
   }
 
   /** Roster, deaths and pickups arrive as JSON text frames. */
-  private handleText(msg: { type?: string; hits?: { id: number; x: number; y: number; shielded: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral'; value: number }[]; remove?: { id: number; by: number }[] }): void {
+  private handleText(msg: { type?: string; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral'; value: number }[]; remove?: { id: number; by: number }[] }): void {
     if (msg.type === 'roster' && Array.isArray(msg.players)) {
       this.roster = new Map(msg.players.map((p) => [p.id, p]));
     } else if (msg.type === 'deaths' && Array.isArray(msg.deaths)) {
@@ -164,6 +166,8 @@ export class NetClient {
       }
     } else if (msg.type === 'hits' && Array.isArray(msg.hits)) {
       for (const h of msg.hits) if (h.shielded) this.fx.push({ kind: 'shield', id: h.id, x: h.x, y: h.y });
+    } else if (msg.type === 'rams' && Array.isArray(msg.rams)) {
+      for (const r of msg.rams) this.fx.push({ kind: 'ram', x: r.x, y: r.y });
     } else if (msg.type === 'pickups') {
       for (const k of msg.add ?? []) this.pickups.set(k.id, k);
       for (const g of msg.remove ?? []) {
@@ -283,18 +287,19 @@ export class NetClient {
    * engine's frame delta: Phaser smooths its delta and under-reports time when the frame rate drops,
    * which made a 37 fps client send 22 inputs a second to a server consuming 30.
    */
-  update(input: { turn: number; aim: number; thrust: number; dash: boolean; fire: boolean }): void {
+  update(input: { turn: number; aim: number; thrust: number; dash: boolean; dashAim: number; fire: boolean }): void {
     const now = performance.now();
     const deltaMs = this.lastFrameAt ? now - this.lastFrameAt : 0;
     this.lastFrameAt = now;
     // A dash pressed between two fixed steps is kept for the next step.
+    if (input.dash && !this.dashQueued) this.dashAimQueued = input.dashAim;
     this.dashQueued ||= input.dash;
     if (this.predicted && this.status === 'open' && !this.death) {
       this.accumulator += Math.min(deltaMs, 250);
       while (this.accumulator >= STEP_MS) {
         this.accumulator -= STEP_MS;
         // Round to the 32-bit floats that go on the wire, so prediction uses exactly what the server gets.
-        const cmd: ShipInput = { seq: ++this.seq, turn: Math.fround(input.turn), aim: Math.fround(input.aim), thrust: Math.fround(input.thrust), dash: this.dashQueued, fire: input.fire };
+        const cmd: ShipInput = { seq: ++this.seq, turn: Math.fround(input.turn), aim: Math.fround(input.aim), thrust: Math.fround(input.thrust), dash: this.dashQueued, fire: input.fire, dashAim: this.dashQueued ? Math.fround(this.dashAimQueued) : NaN };
         this.dashQueued = false;
         this.pending.push(cmd);
         if (this.pending.length > 120) this.pending.shift();
@@ -303,7 +308,12 @@ export class NetClient {
         stepShip(this.predicted, cmd, stepSeconds(TUNE), TUNE);
         if (this.predicted.shots !== shots) {
           // Our own bullet appears at once; the server fires its real one when this input arrives.
-          const shot = muzzleShot(this.predicted, TUNE);
+          // Same aim assist as the server, against where this client sees the targets.
+          const targets = [
+            ...this.remoteRender().map((r) => ({ x: r.s.x, y: r.s.y, ship: true })),
+            ...this.asteroidRender().map((r) => ({ x: r.x, y: r.y, ship: false })),
+          ];
+          const shot = muzzleShot(this.predicted, TUNE, targets);
           this.bullets.push({ x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: TUNE.weapon.bulletLifeSteps * STEP_MS, mine: true });
           this.fx.push({ kind: 'shot', id: this.myId, side: shot.side });
         }
@@ -318,6 +328,12 @@ export class NetClient {
   }
 
   private dashQueued = false;
+  private dashAimQueued = NaN;
+
+  /** Ask the server for a shop purchase (it decides); tier is the one on offer, so a double tap buys once. */
+  buy(item: number, tier: number): void {
+    if (this.status === 'open' && !this.death) this.send(encodeBuy(item, tier));
+  }
 
   /** Move the drawn bullets; one that reaches an asteroid or another ship stops there with a spark. */
   private stepBullets(deltaMs: number): void {
