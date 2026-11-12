@@ -1,8 +1,8 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
 ## 2026-11-12 claude dash-lock
-DID: steering locked for the whole dash (charge + boost), per owner.
-FILES: sim/ship.ts scripts/test-steroids-alpha-sim.mjs
+DID: steering locked for the whole dash (charge + boost); boost 0.8 s at the ship's top speed (dashSpeedFactor 1), per owner.
+FILES: sim/ship.ts tune.json scripts/test-steroids-alpha-sim.mjs
 SEAM: none
 CROSS: none
 FOR codex: nothing.

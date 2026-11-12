@@ -123,8 +123,9 @@ server is live and the itch page is public and unlisted.
   server decides; the client predicts its own shots with the same rule
   against what it sees.
 - Dash, charge and boost (owner design, replaces the instant dash). Current
-  (12 November, after several owner revisions): 0.8 s charge, then 0.7 s
-  boost at 4x top speed (1,400 px/s, about 980 px), 1.5 s total, with
+  (12 November, after several owner revisions): 0.8 s charge, then 0.8 s
+  boost at the ship's top speed (`dashSpeedFactor` 1; 350 px/s fresh, about
+  280 px), 1.6 s total, with
   steering locked throughout (verified per frame in the browser); cooldown 8 s. Yellow dash bar beside the heat
   bar (refills over the cooldown, pulses while charging). Fast ships now
   collide along their path (`World.sweptHit`), so a dash cannot skip through

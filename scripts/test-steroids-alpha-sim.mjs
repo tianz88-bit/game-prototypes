@@ -769,7 +769,8 @@ assert.equal(S.cleanName(null), '');
   near(sh.y - startY, boost * tune.ship.dashDuration, boost * 2 * dt, 'boost distance = dash speed x duration');
   assert(Math.abs(n * dt - tune.ship.dashDuration) <= 2 * dt, `boost lasts dashDuration (${n} steps)`);
   S.stepShip(sh, { ...idle, thrust: 0 }, dt, tune);
-  near(sh.speed, boost - tune.ship.braking * dt, 1e-6, 'eases out of the boost');
+  // Above top speed the extra bleeds at the braking rate; at 1x the boost is top speed already.
+  near(sh.speed, Math.max(tune.ship.maxSpeed, boost - tune.ship.braking * dt), 1e-6, 'eases out of the boost');
   for (let i = 0; i < 6 * tune.net.tickHz; i++) S.stepShip(sh, { ...idle, thrust: 0 }, dt, tune);
   near(sh.speed, tune.ship.maxSpeed, 1e-6, 'settles at top speed when coasting');
   // Steering returns once the boost is over.
