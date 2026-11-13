@@ -135,6 +135,21 @@
     "distance": 3000,
     "steerFactor": 0.2
   },
+  "salvage": {
+    "perMineral": 1,
+    "killPowerShare": 0.5,
+    "repeatKillWindowSeconds": 600,
+    "botDropFactor": 0.5,
+    "goldChunkValue": 20,
+    "goldChunksMax": 6,
+    "goldLifeSeconds": 30
+  },
+  "hotZone": {
+    "radius": 600,
+    "moveSeconds": 180,
+    "salvageMultiplier": 2,
+    "spawnShare": 0.5
+  },
   "asteroid": {
     "radius": [70, 42, 22],
     "hp": [60, 30, 12],

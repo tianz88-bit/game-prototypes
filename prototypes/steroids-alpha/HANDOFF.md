@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 claude salvage-hotzone
+DID: salvage (mined minerals add it; HUD SALVAGE), gold drop on death (carried + 50% power above start; no power gold in spawn protection; repeat kills by name halve; bots never earn, drop 50%), moving x2 hot zone (ring + tracker, half of new rock spawns inside), salvage on EXTRACTED. Orbital zoom spec in GFX_BRIEF.md (owner chose it over clouds). Death check moved to Planet B (bots).
+FILES: sim/{ship,world,protocol,liveConfig}.ts server/src/room.ts src/{net/client,scenes/flight,liveConfig}.ts tune.json BRIEF.md GFX_BRIEF.md scripts/{test-steroids-alpha-sim,check-steroids-alpha-death}.mjs
+SEAM: protocol 16. ShipState.salvage; Pickup kind 'salvage'; World.botIds, payoutFactor, hotZone; JSON 'hotzone' -> net.hotZone; fx 'gold'; tune groups salvage, hotZone.
+CROSS: ../steroids-alpha-lab/draft.ts (Salvage, Hot zone groups)
+FOR codex: build the orbital zoom transition (GFX_BRIEF.md, bottom). Restyle gold coins, hot zone ring/arrow, SALVAGE counter.
+
 ## 2026-11-13 claude warp-out
 DID: 3-min lockdown, Warp (R / top-centre button; phones: under the shop row), warp mode (1.15x top speed, 20% steering, no firing incl. turrets), damage resets distance, rocks plowed through, 3000 px extracts -> EXTRACTED screen (Drop in / Menu). Server guessed steps no longer repeat missile/mine/warp presses.
 FILES: sim/{ship,world,protocol,liveConfig}.ts server/src/room.ts src/{net/client,input/intents,scenes/flight,main,liveConfig}.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
@@ -97,10 +104,3 @@ FILES: src/render/worldArt.ts src/scenes/flight.ts
 SEAM: none; existing rockShape/collision geometry, fx events and gameplay unchanged.
 CROSS: none (shared flight drawing only)
 FOR claude: typecheck/build/rig/sim pass; Brave desktop + DPR2 phone fixtures inspected; two clients + bots 32.04 FPS, p95 31.6ms, zero console errors. Remaining graphics work continues.
-
-## 2026-11-13 codex PR #448
-DID: stationary craters/dust, sand banks, cool night/warm twilight and sunlit atmosphere, shader only; silence missing favicon request.
-FILES: src/render/planetGround.ts index.html BUILD_STATUS.md
-SEAM: none; projection, sun, calibration, inputs and gameplay values unchanged.
-CROSS: none
-FOR claude: typecheck/build/396-pose rig/sim pass; Brave desktop + 844x390 DPR2, two clients + 4 bots, no console errors. Frame parity: main 32.04 vs pass 32.06 FPS, both p95 31.6ms. Legacy keyboard-turn check fails on both main and pass; investigate harness separately. GFX_BRIEF items 2-8 remain queued.

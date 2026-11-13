@@ -1,6 +1,6 @@
 ## Current milestone
 
-Lockdown and warp-out in (13 November): 3-minute lockdown, Warp button (R / tap), warp run that resets on damage and plows through rocks, extraction with a result screen. Next: banking salvage on extraction (meta progression, see BRIEF.md Bank and unlocks). Owner-approved asteroid sprite pass (13 November): chunky pixel-painted ochre/teal/purple rocks replace the flat polygon rendering. Nine chipped silhouette/material variants, bolder shadow blocks, fewer highlights and three damage stages bring them closer to the vibrant ship style. Nearest-filtered fixed64px textures and projected4x4 meshes retain planet curvature and collision coverage; hit flash retained. Typecheck/build/rig/sim and desktop/phone DPR2 checks pass (~56FPS AMD D3D11, zero browser errors). Procedural code generates27 fixed textures once (432KiB), with pooled visible objects;300 replacement cycles remain at3active+3pooled meshes. No PNG/ZIP committed. Owner approved Tianz CLI login and verified gh identity tianz88-bit; never use zitian-FF/Venomnom for this repository. Itch namespace stays daily-daily-games.
+Salvage and hot zone in (13 November): salvage from mining shown in the HUD, gold drops on death (carried salvage + 50% of power above start, repeat kills halved, bots reduced), a moving x2 hot zone with a tracker, and salvage on the EXTRACTED screen. Not banked yet: next is step 4, the D1 bank with anonymous accounts. Orbital zoom transition specified for Codex (GFX_BRIEF.md). Lockdown and warp-out in (13 November): 3-minute lockdown, Warp button (R / tap), warp run that resets on damage and plows through rocks, extraction with a result screen. Next: banking salvage on extraction (meta progression, see BRIEF.md Bank and unlocks). Owner-approved asteroid sprite pass (13 November): chunky pixel-painted ochre/teal/purple rocks replace the flat polygon rendering. Nine chipped silhouette/material variants, bolder shadow blocks, fewer highlights and three damage stages bring them closer to the vibrant ship style. Nearest-filtered fixed64px textures and projected4x4 meshes retain planet curvature and collision coverage; hit flash retained. Typecheck/build/rig/sim and desktop/phone DPR2 checks pass (~56FPS AMD D3D11, zero browser errors). Procedural code generates27 fixed textures once (432KiB), with pooled visible objects;300 replacement cycles remain at3active+3pooled meshes. No PNG/ZIP committed. Owner approved Tianz CLI login and verified gh identity tianz88-bit; never use zitian-FF/Venomnom for this repository. Itch namespace stays daily-daily-games.
 
 Mobile HUD follow-up (13 November): upgrades use a shallow top row (86x34px per button at 844x390), leaving the left marker area free; desktop panels shrink to124x30px. Mobile starts marker independently of legacy desktop craft saves, then remembers explicit mobile changes. Small leaderboard Lv. shows the server-counted sum of current turret/shield/gun/missile/mine tiers, beginning at0. Upgrade-only roster changes refresh correctly; binary protocol unchanged. Typecheck/build/rig/sim/live-config and Brave desktop/mobile DPR2 checks pass, including saved preference and actual marker steering. Portrait rotate prompt retained. Asteroids currently remain procedural polygon art; owner asked about this and pixel-painted replacement preference is pending.
 
@@ -278,7 +278,7 @@ server is live and the itch page is public and unlisted.
   the gun mounts are wider than a small asteroid or a ship.
 - A new ship drops in at the candidate point farthest from any asteroid and
   has two seconds of contact immunity.
-- Protocol version is 15 (15: lockdown, warping, warpDist in ShipState, input bit4 warp, CLOSE.EXTRACTED 4004, 'extracted' and 'warpouts' JSON frames; 14: missile target in ORDNANCE; 13: missiles and mines: 2 input flags, 16 more ship bytes, ORDNANCE frame and `blasts` JSON frame; 12: dash charge and hull maximum; 10: heat, turrets, dash aim, BUY; 11: shield and gun tiers. Earlier: 5 added shield, knockback and the JSON frames; 6
+- Protocol version is 16 (16: ShipState.salvage; pickups kind 'salvage' (gold); JSON 'hotzone' frame; 'extracted' carries salvage; 15: lockdown, warping, warpDist in ShipState, input bit4 warp, CLOSE.EXTRACTED 4004, 'extracted' and 'warpouts' JSON frames; 14: missile target in ORDNANCE; 13: missiles and mines: 2 input flags, 16 more ship bytes, ORDNANCE frame and `blasts` JSON frame; 12: dash charge and hull maximum; 10: heat, turrets, dash aim, BUY; 11: shield and gun tiers. Earlier: 5 added shield, knockback and the JSON frames; 6
   removed the dash; 7 restored it; 8 added power and pickup kinds; 9 turret
   shots reach their owner). Client and server deploy together;
   old clients reload once. Validated live settings still need no rebuild.
@@ -294,6 +294,7 @@ server is live and the itch page is public and unlisted.
 
 ## Open questions
 
+- Economy numbers (salvage per mineral, kill share, hot zone) are first values; unlock prices wait for real run timings.
 - Bounty needs at least two real players on the planet (Claude's call: with one player there is nobody to hunt them). BRIEF.md records it; owner may want otherwise.
 - Tracker distance is shown in world pixels as "m".
 - Missile and mine numbers (damage, hp, refill, lock cone, shop floors 120/100 and costs) are Claude's first pass under the owner's rules; untested with real players. BRIEF.md now records the rules.
@@ -330,6 +331,8 @@ server is live and the itch page is public and unlisted.
 
 ## Known issues
 
+- Salvage is not banked yet; the EXTRACTED screen shows what would be banked. Repeat kills are matched by pilot name until accounts exist.
+- check-steroids-alpha-death.mjs now runs on Planet B: on Planet A bots kept getting the kill before the asteroid did.
 - Fixed in this pass: when a client's input arrived late, the server's guessed steps repeated one-shot presses (a missile could fire again; a warp press would toggle back off). Guessed steps now drop missile, mine and warp presses; a late warp press is owed like a late dash.
 - Warp values (lockdown 180 s, distance 3000 px, about 8 s of warp at 1.15x top speed, steering 20%) are first values, not tuned by playing.
 - Missile, mine, lock bracket and blast visuals are placeholders (Codex lane).

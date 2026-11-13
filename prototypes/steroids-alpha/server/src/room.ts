@@ -73,12 +73,15 @@ export class Room {
   constructor(private shipHp?: number, private refreshConfig:()=>void=()=>{}) {
     this.world = new World(this.tune);
     if(shipHp)this.world.invulnerable=true;
+    this.world.payoutFactor = (victim, killer) => this.repeatKillFactor(victim, killer);
+    this.world.moveHotZone(); // in place before the first pilot joins
+    this.world.drain();
   }
   /** Called between fixed ticks. Announce a complete version before its new snapshots. */
   applyConfig(record:ConfigRecord):void{
     if(record.version===this.config.version)return;
     this.config=record;
-    for(const group of ['ship','weapon','turret','shop','missile','mine','bots','warp','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
+    for(const group of ['ship','weapon','turret','shop','missile','mine','bots','warp','salvage','hotZone','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
     for(const p of this.players.values()){
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
       p.ship.hullMax=Math.min(this.tune.ship.powerCap,p.ship.hullMax);p.ship.hp=Math.min(p.ship.hullMax,p.ship.hp);
@@ -134,6 +137,7 @@ export class Room {
     const used = new Set([...this.bots.values()].map((b) => b.name));
     const name = `BOT ${BOT_NAMES.find((n) => !used.has(`BOT ${n}`)) ?? id}`;
     const ship = this.world.addShip(id, true); // spread out, away from players
+    this.world.botIds.add(id);
     this.bots.set(id, { id, name, kills: 0, brain: newBrain(Math.random), ship });
     this.broadcastRoster();
   }
@@ -163,10 +167,35 @@ export class Room {
     this.send(player, encodeWelcome(id, this.tick));
     this.send(player, encodeAsteroids([...this.world.asteroids.values()]));
     this.send(player, JSON.stringify({ type: 'pickups', add: [...this.world.pickups.values()].map(({ id, x, y, kind, value }) => ({ id, x, y, kind, value })), remove: [] }));
+    this.send(player, this.hotZoneFrame());
     this.send(player, this.snapshotFor(player));
     this.broadcastRoster();
     this.start();
     return true;
+  }
+
+  /** The hot zone for clients: centre, radius and seconds until it moves. */
+  private hotZoneFrame(): string {
+    const z = this.world.hotZone;
+    return JSON.stringify({ type: 'hotzone', x: Math.round(z.x), y: Math.round(z.y), r: z.r, seconds: Math.max(0, (z.until - this.tick) / this.tune.net.tickHz) });
+  }
+
+  /**
+   * Repeat-kill guard (BRIEF.md): the kill payout halves for each repeat kill of the same pilot by
+   * the same killer within salvage.repeatKillWindowSeconds. Pilots are matched by name until
+   * accounts exist (bank milestone), since a respawn is a new ship id.
+   */
+  private killLog = new Map<string, { n: number; at: number }>();
+  private repeatKillFactor(victim: number, killer: number): number {
+    const name = (id: number): string => this.players.get(id)?.name ?? this.bots.get(id)?.name ?? '';
+    if (!killer) return 1;
+    const key = `${name(killer)}\u0000${name(victim)}`;
+    const window = this.tune.salvage.repeatKillWindowSeconds * this.tune.net.tickHz;
+    const prev = this.killLog.get(key);
+    const n = prev && this.tick - prev.at <= window ? prev.n + 1 : 1;
+    this.killLog.set(key, { n, at: this.tick });
+    if (this.killLog.size > 500) for (const [k, v] of this.killLog) if (this.tick - v.at > window) this.killLog.delete(k);
+    return Math.pow(0.5, n - 1);
   }
 
   private allocateId(): number {
@@ -273,6 +302,7 @@ export class Room {
     }
     if (ev.hits.length) this.broadcast(JSON.stringify({ type: 'hits', hits: ev.hits }));
     if (ev.rams.length) this.broadcast(JSON.stringify({ type: 'rams', rams: ev.rams }));
+    if (ev.hotZone) this.broadcast(this.hotZoneFrame());
     if (ev.blasts.length) this.broadcast(JSON.stringify({ type: 'blasts', blasts: ev.blasts }));
     if (ev.pickups.length || ev.pickupsGone.length) this.broadcast(JSON.stringify({ type: 'pickups', add: ev.pickups, remove: ev.pickupsGone }));
     const dead = new Set(ev.deaths.map((d) => d.id));
@@ -322,7 +352,8 @@ export class Room {
     if (out.length) this.broadcast(JSON.stringify({ type: 'warpouts', ships: out }));
     for (const x of out) {
       const p = this.players.get(x.id)!;
-      this.send(p, JSON.stringify({ type: 'extracted', power: Math.round(p.ship.hullMax), kills: p.kills }));
+      // Salvage carried out; banking it as credits comes with the bank (D1) milestone.
+      this.send(p, JSON.stringify({ type: 'extracted', power: Math.round(p.ship.hullMax), kills: p.kills, salvage: Math.floor(p.ship.salvage) }));
       this.leave(x.id);
       try {
         p.ws.close(CLOSE.EXTRACTED, 'extracted');
