@@ -3,9 +3,9 @@ import Phaser from 'phaser';
 // Authored at 64px: six opaque colours per material, broad clusters, no AA/noise.
 // Runtime canvases are fixed sprite textures, built once; no per-frame painting.
 export const ROCK_PALETTES = [
-  ['#302637','#644355','#a46155','#d28b59','#edb76d','#ffe0a0'],
-  ['#253044','#355469','#447e87','#65a99d','#9bd6b6','#d9efd0'],
-  ['#30283f','#534566','#805b93','#ad7dab','#d7a8cb','#f6d5da'],
+  ['#29273f','#51374c','#b96554','#e89c59','#ffd17c','#ffe4ab'],
+  ['#243147','#334c6c','#387c8c','#51b7b0','#8eebbd','#c9f3cc'],
+  ['#2e2945','#514265','#89578f','#b273b5','#efb7d0','#ffe0da'],
 ];
 export const ROCK_PATCHES = [
   [[10,18,17,9],[15,11,22,8],[9,27,14,14],[20,19,26,15],[21,40,22,10],[41,32,10,13]],
@@ -16,9 +16,12 @@ const key = (variant:number,damage:number) => `pixel-rock-${variant}-${damage}`;
 
 /** Every opaque silhouette contains the 24px collision disc, including between steps. */
 function silhouette(x:number,y:number,variant:number):boolean {
-  const dx=x+.5-32,dy=y+.5-32,a=Math.atan2(dy,dx);
-  const lobes=28.2+1.8*Math.sin(a*[5,7,4][variant%3]+variant*1.7)+.9*Math.cos(a*3+variant);
-  return Math.hypot(dx,dy)<lobes;
+  const dx=x+.5-32,dy=y+.5-32,n=[7,8,6][variant%3];
+  const corner=(i:number)=>{const a=i/n*Math.PI*2+variant*.41,r=25.8/Math.cos(Math.PI/n)+.5+.5*Math.sin(i*2.7+variant);return{x:Math.cos(a)*r,y:Math.sin(a)*r};};
+  for(let i=0;i<n;i++){const a=corner(i),b=corner((i+1)%n);if((b.x-a.x)*(dy-a.y)-(b.y-a.y)*(dx-a.x)<0)return false;}
+  // Only chip outside the collision disc; cut shoulders stay readable at gameplay scale.
+  if(Math.hypot(dx,dy)>25.5&&((variant%2===0&&x>50&&y>15&&y<21)||(variant%2===1&&x<15&&y>39&&y<45)))return false;
+  return true;
 }
 
 export function buildRockPixels(scene:Phaser.Scene):void {
@@ -31,7 +34,7 @@ export function buildRockPixels(scene:Phaser.Scene):void {
     // Broad stepped planes: shadows cooler, the upper-left shoulder warm and bright.
     for(let y=0;y<64;y++)for(let x=0;x<64;x++)if(mask[y][x]){
       const edge=!mask[y-1]?.[x]||!mask[y+1]?.[x]||!mask[y][x-1]||!mask[y][x+1];
-      const plane=x*.55+y+(x>36?4:0);
+      const plane=x*.55+y+(x>36?8:0)+(y>40?4:0);
       put(x,y,edge?(x+y<48?3:0):plane<34?4:plane<56?3:plane<75?2:1);
     }
     const patches=ROCK_PATCHES[Math.floor(variant/3)];
@@ -42,12 +45,12 @@ export function buildRockPixels(scene:Phaser.Scene):void {
       }
     }
     // Asymmetric inset pits, a dark floor and a short bright lower lip.
-    const pits=variant%3===1?[[23,23,6],[41,37,4],[23,44,3]]:[[25,27,7],[43,41,4]];
+    const pits=variant%3===1?[[22,25,5],[42,39,3]]:variant%3===2?[[39,26,5]]:[[24,26,6],[43,42,3]];
     for(const [cx,cy,r]of pits)for(let yy=-r;yy<=r;yy++)for(let xx=-r;xx<=r;xx++){
       if(xx*xx+yy*yy>r*r)continue;
       put(cx+xx,cy+yy,yy<0?1:yy>r-2?4:2);
     }
-    for(const [x,y,w,h]of [[16,13,7,2],[13,17,3,4],[34,16,5,2]])for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)put(xx,yy,5);
+    for(const [x,y,w,h]of [[16,13,6,2],[13,17,3,4]])for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)put(xx,yy,5);
     // Crack steps are grouped into blocks instead of smooth vector lines.
     for(let branch=0;branch<damage;branch++)for(let i=0;i<14;i++){
       const x=30+Math.floor(i*.65)*(branch?-1:1),y=29+i;
