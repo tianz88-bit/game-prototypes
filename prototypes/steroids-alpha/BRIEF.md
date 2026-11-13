@@ -299,6 +299,16 @@ Owner direction (13 November 2026). Replaces the earlier gear-stash design.
     mining).
   - A destroyed ship drops all of its carried salvage as gold pickups that
     anyone can collect. Being hit spills power only, never salvage.
+  - Kill payout (owner, 13 November 2026): a destroyed ship also drops gold
+    worth a share of its power (default 50%, tuned), on top of its carried
+    salvage, so a big upgraded ship or the bounty holder is a jackpot.
+    Guards: a ship still in its spawn protection drops no power gold, and
+    repeat kills of the same pilot by the same killer pay less each time
+    (default: halved per repeat within 10 minutes).
+  - Hot zone (owner, 13 November 2026): one area per planet at a time has
+    richer asteroids paying double salvage. It moves every few minutes and
+    is shown to everyone (edge tracker, like the bounty), pulling farmers
+    together so fights happen. Radius, duration and multiplier are tuned.
   - Extracting banks carried salvage as credits, 1:1. Dying loses it.
   - Practice planet: no salvage.
 - **Economy shape (owner: farming is the baseline, PvP pays more; tuned to a
@@ -307,9 +317,12 @@ Owner direction (13 November 2026). Replaces the earlier gear-stash design.
     That rate is the free-to-play baseline, and unlock prices are set
     against it (for example, a typical run's farming buys a small cosmetic
     in a few runs).
-  - PvP creates no salvage; it moves the victim's whole stack to whoever
-    collects it. Hunting pays more than farming, and feeding between
-    friends or alternate accounts creates nothing.
+  - PvP mostly moves salvage: the victim's whole stack goes to whoever
+    collects it. The kill payout adds a share of the victim's power, so
+    hunting pays more than farming; the guards above keep feeding between
+    friends or alternate accounts from beating plain farming by much.
+  - The hot zone raises the farming rate only inside it, so it counts toward
+    the baseline when prices are set.
   - Gold nobody collects before it expires is gone. Credits leave the
     economy only through unlocks.
   - No daily caps: farming cannot beat the baseline because the baseline is
@@ -402,7 +415,8 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
   practice planet.
 - Pseudo-3D wrapping planet rendering.
 - PvP, splitting asteroids, minerals spilled by hit ships, gold salvage
-  dropped by destroyed ships.
+  dropped by destroyed ships (carried salvage plus a share of power), a
+  moving hot zone.
 - Cloud-layer transition when entering and leaving a planet.
 - Two control schemes (craft-relative and direction marker) with throttle.
 - 3-minute lockdown and warp-out.
@@ -468,7 +482,9 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
   banks hard currency; currency buys unlocks, QoL and options, never raw
   power. Gear is no longer brought in or lost. Currency comes from salvage:
   mined or taken from bots (the free-to-play baseline), taken from destroyed
-  players (PvP pays more), banked 1:1 on extraction, all lost on death.
+  players (PvP pays more: their stack plus a share of their power), banked
+  1:1 on extraction, all lost on death. A moving hot zone pays double to pull
+  players together. No loot crates or wrecks.
 - Main menu QR code of the game's itch page for quick joining; tapping it
   copies the link (owner decision, 12 November 2026). The QR encoder is
   written in-house rather than added as a dependency (owner choice).
@@ -488,9 +504,8 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
    look)?
 6. Does a respawn on a PvP planet need a cost or delay? Right now Respawn is
    free and instant; with nothing to lose but the run, free may be right.
-9. Loot crates and player wrecks were in v1 scope under the old stash design;
-   gold salvage dropped by destroyed ships replaces them. Owner to confirm
-   crates are no longer wanted.
+9. Resolved (owner, 13 November 2026): no loot crates or wrecks; gold
+   salvage dropped by destroyed ships replaces them.
 7. Should the Punchies part-rig be extracted into a shared package
    (`packages/part-rig`) used by both Punchies and Steroids-Alpha?
 8. BRIEF.md was drafted by Claude from the design chat, not written by the
