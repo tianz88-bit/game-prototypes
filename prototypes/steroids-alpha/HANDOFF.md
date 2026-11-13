@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 claude warp-out
+DID: 3-min lockdown, Warp (R / top-centre button; phones: under the shop row), warp mode (1.15x top speed, 20% steering, no firing incl. turrets), damage resets distance, rocks plowed through, 3000 px extracts -> EXTRACTED screen (Drop in / Menu). Server guessed steps no longer repeat missile/mine/warp presses.
+FILES: sim/{ship,world,protocol,liveConfig}.ts server/src/room.ts src/{net/client,input/intents,scenes/flight,main,liveConfig}.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
+SEAM: protocol 15. ShipState + lockdown, warping, warpDist; ShipInput.warp; CLOSE.EXTRACTED; JSON 'extracted' (to pilot) and 'warpouts' -> fx kind 'warpout'; net.extracted; intents.warpButton; tune group warp.
+CROSS: ../steroids-alpha-lab (preview input, Warp group)
+FOR codex: placeholders: warp button (drawWarp), warping ring (drawWorld), 'warpout' fx rings, EXTRACTED panel (deathScreen extracted=true). A warp trail/charge look would help.
+
 ## 2026-11-13 codex codex/steroids-pixel-rocks
 DID: Replace vector asteroids with chunky pixel-painted sprites: nine variants, three damage stages, planet projection and bright hit flashes.
 FILES: src/render/rockPixels.ts src/render/worldArt.ts src/scenes/flight.ts COLLAB.md BUILD_STATUS.md
@@ -97,10 +104,3 @@ FILES: src/render/planetGround.ts index.html BUILD_STATUS.md
 SEAM: none; projection, sun, calibration, inputs and gameplay values unchanged.
 CROSS: none
 FOR claude: typecheck/build/396-pose rig/sim pass; Brave desktop + 844x390 DPR2, two clients + 4 bots, no console errors. Frame parity: main 32.04 vs pass 32.06 FPS, both p95 31.6ms. Legacy keyboard-turn check fails on both main and pass; investigate harness separately. GFX_BRIEF items 2-8 remain queued.
-
-## 2026-11-12 claude bounty-lock
-DID: bounty marker on the strongest real player (2+ players, bots never) + gold edge tracker for others; in-flight missile lock crosshair for firer and target, MISSILE LOCK warning. GFX_BRIEF.md for codex.
-FILES: server/src/room.ts sim/protocol.ts src/net/client.ts src/scenes/flight.ts scripts/test-steroids-alpha-sim.mjs GFX_BRIEF.md
-SEAM: protocol 14: OrdnanceView.target. JSON 'bounty' {id,x,y} -> net.bounty. flight.ts drawBounty, drawCrosshair, drawStar.
-CROSS: none
-FOR codex: read GFX_BRIEF.md (owner's graphics request, priority list). Bounty/lock visuals are placeholders.

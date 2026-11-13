@@ -28,7 +28,7 @@ export function newBrain(rng: () => number): BotBrain {
   return { aimError: 0, cooling: false, wander: rng() * Math.PI * 2, nextBuy: Math.floor(rng() * 3) };
 }
 
-const idleInput = (): ShipInput => ({ seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN, missile: false, mine: false });
+const idleInput = (): ShipInput => ({ seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN, missile: false, mine: false, warp: false });
 
 /** One tick of decisions for bot id. */
 export function botThink(id: number, s: ShipState, world: World, brain: BotBrain, tune: Tune, rng: () => number): { input: ShipInput; buy: { item: number; tier: number } | null } {

@@ -110,6 +110,7 @@ if (DEBUG) {
       /** Debug only: the flight scene itself, for render checks that stage state. */
       flightScene: () => flight(),
       weaponButtons: () => ({ missile: intents.missileButton, mine: intents.mineButton }),
+      warpButton: () => intents.warpButton,
       bullets: () => flight()?.net.bullets.length ?? 0,
       status: () => flight()?.net.status ?? 'menu',
       zones: () => ({ dash: intents.dashButton, scheme: intents.schemeButton, fire: intents.fireButton }),

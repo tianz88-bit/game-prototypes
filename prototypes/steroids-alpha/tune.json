@@ -128,6 +128,13 @@
     "resumeHeat": 0.4,
     "spawnRockClearance": 200
   },
+  "warp": {
+    "lockdownSeconds": 180,
+    "acceleration": 120,
+    "topSpeedFactor": 1.15,
+    "distance": 3000,
+    "steerFactor": 0.2
+  },
   "asteroid": {
     "radius": [70, 42, 22],
     "hp": [60, 30, 12],

@@ -109,12 +109,18 @@ currency; currency buys unlocks, QoL and options, never raw power.
   zero. It does not restart the 3-minute lockdown (owner decision).
 - Tuned values (`tune.json`): lockdown duration, warp acceleration, warp top
   speed multiplier, warp distance X.
-- Default (confirm): heading is locked during warp, with only slight steering
-  allowed.
-- Default (confirm): firing is disabled during warp.
-- Default (confirm): the player can cancel warp mode and press Warp again
-  later.
-- Default (confirm): progress is shown as a bar filling with warp distance.
+- Heading is locked during warp, with only slight steering allowed (owner
+  confirmed, 13 November 2026; `warp.steerFactor`).
+- Firing is disabled during warp, including turrets, missiles, mines and dash
+  (owner confirmed).
+- The player can cancel warp mode and press Warp again later (owner
+  confirmed).
+- Progress is shown as a bar filling with warp distance (owner confirmed).
+- Asteroids: a warping ship plows through them, smashing the rock with no
+  damage, no knockback and no warp reset (owner, 13 November 2026). Only
+  damage from players, bots, turrets, missiles and mines resets the warp.
+- Everyone sees a warping ship (a ring filling with progress) and its
+  warp-out flash. The extracted pilot sees EXTRACTED with Drop in / Menu.
 
 ## Ship assembly and art direction
 

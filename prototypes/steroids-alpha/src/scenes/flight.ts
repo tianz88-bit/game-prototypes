@@ -70,6 +70,8 @@ export class FlightScene extends Phaser.Scene {
   private weaponTexts: Phaser.GameObjects.Text[] = [];
   /** Bounty label: over the holder's ship, at the edge tracker, or "BOUNTY ON YOU". */
   private bountyText!: Phaser.GameObjects.Text;
+  /** Label on the warp button: lockdown countdown, WARP, or warp progress and CANCEL. */
+  private warpText!: Phaser.GameObjects.Text;
   private lockedOnMe = false;
   /** Shown to a pilot with a missile locked on them in flight. */
   private lockText!: Phaser.GameObjects.Text;
@@ -107,6 +109,7 @@ export class FlightScene extends Phaser.Scene {
       intents.fireButton = null;
       intents.missileButton = null;
       intents.mineButton = null;
+      intents.warpButton = null;
       intents.shopZones = [];
     });
     intents.drainTaps();
@@ -132,6 +135,7 @@ export class FlightScene extends Phaser.Scene {
     this.schemeLabel = text(this, 0, 0, '', 11, '#dfe8ff').setOrigin(0.5).setDepth(951).setVisible(false);
     this.message = text(this, w / 2, logicalSize().h * 0.3, '', 18, '#ffffff').setOrigin(0.5).setDepth(950);
     this.boardTitle = text(this, 0, 0, 'KO · POWER', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
+    this.warpText = text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(953).setVisible(false);
     this.bountyText = text(this, 0, 0, '', 11, '#ffd23a').setOrigin(0.5).setDepth(953).setVisible(false);
     this.lockText = text(this, 0, 0, 'MISSILE LOCK', 13, '#ff5a3a').setOrigin(0.5).setDepth(953).setVisible(false);
     this.weaponTexts = [0, 1].map(() => text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(952).setVisible(false));
@@ -150,13 +154,15 @@ export class FlightScene extends Phaser.Scene {
     const dash = intents.consume('secondary');
     const missile = intents.consume('missile');
     const mine = intents.consume('mine');
-    if (!dead) {
+    const warp = intents.consume('warp');
+    const over = dead || !!this.net.extracted || this.net.status === 'extracted';
+    if (!over) {
       intents.consume('primary');
-      intents.consume('pause'); // No leaving during lockdown; warp-out comes in milestone 3.
+      intents.consume('pause'); // No menu exit mid-run: leave by warping out (lockdown, then Warp).
     }
     if (intents.consume('scheme')) intents.toggleScheme();
     const heading = this.net.predicted?.heading ?? 0;
-    this.net.update({ ...intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed), dash, dashAim: intents.dashAim(heading), fire: intents.fire, missile, mine });
+    this.net.update({ ...intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed), dash, dashAim: intents.dashAim(heading), fire: intents.fire, missile, mine, warp });
     // Shop: each tap asks the server for the tier on offer now; the server checks power and price.
     for (const item of intents.consumeBuys()) {
       const p = this.net.predicted;
@@ -180,7 +186,8 @@ export class FlightScene extends Phaser.Scene {
 
     this.turretGfx.clear();
     const alive = new Set<number>();
-    if (own) {
+    // An extracted ship has left the planet: it is no longer drawn.
+    if (own && !this.net.extracted && this.net.status !== 'extracted') {
       alive.add(this.net.myId);
       this.placeShip(this.net.myId, own, true);
     }
@@ -223,7 +230,11 @@ export class FlightScene extends Phaser.Scene {
           this.shieldHitCount++;
         }
       }
-      else if (f.kind === 'blast') {
+      else if (f.kind === 'warpout') {
+        // A ship launching off the planet: a bright cyan flash and a wide ring.
+        this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 150, ms: 700, colour: 0x7fe9ff });
+        this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 50, ms: 350, colour: 0xffffff });
+      } else if (f.kind === 'blast') {
         // Shot down: a small white pop. Went off: an orange ring the size of the blast.
         if (f.shot) this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: Math.min(24,f.r), ms: 240, colour: 0xffffff, chips: 5 });
         else {
@@ -244,7 +255,9 @@ export class FlightScene extends Phaser.Scene {
     this.drawStatus(own);
     this.drawBoard(w);
 
-    if (this.net.death || this.net.status === 'destroyed') {
+    if (this.net.extracted || this.net.status === 'extracted') {
+      if (this.deathScreen(w, h, true)) return;
+    } else if (this.net.death || this.net.status === 'destroyed') {
       if (this.deathScreen(w, h)) return;
     } else if (this.net.status === 'closed' || this.net.status === 'full') {
       for (const _ of intents.drainTaps()) {
@@ -386,6 +399,42 @@ export class FlightScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Warp button, top centre (touch and mouse; keyboard R). During lockdown it is offline with a
+   * countdown; then WARP; while warping it fills with the distance covered and a tap cancels.
+   */
+  private drawWarp(p: ShipState | null, w: number, h: number): void {
+    const g = this.overlay;
+    intents.warpButton = null;
+    const alive = !!p && !this.net.death && !this.net.extracted && this.net.status === 'open';
+    this.warpText.setVisible(alive);
+    if (!p || !alive) return;
+    const bw = intents.touch ? 176 : 156;
+    const bh = intents.touch ? 36 : 28;
+    const x = w / 2;
+    // Below the shop: on phones the shop is a row across the top, so sit just under its lowest edge.
+    const shopBottom = Math.max(0, ...intents.shopZones.map((z) => z.zone.y + z.zone.hh));
+    const y = intents.touch ? Math.max(64, shopBottom + 10 + bh / 2) : 50;
+    const locked = p.lockdown > 0;
+    const accent = p.warping ? 0x7fe9ff : locked ? UI.uiBorder : UI.uiAccent;
+    panel(g, x - bw / 2, y - bh / 2, bw, bh, accent, !locked);
+    if (p.warping) {
+      const f = Math.min(1, p.warpDist / TUNE.warp.distance);
+      g.fillStyle(0x7fe9ff, 0.35);
+      g.fillRoundedRect(x - bw / 2 + 3, y - bh / 2 + 3, (bw - 6) * f, bh - 6, 4);
+    }
+    const key = intents.touch ? '' : ' [R]';
+    const m = Math.floor(p.lockdown / 60);
+    const sec = Math.ceil(p.lockdown % 60);
+    const label = p.warping
+      ? `WARP ${Math.floor((100 * p.warpDist) / TUNE.warp.distance)}%  CANCEL${key}`
+      : locked
+        ? `WARP OFFLINE ${sec === 60 ? m + 1 : m}:${String(sec === 60 ? 0 : sec).padStart(2, '0')}`
+        : `WARP${key}`;
+    this.warpText.setText(label).setPosition(x, y).setColor(locked && !p.warping ? '#8fa2c8' : '#ffffff');
+    if (!locked || p.warping) intents.warpButton = { x, y, hw: bw / 2, hh: bh / 2 };
+  }
+
   /** Locked missile crosshair: a red ring with four inward ticks, slowly turning and pulsing. */
   private drawCrosshair(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number, now: number): void {
     const pulse=.8+.2*Math.sin(now/130),rot=now/1500;
@@ -410,7 +459,7 @@ export class FlightScene extends Phaser.Scene {
       g.lineStyle(1.5,0xff8664,.85);g.strokeRoundedRect(w/2-76,h*.3-12,152,24,5);}
     const b = this.net.bounty;
     this.bountyText.setVisible(false);
-    if (!p || !b || this.net.death) return;
+    if (!p || !b || this.net.death || this.net.extracted) return;
     const pulse = 0.7 + 0.3 * Math.sin(now / 200);
     if (b.id === this.net.myId) {
       const at = this.toScreen(p.x, p.y);
@@ -639,6 +688,7 @@ export class FlightScene extends Phaser.Scene {
     this.drawShop(p);
     this.drawWeapons(p, w, h);
     this.drawBounty(p, w, h);
+    this.drawWarp(p, w, h);
     this.schemeLabel.setVisible(intents.touch);
     if (!intents.touch) {
       intents.dashButton = null;
@@ -804,23 +854,25 @@ export class FlightScene extends Phaser.Scene {
    * After our ship is destroyed: who did it, and Respawn (back onto this planet) or Menu.
    * Keyboard: Space or J respawns, Esc goes to the menu. Returns true if the scene was left.
    */
-  private deathScreen(w: number, h: number): boolean {
+  private deathScreen(w: number, h: number, extracted = false): boolean {
     if (!this.deathShownAt) {
       this.deathShownAt = this.time.now;
       const by = this.net.death?.killer ? `Destroyed by ${this.net.death.killerName || 'another pilot'}` : 'Your ship was destroyed';
-      this.message.setText(by);
+      const x = this.net.extracted;
+      // Extracted: the run's result. Banking the haul as currency comes with the bank milestone.
+      this.message.setAlign('center').setText(extracted ? `EXTRACTED\nPower ${x?.power ?? 0}  ·  ${x?.kills ?? 0} KO` : by);
       const bw = 140;
       const bh = 44;
       this.deathButtons = (['respawn', 'menu'] as const).map((id, i) => {
         const x = w / 2 + (i === 0 ? -1 : 1) * (bw / 2 + 10);
         const y = h * 0.3 + 56;
-        return { id, x, y, w: bw, h: bh, label: text(this, x, y, id === 'respawn' ? 'RESPAWN' : 'MENU', 16).setOrigin(0.5).setDepth(961) };
+        return { id, x, y, w: bw, h: bh, label: text(this, x, y, id === 'respawn' ? (extracted ? 'DROP IN' : 'RESPAWN') : 'MENU', 16).setOrigin(0.5).setDepth(961) };
       });
     }
     // The buttons appear after the explosion has had a moment.
     const ready = this.time.now - this.deathShownAt > 700;
     const g = this.overlay;
-    if(ready){g.fillStyle(0x050b15,.55);g.fillRect(0,0,w,h);panel(g,w/2-165,h*.3-28,330,116,UI.uiDanger);}
+    if(ready){g.fillStyle(0x050b15,.55);g.fillRect(0,0,w,h);panel(g,w/2-165,h*.3-28,330,116,extracted?UI.uiAccent:UI.uiDanger);}
     for (const b of this.deathButtons) {
       b.label.setVisible(ready);
       if (!ready) continue;
@@ -947,6 +999,25 @@ export class FlightScene extends Phaser.Scene {
     }
     for(const id of this.missileTrails.keys())if(!this.net.ordnance.has(id))this.missileTrails.delete(id);
 
+    // Warping ships (everyone sees them, so they can give chase): a cyan ring that fills with progress.
+    {
+      const warping: ShipState[] = this.net.remoteRender().map((r) => r.s);
+      const own = this.net.predicted;
+      if (own && !this.net.death && !this.net.extracted) warping.push(own);
+      for (const s of warping) {
+        if (!s.warping) continue;
+        const at = this.toScreen(s.x, s.y);
+        if (!at.visible) continue;
+        const r = 50 * at.scale * shipRadius(s.hullMax, TUNE) / TUNE.ship.radius;
+        const f = Math.min(1, s.warpDist / TUNE.warp.distance);
+        g.lineStyle(2, 0x7fe9ff, 0.35);
+        g.strokeCircle(at.x, at.y, r);
+        g.lineStyle(3, 0x7fe9ff, 0.9);
+        g.beginPath();
+        g.arc(at.x, at.y, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f);
+        g.strokePath();
+      }
+    }
     // Missile lock: brackets on the ship a missile would lock onto now.
     const me = this.net.predicted;
     if (me && me.missileCharges > 0 && !this.net.death) {
@@ -1005,8 +1076,9 @@ export class FlightScene extends Phaser.Scene {
       full: 'Planet is full. Tap to go back',
       closed: 'Disconnected. Tap to go back',
       destroyed: '',
+      extracted: '',
     };
-    if (!n.death && n.status !== 'destroyed') this.message.setText(n.status === 'open' && !own ? 'Dropping in…' : msg[n.status]);
+    if (!n.death && n.status !== 'destroyed' && !n.extracted && n.status !== 'extracted') this.message.setText(n.status === 'open' && !own ? 'Dropping in…' : msg[n.status]);
     if (DEBUG && own) {
       this.coords.setText(`x ${own.x.toFixed(0)}  y ${own.y.toFixed(0)}  pending ${n.pendingCount}  corr ${n.lastCorrection.toFixed(1)}`);
     }

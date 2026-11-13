@@ -17,7 +17,7 @@ import type { PlanetId } from '../../sim/planets';
 import { clientTune } from '../clientTune';
 import { SIM_LAG_MS, serverOrigin } from '../base';
 
-export type NetStatus = 'connecting' | 'open' | 'full' | 'closed' | 'destroyed';
+export type NetStatus = 'connecting' | 'open' | 'full' | 'closed' | 'destroyed' | 'extracted';
 
 /** A bullet as drawn. Damage is decided by the server; this is only what the player sees. */
 export interface VisualBullet {
@@ -46,6 +46,7 @@ export type NetFx =
   /** A dash ram landed here. */
   | { kind: 'ram'; x: number; y: number }
   /** A missile or mine went off (r = blast radius); shot: it was shot down. */
+  | { kind: 'warpout'; x: number; y: number }
   | { kind: 'blast'; x: number; y: number; r: number; ordnance: 'missile' | 'mine'; shot: boolean }
   | { kind: 'mineral'; x: number; y: number }
   | { kind: 'shield'; id: number; x: number; y: number }
@@ -87,6 +88,8 @@ export class NetClient {
   readonly pickups = new Map<number, { id: number; x: number; y: number; kind: 'heal' | 'mineral'; value: number }>();
   /** Set when our own ship is destroyed: where, and who did it (0 = an asteroid). */
   death: { x: number; y: number; killer: number; killerName: string } | null = null;
+  /** Set when our warp run completed and we left the planet: what we carried out. */
+  extracted: { power: number; kills: number } | null = null;
   /** Every asteroid on the planet, by id. */
   readonly asteroids = new Map<number, Asteroid>();
   /** When each asteroid was last hit (performance.now), for the hit flash. */
@@ -138,7 +141,7 @@ export class NetClient {
       if(SIM_LAG_MS>0)setTimeout(receive,SIM_LAG_MS);else receive();
     });
     ws.addEventListener('close', (e) => {
-      this.status = e.code === CLOSE.ROOM_FULL ? 'full' : e.code === CLOSE.DESTROYED ? 'destroyed' : 'closed';
+      this.status = e.code === CLOSE.ROOM_FULL ? 'full' : e.code === CLOSE.DESTROYED ? 'destroyed' : e.code === CLOSE.EXTRACTED ? 'extracted' : 'closed';
       if (this.pingTimer) clearInterval(this.pingTimer);
     });
   }
@@ -160,9 +163,16 @@ export class NetClient {
   }
 
   /** Roster, deaths and pickups arrive as JSON text frames. */
-  private handleText(msg: { type?: string; id?: number; x?: number; y?: number; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean; hull?: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral'; value: number }[]; remove?: { id: number; by: number }[] }): void {
+  private handleText(msg: { type?: string; id?: number; power?: number; kills?: number; ships?: { id: number; x: number; y: number }[]; x?: number; y?: number; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean; hull?: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral'; value: number }[]; remove?: { id: number; by: number }[] }): void {
     if (msg.type === 'roster' && Array.isArray(msg.players)) {
       this.roster = new Map(msg.players.map((p) => [p.id, p]));
+    } else if (msg.type === 'extracted') {
+      this.extracted = { power: Number(msg.power) || 0, kills: Number(msg.kills) || 0 };
+    } else if (msg.type === 'warpouts' && Array.isArray(msg.ships)) {
+      for (const w of msg.ships) {
+        this.fx.push({ kind: 'warpout', x: w.x, y: w.y });
+        this.remotes.delete(w.id);
+      }
     } else if (msg.type === 'bounty' && typeof msg.id === 'number') {
       this.bounty = msg.id ? { id: msg.id, x: Number(msg.x) || 0, y: Number(msg.y) || 0 } : null;
     } else if (msg.type === 'deaths' && Array.isArray(msg.deaths)) {
@@ -306,7 +316,7 @@ export class NetClient {
    * engine's frame delta: Phaser smooths its delta and under-reports time when the frame rate drops,
    * which made a 37 fps client send 22 inputs a second to a server consuming 30.
    */
-  update(input: { turn: number; aim: number; thrust: number; dash: boolean; dashAim: number; fire: boolean; missile: boolean; mine: boolean }): void {
+  update(input: { turn: number; aim: number; thrust: number; dash: boolean; dashAim: number; fire: boolean; missile: boolean; mine: boolean; warp: boolean }): void {
     const now = performance.now();
     const deltaMs = this.lastFrameAt ? now - this.lastFrameAt : 0;
     this.lastFrameAt = now;
@@ -314,15 +324,17 @@ export class NetClient {
     this.dashQueued ||= input.dash;
     this.missileQueued ||= input.missile;
     this.mineQueued ||= input.mine;
-    if (this.predicted && this.status === 'open' && !this.death) {
+    this.warpQueued ||= input.warp;
+    if (this.predicted && this.status === 'open' && !this.death && !this.extracted) {
       this.accumulator += Math.min(deltaMs, 250);
       while (this.accumulator >= STEP_MS) {
         this.accumulator -= STEP_MS;
         // Round to the 32-bit floats that go on the wire, so prediction uses exactly what the server gets.
-        const cmd: ShipInput = { seq: ++this.seq, turn: Math.fround(input.turn), aim: Math.fround(input.aim), thrust: Math.fround(input.thrust), dash: this.dashQueued, fire: input.fire, dashAim: Math.fround(input.dashAim), missile: this.missileQueued, mine: this.mineQueued };
+        const cmd: ShipInput = { seq: ++this.seq, turn: Math.fround(input.turn), aim: Math.fround(input.aim), thrust: Math.fround(input.thrust), dash: this.dashQueued, fire: input.fire, dashAim: Math.fround(input.dashAim), missile: this.missileQueued, mine: this.mineQueued, warp: this.warpQueued };
         this.dashQueued = false;
         this.missileQueued = false;
         this.mineQueued = false;
+        this.warpQueued = false;
         this.pending.push(cmd);
         if (this.pending.length > 120) this.pending.shift();
         this.send(encodeInput(cmd));
@@ -352,6 +364,7 @@ export class NetClient {
   private dashQueued = false;
   private missileQueued = false;
   private mineQueued = false;
+  private warpQueued = false;
   /** Missiles and mines near us (server's view), with when each list arrived. */
   ordnance = new Map<number, OrdnanceView & { at: number }>();
   /** The strongest real player carries the bounty (server, twice a second); null when nobody does. */
