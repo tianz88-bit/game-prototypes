@@ -7,9 +7,11 @@ Status: DRAFT for owner review. Nothing here is built yet. Sections marked
 
 A space-themed, top-down, real-time PvP extraction shooter for the browser.
 Arcade dogfighting feel (top-down shoot 'em up) combined with extraction
-survival: players pick a planet from the main menu, drop in with gear from
-their stash, loot, shoot asteroids, fight other players, and warp out to keep what
-they carry. Dying loses everything brought in and picked up.
+survival: players pick a planet from the main menu, drop in with a fresh ship,
+grow it during the run (.io style: mine, buy upgrades, fight), and warp out to
+bank what they carry as currency. Dying loses the run's haul. Banked currency
+buys unlocks, quality of life and options, never raw power (owner, 13
+November 2026).
 
 Inspiration: the top-down dogfight feel and layered aircraft look of
 Thunderdogs, and the raid/extract/lose-it-all loop of extraction shooters.
@@ -28,17 +30,23 @@ All names, ships, pilots and art are original. Nothing is copied from either.
 
 ## Core loop
 
-1. **Main menu / hangar:** assemble a ship from stash parts, then pick a
-   planet.
-2. **Drop in:** join that planet's running room at any time.
+Owner direction (13 November 2026): each run is .io; extraction banks hard
+currency; currency buys unlocks, QoL and options, never raw power.
+
+1. **Main menu / hangar:** spend banked currency on unlocks, choose among
+   unlocked options, then pick a planet.
+2. **Drop in:** join that planet's running room at any time, always with the
+   same base ship as everyone else.
 3. **Lockdown:** for the first 3 minutes after dropping in, the player cannot
    leave.
-4. **Raid:** fly, shoot asteroids, fight players, loot. Stay as long as you
-   want.
+4. **Run (.io):** mine asteroids for minerals (power), buy in-run upgrades
+   (turrets, shield, guns, missiles, mines), fight players and bots. Stay as
+   long as you want. All of this resets when the run ends.
 5. **Warp out:** after lockdown, press Warp and survive the warp run to
    launch off the planet.
-6. **Result:** warped out means gear and loot go to stash. Destroyed means all
-   of it is lost and drops as loot for others.
+6. **Result:** warped out means the minerals carried are banked as currency.
+   Destroyed means the run's haul is lost and spills as minerals for others.
+   Nothing banked or unlocked is ever lost.
 
 ## Planets
 
@@ -120,8 +128,9 @@ All names, ships, pilots and art are original. Nothing is copied from either.
   directions (down / side / up), as in Punchies.
 - Default (confirm) slots: hull, cockpit, wings (left/right), engine(s),
   weapon hardpoint(s).
-- Each part is both visual and functional: equipping a different part changes
-  how the ship looks and how it performs.
+- Parts change how the ship looks. Any part that changes how it performs must
+  be a sidegrade (a trade-off of equal value), never strictly stronger (owner
+  rule: progression never adds raw power).
 - First approved ship: Human Nomad v1 (twin-engine, 12 parts from 8 PNGs),
   delivered as an owner-approved rig kit (branch
   proto/steroids-alpha/approved-ship-rig-v1, commit 38e7139). Its calibration
@@ -273,19 +282,31 @@ Asteroids replace bots as the non-player targets (owner decision).
   into space. The hub is solo: only the player is in it, and it runs on the
   client. Shared space with other players is out of scope for v1.
 
-## Loot and stash
+## Bank and unlocks
 
-- Stash is server-side (owner decision). Clients never write stash data.
-- Loot sources: loot crates on the planet, asteroids, destroyed players.
-- Loot = ship parts plus a simple currency or salvage (default, confirm).
-- On drop-in the server moves the equipped loadout from stash into
-  "in raid". On warp-out, loadout and carried loot return to stash. On death
-  it is lost.
+Owner direction (13 November 2026). Replaces the earlier gear-stash design.
+
+- **Bank:** server-side (Cloudflare D1), per anonymous account. Clients never
+  write it. The planet room credits it when a ship extracts; each extraction
+  pays out once (idempotent).
+- **Currency:** earned only, by extracting. No purchase path (monetisation is
+  out of scope).
+- **What is banked:** default (confirm): the ship's power above the starting
+  value at the moment of extraction, 1 mineral = 1 credit. In-run shop
+  purchases spend power, so a pilot chooses between spending to fight and
+  saving to bank.
+- **Death:** loses the run's haul only (it spills as minerals, as now).
+  Banked currency and unlocks are never lost.
+- **Unlocks never add raw power** (owner rule). Test: an unlock may change
+  how you play, not how strong you are. Allowed: cosmetics (colours, trails,
+  tags; owner art where art is needed), quality of life (loadout presets, run
+  stats, settings), and options that are sidegrades of equal value (for
+  example a ship variant trading speed for hull, or a choice between equal
+  weapon styles). Not allowed: starting tiers, extra hull or shield, cheaper
+  in-run prices, faster warp, longer missile range, anything strictly better.
+- First unlock catalogue: to be proposed by Claude and approved by the owner.
 - Default (confirm): disconnecting leaves the ship on the planet for a grace
   period; if it is not reconnected in time, it is lost as if destroyed.
-- Cargo capacity limits how much can be carried (default, confirm).
-- Starter loadout so a player with an empty stash can always drop in
-  (default, confirm).
 
 ## Identity
 
@@ -296,7 +317,9 @@ Default (confirm):
 
 - Anonymous account created on first visit. The browser stores a random
   secret; the server stores only its hash.
-- A recovery code lets the player move their stash to another device.
+- The account holds the bank and unlocks. A recovery code lets the player
+  move it to another device; losing both the browser data and the code loses
+  the account.
 - No email, passwords or third-party login in v1.
 
 ## Netcode
@@ -354,15 +377,16 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 
 ## v1 scope
 
-- Solo space hub for planet select, with hangar (stash and loadout assembly).
+- Solo space hub for planet select, with hangar (bank, unlock shop, choice
+  of unlocked options).
 - 2 PvP planets with persistent drop-in/drop-out rooms, plus 1 single-player
   practice planet.
 - Pseudo-3D wrapping planet rendering.
-- PvP, splitting asteroids, loot crates, wrecks of players.
+- PvP, splitting asteroids, minerals spilled by hit and destroyed ships.
 - Cloud-layer transition when entering and leaving a planet.
 - Two control schemes (craft-relative and direction marker) with throttle.
 - 3-minute lockdown and warp-out.
-- Server-side stash with anonymous identity and recovery code.
+- Server-side bank and unlocks with anonymous identity and recovery code.
 - Phone and desktop controls.
 - Placeholder art.
 
@@ -377,7 +401,8 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 - Trading, markets, crafting, quests, skill trees.
 - Squads, parties, friends, chat, voice.
 - Email/password accounts or third-party login.
-- Monetisation of any kind.
+- Monetisation of any kind (including buying currency).
+- Persistent progression that adds raw power (owner, 13 November 2026).
 - Moving off Cloudflare (Colyseus, Nakama, WebTransport) unless playtests
   justify it and the owner approves.
 
@@ -387,7 +412,8 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 - Ship art: top-down layered parts with a slightly angled 3D look, assembled
   the way Punchies assembles fighters.
 - PvP from day one. Splitting asteroids instead of bots.
-- Server-side stash. Phone play kept.
+- Server-side stash. Phone play kept. (Became the server-side bank, 13
+  November 2026.)
 - Netcode: Cloudflare Durable Objects + D1, server-authoritative, custom
   realtime netcode (not Firestorm's slow-paced sim).
 - Planets: pseudo-3D spheres wrapping around the player's perspective.
@@ -418,6 +444,9 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 - Thruster plume grows longer near top speed and in a dash.
 - Planet select shows the pilot count on each planet.
 - Pilot name must be typeable on phones (tap the box, the keyboard opens).
+- Meta progression (owner, 13 November 2026): per run is .io; extraction
+  banks hard currency; currency buys unlocks, QoL and options, never raw
+  power. Gear is no longer brought in or lost.
 - Main menu QR code of the game's itch page for quick joining; tapping it
   copies the link (owner decision, 12 November 2026). The QR encoder is
   written in-house rather than added as a dependency (owner choice).
@@ -426,15 +455,18 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 
 1. Which Thunderdogs gameplay aspects to keep beyond controls: score-style
    pickups, leader bounty, special-weapon crates, ammo pickups? (Health
-   pickups and a kills leaderboard are now in.)
-2. Ship slots and how many parts per slot in v1.
-3. Do part stats exist in v1 (speed, thrust, handling, armour, power), or is
-   v1 cosmetic plus weapons only?
+   pickups, a kills leaderboard and the leader bounty are now in.)
+2. Ship slots and how many parts per slot in v1, now that parts are
+   cosmetic or sidegrades only.
+3. Banking rate: 1 mineral = 1 credit of power above the start, or another
+   rate? Are unspent in-run upgrades worth anything at extraction?
 4. Warp-mode details: steering allowed, firing allowed, cancellable?
 5. What makes the 2 PvP planets different (loot tables, asteroids, size,
    look)?
-6. Does a respawn on a PvP planet need a cost or delay once the stash
-   exists? Right now Respawn is free and instant.
+6. Does a respawn on a PvP planet need a cost or delay? Right now Respawn is
+   free and instant; with nothing to lose but the run, free may be right.
+9. Loot crates and player wrecks were in v1 scope under the old stash design;
+   minerals spilled by ships replace them for now. Keep crates or wrecks?
 7. Should the Punchies part-rig be extracted into a shared package
    (`packages/part-rig`) used by both Punchies and Steroids-Alpha?
 8. BRIEF.md was drafted by Claude from the design chat, not written by the
