@@ -57,6 +57,7 @@ interface Player {
 
 
 const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN, missile: false, mine: false };
+const upgradeCount = (s: ShipState): number => s.turrets + s.shieldTier + s.damageTier + s.missileTier + s.mineTier;
 
 export class Room {
   private players = new Map<number, Player>();
@@ -283,7 +284,7 @@ export class Room {
     }
     // Power changes all the time; the leaderboard hears about it twice a second at most.
     if (this.tick % Math.max(1, Math.round(this.tune.net.tickHz / 2)) === 0) {
-      const key = [...this.players.values(), ...this.bots.values()].map((p) => `${p.id}:${Math.round(p.ship.hullMax)}:${p.kills}`).join(',');
+      const key = [...this.players.values(), ...this.bots.values()].map((p) => `${p.id}:${Math.round(p.ship.hullMax)}:${p.kills}:${upgradeCount(p.ship)}`).join(',');
       if (key !== this.rosterKey) this.broadcastRoster();
       this.broadcastBounty();
     }
@@ -318,8 +319,8 @@ export class Room {
   private rosterKey = '';
   private broadcastRoster(): void {
     const players = [...this.players.values(), ...this.bots.values()];
-    this.rosterKey = players.map((p) => `${p.id}:${Math.round(p.ship.hullMax)}:${p.kills}`).join(',');
-    this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.round(p.ship.hullMax), bot: this.bots.has(p.id) })) }));
+    this.rosterKey = players.map((p) => `${p.id}:${Math.round(p.ship.hullMax)}:${p.kills}:${upgradeCount(p.ship)}`).join(',');
+    this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.round(p.ship.hullMax), level: upgradeCount(p.ship), bot: this.bots.has(p.id) })) }));
   }
 
   /**

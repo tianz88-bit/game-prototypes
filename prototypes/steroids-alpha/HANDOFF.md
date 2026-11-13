@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 codex codex/steroids-mobile-shop-level
+DID: Compact upgrades into a shallow mobile row, default mobile to its own marker preference, and show ship upgrade counts as small Lv. labels.
+FILES: src/scenes/flight.ts src/input/intents.ts src/save.ts sim/protocol.ts server/src/room.ts scripts/test-steroids-live-config.mjs BUILD_STATUS.md
+SEAM: additive optional roster.level = sum of current shop tiers, server authoritative; binary protocol unchanged. Mobile saves use mobileSteer (default marker) independently of desktop steer. Deploy client + Worker together.
+CROSS: protocol/room metadata + refresh key, intents/save preference, live-config roster regression. No gameplay stats changed.
+FOR claude: Typecheck/build/rig/sim/live-config pass. Brave desktop and phone DPR2 inspected; legacy craft save starts mobile marker, explicit mobile choice persists, marker drag turns ship in freed control space. Level sums all five categories; upgrade-only roster refresh tested. Asteroids remain procedural pending owner art preference.
+
 ## 2026-11-13 codex codex/steroids-missile-wire-fixture
 DID: Isolate the missile wire test from random bots and asteroid collisions so client deployment is reliable.
 FILES: scripts/test-steroids-alpha-sim.mjs
@@ -97,10 +104,3 @@ FILES: sim/{ordnance,world,ship,shop,protocol,liveConfig,bots}.ts server/src/roo
 SEAM: protocol 13. Input bits missile/mine. ShipState + missileTier, mineTier, *Charges, *Cd, *Shots. MSG.ORDNANCE frame (OrdnanceView). JSON 'blasts' -> fx kind 'blast' {r, ordnance, shot}. intents.missileButton/mineButton. New tune groups missile, mine; shop.missile*/mine*.
 CROSS: ../steroids-alpha-lab (draft.ts groups, preview input flags)
 FOR codex: placeholders to style in flight.ts: drawWorld ordnance block (missile body+flame, spiky mine, arm blink, trigger ring, hp bar), lock brackets, drawWeapons buttons, 'blast' fx rings.
-
-## 2026-11-12 claude bots
-DID: AI bots on Planet A only, only while real players are present (4, respawn 5 s). Planet B stays PvP. Bots fight (lead + wobble, burst fire, dash), flee when hurt, farm, buy upgrades; on leaderboard as "BOT <name>".
-FILES: sim/bots.ts sim/planets.ts sim/liveConfig.ts server/src/{room,index}.ts src/liveConfig.ts tune.json scripts/test-steroids-alpha-sim.mjs
-SEAM: none on the wire (bots are ordinary ships in snapshots/roster). PLANETS[].bots flag. New tune group bots.
-CROSS: ../steroids-alpha-lab/draft.ts (Bots group)
-FOR codex: bots use the same rig; a distinct tint or marker for bot ships could help readability.

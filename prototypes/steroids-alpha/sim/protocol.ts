@@ -63,6 +63,8 @@ export interface RosterEntry {
   kills: number;
   /** Hull maximum (power, the minerals invested): the leaderboard ranks by this. */
   power: number;
+  /** Current upgrades across all five shop categories; absent on older servers. */
+  level?: number;
   /** Authoritative roster metadata; names never determine bot identity. Absent on older servers. */
   bot?: boolean;
 }

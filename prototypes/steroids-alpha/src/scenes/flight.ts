@@ -567,22 +567,26 @@ export class FlightScene extends Phaser.Scene {
     if (!p || !show) return;
     const labels: Record<string, string> = { turret: 'TURRET', shield: 'SHIELD', damage: 'GUNS', missile: 'MISSILE', mine: 'MINES' };
     const x = 10;
-    const bw = 150;
-    const bh = 36;
+    const mobile = intents.touch;
+    const available = window.innerWidth - Math.min(BOARD_CHIP_W, window.innerWidth * .34) - 30;
+    const cols = mobile ? Math.max(1, Math.min(5, Math.floor(available / 88))) : 1;
+    const bw = mobile ? Math.min(86, (available - (cols - 1) * 4) / cols) : 124;
+    const bh = mobile ? 34 : 30;
     SHOP_ITEMS.forEach((item, i) => {
-      const y = 38 + i * (bh + 6);
+      const bx = x + (i % cols) * (bw + 4);
+      const y = (mobile ? 28 : 38) + Math.floor(i / cols) * (bh + 4);
       const offer = shopOffer(p, item, TUNE);
       const can = canBuy(p, item, TUNE);
-      panel(g,x,y,bw,bh,can?UI.uiAccent:UI.uiBorder,can);
-      for(let level=0;level<4;level++){g.fillStyle(level<shopTier(p,item)?UI.uiGold:UI.uiBorder,.85);g.fillRect(x+bw-8-level*5,y+8,3,4);}
+      panel(g,bx,y,bw,bh,can?UI.uiAccent:UI.uiBorder,can);
       const key = intents.touch ? '' : `[${i + 1}] `;
       const t = this.shopTexts[i];
-      t.title.setPosition(x + 10, y + 11).setText(`${key}${labels[item]} ${shopTier(p, item)}/4`).setColor(css(can?UI.uiText:0x91a5bb));
+      t.title.setFontSize(mobile ? 10 : 11).setPosition(bx + 5, y + 9).setText(`${key}${labels[item]} ${shopTier(p, item)}/4`).setColor(css(can?UI.uiText:0x91a5bb));
       t.sub
-        .setPosition(x + 10, y + 25)
-        .setText(offer ? `needs ${offer.floor} · costs ${offer.cost}` : 'maxed')
+        .setFontSize(mobile ? 9 : 9)
+        .setPosition(bx + 5, y + (mobile ? 24 : 22))
+        .setText(offer ? `${offer.cost}c · need ${offer.floor}` : 'maxed')
         .setColor(can ? '#bfffd0' : '#6d7a96');
-      intents.shopZones.push({ item: i, zone: { x: x + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
+      intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
     });
   }
 
@@ -728,8 +732,9 @@ export class FlightScene extends Phaser.Scene {
         const nameT = text(this, 0, 0, '', 12).setOrigin(0, 0.5);
         const killsT = text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5);
         const fragsT = text(this, 0, 0, '', 11, '#ffb37a').setOrigin(1, 0.5);
-        const box = this.add.container(right - cw / 2, target, [g, rankT, nameT, fragsT, killsT]).setDepth(950);
-        chip = { box, g, rankT, nameT, killsT, fragsT, y: target, kills: r.kills, rank, poppedAt: -1e9, climbedAt: -1e9, width: 0 };
+        const levelT = text(this, 0, 0, '', 9, '#9faec1').setOrigin(1, .5);
+        const box = this.add.container(right - cw / 2, target, [g, rankT, nameT, levelT, fragsT, killsT]).setDepth(950);
+        chip = { box, g, rankT, nameT, killsT, fragsT, levelT, y: target, kills: r.kills, rank, poppedAt: -1e9, climbedAt: -1e9, width: 0 };
         this.board.set(r.id, chip);
       }
       if (r.kills > chip.kills) chip.poppedAt = now;
@@ -759,6 +764,7 @@ export class FlightScene extends Phaser.Scene {
         g.fillRoundedRect(cw / 2 - pw - 3, -ch / 2 + 3, pw, ch - 6, (ch - 6) / 2);
         chip.killsT.setPosition(cw / 2 - pw / 2 - 3, 0);
         chip.fragsT.setPosition(cw / 2 - pw - 8, 0);
+        chip.levelT.setPosition(cw / 2 - pw - 48, 0);
         chip.rankT.setPosition(-cw / 2 + 9, 0);
         chip.nameT.setPosition(-cw / 2 + 26, 0);
         chip.width = cw;
@@ -775,13 +781,14 @@ export class FlightScene extends Phaser.Scene {
         chip.nameKey=nameKey;
         chip.nameT.setText(displayName);
         // Long names are cut to fit between the rank and the kills pill.
-        const room = cw - 26 - 40 - 34;
+        const room = cw - 26 - 40 - 34 - 36;
         let n = displayName;
         while (chip.nameT.width > room && n.length > 1) chip.nameT.setText((n = n.slice(0, -1)) + '…');
       }
       const colour=mine?'#9fefff':r.bot===true?'#a9bdcf':'#dfe8ff';
       if(chip.nameT.style.color!==colour)chip.nameT.setColor(colour);
       if (chip.killsT.text !== `${r.power}`) chip.killsT.setText(`${r.power}`);
+      chip.levelT.setText(r.level === undefined ? 'Lv.–' : `Lv.${r.level}`);
       // Player kills only (asteroids never score), next to the power pill.
       const frags = `${r.kills} KO`;
       if (chip.fragsT.text !== frags) chip.fragsT.setText(frags);
@@ -1035,7 +1042,7 @@ function rockShape(id: number, r: number): { x: number; y: number }[] {
   return pts;
 }
 
-const BOARD_CHIP_W = 200;
+const BOARD_CHIP_W = 224;
 const BOARD_CHIP_H = 22;
 
 interface BoardChip {
@@ -1046,6 +1053,7 @@ interface BoardChip {
   killsT: Phaser.GameObjects.Text;
   /** Player kills this life. */
   fragsT: Phaser.GameObjects.Text;
+  levelT: Phaser.GameObjects.Text;
   /** Current (gliding) y; the chip eases toward its rank's slot. */
   y: number;
   kills: number;

@@ -17,7 +17,9 @@ import { loadSave, writeSave } from '../save';
 export type SteerScheme = 'marker' | 'craft';
 
 function loadScheme(): SteerScheme {
-  return loadSave().steer === 'craft' ? 'craft' : 'marker';
+  const saved = loadSave();
+  const mobile = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  return (mobile ? saved.mobileSteer : saved.steer) === 'craft' ? 'craft' : 'marker';
 }
 
 export interface Zone {
@@ -183,7 +185,7 @@ export class Intents {
 
   toggleScheme(): void {
     this.scheme = this.scheme === 'marker' ? 'craft' : 'marker';
-    writeSave({ steer: this.scheme });
+    writeSave(this.touch ? { mobileSteer: this.scheme } : { steer: this.scheme });
   }
 
   /** The move intent for one step, from whichever device is active. speed is the ship's current speed. */
