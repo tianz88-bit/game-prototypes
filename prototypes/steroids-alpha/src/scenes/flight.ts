@@ -26,7 +26,8 @@ import { loadSave } from '../save';
 import type { ShipPlacement } from '../render/shipView';
 import { missileLock } from '../../sim/ordnance';
 import { UI, css, panel, controlFace } from '../render/ui';
-import { drawRock, drawPickup, drawOrdnance, drawExplosionCore, drawBullet, drawDrone, drawHitSpark } from '../render/worldArt';
+import { drawPickup, drawOrdnance, drawExplosionCore, drawBullet, drawDrone, drawHitSpark } from '../render/worldArt';
+import { PixelRocks } from '../render/rockPixels';
 
 const W = TUNE.world.width;
 const H = TUNE.world.height;
@@ -46,6 +47,7 @@ export class FlightScene extends Phaser.Scene {
   private coords!: Phaser.GameObjects.Text;
   private schemeLabel!: Phaser.GameObjects.Text;
   private world!: Phaser.GameObjects.Graphics;
+  private rocks!: PixelRocks;
   private hullBorder!: Phaser.GameObjects.Graphics;
   private hullHitAt=-1e9;
   private missileTrails = new Map<number, {x:number;y:number;at:number}[]>();
@@ -120,6 +122,7 @@ export class FlightScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(SPACE);
     this.ground = new PlanetGround(this, 1);
     this.world = this.add.graphics().setDepth(15);
+    this.rocks = new PixelRocks(this);
     this.turretGfx = this.add.graphics().setDepth(23);
     this.overlay = this.add.graphics().setDepth(900);
     this.hullBorder=this.add.graphics().setDepth(940);
@@ -847,23 +850,14 @@ export class FlightScene extends Phaser.Scene {
     g.clear();
     const now = performance.now();
     const light = this.objectLight();
+    this.rocks.begin();
     for (const { a, x, y } of this.net.asteroidRender()) {
       const r = TUNE.asteroid.radius[a.size];
       if (!this.toScreen(x, y).visible) continue;
-      // Each corner goes through the projection, so a rock squashes as it nears the horizon.
-      const pts: Phaser.Math.Vector2[] = [];
-      let hidden = false;
-      for (const p of rockShape(a.id, r)) {
-        const q = this.toScreen(x + p.x, y + p.y);
-        if (!q.visible) hidden = true;
-        pts.push(new Phaser.Math.Vector2(q.x, q.y));
-      }
-      if (hidden) continue;
       const flash = now - (this.net.asteroidHitAt.get(a.id) ?? -1e9) < 90;
-      const at = this.toScreen(x, y);
-      drawRock(g, pts, at, r * at.scale, ROCK_FILL[a.size], light, this.frame.sun,
-        a.hp / TUNE.asteroid.hp[a.size], flash, a.id);
+      this.rocks.draw(a.id,x,y,r,a.hp/TUNE.asteroid.hp[a.size],flash,light,this.frame.sun,(px,py)=>this.toScreen(px,py));
     }
+    this.rocks.end();
     // Cosmetic bob and sparkle never alter the server's pickup position or collection radius.
     for (const item of this.net.pickups.values()) {
       const at = this.toScreen(item.x, item.y);
@@ -1017,29 +1011,6 @@ export class FlightScene extends Phaser.Scene {
       this.coords.setText(`x ${own.x.toFixed(0)}  y ${own.y.toFixed(0)}  pending ${n.pendingCount}  corr ${n.lastCorrection.toFixed(1)}`);
     }
   }
-}
-
-const ROCK_FILL = [0x6b5a4a, 0x7a6753, 0x8a755d];
-const shapes = new Map<string, { x: number; y: number }[]>();
-/** A lumpy outline, the same every time for a given asteroid id. */
-function rockShape(id: number, r: number): { x: number; y: number }[] {
-  const key = `${id}:${r}`;
-  let pts = shapes.get(key);
-  if (!pts) {
-    pts = [];
-    let seed = id * 9301 + 49297;
-    const n = [8,12,6][id%3];
-    for (let i = 0; i < n; i++) {
-      seed = (seed * 9301 + 49297) % 233280;
-      // Each family encloses the full collision circle, including its flat edges.
-      const k = (1.015 + (seed / 233280) * 0.10) / Math.cos(Math.PI/n);
-      const a = (i / n) * Math.PI * 2 + (id%7)*.17;
-      pts.push({ x: Math.cos(a) * r * k, y: Math.sin(a) * r * k });
-    }
-    if (shapes.size > 400) shapes.clear();
-    shapes.set(key, pts);
-  }
-  return pts;
 }
 
 const BOARD_CHIP_W = 224;
