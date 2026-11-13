@@ -332,10 +332,10 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
     if (ev.deaths.length) killed = ev.deaths[0];
   }
   assert(killed && killed.id === 2, 'b destroyed');
-  const spilled = added.reduce((m, k) => m + k.value, 0);
+  const spilled = added.filter((k) => k.kind === 'mineral').reduce((m, k) => m + k.value, 0); // gold (salvage) is checked in its own section
   // Hull spills while alive (half of the 200 lost) plus half of what was left at the killing blow.
   assert(spilled >= 200 * sh.hullSpillFraction * 0.8 && spilled <= 200, `spilled minerals (${spilled.toFixed(1)})`);
-  assert(added.every((k) => k.kind === 'mineral'));
+  assert(added.every((k) => k.kind === 'mineral' || k.kind === 'salvage'));
   // b was locked out of its own spill (it never grew back while being shot).
   assert(w.pickups.size > 0);
   // Bullets of a ship with bought damage tiers hit harder.
@@ -746,7 +746,7 @@ assert.equal(S.cleanName(null), '');
   assert(Number.isNaN(back.aim));
   assert(Number.isNaN(S.decodeClient(S.encodeInput({ ...input, dashAim: 99 })).input.dashAim), 'bad dash aims are dropped');
   assert.deepEqual(S.decodeClient(S.encodeBuy(0, 2)), { type: S.MSG.BUY, item: 0, tier: 2 });
-  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5 };
+  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5, salvage: 87.5 };
   assert.deepEqual(S.decodeServer(S.encodeSnapshot(1234, 55, [ship])), { type: S.MSG.SNAPSHOT, tick: 1234, ackSeq: 55, ships: [ship] });
   const rockRec = { id: 3, size: 1, x: 10.5, y: 20.25, vx: -30, vy: 12.5, t0: 900, hp: 30 };
   assert.deepEqual(S.decodeServer(S.encodeAsteroids([rockRec])).asteroids, [rockRec]);
@@ -1300,4 +1300,127 @@ assert.equal(S.cleanName(null), '');
   }
 }
 
-console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, bots, ramming, health boosts, kill credit, missiles, mines, bounty, lockdown, warp-out and settings upgrade all pass.');
+// --- Salvage (BRIEF.md Bank and unlocks): mined minerals add salvage, ship spills do not; a destroyed
+// ship drops its salvage plus a share of its power as gold; repeat kills pay less; bots never earn
+// salvage and drop less; the hot zone doubles mined salvage and moves. ---
+{
+  const sv = tune.salvage;
+  const hz = tune.hotZone;
+  const settle = (w, n = 3) => { for (let i = 0; i < n; i++) { w.step(); } return w.drain(); };
+  // Mining: an asteroid's minerals carry salvage; picking them up adds it (outside the hot zone).
+  {
+    const w = emptyWorld();
+    w.tune.ship.minSpeed = 0;
+    const a = placeShip(w, 1, 1000, 1000, 0);
+    a.speed = 0;
+    w.hotZone = { x: 3000, y: 3000, r: hz.radius, until: 1e9 };
+    const r = rock(w, 2, 1000, 1000 + 200, 0, 0, 1); // smallest rock, one hit kills
+    // Shoot it from below by pointing the ship at it.
+    a.heading = Math.PI / 2;
+    for (let i = 0; i < 30 && w.asteroids.has(r.id); i++) { w.stepShip(1, { ...idle, thrust: -1, fire: true }); w.step(); w.drain(); }
+    assert(!w.asteroids.has(r.id), 'rock mined');
+    const minerals = [...w.pickups.values()].filter((k) => k.kind === 'mineral');
+    const total = minerals.reduce((n, k) => n + k.value, 0);
+    near(minerals.reduce((n, k) => n + k.salvage, 0), total * sv.perMineral, 1e-6, 'mined minerals carry perMineral salvage');
+    for (const k of minerals) { k.x = a.x; k.y = a.y; }
+    settle(w, 2);
+    near(a.salvage, total * sv.perMineral, 0.2, 'collecting them adds salvage');
+  }
+  // Hot zone: double salvage for rock mined inside; it moves after moveSeconds.
+  {
+    const w = emptyWorld();
+    w.tune.ship.minSpeed = 0;
+    const a = placeShip(w, 1, 1000, 1000, Math.PI / 2);
+    a.speed = 0;
+    w.hotZone = { x: 1000, y: 1200, r: hz.radius, until: w.tick + 60 };
+    const r = rock(w, 2, 1000, 1200, 0, 0, 1);
+    for (let i = 0; i < 30 && w.asteroids.has(r.id); i++) { w.stepShip(1, { ...idle, thrust: -1, fire: true }); w.step(); }
+    w.drain();
+    const minerals = [...w.pickups.values()].filter((k) => k.kind === 'mineral');
+    const total = minerals.reduce((n, k) => n + k.value, 0);
+    near(minerals.reduce((n, k) => n + k.salvage, 0), total * sv.perMineral * hz.salvageMultiplier, 1e-6, 'hot zone multiplies mined salvage');
+    let ev = null;
+    for (let i = 0; i < 70 && !ev; i++) { w.step(); ev = w.drain().hotZone ? w.hotZone : null; }
+    ev = ev && { hotZone: ev };
+    assert(ev.hotZone && (ev.hotZone.x !== 1000 || ev.hotZone.y !== 1200), 'hot zone moved when its time ran out');
+    near(ev.hotZone.until - w.tick, hz.moveSeconds * tune.net.tickHz, 31, 'next move after moveSeconds');
+  }
+  // Ship spills (hits) carry no salvage; death drops carried salvage + share of power above start as gold.
+  {
+    const w = emptyWorld();
+    w.tune.ship.minSpeed = 0;
+    const a = placeShip(w, 1, 1000, 1000, 0);
+    const b = placeShip(w, 2, 1300, 1000, 0);
+    a.speed = b.speed = 0;
+    b.hullMax = b.hp = 250;
+    b.shield = 0;
+    b.salvage = 40;
+    // One hit that does not kill: spilled minerals carry nothing.
+    a.heading = 0;
+    let hitOnce = false;
+    for (let i = 0; i < 30 && !hitOnce; i++) { b.x = 1300; b.y = 1000; w.stepShip(1, { ...idle, thrust: -1, fire: true }); w.step(); hitOnce = b.hp < 250; }
+    w.drain();
+    assert(hitOnce, 'b was hit');
+    assert([...w.pickups.values()].filter((k) => k.kind === 'mineral').every((k) => k.salvage === 0), 'minerals spilled by a hit carry no salvage');
+    const powerAbove = b.hullMax - tune.ship.maxHp;
+    b.hp = 1; b.shield = 0;
+    for (let i = 0; i < 30 && b.hp > 0; i++) { b.x = 1300; b.y = 1000; w.stepShip(1, { ...idle, thrust: -1, fire: true }); w.step(); }
+    w.drain();
+    assert.equal(b.hp, 0, 'b destroyed');
+    const gold = [...w.pickups.values()].filter((k) => k.kind === 'salvage');
+    near(gold.reduce((n, k) => n + k.value, 0), 40 + sv.killPowerShare * powerAbove, 0.6, 'gold = carried salvage + kill share of power above start');
+    assert(gold.length <= sv.goldChunksMax, 'gold in a few chunks');
+    // Collecting gold adds salvage only, not power.
+    const pw = a.hullMax;
+    for (const k of gold) { k.x = a.x; k.y = a.y; }
+    settle(w, 2);
+    near(a.salvage, 40 + sv.killPowerShare * powerAbove, 0.6, 'gold collected as salvage');
+    assert.equal(a.hullMax, pw, 'gold adds no power');
+  }
+  // Guards: a fresh ship drops no power gold; repeat kills (room, by name) pay half each time; bots never
+  // earn salvage from mining and drop botDropFactor of the share.
+  {
+    const w = emptyWorld();
+    const s = w.addShip(5);
+    s.hullMax = s.hp = 200; s.shield = 0; s.salvage = 10;
+    w['damageShip'](5, s, 1e6, 0, s.x, s.y);
+    const gold = [...w.pickups.values()].filter((k) => k.kind === 'salvage').reduce((n, k) => n + k.value, 0);
+    near(gold, 10, 0.2, 'fresh ship: only its carried salvage, no power gold');
+    const wb = emptyWorld();
+    const bot = placeShip(wb, 7, 1000, 1000, 0);
+    wb.botIds.add(7);
+    bot.hullMax = bot.hp = 250; bot.shield = 0;
+    wb['damageShip'](7, bot, 1e6, 0, bot.x, bot.y);
+    const bg = [...wb.pickups.values()].filter((k) => k.kind === 'salvage').reduce((n, k) => n + k.value, 0);
+    near(bg, sv.killPowerShare * 200 * sv.botDropFactor, 0.6, 'bot drop reduced by botDropFactor');
+    // Room: same killer and victim names, the payout halves per repeat within the window.
+    const room = new S.Room();
+    room.setBots(false);
+    class Sock extends EventTarget { sent = []; send(v) { this.sent.push(v); } close() {} }
+    room.join(new Sock(), 'Hunter');
+    room.join(new Sock(), 'Prey');
+    room.stop();
+    const [h, p] = [...room.players.values()];
+    assert.deepEqual([1, 2, 3].map(() => room.world.payoutFactor(p.id, h.id)), [1, 0.5, 0.25], 'repeat kills pay half each time');
+    assert.equal(room.world.payoutFactor(h.id, p.id), 1, 'the other way round is a separate count');
+  }
+  // Extraction reports the salvage carried out.
+  {
+    class Sock extends EventTarget { sent = []; closed = 0; send(v) { this.sent.push(v); } close(c) { this.closed = c; } }
+    const room = new S.Room(1);
+    room.setBots(false);
+    const sock = new Sock();
+    room.join(sock, 'Banker');
+    room.stop();
+    const [p] = [...room.players.values()];
+    p.started = true;
+    Object.assign(p.ship, { lockdown: 0, warping: true, warpDist: tune.warp.distance - 1, salvage: 123.7 });
+    for (let i = 0; i < 3 && !sock.closed; i++) room.step();
+    const res = sock.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).find((m) => m.type === 'extracted');
+    assert.equal(res.salvage, 123, 'salvage carried out is reported');
+    const hz0 = sock.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).find((m) => m.type === 'hotzone');
+    assert(hz0 && hz0.r === hz.radius, 'joiners hear where the hot zone is');
+  }
+}
+
+console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, bots, ramming, health boosts, kill credit, missiles, mines, bounty, lockdown, warp-out, salvage, hot zone and settings upgrade all pass.');

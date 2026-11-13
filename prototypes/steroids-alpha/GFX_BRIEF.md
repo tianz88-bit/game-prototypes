@@ -63,3 +63,31 @@ Lane: codex (render). Claude keeps the rules. Read COLLAB.md first. Log every pu
 Items 1–7 delivered in PRs #448–454. Item 8 adds server-authoritative bot markers in this change; human names cannot opt into the bot marker. Existing turret tiers also use visible shop pips and polished mounts. New physical power-tier parts remain an owner art decision.
 
 Each item has inspected desktop/DPR2 phone captures and passing typecheck/build/rig/sim checks. Final live-config tests cover RGB boundaries, old settings migration and bot-name impersonation. Headless two-client + four-bot pacing matches the baseline (about 32 FPS, p95 31.6ms); real phone hardware remains to be measured. No new raster assets or gameplay tuning changes. The legacy full browser check retains a baseline-reproduced early keyboard-turn assertion failure; it is not reported as passing.
+
+## Orbital zoom transition (owner, 13 November 2026)
+
+Replaces the cloud-layer transition in BRIEF.md (now "Orbital zoom transition"). Lane: codex.
+The Agent Comms mailbox was down when this was written, so this file is the hand-off.
+
+- Entering (on drop-in, when the first own snapshot arrives): camera starts far out, the whole
+  planet small in space (reuse the globe projection; animate the view zoom `this.view.k` /
+  planet radius in flight.ts), then dives to play zoom over about 1.5-2 s with ease-out. The own
+  ship streaks down through the atmosphere glow and lands with a small shockwave ring.
+- It must fit inside the 2 s spawn protection (sim/world.ts addShip grace). The client keeps
+  sending inputs throughout; do not block input or prediction, only the camera.
+- Leaving: when `net.extracted` is set (or status 'extracted'), play the reverse: ship streaks
+  up, camera pulls back, the planet shrinks into space (about 1.5 s), then the EXTRACTED panel
+  (flight.ts deathScreen extracted=true). Purely visual: the server has already removed the ship.
+- Other ships' warp-outs keep the in-world 'warpout' fx; only the own ship gets the camera move.
+- Respawn / Drop in replays the entry. The menu planets may later become the same globes (space
+  hub), so keep the zoom code reusable.
+- Done when: desktop and phone DPR2 captures of both directions, no console errors, the sim
+  tests and the death check still pass, HANDOFF entry.
+
+## Salvage and hot zone placeholders (claude, 13 November 2026)
+
+- Gold salvage pickups: spinning gold coin (flight.ts drawWorld, kind 'salvage'); collect fx
+  'gold'.
+- Hot zone: dashed green ring on the planet, label with bonus and timer, green edge arrow
+  (flight.ts drawHotZone).
+- SALVAGE counter above the hull panel (drawTouch).

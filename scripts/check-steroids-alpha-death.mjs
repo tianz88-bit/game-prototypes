@@ -28,7 +28,8 @@ try {
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   page.on('pageerror', (e) => errors.push(e.message));
   const api = (fn, arg) => page.evaluate(fn, arg);
-  await page.goto(`${base}?debug=1&planet=alpha&server=${encodeURIComponent(server)}`, { waitUntil: 'networkidle' });
+  // Planet B: no bots there, so the only things that can destroy the ship are the asteroids it rams.
+  await page.goto(`${base}?debug=1&planet=beta&server=${encodeURIComponent(server)}`, { waitUntil: 'networkidle' });
   await page.waitForFunction(() => window.__steroids.own() !== null, null, { timeout: 15000 });
   const start = await api(() => window.__steroids.own());
   assert(start.shield > 0 && start.hp > 0, 'starts with shield and hull');

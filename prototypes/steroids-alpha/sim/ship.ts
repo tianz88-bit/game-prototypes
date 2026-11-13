@@ -56,6 +56,12 @@ export interface ShipState {
   warping: boolean;
   /** Distance travelled in warp mode; reaching warp.distance extracts the ship. Any damage resets it. */
   warpDist: number;
+  /**
+   * Salvage carried this run (meta progression, BRIEF.md Bank and unlocks). Earned by mining and
+   * picked up as gold from destroyed ships; banked on extraction, dropped as gold on death. In-run
+   * upgrades never spend it. Changed only by the server.
+   */
+  salvage: number;
 }
 
 export interface ShipInput {
@@ -127,7 +133,7 @@ export function maxShield(s: ShipState, tune: Tune): number {
 }
 
 export function newShip(x: number, y: number, heading: number, speed: number): ShipState {
-  return { x, y, heading, speed, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0 };
+  return { x, y, heading, speed, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0, salvage: 0 };
 }
 
 /** Warp top speed: warp.topSpeedFactor times this ship's top speed (only slightly faster, so pursuit is possible). */
@@ -136,7 +142,7 @@ export function warpSpeed(hp: number, tune: Tune): number {
 }
 
 export function copyShip(s: ShipState): ShipState {
-  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist };
+  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist, salvage: s.salvage };
 }
 
 /** Advance one fixed step. Mutates and returns s. */

@@ -72,6 +72,10 @@ export class FlightScene extends Phaser.Scene {
   private bountyText!: Phaser.GameObjects.Text;
   /** Label on the warp button: lockdown countdown, WARP, or warp progress and CANCEL. */
   private warpText!: Phaser.GameObjects.Text;
+  /** Salvage carried, beside the hull bar. */
+  private salvageText!: Phaser.GameObjects.Text;
+  /** Hot zone label: on the zone when in view, else on its edge tracker. */
+  private hotZoneText!: Phaser.GameObjects.Text;
   private lockedOnMe = false;
   /** Shown to a pilot with a missile locked on them in flight. */
   private lockText!: Phaser.GameObjects.Text;
@@ -135,6 +139,8 @@ export class FlightScene extends Phaser.Scene {
     this.schemeLabel = text(this, 0, 0, '', 11, '#dfe8ff').setOrigin(0.5).setDepth(951).setVisible(false);
     this.message = text(this, w / 2, logicalSize().h * 0.3, '', 18, '#ffffff').setOrigin(0.5).setDepth(950);
     this.boardTitle = text(this, 0, 0, 'KO · POWER', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
+    this.salvageText = text(this, 0, 0, '', 12, '#ffd23a').setOrigin(1, 0.5).setDepth(953).setVisible(false);
+    this.hotZoneText = text(this, 0, 0, '', 11, '#7dffc4').setOrigin(0.5).setDepth(953).setVisible(false);
     this.warpText = text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(953).setVisible(false);
     this.bountyText = text(this, 0, 0, '', 11, '#ffd23a').setOrigin(0.5).setDepth(953).setVisible(false);
     this.lockText = text(this, 0, 0, 'MISSILE LOCK', 13, '#ff5a3a').setOrigin(0.5).setDepth(953).setVisible(false);
@@ -230,6 +236,7 @@ export class FlightScene extends Phaser.Scene {
           this.shieldHitCount++;
         }
       }
+      else if (f.kind === 'gold') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 30, ms: 450, colour: 0xffd23a, chips: 10 });
       else if (f.kind === 'warpout') {
         // A ship launching off the planet: a bright cyan flash and a wide ring.
         this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 150, ms: 700, colour: 0x7fe9ff });
@@ -397,6 +404,50 @@ export class FlightScene extends Phaser.Scene {
       aim.angle[i] = a;
       drawDrone(g,x,y,k,a,now,id+i,light,now-(aim.firedAt[i]??-1e9)<70);
     }
+  }
+
+  /**
+   * Hot zone (placeholder look): a dashed green ring on the planet while in view, labelled with the
+   * bonus and the time until it moves; otherwise a green arrow on the inner screen ellipse.
+   */
+  private drawHotZone(p: ShipState | null, w: number, h: number): void {
+    const z = this.net.hotZone;
+    this.hotZoneText.setVisible(false);
+    if (!p || !z || z.r <= 0 || this.net.death || this.net.extracted) return;
+    const g = this.overlay;
+    const now = performance.now();
+    const left = Math.max(0, (z.movesAt - now) / 1000);
+    const label = `HOT ZONE x${TUNE.hotZone.salvageMultiplier}  ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`;
+    const centre = this.toScreen(z.x, z.y);
+    const dx = wrapDelta(z.x, p.x, W);
+    const dy = wrapDelta(z.y, p.y, H);
+    const inside = Math.hypot(dx, dy) <= z.r;
+    // The ring, through the planet projection (segments on the visible side only).
+    const n = 48;
+    g.lineStyle(2, 0x7dffc4, 0.55);
+    let prev: { x: number; y: number; visible: boolean } | null = null;
+    for (let i = 0; i <= n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const q = this.toScreen(z.x + Math.cos(a) * z.r, z.y + Math.sin(a) * z.r);
+      if (prev && prev.visible && q.visible && i % 2 === 0) g.lineBetween(prev.x, prev.y, q.x, q.y);
+      prev = q;
+    }
+    if (inside) {
+      this.hotZoneText.setVisible(true).setText(label).setPosition(w / 2, h - 66);
+      return;
+    }
+    if (centre.visible && centre.x > 40 && centre.x < w - 40 && centre.y > 40 && centre.y < h - 40) {
+      this.hotZoneText.setVisible(true).setText(label).setPosition(centre.x, centre.y);
+      return;
+    }
+    const a = Math.atan2(dy, dx);
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    const x = w / 2 + c * w * 0.36;
+    const y = h / 2 + s * h * 0.33;
+    g.fillStyle(0x7dffc4, 0.85);
+    g.fillTriangle(x + c * 14, y + s * 14, x - c * 6 - s * 10, y - s * 6 + c * 10, x - c * 6 + s * 10, y - s * 6 - c * 10);
+    this.hotZoneText.setVisible(true).setText(`${label}  ${Math.round(Math.max(0, Math.hypot(dx, dy) - z.r) / 100) * 100}m`).setPosition(x - c * 70, y - s * 34);
   }
 
   /**
@@ -650,6 +701,7 @@ export class FlightScene extends Phaser.Scene {
     // it, and growing past the old best keeps it full. Power (hull points) is written above.
     const p = this.net.predicted;
     this.powerText.setVisible(!!p && !this.net.death);
+    this.salvageText.setVisible(false);
     if (p && !this.net.death) {
       const bw = Math.min(220, w * 0.5);
       panel(g,w/2-bw/2-9,h-50,bw+38,46,UI.uiBorder);
@@ -657,6 +709,8 @@ export class FlightScene extends Phaser.Scene {
       const shield = Math.max(0, Math.min(1, p.shield / maxShield(p, TUNE)));
       const capped = p.hullMax >= TUNE.ship.powerCap;
       this.powerText.setPosition(w / 2, h - 30).setText(`HULL ${Math.round(p.hp)}/${Math.round(p.hullMax)}${capped ? '  MAX' : ''}`);
+      // Salvage carried this run: banked on extraction, dropped as gold on death.
+      this.salvageText.setVisible(true).setPosition(w / 2 + bw / 2 + 28, h - 60).setText(`SALVAGE ${Math.floor(p.salvage)}`);
       g.fillStyle(0x000000, 0.45);
       g.fillRect(w / 2 - bw / 2, h - 27, bw, 6);
       g.fillRect(w / 2 - bw / 2, h - 16, bw, 8);
@@ -689,6 +743,7 @@ export class FlightScene extends Phaser.Scene {
     this.drawWeapons(p, w, h);
     this.drawBounty(p, w, h);
     this.drawWarp(p, w, h);
+    this.drawHotZone(p, w, h);
     this.schemeLabel.setVisible(intents.touch);
     if (!intents.touch) {
       intents.dashButton = null;
@@ -860,7 +915,7 @@ export class FlightScene extends Phaser.Scene {
       const by = this.net.death?.killer ? `Destroyed by ${this.net.death.killerName || 'another pilot'}` : 'Your ship was destroyed';
       const x = this.net.extracted;
       // Extracted: the run's result. Banking the haul as currency comes with the bank milestone.
-      this.message.setAlign('center').setText(extracted ? `EXTRACTED\nPower ${x?.power ?? 0}  ·  ${x?.kills ?? 0} KO` : by);
+      this.message.setAlign('center').setText(extracted ? `EXTRACTED\nSalvage ${x?.salvage ?? 0}  ·  Power ${x?.power ?? 0}  ·  ${x?.kills ?? 0} KO` : by);
       const bw = 140;
       const bh = 44;
       this.deathButtons = (['respawn', 'menu'] as const).map((id, i) => {
@@ -914,6 +969,18 @@ export class FlightScene extends Phaser.Scene {
     for (const item of this.net.pickups.values()) {
       const at = this.toScreen(item.x, item.y);
       if (!at.visible) continue;
+      if (item.kind === 'salvage') {
+        // Gold salvage (placeholder): a spinning gold coin with a glow.
+        const r = (8 + Math.sqrt(item.value) * 1.6) * at.scale;
+        const spin = Math.abs(Math.cos(now / 260 + item.id));
+        g.fillStyle(0xffd23a, 0.25 + 0.15 * Math.sin(now / 180 + item.id));
+        g.fillCircle(at.x, at.y, r * 1.8);
+        g.fillStyle(0xb8860b, 1);
+        g.fillEllipse(at.x, at.y, r * 2 * Math.max(0.2, spin), r * 2);
+        g.fillStyle(0xffe27a, 1);
+        g.fillEllipse(at.x, at.y, r * 1.5 * Math.max(0.15, spin), r * 1.5);
+        continue;
+      }
       const mineral = item.kind === 'mineral';
       const r = (mineral ? 7 + Math.sqrt(item.value) * 3 : TUNE.asteroid.pickupRadius * .6) * at.scale;
       drawPickup(g, at, r, mineral, item.id, now);

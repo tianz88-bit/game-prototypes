@@ -275,17 +275,24 @@ Asteroids replace bots as the non-player targets (owner decision).
 - Run on the server. Because they move in straight lines, the server sends
   only spawn, split and destroy events and clients compute positions.
 
-## Atmosphere transition
+## Orbital zoom transition
 
-- Entering and leaving a planet passes through a cloud layer that visually
-  simulates atmosphere. Transitions only: no clouds over the map during play.
-- Entering: the view starts inside cloud, which rushes past and parts to
-  reveal the surface (a descent).
-- Leaving: after the warp ("TP") completes, the reverse (an ascent).
+Owner decision (13 November 2026): replaces the earlier cloud-layer
+transition. The play view shows the planet as a globe from low orbit, so a
+cloud layer no longer fits.
+
+- Entering: the camera starts far out with the whole planet small in space,
+  then dives in to play zoom while the ship streaks down through the
+  atmosphere glow and arrives with a small shockwave (about 1.5-2 s). It plays
+  over the drop-in spawn protection, so nobody can be hit while the camera
+  is still diving.
+- Leaving: after the warp completes, the reverse: the ship streaks up, the
+  camera pulls back and the planet shrinks into space, then the result
+  panel. The server has already removed the ship, so it is visual only.
+- Built by Codex from the spec in GFX_BRIEF.md (visual lane).
 - Space hub (owner decision): the planet select is a space scene. The player
-  flies their ship in space and dives into a planet to enter it, descending
-  through the cloud layer; after the warp they rise back through the clouds
-  into space. The hub is solo: only the player is in it, and it runs on the
+  flies their ship in space and dives into a planet to enter it (the same
+  orbital zoom); after the warp they rise back out into space. The hub is solo: only the player is in it, and it runs on the
   client. Shared space with other players is out of scope for v1.
 
 ## Bank and unlocks
@@ -306,8 +313,9 @@ Owner direction (13 November 2026). Replaces the earlier gear-stash design.
   - A destroyed ship drops all of its carried salvage as gold pickups that
     anyone can collect. Being hit spills power only, never salvage.
   - Kill payout (owner, 13 November 2026): a destroyed ship also drops gold
-    worth a share of its power (default 50%, tuned), on top of its carried
-    salvage, so a big upgraded ship or the bounty holder is a jackpot.
+    worth a share of its power above the starting value (default 50%,
+    tuned; a fresh ship's share is 0, so new or alternate accounts are worth
+    nothing to farm), on top of its carried salvage, so a big upgraded ship or the bounty holder is a jackpot.
     Guards: a ship still in its spawn protection drops no power gold, and
     repeat kills of the same pilot by the same killer pay less each time
     (default: halved per repeat within 10 minutes).
@@ -317,6 +325,12 @@ Owner direction (13 November 2026). Replaces the earlier gear-stash design.
     together so fights happen. Radius, duration and multiplier are tuned.
   - Extracting banks carried salvage as credits, 1:1. Dying loses it.
   - Practice planet: no salvage.
+  - First values (tune.json `salvage`, `hotZone`; not tuned by playing): 1
+    salvage per mined mineral, kill share 50%, repeat-kill window 10 min,
+    bot drop 50% of the share, gold lasts 30 s and is never pushed out by
+    other pickups; hot zone radius 600 px, moves every 3 min, x2, and half of
+    newly spawned rock appears inside it. Until accounts exist, repeat kills
+    are matched by pilot name.
 - **Economy shape (owner: farming is the baseline, PvP pays more; tuned to a
   free-to-play pace):**
   - New salvage enters only from mining and bots, at a fixed, tuned rate.
@@ -423,7 +437,7 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 - PvP, splitting asteroids, minerals spilled by hit ships, gold salvage
   dropped by destroyed ships (carried salvage plus a share of power), a
   moving hot zone.
-- Cloud-layer transition when entering and leaving a planet.
+- Orbital zoom transition when entering and leaving a planet.
 - Two control schemes (craft-relative and direction marker) with throttle.
 - 3-minute lockdown and warp-out.
 - Server-side bank and unlocks with anonymous identity and recovery code.
@@ -462,6 +476,7 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
   loot only, nothing rare.
 - Both control schemes allowed: craft-relative and direction marker.
 - Cloud layer when entering and leaving a planet, transitions only.
+  (Replaced by the orbital zoom, 13 November 2026.)
 - Planet select is a solo space hub: fly in space, descend to enter, reverse
   after the warp.
 - Ships cannot stop and do not drift. Asteroids damage ships on contact and

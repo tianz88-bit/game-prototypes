@@ -77,7 +77,7 @@ export function mountDraft(): void {
 const friendly = (s: string): string => s.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, x=>x.toUpperCase());
 export function mountStats(): void {
   const host = $('#stats'); host.replaceChildren();
-  const groups: [string,Record<string,any>][] = [['Ship',draft.tune.ship],['Weapons',draft.tune.weapon],['Turrets',draft.tune.turret],['Shop',draft.tune.shop],['Missile',draft.tune.missile],['Mine',draft.tune.mine],['Bots',draft.tune.bots],['Warp',draft.tune.warp],['Asteroids',draft.tune.asteroid],['Planet',draft.tune.planet],['Visuals',draft.clientTune.render]];
+  const groups: [string,Record<string,any>][] = [['Ship',draft.tune.ship],['Weapons',draft.tune.weapon],['Turrets',draft.tune.turret],['Shop',draft.tune.shop],['Missile',draft.tune.missile],['Mine',draft.tune.mine],['Bots',draft.tune.bots],['Warp',draft.tune.warp],['Salvage',draft.tune.salvage],['Hot zone',draft.tune.hotZone],['Asteroids',draft.tune.asteroid],['Planet',draft.tune.planet],['Visuals',draft.clientTune.render]];
   for (const [name, values] of groups) {
     const detail = document.createElement('details'), summary = document.createElement('summary'); summary.textContent=name; detail.append(summary); if(name==='Ship')detail.open=true;
     for (const [key, value] of Object.entries(values)) {

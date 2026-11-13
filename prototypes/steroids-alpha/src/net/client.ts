@@ -47,6 +47,7 @@ export type NetFx =
   | { kind: 'ram'; x: number; y: number }
   /** A missile or mine went off (r = blast radius); shot: it was shot down. */
   | { kind: 'warpout'; x: number; y: number }
+  | { kind: 'gold'; x: number; y: number }
   | { kind: 'blast'; x: number; y: number; r: number; ordnance: 'missile' | 'mine'; shot: boolean }
   | { kind: 'mineral'; x: number; y: number }
   | { kind: 'shield'; id: number; x: number; y: number }
@@ -85,11 +86,13 @@ export class NetClient {
   /** Names and kills of everyone on the planet, by id. */
   roster = new Map<number, RosterEntry>();
   /** Health boosts lying on the planet. */
-  readonly pickups = new Map<number, { id: number; x: number; y: number; kind: 'heal' | 'mineral'; value: number }>();
+  readonly pickups = new Map<number, { id: number; x: number; y: number; kind: 'heal' | 'mineral' | 'salvage'; value: number }>();
+  /** The hot zone (server): centre, radius, and when it moves (performance.now() ms). */
+  hotZone: { x: number; y: number; r: number; movesAt: number } | null = null;
   /** Set when our own ship is destroyed: where, and who did it (0 = an asteroid). */
   death: { x: number; y: number; killer: number; killerName: string } | null = null;
   /** Set when our warp run completed and we left the planet: what we carried out. */
-  extracted: { power: number; kills: number } | null = null;
+  extracted: { power: number; kills: number; salvage: number } | null = null;
   /** Every asteroid on the planet, by id. */
   readonly asteroids = new Map<number, Asteroid>();
   /** When each asteroid was last hit (performance.now), for the hit flash. */
@@ -163,11 +166,13 @@ export class NetClient {
   }
 
   /** Roster, deaths and pickups arrive as JSON text frames. */
-  private handleText(msg: { type?: string; id?: number; power?: number; kills?: number; ships?: { id: number; x: number; y: number }[]; x?: number; y?: number; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean; hull?: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral'; value: number }[]; remove?: { id: number; by: number }[] }): void {
+  private handleText(msg: { type?: string; id?: number; power?: number; kills?: number; ships?: { id: number; x: number; y: number }[]; x?: number; y?: number; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean; hull?: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral' | 'salvage'; value: number }[]; r?: number; seconds?: number; salvage?: number; remove?: { id: number; by: number }[] }): void {
     if (msg.type === 'roster' && Array.isArray(msg.players)) {
       this.roster = new Map(msg.players.map((p) => [p.id, p]));
     } else if (msg.type === 'extracted') {
-      this.extracted = { power: Number(msg.power) || 0, kills: Number(msg.kills) || 0 };
+      this.extracted = { power: Number(msg.power) || 0, kills: Number(msg.kills) || 0, salvage: Number(msg.salvage) || 0 };
+    } else if (msg.type === 'hotzone') {
+      this.hotZone = { x: Number(msg.x) || 0, y: Number(msg.y) || 0, r: Number(msg.r) || 0, movesAt: performance.now() + (Number(msg.seconds) || 0) * 1000 };
     } else if (msg.type === 'warpouts' && Array.isArray(msg.ships)) {
       for (const w of msg.ships) {
         this.fx.push({ kind: 'warpout', x: w.x, y: w.y });
@@ -195,7 +200,7 @@ export class NetClient {
       for (const g of msg.remove ?? []) {
         const k = this.pickups.get(g.id);
         this.pickups.delete(g.id);
-        if (k && g.by) this.fx.push({ kind: k.kind === 'mineral' ? 'mineral' : 'heal', x: k.x, y: k.y });
+        if (k && g.by) this.fx.push({ kind: k.kind === 'mineral' ? 'mineral' : k.kind === 'salvage' ? 'gold' : 'heal', x: k.x, y: k.y });
       }
     }
   }

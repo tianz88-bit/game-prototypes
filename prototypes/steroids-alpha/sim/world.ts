@@ -39,8 +39,18 @@ export interface Pickup {
   id: number;
   x: number;
   y: number;
-  kind: 'heal' | 'mineral';
+  /** heal: repairs; mineral: power (hull); salvage: gold dropped by a destroyed ship (salvage only). */
+  kind: 'heal' | 'mineral' | 'salvage';
   value: number;
+}
+
+/** The moving hot zone (BRIEF.md): asteroid minerals mined inside it pay hotZone.salvageMultiplier. */
+export interface HotZone {
+  x: number;
+  y: number;
+  r: number;
+  /** Tick when it moves on. */
+  until: number;
 }
 
 /** A homing missile or a mine, owned by a ship. Shootable (hp); ships only are its targets. */
@@ -93,9 +103,11 @@ export interface WorldEvents {
   blasts: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[];
   /** Ships that completed their warp run this tick (extracted). The room removes them. */
   extracted: { id: number; x: number; y: number }[];
+  /** Set when the hot zone moved this tick. */
+  hotZone: HotZone | null;
 }
 
-const noEvents = (): WorldEvents => ({ asteroids: [], gone: [], shots: [], deaths: [], hits: [], pickups: [], pickupsGone: [], rams: [], blasts: [], extracted: [] });
+const noEvents = (): WorldEvents => ({ asteroids: [], gone: [], shots: [], deaths: [], hits: [], pickups: [], pickupsGone: [], rams: [], blasts: [], extracted: [], hotZone: null });
 
 export class World {
   tick = 0;
@@ -106,7 +118,17 @@ export class World {
   private grace = new Map<number, number>();
   private nextAsteroidId = 1;
   /** from: the ship that spilled it, which cannot take it back until lockedUntil (a tick). */
-  readonly pickups = new Map<number, Pickup & { expires: number; from: number; lockedUntil: number }>();
+  readonly pickups = new Map<number, Pickup & { expires: number; from: number; lockedUntil: number; salvage: number }>();
+  /** Ships that are bots: they never earn salvage and drop less (salvage.botDropFactor). Set by the room. */
+  readonly botIds = new Set<number>();
+  /** Tick each ship dropped in (its spawn protection is the first 2 s). */
+  private spawnedAt = new Map<number, number>();
+  /**
+   * Share of the kill payout (power gold) a kill earns: the room lowers it for repeat kills of the
+   * same pilot by the same killer. Default: full.
+   */
+  payoutFactor: (victim: number, killer: number) => number = () => 1;
+  hotZone: HotZone = { x: 0, y: 0, r: 0, until: 0 };
   private nextPickupId = 1;
   /** Turret aim (radians, world) and steps until each can fire again, per ship. */
   private turrets = new Map<number, { angle: number[]; cd: number[] }>();
@@ -195,6 +217,7 @@ export class World {
     this.ships.set(id, ship);
     // A moment of immunity so nobody is destroyed by an asteroid drifting through the drop zone.
     this.grace.set(id, Math.round(2 * t.net.tickHz));
+    this.spawnedAt.set(id, this.tick);
     // Lockdown (brief): the warp stays offline for the first warp.lockdownSeconds after dropping in.
     ship.lockdown = t.warp.lockdownSeconds;
     return ship;
@@ -222,6 +245,8 @@ export class World {
   removeShip(id: number): void {
     this.ships.delete(id);
     this.grace.delete(id);
+    this.spawnedAt.delete(id);
+    this.botIds.delete(id);
     this.lastHit.delete(id);
     this.turrets.delete(id);
     this.rammed.delete(id);
@@ -386,6 +411,7 @@ export class World {
           if (!hits(s.x, s.y, k.x, k.y, t.asteroid.pickupRadius + shipRadius(s.hullMax, t))) continue;
           // A health boost repairs (up to the hull maximum).
           if (k.kind === 'heal') s.hp = Math.min(s.hullMax, s.hp + t.ship.maxHp * t.asteroid.healthHealFraction);
+          else if (k.kind === 'salvage') s.salvage += k.value;
           else {
             // Minerals repair damage first; the rest grows the hull maximum (power), up to the cap.
             const repair = Math.min(k.value, Math.max(0, s.hullMax - s.hp));
@@ -393,6 +419,8 @@ export class World {
             s.hullMax += grow;
             s.hp += repair + grow;
             s.shield = Math.min(maxShield(s, t), s.shield + k.value);
+            // Mined minerals also add salvage (bots never earn it); minerals spilled by ships do not.
+            if (!this.botIds.has(id)) s.salvage += k.salvage;
           }
           by = id;
           break;
@@ -419,6 +447,7 @@ export class World {
       if (s.hp > 0 && s.warping && s.warpDist >= t.warp.distance) this.events.extracted.push({ id, x: s.x, y: s.y });
     }
 
+    if (this.tick >= this.hotZone.until) this.moveHotZone();
     if (this.tick % t.net.tickHz === 0) this.populate();
   }
 
@@ -683,11 +712,58 @@ export class World {
     // Destroyed: a share of everything carried (the hull maximum) spills.
     const spill = s.hp === 0 ? s.hullMax * t.ship.deathSpillFraction : (before - s.hp) * t.ship.hullSpillFraction;
     this.spillMinerals(s.x, s.y, spill, s.hp === 0 ? 90 : 40, id);
-    if (s.hp === 0) this.events.deaths.push({ id, x: s.x, y: s.y, killer: attacker });
+    if (s.hp === 0) {
+      // Gold (BRIEF.md): everything the ship carried, plus a share of its power above the start as
+      // the kill payout. No power gold from a ship still in its spawn protection; less for repeat
+      // kills of the same pilot (payoutFactor); bots carry no salvage and drop a reduced share.
+      const sv = t.salvage;
+      const fresh = this.tick - (this.spawnedAt.get(id) ?? -Infinity) <= 2 * t.net.tickHz;
+      let payout = fresh ? 0 : sv.killPowerShare * Math.max(0, s.hullMax - t.ship.maxHp) * this.payoutFactor(id, attacker);
+      if (this.botIds.has(id)) payout *= sv.botDropFactor;
+      this.dropGold(s.x, s.y, s.salvage + payout, id);
+      s.salvage = 0;
+      this.events.deaths.push({ id, x: s.x, y: s.y, killer: attacker });
+    }
+  }
+
+  /** Gold salvage scattered around (x, y) for anyone to collect. */
+  private dropGold(x: number, y: number, value: number, from: number): void {
+    const t = this.tune;
+    if (value < 1) return;
+    const chunks = Math.min(t.salvage.goldChunksMax, Math.ceil(value / t.salvage.goldChunkValue));
+    const each = value / chunks;
+    for (let i = 0; i < chunks; i++) {
+      const a = this.rng() * Math.PI * 2;
+      const d = (chunks === 1 ? 0 : 0.4 + this.rng() * 0.6) * 100;
+      this.addPickup(wrap(x + Math.cos(a) * d, t.world.width), wrap(y + Math.sin(a) * d, t.world.height), 'salvage', each, from);
+    }
+  }
+
+  /** Is (x, y) inside the hot zone? */
+  inHotZone(x: number, y: number): boolean {
+    const z = this.hotZone;
+    if (z.r <= 0) return false;
+    const dx = wrapDelta(x, z.x, this.tune.world.width);
+    const dy = wrapDelta(y, z.y, this.tune.world.height);
+    return dx * dx + dy * dy <= z.r * z.r;
+  }
+
+  /** Move the hot zone somewhere new, away from the drop zone at the map centre. */
+  moveHotZone(): void {
+    const t = this.tune;
+    let x = 0;
+    let y = 0;
+    for (let i = 0; i < 20; i++) {
+      x = this.rng() * t.world.width;
+      y = this.rng() * t.world.height;
+      if (Math.hypot(wrapDelta(x, t.world.width / 2, t.world.width), wrapDelta(y, t.world.height / 2, t.world.height)) > t.hotZone.radius + t.asteroid.spawnClearRadius) break;
+    }
+    this.hotZone = { x, y, r: t.hotZone.radius, until: this.tick + Math.round(t.hotZone.moveSeconds * t.net.tickHz) };
+    this.events.hotZone = { ...this.hotZone };
   }
 
   /** Drop value points of minerals around (x, y), in a few chunks scattered within reach. */
-  private spillMinerals(x: number, y: number, value: number, reach: number, from = 0): void {
+  private spillMinerals(x: number, y: number, value: number, reach: number, from = 0, salvagePer = 0): void {
     const t = this.tune;
     if (value < 1) return;
     const chunks = Math.min(t.asteroid.mineralChunksMax, Math.ceil(value / t.asteroid.mineralChunkValue));
@@ -695,21 +771,25 @@ export class World {
     for (let i = 0; i < chunks; i++) {
       const a = this.rng() * Math.PI * 2;
       const d = (chunks === 1 ? 0 : 0.4 + this.rng() * 0.6) * reach;
-      this.addPickup(wrap(x + Math.cos(a) * d, t.world.width), wrap(y + Math.sin(a) * d, t.world.height), 'mineral', each, from);
+      this.addPickup(wrap(x + Math.cos(a) * d, t.world.width), wrap(y + Math.sin(a) * d, t.world.height), 'mineral', each, from, each * salvagePer);
     }
   }
 
-  private addPickup(x: number, y: number, kind: Pickup['kind'], value: number, from = 0): void {
+  private addPickup(x: number, y: number, kind: Pickup['kind'], value: number, from = 0, salvage = 0): void {
     const t = this.tune;
-    // Keep the planet from filling with pickups: the oldest go first.
+    // Keep the planet from filling with pickups: the oldest go first. Gold is never pushed out early.
     if (this.pickups.size >= t.asteroid.pickupsMax) {
-      const oldest = this.pickups.keys().next().value as number;
-      this.pickups.delete(oldest);
-      this.events.pickupsGone.push({ id: oldest, by: 0 });
+      let oldest = 0;
+      for (const k of this.pickups.values()) if (k.kind !== 'salvage') { oldest = k.id; break; }
+      if (oldest) {
+        this.pickups.delete(oldest);
+        this.events.pickupsGone.push({ id: oldest, by: 0 });
+      }
     }
     const id = this.nextPickupId;
     this.nextPickupId = this.nextPickupId >= 0xffff ? 1 : this.nextPickupId + 1;
-    const k = { id, x, y, kind, value: Math.round(value * 10) / 10, expires: this.tick + Math.round(t.asteroid.pickupLifeSeconds * t.net.tickHz), from, lockedUntil: this.tick + Math.round(t.ship.spillLockSeconds * t.net.tickHz) };
+    const life = kind === 'salvage' ? t.salvage.goldLifeSeconds : t.asteroid.pickupLifeSeconds;
+    const k = { id, x, y, kind, value: Math.round(value * 10) / 10, expires: this.tick + Math.round(life * t.net.tickHz), from, lockedUntil: this.tick + Math.round(t.ship.spillLockSeconds * t.net.tickHz), salvage };
     this.pickups.set(id, k);
     this.events.pickups.push({ id, x, y, kind, value: k.value });
   }
@@ -730,7 +810,9 @@ export class World {
     pos.delete(a.id);
     this.events.gone.push({ id: a.id, x: at.x, y: at.y });
     // Every destroyed asteroid leaves minerals; sometimes a health boost as well.
-    this.spillMinerals(at.x, at.y, this.tune.asteroid.mineralYield[a.size], this.tune.asteroid.radius[a.size] * 0.5);
+    // Mined minerals carry salvage too: salvage.perMineral each, more inside the hot zone.
+    const per = this.tune.salvage.perMineral * (this.inHotZone(at.x, at.y) ? this.tune.hotZone.salvageMultiplier : 1);
+    this.spillMinerals(at.x, at.y, this.tune.asteroid.mineralYield[a.size], this.tune.asteroid.radius[a.size] * 0.5, 0, per);
     if (this.rng() < this.tune.asteroid.healthDropChance) this.addPickup(at.x, at.y, 'heal', 0);
     for (const child of splitAsteroid(a, at, dirX, dirY, damage, this.tick, () => this.newAsteroidId(), this.rng, this.tune)) {
       this.asteroids.set(child.id, child);
@@ -746,8 +828,12 @@ export class World {
     for (const a of this.asteroids.values()) mass += asteroidMass(a.size);
     let tries = 0;
     while (mass + asteroidMass(0) <= t.asteroid.targetMass && tries++ < 50) {
-      const x = this.rng() * t.world.width;
-      const y = this.rng() * t.world.height;
+      // Part of the new rock spawns inside the hot zone, so it is richer.
+      const inZone = this.hotZone.r > 0 && this.rng() < t.hotZone.spawnShare;
+      const za = this.rng() * Math.PI * 2;
+      const zd = Math.sqrt(this.rng()) * this.hotZone.r;
+      const x = inZone ? wrap(this.hotZone.x + Math.cos(za) * zd, t.world.width) : this.rng() * t.world.width;
+      const y = inZone ? wrap(this.hotZone.y + Math.sin(za) * zd, t.world.height) : this.rng() * t.world.height;
       let clear = true;
       for (const s of this.ships.values()) {
         const dx = wrapDelta(x, s.x, t.world.width);
