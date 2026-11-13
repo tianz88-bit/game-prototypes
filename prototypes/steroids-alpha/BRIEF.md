@@ -372,6 +372,13 @@ Default (confirm):
 - The account holds the bank and unlocks. A recovery code lets the player
   move it to another device; losing both the browser data and the code loses
   the account.
+- Built (13 November 2026): the menu creates the account on first visit and
+  shows credits and the recovery code (XXXX-XXXX-XXXX, Crockford base32,
+  forgiving of case, spaces and O/I/L look-alikes). RESTORE ACCOUNT turns the
+  name box into a code box. Restoring gives this device a new secret; the old
+  device's secret stops working (it starts a fresh account on its next visit).
+  The client sends the secret once per planet connection, as its first
+  message, never in a URL.
 - No email, passwords or third-party login in v1.
 
 ## Netcode
@@ -384,10 +391,12 @@ lockdown, warp progress and extraction.
   asteroids.
 - **Matchmaker:** one Durable Object that assigns players to a room for the
   chosen planet and opens new rooms when full.
-- **Stash:** Cloudflare D1 database `steroids-alpha-stash` (players,
-  inventory, raid history). Created 2026-11-10 (empty, automatic location),
-  database_id `02a083da-e0b9-4ae8-9a7d-d7c0fa292b40`, in the same Cloudflare
-  account as firestorm-arena-server. No schema or binding yet.
+- **Bank:** Cloudflare D1 database `steroids-alpha-stash`, created
+  2026-11-10, database_id `02a083da-e0b9-4ae8-9a7d-d7c0fa292b40`, in the same
+  Cloudflare account as firestorm-arena-server. Bound to the Worker as
+  `STASH`. Schema in `server/migrations/` (accounts, ledger, unlocks), applied
+  by the Worker deploy workflow before each deploy. Balances are the sum of
+  ledger rows; one row per extraction run, so a credit can never pay twice.
 - **Transport:** WebSocket, compact binary messages.
 - **Own ship:** client-side prediction with server reconciliation.
 - **Other ships:** snapshot interpolation (about 100 ms behind).

@@ -11,6 +11,7 @@ import { cleanName } from '../../sim/protocol';
 import { loadSave, writeSave } from '../save';
 import { clientTune } from '../clientTune';
 import { UI, css, panel } from '../render/ui';
+import { ensureAccount, recoverAccount } from '../net/account';
 
 export interface MenuButton {
   id: PlanetId;
@@ -67,9 +68,66 @@ export class MenuScene extends Phaser.Scene {
       intents.copyZone = null;
     });
     nameField().onkeydown = (e) => {
-      if (e.key === 'Enter') nameField().blur();
+      if (e.key !== 'Enter') return;
+      if (this.codeMode) void this.submitCode();
+      nameField().blur();
     };
     intents.drainTaps();
+    void this.refreshAccount();
+  }
+
+  /** Bank balance (null until known, or when the bank is unreachable) and the account panel state. */
+  credits: number | null = null;
+  private codeMode = false;
+  private accountNote = '';
+  private async refreshAccount(): Promise<void> {
+    this.credits = await ensureAccount();
+    if (this.scene.isActive()) this.layout();
+  }
+
+  /** Restore: the name box takes a recovery code instead; Enter (or RESTORE again) submits. */
+  private async submitCode(): Promise<void> {
+    const code = nameField().value;
+    this.accountNote = 'Checking code…';
+    this.layout();
+    const r = await recoverAccount(code);
+    if ('error' in r) this.accountNote = r.error;
+    else {
+      this.credits = r.balance;
+      this.accountNote = 'Account restored';
+      this.codeMode = false;
+      nameField().value = loadSave().name ?? '';
+    }
+    if (this.scene.isActive()) this.layout();
+  }
+
+  accountButton: { x: number; y: number; w: number; h: number } | null = null;
+  /** Account panel, left of the menu (mirrors the QR panel): credits, recovery code, restore. */
+  private drawAccount(w: number, h: number, bw: number): void {
+    const side = (w - bw) / 2;
+    this.accountButton = null;
+    const recovery = loadSave().account?.recovery ?? '';
+    const credits = this.credits === null ? '…' : String(this.credits);
+    if (side < 150) {
+      // Narrow screens: one line under the title.
+      text(this, w / 2, h - 14, `CREDITS ${credits}${recovery ? `  ·  code ${recovery}` : ''}`, 11, '#ffd23a').setOrigin(0.5);
+      return;
+    }
+    const pw = Math.min(200, side - 32);
+    const x = side / 2;
+    const top = h * 0.5 - 90;
+    panel(this.add.graphics(), x - pw / 2, top, pw, 176, UI.uiGold);
+    text(this, x, top + 16, 'CREDITS', 11, '#8fa2c8').setOrigin(0.5);
+    text(this, x, top + 40, credits, 24, '#ffd23a').setOrigin(0.5);
+    text(this, x, top + 70, 'RECOVERY CODE', 10, '#8fa2c8').setOrigin(0.5);
+    text(this, x, top + 88, recovery || '-', 13, '#dfe8ff').setOrigin(0.5);
+    text(this, x, top + 104, 'Write it down to keep your credits', 9, '#6d7a96').setOrigin(0.5);
+    const by = top + 140;
+    const bwid = pw - 32;
+    panel(this.add.graphics(), x - bwid / 2, by - 16, bwid, 32, this.codeMode ? UI.uiDanger : UI.uiBorder, this.codeMode);
+    text(this, x, by, this.codeMode ? 'CANCEL' : 'RESTORE ACCOUNT', 12).setOrigin(0.5);
+    this.accountButton = { x, y: by, w: bwid, h: 32 };
+    if (this.accountNote) text(this, x, top + 186, this.accountNote, 11, '#ffd98a').setOrigin(0.5);
   }
 
   private layout(): void {
@@ -89,7 +147,7 @@ export class MenuScene extends Phaser.Scene {
     // Pilot name.
     const bw = Math.min(320, w - 48);
     const ny = h * 0.11 + title * 0.6 + 34;
-    text(this, w / 2 - bw / 2, ny - 30, 'PILOT NAME', 11, '#8fa2c8');
+    text(this, w / 2 - bw / 2, ny - 30, this.codeMode ? 'RECOVERY CODE (press Enter)' : 'PILOT NAME', 11, this.codeMode ? '#ffd98a' : '#8fa2c8');
     this.nameBox = { x: w / 2, y: ny, w: bw, h: 36 };
     intents.textBox = { zone: { x: w / 2, y: ny, hw: bw / 2, hh: 18 }, field: nameField() };
     panel(this.add.graphics(),w/2-bw/2,ny-18,bw,36,UI.uiBorder);
@@ -97,7 +155,8 @@ export class MenuScene extends Phaser.Scene {
     this.nameText = text(this, w / 2 - bw / 2 + 12, ny, '', 16).setOrigin(0, 0.5);
     const f = nameField();
     // Opening the keyboard resizes the page and re-runs this layout; keep what is being typed.
-    if (document.activeElement !== f) f.value = loadSave().name ?? '';
+    if (document.activeElement !== f && !this.codeMode) f.value = loadSave().name ?? '';
+    f.setAttribute('aria-label', this.codeMode ? 'Recovery code' : 'Pilot name');
     const r = this.game.canvas.getBoundingClientRect();
     Object.assign(f.style, { display: 'block', left: `${r.left + w / 2 - bw / 2}px`, top: `${r.top + ny - 18}px`, width: `${bw}px`, height: '36px' });
 
@@ -113,6 +172,7 @@ export class MenuScene extends Phaser.Scene {
       return { id: p.id, x, y, w: bw, h: bh };
     });
     this.drawShare(w, h, bw);
+    this.drawAccount(w, h, bw);
     versionStamp(this);
     this.showCounts();
   }
@@ -196,14 +256,27 @@ export class MenuScene extends Phaser.Scene {
     }
     const input = nameField();
     const editing = document.activeElement === input;
-    const name = cleanName(input.value);
     const caret = editing && Math.floor(time / 500) % 2 === 0 ? '|' : '';
-    this.nameText.setText(name || editing ? name + caret : 'Tap to enter a name').setColor(name || editing ? '#e8f0ff' : '#6d7a96');
+    if (this.codeMode) {
+      const code = input.value.toUpperCase();
+      this.nameText.setText(code || editing ? code + caret : 'Tap to type your code').setColor(code || editing ? '#ffd98a' : '#6d7a96');
+    }
+    const name = this.codeMode ? loadSave().name ?? '' : cleanName(input.value);
+    if (!this.codeMode) this.nameText.setText(name || editing ? name + caret : 'Tap to enter a name').setColor(name || editing ? '#e8f0ff' : '#6d7a96');
     this.nameFrame.setStrokeStyle(1, editing ? UI.uiAccent : UI.uiBorder);
     for (const t of intents.drainTaps()) {
       const n = this.nameBox;
       // Taps on the name box belong to the text field over it.
       if (Math.abs(t.x - n.x) <= n.w / 2 && Math.abs(t.y - n.y) <= n.h / 2) continue;
+      const ab = this.accountButton;
+      if (ab && Math.abs(t.x - ab.x) <= ab.w / 2 && Math.abs(t.y - ab.y) <= ab.h / 2) {
+        // RESTORE: the name box takes a recovery code; CANCEL goes back to the name.
+        this.codeMode = !this.codeMode;
+        this.accountNote = this.codeMode ? 'Type the code in the box, then Enter' : '';
+        input.value = this.codeMode ? '' : loadSave().name ?? '';
+        this.layout();
+        return;
+      }
       const b = this.buttons.find((b) => Math.abs(t.x - b.x) <= b.w / 2 && Math.abs(t.y - b.y) <= b.h / 2);
       if (b) {
         writeSave({ name });
@@ -211,6 +284,6 @@ export class MenuScene extends Phaser.Scene {
         return;
       }
     }
-    if (!editing && (loadSave().name ?? '') !== name) writeSave({ name });
+    if (!this.codeMode && !editing && (loadSave().name ?? '') !== name) writeSave({ name });
   }
 }

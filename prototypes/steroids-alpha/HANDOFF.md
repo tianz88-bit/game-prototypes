@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 claude bank
+DID: D1 bank: anonymous accounts (hashed secret + recovery code), POST/GET /account, POST /account/recover; extraction banks salvage once per run (ledger sum = balance); menu credits panel + RESTORE; result shows Banked +N / Credits. Deploy workflow applies D1 migrations before deploy.
+FILES: server/{src/bank.ts,src/index.ts,src/room.ts,wrangler.jsonc,migrations/0001_bank.sql} src/{net/account,net/client,save,main}.ts src/scenes/{menu,flight}.ts scripts/test-steroids-alpha-bank.mjs .github/workflows/deploy-steroids-alpha-worker.yml
+SEAM: client sends one text frame {type:'auth',secret} on open; JSON 'banked' {amount,balance,error?} -> net.banked; save.account; Room(..., bank?).
+CROSS: none
+FOR codex: menu account panel (menu.ts drawAccount) and the result lines are placeholders; restyle freely, keep the recovery code legible.
+
 ## 2026-11-13 claude salvage-hotzone
 DID: salvage (mined minerals add it; HUD SALVAGE), gold drop on death (carried + 50% power above start; no power gold in spawn protection; repeat kills by name halve; bots never earn, drop 50%), moving x2 hot zone (ring + tracker, half of new rock spawns inside), salvage on EXTRACTED. Orbital zoom spec in GFX_BRIEF.md (owner chose it over clouds). Death check moved to Planet B (bots).
 FILES: sim/{ship,world,protocol,liveConfig}.ts server/src/room.ts src/{net/client,scenes/flight,liveConfig}.ts tune.json BRIEF.md GFX_BRIEF.md scripts/{test-steroids-alpha-sim,check-steroids-alpha-death}.mjs
@@ -97,10 +104,3 @@ FILES: src/render/worldArt.ts src/scenes/flight.ts
 SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
 CROSS: none (render/shared drawing)
 FOR claude: Typecheck/build/rig/sim pass. Brave desktop + DPR2 phone fixtures inspected; 2 clients + 4 bots 32.06 FPS, p95 31.6ms, zero console/page errors.
-
-## 2026-11-13 codex codex/steroids-asteroids
-DID: sunlit asteroid facets, inset pits, damage cracks, hard outline and split/impact debris.
-FILES: src/render/worldArt.ts src/scenes/flight.ts
-SEAM: none; existing rockShape/collision geometry, fx events and gameplay unchanged.
-CROSS: none (shared flight drawing only)
-FOR claude: typecheck/build/rig/sim pass; Brave desktop + DPR2 phone fixtures inspected; two clients + bots 32.04 FPS, p95 31.6ms, zero console errors. Remaining graphics work continues.

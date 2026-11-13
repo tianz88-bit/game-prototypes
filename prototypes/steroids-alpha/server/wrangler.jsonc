@@ -16,6 +16,15 @@
       }
     ]
   },
+  // The bank (BRIEF.md "Bank and unlocks"). Schema: server/migrations, applied by the deploy workflow.
+  "d1_databases": [
+    {
+      "binding": "STASH",
+      "database_name": "steroids-alpha-stash",
+      "database_id": "02a083da-e0b9-4ae8-9a7d-d7c0fa292b40",
+      "migrations_dir": "migrations"
+    }
+  ],
   "migrations": [
     {
       "tag": "v1",

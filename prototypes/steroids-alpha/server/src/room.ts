@@ -55,7 +55,17 @@ interface Player {
   name: string;
   /** Ships this player has destroyed since they last dropped in. Resets on death (a new life). */
   kills: number;
+  /** Unique id of this run (this drop-in): the bank credits each run at most once. */
+  runId: string;
+  /** Account secret from the client's one 'auth' message, checked by the bank only when crediting. */
+  secret: string | null;
 }
+
+/**
+ * Banks an extraction (server/src/bank.ts creditExtraction, through D1): returns the new balance,
+ * or null if the secret is unknown. Absent when the room runs without a bank (tests, local runs).
+ */
+export type BankCredit = (secret: string, amount: number, runId: string) => Promise<number | null>;
 
 
 const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN, missile: false, mine: false, warp: false };
@@ -70,7 +80,7 @@ export class Room {
   /** shipHp (any value) makes ships take no damage, for local test runs only (see TEST_SHIP_HP in index.ts). */
   private config:ConfigRecord=bundledRecord();
   private tune=structuredClone(TUNE);
-  constructor(private shipHp?: number, private refreshConfig:()=>void=()=>{}) {
+  constructor(private shipHp?: number, private refreshConfig:()=>void=()=>{}, private bank?: BankCredit) {
     this.world = new World(this.tune);
     if(shipHp)this.world.invulnerable=true;
     this.world.payoutFactor = (victim, killer) => this.repeatKillFactor(victim, killer);
@@ -156,7 +166,7 @@ export class Room {
     }
     const id = this.allocateId();
     const spawn = this.world.addShip(id);
-    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0 };
+    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null };
     this.players.set(id, player);
 
     ws.addEventListener('message', (e: MessageEvent) => this.onMessage(player, e.data));
@@ -210,6 +220,19 @@ export class Room {
   private onMessage(player: Player, data: unknown): void {
     if(Date.now()-player.budgetAt>=1000){player.budgetAt=Date.now();player.packets=0;}
     if(++player.packets>120){player.ws.close(1008,'input rate exceeded');return;}
+    // One text frame is allowed, first: {type:'auth', secret} naming the pilot's bank account. It is
+    // only stored here; the bank checks it when crediting an extraction.
+    if (typeof data === 'string' && player.secret === null && data.length <= 200) {
+      try {
+        const m = JSON.parse(data) as { type?: unknown; secret?: unknown };
+        if (m.type === 'auth' && typeof m.secret === 'string' && /^[A-Za-z0-9_-]{40,64}$/.test(m.secret)) {
+          player.secret = m.secret;
+          return;
+        }
+      } catch {
+        // Falls through to the binary-only close.
+      }
+    }
     const bytes=data instanceof ArrayBuffer?data.byteLength:data instanceof Blob?data.size:0;
     if(bytes!==PING_BYTES&&bytes!==INPUT_BYTES&&bytes!==BUY_BYTES){player.ws.close(CLOSE.BAD_PROTOCOL,'invalid input size');return;}
     if (typeof data === 'string' || data === null || typeof data !== 'object') {
@@ -346,20 +369,38 @@ export class Room {
       }
     }
     // Extracted: the warp run is complete and the ship launches off the planet. Everyone sees it
-    // go; the pilot gets a result frame, then the room closes their connection. (Banking the haul
-    // comes with the bank milestone.)
+    // go; the pilot gets a result frame, the salvage carried out is banked (the room's own count,
+    // once per run), the pilot hears the result, then the room closes their connection.
     const out = ev.extracted.filter((x) => this.players.has(x.id) && !dead.has(x.id));
     if (out.length) this.broadcast(JSON.stringify({ type: 'warpouts', ships: out }));
     for (const x of out) {
       const p = this.players.get(x.id)!;
-      // Salvage carried out; banking it as credits comes with the bank (D1) milestone.
-      this.send(p, JSON.stringify({ type: 'extracted', power: Math.round(p.ship.hullMax), kills: p.kills, salvage: Math.floor(p.ship.salvage) }));
+      const salvage = Math.floor(p.ship.salvage);
+      this.send(p, JSON.stringify({ type: 'extracted', power: Math.round(p.ship.hullMax), kills: p.kills, salvage }));
       this.leave(x.id);
-      try {
-        p.ws.close(CLOSE.EXTRACTED, 'extracted');
-      } catch {
-        // Already closed.
-      }
+      void this.bankRun(p, salvage).then((result) => {
+        this.send(p, JSON.stringify({ type: 'banked', ...result }));
+        try {
+          p.ws.close(CLOSE.EXTRACTED, 'extracted');
+        } catch {
+          // Already closed.
+        }
+      });
+    }
+  }
+
+  /** Credit an extraction to the pilot's account, giving up after a few seconds. */
+  private async bankRun(p: Player, salvage: number): Promise<{ amount: number; balance: number | null; error?: string }> {
+    if (!this.bank) return { amount: 0, balance: null, error: 'no bank' };
+    if (!p.secret) return { amount: 0, balance: null, error: 'no account' };
+    try {
+      const balance = await Promise.race([
+        this.bank(p.secret, salvage, p.runId),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000)),
+      ]);
+      return balance === null ? { amount: 0, balance: null, error: 'unknown account' } : { amount: salvage, balance };
+    } catch {
+      return { amount: 0, balance: null, error: 'bank unavailable' };
     }
   }
 
