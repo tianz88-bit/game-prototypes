@@ -4,6 +4,7 @@ const SAVE_KEY = 'steroids-alpha:save:v1';
 
 export interface Save {
   steer?: 'marker' | 'craft';
+  mobileSteer?: 'marker' | 'craft';
   name?: string;
 }
 
