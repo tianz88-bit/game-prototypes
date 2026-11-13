@@ -1,3 +1,4 @@
+import type { Look } from './unlocks';
 // Protocol v13: binary game frames are little-endian. The server also sends JSON text frames:
 //   {type:'config',record:ConfigRecord}            before welcome/cutover snapshots
 //   {type:'roster',players:[{id,name,kills,power}]} on join/leave, and when anyone's power changes (2 Hz max)
@@ -69,6 +70,8 @@ export interface RosterEntry {
   level?: number;
   /** Authoritative roster metadata; names never determine bot identity. Absent on older servers. */
   bot?: boolean;
+  /** Cosmetics worn (owned unlocks only, checked by the server). */
+  look?: Look;
 }
 
 /** Player names: trimmed, printable, at most 16 characters; empty means none given. */

@@ -150,6 +150,15 @@
     "salvageMultiplier": 2,
     "spawnShare": 0.5
   },
+  "unlockPrices": {
+    "tint": 300,
+    "flame": 400,
+    "shield": 400,
+    "killfx": 600,
+    "badge": 250,
+    "tag": 250,
+    "runlog": 500
+  },
   "asteroid": {
     "radius": [70, 42, 22],
     "hp": [60, 30, 12],

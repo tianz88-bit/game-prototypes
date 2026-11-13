@@ -48,6 +48,27 @@ export class ShipView {
   private ring: Phaser.GameObjects.Graphics;
   private lastAngle: number | null = null;
   private lastTime = 0;
+  /** Bought cosmetics (sim/unlocks.ts): hull tint (multiplies the art) and the shield's colours. */
+  private tint = 0xffffff;
+  private shield = { body: 0x0b2a6a, rim: 0x3a8cff, flash: 0xc9f7ff, cell: 0x6fd0ff, edge: 0x5aa8ff, edgeHot: 0xd6f4ff };
+  private lookKey = '';
+
+  /** Wear a look: tint (or null), flame palette (or null), shield colour (or null). Cheap to call every frame. */
+  setLook(tint: number | null, palette: number[] | null, shield: number | null): void {
+    const key = `${tint}|${palette?.join(',')}|${shield}`;
+    if (key === this.lookKey) return;
+    this.lookKey = key;
+    this.tint = tint ?? 0xffffff;
+    this.lastBrightness = -1; // retint on the next update
+    this.exhaust.palette = palette;
+    const mix = (c: number, w: number, k: number): number => {
+      const ch = (s: number): number => Math.round(((c >> s) & 255) * (1 - k) + ((w >> s) & 255) * k);
+      return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+    };
+    this.shield = shield === null
+      ? { body: 0x0b2a6a, rim: 0x3a8cff, flash: 0xc9f7ff, cell: 0x6fd0ff, edge: 0x5aa8ff, edgeHot: 0xd6f4ff }
+      : { body: mix(shield, 0x000000, 0.8), rim: shield, flash: mix(shield, 0xffffff, 0.75), cell: mix(shield, 0xffffff, 0.35), edge: mix(shield, 0xffffff, 0.15), edgeHot: mix(shield, 0xffffff, 0.8) };
+  }
 
   constructor(scene: Phaser.Scene, mine: boolean) {
     this.ring = scene.add.graphics().setDepth(SHIP_DEPTH - 2);
@@ -86,8 +107,9 @@ export class ShipView {
     if (Math.abs(at.brightness - this.lastBrightness) > 0.004) {
       this.lastBrightness = at.brightness;
       for (const p of this.parts) {
-        const c = Math.round(255 * p.shade * at.brightness);
-        p.img.setTint((c << 16) | (c << 8) | c);
+        const k = p.shade * at.brightness;
+        const ch = (s: number): number => Math.round(((this.tint >> s) & 255) * k);
+        p.img.setTint((ch(16) << 16) | (ch(8) << 8) | ch(0));
       }
     }
     const angle = rigAngle(headingRad);
@@ -217,14 +239,14 @@ export class ShipView {
     let bubble = 0;
     for (const h of this.shieldHits) bubble = Math.max(bubble, 1 - (timeMs - h.at) / LIFE);
     // Body and rim glow.
-    g.fillStyle(0x0b2a6a, 0.16 * bubble);
+    g.fillStyle(this.shield.body, 0.16 * bubble);
     g.fillCircle(at.x, at.y, R);
     for (let k = 0; k < 3; k++) {
-      g.lineStyle(6 - k * 1.4, 0x3a8cff, (0.12 + k * 0.12) * bubble);
+      g.lineStyle(6 - k * 1.4, this.shield.rim, (0.12 + k * 0.12) * bubble);
       g.strokeCircle(at.x, at.y, R - k * 1.5);
     }
     for(const hit of this.shieldHits){const fade=1-(timeMs-hit.at)/LIFE;
-      g.lineStyle(Math.max(1,at.scale*3),0xc9f7ff,fade*.8);g.beginPath();g.arc(at.x,at.y,R,hit.angle-.28,hit.angle+.28);g.strokePath();}
+      g.lineStyle(Math.max(1,at.scale*3),this.shield.flash,fade*.8);g.beginPath();g.arc(at.x,at.y,R,hit.angle-.28,hit.angle+.28);g.strokePath();}
     // Hex cells on the sphere: centres on a flat hex grid in sphere-angle units (|p| = 1 is the rim),
     // mapped by the orthographic view of a sphere: screen radius = sin(|p| x 90 degrees) x R.
     const project = (u: number, v: number): { x: number; y: number } | null => {
@@ -262,10 +284,10 @@ export class ShipView {
         }
         if (pts.length < 6) continue;
         if (flash > 0.03) {
-          g.fillStyle(0x6fd0ff, 0.5 * flash);
+          g.fillStyle(this.shield.cell, 0.5 * flash);
           g.fillPoints(pts, true);
         }
-        g.lineStyle(flash > 0.03 ? 2 : 1, flash > 0.03 ? 0xd6f4ff : 0x5aa8ff, Math.max(0.22 * bubble, flash));
+        g.lineStyle(flash > 0.03 ? 2 : 1, flash > 0.03 ? this.shield.edgeHot : this.shield.edge, Math.max(0.22 * bubble, flash));
         g.strokePoints(pts, true);
       }
     }

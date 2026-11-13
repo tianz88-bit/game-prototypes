@@ -8,7 +8,9 @@ export { PlanetConfig } from './configStore';
 import { PROTOCOL_VERSION } from '../../sim/protocol';
 import { PLANETS, isPlanetId } from '../../sim/planets';
 import { Room, acceptBinary } from './room';
-import { accountFor, balanceOf, createAccount, creditExtraction, recoverAccount } from './bank';
+import { accountFor, balanceOf, buyUnlock, createAccount, creditExtraction, ownedUnlocks, recoverAccount } from './bank';
+import { unlockById, unlockPrice } from '../../sim/unlocks';
+import { TUNE } from '../../sim/tune';
 import type { D1Like } from './bank';
 import type { CfSocket } from './room';
 
@@ -41,7 +43,8 @@ const json = (body: unknown, status = 200): Response => Response.json(body, { st
 /**
  * Accounts (BRIEF.md Bank and unlocks):
  *   POST /account          -> { secret, recovery, balance }  a new anonymous account
- *   GET  /account          -> { balance }                    Authorization: Bearer <secret>
+ *   GET  /account          -> { balance, unlocks }           Authorization: Bearer <secret>
+ *   POST /account/buy      -> { ok, balance, unlocks }       body { unlock }; price from the server's catalogue
  *   POST /account/recover  -> { secret, recovery, balance }  body { code }; the old secret stops working
  */
 async function accountRoute(request: Request, env: Env, path: string): Promise<Response> {
@@ -53,7 +56,14 @@ async function accountRoute(request: Request, env: Env, path: string): Promise<R
     if (path === '/account' && request.method === 'GET') {
       const secret = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
       const account = await accountFor(db, secret);
-      return account ? json({ balance: await balanceOf(db, account) }) : json({ error: 'unknown account' }, 401);
+      return account ? json({ balance: await balanceOf(db, account), unlocks: await ownedUnlocks(db, account) }) : json({ error: 'unknown account' }, 401);
+    }
+    if (path === '/account/buy' && request.method === 'POST') {
+      const secret = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
+      const body = (await readBounded(request, 1024)) as { unlock?: unknown };
+      const u = unlockById(body?.unlock);
+      const r = await buyUnlock(db, secret, u?.id, u ? unlockPrice(u, TUNE) : null);
+      return json(r, r.ok ? 200 : r.error === 'unknown account' ? 401 : 409);
     }
     if (path === '/account/recover' && request.method === 'POST') {
       const body = (await readBounded(request, 1024)) as { code?: unknown };
@@ -97,7 +107,7 @@ export default {
       );
       return Response.json({ planets: counts }, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
     }
-    if (url.pathname === '/account' || url.pathname === '/account/recover') return accountRoute(request, env, url.pathname);
+    if (url.pathname === '/account' || url.pathname === '/account/recover' || url.pathname === '/account/buy') return accountRoute(request, env, url.pathname);
     if (url.pathname === '/health') {
       return Response.json({ ok: true, service: 'steroids-alpha-server', protocol: PROTOCOL_VERSION });
     }
@@ -128,7 +138,7 @@ export class PlanetRoom {
   constructor(_state: unknown, private env: Env) {
     const hp = Number(env.TEST_SHIP_HP);
     const db = env.STASH;
-    this.room = new Room(Number.isFinite(hp) && hp > 0 ? hp : undefined,()=>void this.refreshConfig(), db ? (secret, amount, runId) => creditExtraction(db, secret, amount, runId) : undefined);
+    this.room = new Room(Number.isFinite(hp) && hp > 0 ? hp : undefined,()=>void this.refreshConfig(), db ? (secret, amount, runId) => creditExtraction(db, secret, amount, runId) : undefined, db ? async (secret) => { const a = await accountFor(db, secret); return a ? ownedUnlocks(db, a) : null; } : undefined);
   }
 
   async fetch(request: Request): Promise<Response> {

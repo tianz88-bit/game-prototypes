@@ -10,6 +10,7 @@ export interface D1Statement {
   bind(...values: unknown[]): D1Statement;
   first<T = Record<string, unknown>>(): Promise<T | null>;
   run(): Promise<unknown>;
+  all(): Promise<unknown>;
 }
 export interface D1Like {
   prepare(sql: string): D1Statement;
@@ -114,4 +115,39 @@ export async function creditExtraction(db: D1Like, secret: unknown, amount: numb
       .run();
   }
   return balanceOf(db, account);
+}
+
+/** Unlock ids an account owns. */
+export async function ownedUnlocks(db: D1Like, account: string): Promise<string[]> {
+  const res = (await db.prepare('SELECT unlock_id FROM unlocks WHERE account_id = ? ORDER BY created_at').bind(account).all()) as { results?: { unlock_id: string }[] };
+  return (res.results ?? []).map((r) => r.unlock_id);
+}
+
+export type BuyResult = { ok: true; balance: number; unlocks: string[] } | { ok: false; error: 'unknown account' | 'not for sale' | 'owned' | 'not enough credits'; balance?: number };
+
+/**
+ * Buy an unlock: one atomic batch. The purchase row is written only if the balance covers the
+ * price and the item is not owned yet (its id is unique per account and item, so a repeated tap
+ * cannot charge twice); the unlock row follows only if that purchase row exists. The price comes
+ * from the server's catalogue, never from the client.
+ */
+export async function buyUnlock(db: D1Like, secret: unknown, unlockId: unknown, price: number | null): Promise<BuyResult> {
+  const account = await accountFor(db, secret);
+  if (!account) return { ok: false, error: 'unknown account' };
+  if (typeof unlockId !== 'string' || price === null || !(price > 0)) return { ok: false, error: 'not for sale' };
+  const key = `purchase:${account}:${unlockId}`;
+  const now = Date.now();
+  if ((await ownedUnlocks(db, account)).includes(unlockId)) return { ok: false, error: 'owned', balance: await balanceOf(db, account) };
+  await db.batch([
+    db
+      .prepare(
+        "INSERT OR IGNORE INTO ledger (id, account_id, kind, amount, created_at) SELECT ?, ?, 'purchase', ?, ? " +
+          'WHERE (SELECT COALESCE(SUM(amount), 0) FROM ledger WHERE account_id = ?) >= ? ' +
+          'AND NOT EXISTS (SELECT 1 FROM unlocks WHERE account_id = ? AND unlock_id = ?)',
+      )
+      .bind(key, account, -Math.floor(price), now, account, Math.floor(price), account, unlockId),
+    db.prepare('INSERT OR IGNORE INTO unlocks (account_id, unlock_id, created_at) SELECT ?, ?, ? WHERE EXISTS (SELECT 1 FROM ledger WHERE id = ?)').bind(account, unlockId, now, key),
+  ]);
+  const [balance, unlocks] = await Promise.all([balanceOf(db, account), ownedUnlocks(db, account)]);
+  return unlocks.includes(unlockId) ? { ok: true, balance, unlocks } : { ok: false, error: 'not enough credits', balance };
 }

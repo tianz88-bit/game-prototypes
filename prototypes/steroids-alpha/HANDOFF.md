@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 claude unlock-shop
+DID: Hangar scene (menu -> HANGAR): buy/equip 20 unlocks from sim/unlocks.ts (tints, flames, shields, Nova kill fx, badges, name colours, run history). POST /account/buy (server price, atomic balance check); GET /account returns unlocks. Looks sent in the auth message, worn only when owned, broadcast in the roster. Run history recorded in the save.
+FILES: sim/unlocks.ts server/src/{bank,index,room}.ts src/scenes/{hangar,menu,flight}.ts src/net/{account,client}.ts src/save.ts src/main.ts src/render/{shipView,thrusters}.ts sim/protocol.ts tune.json scripts/test-steroids-alpha-bank.mjs
+SEAM: RosterEntry.look; ShipView.setLook(tint, palette, shield); ThrusterVFX.palette; DrawnShip.setLook; fx 'explosion' carries killer.
+CROSS: src/render/shipView.ts (tint multiply, shield colours from look), src/render/thrusters.ts (palette)
+FOR codex: hangar cards, swatches, Nova rings and badges are placeholders; restyle freely. Keep tint as a multiply over the art and shield colours readable.
+
 ## 2026-11-13 claude bank
 DID: D1 bank: anonymous accounts (hashed secret + recovery code), POST/GET /account, POST /account/recover; extraction banks salvage once per run (ledger sum = balance); menu credits panel + RESTORE; result shows Banked +N / Credits. Deploy workflow applies D1 migrations before deploy.
 FILES: server/{src/bank.ts,src/index.ts,src/room.ts,wrangler.jsonc,migrations/0001_bank.sql} src/{net/account,net/client,save,main}.ts src/scenes/{menu,flight}.ts scripts/test-steroids-alpha-bank.mjs .github/workflows/deploy-steroids-alpha-worker.yml
@@ -97,10 +104,3 @@ FILES: src/render/worldArt.ts src/scenes/flight.ts
 SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
 CROSS: none (render/shared drawing)
 FOR claude: Typecheck/build/rig/sim pass. Brave desktop + DPR2 phone ordnance fixtures inspected; 2 clients + bots, baseline frame pacing and no console/page errors; no projectile rules or lock-selection changes.
-
-## 2026-11-13 codex codex/steroids-pickups
-DID: Faceted amber mineral crystals with value scaling, bob and sparkle; medical capsules and floating heal crosses; collection shards.
-FILES: src/render/worldArt.ts src/scenes/flight.ts
-SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
-CROSS: none (render/shared drawing)
-FOR claude: Typecheck/build/rig/sim pass. Brave desktop + DPR2 phone fixtures inspected; 2 clients + 4 bots 32.06 FPS, p95 31.6ms, zero console/page errors.

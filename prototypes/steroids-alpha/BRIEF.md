@@ -356,7 +356,14 @@ Owner direction (13 November 2026). Replaces the earlier gear-stash design.
   example a ship variant trading speed for hull, or a choice between equal
   weapon styles). Not allowed: starting tiers, extra hull or shield, cheaper
   in-run prices, faster warp, longer missile range, anything strictly better.
-- First unlock catalogue: to be proposed by Claude and approved by the owner.
+- First unlock catalogue (owner approved items 1-6, 13 November 2026; ship
+  variants skipped for now): hull tints (5, 300 each), thruster flame colours
+  (4, 400), shield colours (3, 400), Nova kill effect (600), name badges (3,
+  250) and name colours (3, 250), Run history (500, QoL: last 10 runs).
+  Prices in tune.json `unlockPrices`, provisional until real runs are timed.
+  Bought in the Hangar (menu); two taps to buy, tap an owned item to wear or
+  remove it. The server sets prices, checks the balance in the same
+  statement, and shows other pilots only the looks an account owns.
 - Default (confirm): disconnecting leaves the ship on the planet for a grace
   period; if it is not reconnected in time, it is lost as if destroyed.
 

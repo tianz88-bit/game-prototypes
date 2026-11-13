@@ -48,6 +48,8 @@ export interface ExhaustFlash extends NozzleOrigin {
 const MAX_PARTICLES = 900;
 
 export class ThrusterVFX {
+  /** Flame colours [accent, deep, mid, white] (a bought flame unlock); null for the default blue and white. */
+  palette: number[] | null = null;
   particles: ExhaustParticle[] = [];
   flashes: ExhaustFlash[] = [];
   /** Bursts fired so far by the craft-left and craft-right engine. */
@@ -80,7 +82,9 @@ export class ThrusterVFX {
       h: (burst ? 6 + r() * 12 : strong ? 7 + r() * 13 : 4 + r() * 7) * particleScale * stretch,
       angle: a,
       // Mostly blue and white, about 12% orange.
-      colour: q < 0.12 ? 0xffa65f : q < 0.42 ? 0xe4fcff : q < 0.78 ? 0x62d9ff : 0x4286ff,
+      colour: this.palette
+        ? q < 0.12 ? this.palette[0] : q < 0.42 ? this.palette[3] : q < 0.78 ? this.palette[2] : this.palette[1]
+        : q < 0.12 ? 0xffa65f : q < 0.42 ? 0xe4fcff : q < 0.78 ? 0x62d9ff : 0x4286ff,
     });
   }
 
