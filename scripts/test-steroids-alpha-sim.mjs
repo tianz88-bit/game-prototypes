@@ -1289,7 +1289,9 @@ assert.equal(S.cleanName(null), '');
     p1.ship.lockdown = 0;
     p1.ship.warping = true;
     p1.ship.warpDist = wt.distance - 1;
-    for (let i = 0; i < 3 && s1.closed === 0; i++) room.step();
+    for (let i = 0; i < 3 && !s1.sent.some((m) => typeof m === 'string' && m.includes('"extracted"')); i++) room.step();
+    // The room closes the connection once the bank has answered (no bank here: at once, asynchronously).
+    for (let i = 0; i < 20 && s1.closed === 0; i++) await new Promise((r) => setTimeout(r, 5));
     assert.equal(s1.closed, S.CLOSE.EXTRACTED, 'pilot closed as extracted');
     const res = s1.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).find((m) => m.type === 'extracted');
     assert(res && res.power >= tune.ship.maxHp, 'result frame with what was carried out');

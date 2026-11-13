@@ -9,6 +9,7 @@ import { copyShip, muzzleShot, stepShip } from '../../sim/ship';
 import { asteroidPos } from '../../sim/asteroids';
 import type { Asteroid } from '../../sim/asteroids';
 import type { ShipInput, ShipState } from '../../sim/ship';
+import { loadSave } from '../save';
 import { CLOSE, MSG, PROTOCOL_VERSION, decodeServer, encodeBuy, encodeInput, encodePing } from '../../sim/protocol';
 import type { OrdnanceView, RosterEntry, ServerMessage, SnapshotShip } from '../../sim/protocol';
 import { angleDelta, wrap, wrapDelta } from '../../sim/wrap';
@@ -93,6 +94,8 @@ export class NetClient {
   death: { x: number; y: number; killer: number; killerName: string } | null = null;
   /** Set when our warp run completed and we left the planet: what we carried out. */
   extracted: { power: number; kills: number; salvage: number } | null = null;
+  /** After an extraction: what the bank credited and the new balance (or why it could not). */
+  banked: { amount: number; balance: number | null; error: string } | null = null;
   /** Every asteroid on the planet, by id. */
   readonly asteroids = new Map<number, Asteroid>();
   /** When each asteroid was last hit (performance.now), for the hit flash. */
@@ -128,6 +131,9 @@ export class NetClient {
     this.ws = ws;
     ws.addEventListener('open', () => {
       this.status = 'open';
+      // Name our bank account first, so the room can credit an extraction to it.
+      const secret = loadSave().account?.secret;
+      if (secret) ws.send(JSON.stringify({ type: 'auth', secret }));
       this.ping();
       this.pingTimer = setInterval(() => this.ping(), clientTune.net.pingIntervalMs);
     });
@@ -166,11 +172,13 @@ export class NetClient {
   }
 
   /** Roster, deaths and pickups arrive as JSON text frames. */
-  private handleText(msg: { type?: string; id?: number; power?: number; kills?: number; ships?: { id: number; x: number; y: number }[]; x?: number; y?: number; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean; hull?: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral' | 'salvage'; value: number }[]; r?: number; seconds?: number; salvage?: number; remove?: { id: number; by: number }[] }): void {
+  private handleText(msg: { type?: string; id?: number; power?: number; kills?: number; ships?: { id: number; x: number; y: number }[]; x?: number; y?: number; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean; hull?: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral' | 'salvage'; value: number }[]; r?: number; seconds?: number; salvage?: number; amount?: number; balance?: number | null; error?: string; remove?: { id: number; by: number }[] }): void {
     if (msg.type === 'roster' && Array.isArray(msg.players)) {
       this.roster = new Map(msg.players.map((p) => [p.id, p]));
     } else if (msg.type === 'extracted') {
       this.extracted = { power: Number(msg.power) || 0, kills: Number(msg.kills) || 0, salvage: Number(msg.salvage) || 0 };
+    } else if (msg.type === 'banked') {
+      this.banked = { amount: Number(msg.amount) || 0, balance: typeof msg.balance === 'number' ? msg.balance : null, error: typeof msg.error === 'string' ? msg.error : '' };
     } else if (msg.type === 'hotzone') {
       this.hotZone = { x: Number(msg.x) || 0, y: Number(msg.y) || 0, r: Number(msg.r) || 0, movesAt: performance.now() + (Number(msg.seconds) || 0) * 1000 };
     } else if (msg.type === 'warpouts' && Array.isArray(msg.ships)) {

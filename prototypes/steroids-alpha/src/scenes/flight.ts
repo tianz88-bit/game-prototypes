@@ -924,6 +924,14 @@ export class FlightScene extends Phaser.Scene {
         return { id, x, y, w: bw, h: bh, label: text(this, x, y, id === 'respawn' ? (extracted ? 'DROP IN' : 'RESPAWN') : 'MENU', 16).setOrigin(0.5).setDepth(961) };
       });
     }
+    // Extracted: the bank's answer arrives a moment later.
+    if (extracted) {
+      const x = this.net.extracted;
+      const b = this.net.banked;
+      const line = !b ? `Salvage ${x?.salvage ?? 0}  ·  banking…` : b.error ? `Salvage ${x?.salvage ?? 0} not banked (${b.error})` : `Banked +${b.amount}  ·  Credits ${b.balance}`;
+      const want = `EXTRACTED\n${line}`;
+      if (this.message.text !== want) this.message.setText(want);
+    }
     // The buttons appear after the explosion has had a moment.
     const ready = this.time.now - this.deathShownAt > 700;
     const g = this.overlay;

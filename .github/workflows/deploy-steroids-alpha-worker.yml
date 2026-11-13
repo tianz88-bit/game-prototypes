@@ -11,6 +11,7 @@ on:
       - "prototypes/steroids-alpha/sim/**"
       - "prototypes/steroids-alpha/tune.json"
       - "scripts/test-steroids-alpha-sim.mjs"
+      - "scripts/test-steroids-alpha-bank.mjs"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/deploy-steroids-alpha-worker.yml"
@@ -46,6 +47,9 @@ jobs:
       - name: Game rules test
         run: node scripts/test-steroids-alpha-sim.mjs
 
+      - name: Bank test (accounts, idempotent credits, recovery)
+        run: node --no-warnings scripts/test-steroids-alpha-bank.mjs
+
       - name: Verify live settings and publisher boundaries
         run: node scripts/test-steroids-live-config.mjs
 
@@ -62,6 +66,18 @@ jobs:
             echo "configured=false" >> "$GITHUB_OUTPUT"
             echo "::notice::Worker deployment skipped. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets."
           fi
+
+      # The bank's D1 schema (server/migrations). Applies only migrations not yet applied, before the
+      # Worker that needs them goes live.
+      - name: Apply bank database migrations
+        if: steps.cloudflare.outputs.configured == 'true'
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.143.0"
+          workingDirectory: prototypes/steroids-alpha/server
+          command: d1 migrations apply steroids-alpha-stash --remote
 
       - name: Deploy to Cloudflare Workers
         if: steps.cloudflare.outputs.configured == 'true'

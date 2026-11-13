@@ -103,6 +103,8 @@ if (DEBUG) {
       /** Debug only: a blocked hit on your ship, to review the shield effect. */
       shieldHit: (angle?: number) => flight()?.debugShieldHit(angle),
       nameBox: () => (game.scene.getScene('menu') as MenuScene).nameBox,
+      menuCredits: () => (game.scene.getScene('menu') as MenuScene).credits,
+      accountButton: () => (game.scene.getScene('menu') as MenuScene).accountButton,
       portraitBlocked: () => intents.portraitBlocked,
       asteroids: () => flight()?.net.asteroidRender().map((r) => ({ id: r.a.id, size: r.a.size, hp: r.a.hp, x: r.x, y: r.y })) ?? [],
       splits: () => flight()?.net.splits ?? 0,

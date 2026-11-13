@@ -6,6 +6,11 @@ export interface Save {
   steer?: 'marker' | 'craft';
   mobileSteer?: 'marker' | 'craft';
   name?: string;
+  /**
+   * Bank account (BRIEF.md Bank and unlocks): the secret the server checks and the recovery code to
+   * show the player. Losing both this storage and the code loses the account.
+   */
+  account?: { secret: string; recovery: string };
 }
 
 export function loadSave(): Save {
