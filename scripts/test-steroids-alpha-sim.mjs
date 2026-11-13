@@ -37,7 +37,7 @@ function rng(seed = 1) {
   let s = seed;
   return () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646;
 }
-const idle = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN, missile: false, mine: false };
+const idle = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN, missile: false, mine: false, warp: false };
 const near = (a, b, eps, what) => assert(Math.abs(a - b) <= eps, `${what}: ${a} vs ${b}`);
 
 // --- Throttle: accelerate to the maximum, brake to the minimum, never stop. ---
@@ -740,13 +740,13 @@ assert.equal(S.cleanName(null), '');
 
 // --- Wire format round trips. ---
 {
-  const input = { seq: 77, turn: -0.5, aim: NaN, thrust: 1, dash: true, fire: true, dashAim: -2.5, missile: true, mine: false };
+  const input = { seq: 77, turn: -0.5, aim: NaN, thrust: 1, dash: true, fire: true, dashAim: -2.5, missile: true, mine: false, warp: true };
   const back = S.decodeClient(S.encodeInput(input)).input;
   assert.deepEqual({ ...back, aim: 0 }, { ...input, aim: 0 });
   assert(Number.isNaN(back.aim));
   assert(Number.isNaN(S.decodeClient(S.encodeInput({ ...input, dashAim: 99 })).input.dashAim), 'bad dash aims are dropped');
   assert.deepEqual(S.decodeClient(S.encodeBuy(0, 2)), { type: S.MSG.BUY, item: 0, tier: 2 });
-  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3 };
+  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5 };
   assert.deepEqual(S.decodeServer(S.encodeSnapshot(1234, 55, [ship])), { type: S.MSG.SNAPSHOT, tick: 1234, ackSeq: 55, ships: [ship] });
   const rockRec = { id: 3, size: 1, x: 10.5, y: 20.25, vx: -30, vy: 12.5, t0: 900, hp: 30 };
   assert.deepEqual(S.decodeServer(S.encodeAsteroids([rockRec])).asteroids, [rockRec]);
@@ -1154,4 +1154,150 @@ assert.equal(S.cleanName(null), '');
   }
 }
 
-console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, bots, ramming, health boosts, kill credit, missiles, mines, bounty and settings upgrade all pass.');
+// --- Lockdown and warp-out: the warp is offline for lockdownSeconds after drop-in; then Warp starts
+// warp mode (accelerate to warp speed, slight steering, no firing); damage resets the distance;
+// rocks are plowed through; covering warp.distance extracts the ship. ---
+{
+  const wt = tune.warp;
+  // Lockdown counts down; Warp does nothing until it is over.
+  {
+    const w = emptyWorld();
+    const s = placeShip(w, 1, 1000, 1000, 0);
+    assert.equal(s.lockdown, wt.lockdownSeconds, 'lockdown starts at drop-in');
+    w.stepShip(1, { ...idle, warp: true });
+    assert.equal(s.warping, false, 'warp offline during lockdown');
+    s.lockdown = dt / 2;
+    w.stepShip(1, idle);
+    assert.equal(s.lockdown, 0, 'lockdown ends');
+    w.stepShip(1, { ...idle, warp: true });
+    assert.equal(s.warping, true, 'warp starts after lockdown');
+    w.stepShip(1, { ...idle, warp: true });
+    assert.deepEqual([s.warping, s.warpDist], [false, 0], 'pressing again cancels and clears the distance');
+  }
+  // Warp mode: speed rises to warp speed regardless of throttle; steering is limited; no firing.
+  {
+    const s = S.newShip(0, 0, 0, tune.ship.cruiseSpeed);
+    s.hp = s.hullMax = tune.ship.maxHp;
+    s.missileTier = s.missileCharges = 1;
+    S.stepShip(s, { ...idle, warp: true }, dt, tune);
+    const ws = S.warpSpeed(s.hullMax, tune);
+    for (let i = 0; i < 10 * tune.net.tickHz; i++) S.stepShip(s, { ...idle, thrust: -1, fire: true, missile: true, dash: true }, dt, tune);
+    near(s.speed, ws, 1e-6, 'warp speed held, braking ignored');
+    assert(ws > S.topSpeed(s.hullMax, tune) && ws <= S.topSpeed(s.hullMax, tune) * 1.5, 'warp only slightly faster than top speed');
+    assert.deepEqual([s.shots, s.missileShots, s.dashCharge, s.dashTime], [0, 0, 0, 0], 'no guns, missiles or dash in warp');
+    const h0 = s.heading;
+    S.stepShip(s, { ...idle, turn: 1 }, dt, tune);
+    near(s.heading - h0, tune.ship.turnRate * dt * wt.steerFactor, 1e-9, 'slight steering only');
+    const d0 = s.warpDist;
+    S.stepShip(s, idle, dt, tune);
+    near(s.warpDist - d0, ws * dt, 1e-6, 'warp distance grows with distance flown');
+  }
+  // Damage resets the distance (warp continues); rocks are plowed through without damage or reset.
+  {
+    const w = emptyWorld();
+    w.tune.ship.minSpeed = 0;
+    const a = placeShip(w, 1, 1000, 1000, 0);
+    const b = placeShip(w, 2, 1300, 1000, Math.PI);
+    a.lockdown = 0;
+    b.speed = 0;
+    w.stepShip(1, { ...idle, warp: true });
+    a.warpDist = 800;
+    const full = a.hp + a.shield;
+    let reset = false;
+    for (let i = 0; i < 30 && !reset; i++) {
+      b.x = a.x + 300; b.y = a.y; b.heading = Math.PI;
+      w.stepShip(1, idle);
+      w.stepShip(2, { ...idle, thrust: -1, fire: true });
+      w.step();
+      w.drain();
+      reset = a.hp + a.shield < full;
+    }
+    assert(reset && a.warping && a.warpDist < 100, `hit in warp resets the distance, warp continues (${a.warpDist.toFixed(0)})`);
+    // A rock dead ahead: smashed, no damage, distance kept.
+    const w2 = emptyWorld();
+    const c = placeShip(w2, 1, 1000, 1000, 0);
+    c.lockdown = 0;
+    w2.stepShip(1, { ...idle, warp: true });
+    c.warpDist = 500;
+    const rk = rock(w2, 0, 1000 + tune.asteroid.radius[0] + 20, 1000);
+    const hp = c.hp + c.shield;
+    let gone = false;
+    for (let i = 0; i < 20 && !gone; i++) {
+      w2.stepShip(1, idle);
+      w2.step();
+      w2.drain();
+      gone = !w2.asteroids.has(rk.id);
+    }
+    assert(gone, 'warping ship smashes the rock');
+    assert.equal(c.hp + c.shield, hp, 'no damage from plowing through');
+    assert(c.warpDist > 500, 'distance kept');
+    assert.deepEqual([c.kx, c.ky], [0, 0], 'no knockback');
+  }
+  // Turrets hold fire in warp.
+  {
+    const w = emptyWorld();
+    w.tune.ship.minSpeed = 0;
+    const a = placeShip(w, 1, 1000, 1000, 0);
+    a.lockdown = 0;
+    a.turrets = 2;
+    rock(w, 0, 1000, 1200, 0, 0, 1e6);
+    w.stepShip(1, { ...idle, warp: true });
+    let fired = 0;
+    for (let i = 0; i < 60; i++) {
+      w.stepShip(1, idle);
+      w.step();
+      fired += w.drain().shots.length;
+    }
+    assert.equal(fired, 0, 'no turret fire while warping');
+  }
+  // A late input makes the server guess steps by repeating the last input: one-shot presses must not
+  // repeat (the warp would toggle back off, a missile would fire again).
+  {
+    class Sock extends EventTarget { sent = []; send(v) { this.sent.push(v); } close() {} }
+    const room = new S.Room(1);
+    room.setBots(false);
+    room.join(new Sock(), 'Lag');
+    room.stop();
+    const [p] = [...room.players.values()];
+    p.started = true;
+    p.ship.lockdown = 0;
+    p.ship.missileTier = 2;
+    p.ship.missileCharges = 2;
+    p.queue.push({ ...idle, seq: 1, missile: true });
+    room.step();
+    for (let i = 0; i < 4; i++) room.step(); // no inputs arrive: guessed steps
+    assert.equal(p.ship.missileShots, 1, 'one missile, not one per guessed step');
+    p.queue.push({ ...idle, seq: 2, warp: true });
+    room.step();
+    for (let i = 0; i < 4; i++) room.step();
+    assert.equal(p.ship.warping, true, 'warp stays on through guessed steps');
+  }
+  // Extraction through the room: the pilot gets a result, the connection closes with EXTRACTED,
+  // everyone else sees the warp-out, and the ship is gone from the planet.
+  {
+    class Sock extends EventTarget { sent = []; closed = 0; send(v) { this.sent.push(v); } close(code) { this.closed = code; this.dispatchEvent(new Event('close')); } }
+    const room = new S.Room(1);
+    room.setBots(false);
+    const s1 = new Sock();
+    const s2 = new Sock();
+    room.join(s1, 'Runner');
+    room.join(s2, 'Watcher');
+    room.stop();
+    const [p1] = [...room.players.values()];
+    const id = p1.id;
+    p1.started = true; // as if its client had sent inputs
+    p1.ship.lockdown = 0;
+    p1.ship.warping = true;
+    p1.ship.warpDist = wt.distance - 1;
+    for (let i = 0; i < 3 && s1.closed === 0; i++) room.step();
+    assert.equal(s1.closed, S.CLOSE.EXTRACTED, 'pilot closed as extracted');
+    const res = s1.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).find((m) => m.type === 'extracted');
+    assert(res && res.power >= tune.ship.maxHp, 'result frame with what was carried out');
+    const seen = s2.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).find((m) => m.type === 'warpouts');
+    assert(seen && seen.ships.some((x) => x.id === id), 'others see the warp-out');
+    assert(!room.world.ships.has(id), 'ship left the planet');
+    assert.equal(s2.closed, 0, 'others stay');
+  }
+}
+
+console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, bots, ramming, health boosts, kill credit, missiles, mines, bounty, lockdown, warp-out and settings upgrade all pass.');

@@ -41,6 +41,8 @@ interface Player {
   deficit: number;
   /** A dash from a dropped late input, applied on the next step. */
   owedDash: boolean;
+  /** A warp press from a dropped (late) input, applied on the next step. */
+  owedWarp: boolean;
   /** Keeps incoming messages in arrival order when any must be read asynchronously. */
   reading: Promise<void>;
   /** False until the first input arrives. */
@@ -56,7 +58,7 @@ interface Player {
 }
 
 
-const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN, missile: false, mine: false };
+const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN, missile: false, mine: false, warp: false };
 const upgradeCount = (s: ShipState): number => s.turrets + s.shieldTier + s.damageTier + s.missileTier + s.mineTier;
 
 export class Room {
@@ -76,12 +78,12 @@ export class Room {
   applyConfig(record:ConfigRecord):void{
     if(record.version===this.config.version)return;
     this.config=record;
-    for(const group of ['ship','weapon','turret','shop','missile','mine','bots','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
+    for(const group of ['ship','weapon','turret','shop','missile','mine','bots','warp','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
     for(const p of this.players.values()){
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
       p.ship.hullMax=Math.min(this.tune.ship.powerCap,p.ship.hullMax);p.ship.hp=Math.min(p.ship.hullMax,p.ship.hp);
       p.ship.shield=Math.min(this.tune.ship.maxShield,p.ship.shield);
-      if(p.queue.length)p.last=p.queue[p.queue.length-1];p.queue=[];p.deficit=0;p.deficitTicks=0;p.owedDash=false;p.started=false;
+      if(p.queue.length)p.last=p.queue[p.queue.length-1];p.queue=[];p.deficit=0;p.deficitTicks=0;p.owedDash=false;p.owedWarp=false;p.started=false;
       this.send(p,JSON.stringify({type:'config',record}));this.send(p,this.snapshotFor(p));
     }
   }
@@ -150,7 +152,7 @@ export class Room {
     }
     const id = this.allocateId();
     const spawn = this.world.addShip(id);
-    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0 };
+    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0 };
     this.players.set(id, player);
 
     ws.addEventListener('message', (e: MessageEvent) => this.onMessage(player, e.data));
@@ -313,6 +315,21 @@ export class Room {
         // Already closed.
       }
     }
+    // Extracted: the warp run is complete and the ship launches off the planet. Everyone sees it
+    // go; the pilot gets a result frame, then the room closes their connection. (Banking the haul
+    // comes with the bank milestone.)
+    const out = ev.extracted.filter((x) => this.players.has(x.id) && !dead.has(x.id));
+    if (out.length) this.broadcast(JSON.stringify({ type: 'warpouts', ships: out }));
+    for (const x of out) {
+      const p = this.players.get(x.id)!;
+      this.send(p, JSON.stringify({ type: 'extracted', power: Math.round(p.ship.hullMax), kills: p.kills }));
+      this.leave(x.id);
+      try {
+        p.ws.close(CLOSE.EXTRACTED, 'extracted');
+      } catch {
+        // Already closed.
+      }
+    }
   }
 
   /** Names, kills and power (hull, i.e. minerals carried) for the leaderboard and name tags. */
@@ -363,6 +380,7 @@ export class Room {
     while (p.deficit > 0 && p.queue.length) {
       const late = p.queue.shift() as ShipInput;
       p.owedDash ||= late.dash;
+      p.owedWarp = p.owedWarp !== late.warp; // two dropped presses cancel out
       p.last = late;
       p.deficit--;
     }
@@ -379,10 +397,14 @@ export class Room {
       const input = p.queue.shift();
       if (input) p.last = input;
       else if (p.deficit < TUNE.net.maxGuessedSteps) p.deficit++;
-      // A guessed step repeats the last input without its dash; a dash owed from a dropped input applies now.
+      // A guessed step repeats the last input without its one-shot presses (dash, missile, mine,
+      // warp): repeating them would fire twice or toggle the warp back off. A dash or warp owed
+      // from a dropped input applies now.
       const dash = (input ? input.dash : false) || p.owedDash;
+      const warp = (input ? input.warp : false) !== p.owedWarp;
       p.owedDash = false;
-      this.world.stepShip(p.id, { ...(input ?? p.last), dash });
+      p.owedWarp = false;
+      this.world.stepShip(p.id, input ? { ...input, dash, warp } : { ...p.last, dash, warp, missile: false, mine: false });
     }
   }
 

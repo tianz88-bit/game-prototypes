@@ -39,7 +39,7 @@ export interface Stick {
   dy: number;
 }
 
-type Press = 'primary' | 'secondary' | 'pause' | 'scheme' | 'copied' | 'copyFailed' | 'missile' | 'mine';
+type Press = 'primary' | 'secondary' | 'pause' | 'scheme' | 'copied' | 'copyFailed' | 'missile' | 'mine' | 'warp';
 
 export class Intents {
   /** Keyboard steering, -1 .. 1. */
@@ -70,6 +70,8 @@ export class Intents {
   dashButton: Zone | null = null;
   /** Missile and mine buttons (touch), shown once owned. */
   missileButton: Zone | null = null;
+  /** Warp button (touch and mouse): starts warp mode after lockdown, or cancels it. */
+  warpButton: Zone | null = null;
   mineButton: Zone | null = null;
   /** One-tap shop buttons (top left in flight); a tap queues that item. */
   shopZones: { item: number; zone: Zone }[] = [];
@@ -167,6 +169,7 @@ export class Intents {
       if (k >= '1' && k <= '5' && k.length === 1) this.buys.push(Number(k) - 1);
       if (k === 'q') this.presses.add('missile');
       if (k === 'e') this.presses.add('mine');
+      if (k === 'r') this.presses.add('warp');
     }
     if (down) this.held.add(k);
     else this.held.delete(k);
@@ -229,6 +232,10 @@ export class Intents {
         this.buys.push(s.item);
         return;
       }
+    }
+    if (hit(this.warpButton)) {
+      this.presses.add('warp');
+      return;
     }
     if (hit(this.missileButton)) {
       this.presses.add('missile');

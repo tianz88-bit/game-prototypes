@@ -91,9 +91,11 @@ export interface WorldEvents {
   rams: { id: number; target: number; x: number; y: number }[];
   /** Missile and mine explosions (r = blast radius), and ordnance shot down (shot: true). */
   blasts: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[];
+  /** Ships that completed their warp run this tick (extracted). The room removes them. */
+  extracted: { id: number; x: number; y: number }[];
 }
 
-const noEvents = (): WorldEvents => ({ asteroids: [], gone: [], shots: [], deaths: [], hits: [], pickups: [], pickupsGone: [], rams: [], blasts: [] });
+const noEvents = (): WorldEvents => ({ asteroids: [], gone: [], shots: [], deaths: [], hits: [], pickups: [], pickupsGone: [], rams: [], blasts: [], extracted: [] });
 
 export class World {
   tick = 0;
@@ -193,6 +195,8 @@ export class World {
     this.ships.set(id, ship);
     // A moment of immunity so nobody is destroyed by an asteroid drifting through the drop zone.
     this.grace.set(id, Math.round(2 * t.net.tickHz));
+    // Lockdown (brief): the warp stays offline for the first warp.lockdownSeconds after dropping in.
+    ship.lockdown = t.warp.lockdownSeconds;
     return ship;
   }
 
@@ -356,6 +360,12 @@ export class World {
           dx /= len;
           dy /= len;
         }
+        // A warping ship plows through (owner): the rock is smashed, the ship takes nothing and
+        // keeps its course and warp distance.
+        if (s.warping) {
+          this.destroyAsteroid(a, p, t.asteroid.ramDamage, dx, dy, pos);
+          break;
+        }
         this.damageShip(id, s, t.asteroid.contactDamage[a.size], 0, wrap(s.x + dx * sr, W), wrap(s.y + dy * sr, H));
         s.kx = -dx * t.ship.knockbackSpeed;
         s.ky = -dy * t.ship.knockbackSpeed;
@@ -404,6 +414,11 @@ export class World {
       s.shield = Math.min(top, s.shield + top * t.ship.shieldRegenPerSecond * this.dt);
     }
 
+    // Warp complete: the ship launches off the planet (extracted), unless destroyed this tick.
+    for (const [id, s] of this.ships) {
+      if (s.hp > 0 && s.warping && s.warpDist >= t.warp.distance) this.events.extracted.push({ id, x: s.x, y: s.y });
+    }
+
     if (this.tick % t.net.tickHz === 0) this.populate();
   }
 
@@ -417,7 +432,8 @@ export class World {
     const W = t.world.width;
     const H = t.world.height;
     for (const [id, s] of this.ships) {
-      const n = s.hp > 0 ? Math.min(4, s.turrets) : 0;
+      // No firing in warp mode (brief), turrets included.
+      const n = s.hp > 0 && !s.warping ? Math.min(4, s.turrets) : 0;
       if (!n) {
         this.turrets.delete(id);
         continue;
@@ -653,6 +669,8 @@ export class World {
   private damageShip(id: number, s: ShipState, damage: number, attacker: number, atX: number, atY: number): void {
     if (s.hp <= 0) return;
     this.lastHit.set(id, this.tick);
+    // Any damage in warp mode resets the warp distance (brief); warp mode itself continues.
+    if (s.warping && damage > 0) s.warpDist = 0;
     this.events.hits.push({ id, x: atX, y: atY, shielded: s.shield > 0, hull: !this.invulnerable && damage > s.shield });
     if (this.invulnerable) return;
     const absorbed = Math.min(s.shield, damage);

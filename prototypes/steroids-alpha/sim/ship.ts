@@ -50,6 +50,12 @@ export interface ShipState {
   mineShots: number;
   /** Shots fired so far (wraps at 65536). Odd shots use the right gun, even the left. */
   shots: number;
+  /** Seconds of lockdown left after dropping in: the warp is offline until it reaches 0. */
+  lockdown: number;
+  /** In warp mode: accelerating to warp speed, steering limited, no firing. */
+  warping: boolean;
+  /** Distance travelled in warp mode; reaching warp.distance extracts the ship. Any damage resets it. */
+  warpDist: number;
 }
 
 export interface ShipInput {
@@ -73,6 +79,8 @@ export interface ShipInput {
   /** Launch a missile / drop a mine this step (pressed once). */
   missile: boolean;
   mine: boolean;
+  /** Warp pressed this step: starts warp mode once lockdown is over, or cancels it. */
+  warp: boolean;
 }
 
 /**
@@ -119,18 +127,36 @@ export function maxShield(s: ShipState, tune: Tune): number {
 }
 
 export function newShip(x: number, y: number, heading: number, speed: number): ShipState {
-  return { x, y, heading, speed, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, mineCd: 0, missileShots: 0, mineShots: 0 };
+  return { x, y, heading, speed, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0 };
+}
+
+/** Warp top speed: warp.topSpeedFactor times this ship's top speed (only slightly faster, so pursuit is possible). */
+export function warpSpeed(hp: number, tune: Tune): number {
+  return topSpeed(hp, tune) * tune.warp.topSpeedFactor;
 }
 
 export function copyShip(s: ShipState): ShipState {
-  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots };
+  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist };
 }
 
 /** Advance one fixed step. Mutates and returns s. */
 export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune): ShipState {
+  // Lockdown counts down from drop-in; then Warp starts warp mode, and pressing it again cancels.
+  s.lockdown = Math.max(0, s.lockdown - dt);
+  if (input.warp) {
+    if (s.warping) {
+      s.warping = false;
+      s.warpDist = 0;
+    } else if (s.lockdown <= 0 && s.dashCharge <= 0 && s.dashTime <= 0) {
+      s.warping = true;
+      s.warpDist = 0;
+    }
+  }
+  if (s.warping) input = { ...input, dash: false, fire: false, missile: false, mine: false };
   // No steering for the whole dash, charge and boost (owner design): the ship holds course while
   // the player picks the boost direction, then commits to it. Steering returns when the boost ends.
-  const maxTurn = s.dashCharge > 0 || s.dashTime > 0 ? 0 : tune.ship.turnRate * dt;
+  // In warp the heading is locked apart from slight steering (warp.steerFactor of the turn rate).
+  const maxTurn = s.dashCharge > 0 || s.dashTime > 0 ? 0 : tune.ship.turnRate * dt * (s.warping ? tune.warp.steerFactor : 1);
   if (Number.isFinite(input.aim)) {
     const diff = angleDelta(input.aim, s.heading);
     s.heading += Math.max(-maxTurn, Math.min(maxTurn, diff));
@@ -158,12 +184,17 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune)
   // Power makes a ship slower: both caps come down as it grows.
   const top = topSpeed(s.hullMax, tune);
   if (s.dashTime > 0) s.speed = Math.max(s.speed, dashSpeed(s.hullMax, tune));
-  else {
+  else if (s.warping) {
+    // Warp ignores the throttle: it accelerates to warp speed and holds it.
+    const ws = warpSpeed(s.hullMax, tune);
+    s.speed = s.speed < ws ? Math.min(ws, s.speed + tune.warp.acceleration * dt) : Math.max(ws, s.speed - tune.ship.braking * dt);
+  } else {
     const thrust = Math.max(-1, Math.min(1, input.thrust));
     if (s.speed > top) s.speed = Math.max(top, s.speed - tune.ship.braking * dt + Math.min(0, thrust) * tune.ship.braking * dt);
     else s.speed = Math.max(tune.ship.minSpeed, Math.min(top, s.speed + thrust * (thrust > 0 ? tune.ship.acceleration : tune.ship.braking) * dt));
   }
   const speed = s.speed;
+  if (s.warping) s.warpDist += speed * dt;
   s.dashTime = Math.max(0, s.dashTime - dt);
   s.dashCd = Math.max(0, s.dashCd - dt);
 
