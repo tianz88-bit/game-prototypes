@@ -28,6 +28,8 @@ Change a seam = HANDOFF entry tagged `SEAM:` + message to the other agent. Never
 
 ## Workflow per push
 
+GitHub identity: use **tianz88-bit** for this repository. The owner explicitly forbids using the other account, **zitian-FF / Venomnom**, for these games. Verify `gh api user --jq .login` before a push, PR, merge or workflow dispatch; stop if it is not tianz88-bit. The itch publisher remains **daily-daily-games**; do not confuse the GitHub identity with the itch namespace.
+
 1. `git fetch origin main`; branch from latest main.
 2. Do the task. Stay in lane unless needed.
 3. Run the checks for what you touched:

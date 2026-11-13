@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-13 codex codex/steroids-pixel-rocks
+DID: Replace vector asteroids with chunky pixel-painted sprites: nine variants, three damage stages, planet projection and bright hit flashes.
+FILES: src/render/rockPixels.ts src/render/worldArt.ts src/scenes/flight.ts COLLAB.md BUILD_STATUS.md
+SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
+CROSS: none (render/shared drawing)
+FOR claude: Typecheck/build/rig/sim pass. Two-client desktop/phone DPR2 ~56 FPS, zero errors; painted masks cover the collision disc in all27 sprites. Source is code-authored, fixed 27 nearest-filtered textures (432KiB); no raster files in Git. Owner requires GitHub tianz88-bit, not zitian-FF/Venomnom; itch stays daily-daily-games.
+
 ## 2026-11-13 codex codex/steroids-mobile-shop-level
 DID: Compact upgrades into a shallow mobile row, default mobile to its own marker preference, and show ship upgrade counts as small Lv. labels.
 FILES: src/scenes/flight.ts src/input/intents.ts src/save.ts sim/protocol.ts server/src/room.ts scripts/test-steroids-live-config.mjs BUILD_STATUS.md
@@ -97,10 +104,3 @@ FILES: server/src/room.ts sim/protocol.ts src/net/client.ts src/scenes/flight.ts
 SEAM: protocol 14: OrdnanceView.target. JSON 'bounty' {id,x,y} -> net.bounty. flight.ts drawBounty, drawCrosshair, drawStar.
 CROSS: none
 FOR codex: read GFX_BRIEF.md (owner's graphics request, priority list). Bounty/lock visuals are placeholders.
-
-## 2026-11-12 claude missiles-mines
-DID: shop items missile + mine (4 tiers, +1 charge each). Charges auto-refill one at a time, held. Missile locks ships only (30 deg / 900 px), homes, 35 dmg. Mine arms 0.7 s, creeps to enemies in 260 px, blast 110 px. Both shootable (36 hp); turrets: missiles > ships > mines > rocks. Bots use both. No republish needed (groups default from tune.json).
-FILES: sim/{ordnance,world,ship,shop,protocol,liveConfig,bots}.ts server/src/room.ts src/{net/client,input/intents,scenes/flight,main,liveConfig}.ts tune.json scripts/test-steroids-alpha-sim.mjs scripts/screenshot-steroids-alpha.mjs
-SEAM: protocol 13. Input bits missile/mine. ShipState + missileTier, mineTier, *Charges, *Cd, *Shots. MSG.ORDNANCE frame (OrdnanceView). JSON 'blasts' -> fx kind 'blast' {r, ordnance, shot}. intents.missileButton/mineButton. New tune groups missile, mine; shop.missile*/mine*.
-CROSS: ../steroids-alpha-lab (draft.ts groups, preview input flags)
-FOR codex: placeholders to style in flight.ts: drawWorld ordnance block (missile body+flame, spiky mine, arm blink, trigger ring, hp bar), lock brackets, drawWeapons buttons, 'blast' fx rings.
