@@ -291,12 +291,31 @@ Owner direction (13 November 2026). Replaces the earlier gear-stash design.
   pays out once (idempotent).
 - **Currency:** earned only, by extracting. No purchase path (monetisation is
   out of scope).
-- **What is banked:** default (confirm): the ship's power above the starting
-  value at the moment of extraction, 1 mineral = 1 credit. In-run shop
-  purchases spend power, so a pilot chooses between spending to fight and
-  saving to bank.
-- **Death:** loses the run's haul only (it spills as minerals, as now).
-  Banked currency and unlocks are never lost.
+- **Salvage (owner, 13 November 2026):** a separate counter carried during
+  the run, shown in the HUD. In-run upgrades never spend it, so fighting and
+  upgrading never cost earnings.
+  - Earned by mining (each mineral picked up also adds salvage) and by
+    destroying bots (bots carry little, so farming them is no faster than
+    mining).
+  - A destroyed ship drops all of its carried salvage as gold pickups that
+    anyone can collect. Being hit spills power only, never salvage.
+  - Extracting banks carried salvage as credits, 1:1. Dying loses it.
+  - Practice planet: no salvage.
+- **Economy shape (owner: farming is the baseline, PvP pays more; tuned to a
+  free-to-play pace):**
+  - New salvage enters only from mining and bots, at a fixed, tuned rate.
+    That rate is the free-to-play baseline, and unlock prices are set
+    against it (for example, a typical run's farming buys a small cosmetic
+    in a few runs).
+  - PvP creates no salvage; it moves the victim's whole stack to whoever
+    collects it. Hunting pays more than farming, and feeding between
+    friends or alternate accounts creates nothing.
+  - Gold nobody collects before it expires is gone. Credits leave the
+    economy only through unlocks.
+  - No daily caps: farming cannot beat the baseline because the baseline is
+    all it produces.
+- **Death:** loses the run's haul (power spills as minerals, salvage as
+  gold). Banked credits and unlocks are never lost.
 - **Unlocks never add raw power** (owner rule). Test: an unlock may change
   how you play, not how strong you are. Allowed: cosmetics (colours, trails,
   tags; owner art where art is needed), quality of life (loadout presets, run
@@ -382,7 +401,8 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 - 2 PvP planets with persistent drop-in/drop-out rooms, plus 1 single-player
   practice planet.
 - Pseudo-3D wrapping planet rendering.
-- PvP, splitting asteroids, minerals spilled by hit and destroyed ships.
+- PvP, splitting asteroids, minerals spilled by hit ships, gold salvage
+  dropped by destroyed ships.
 - Cloud-layer transition when entering and leaving a planet.
 - Two control schemes (craft-relative and direction marker) with throttle.
 - 3-minute lockdown and warp-out.
@@ -446,7 +466,9 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 - Pilot name must be typeable on phones (tap the box, the keyboard opens).
 - Meta progression (owner, 13 November 2026): per run is .io; extraction
   banks hard currency; currency buys unlocks, QoL and options, never raw
-  power. Gear is no longer brought in or lost.
+  power. Gear is no longer brought in or lost. Currency comes from salvage:
+  mined or taken from bots (the free-to-play baseline), taken from destroyed
+  players (PvP pays more), banked 1:1 on extraction, all lost on death.
 - Main menu QR code of the game's itch page for quick joining; tapping it
   copies the link (owner decision, 12 November 2026). The QR encoder is
   written in-house rather than added as a dependency (owner choice).
@@ -458,15 +480,17 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
    pickups, a kills leaderboard and the leader bounty are now in.)
 2. Ship slots and how many parts per slot in v1, now that parts are
    cosmetic or sidegrades only.
-3. Banking rate: 1 mineral = 1 credit of power above the start, or another
-   rate? Are unspent in-run upgrades worth anything at extraction?
+3. Tuned numbers for the economy: salvage per mineral and per bot, the
+   baseline credits per typical run, and unlock prices. Claude proposes,
+   owner approves.
 4. Warp-mode details: steering allowed, firing allowed, cancellable?
 5. What makes the 2 PvP planets different (loot tables, asteroids, size,
    look)?
 6. Does a respawn on a PvP planet need a cost or delay? Right now Respawn is
    free and instant; with nothing to lose but the run, free may be right.
 9. Loot crates and player wrecks were in v1 scope under the old stash design;
-   minerals spilled by ships replace them for now. Keep crates or wrecks?
+   gold salvage dropped by destroyed ships replaces them. Owner to confirm
+   crates are no longer wanted.
 7. Should the Punchies part-rig be extracted into a shared package
    (`packages/part-rig`) used by both Punchies and Steroids-Alpha?
 8. BRIEF.md was drafted by Claude from the design chat, not written by the
