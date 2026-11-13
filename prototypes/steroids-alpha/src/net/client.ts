@@ -42,7 +42,7 @@ export type NetFx =
   | { kind: 'turret'; id: number; index: number; angle: number }
   | { kind: 'burst'; x: number; y: number; size: number }
   | { kind: 'spark'; x: number; y: number; angle?: number }
-  | { kind: 'explosion'; x: number; y: number }
+  | { kind: 'explosion'; x: number; y: number; killer: number }
   | { kind: 'heal'; x: number; y: number }
   /** A dash ram landed here. */
   | { kind: 'ram'; x: number; y: number }
@@ -133,7 +133,7 @@ export class NetClient {
       this.status = 'open';
       // Name our bank account first, so the room can credit an extraction to it.
       const secret = loadSave().account?.secret;
-      if (secret) ws.send(JSON.stringify({ type: 'auth', secret }));
+      if (secret) ws.send(JSON.stringify({ type: 'auth', secret, look: loadSave().look ?? {} }));
       this.ping();
       this.pingTimer = setInterval(() => this.ping(), clientTune.net.pingIntervalMs);
     });
@@ -190,7 +190,7 @@ export class NetClient {
       this.bounty = msg.id ? { id: msg.id, x: Number(msg.x) || 0, y: Number(msg.y) || 0 } : null;
     } else if (msg.type === 'deaths' && Array.isArray(msg.deaths)) {
       for (const d of msg.deaths) {
-        this.fx.push({ kind: 'explosion', x: d.x, y: d.y });
+        this.fx.push({ kind: 'explosion', x: d.x, y: d.y, killer: d.killer });
         this.remotes.delete(d.id);
         if (d.id === this.myId) this.death = { x: d.x, y: d.y, killer: d.killer, killerName: this.roster.get(d.killer)?.name ?? '' };
       }

@@ -78,10 +78,13 @@ export class MenuScene extends Phaser.Scene {
 
   /** Bank balance (null until known, or when the bank is unreachable) and the account panel state. */
   credits: number | null = null;
+  unlocks: string[] = [];
   private codeMode = false;
   private accountNote = '';
   private async refreshAccount(): Promise<void> {
-    this.credits = await ensureAccount();
+    const a = await ensureAccount();
+    this.credits = a?.balance ?? null;
+    this.unlocks = a?.unlocks ?? [];
     if (this.scene.isActive()) this.layout();
   }
 
@@ -94,6 +97,7 @@ export class MenuScene extends Phaser.Scene {
     if ('error' in r) this.accountNote = r.error;
     else {
       this.credits = r.balance;
+      this.unlocks = r.unlocks;
       this.accountNote = 'Account restored';
       this.codeMode = false;
       nameField().value = loadSave().name ?? '';
@@ -102,10 +106,12 @@ export class MenuScene extends Phaser.Scene {
   }
 
   accountButton: { x: number; y: number; w: number; h: number } | null = null;
+  hangarButton: { x: number; y: number; w: number; h: number } | null = null;
   /** Account panel, left of the menu (mirrors the QR panel): credits, recovery code, restore. */
   private drawAccount(w: number, h: number, bw: number): void {
     const side = (w - bw) / 2;
     this.accountButton = null;
+    this.hangarButton = null;
     const recovery = loadSave().account?.recovery ?? '';
     const credits = this.credits === null ? '…' : String(this.credits);
     if (side < 150) {
@@ -116,18 +122,23 @@ export class MenuScene extends Phaser.Scene {
     const pw = Math.min(200, side - 32);
     const x = side / 2;
     const top = h * 0.5 - 90;
-    panel(this.add.graphics(), x - pw / 2, top, pw, 176, UI.uiGold);
+    panel(this.add.graphics(), x - pw / 2, top, pw, 214, UI.uiGold);
     text(this, x, top + 16, 'CREDITS', 11, '#8fa2c8').setOrigin(0.5);
     text(this, x, top + 40, credits, 24, '#ffd23a').setOrigin(0.5);
     text(this, x, top + 70, 'RECOVERY CODE', 10, '#8fa2c8').setOrigin(0.5);
     text(this, x, top + 88, recovery || '-', 13, '#dfe8ff').setOrigin(0.5);
     text(this, x, top + 104, 'Write it down to keep your credits', 9, '#6d7a96').setOrigin(0.5);
-    const by = top + 140;
     const bwid = pw - 32;
+    // HANGAR: spend credits on unlocks.
+    const hy = top + 138;
+    panel(this.add.graphics(), x - bwid / 2, hy - 16, bwid, 32, UI.uiGold, true);
+    text(this, x, hy, 'HANGAR', 13, '#ffd23a').setOrigin(0.5);
+    this.hangarButton = { x, y: hy, w: bwid, h: 32 };
+    const by = top + 178;
     panel(this.add.graphics(), x - bwid / 2, by - 16, bwid, 32, this.codeMode ? UI.uiDanger : UI.uiBorder, this.codeMode);
     text(this, x, by, this.codeMode ? 'CANCEL' : 'RESTORE ACCOUNT', 12).setOrigin(0.5);
     this.accountButton = { x, y: by, w: bwid, h: 32 };
-    if (this.accountNote) text(this, x, top + 186, this.accountNote, 11, '#ffd98a').setOrigin(0.5);
+    if (this.accountNote) text(this, x, top + 226, this.accountNote, 11, '#ffd98a').setOrigin(0.5);
   }
 
   private layout(): void {
@@ -268,6 +279,12 @@ export class MenuScene extends Phaser.Scene {
       const n = this.nameBox;
       // Taps on the name box belong to the text field over it.
       if (Math.abs(t.x - n.x) <= n.w / 2 && Math.abs(t.y - n.y) <= n.h / 2) continue;
+      const hb = this.hangarButton;
+      if (hb && !this.codeMode && Math.abs(t.x - hb.x) <= hb.w / 2 && Math.abs(t.y - hb.y) <= hb.h / 2) {
+        writeSave({ name });
+        this.scene.start('hangar', { credits: this.credits, unlocks: this.unlocks });
+        return;
+      }
       const ab = this.accountButton;
       if (ab && Math.abs(t.x - ab.x) <= ab.w / 2 && Math.abs(t.y - ab.y) <= ab.h / 2) {
         // RESTORE: the name box takes a recovery code; CANCEL goes back to the name.

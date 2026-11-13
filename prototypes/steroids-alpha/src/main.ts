@@ -5,6 +5,7 @@ import { BootScene } from './scenes/boot';
 import { MenuScene } from './scenes/menu';
 import { RotateScene } from './scenes/rotate';
 import { FlightScene } from './scenes/flight';
+import { HangarScene } from './scenes/hangar';
 import { mountDebugPanelIfRequested } from './debug/debugPanel';
 import { shipArtStatus } from './render/shipArt';
 import { TUNE } from '../sim/tune';
@@ -22,7 +23,7 @@ const game = new Phaser.Game({
   // Phaser input is off: all input goes through the intent layer.
   input: { mouse: false, touch: false, keyboard: false, gamepad: false },
   render: { antialias: true, roundPixels: false },
-  scene: [BootScene, MenuScene, FlightScene, RotateScene],
+  scene: [BootScene, MenuScene, FlightScene, HangarScene, RotateScene],
 });
 
 game.events.once(Phaser.Core.Events.READY, () => {
@@ -104,6 +105,8 @@ if (DEBUG) {
       shieldHit: (angle?: number) => flight()?.debugShieldHit(angle),
       nameBox: () => (game.scene.getScene('menu') as MenuScene).nameBox,
       menuCredits: () => (game.scene.getScene('menu') as MenuScene).credits,
+      hangarButton: () => (game.scene.getScene('menu') as MenuScene).hangarButton,
+      hangar: () => { const h = game.scene.getScene('hangar') as HangarScene; return game.scene.isActive('hangar') ? { credits: h.credits, unlocks: h.unlocks, cards: h.cards.map((c) => ({ id: c.u.id, x: c.x, y: c.y })), back: h.backButton } : null; },
       accountButton: () => (game.scene.getScene('menu') as MenuScene).accountButton,
       portraitBlocked: () => intents.portraitBlocked,
       asteroids: () => flight()?.net.asteroidRender().map((r) => ({ id: r.a.id, size: r.a.size, hp: r.a.hp, x: r.x, y: r.y })) ?? [],

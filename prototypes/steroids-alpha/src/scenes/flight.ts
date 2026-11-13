@@ -22,10 +22,12 @@ import { lightingRadius, planetFrame, projectOffset, shipShadow, sunState } from
 import type { PlanetFrame } from '../render/planet';
 import { PlanetGround } from '../render/planetGround';
 import { Explosion } from '../render/explosion';
-import { loadSave } from '../save';
+import { loadSave, recordRun } from '../save';
 import type { ShipPlacement } from '../render/shipView';
 import { missileLock } from '../../sim/ordnance';
 import { UI, css, panel, controlFace } from '../render/ui';
+import { unlockById } from '../../sim/unlocks';
+import type { Look } from '../../sim/unlocks';
 import { drawPickup, drawOrdnance, drawExplosionCore, drawBullet, drawDrone, drawHitSpark } from '../render/worldArt';
 import { PixelRocks } from '../render/rockPixels';
 
@@ -95,7 +97,11 @@ export class FlightScene extends Phaser.Scene {
     this.planet = data.planet;
   }
 
+  /** When this run started (for the run history). */
+  private runStartedAt = 0;
+
   create(): void {
+    this.runStartedAt = Date.now();
     this.ships.clear();
     this.net = new NetClient(this.planet, loadSave().name ?? '');
     this.explosions = [];
@@ -225,7 +231,16 @@ export class FlightScene extends Phaser.Scene {
         const angle=ship?Math.atan2(wrapDelta(f.y,ship.y,H),wrapDelta(f.x,ship.x,W)):0;
         this.effects.push({x:f.x,y:f.y,at:this.time.now,r:30,ms:220,colour:0xffd49c,sparkAngle:angle});
       } else if(f.kind==='spark')this.effects.push({x:f.x,y:f.y,at:this.time.now,r:24,ms:190,colour:0xffdfa3,sparkAngle:f.angle??0});
-      else if (f.kind === 'explosion') this.explosions.push(new Explosion(f.x, f.y));
+      else if (f.kind === 'explosion') {
+        this.explosions.push(new Explosion(f.x, f.y));
+        // Nova kill effect (an unlock the killer wears): violet rings over the explosion.
+        const nova = unlockById(this.net.roster.get(f.killer)?.look?.killfx);
+        if (nova) {
+          this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 190, ms: 900, colour: nova.colour ?? 0xb48cff });
+          this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 120, ms: 700, colour: 0xf3e8ff });
+          this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 70, ms: 500, colour: nova.colour ?? 0xb48cff, chips: 14 });
+        }
+      }
       else if (f.kind === 'shield') {
         // Direction from the ship to the impact, on screen.
         const ship = this.shipAt.get(f.id);
@@ -336,6 +351,7 @@ export class FlightScene extends Phaser.Scene {
     sh.x+=CALIBRATION.shadow.x-SHADOW_ANCHOR.x;sh.y+=CALIBRATION.shadow.y-SHADOW_ANCHOR.y;
     const shadow = this.toScreen(s.x + sh.x, s.y + sh.y);
     this.placeTag(id, at, mine);
+    ship.setLook(this.net.roster.get(id)?.look ?? {});
     // Ships darken 30% on the night side (owner decision); asteroids and pickups only 10%.
     ship.update({ ...at, brightness: this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0 }, s, this.time.now);
     this.drawTurrets(id, s, at);
@@ -803,9 +819,12 @@ export class FlightScene extends Phaser.Scene {
       tag = text(this, 0, 0, '', 11, mine ? '#9fefff' : '#ffc9a8').setOrigin(0.5, 0).setDepth(30);
       this.tags.set(id, tag);
     }
-    const label=bot?`◇ ${name}`:name;
+    const look=entry?.look??{};
+    const badge=unlockById(look.badge)?.glyph;
+    const label=bot?`◇ ${name}`:badge?`${badge} ${name}`:name;
     if (tag.text !== label) tag.setText(label);
-    const colour=mine?'#9fefff':bot?'#a9bdcf':'#ffc9a8';
+    const tagColour=unlockById(look.tag)?.colour;
+    const colour=tagColour!==undefined?css(tagColour):mine?'#9fefff':bot?'#a9bdcf':'#ffc9a8';
     if(tag.style.color!==colour)tag.setColor(colour);
     const below = (clientTune.render.shipRingRadius * clientTune.render.shipScale + 4) * at.scale;
     tag.setPosition(at.x, at.y + below).setVisible(at.visible);
@@ -883,7 +902,8 @@ export class FlightScene extends Phaser.Scene {
       // The bounty holder's rank shows a gold star.
       const rankLabel = bounty ? '★' : `${rank + 1}`;
       if (chip.rankT.text !== rankLabel) chip.rankT.setText(rankLabel).setColor(bounty ? '#ffd23a' : '#8fa2c8');
-      const displayName=r.bot===true?`◇ ${r.name}`:r.name;
+      const badge=unlockById(r.look?.badge)?.glyph;
+      const displayName=r.bot===true?`◇ ${r.name}`:badge?`${badge} ${r.name}`:r.name;
       const nameKey=displayName+':'+cw;
       if (chip.nameKey !== nameKey) {
         chip.nameKey=nameKey;
@@ -893,7 +913,8 @@ export class FlightScene extends Phaser.Scene {
         let n = displayName;
         while (chip.nameT.width > room && n.length > 1) chip.nameT.setText((n = n.slice(0, -1)) + '…');
       }
-      const colour=mine?'#9fefff':r.bot===true?'#a9bdcf':'#dfe8ff';
+      const tagColour=unlockById(r.look?.tag)?.colour;
+      const colour=tagColour!==undefined?css(tagColour):mine?'#9fefff':r.bot===true?'#a9bdcf':'#dfe8ff';
       if(chip.nameT.style.color!==colour)chip.nameT.setColor(colour);
       if (chip.killsT.text !== `${r.power}`) chip.killsT.setText(`${r.power}`);
       chip.levelT.setText(r.level === undefined ? 'Lv.–' : `Lv.${r.level}`);
@@ -912,6 +933,15 @@ export class FlightScene extends Phaser.Scene {
   private deathScreen(w: number, h: number, extracted = false): boolean {
     if (!this.deathShownAt) {
       this.deathShownAt = this.time.now;
+      // Run history (always recorded; shown in the hangar with the Run history unlock).
+      recordRun({
+        at: Date.now(),
+        planet: this.planet,
+        outcome: extracted ? 'extracted' : 'destroyed',
+        salvage: extracted ? this.net.extracted?.salvage ?? 0 : Math.floor(this.net.predicted?.salvage ?? 0),
+        kills: extracted ? this.net.extracted?.kills ?? 0 : this.net.roster.get(this.net.myId)?.kills ?? 0,
+        seconds: Math.round((Date.now() - this.runStartedAt) / 1000),
+      });
       const by = this.net.death?.killer ? `Destroyed by ${this.net.death.killerName || 'another pilot'}` : 'Your ship was destroyed';
       const x = this.net.extracted;
       // Extracted: the run's result. Banking the haul as currency comes with the bank milestone.
@@ -1186,6 +1216,8 @@ interface BoardChip {
 }
 
 interface DrawnShip {
+  /** Wear bought cosmetics (sim/unlocks.ts). */
+  setLook(look: Look): void;
   fire(side: number): void;
   shieldHit(angle: number): void;
   update(at: ShipPlacement, s: ShipState, timeMs: number): void;
@@ -1198,6 +1230,11 @@ class RigShip implements DrawnShip {
 
   constructor(scene: Phaser.Scene, mine: boolean) {
     this.view = new ShipView(scene, mine);
+  }
+
+  setLook(look: Look): void {
+    const u = (id?: string) => (id ? unlockById(id) : undefined);
+    this.view.setLook(u(look.tint)?.colour ?? null, u(look.flame)?.palette ?? null, u(look.shield)?.colour ?? null);
   }
 
   update(at: ShipPlacement, s: ShipState, timeMs: number): void {
@@ -1250,6 +1287,10 @@ class PlaceholderShip implements DrawnShip {
 
   fire(): void {
     // The placeholder triangle has no guns to animate.
+  }
+
+  setLook(): void {
+    // The placeholder triangle has no art to recolour.
   }
 
   shieldHit(): void {

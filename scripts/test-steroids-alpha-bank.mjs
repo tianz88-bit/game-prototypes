@@ -15,7 +15,8 @@ const server = path.join(root, 'prototypes/steroids-alpha/server');
 const tmp = mkdtempSync(path.join(os.tmpdir(), 'steroids-bank-'));
 const entry = `export * from ${JSON.stringify(path.join(server, 'src/bank.ts'))};
 export { Room } from ${JSON.stringify(path.join(server, 'src/room.ts'))};
-export * from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/sim/protocol.ts'))};`;
+export * from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/sim/protocol.ts'))};
+export * from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/sim/unlocks.ts'))};`;
 await build({ stdin: { contents: entry, resolveDir: server, loader: 'ts' }, bundle: true, format: 'esm', platform: 'node', outfile: path.join(tmp, 'bank.mjs'), logLevel: 'silent' });
 const B = await import(pathToFileURL(path.join(tmp, 'bank.mjs')).href);
 rmSync(tmp, { recursive: true, force: true });
@@ -29,8 +30,25 @@ function d1() {
     bind: (...v) => stmt(sql, v),
     first: async () => db.prepare(sql).get(...args) ?? null,
     run: async () => db.prepare(sql).run(...args),
+    all: async () => ({ results: db.prepare(sql).all(...args) }),
   });
-  return { raw: db, prepare: (sql) => stmt(sql), batch: async (list) => Promise.all(list.map((s) => s.run())) };
+  // D1 runs a batch as one transaction.
+  return {
+    raw: db,
+    prepare: (sql) => stmt(sql),
+    batch: async (list) => {
+      db.exec('BEGIN');
+      try {
+        const out = [];
+        for (const st of list) out.push(await st.run());
+        db.exec('COMMIT');
+        return out;
+      } catch (e) {
+        db.exec('ROLLBACK');
+        throw e;
+      }
+    },
+  };
 }
 
 // Codes and secrets.
@@ -139,4 +157,48 @@ function d1() {
   assert.equal(s4.closed, B.CLOSE.EXTRACTED);
 }
 
-console.log('Steroids-Alpha bank: codes, hashed accounts, idempotent capped credits, recovery, room auth and banking on extraction all pass.');
+// Unlocks: buying charges the server's price once, needs the credits, cannot buy twice; looks are worn
+// only when owned.
+{
+  const tune = JSON.parse(readFileSync(path.join(root, 'prototypes/steroids-alpha/tune.json'), 'utf8'));
+  const db = d1();
+  const a = await B.createAccount(db);
+  await B.creditExtraction(db, a.secret, 700, 'r1');
+  const tint = B.unlockById('tint.gold');
+  const price = B.unlockPrice(tint, tune);
+  assert.equal(price, tune.unlockPrices.tint, 'price from tune.json');
+  assert.deepEqual(await B.buyUnlock(db, a.secret, 'tint.gold', price), { ok: true, balance: 700 - price, unlocks: ['tint.gold'] }, 'bought');
+  assert.deepEqual(await B.buyUnlock(db, a.secret, 'tint.gold', price), { ok: false, error: 'owned', balance: 700 - price }, 'cannot buy twice');
+  const run = B.unlockById('runlog');
+  const left = 700 - price;
+  const r = await B.buyUnlock(db, a.secret, 'runlog', B.unlockPrice(run, tune));
+  assert.equal(r.ok, left >= tune.unlockPrices.runlog, 'second item if affordable');
+  const poor = await B.createAccount(db);
+  assert.deepEqual(await B.buyUnlock(db, poor.secret, 'tint.gold', price), { ok: false, error: 'not enough credits', balance: 0 }, 'needs the credits');
+  assert.equal(db.raw.prepare("SELECT COUNT(*) AS n FROM unlocks WHERE account_id = (SELECT id FROM accounts WHERE secret_hash = ?)").get(await B.sha256(poor.secret)).n, 0, 'nothing granted without payment');
+  assert.deepEqual(await B.buyUnlock(db, B.newSecret(), 'tint.gold', price), { ok: false, error: 'unknown account' });
+  assert.equal((await B.buyUnlock(db, a.secret, 'free.everything', null)).error, 'not for sale');
+  // Every unlock has a price and a slot; no slot is a stat.
+  for (const u of B.UNLOCKS) assert(B.unlockPrice(u, tune) > 0, `${u.id} priced`);
+  assert(B.UNLOCKS.every((u) => ['tint', 'flame', 'shield', 'killfx', 'badge', 'tag', 'qol'].includes(u.slot)), 'cosmetic and QoL slots only');
+  // cleanLook keeps owned, slot-matching items only.
+  assert.deepEqual(B.cleanLook({ tint: 'tint.gold', flame: 'flame.red', badge: 'tint.gold', qol: 'runlog' }, ['tint.gold', 'runlog']), { tint: 'tint.gold' }, 'only owned items in their own slot');
+  assert.deepEqual(B.cleanLook('nonsense', ['tint.gold']), {});
+
+  // The room shows a pilot's look once the bank confirms ownership.
+  class Sock extends EventTarget { sent = []; closed = 0; send(v) { this.sent.push(v); } close(c) { this.closed = c; } }
+  const owned = async (secret) => { const id = await B.accountFor(db, secret); return id ? B.ownedUnlocks(db, id) : null; };
+  const room = new B.Room(1, () => {}, undefined, owned);
+  room.setBots(false);
+  const sock = new Sock();
+  room.join(sock, 'Shiny');
+  room.stop();
+  const [p] = [...room.players.values()];
+  room.onMessage(p, JSON.stringify({ type: 'auth', secret: a.secret, look: { tint: 'tint.gold', flame: 'flame.red' } }));
+  for (let i = 0; i < 20 && !p.look.tint; i++) await new Promise((r) => setTimeout(r, 5));
+  assert.deepEqual(p.look, { tint: 'tint.gold' }, 'owned tint worn, unowned flame dropped');
+  const roster = sock.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).filter((m) => m.type === 'roster').pop();
+  assert.deepEqual(roster.players.find((x) => x.id === p.id).look, { tint: 'tint.gold' }, 'everyone hears the look');
+}
+
+console.log('Steroids-Alpha bank: codes, hashed accounts, idempotent capped credits, recovery, room auth, banking on extraction, unlock purchases and owned looks all pass.');

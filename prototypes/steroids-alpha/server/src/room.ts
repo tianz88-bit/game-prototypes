@@ -5,6 +5,8 @@ import type { ConfigRecord } from '../../sim/liveConfig';
 import { TUNE, stepSeconds } from '../../sim/tune';
 import { copyShip } from '../../sim/ship';
 import type { ShipInput, ShipState } from '../../sim/ship';
+import { cleanLook } from '../../sim/unlocks';
+import type { Look } from '../../sim/unlocks';
 import { World } from '../../sim/world';
 import { TURRET_SIDE } from '../../sim/turrets';
 import { BOT_NAMES, botThink, newBrain } from '../../sim/bots';
@@ -59,6 +61,8 @@ interface Player {
   runId: string;
   /** Account secret from the client's one 'auth' message, checked by the bank only when crediting. */
   secret: string | null;
+  /** Cosmetics worn: what the client asked for, kept only where the account owns it. */
+  look: Look;
 }
 
 /**
@@ -66,6 +70,8 @@ interface Player {
  * or null if the secret is unknown. Absent when the room runs without a bank (tests, local runs).
  */
 export type BankCredit = (secret: string, amount: number, runId: string) => Promise<number | null>;
+/** The unlocks an account owns (null for an unknown secret): what its pilot may wear. */
+export type BankOwned = (secret: string) => Promise<string[] | null>;
 
 
 const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN, missile: false, mine: false, warp: false };
@@ -80,7 +86,7 @@ export class Room {
   /** shipHp (any value) makes ships take no damage, for local test runs only (see TEST_SHIP_HP in index.ts). */
   private config:ConfigRecord=bundledRecord();
   private tune=structuredClone(TUNE);
-  constructor(private shipHp?: number, private refreshConfig:()=>void=()=>{}, private bank?: BankCredit) {
+  constructor(private shipHp?: number, private refreshConfig:()=>void=()=>{}, private bank?: BankCredit, private owned?: BankOwned) {
     this.world = new World(this.tune);
     if(shipHp)this.world.invulnerable=true;
     this.world.payoutFactor = (victim, killer) => this.repeatKillFactor(victim, killer);
@@ -166,7 +172,7 @@ export class Room {
     }
     const id = this.allocateId();
     const spawn = this.world.addShip(id);
-    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null };
+    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null, look: {} };
     this.players.set(id, player);
 
     ws.addEventListener('message', (e: MessageEvent) => this.onMessage(player, e.data));
@@ -222,11 +228,23 @@ export class Room {
     if(++player.packets>120){player.ws.close(1008,'input rate exceeded');return;}
     // One text frame is allowed, first: {type:'auth', secret} naming the pilot's bank account. It is
     // only stored here; the bank checks it when crediting an extraction.
-    if (typeof data === 'string' && player.secret === null && data.length <= 200) {
+    if (typeof data === 'string' && player.secret === null && data.length <= 600) {
       try {
-        const m = JSON.parse(data) as { type?: unknown; secret?: unknown };
+        const m = JSON.parse(data) as { type?: unknown; secret?: unknown; look?: unknown };
         if (m.type === 'auth' && typeof m.secret === 'string' && /^[A-Za-z0-9_-]{40,64}$/.test(m.secret)) {
           player.secret = m.secret;
+          // Cosmetics: worn only once the bank confirms they are owned; everyone hears via the roster.
+          if (this.owned && m.look) {
+            this.owned(m.secret)
+              .then((ids) => {
+                if (!this.players.has(player.id)) return;
+                player.look = cleanLook(m.look, ids ?? []);
+                this.broadcastRoster();
+              })
+              .catch(() => {
+                // Bank unreachable: fly without cosmetics.
+              });
+          }
           return;
         }
       } catch {
@@ -409,7 +427,7 @@ export class Room {
   private broadcastRoster(): void {
     const players = [...this.players.values(), ...this.bots.values()];
     this.rosterKey = players.map((p) => `${p.id}:${Math.round(p.ship.hullMax)}:${p.kills}:${upgradeCount(p.ship)}`).join(',');
-    this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.round(p.ship.hullMax), level: upgradeCount(p.ship), bot: this.bots.has(p.id) })) }));
+    this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.round(p.ship.hullMax), level: upgradeCount(p.ship), bot: this.bots.has(p.id), look: (p as Partial<Player>).look ?? {} })) }));
   }
 
   /**
