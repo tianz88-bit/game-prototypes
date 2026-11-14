@@ -1,0 +1,180 @@
+{
+  "id": "battlecruiser",
+  "r2Object": "steroids-alpha_battlecruiser-v1_assets.zip",
+  "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_battlecruiser-v1_assets.zip",
+  "zipSha256": "bd6d8764f29f2f62b87b22561bffa081d134f1bbf6b3f6634658ec6f1509b405",
+  "bytes": 8214591,
+  "assets": [
+    {
+      "asset": "armour",
+      "deliveryPath": "loose/ships/human-nomad/battlecruiser-v1/armour.png",
+      "localPath": "assets/capital-v1/armour.png",
+      "bytes": 1222716,
+      "sha256": "2f3ae07505741581f20844cc21628e2b2767f3fde9749c6d561257d1ba3c6972",
+      "sourceSize": [
+        1145,
+        1374
+      ],
+      "trim": {
+        "x": 143,
+        "y": 35,
+        "width": 857,
+        "height": 1307
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    },
+    {
+      "asset": "booster-core",
+      "deliveryPath": "loose/ships/human-nomad/battlecruiser-v1/booster-core.png",
+      "localPath": "assets/capital-v1/booster-core.png",
+      "bytes": 1118291,
+      "sha256": "df068c9eef8f0ccfad17bb1e7e2f715b71c14abdfb6a15a8dead2d7712cd48b5",
+      "sourceSize": [
+        935,
+        1683
+      ],
+      "trim": {
+        "x": 86,
+        "y": 101,
+        "width": 764,
+        "height": 1511
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    },
+    {
+      "asset": "booster-cowling",
+      "deliveryPath": "loose/ships/human-nomad/battlecruiser-v1/booster-cowling.png",
+      "localPath": "assets/capital-v1/booster-cowling.png",
+      "bytes": 1295499,
+      "sha256": "f85b561edc9f3937d3143badc8d6588f064fcbbd3b1c41fd8c337f9a1f4d8a23",
+      "sourceSize": [
+        1100,
+        1429
+      ],
+      "trim": {
+        "x": 81,
+        "y": 69,
+        "width": 938,
+        "height": 1291
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    },
+    {
+      "asset": "chassis",
+      "deliveryPath": "loose/ships/human-nomad/battlecruiser-v1/chassis.png",
+      "localPath": "assets/capital-v1/chassis.png",
+      "bytes": 1036944,
+      "sha256": "c8d3bfa29a377bc93cbd96adca670e95da2cba89d43699cf7579aae54ee6c3bf",
+      "sourceSize": [
+        1122,
+        1402
+      ],
+      "trim": {
+        "x": 139,
+        "y": 48,
+        "width": 844,
+        "height": 1314
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    },
+    {
+      "asset": "cockpit-base",
+      "deliveryPath": "loose/ships/human-nomad/battlecruiser-v1/cockpit-base.png",
+      "localPath": "assets/capital-v1/cockpit-base.png",
+      "bytes": 1164570,
+      "sha256": "fe0dce88a2cc60e75c8ef8e72a3a5094241d2cb2825530154207bbcbd002778a",
+      "sourceSize": [
+        1681,
+        936
+      ],
+      "trim": {
+        "x": 44,
+        "y": 115,
+        "width": 1592,
+        "height": 720
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    },
+    {
+      "asset": "cockpit-canopy",
+      "deliveryPath": "loose/ships/human-nomad/battlecruiser-v1/cockpit-canopy.png",
+      "localPath": "assets/capital-v1/cockpit-canopy.png",
+      "bytes": 1054232,
+      "sha256": "93fcd5730e06c59031d2b9117cb7caed022fc14714147700eaf44c4d15c63708",
+      "sourceSize": [
+        1681,
+        935
+      ],
+      "trim": {
+        "x": 66,
+        "y": 155,
+        "width": 1549,
+        "height": 629
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    },
+    {
+      "asset": "gun",
+      "deliveryPath": "loose/ships/human-nomad/battlecruiser-v1/gun.png",
+      "localPath": "assets/capital-v1/gun.png",
+      "bytes": 815366,
+      "sha256": "aea1fc744269827e8f15d5aef5c31fd80d95d5c138fc4cf07e40c3fb80c35c7b",
+      "sourceSize": [
+        724,
+        2172
+      ],
+      "trim": {
+        "x": 38,
+        "y": 38,
+        "width": 648,
+        "height": 2096
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    },
+    {
+      "asset": "shield-emitter",
+      "deliveryPath": "loose/ships/human-nomad/battlecruiser-v1/shield-emitter.png",
+      "localPath": "assets/capital-v1/shield-emitter.png",
+      "bytes": 1240967,
+      "sha256": "a53b89d1d9396d7baaf1f4e9681afad7feef729af312330545395185312e2b4a",
+      "sourceSize": [
+        1312,
+        1199
+      ],
+      "trim": {
+        "x": 116,
+        "y": 81,
+        "width": 1079,
+        "height": 1064
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    },
+    {
+      "asset": "wing",
+      "deliveryPath": "loose/ships/human-nomad/battlecruiser-v1/wing.png",
+      "localPath": "assets/capital-v1/wing.png",
+      "bytes": 1331768,
+      "sha256": "e7cfebfb40e929688fa08072eb3061943df10a96c9df1c6ce650ef67de0b98fa",
+      "sourceSize": [
+        1008,
+        1561
+      ],
+      "trim": {
+        "x": 80,
+        "y": 76,
+        "width": 838,
+        "height": 1412
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    }
+  ]
+}

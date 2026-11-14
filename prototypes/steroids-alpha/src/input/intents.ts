@@ -166,7 +166,7 @@ export class Intents {
       if (k === ' ' || k === 'j') this.presses.add('primary');
       if (k === 'escape') this.presses.add('pause');
       if (k === 'shift' || k === 'k') this.presses.add('secondary');
-      if (k >= '1' && k <= '5' && k.length === 1) this.buys.push(Number(k) - 1);
+      if (k >= '1' && k <= '6' && k.length === 1) this.buys.push(Number(k) - 1); // 6: evolve
       if (k === 'q') this.presses.add('missile');
       if (k === 'e') this.presses.add('mine');
       if (k === 'r') this.presses.add('warp');

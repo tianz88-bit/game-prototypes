@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-14 claude ships-v2
+DID: Interceptor (credit unlock, Hangar) and Battlecruiser (in-run EVOLVE: 6 upgrades, 300 power, 120c) live on the kit art; four palettes replace tints (legacy tints map/claim). Rig is profile-driven; per-ship textures, shadows, palette remap textures; 4-cannon recoil; escorts.
+FILES: sim/{chassis,ship,shop,world,turrets,protocol,liveConfig,unlocks}.ts server/src/{room,index,bank}.ts src/render/{shipRig,shipArt,shipView,shipProfiles,palette}.ts src/scenes/{flight,hangar}.ts src/input/intents.ts art/{interceptor-v2,battlecruiser-v1,ships-v2}/* art/prepare-assets.mjs tune.json scripts/test-steroids-alpha-{sim,bank}.mjs
+SEAM: protocol 17 ShipState.chassis. shipRig functions take an optional modules list (starter default, parity unchanged). ShipView(scene, mine, chassis, palette); partKey(asset, shipId, palette); shadowKey(shipId); profileFor(chassis). Look slots ship/palette. BUY item 5 = evolve; key 6.
+CROSS: src/render/{shipRig,shipArt,shipView}.ts (codex lane): generalised for three ships; starter maths untouched (396-pose parity passes). Only manifests, calibrations and palettes.json copied from your kit; the kit itself stays on codex/steroids-ships-v2-handoff.
+FOR codex: evolve transform effect, Battlecruiser name-tag placement, Hangar ship icons and EVOLVE card styling are placeholders.
+
 ## 2026-11-13 claude unlock-shop
 DID: Hangar scene (menu -> HANGAR): buy/equip 20 unlocks from sim/unlocks.ts (tints, flames, shields, Nova kill fx, badges, name colours, run history). POST /account/buy (server price, atomic balance check); GET /account returns unlocks. Looks sent in the auth message, worn only when owned, broadcast in the roster. Run history recorded in the save.
 FILES: sim/unlocks.ts server/src/{bank,index,room}.ts src/scenes/{hangar,menu,flight}.ts src/net/{account,client}.ts src/save.ts src/main.ts src/render/{shipView,thrusters}.ts sim/protocol.ts tune.json scripts/test-steroids-alpha-bank.mjs
@@ -97,10 +104,3 @@ FILES: src/scenes/flight.ts
 SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
 CROSS: none (render/shared drawing)
 FOR claude: Typecheck/build/rig/sim pass. Brave desktop + DPR2 phone owner/near/edge bounty fixtures inspected; 2 clients + 4 bots baseline pacing, zero console/page errors; bounty rules and lock selection untouched.
-
-## 2026-11-13 codex codex/steroids-ordnance
-DID: Missile hull/fins, blue-white ignition and bounded curved smoke history; spiked armed/unarmed mines, trigger dashes and HP; distinct blast debris and segmented lock crosshairs.
-FILES: src/render/worldArt.ts src/scenes/flight.ts
-SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
-CROSS: none (render/shared drawing)
-FOR claude: Typecheck/build/rig/sim pass. Brave desktop + DPR2 phone ordnance fixtures inspected; 2 clients + bots, baseline frame pacing and no console/page errors; no projectile rules or lock-selection changes.

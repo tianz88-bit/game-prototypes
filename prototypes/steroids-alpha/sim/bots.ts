@@ -141,6 +141,6 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
   }
   brain.wander += (rng() - 0.5) * 0.1;
   input.aim = brain.wander;
-  input.thrust = s.speed < topSpeed(s.hullMax, tune) * 0.8 ? 0.5 : 0;
+  input.thrust = s.speed < topSpeed(s.hullMax, tune, s.chassis) * 0.8 ? 0.5 : 0;
   return { input, buy };
 }

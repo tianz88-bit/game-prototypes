@@ -158,34 +158,54 @@ function d1() {
 }
 
 // Unlocks: buying charges the server's price once, needs the credits, cannot buy twice; looks are worn
-// only when owned.
+// only when owned. Tints are no longer sold: matching palettes come with them, gold/ice give a free claim.
 {
   const tune = JSON.parse(readFileSync(path.join(root, 'prototypes/steroids-alpha/tune.json'), 'utf8'));
+  // The same quote the Worker route uses (server/src/index.ts).
+  const quoteFor = (id) => (owned) => {
+    const u = B.unlockById(id);
+    if (!u) return null;
+    if (B.effectiveOwned(owned).has(u.id)) return 'owned';
+    const legacy = u.slot === 'palette' ? B.unclaimedLegacy(owned) : null;
+    if (legacy) return { price: 0, grant: B.claimMarker(legacy) };
+    const price = B.unlockPrice(u, tune);
+    return price === null ? null : { price };
+  };
   const db = d1();
   const a = await B.createAccount(db);
-  await B.creditExtraction(db, a.secret, 700, 'r1');
-  const tint = B.unlockById('tint.gold');
-  const price = B.unlockPrice(tint, tune);
-  assert.equal(price, tune.unlockPrices.tint, 'price from tune.json');
-  assert.deepEqual(await B.buyUnlock(db, a.secret, 'tint.gold', price), { ok: true, balance: 700 - price, unlocks: ['tint.gold'] }, 'bought');
-  assert.deepEqual(await B.buyUnlock(db, a.secret, 'tint.gold', price), { ok: false, error: 'owned', balance: 700 - price }, 'cannot buy twice');
-  const run = B.unlockById('runlog');
-  const left = 700 - price;
-  const r = await B.buyUnlock(db, a.secret, 'runlog', B.unlockPrice(run, tune));
-  assert.equal(r.ok, left >= tune.unlockPrices.runlog, 'second item if affordable');
+  await B.creditExtraction(db, a.secret, 2500, 'r1');
+  const pal = tune.unlockPrices.palette;
+  assert.deepEqual(await B.buyUnlock(db, a.secret, 'palette.1', quoteFor('palette.1')), { ok: true, balance: 2500 - pal, unlocks: ['palette.1'] }, 'palette bought at the server price');
+  assert.deepEqual(await B.buyUnlock(db, a.secret, 'palette.1', quoteFor('palette.1')), { ok: false, error: 'owned', balance: 2500 - pal }, 'cannot buy twice');
+  assert.equal((await B.buyUnlock(db, a.secret, 'ship.interceptor', quoteFor('ship.interceptor'))).balance, 2500 - pal - tune.unlockPrices.ship, 'interceptor bought');
+  assert.equal((await B.buyUnlock(db, a.secret, 'tint.gold', quoteFor('tint.gold'))).error, 'not for sale', 'tints no longer sold');
+  assert.equal((await B.buyUnlock(db, a.secret, 'palette.0', quoteFor('palette.0'))).error, 'owned', 'default palette is free and owned');
+  assert.equal((await B.buyUnlock(db, a.secret, 'ship.scrappy', quoteFor('ship.scrappy'))).error, 'owned', 'starter ship is owned');
   const poor = await B.createAccount(db);
-  assert.deepEqual(await B.buyUnlock(db, poor.secret, 'tint.gold', price), { ok: false, error: 'not enough credits', balance: 0 }, 'needs the credits');
-  assert.equal(db.raw.prepare("SELECT COUNT(*) AS n FROM unlocks WHERE account_id = (SELECT id FROM accounts WHERE secret_hash = ?)").get(await B.sha256(poor.secret)).n, 0, 'nothing granted without payment');
-  assert.deepEqual(await B.buyUnlock(db, B.newSecret(), 'tint.gold', price), { ok: false, error: 'unknown account' });
-  assert.equal((await B.buyUnlock(db, a.secret, 'free.everything', null)).error, 'not for sale');
-  // Every unlock has a price and a slot; no slot is a stat.
-  for (const u of B.UNLOCKS) assert(B.unlockPrice(u, tune) > 0, `${u.id} priced`);
-  assert(B.UNLOCKS.every((u) => ['tint', 'flame', 'shield', 'killfx', 'badge', 'tag', 'qol'].includes(u.slot)), 'cosmetic and QoL slots only');
-  // cleanLook keeps owned, slot-matching items only.
-  assert.deepEqual(B.cleanLook({ tint: 'tint.gold', flame: 'flame.red', badge: 'tint.gold', qol: 'runlog' }, ['tint.gold', 'runlog']), { tint: 'tint.gold' }, 'only owned items in their own slot');
-  assert.deepEqual(B.cleanLook('nonsense', ['tint.gold']), {});
+  assert.equal((await B.buyUnlock(db, poor.secret, 'palette.2', quoteFor('palette.2'))).error, 'not enough credits', 'needs the credits');
+  assert.equal((await B.buyUnlock(db, B.newSecret(), 'palette.2', quoteFor('palette.2'))).error, 'unknown account');
+  assert.equal((await B.buyUnlock(db, a.secret, 'free.everything', quoteFor('free.everything'))).error, 'not for sale');
+  // Every item for sale is priced; nothing sold is a stat.
+  for (const u of B.UNLOCKS) if (!u.free && !u.legacy) assert(B.unlockPrice(u, tune) > 0, `${u.id} priced`);
+  assert(B.UNLOCKS.every((u) => ['ship', 'palette', 'tint', 'flame', 'shield', 'killfx', 'badge', 'tag', 'qol'].includes(u.slot)), 'cosmetic, ship-choice and QoL slots only');
 
-  // The room shows a pilot's look once the bank confirms ownership.
+  // Legacy tints: crimson owners own the crimson palette; a gold owner claims any one palette free, once.
+  const t = await B.createAccount(db);
+  const tid = await B.accountFor(db, t.secret);
+  for (const id of ['tint.crimson', 'tint.gold']) db.raw.prepare('INSERT INTO unlocks (account_id, unlock_id, created_at) VALUES (?, ?, 0)').run(tid, id);
+  assert.equal((await B.buyUnlock(db, t.secret, 'palette.2', quoteFor('palette.2'))).error, 'owned', 'crimson tint gives the crimson palette');
+  const claim = await B.buyUnlock(db, t.secret, 'palette.3', quoteFor('palette.3'));
+  assert(claim.ok && claim.balance === 0 && claim.unlocks.includes('claimed.tint.gold'), 'gold tint: one palette free');
+  assert.equal((await B.buyUnlock(db, t.secret, 'palette.1', quoteFor('palette.1'))).error, 'not enough credits', 'the claim is used up');
+  assert.deepEqual(B.cleanLook({ palette: 'palette.2', tint: 'tint.crimson' }, ['tint.crimson']), { palette: 'palette.2' }, 'tints are not worn; their palette is');
+
+  // cleanLook keeps owned, slot-matching items only.
+  assert.deepEqual(B.cleanLook({ ship: 'ship.interceptor', palette: 'palette.1', flame: 'flame.red', badge: 'palette.1', qol: 'runlog' }, ['palette.1', 'runlog']), { palette: 'palette.1' }, 'unowned interceptor and flame dropped');
+  assert.deepEqual(B.cleanLook({ ship: 'ship.scrappy', palette: 'palette.0' }, []), { ship: 'ship.scrappy', palette: 'palette.0' }, 'free items always allowed');
+  assert.deepEqual(B.cleanLook('nonsense', ['palette.1']), {});
+
+  // The room shows a pilot's look once the bank confirms ownership, and an owned Interceptor
+  // replaces the starter right after drop-in.
   class Sock extends EventTarget { sent = []; closed = 0; send(v) { this.sent.push(v); } close(c) { this.closed = c; } }
   const owned = async (secret) => { const id = await B.accountFor(db, secret); return id ? B.ownedUnlocks(db, id) : null; };
   const room = new B.Room(1, () => {}, undefined, owned);
@@ -194,11 +214,21 @@ function d1() {
   room.join(sock, 'Shiny');
   room.stop();
   const [p] = [...room.players.values()];
-  room.onMessage(p, JSON.stringify({ type: 'auth', secret: a.secret, look: { tint: 'tint.gold', flame: 'flame.red' } }));
-  for (let i = 0; i < 20 && !p.look.tint; i++) await new Promise((r) => setTimeout(r, 5));
-  assert.deepEqual(p.look, { tint: 'tint.gold' }, 'owned tint worn, unowned flame dropped');
+  room.onMessage(p, JSON.stringify({ type: 'auth', secret: a.secret, look: { ship: 'ship.interceptor', palette: 'palette.1', flame: 'flame.red' } }));
+  for (let i = 0; i < 20 && !p.look.palette; i++) await new Promise((r) => setTimeout(r, 5));
+  assert.deepEqual(p.look, { ship: 'ship.interceptor', palette: 'palette.1' }, 'owned ship and palette worn, unowned flame dropped');
+  assert.equal(p.ship.chassis, 1, 'interceptor flies');
   const roster = sock.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).filter((m) => m.type === 'roster').pop();
-  assert.deepEqual(roster.players.find((x) => x.id === p.id).look, { tint: 'tint.gold' }, 'everyone hears the look');
+  assert.deepEqual(roster.players.find((x) => x.id === p.id).look, { ship: 'ship.interceptor', palette: 'palette.1' }, 'everyone hears the look');
+  // Without the unlock: still the starter.
+  const room2 = new B.Room(1, () => {}, undefined, owned);
+  room2.setBots(false);
+  room2.join(new Sock(), 'Poor');
+  room2.stop();
+  const [p2] = [...room2.players.values()];
+  room2.onMessage(p2, JSON.stringify({ type: 'auth', secret: poor.secret, look: { ship: 'ship.interceptor' } }));
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(p2.ship.chassis, 0, 'no interceptor without the unlock');
 }
 
-console.log('Steroids-Alpha bank: codes, hashed accounts, idempotent capped credits, recovery, room auth, banking on extraction, unlock purchases and owned looks all pass.');
+console.log('Steroids-Alpha bank: codes, hashed accounts, idempotent capped credits, recovery, room auth, banking on extraction, unlock purchases, palettes from tints, ship choice and owned looks all pass.');

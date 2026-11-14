@@ -150,7 +150,32 @@
     "salvageMultiplier": 2,
     "spawnShare": 0.5
   },
+  "interceptor": {
+    "radius": 24,
+    "speedFactor": 1.12,
+    "accelFactor": 1.2,
+    "turnFactor": 1.2,
+    "shieldFactor": 0.7,
+    "damageFactor": 0.85,
+    "fireIntervalSteps": 4,
+    "baseTurrets": 0
+  },
+  "battlecruiser": {
+    "radius": 60,
+    "speedFactor": 0.72,
+    "accelFactor": 0.6,
+    "turnFactor": 0.55,
+    "shieldFactor": 2.5,
+    "damageFactor": 1.6,
+    "fireIntervalSteps": 5,
+    "baseTurrets": 2,
+    "minUpgrades": 6,
+    "powerFloor": 300,
+    "cost": 120
+  },
   "unlockPrices": {
+    "ship": 1500,
+    "palette": 400,
     "tint": 300,
     "flame": 400,
     "shield": 400,

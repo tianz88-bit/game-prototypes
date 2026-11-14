@@ -19,6 +19,8 @@ export interface RigModule {
   parent?: string;
   motion?: 'engine';
   motionGroup?: string;
+  /** Battlecruiser cannons: how much harder they kick than a fighter gun (kit recoilScale). */
+  recoilScale?: number;
 }
 
 export const MODULES: readonly RigModule[] = [
@@ -51,10 +53,10 @@ export interface Calibration {
 }
 
 /** Accept only the approved schema (version 7) with every module present. */
-export function checkCalibration(data: unknown): Calibration {
+export function checkCalibration(data: unknown, mods: readonly RigModule[] = MODULES): Calibration {
   const c = data as Calibration;
   if (!c || c.version !== 7 || !c.modules || !c.shadow) throw new Error('Unknown ship calibration format');
-  for (const m of MODULES) {
+  for (const m of mods) {
     const e = c.modules[m.id];
     if (!e || !Number.isFinite(e.width)) throw new Error(`Ship calibration missing ${m.id}`);
     for (const d of DIRECTIONS) {
@@ -87,14 +89,15 @@ export function blendOffsets(angle: number, offsets: Record<Direction, Vec>): Ve
 }
 
 /** Fixed Z: the 'up' order for every heading, index as a stable tie-break. */
-export function depth(m: RigModule, cal: Calibration): number {
-  return cal.modules[m.id].order.up + MODULES.indexOf(m) * 0.001;
+export function depth(m: RigModule, cal: Calibration, mods: readonly RigModule[] = MODULES): number {
+  return cal.modules[m.id].order.up + mods.indexOf(m) * 0.001;
 }
 
 /** Corrections accumulated through the parent chain (each applied once). */
-export function stackOffset(m: RigModule, angle: number, cal: Calibration): Vec {
+export function stackOffset(m: RigModule, angle: number, cal: Calibration, mods: readonly RigModule[] = MODULES): Vec {
   const own = blendOffsets(angle, cal.modules[m.id].offsets);
-  const parent = m.parent ? stackOffset(byId.get(m.parent) as RigModule, angle, cal) : { x: 0, y: 0 };
+  const parentModule = m.parent ? (mods === MODULES ? byId.get(m.parent) : mods.find((p) => p.id === m.parent)) : undefined;
+  const parent = parentModule ? stackOffset(parentModule, angle, cal, mods) : { x: 0, y: 0 };
   return { x: parent.x + own.x, y: parent.y + own.y };
 }
 
@@ -109,12 +112,12 @@ export interface Pose {
  * time is milliseconds; motion 0..1 enables engine rattle and wing flex; turn is -1..1;
  * recoil is the gun kick divided by 7, as in the kit.
  */
-export function pose(m: RigModule, angle: number, cal: Calibration, time = 0, motion = 0, turn = 0, recoil = 0): Pose {
+export function pose(m: RigModule, angle: number, cal: Calibration, time = 0, motion = 0, turn = 0, recoil = 0, mods: readonly RigModule[] = MODULES): Pose {
   const a = (angle * Math.PI) / 180;
   const c = Math.cos(a);
   const s = Math.sin(a);
-  const acc = stackOffset(m, angle, cal);
-  const phase = MODULES.findIndex((p) => p.id === (m.motionGroup || m.id)) * 2.17;
+  const acc = stackOffset(m, angle, cal, mods);
+  const phase = mods.findIndex((p) => p.id === (m.motionGroup || m.id)) * 2.17;
   const engine = m.motion === 'engine';
   const gun = m.asset === 'gun';
   const wing = m.asset === 'wing';
@@ -132,9 +135,9 @@ export function pose(m: RigModule, angle: number, cal: Calibration, time = 0, mo
 }
 
 /** Top object unshaded; each object below gets another 3% black (kit layerBrightness). */
-export function layerBrightness(m: RigModule, cal: Calibration): number {
-  const z = depth(m, cal);
-  return 0.97 ** MODULES.filter((n) => depth(n, cal) > z).length;
+export function layerBrightness(m: RigModule, cal: Calibration, mods: readonly RigModule[] = MODULES): number {
+  const z = depth(m, cal, mods);
+  return 0.97 ** mods.filter((n) => depth(n, cal, mods) > z).length;
 }
 
 /** Gun kick: sharp rearward kick, wider/shorter squash, stretched recovery, 600 ms (kit recoilPose). */

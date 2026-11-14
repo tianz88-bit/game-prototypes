@@ -2,6 +2,7 @@
 // ship and the server runs it as the authority, so both must call it the same way.
 import type { Tune } from './tune';
 import { angleDelta, wrap, wrapDelta } from './wrap';
+import { GUNS, SCRAPPY, chassisStats } from './chassis';
 
 export interface ShipState {
   x: number;
@@ -62,6 +63,8 @@ export interface ShipState {
    * upgrades never spend it. Changed only by the server.
    */
   salvage: number;
+  /** Ship type (sim/chassis.ts): 0 Scrappy, 1 Interceptor, 2 Battlecruiser. Set only by the server. */
+  chassis: number;
 }
 
 export interface ShipInput {
@@ -103,13 +106,13 @@ export function powerLevel(hp: number, tune: Tune): number {
 }
 
 /** Top speed after the power penalty. Never below the minimum speed. Takes hullMax (power). */
-export function topSpeed(hp: number, tune: Tune): number {
-  return Math.max(tune.ship.minSpeed, tune.ship.maxSpeed * (1 - tune.ship.speedPenaltyAtCap * powerLevel(hp, tune)));
+export function topSpeed(hp: number, tune: Tune, chassis = SCRAPPY): number {
+  return Math.max(tune.ship.minSpeed, tune.ship.maxSpeed * chassisStats(chassis, tune).speed * (1 - tune.ship.speedPenaltyAtCap * powerLevel(hp, tune)));
 }
 
 /** Dash boost speed: dashSpeedFactor times this ship's top speed. */
-export function dashSpeed(hp: number, tune: Tune): number {
-  return topSpeed(hp, tune) * tune.ship.dashSpeedFactor;
+export function dashSpeed(hp: number, tune: Tune, chassis = SCRAPPY): number {
+  return topSpeed(hp, tune, chassis) * tune.ship.dashSpeedFactor;
 }
 
 /** How much heat the guns hold: gun upgrades add shop.gunHeatPerTier each (more shots before locking). */
@@ -118,31 +121,36 @@ export function heatCapacity(s: ShipState, tune: Tune): number {
 }
 
 /** Hit radius: bigger ships are easier to hit and to ram with. */
-export function shipRadius(hp: number, tune: Tune): number {
-  return tune.ship.radius * (1 + tune.ship.radiusBonusAtCap * powerLevel(hp, tune));
+export function shipRadius(hp: number, tune: Tune, chassis = SCRAPPY): number {
+  return chassisStats(chassis, tune).radius * (1 + tune.ship.radiusBonusAtCap * powerLevel(hp, tune));
+}
+
+/** How much a ship has grown with power (1 for a fresh ship): scales its art, guns and turrets. */
+export function powerGrowth(hp: number, tune: Tune): number {
+  return 1 + tune.ship.radiusBonusAtCap * powerLevel(hp, tune);
 }
 
 /** Gun (and dash ram) damage multiplier: bought in the shop, damagePerTier per tier. */
 export function damageScale(s: ShipState, tune: Tune): number {
-  return 1 + s.damageTier * tune.shop.damagePerTier;
+  return (1 + s.damageTier * tune.shop.damagePerTier) * chassisStats(s.chassis ?? SCRAPPY, tune).damage;
 }
 
 /** Shield maximum: the base shield plus shieldPerTier for each shield upgrade bought. */
 export function maxShield(s: ShipState, tune: Tune): number {
-  return tune.ship.maxShield + s.shieldTier * tune.shop.shieldPerTier;
+  return (tune.ship.maxShield + s.shieldTier * tune.shop.shieldPerTier) * chassisStats(s.chassis ?? SCRAPPY, tune).shield;
 }
 
 export function newShip(x: number, y: number, heading: number, speed: number): ShipState {
-  return { x, y, heading, speed, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0, salvage: 0 };
+  return { x, y, heading, speed, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0, salvage: 0, chassis: SCRAPPY };
 }
 
 /** Warp top speed: warp.topSpeedFactor times this ship's top speed (only slightly faster, so pursuit is possible). */
-export function warpSpeed(hp: number, tune: Tune): number {
-  return topSpeed(hp, tune) * tune.warp.topSpeedFactor;
+export function warpSpeed(hp: number, tune: Tune, chassis = SCRAPPY): number {
+  return topSpeed(hp, tune, chassis) * tune.warp.topSpeedFactor;
 }
 
 export function copyShip(s: ShipState): ShipState {
-  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist, salvage: s.salvage };
+  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist, salvage: s.salvage, chassis: s.chassis };
 }
 
 /** Advance one fixed step. Mutates and returns s. */
@@ -162,7 +170,7 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune)
   // No steering for the whole dash, charge and boost (owner design): the ship holds course while
   // the player picks the boost direction, then commits to it. Steering returns when the boost ends.
   // In warp the heading is locked apart from slight steering (warp.steerFactor of the turn rate).
-  const maxTurn = s.dashCharge > 0 || s.dashTime > 0 ? 0 : tune.ship.turnRate * dt * (s.warping ? tune.warp.steerFactor : 1);
+  const maxTurn = s.dashCharge > 0 || s.dashTime > 0 ? 0 : tune.ship.turnRate * chassisStats(s.chassis, tune).turn * dt * (s.warping ? tune.warp.steerFactor : 1);
   if (Number.isFinite(input.aim)) {
     const diff = angleDelta(input.aim, s.heading);
     s.heading += Math.max(-maxTurn, Math.min(maxTurn, diff));
@@ -188,16 +196,16 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune)
     }
   }
   // Power makes a ship slower: both caps come down as it grows.
-  const top = topSpeed(s.hullMax, tune);
-  if (s.dashTime > 0) s.speed = Math.max(s.speed, dashSpeed(s.hullMax, tune));
+  const top = topSpeed(s.hullMax, tune, s.chassis);
+  if (s.dashTime > 0) s.speed = Math.max(s.speed, dashSpeed(s.hullMax, tune, s.chassis));
   else if (s.warping) {
     // Warp ignores the throttle: it accelerates to warp speed and holds it.
-    const ws = warpSpeed(s.hullMax, tune);
+    const ws = warpSpeed(s.hullMax, tune, s.chassis);
     s.speed = s.speed < ws ? Math.min(ws, s.speed + tune.warp.acceleration * dt) : Math.max(ws, s.speed - tune.ship.braking * dt);
   } else {
     const thrust = Math.max(-1, Math.min(1, input.thrust));
     if (s.speed > top) s.speed = Math.max(top, s.speed - tune.ship.braking * dt + Math.min(0, thrust) * tune.ship.braking * dt);
-    else s.speed = Math.max(tune.ship.minSpeed, Math.min(top, s.speed + thrust * (thrust > 0 ? tune.ship.acceleration : tune.ship.braking) * dt));
+    else s.speed = Math.max(tune.ship.minSpeed, Math.min(top, s.speed + thrust * (thrust > 0 ? tune.ship.acceleration * chassisStats(s.chassis, tune).accel : tune.ship.braking) * dt));
   }
   const speed = s.speed;
   if (s.warping) s.warpDist += speed * dt;
@@ -240,7 +248,7 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune)
     s.mineShots = (s.mineShots + 1) & 0xffff;
   }
   if (input.fire && s.fireCd === 0 && !s.overheated) {
-    s.fireCd = w.fireIntervalSteps;
+    s.fireCd = chassisStats(s.chassis, tune).fireIntervalSteps;
     s.shots = (s.shots + 1) & 0xffff;
     s.heat = Math.min(1, s.heat + w.heatPerShot / heatCapacity(s, tune));
     if (s.heat >= 1) s.overheated = true;
@@ -287,11 +295,25 @@ export function assistDirection(x: number, y: number, dir: number, targets: read
 }
 
 export function muzzleShot(s: ShipState, tune: Tune, targets: readonly AssistTarget[] = []): Shot {
+  const guns = GUNS[s.chassis];
+  if (guns) {
+    // Interceptor and Battlecruiser: the guns fire in turn from their mounts (sim/chassis.ts), each
+    // angled in to cross at convergeDistance like Scrappy's.
+    const g = guns[s.shots % guns.length];
+    const grow = powerGrowth(s.hullMax, tune);
+    const c = Math.cos(s.heading);
+    const sn = Math.sin(s.heading);
+    const x = wrap(s.x + (c * g.forward - sn * g.right) * grow, tune.world.width);
+    const y = wrap(s.y + (sn * g.forward + c * g.right) * grow, tune.world.height);
+    const v = tune.weapon.bulletSpeed + s.speed;
+    const dir = assistDirection(x, y, s.heading - Math.atan2(g.right * grow, tune.weapon.convergeDistance), targets, tune);
+    return { x, y, vx: Math.cos(dir) * v, vy: Math.sin(dir) * v, side: g.side };
+  }
   const side = s.shots % 2 === 1 ? 1 : -1;
   const c = Math.cos(s.heading);
   const sn = Math.sin(s.heading);
   // The guns grow with the ship (see shipRadius), so shots still leave from the drawn wing tips.
-  const grow = shipRadius(s.hullMax, tune) / tune.ship.radius;
+  const grow = shipRadius(s.hullMax, tune, s.chassis) / tune.ship.radius;
   const f = tune.weapon.muzzleForward * grow;
   const l = tune.weapon.muzzleSide * grow * side;
   const v = tune.weapon.bulletSpeed + s.speed;

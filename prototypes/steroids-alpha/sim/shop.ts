@@ -3,6 +3,8 @@
 // the ship is destroyed. Pure rules shared by server (which decides) and client (which shows offers).
 import type { Tune } from './tune';
 import type { ShipState } from './ship';
+import { maxShield } from './ship';
+import { BATTLECRUISER, upgradeTotal } from './chassis';
 
 /** Shop items by their wire number. */
 export const SHOP_ITEMS = ['turret', 'shield', 'damage', 'missile', 'mine'] as const;
@@ -43,5 +45,35 @@ export function buy(s: ShipState, item: ShopItem, tier: number, tune: Tune): boo
   // Each missile or mine tier comes with one more charge, ready to use.
   if (item === 'missile') s.missileCharges++;
   if (item === 'mine') s.mineCharges++;
+  return true;
+}
+
+/**
+ * Evolving into the Battlecruiser (owner design): offered during a run once a fighter has bought
+ * battlecruiser.minUpgrades upgrades and carries at least battlecruiser.powerFloor power; it costs
+ * battlecruiser.cost minerals from the hull maximum, like the shop. Sent as BUY item EVOLVE_ITEM.
+ */
+export const EVOLVE_ITEM = 5;
+
+export function canEvolve(s: ShipState, tune: Tune): boolean {
+  const b = tune.battlecruiser;
+  return s.hp > 0 && s.chassis !== BATTLECRUISER && upgradeTotal(s) >= b.minUpgrades && s.hullMax >= b.powerFloor && s.hullMax - b.cost >= 1;
+}
+
+/**
+ * Evolve if allowed. Repeats are harmless: once evolved, canEvolve is false. Keeps every upgrade,
+ * charge and the salvage carried; the hull keeps its points (capped by the new maximum after the
+ * price) and the shield keeps its share of the larger maximum; gun heat resets.
+ */
+export function evolve(s: ShipState, tune: Tune): boolean {
+  if (!canEvolve(s, tune)) return false;
+  const shieldShare = s.shield / Math.max(1, maxShield(s, tune));
+  s.hullMax -= tune.battlecruiser.cost;
+  s.hp = Math.min(s.hp, s.hullMax);
+  s.chassis = BATTLECRUISER;
+  s.shield = shieldShare * maxShield(s, tune);
+  s.heat = 0;
+  s.overheated = false;
+  s.fireCd = 0;
   return true;
 }

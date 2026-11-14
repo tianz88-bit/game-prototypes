@@ -7,8 +7,8 @@ import type { AssistTarget, ShipInput, ShipState } from './ship';
 import { asteroidMass, asteroidPos, splitAsteroid } from './asteroids';
 import type { Asteroid } from './asteroids';
 import { wrap, wrapDelta, angleDelta } from './wrap';
-import { TURRET_SIDE, turretPosition } from './turrets';
-import { SHOP_ITEMS, buy } from './shop';
+import { TURRET_SIDE, turretCount, turretPosition } from './turrets';
+import { SHOP_ITEMS, buy, EVOLVE_ITEM, evolve } from './shop';
 import { missileLock } from './ordnance';
 
 interface Bullet {
@@ -237,6 +237,7 @@ export class World {
   /** A shop purchase from ship id (item: index in SHOP_ITEMS). Returns true if it went through. */
   buy(id: number, item: number, tier: number): boolean {
     const s = this.ships.get(id);
+    if (s && item === EVOLVE_ITEM) return tier === 0 && evolve(s, this.tune);
     const name = SHOP_ITEMS[item];
     if (!s || !name) return false;
     return buy(s, name, tier, this.tune);
@@ -321,7 +322,7 @@ export class World {
       if (!spent) {
         for (const [id, s] of this.ships) {
           if (id === b.owner || s.hp <= 0) continue;
-          if (!hits(b.x, b.y, s.x, s.y, shipRadius(s.hullMax, t) + t.weapon.bulletRadius)) continue;
+          if (!hits(b.x, b.y, s.x, s.y, shipRadius(s.hullMax, t, s.chassis) + t.weapon.bulletRadius)) continue;
           this.damageShip(id, s, b.damage, b.owner, b.x, b.y);
           spent = true;
           break;
@@ -339,10 +340,10 @@ export class World {
         continue;
       }
       if (s.hp <= 0 || this.rammed.has(id)) continue;
-      const sr = shipRadius(s.hullMax, t);
+      const sr = shipRadius(s.hullMax, t, s.chassis);
       for (const [oid, o] of this.ships) {
         if (oid === id || o.hp <= 0) continue;
-        const or = shipRadius(o.hullMax, t);
+        const or = shipRadius(o.hullMax, t, o.chassis);
         if (!this.sweptHit(id, s, o.x, o.y, sr + or)) continue;
         let dx = wrapDelta(o.x, s.x, W);
         let dy = wrapDelta(o.y, s.y, H);
@@ -373,7 +374,7 @@ export class World {
       if (s.hp <= 0) continue;
       for (const a of this.asteroids.values()) {
         const p = pos.get(a.id);
-        const sr = shipRadius(s.hullMax, t);
+        const sr = shipRadius(s.hullMax, t, s.chassis);
         if (!p || !this.sweptHit(id, s, p.x, p.y, t.asteroid.radius[a.size] + sr)) continue;
         let dx = wrapDelta(p.x, s.x, W);
         let dy = wrapDelta(p.y, s.y, H);
@@ -408,7 +409,7 @@ export class World {
       else {
         for (const [id, s] of this.ships) {
           if (s.hp <= 0 || (id === k.from && this.tick < k.lockedUntil)) continue;
-          if (!hits(s.x, s.y, k.x, k.y, t.asteroid.pickupRadius + shipRadius(s.hullMax, t))) continue;
+          if (!hits(s.x, s.y, k.x, k.y, t.asteroid.pickupRadius + shipRadius(s.hullMax, t, s.chassis))) continue;
           // A health boost repairs (up to the hull maximum).
           if (k.kind === 'heal') s.hp = Math.min(s.hullMax, s.hp + t.ship.maxHp * t.asteroid.healthHealFraction);
           else if (k.kind === 'salvage') s.salvage += k.value;
@@ -462,7 +463,7 @@ export class World {
     const H = t.world.height;
     for (const [id, s] of this.ships) {
       // No firing in warp mode (brief), turrets included.
-      const n = s.hp > 0 && !s.warping ? Math.min(4, s.turrets) : 0;
+      const n = s.hp > 0 && !s.warping ? turretCount(s, t) : 0;
       if (!n) {
         this.turrets.delete(id);
         continue;
@@ -519,7 +520,7 @@ export class World {
   private launchMissile(id: number, s: ShipState): void {
     const m = this.tune.missile;
     const tier = Math.max(1, s.missileTier);
-    const r = shipRadius(s.hullMax, this.tune) + m.radius;
+    const r = shipRadius(s.hullMax, this.tune, s.chassis) + m.radius;
     const o: Ordnance = {
       id: this.newOrdnanceId(),
       kind: 'missile',
@@ -546,7 +547,7 @@ export class World {
     const tier = Math.max(1, s.mineTier);
     const mine = [...this.ordnance.values()].filter((o) => o.owner === id && o.kind === 'mine');
     if (mine.length >= mn.maxActive) this.ordnance.delete(mine[0].id);
-    const r = shipRadius(s.hullMax, t) + mn.radius + 6;
+    const r = shipRadius(s.hullMax, t, s.chassis) + mn.radius + 6;
     const o: Ordnance = {
       id: this.newOrdnanceId(),
       kind: 'mine',
@@ -611,7 +612,7 @@ export class World {
           const ty = wrapDelta(s.y, py, H);
           const len2 = ex * ex + ey * ey;
           const k = len2 > 0 ? Math.max(0, Math.min(1, (tx * ex + ty * ey) / len2)) : 0;
-          const rr = shipRadius(s.hullMax, t) + t.missile.radius;
+          const rr = shipRadius(s.hullMax, t, s.chassis) + t.missile.radius;
           if ((tx - ex * k) ** 2 + (ty - ey * k) ** 2 > rr * rr) continue;
           this.damageShip(sid, s, o.damage, o.owner, o.x, o.y);
           hit = true;
@@ -641,12 +642,12 @@ export class World {
         if (r.d <= t.mine.seekRange && (!near || r.d < near.d)) near = { s, ...r };
       }
       if (!near) continue;
-      if (near.d <= t.mine.triggerRadius + shipRadius(near.s.hullMax, t)) {
+      if (near.d <= t.mine.triggerRadius + shipRadius(near.s.hullMax, t, near.s.chassis)) {
         this.ordnance.delete(o.id);
         this.events.blasts.push({ x: o.x, y: o.y, r: o.blast, kind: 'mine', shot: false });
         for (const [sid, s] of this.ships) {
           if (sid === o.owner || s.hp <= 0) continue;
-          const d = rel(o, s.x, s.y).d - shipRadius(s.hullMax, t);
+          const d = rel(o, s.x, s.y).d - shipRadius(s.hullMax, t, s.chassis);
           if (d > o.blast) continue;
           this.damageShip(sid, s, o.damage * (1 - 0.5 * Math.max(0, d) / o.blast), o.owner, o.x, o.y);
         }

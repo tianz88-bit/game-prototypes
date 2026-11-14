@@ -295,6 +295,33 @@ cloud layer no longer fits.
   orbital zoom); after the warp they rise back out into space. The hub is solo: only the player is in it, and it runs on the
   client. Shared space with other players is out of scope for v1.
 
+## Ships (owner, 14 November 2026)
+
+- Three Human Nomad ships (owner art via Codex, R2 packs interceptor-v2 and
+  battlecruiser-v1, rig kit tools/ship-rig/human-nomad-ships-v2):
+  - **Scrappy:** the starter, free.
+  - **Interceptor:** a one-time credit unlock (Hangar), then chosen freely in
+    the Hangar before a run. Faster and nimbler, weaker shield and guns.
+  - **Battlecruiser:** never bought with credits (it is raw power). A fighter
+    evolves into it during a run from the shop's EVOLVE card once it has enough
+    upgrades and power, paying minerals. Lost at the end of the run (death or
+    extraction); the next run starts in the Hangar ship. May dash and warp.
+- Palettes (4, owner art) repaint hull, trim and glass on every ship; the
+  default is free, the others are credit unlocks. They replace the hull tints,
+  which are no longer sold: crimson/emerald/violet tint owners own the
+  matching palette, gold and ice tint owners may claim any one palette free.
+- First values (Claude's educated guess, to be tested; tune.json
+  `interceptor`, `battlecruiser`, `unlockPrices`, all live-tunable):
+  Interceptor 1500 credits, radius 24, speed x1.12, acceleration and turn
+  x1.2, shield x0.7, damage x0.85. Battlecruiser: needs 6 upgrades and 300
+  power, costs 120; radius 60, speed x0.72, acceleration x0.6, turn x0.55,
+  shield x2.5, four cannons (damage x1.6, every 5 steps), two escort turret
+  drones. Palettes 400 credits. Gun and turret positions come from the art;
+  hit sizes and stats never from the art size.
+- On evolving: upgrades, missile/mine charges and salvage are kept; hull keeps
+  its points under the new maximum; the shield keeps its share of the larger
+  maximum; gun heat resets. The chosen ship applies only right after drop-in.
+
 ## Bank and unlocks
 
 Owner direction (13 November 2026). Replaces the earlier gear-stash design.
