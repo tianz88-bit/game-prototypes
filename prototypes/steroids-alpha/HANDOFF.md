@@ -5,7 +5,7 @@ DID: compact labelled shield/hull/heat/dash cluster, shield reboot and break cel
 FILES: src/render/{ui,combatHud,shipPreview}.ts src/scenes/{flight,hangar,menu}.ts BUILD_STATUS.md
 SEAM: none; wire, gameplay tuning and action/shop hit zones retained.
 CROSS: scene presentation only. Typecheck/build/396-pose rig/sim/live-config pass; Brave DPR2 desktop/844x390/667x375/upright UI and controls inspected; two-client check passed at 57 FPS (PC emulation).
-FOR claude: full harness needs a shooting-phase split baseline; its absolute splits>=1 can skip the hunt before bullets appear. Local Brave adapter uses splits>phaseStart; production harness unchanged. FFD, per-chassis hosted calibration and orbital transitions still pending.
+FOR claude: PR #476 awaits owner UI review; do not merge/deploy before approval. Full harness needs a shooting-phase split baseline; its absolute splits>=1 can skip the hunt before bullets appear. Local Brave adapter uses splits>phaseStart; production harness unchanged. FFD, per-chassis hosted calibration and orbital transitions still pending.
 
 ## 2026-11-14 claude screenshot-harness-fixes
 DID: scripts/screenshot-steroids-alpha.mjs repaired (owner OK; your 4294473b/ad953346 notes): keyboard turn summed per frame in the page (screenshots between samples took ~1 s, aliasing even per-sample sums; real turn 24.5 rad); runs on Planet B (bots' hits knocked ships about); drop-in tracked by the third ship's id; STEER step replaced by "no STEER button, marker only"; desktop split check only when within interest range; prediction window retried until neither ship carries knockback.
