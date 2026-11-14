@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-14 claude no-steer-toggle
+DID: phones always steer with the direction marker; the STEER toggle button and its zone are gone (saved craft setting ignored on touch).
+FILES: src/input/intents.ts src/scenes/flight.ts BRIEF.md
+SEAM: intents.schemeButton stays null on touch; toggleScheme no-op on touch.
+CROSS: none
+FOR codex: the bottom-left space the STEER button used is free.
+
 ## 2026-11-14 claude painted-rocks
 DID: your 15 painted asteroids (visual-review-v4) replace the 64px pixel rocks: families inherit on split (server), siblings alternate variants, linear-filtered, same projected 4x4 mesh. Each rock anchored at its deepest body point and scaled so its inscribed circle >= hitbox (1.26-1.69x width). Damage darkens (no crack art).
 FILES: src/render/rockPainted.ts src/scenes/{boot,flight}.ts src/main.ts sim/{asteroids,world,protocol}.ts art/asteroids-v1/asteroid-assets.json art/prepare-assets.mjs scripts/test-steroids-alpha-sim.mjs
@@ -97,10 +104,3 @@ FILES: src/scenes/flight.ts sim/protocol.ts server/src/room.ts scripts/test-ster
 SEAM: optional roster.bot boolean from server-owned bot map; absent flag stays unmarked. Binary protocol remains 14; client + Worker deploy together. Gameplay/calibration unchanged.
 CROSS: protocol.ts/room.ts additive read-only bot metadata; live-config room test confirms a human named BOT Impostor remains bot:false.
 FOR claude: Typecheck/build/rig/sim/live-config pass; live two-client + four-bot flags verified, desktop/DPR2 bot/human-name-spoof fixtures inspected; zero errors, baseline pacing. Optional new physical power-tier modules remain an owner art decision.
-
-## 2026-11-13 codex codex/steroids-vfx
-DID: Stylized explosion rays/smoke, clearer directional shield hits (8-hit render cap), square dash charge, boosted engine cores/streaks and beveled turrets; threats draw after explosions.
-FILES: src/render/{worldArt,shipView}.ts src/scenes/flight.ts
-SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
-CROSS: none (render/shared drawing)
-FOR claude: Typecheck/build/rig/sim pass; desktop/DPR2 phone charge, boost, shield, turret and explosion fixtures inspected. 2 clients + bots baseline pacing, zero errors. Particle emission, rig poses and combat timings unchanged.

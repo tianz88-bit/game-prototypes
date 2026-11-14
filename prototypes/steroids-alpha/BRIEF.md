@@ -251,9 +251,9 @@ Both schemes are supported (owner decision), through the intent layer:
   neutral (or released) the ship slows to minimum speed (owner decision). A
   light push accelerates gently; full acceleration needs the stick pushed
   most of the way (thrust follows the push on a curve, `touch.markerThrustCurve`).
-- Default (confirm): keyboard uses craft-relative (A/D rotate, W/S throttle);
-  the phone stick defaults to direction marker with a toggle to
-  craft-relative. Fire and warp are buttons on both.
+- Keyboard uses craft-relative (A/D rotate, W/S throttle). Phones always use
+  the direction marker: the STEER toggle was removed (owner, 14 November
+  2026). Fire and warp are buttons on both.
 - Both schemes share the same turn rate and speed limits, so neither has an
   advantage.
 

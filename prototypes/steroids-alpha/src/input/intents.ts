@@ -19,7 +19,9 @@ export type SteerScheme = 'marker' | 'craft';
 function loadScheme(): SteerScheme {
   const saved = loadSave();
   const mobile = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-  return (mobile ? saved.mobileSteer : saved.steer) === 'craft' ? 'craft' : 'marker';
+  // Phones always steer with the direction marker (owner, 14 November 2026: the toggle is gone).
+  if (mobile) return 'marker';
+  return saved.steer === 'craft' ? 'craft' : 'marker';
 }
 
 export interface Zone {
@@ -187,6 +189,7 @@ export class Intents {
   }
 
   toggleScheme(): void {
+    if (this.touch) return; // phones are marker only
     this.scheme = this.scheme === 'marker' ? 'craft' : 'marker';
     writeSave(this.touch ? { mobileSteer: this.scheme } : { steer: this.scheme });
   }
@@ -218,7 +221,10 @@ export class Intents {
   }
 
   private onDown(e: PointerEvent): void {
-    if (e.pointerType === 'touch') this.touch = true;
+    if (e.pointerType === 'touch') {
+      this.touch = true;
+      this.scheme = 'marker';
+    }
     if (this.portraitBlocked) return;
     const x = e.clientX;
     const y = e.clientY;
