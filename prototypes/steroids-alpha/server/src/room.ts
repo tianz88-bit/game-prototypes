@@ -3,7 +3,8 @@ import type { ConfigRecord } from '../../sim/liveConfig';
 // One running planet room: the authority for every ship on that planet.
 // Players drop in and out at any time; the tick loop runs only while someone is connected.
 import { TUNE, stepSeconds } from '../../sim/tune';
-import { copyShip } from '../../sim/ship';
+import { copyShip, maxShield } from '../../sim/ship';
+import { INTERCEPTOR, SCRAPPY } from '../../sim/chassis';
 import type { ShipInput, ShipState } from '../../sim/ship';
 import { cleanLook } from '../../sim/unlocks';
 import type { Look } from '../../sim/unlocks';
@@ -63,6 +64,8 @@ interface Player {
   secret: string | null;
   /** Cosmetics worn: what the client asked for, kept only where the account owns it. */
   look: Look;
+  /** Room tick at drop-in: the chosen ship type applies only within its first moments. */
+  joinedAt: number;
 }
 
 /**
@@ -97,7 +100,7 @@ export class Room {
   applyConfig(record:ConfigRecord):void{
     if(record.version===this.config.version)return;
     this.config=record;
-    for(const group of ['ship','weapon','turret','shop','missile','mine','bots','warp','salvage','hotZone','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
+    for(const group of ['ship','weapon','turret','shop','missile','mine','bots','warp','salvage','hotZone','interceptor','battlecruiser','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
     for(const p of this.players.values()){
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
       p.ship.hullMax=Math.min(this.tune.ship.powerCap,p.ship.hullMax);p.ship.hp=Math.min(p.ship.hullMax,p.ship.hp);
@@ -172,7 +175,7 @@ export class Room {
     }
     const id = this.allocateId();
     const spawn = this.world.addShip(id);
-    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null, look: {} };
+    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null, look: {}, joinedAt: this.tick };
     this.players.set(id, player);
 
     ws.addEventListener('message', (e: MessageEvent) => this.onMessage(player, e.data));
@@ -239,6 +242,13 @@ export class Room {
               .then((ids) => {
                 if (!this.players.has(player.id)) return;
                 player.look = cleanLook(m.look, ids ?? []);
+                // Ship chosen in the menu (owner design): an owned Interceptor replaces the starter,
+                // only right after drop-in so nobody swaps ship mid-run.
+                const s = player.ship;
+                if (player.look.ship === 'ship.interceptor' && s.chassis === SCRAPPY && this.tick - player.joinedAt <= 3 * this.tune.net.tickHz) {
+                  s.chassis = INTERCEPTOR;
+                  s.shield = maxShield(s, this.tune);
+                }
                 this.broadcastRoster();
               })
               .catch(() => {

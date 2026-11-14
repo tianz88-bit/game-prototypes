@@ -6,9 +6,10 @@ import Phaser from 'phaser';
 import { TUNE } from '../../sim/tune';
 import { PLANETS } from '../../sim/planets';
 import type { PlanetId } from '../../sim/planets';
-import { maxShield, shipRadius } from '../../sim/ship';
-import { TURRET_MOUNTS } from '../../sim/turrets';
-import { SHOP_ITEMS, canBuy, shopOffer, shopTier } from '../../sim/shop';
+import { maxShield, shipRadius, powerGrowth } from '../../sim/ship';
+import { TURRET_MOUNTS, turretCount } from '../../sim/turrets';
+import { BATTLECRUISER, TURRET_MOUNTS_BY_CHASSIS, chassisStats, upgradeTotal } from '../../sim/chassis';
+import { SHOP_ITEMS, canBuy, shopOffer, shopTier, EVOLVE_ITEM, canEvolve } from '../../sim/shop';
 import type { ShipState } from '../../sim/ship';
 import { wrapDelta } from '../../sim/wrap';
 import { DEBUG, DEBUG_ROTATION, logicalSize } from '../base';
@@ -152,7 +153,7 @@ export class FlightScene extends Phaser.Scene {
     this.lockText = text(this, 0, 0, 'MISSILE LOCK', 13, '#ff5a3a').setOrigin(0.5).setDepth(953).setVisible(false);
     this.weaponTexts = [0, 1].map(() => text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(952).setVisible(false));
     this.powerText = text(this, 0, 0, '', 11, '#ffd98a').setOrigin(0.5, 1).setDepth(950).setVisible(false);
-    this.shopTexts = SHOP_ITEMS.map(() => ({
+    this.shopTexts = [...SHOP_ITEMS, 'evolve'].map(() => ({
       title: text(this, 0, 0, '', 12, '#ffffff').setOrigin(0, 0.5).setDepth(951).setVisible(false),
       sub: text(this, 0, 0, '', 10, '#c9d6f2').setOrigin(0, 0.5).setDepth(951).setVisible(false),
     }));
@@ -178,6 +179,10 @@ export class FlightScene extends Phaser.Scene {
     // Shop: each tap asks the server for the tier on offer now; the server checks power and price.
     for (const item of intents.consumeBuys()) {
       const p = this.net.predicted;
+      if (p && item === EVOLVE_ITEM) {
+        if (canEvolve(p, TUNE)) this.net.buy(EVOLVE_ITEM, 0);
+        continue;
+      }
       const name = SHOP_ITEMS[item];
       if (p && name && shopOffer(p, name, TUNE)) this.net.buy(item, shopTier(p, name));
     }
@@ -337,20 +342,28 @@ export class FlightScene extends Phaser.Scene {
   }
 
   private placeShip(id: number, s: ShipState, mine: boolean): void {
+    // Ship type from the server (it changes when a ship evolves) and palette from the roster look.
+    const palette = unlockById(this.net.roster.get(id)?.look?.palette)?.index ?? 0;
     let ship = this.ships.get(id);
+    if (ship && (ship.chassis !== s.chassis || ship.palette !== palette)) {
+      ship.destroy();
+      this.ships.delete(id);
+      ship = undefined;
+    }
     if (!ship) {
-      ship = shipArtStatus === 'ready' ? new RigShip(this, mine) : new PlaceholderShip(this, mine);
+      ship = shipArtStatus === 'ready' ? new RigShip(this, mine, s.chassis, palette) : new PlaceholderShip(this, mine, s.chassis, palette);
       this.ships.set(id, ship);
     }
     this.shipAt.set(id, { x: s.x, y: s.y });
     const at = this.toScreen(s.x, s.y);
     // Power makes ships bigger: drawn at the same growth as their hit radius.
-    at.scale *= shipRadius(s.hullMax, TUNE) / TUNE.ship.radius;
+    // (Each ship's art already has its own size; only power growth scales it here.)
+    at.scale *= powerGrowth(s.hullMax, TUNE);
     // The hard shadow lies on the ground, away from the sun.
     const sh = shipShadow(this.frame.sun, clientTune.render.shadowReach);
     sh.x+=CALIBRATION.shadow.x-SHADOW_ANCHOR.x;sh.y+=CALIBRATION.shadow.y-SHADOW_ANCHOR.y;
     const shadow = this.toScreen(s.x + sh.x, s.y + sh.y);
-    this.placeTag(id, at, mine);
+    this.placeTag(id, at, mine, chassisStats(s.chassis, TUNE).radius / TUNE.ship.radius);
     ship.setLook(this.net.roster.get(id)?.look ?? {});
     // Ships darken 30% on the night side (owner decision); asteroids and pickups only 10%.
     ship.update({ ...at, brightness: this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0 }, s, this.time.now);
@@ -368,7 +381,7 @@ export class FlightScene extends Phaser.Scene {
     const g = this.turretGfx;
     const k = 1 - s.dashCharge / TUNE.ship.dashChargeSeconds; // 0 → 1 as it charges
     const now = this.time.now;
-    const R = clientTune.render.shipRingRadius * clientTune.render.shipScale * at.scale;
+    const R = clientTune.render.shipRingRadius * clientTune.render.shipScale * at.scale * chassisStats(s.chassis, TUNE).radius / TUNE.ship.radius;
     g.lineStyle(2 + 2 * k, 0x9fefff, 0.35 + 0.5 * k);
     for(let i=0;i<4;i++){g.beginPath();g.arc(at.x,at.y,R*(2.1-k),i*Math.PI/2+.12,i*Math.PI/2+1.35);g.strokePath();}
     for (let i = 0; i < 10; i++) {
@@ -397,7 +410,8 @@ export class FlightScene extends Phaser.Scene {
    * fired and, after a quiet second, swings back to face forward. A short flash marks each shot.
    */
   private drawTurrets(id: number, s: ShipState, at: { x: number; y: number; scale: number; visible: boolean }): void {
-    const n = Math.min(TURRET_MOUNTS.length, s.turrets);
+    const n = turretCount(s, TUNE);
+    const mounts = TURRET_MOUNTS_BY_CHASSIS[s.chassis] ?? TURRET_MOUNTS;
     if (!n || !at.visible) return;
     let aim = this.turretAim.get(id);
     if (!aim) this.turretAim.set(id, (aim = { angle: [], firedAt: [] }));
@@ -409,7 +423,7 @@ export class FlightScene extends Phaser.Scene {
     // at.scale already includes the ship's growth; mounts are in base-size ship units.
     const k = at.scale;
     for (let i = 0; i < n; i++) {
-      const m = TURRET_MOUNTS[i];
+      const m = mounts[i];
       const x = at.x + (c * m.forward - sn * m.right) * k;
       const y = at.y + (sn * m.forward + c * m.right) * k;
       const quiet = now - (aim.firedAt[i] ?? -1e9) > 1000;
@@ -530,7 +544,7 @@ export class FlightScene extends Phaser.Scene {
     const pulse = 0.7 + 0.3 * Math.sin(now / 200);
     if (b.id === this.net.myId) {
       const at = this.toScreen(p.x, p.y);
-      const r=46 * at.scale * shipRadius(p.hullMax, TUNE) / TUNE.ship.radius;
+      const r=46 * at.scale * shipRadius(p.hullMax, TUNE, p.chassis) / TUNE.ship.radius;
       this.bountyRing(g,at.x,at.y,r,pulse);
       g.fillStyle(0xffd36d,1);this.drawStar(g,at.x,at.y-r-10,5);
       this.bountyText.setVisible(true).setText('BOUNTY ON YOU').setPosition(w / 2, h * 0.3 + 32);
@@ -545,7 +559,7 @@ export class FlightScene extends Phaser.Scene {
     const at = this.toScreen(bx, by);
     const margin = 28;
     if (at.visible && at.x > margin && at.x < w - margin && at.y > margin && at.y < h - margin) {
-      const r = 46 * at.scale * (seen ? shipRadius(seen.hullMax, TUNE) / TUNE.ship.radius : 1);
+      const r = 46 * at.scale * (seen ? shipRadius(seen.hullMax, TUNE, seen.chassis) / TUNE.ship.radius : 1);
       this.bountyRing(g,at.x,at.y,r,pulse);
       g.fillStyle(0x32251f,.95);g.fillCircle(at.x,at.y-r-12,11);
       g.fillStyle(0xffd23a, 0.9);
@@ -688,7 +702,7 @@ export class FlightScene extends Phaser.Scene {
     const x = 10;
     const mobile = intents.touch;
     const available = window.innerWidth - Math.min(BOARD_CHIP_W, window.innerWidth * .34) - 30;
-    const cols = mobile ? Math.max(1, Math.min(5, Math.floor(available / 88))) : 1;
+    const cols = mobile ? Math.max(1, Math.min(6, Math.floor(available / 88))) : 1;
     const bw = mobile ? Math.min(86, (available - (cols - 1) * 4) / cols) : 124;
     const bh = mobile ? 34 : 30;
     SHOP_ITEMS.forEach((item, i) => {
@@ -707,6 +721,28 @@ export class FlightScene extends Phaser.Scene {
         .setColor(can ? '#bfffd0' : '#6d7a96');
       intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
     });
+    // Evolve (owner design): the fighters can become the Battlecruiser during a run, once they have
+    // enough upgrades and power; it costs minerals. The card shows what is still missing.
+    const t = this.shopTexts[EVOLVE_ITEM];
+    if (p.chassis === BATTLECRUISER) {
+      t.title.setVisible(false);
+      t.sub.setVisible(false);
+      return;
+    }
+    const i = EVOLVE_ITEM;
+    const bx = x + (i % cols) * (bw + 4);
+    const y = (mobile ? 28 : 38) + Math.floor(i / cols) * (bh + 4);
+    const b = TUNE.battlecruiser;
+    const can = canEvolve(p, TUNE);
+    const ups = upgradeTotal(p);
+    panel(g, bx, y, bw, bh, can ? UI.uiGold : UI.uiBorder, can);
+    t.title.setFontSize(mobile ? 10 : 11).setPosition(bx + 5, y + 9).setText(`${intents.touch ? '' : '[6] '}EVOLVE`).setColor(can ? '#ffd23a' : css(0x91a5bb));
+    t.sub
+      .setFontSize(9)
+      .setPosition(bx + 5, y + (mobile ? 24 : 22))
+      .setText(can ? `${b.cost}c · battlecruiser` : ups < b.minUpgrades ? `upgrades ${ups}/${b.minUpgrades}` : `${b.cost}c · need ${b.powerFloor}`)
+      .setColor(can ? '#ffe9a8' : '#6d7a96');
+    intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
   }
 
   private drawTouch(w: number, h: number): void {
@@ -806,7 +842,7 @@ export class FlightScene extends Phaser.Scene {
   }
 
   /** The pilot's name, just under the ship's ring. */
-  private placeTag(id: number, at: { x: number; y: number; scale: number; visible: boolean }, mine: boolean): void {
+  private placeTag(id: number, at: { x: number; y: number; scale: number; visible: boolean }, mine: boolean, size = 1): void {
     const entry=this.net.roster.get(id);
     const name=entry?.name;
     const bot=entry?.bot===true;
@@ -826,7 +862,7 @@ export class FlightScene extends Phaser.Scene {
     const tagColour=unlockById(look.tag)?.colour;
     const colour=tagColour!==undefined?css(tagColour):mine?'#9fefff':bot?'#a9bdcf':'#ffc9a8';
     if(tag.style.color!==colour)tag.setColor(colour);
-    const below = (clientTune.render.shipRingRadius * clientTune.render.shipScale + 4) * at.scale;
+    const below = (clientTune.render.shipRingRadius * clientTune.render.shipScale * size + 4) * at.scale;
     tag.setPosition(at.x, at.y + below).setVisible(at.visible);
   }
 
@@ -1113,7 +1149,7 @@ export class FlightScene extends Phaser.Scene {
         if (!s.warping) continue;
         const at = this.toScreen(s.x, s.y);
         if (!at.visible) continue;
-        const r = 50 * at.scale * shipRadius(s.hullMax, TUNE) / TUNE.ship.radius;
+        const r = 50 * at.scale * shipRadius(s.hullMax, TUNE, s.chassis) / TUNE.ship.radius;
         const f = Math.min(1, s.warpDist / TUNE.warp.distance);
         g.lineStyle(2, 0x7fe9ff, 0.35);
         g.strokeCircle(at.x, at.y, r);
@@ -1148,12 +1184,12 @@ export class FlightScene extends Phaser.Scene {
       if (o.target === this.net.myId && me && !this.net.death) {
         lockedOnMe = true;
         const at = this.toScreen(me.x, me.y);
-        this.drawCrosshair(g, at.x, at.y, 40 * at.scale * shipRadius(me.hullMax, TUNE) / TUNE.ship.radius, now);
+        this.drawCrosshair(g, at.x, at.y, 40 * at.scale * shipRadius(me.hullMax, TUNE, me.chassis) / TUNE.ship.radius, now);
       } else if (o.owner === this.net.myId) {
         const tgt = this.net.remoteRender().find((r) => r.id === o.target)?.s;
         if (!tgt) continue;
         const at = this.toScreen(tgt.x, tgt.y);
-        if (at.visible) this.drawCrosshair(g, at.x, at.y, 40 * at.scale * shipRadius(tgt.hullMax, TUNE) / TUNE.ship.radius, now);
+        if (at.visible) this.drawCrosshair(g, at.x, at.y, 40 * at.scale * shipRadius(tgt.hullMax, TUNE, tgt.chassis) / TUNE.ship.radius, now);
       }
     }
     this.lockedOnMe = lockedOnMe;
@@ -1216,6 +1252,9 @@ interface BoardChip {
 }
 
 interface DrawnShip {
+  /** Ship type and palette it was built for: a change (evolving, a new palette) rebuilds it. */
+  readonly chassis: number;
+  readonly palette: number;
   /** Wear bought cosmetics (sim/unlocks.ts). */
   setLook(look: Look): void;
   fire(side: number): void;
@@ -1228,8 +1267,8 @@ interface DrawnShip {
 class RigShip implements DrawnShip {
   private view: ShipView;
 
-  constructor(scene: Phaser.Scene, mine: boolean) {
-    this.view = new ShipView(scene, mine);
+  constructor(scene: Phaser.Scene, mine: boolean, readonly chassis = 0, readonly palette = 0) {
+    this.view = new ShipView(scene, mine, chassis, palette);
   }
 
   setLook(look: Look): void {
@@ -1259,7 +1298,7 @@ class RigShip implements DrawnShip {
 class PlaceholderShip implements DrawnShip {
   private g: Phaser.GameObjects.Graphics;
 
-  constructor(scene: Phaser.Scene, private mine: boolean) {
+  constructor(scene: Phaser.Scene, private mine: boolean, readonly chassis = 0, readonly palette = 0) {
     this.g = scene.add.graphics().setDepth(mine ? 20 : 10);
   }
 

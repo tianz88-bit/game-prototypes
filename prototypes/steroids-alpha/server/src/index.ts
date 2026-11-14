@@ -9,7 +9,7 @@ import { PROTOCOL_VERSION } from '../../sim/protocol';
 import { PLANETS, isPlanetId } from '../../sim/planets';
 import { Room, acceptBinary } from './room';
 import { accountFor, balanceOf, buyUnlock, createAccount, creditExtraction, ownedUnlocks, recoverAccount } from './bank';
-import { unlockById, unlockPrice } from '../../sim/unlocks';
+import { claimMarker, effectiveOwned, unclaimedLegacy, unlockById, unlockPrice } from '../../sim/unlocks';
 import { TUNE } from '../../sim/tune';
 import type { D1Like } from './bank';
 import type { CfSocket } from './room';
@@ -62,7 +62,16 @@ async function accountRoute(request: Request, env: Env, path: string): Promise<R
       const secret = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
       const body = (await readBounded(request, 1024)) as { unlock?: unknown };
       const u = unlockById(body?.unlock);
-      const r = await buyUnlock(db, secret, u?.id, u ? unlockPrice(u, TUNE) : null);
+      // Price from the server's catalogue. Palettes converted from tints count as owned; a gold or ice
+      // tint may be exchanged for any one palette free.
+      const r = await buyUnlock(db, secret, u?.id, (owned) => {
+        if (!u) return null;
+        if (effectiveOwned(owned).has(u.id)) return 'owned';
+        const legacy = u.slot === 'palette' ? unclaimedLegacy(owned) : null;
+        if (legacy) return { price: 0, grant: claimMarker(legacy) };
+        const price = unlockPrice(u, TUNE);
+        return price === null ? null : { price };
+      });
       return json(r, r.ok ? 200 : r.error === 'unknown account' ? 401 : 409);
     }
     if (path === '/account/recover' && request.method === 'POST') {

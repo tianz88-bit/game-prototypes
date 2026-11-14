@@ -4,8 +4,11 @@
 // Guns kick with the kit's recoil curve when they fire. Thruster exhaust comes from the nozzles.
 // Not yet ported: FFD pitch/bank tilt (needs a Phaser Mesh renderer and profiling).
 import Phaser from 'phaser';
-import { MODULES, depth, layerBrightness, pose, recoilPose, rigAngle } from './shipRig';
-import { CALIBRATION, SHADOW_KEY, partKey } from './shipArt';
+import { depth, layerBrightness, pose, recoilPose, rigAngle } from './shipRig';
+import type { RigModule } from './shipRig';
+import { paletteTexture, profileFor, shadowKey } from './shipArt';
+import type { ShipProfile } from './shipProfiles';
+import { chassisStats } from '../../sim/chassis';
 import { clientTune } from '../clientTune';
 import { TUNE } from '../../sim/tune';
 import { ThrusterVFX } from './thrusters';
@@ -31,7 +34,10 @@ export interface ShipPlacement {
 
 export class ShipView {
   private container: Phaser.GameObjects.Container;
-  private parts: { m: (typeof MODULES)[number]; img: Phaser.GameObjects.Image; scale: number; shade: number }[] = [];
+  private parts: { m: RigModule; img: Phaser.GameObjects.Image; scale: number; shade: number }[] = [];
+  /** Which ship this draws (sim/chassis.ts) and its rig. */
+  readonly profile: ShipProfile;
+  private sizeRatio = 1;
   private lastBrightness = -1;
   private exhaust = new ThrusterVFX();
   /** Shield impacts: the direction the hit came from (screen radians) and when. */
@@ -42,7 +48,7 @@ export class ShipView {
   /** Until when (ms) each thruster demand stays on after it was last seen, so jitter cannot retrigger bursts. */
   private demandUntil = { throttle: 0, left: 0, right: 0 };
   /** When each gun last fired (ms), by side: -1 left, 1 right. */
-  private firedAt: Record<number, number> = { [-1]: -1e9, 1: -1e9 };
+  private firedAt: Record<number, number> = { [-2]: -1e9, [-1]: -1e9, 1: -1e9, 2: -1e9 };
   private now = 0;
   private shadow: Phaser.GameObjects.Image;
   private ring: Phaser.GameObjects.Graphics;
@@ -70,23 +76,28 @@ export class ShipView {
       : { body: mix(shield, 0x000000, 0.8), rim: shield, flash: mix(shield, 0xffffff, 0.75), cell: mix(shield, 0xffffff, 0.35), edge: mix(shield, 0xffffff, 0.15), edgeHot: mix(shield, 0xffffff, 0.8) };
   }
 
-  constructor(scene: Phaser.Scene, mine: boolean) {
+  constructor(scene: Phaser.Scene, mine: boolean, readonly chassis = 0, readonly palette = 0) {
+    this.profile = profileFor(chassis);
+    const cal = this.profile.calibration;
+    const mods = this.profile.modules;
     this.ring = scene.add.graphics().setDepth(SHIP_DEPTH - 2);
-    const r = clientTune.render.shipRingRadius;
+    // Bigger ships (sim/chassis.ts radius) get a bigger ring and shield bubble.
+    this.sizeRatio = chassisStats(chassis, TUNE).radius / TUNE.ship.radius;
+    const r = clientTune.render.shipRingRadius * this.sizeRatio;
     this.ring.lineStyle(2 / clientTune.render.shipScale, mine ? 0x5fe3ff : 0xff8a4a, 0.55);
     this.ring.strokeCircle(0, 0, r);
-    this.shadow = scene.add.image(0, 0, SHADOW_KEY).setDepth(SHIP_DEPTH - 1).setAlpha(CALIBRATION.shadow.opacity);
+    this.shadow = scene.add.image(0, 0, shadowKey(this.profile.shipId)).setDepth(SHIP_DEPTH - 1).setAlpha(cal.shadow.opacity);
     this.exhaustGfx = scene.add.graphics().setDepth(SHIP_DEPTH - 0.5);
     this.shieldGfx = scene.add.graphics().setDepth(SHIP_DEPTH + 2).setBlendMode(Phaser.BlendModes.ADD);
     this.container = scene.add.container(0, 0).setDepth(mine ? SHIP_DEPTH + 1 : SHIP_DEPTH);
     // Fixed Z: sort once by the calibrated order; container children draw in list order.
-    const sorted = [...MODULES].sort((a, b) => depth(a, CALIBRATION) - depth(b, CALIBRATION));
+    const sorted = [...mods].sort((a, b) => depth(a, cal, mods) - depth(b, cal, mods));
     for (const m of sorted) {
-      const img = scene.add.image(0, 0, partKey(m.asset)).setFlipX(!!m.mirror);
-      const scale = CALIBRATION.modules[m.id].width / img.width;
+      const img = scene.add.image(0, 0, paletteTexture(scene, this.profile, m.asset, palette)).setFlipX(!!m.mirror);
+      const scale = cal.modules[m.id].width / img.width;
       img.setScale(scale);
       this.container.add(img);
-      this.parts.push({ m, img, scale, shade: layerBrightness(m, CALIBRATION) });
+      this.parts.push({ m, img, scale, shade: layerBrightness(m, cal, mods) });
     }
   }
 
@@ -134,12 +145,15 @@ export class ShipView {
     this.lastAngle = angle;
     this.lastTime = timeMs;
 
-    const hover = CALIBRATION.hoverLift;
+    const cal = this.profile.calibration;
+    const mods = this.profile.modules;
+    const hover = cal.hoverLift;
     this.now = timeMs;
     for (const { m, img, scale } of this.parts) {
       const gun = m.asset === 'gun';
-      const k = gun ? recoilPose(timeMs - this.firedAt[m.side ?? 1]) : null;
-      const p = pose(m, angle, CALIBRATION, timeMs, 1, turn, k ? k.kick / 7 : 0);
+      const k = gun ? recoilPose(timeMs - (this.firedAt[m.side ?? 1] ?? -1e9)) : null;
+      const kick = k ? (k.kick * (m.recoilScale ?? 1)) / 7 : 0;
+      const p = pose(m, angle, cal, timeMs, 1, turn, kick, mods);
       img.setPosition(p.x, p.y - hover).setRotation(p.rotation);
       if (k) img.setScale(scale * k.scaleX, scale * k.scaleY);
     }
@@ -149,7 +163,7 @@ export class ShipView {
     this.shadow
       .setPosition(at.shadowX, at.shadowY)
       .setScale(scale)
-      .setAlpha(CALIBRATION.shadow.opacity * at.shadowAlpha)
+      .setAlpha(cal.shadow.opacity * at.shadowAlpha)
       .setRotation((angle * Math.PI) / 180);
     this.ring.setPosition(x, y).setScale(scale);
   }
@@ -157,13 +171,14 @@ export class ShipView {
   /** Nozzle of an engine core: 43% of the core's length aft of its centre, as in the handoff's lab. */
   private nozzle(id: string, angle: number, timeMs: number): NozzleOrigin {
     const part = this.parts.find((p) => p.m.id === id) as (typeof this.parts)[number];
-    const p = pose(part.m, angle, CALIBRATION, timeMs, 1, 0, 0);
-    const w = CALIBRATION.modules[id].width;
+    const cal = this.profile.calibration;
+    const p = pose(part.m, angle, cal, timeMs, 1, 0, 0, this.profile.modules);
+    const w = cal.modules[id].width;
     const h = (w * part.img.height) / part.img.width;
     const k = clientTune.render.shipScale;
     return {
       x: (p.x - Math.sin(p.rotation) * h * 0.43) * k,
-      y: (p.y + Math.cos(p.rotation) * h * 0.43 - CALIBRATION.hoverLift) * k,
+      y: (p.y + Math.cos(p.rotation) * h * 0.43 - cal.hoverLift) * k,
       width: w * k * 0.7,
       particleScale: k / 0.48,
       angle: (p.rotation * 180) / Math.PI,
@@ -235,7 +250,7 @@ export class ShipView {
     this.shieldHits = this.shieldHits.filter((h) => timeMs - h.at < LIFE).slice(-8);
     g.setVisible(at.visible && this.shieldHits.length > 0);
     if (!at.visible || !this.shieldHits.length) return;
-    const R = clientTune.render.shipRingRadius * clientTune.render.shipScale * at.scale * 1.2;
+    const R = clientTune.render.shipRingRadius * this.sizeRatio * clientTune.render.shipScale * at.scale * 1.2;
     let bubble = 0;
     for (const h of this.shieldHits) bubble = Math.max(bubble, 1 - (timeMs - h.at) / LIFE);
     // Body and rim glow.

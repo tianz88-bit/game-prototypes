@@ -1,0 +1,59 @@
+{
+  "palettes": [
+    {
+      "name": "Cobalt / orange",
+      "primary": "#0061f2",
+      "accent": "#ff8700",
+      "glow": "#73d9ff"
+    },
+    {
+      "name": "Teal / gold",
+      "primary": "#20a18d",
+      "accent": "#efbb43",
+      "glow": "#9ef0c5"
+    },
+    {
+      "name": "Crimson / cream",
+      "primary": "#d83e54",
+      "accent": "#ecd4ab",
+      "glow": "#ffbd77"
+    },
+    {
+      "name": "Violet / lime",
+      "primary": "#8864e0",
+      "accent": "#badc66",
+      "glow": "#94dfff"
+    }
+  ],
+  "startingShips": [
+    {
+      "id": "scrappy",
+      "name": "Scrappy craft",
+      "description": "Human Nomad starter / central cockpit / twin engines"
+    },
+    {
+      "id": "interceptor",
+      "name": "Compact interceptor",
+      "description": "Short hull / swept stub wings / close twin engines"
+    }
+  ],
+  "evolution": {
+    "id": "battlecruiser",
+    "name": "Battlecruiser",
+    "description": "Four forward cannons / heavy shields / turret flank defence. Buy with minerals during a run; replaces current ship.",
+    "price": null,
+    "statsApproved": false,
+    "scale": {
+      "starter": {
+        "width": 2.123456790123457,
+        "length": 2.648
+      },
+      "interceptor": {
+        "width": 2.5146198830409356,
+        "length": 4.493212669683258
+      }
+    }
+  },
+  "status": "review only / current overhead ships",
+  "assetVersion": "2026-11-14-overhead"
+}

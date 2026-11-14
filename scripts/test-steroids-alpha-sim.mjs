@@ -18,6 +18,7 @@ export * from ${JSON.stringify(path.join(sim, 'shop.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'bots.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'ordnance.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'wrap.ts'))};
+export * from ${JSON.stringify(path.join(sim, 'chassis.ts'))};
 export { Room } from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/server/src/room.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'asteroids.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'protocol.ts'))};
@@ -380,7 +381,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
     for (let tier = 0; tier < 4; tier++) assert.equal(w.buy(1, 1, tier), true);
     for (let tier = 0; tier < 4; tier++) assert.equal(w.buy(1, 2, tier), true);
     assert.deepEqual([s.shieldTier, s.damageTier], [4, 4]);
-    assert.equal(w.buy(1, 5, 0), false, 'unknown item');
+    assert.equal(w.buy(1, 6, 0), false, 'unknown item');
     // The shield refills up to its new maximum over time.
     s.shield = 0;
     for (let i = 0; i < tune.net.tickHz * 6; i++) w.step();
@@ -746,7 +747,7 @@ assert.equal(S.cleanName(null), '');
   assert(Number.isNaN(back.aim));
   assert(Number.isNaN(S.decodeClient(S.encodeInput({ ...input, dashAim: 99 })).input.dashAim), 'bad dash aims are dropped');
   assert.deepEqual(S.decodeClient(S.encodeBuy(0, 2)), { type: S.MSG.BUY, item: 0, tier: 2 });
-  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5, salvage: 87.5 };
+  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5, salvage: 87.5, chassis: 2 };
   assert.deepEqual(S.decodeServer(S.encodeSnapshot(1234, 55, [ship])), { type: S.MSG.SNAPSHOT, tick: 1234, ackSeq: 55, ships: [ship] });
   const rockRec = { id: 3, size: 1, x: 10.5, y: 20.25, vx: -30, vy: 12.5, t0: 900, hp: 30 };
   assert.deepEqual(S.decodeServer(S.encodeAsteroids([rockRec])).asteroids, [rockRec]);
@@ -1425,4 +1426,69 @@ assert.equal(S.cleanName(null), '');
   }
 }
 
-console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, bots, ramming, health boosts, kill credit, missiles, mines, bounty, lockdown, warp-out, salvage, hot zone and settings upgrade all pass.');
+// --- Ship types: Interceptor (faster, nimbler, weaker shield and guns) and Battlecruiser (big, slow,
+// heavy shield, four cannons, two escort turrets) by tune factors; evolving needs upgrades, power and
+// minerals, keeps upgrades, and cannot happen twice. ---
+{
+  const ti = tune.interceptor;
+  const tb = tune.battlecruiser;
+  const ship = (chassis) => { const s = S.newShip(0, 0, 0, tune.ship.cruiseSpeed); s.hp = s.hullMax = tune.ship.maxHp; s.chassis = chassis; return s; };
+  const [sc, it, bc] = [0, 1, 2].map(ship);
+  near(S.topSpeed(it.hullMax, tune, 1), S.topSpeed(sc.hullMax, tune, 0) * ti.speedFactor, 1e-9, 'interceptor top speed factor');
+  near(S.topSpeed(bc.hullMax, tune, 2), S.topSpeed(sc.hullMax, tune, 0) * tb.speedFactor, 1e-9, 'battlecruiser top speed factor');
+  assert.deepEqual([0, 1, 2].map((c) => S.shipRadius(50, tune, c)), [tune.ship.radius, ti.radius, tb.radius], 'radius per ship');
+  near(S.maxShield(it, tune), tune.ship.maxShield * ti.shieldFactor, 1e-9, 'interceptor shield');
+  near(S.maxShield(bc, tune), tune.ship.maxShield * tb.shieldFactor, 1e-9, 'battlecruiser shield');
+  near(S.damageScale(bc, tune), tb.damageFactor, 1e-9, 'battlecruiser damage');
+  // Turning: one step of full turn input.
+  for (const s of [sc, it, bc]) S.stepShip(s, { ...idle, turn: 1 }, dt, tune);
+  near(it.heading / sc.heading, ti.turnFactor, 1e-9, 'interceptor turns faster');
+  near(bc.heading / sc.heading, tb.turnFactor, 1e-9, 'battlecruiser turns slower');
+  // Guns: the battlecruiser's four cannons fire in turn from their mounts, every fireIntervalSteps.
+  const g = ship(2);
+  const sides = [];
+  let firstGap = null;
+  let last = 0;
+  for (let i = 0; i < 40; i++) {
+    const before = g.shots;
+    S.stepShip(g, { ...idle, fire: true }, dt, tune);
+    if (g.shots !== before) {
+      const shot = S.muzzleShot(g, tune);
+      sides.push(shot.side);
+      if (sides.length === 2) firstGap = i - last;
+      last = i;
+      if (sides.length === 1) near(Math.hypot(shot.x - g.x, shot.y - g.y), Math.hypot(S.GUNS[2][1].forward, S.GUNS[2][1].right), 1e-6, 'cannon fires from its mount');
+    }
+  }
+  assert.deepEqual(sides.slice(0, 4).sort((x, y) => x - y), [-2, -1, 1, 2], 'all four cannons fire in turn');
+  assert.equal(firstGap, tb.fireIntervalSteps, 'battlecruiser fire interval');
+  assert.equal(S.turretCount(ship(2), tune), tb.baseTurrets, 'battlecruiser escort turrets');
+  assert.equal(S.turretCount(ship(0), tune), 0, 'fighters start without turrets');
+  // Evolve: needs upgrades + floor + cost; keeps upgrades; shield share kept; not twice.
+  const w = emptyWorld();
+  const a = placeShip(w, 1, 1000, 1000, 0);
+  a.hullMax = a.hp = tb.powerFloor + 50;
+  a.turrets = 2; a.shieldTier = 2; a.damageTier = tb.minUpgrades - 6; a.missileTier = 1; // minUpgrades - 1 in total
+  assert.equal(w.buy(1, S.EVOLVE_ITEM, 0), false, 'one upgrade short: no evolve');
+  a.mineTier = 1;
+  a.hullMax = tb.powerFloor - 1; a.hp = a.hullMax;
+  assert.equal(w.buy(1, S.EVOLVE_ITEM, 0), false, 'below the power floor: no evolve');
+  a.hullMax = a.hp = tb.powerFloor + 50;
+  a.shield = S.maxShield(a, tune) / 2;
+  a.salvage = 33;
+  const upgrades = S.upgradeTotal(a);
+  assert.equal(w.buy(1, S.EVOLVE_ITEM, 0), true, 'evolved');
+  assert.equal(a.chassis, 2);
+  assert.equal(a.hullMax, tb.powerFloor + 50 - tb.cost, 'paid from power');
+  assert.equal(S.upgradeTotal(a), upgrades, 'upgrades kept');
+  assert.equal(a.salvage, 33, 'salvage kept');
+  near(a.shield / S.maxShield(a, tune), 0.5, 1e-9, 'shield share kept on the bigger maximum');
+  assert.equal(w.buy(1, S.EVOLVE_ITEM, 0), false, 'cannot evolve twice');
+  assert.equal(a.hullMax, tb.powerFloor + 50 - tb.cost, 'a repeat tap costs nothing');
+  assert.equal(w.buy(1, S.EVOLVE_ITEM, 1), false, 'wrong tier refused');
+  // The snapshot carries the ship type.
+  const back = S.decodeServer(S.encodeSnapshot(1, 0, [{ id: 1, ...S.copyShip(a) }]));
+  assert.equal(back.ships[0].chassis, 2, 'chassis on the wire');
+}
+
+console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, bots, ramming, health boosts, kill credit, missiles, mines, bounty, lockdown, warp-out, salvage, hot zone, ship types, evolving and settings upgrade all pass.');

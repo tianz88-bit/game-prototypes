@@ -4,46 +4,88 @@
 // as the kit's own renderer does (256 px), because parts draw at a small fraction of source size.
 // Source files are never modified. If any part fails to load, ships fall back to placeholder shapes.
 import Phaser from 'phaser';
-import calibrationJson from '../../art/human-nomad-v1/calibration-approved.json';
-import { ASSETS, MODULES, checkCalibration } from './shipRig';
+import { checkCalibration } from './shipRig';
 import type { Calibration } from './shipRig';
 import { clientTune } from '../clientTune';
+import { SHIP_PROFILES } from './shipProfiles';
+import type { ShipProfile } from './shipProfiles';
+import { remapPixels } from './palette';
+import calibrationJson from '../../art/human-nomad-v1/calibration-approved.json';
 
 export const SHIP_ID = 'human-nomad-v1';
-export const CALIBRATION: Calibration = checkCalibration(calibrationJson);
+/** The starter's calibration (live settings edit this object). Same object as SHIP_PROFILES[0]'s. */
+export const CALIBRATION: Calibration = SHIP_PROFILES[0].calibration;
+checkCalibration(calibrationJson);
 export const SHADOW_ANCHOR = {...calibrationJson.shadow};
 
 export type ShipArtStatus = 'loading' | 'ready' | 'placeholder';
+/** The starter's art: without it every ship falls back to placeholder shapes. */
 export let shipArtStatus: ShipArtStatus = 'loading';
+/** Which ships' art loaded (by chassis). A missing new ship draws as the starter. */
+const ready: boolean[] = SHIP_PROFILES.map(() => false);
 
-const sourceKey = (asset: string): string => `${SHIP_ID}-src-${asset}`;
-/** Runtime texture key for a part. */
-export const partKey = (asset: string): string => `${SHIP_ID}-${asset}`;
-export const SHADOW_KEY = `${SHIP_ID}-shadow`;
+const sourceKey = (shipId: string, asset: string): string => `${shipId}-src-${asset}`;
+/** Runtime texture key for a part of a ship in a palette (0 = the original art). */
+export const partKey = (asset: string, shipId = SHIP_ID, palette = 0): string => `${shipId}-${asset}${palette ? `-p${palette}` : ''}`;
+export const shadowKey = (shipId = SHIP_ID): string => `${shipId}-shadow`;
+export const SHADOW_KEY = shadowKey();
+/** Resampled original part canvases, kept to make palette textures on first use. */
+const base = new Map<string, HTMLCanvasElement>();
 
 export function queueShipArt(scene: Phaser.Scene): void {
-  for (const a of ASSETS) scene.load.image(sourceKey(a), `assets/loose/${SHIP_ID}-${a}.png`);
+  for (const p of SHIP_PROFILES) for (const a of p.assets) scene.load.image(sourceKey(p.shipId, a), `assets/loose/${p.shipId}-${a}.png`);
 }
 
-/** Call in create() after the loader finished. Returns the resulting status. */
+/** The profile a ship type draws with: its own, or the starter's while its art is missing. */
+export function profileFor(chassis: number): ShipProfile {
+  return ready[chassis] ? SHIP_PROFILES[chassis] : SHIP_PROFILES[0];
+}
+
+/** Texture key for a part in a palette, making the palette texture the first time it is asked for. */
+export function paletteTexture(scene: Phaser.Scene, p: ShipProfile, asset: string, palette: number): string {
+  const key = partKey(asset, p.shipId, palette);
+  if (palette <= 0 || scene.textures.exists(key)) return palette > 0 ? key : partKey(asset, p.shipId);
+  const src = base.get(`${p.shipId}:${asset}`);
+  if (!src) return partKey(asset, p.shipId);
+  const c = document.createElement('canvas');
+  c.width = src.width;
+  c.height = src.height;
+  const ctx = c.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
+  ctx.drawImage(src, 0, 0);
+  const img = ctx.getImageData(0, 0, c.width, c.height);
+  remapPixels(img.data, palette);
+  ctx.putImageData(img, 0, 0);
+  scene.textures.addCanvas(key, c);
+  return key;
+}
+
+/** Call in create() after the loader finished. Returns the starter's status. */
 export function prepareShipArt(scene: Phaser.Scene): ShipArtStatus {
-  try {
-    for (const a of ASSETS) {
-      if (!scene.textures.exists(sourceKey(a))) throw new Error(`missing ${a}`);
+  SHIP_PROFILES.forEach((p, i) => {
+    try {
+      for (const a of p.assets) {
+        if (!scene.textures.exists(sourceKey(p.shipId, a))) throw new Error(`missing ${p.shipId} ${a}`);
+      }
+      for (const a of p.assets) {
+        const src = scene.textures.get(sourceKey(p.shipId, a)).getSourceImage() as HTMLImageElement;
+        const box = alphaBounds(src);
+        const max = clientTune.render.partTextureMax;
+        const k = Math.min(1, max / Math.max(box.w, box.h));
+        const canvas = resample(src, box, Math.max(1, Math.round(box.w * k)), Math.max(1, Math.round(box.h * k)));
+        base.set(`${p.shipId}:${a}`, canvas);
+        scene.textures.addCanvas(partKey(a, p.shipId), canvas);
+        scene.textures.remove(sourceKey(p.shipId, a)); // free the full-size source
+      }
+      ready[i] = true;
+    } catch (e) {
+      console.warn(`Ship art ${p.shipId} unavailable:`, (e as Error).message);
     }
-    for (const a of ASSETS) {
-      const src = scene.textures.get(sourceKey(a)).getSourceImage() as HTMLImageElement;
-      const box = alphaBounds(src);
-      const max = clientTune.render.partTextureMax;
-      const k = Math.min(1, max / Math.max(box.w, box.h));
-      const canvas = resample(src, box, Math.max(1, Math.round(box.w * k)), Math.max(1, Math.round(box.h * k)));
-      scene.textures.addCanvas(partKey(a), canvas);
-      scene.textures.remove(sourceKey(a)); // free the full-size source
-    }
+  });
+  if (ready[0]) {
     buildShadow(scene);
     shipArtStatus = 'ready';
-  } catch (e) {
-    console.warn('Ship art unavailable, using placeholder shapes:', (e as Error).message);
+  } else {
+    console.warn('Starter ship art unavailable, using placeholder shapes');
     shipArtStatus = 'placeholder';
   }
   return shipArtStatus;
@@ -101,13 +143,20 @@ function resample(img: HTMLImageElement, box: { x: number; y: number; w: number;
 /** Hard-edged union of module footprints at their mount points (kit rebuildShadow), no blur. */
 const SHADOW_SIZE = 1024;
 export function buildShadow(scene: Phaser.Scene): void {
-  if(scene.textures.exists(SHADOW_KEY))scene.textures.remove(SHADOW_KEY);
+  SHIP_PROFILES.forEach((p, i) => {
+    if (ready[i]) buildShadowFor(scene, p);
+  });
+}
+
+function buildShadowFor(scene: Phaser.Scene, p: ShipProfile): void {
+  const key = shadowKey(p.shipId);
+  if (scene.textures.exists(key)) scene.textures.remove(key);
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = SHADOW_SIZE;
   const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
-  for (const m of MODULES) {
-    const src = scene.textures.get(partKey(m.asset)).getSourceImage() as HTMLCanvasElement;
-    const w = CALIBRATION.modules[m.id].width;
+  for (const m of p.modules) {
+    const src = scene.textures.get(partKey(m.asset, p.shipId)).getSourceImage() as HTMLCanvasElement;
+    const w = p.calibration.modules[m.id].width;
     const h = (w * src.height) / src.width;
     ctx.save();
     ctx.translate(SHADOW_SIZE / 2 + m.x, SHADOW_SIZE / 2 + m.y);
@@ -118,5 +167,5 @@ export function buildShadow(scene: Phaser.Scene): void {
   ctx.globalCompositeOperation = 'source-in';
   ctx.fillStyle = '#01060c';
   ctx.fillRect(0, 0, SHADOW_SIZE, SHADOW_SIZE);
-  scene.textures.addCanvas(SHADOW_KEY, canvas);
+  scene.textures.addCanvas(key, canvas);
 }

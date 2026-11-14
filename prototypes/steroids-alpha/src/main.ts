@@ -124,7 +124,7 @@ if (DEBUG) {
       shareBox: () => (game.scene.getScene('menu') as MenuScene).shareBox,
       own: () => flight()?.net.ownRender() ?? null,
       /** Your ship's top speed now (power lowers it). */
-      topSpeed: () => { const o = flight()?.net.predicted; return o ? topSpeed(o.hullMax, TUNE) : 0; },
+      topSpeed: () => { const o = flight()?.net.predicted; return o ? topSpeed(o.hullMax, TUNE, o.chassis) : 0; },
       corrections: () => ({ ...(flight()?.net.corrections ?? { snapshots: 0, count: 0, max: 0 }) }),
       resetCorrections: () => {
         const n = flight()?.net;

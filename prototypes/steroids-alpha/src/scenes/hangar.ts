@@ -9,13 +9,13 @@ import { fitCamera, text, versionStamp } from './common';
 import { loadSave, writeSave } from '../save';
 import { UI, css, panel } from '../render/ui';
 import { TUNE } from '../../sim/tune';
-import { UNLOCKS, unlockPrice } from '../../sim/unlocks';
+import { UNLOCKS, effectiveOwned, unclaimedLegacy, unlockPrice } from '../../sim/unlocks';
 import type { Unlock } from '../../sim/unlocks';
 import { buyUnlock, ensureAccount } from '../net/account';
 
 /** Rows of the grid: what sits together. */
 const ROWS: string[][] = [
-  ['tint.crimson', 'tint.emerald', 'tint.violet', 'tint.gold', 'tint.ice'],
+  ['ship.scrappy', 'ship.interceptor', 'palette.0', 'palette.1', 'palette.2', 'palette.3'],
   ['flame.green', 'flame.violet', 'flame.white', 'flame.red', 'killfx.nova'],
   ['shield.green', 'shield.gold', 'shield.pink', 'runlog'],
   ['badge.crown', 'badge.spark', 'badge.skull', 'tag.gold', 'tag.mint', 'tag.rose'],
@@ -62,8 +62,15 @@ export class HangarScene extends Phaser.Scene {
     });
   }
 
+  /** Owned: bought, free (Scrappy, the default palette) or converted from a hull tint. */
   private owned(id: string): boolean {
-    return this.unlocks.includes(id);
+    return effectiveOwned(this.unlocks).has(id);
+  }
+
+  /** What an item costs this account now: 0 while a gold or ice tint can be exchanged for a palette. */
+  private priceOf(u: Unlock): number | null {
+    if (u.slot === 'palette' && unclaimedLegacy(this.unlocks)) return 0;
+    return unlockPrice(u, TUNE);
   }
 
   private layout(): void {
@@ -92,23 +99,28 @@ export class HangarScene extends Phaser.Scene {
         const x = left + c * (cw + gap) + cw / 2;
         const y = top + r * (ch + gap) + ch / 2;
         const owned = this.owned(u.id);
-        const equipped = u.slot !== 'qol' && look[u.slot] === u.id;
+        // Defaults count as equipped when nothing else is chosen in their slot.
+        const equipped = u.slot !== 'qol' && (look[u.slot] === u.id || (!look[u.slot] && !!u.free));
         const armed = this.armed === u.id;
         const g = this.add.graphics();
         panel(g, x - cw / 2, y - ch / 2, cw, ch, equipped ? UI.uiAccent : armed ? UI.uiGold : owned ? UI.uiBorder : 0x2a3550, equipped || armed);
         // Swatch on the left: colour, flame colours or the badge glyph.
         const sx = x - cw / 2 + 18;
         if (u.palette) u.palette.forEach((p, i) => { g.fillStyle(p, 1); g.fillCircle(sx - 6 + (i % 2) * 12, y - 6 + Math.floor(i / 2) * 12, 5); });
+        else if (u.slot === 'ship') { g.fillStyle(u.index === 1 ? 0x7fe9ff : 0x5fa8ff, 1); g.fillTriangle(sx, y - 11, sx - 8, y + 9, sx + 8, y + 9); }
         else if (u.colour !== undefined) { g.fillStyle(u.colour, 1); g.fillCircle(sx, y, 10); }
         else if (u.glyph) text(this, sx, y, u.glyph, 18, '#ffd23a').setOrigin(0.5);
         else text(this, sx, y, '≡', 18, '#dfe8ff').setOrigin(0.5);
-        const status = equipped ? 'EQUIPPED' : armed ? 'Tap to confirm' : owned ? (u.slot === 'qol' ? 'OWNED · tap to view' : 'OWNED · tap to wear') : `${unlockPrice(u, TUNE)} credits`;
+        const price = this.priceOf(u);
+        const status = equipped ? (u.slot === 'ship' ? 'FLYING' : 'EQUIPPED') : armed ? 'Tap to confirm' : owned ? (u.slot === 'qol' ? 'OWNED · tap to view' : u.slot === 'ship' ? 'OWNED · tap to fly' : 'OWNED · tap to wear') : price === 0 ? 'FREE (old tint)' : `${price} credits`;
         const small = cw < 140;
         text(this, sx + 16, y - 9, u.name, small ? 10 : 12, '#e8f0ff').setOrigin(0, 0.5);
         text(this, sx + 16, y + 9, status, small ? 9 : 10, equipped ? '#7fe9ff' : armed ? '#ffd23a' : owned ? '#9fb3d6' : '#ffd98a').setOrigin(0, 0.5);
         this.cards.push({ u, x, y, w: cw, h: ch });
       });
     });
+    // The Battlecruiser is not bought here: fighters evolve into it during a run (owner design).
+    text(this, w / 2, h - 34, 'BATTLECRUISER: evolve during a run (shop: EVOLVE), with enough upgrades and power', 11, '#8fa2c8').setOrigin(0.5);
     if (this.note) text(this, w / 2, h - 16, this.note, 12, '#ffd98a').setOrigin(0.5);
     if (this.showRuns) this.drawRuns(w, h);
     versionStamp(this);
@@ -144,15 +156,18 @@ export class HangarScene extends Phaser.Scene {
         this.showRuns = true;
       } else {
         const look = { ...(loadSave().look ?? {}) };
-        if (look[u.slot] === u.id) delete look[u.slot];
+        // Ship and palette always have one choice (tapping the current one keeps it); others toggle.
+        if (u.slot === 'ship' || u.slot === 'palette') look[u.slot] = u.id;
+        else if (look[u.slot] === u.id) delete look[u.slot];
         else look[u.slot] = u.id;
         writeSave({ look });
-        this.note = look[u.slot] ? `${u.name} equipped` : `${u.name} removed`;
+        this.note = look[u.slot] ? (u.slot === 'ship' ? `Flying the ${u.name} next run` : `${u.name} equipped`) : `${u.name} removed`;
       }
       this.layout();
       return;
     }
-    const price = unlockPrice(u, TUNE);
+    const price = this.priceOf(u);
+    if (price === null) return;
     if (this.credits !== null && this.credits < price) {
       this.armed = null;
       this.note = `${u.name} needs ${price - this.credits} more credits`;

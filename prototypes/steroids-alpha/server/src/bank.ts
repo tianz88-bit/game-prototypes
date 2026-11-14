@@ -131,13 +131,25 @@ export type BuyResult = { ok: true; balance: number; unlocks: string[] } | { ok:
  * cannot charge twice); the unlock row follows only if that purchase row exists. The price comes
  * from the server's catalogue, never from the client.
  */
-export async function buyUnlock(db: D1Like, secret: unknown, unlockId: unknown, price: number | null): Promise<BuyResult> {
+/**
+ * What an item costs this account, given what it owns: a price (0 for a free legacy claim, with a
+ * marker row to grant alongside), 'owned', or null when it is not for sale.
+ */
+export type Quote = { price: number; grant?: string } | 'owned' | null;
+
+export async function buyUnlock(db: D1Like, secret: unknown, unlockId: unknown, quoteOrPrice: number | null | ((owned: string[]) => Quote)): Promise<BuyResult> {
   const account = await accountFor(db, secret);
   if (!account) return { ok: false, error: 'unknown account' };
-  if (typeof unlockId !== 'string' || price === null || !(price > 0)) return { ok: false, error: 'not for sale' };
+  if (typeof unlockId !== 'string') return { ok: false, error: 'not for sale' };
+  const already = await ownedUnlocks(db, account);
+  const quote: Quote =
+    typeof quoteOrPrice === 'function' ? quoteOrPrice(already) : already.includes(unlockId) ? 'owned' : quoteOrPrice !== null && quoteOrPrice > 0 ? { price: quoteOrPrice } : null;
+  if (quote === 'owned') return { ok: false, error: 'owned', balance: await balanceOf(db, account) };
+  if (!quote || !(quote.price >= 0)) return { ok: false, error: 'not for sale' };
+  const price = quote.price;
   const key = `purchase:${account}:${unlockId}`;
   const now = Date.now();
-  if ((await ownedUnlocks(db, account)).includes(unlockId)) return { ok: false, error: 'owned', balance: await balanceOf(db, account) };
+  if (already.includes(unlockId)) return { ok: false, error: 'owned', balance: await balanceOf(db, account) };
   await db.batch([
     db
       .prepare(
@@ -147,6 +159,8 @@ export async function buyUnlock(db: D1Like, secret: unknown, unlockId: unknown, 
       )
       .bind(key, account, -Math.floor(price), now, account, Math.floor(price), account, unlockId),
     db.prepare('INSERT OR IGNORE INTO unlocks (account_id, unlock_id, created_at) SELECT ?, ?, ? WHERE EXISTS (SELECT 1 FROM ledger WHERE id = ?)').bind(account, unlockId, now, key),
+    // A free legacy claim also records that the claim is used (same condition).
+    ...(quote.grant ? [db.prepare('INSERT OR IGNORE INTO unlocks (account_id, unlock_id, created_at) SELECT ?, ?, ? WHERE EXISTS (SELECT 1 FROM ledger WHERE id = ?)').bind(account, quote.grant, now, key)] : []),
   ]);
   const [balance, unlocks] = await Promise.all([balanceOf(db, account), ownedUnlocks(db, account)]);
   return unlocks.includes(unlockId) ? { ok: true, balance, unlocks } : { ok: false, error: 'not enough credits', balance };
