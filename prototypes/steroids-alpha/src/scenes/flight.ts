@@ -798,7 +798,7 @@ export class FlightScene extends Phaser.Scene {
     this.drawBounty(p, w, h);
     this.drawWarp(p, w, h);
     this.drawHotZone(p, w, h);
-    this.schemeLabel.setVisible(intents.touch);
+    this.schemeLabel.setVisible(false);
     if (!intents.touch) {
       intents.dashButton = null;
       intents.schemeButton = null;
@@ -816,13 +816,7 @@ export class FlightScene extends Phaser.Scene {
     controlFace(g,fb.x,fb.y,fr,UI.uiDanger,intents.fire);
     g.lineStyle(2,UI.uiDanger,.9);g.strokeCircle(fb.x,fb.y,fr*.22);
     for(let i=0;i<4;i++){const a=i*Math.PI/2;g.lineBetween(fb.x+Math.cos(a)*fr*.32,fb.y+Math.sin(a)*fr*.32,fb.x+Math.cos(a)*fr*.48,fb.y+Math.sin(a)*fr*.48);}
-    // Steering toggle moves with its intent zone, clear of the compact leaderboard.
-    const bw = clientTune.touch.schemeButtonWidth;
-    const bh = clientTune.touch.schemeButtonHeight;
-    const sb = { x: 10 + bw / 2, y: h - 12 - bh / 2 };
-    intents.schemeButton = { x: sb.x, y: sb.y, hw: bw / 2 + 6, hh: bh / 2 + 6 };
-    panel(g,sb.x-bw/2,sb.y-bh/2,bw,bh,UI.uiBorder);
-    this.schemeLabel.setPosition(sb.x, sb.y).setText(intents.scheme === 'marker' ? 'STEER: MARKER' : 'STEER: CRAFT');
+    // No steering toggle on phones (owner, 14 November 2026): the stick is always the direction marker.
     const cd = this.net.predicted?.dashCd ?? 0;
     const ready = cd <= 0;
     controlFace(g,b.x,b.y,r,UI.uiAccent,ready);
