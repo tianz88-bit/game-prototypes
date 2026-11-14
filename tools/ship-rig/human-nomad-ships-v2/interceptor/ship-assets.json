@@ -1,0 +1,161 @@
+{
+  "id": "interceptor",
+  "r2Object": "steroids-alpha_interceptor-v2_assets.zip",
+  "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_interceptor-v2_assets.zip",
+  "zipSha256": "8ff43aea2a41b1d30c7b9ee334348489358e8e7cfb244e7d4458776f3f4375f2",
+  "bytes": 5856756,
+  "assets": [
+    {
+      "asset": "armour",
+      "deliveryPath": "loose/ships/human-nomad/interceptor-v2/armour.png",
+      "localPath": "assets/new-v2/armour.png",
+      "bytes": 1088198,
+      "sha256": "3a1198a20ad3d7bf26f7c5ec5e030f7055acc381868fc01217977634914d819a",
+      "sourceSize": [
+        1312,
+        1199
+      ],
+      "trim": {
+        "x": 50,
+        "y": 83,
+        "width": 1211,
+        "height": 1058
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    },
+    {
+      "asset": "booster-core",
+      "deliveryPath": "loose/ships/human-nomad/interceptor-v2/booster-core.png",
+      "localPath": "assets/new-v2/booster-core.png",
+      "bytes": 900518,
+      "sha256": "fd15198ba4a153dcb131f0e916f717ff4e96bc98bfd2e8d70569475dd64c3679",
+      "sourceSize": [
+        764,
+        2058
+      ],
+      "trim": {
+        "x": 108,
+        "y": 59,
+        "width": 549,
+        "height": 1952
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    },
+    {
+      "asset": "booster-cowling",
+      "deliveryPath": "loose/ships/human-nomad/interceptor-v2/booster-cowling.png",
+      "localPath": "assets/new-v2/booster-cowling.png",
+      "bytes": 1033820,
+      "sha256": "a919ac5a892105ffe8d158f1c38ba12a083bf7668b3d1b8697e6646508fc32a5",
+      "sourceSize": [
+        887,
+        1774
+      ],
+      "trim": {
+        "x": 144,
+        "y": 63,
+        "width": 599,
+        "height": 1651
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    },
+    {
+      "asset": "chassis",
+      "deliveryPath": "loose/ships/human-nomad/interceptor-v2/chassis.png",
+      "localPath": "assets/new-v2/chassis.png",
+      "bytes": 834465,
+      "sha256": "f4bc49d31003c0245a071902a2558e13cc7c87412f3270417a688758fb107692",
+      "sourceSize": [
+        1312,
+        1199
+      ],
+      "trim": {
+        "x": 130,
+        "y": 127,
+        "width": 1052,
+        "height": 913
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    },
+    {
+      "asset": "cockpit-base",
+      "deliveryPath": "loose/ships/human-nomad/interceptor-v2/cockpit-base.png",
+      "localPath": "assets/new-v2/cockpit-base.png",
+      "bytes": 944788,
+      "sha256": "8017a159ca930ca57ed9b10d7cf7295391217b9df8266a7c76cf0381e20912a4",
+      "sourceSize": [
+        1345,
+        1169
+      ],
+      "trim": {
+        "x": 77,
+        "y": 152,
+        "width": 1188,
+        "height": 895
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    },
+    {
+      "asset": "cockpit-canopy",
+      "deliveryPath": "loose/ships/human-nomad/interceptor-v2/cockpit-canopy.png",
+      "localPath": "assets/new-v2/cockpit-canopy.png",
+      "bytes": 959334,
+      "sha256": "13fcf51ddf39925dc95cf18884e8a6d5ab193458304102cdf508e840e19f52e9",
+      "sourceSize": [
+        1345,
+        1169
+      ],
+      "trim": {
+        "x": 77,
+        "y": 148,
+        "width": 1182,
+        "height": 913
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    },
+    {
+      "asset": "gun",
+      "deliveryPath": "loose/ships/human-nomad/interceptor-v2/gun.png",
+      "localPath": "assets/new-v2/gun.png",
+      "bytes": 738615,
+      "sha256": "41c87149a0e6c0206e18c9cbda9d762e0c1e64682ca46dfecf1847be8f333828",
+      "sourceSize": [
+        724,
+        2172
+      ],
+      "trim": {
+        "x": 78,
+        "y": 169,
+        "width": 569,
+        "height": 1772
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    },
+    {
+      "asset": "wing",
+      "deliveryPath": "loose/ships/human-nomad/interceptor-v2/wing.png",
+      "localPath": "assets/new-v2/wing.png",
+      "bytes": 835029,
+      "sha256": "34b99af5bcd047aaaf6f307b2be3941c6693c17b39338a3a987a2bd5221e7ae7",
+      "sourceSize": [
+        1774,
+        887
+      ],
+      "trim": {
+        "x": 76,
+        "y": 75,
+        "width": 1621,
+        "height": 745
+      },
+      "origin": "centre of trimmed frame",
+      "alphaThreshold": 12
+    }
+  ]
+}

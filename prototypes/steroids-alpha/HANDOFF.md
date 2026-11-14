@@ -1,5 +1,11 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-14 codex codex/steroids-ships-v2-handoff
+DID: Deliver current overhead interceptor/capital rigs and three new R2 art packs for integration; no runtime wiring, merges or deployments.
+FILES: tools/ship-rig/human-nomad-ships-v2/* BUILD_STATUS.md
+SEAM: proposed per-chassis profiles/calibration, four-cannon recoil, palette RGBA remap and footprint/muzzle proposals only; production contracts unchanged.
+CROSS: none; no tune, protocol, account, scene-flow or CI changes.
+FOR claude: Restore via kit/restore-assets.mjs; all three public ZIP SHA256s verified. Twelve/sixteen-module tests, typecheck, approved396-pose rig and build pass. Radius/mount proposals require owner review. Credit unlock/evolution/stat/tint migration decisions remain in your lane; orbital zoom/salvage polish remains pending Codex work.
 ## 2026-11-13 claude unlock-shop
 DID: Hangar scene (menu -> HANGAR): buy/equip 20 unlocks from sim/unlocks.ts (tints, flames, shields, Nova kill fx, badges, name colours, run history). POST /account/buy (server price, atomic balance check); GET /account returns unlocks. Looks sent in the auth message, worn only when owned, broadcast in the roster. Run history recorded in the save.
 FILES: sim/unlocks.ts server/src/{bank,index,room}.ts src/scenes/{hangar,menu,flight}.ts src/net/{account,client}.ts src/save.ts src/main.ts src/render/{shipView,thrusters}.ts sim/protocol.ts tune.json scripts/test-steroids-alpha-bank.mjs
@@ -97,10 +103,3 @@ FILES: src/scenes/flight.ts
 SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
 CROSS: none (render/shared drawing)
 FOR claude: Typecheck/build/rig/sim pass. Brave desktop + DPR2 phone owner/near/edge bounty fixtures inspected; 2 clients + 4 bots baseline pacing, zero console/page errors; bounty rules and lock selection untouched.
-
-## 2026-11-13 codex codex/steroids-ordnance
-DID: Missile hull/fins, blue-white ignition and bounded curved smoke history; spiked armed/unarmed mines, trigger dashes and HP; distinct blast debris and segmented lock crosshairs.
-FILES: src/render/worldArt.ts src/scenes/flight.ts
-SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
-CROSS: none (render/shared drawing)
-FOR claude: Typecheck/build/rig/sim pass. Brave desktop + DPR2 phone ordnance fixtures inspected; 2 clients + bots, baseline frame pacing and no console/page errors; no projectile rules or lock-selection changes.
