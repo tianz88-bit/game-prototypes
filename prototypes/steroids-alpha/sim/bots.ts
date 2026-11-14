@@ -1,7 +1,12 @@
 // AI pilots (owner request: bots on Planet A). Pure decision rules: each tick, given the world, a bot
 // produces the same ShipInput a player would send, plus an optional shop purchase. The server runs
-// them; nothing here touches the network. Kept deliberately beatable: aim wobbles, guns are fired in
-// bursts that respect overheat, and a badly hurt bot runs.
+// them; nothing here touches the network.
+//
+// Bots are beatable by playing worse, not by weaker stats (owner, 14 November 2026): they only see
+// a screen's worth around them and take a moment to react to a newcomer; they read a target's
+// position a few times a second and aim where it was (weaving makes them miss); they lose interest
+// after a while and wander off to mine; only one bot hunts a pilot at a time; guns fire in bursts
+// that respect overheat; a badly hurt bot runs.
 import type { Tune } from './tune';
 import type { ShipInput, ShipState } from './ship';
 import { topSpeed } from './ship';
@@ -22,16 +27,24 @@ export interface BotBrain {
   wander: number;
   /** Next shop item to try (round robin). */
   nextBuy: number;
+  /** The ship it is after (0: none), when it first noticed it and when it can react. */
+  target: number;
+  reactAt: number;
+  engagedSince: number;
+  /** Ignoring fights until this tick (bored of the last one). */
+  distractedUntil: number;
+  /** Where it last read its target to be, and how it was moving (aim uses this, not the truth). */
+  seen: { x: number; y: number; vx: number; vy: number; at: number } | null;
 }
 
 export function newBrain(rng: () => number): BotBrain {
-  return { aimError: 0, cooling: false, wander: rng() * Math.PI * 2, nextBuy: Math.floor(rng() * 3) };
+  return { aimError: 0, cooling: false, wander: rng() * Math.PI * 2, nextBuy: Math.floor(rng() * 3), target: 0, reactAt: 0, engagedSince: 0, distractedUntil: 0, seen: null };
 }
 
 const idleInput = (): ShipInput => ({ seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN, missile: false, mine: false, warp: false });
 
 /** One tick of decisions for bot id. */
-export function botThink(id: number, s: ShipState, world: World, brain: BotBrain, tune: Tune, rng: () => number): { input: ShipInput; buy: { item: number; tier: number } | null } {
+export function botThink(id: number, s: ShipState, world: World, brain: BotBrain, tune: Tune, rng: () => number, others: readonly BotBrain[] = []): { input: ShipInput; buy: { item: number; tier: number } | null } {
   const t = tune.bots;
   const W = tune.world.width;
   const H = tune.world.height;
@@ -44,13 +57,42 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
   brain.aimError = Math.max(-1, Math.min(1, brain.aimError + (rng() - 0.5) * 0.3)) ;
   const wobble = brain.aimError * ((t.aimErrorDeg * Math.PI) / 180);
 
-  // Nearest other ship (players and bots alike).
-  let enemy: { s: ShipState; dx: number; dy: number; d: number } | null = null;
-  for (const [oid, o] of world.ships) {
-    if (oid === id || o.hp <= 0) continue;
-    const r = rel(o.x, o.y);
-    if (r.d <= t.engageRange && (!enemy || r.d < enemy.d)) enemy = { s: o, ...r };
+  // Who it can see: ships within a screen's worth, not already hunted by enough other bots.
+  const tick = world.tick;
+  const hz = tune.net.tickHz;
+  const hunted = (oid: number): number => others.filter((b) => b !== brain && b.target === oid).length;
+  let enemy: { id: number; s: ShipState; dx: number; dy: number; d: number } | null = null;
+  if (tick >= brain.distractedUntil) {
+    for (const [oid, o] of world.ships) {
+      if (oid === id || o.hp <= 0) continue;
+      const r = rel(o.x, o.y);
+      if (r.d > t.sightRange || (oid !== brain.target && hunted(oid) >= t.maxBotsPerTarget)) continue;
+      // Stick with the current target while it stays in sight.
+      if (!enemy || oid === brain.target || (enemy.id !== brain.target && r.d < enemy.d)) enemy = { id: oid, s: o, ...r };
+    }
   }
+  if (!enemy) {
+    brain.target = 0;
+    brain.seen = null;
+  } else if (enemy.id !== brain.target) {
+    // A newcomer: it takes a moment to notice and react.
+    brain.target = enemy.id;
+    brain.reactAt = tick + Math.round((t.reactionSeconds + (rng() * 2 - 1) * t.reactionJitterSeconds) * hz);
+    brain.engagedSince = brain.reactAt;
+    brain.seen = null;
+  }
+  // Bored of a fight that goes on too long: off to do something else for a while.
+  if (enemy && tick - brain.engagedSince > t.attentionSeconds * hz) {
+    brain.distractedUntil = tick + Math.round(t.distractedSeconds * hz);
+    brain.target = 0;
+    brain.seen = null;
+    enemy = null;
+  }
+  // Reading the target: a few times a second; between reads it aims at the old picture.
+  if (enemy && (!brain.seen || tick - brain.seen.at >= t.perceptionSeconds * hz)) {
+    brain.seen = { x: enemy.s.x, y: enemy.s.y, vx: Math.cos(enemy.s.heading) * enemy.s.speed, vy: Math.sin(enemy.s.heading) * enemy.s.speed, at: tick };
+  }
+  const reacting = !!enemy && tick < brain.reactAt;
 
   // Shop: now and then, buy the next affordable upgrade.
   let buy: { item: number; tier: number } | null = null;
@@ -71,7 +113,7 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
   const mayFire = !brain.cooling && !s.overheated;
 
   const hurt = s.hp < s.hullMax * t.fleeHullFraction;
-  if (enemy && hurt) {
+  if (enemy && hurt && !reacting) {
     // Run: straight away from the threat, flat out, dashing when possible.
     const away = Math.atan2(-enemy.dy, -enemy.dx);
     input.aim = away;
@@ -86,11 +128,12 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
     return { input, buy };
   }
 
-  if (enemy) {
-    // Lead the target by the bullet's flight time, plus a wobble.
-    const flight = enemy.d / tune.weapon.bulletSpeed;
-    const lx = enemy.dx + Math.cos(enemy.s.heading) * enemy.s.speed * flight;
-    const ly = enemy.dy + Math.sin(enemy.s.heading) * enemy.s.speed * flight;
+  if (enemy && !reacting && brain.seen) {
+    // Lead where it last saw the target, by the bullet's flight time, plus a wobble.
+    const seen = rel(brain.seen.x, brain.seen.y);
+    const flight = seen.d / tune.weapon.bulletSpeed;
+    const lx = seen.dx + brain.seen.vx * flight;
+    const ly = seen.dy + brain.seen.vy * flight;
     const aim = Math.atan2(ly, lx) + wobble;
     input.aim = aim;
     input.thrust = enemy.d > t.preferredRange ? 1 : -0.5;

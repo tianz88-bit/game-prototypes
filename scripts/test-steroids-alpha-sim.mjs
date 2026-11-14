@@ -591,8 +591,32 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
     const w = emptyWorld();
     const bot = placeShip(w, 1, 1000, 1000, 0);
     placeShip(w, 2, 1300, 1000, Math.PI / 2).speed = 0;
-    const { input } = S.botThink(1, bot, w, S.newBrain(fixed), tune, fixed);
-    assert(Math.abs(input.aim) < 0.1 && input.fire, 'engages an enemy ahead');
+    const brain = S.newBrain(fixed);
+    const first = S.botThink(1, bot, w, brain, tune, fixed).input;
+    assert(!first.fire, 'a newcomer is not shot at instantly (reaction time)');
+    let input = first;
+    for (let i = 0; i < Math.ceil((bt.reactionSeconds + bt.reactionJitterSeconds) * tune.net.tickHz) + 1; i++) {
+      w.tick++;
+      input = S.botThink(1, bot, w, brain, tune, fixed).input;
+    }
+    assert(Math.abs(input.aim) < 0.1 && input.fire, 'engages an enemy ahead after reacting');
+    // It aims at where it last saw the target, not where the target is now.
+    const tgt = w.ships.get(2);
+    const seenAt = brain.seen.at;
+    tgt.y += 200; // the target jumps sideways between two reads
+    const stale = w.tick + 1 - seenAt < bt.perceptionSeconds * tune.net.tickHz ? S.botThink(1, bot, w, brain, tune, fixed).input : null;
+    if (stale) assert(Math.abs(stale.aim) < 0.1, 'between reads it aims at the old picture');
+    tgt.y -= 200;
+    // Attention span: after attentionSeconds on one fight it wanders off for distractedSeconds.
+    w.tick = brain.engagedSince + Math.ceil(bt.attentionSeconds * tune.net.tickHz) + 1;
+    S.botThink(1, bot, w, brain, tune, fixed);
+    assert(brain.target === 0 && brain.distractedUntil > w.tick, 'gets bored and leaves the fight');
+    // Only one bot hunts a pilot at a time.
+    const other = S.newBrain(fixed);
+    other.target = 2;
+    const third = S.newBrain(fixed);
+    S.botThink(1, bot, Object.assign(w, {}), third, tune, fixed, [other, third]);
+    assert.equal(third.target, 0, 'a pilot already hunted by a bot is left alone');
   }
   // Bursts: near the heat limit it holds fire until cooled.
   {
@@ -600,7 +624,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
     const bot = placeShip(w, 1, 1000, 1000, 0);
     placeShip(w, 2, 1300, 1000, 0);
     bot.heat = bt.burstHeat + 0.01;
-    const brain = S.newBrain(fixed);
+    const brain = Object.assign(S.newBrain(fixed), { target: 2, reactAt: 0, engagedSince: w.tick }); // already in the fight
     assert(!S.botThink(1, bot, w, brain, tune, fixed).input.fire, 'stops at the burst heat');
     bot.heat = bt.resumeHeat - 0.01;
     assert(S.botThink(1, bot, w, brain, tune, fixed).input.fire, 'resumes once cooled');
@@ -611,7 +635,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
     const bot = placeShip(w, 1, 1000, 1000, 0);
     placeShip(w, 2, 1300, 1000, 0);
     bot.hp = bot.hullMax * (bt.fleeHullFraction - 0.1);
-    const { input } = S.botThink(1, bot, w, S.newBrain(fixed), tune, fixed);
+    const { input } = S.botThink(1, bot, w, Object.assign(S.newBrain(fixed), { target: 2, reactAt: 0, engagedSince: w.tick }), tune, fixed);
     assert(Math.abs(Math.abs(input.aim) - Math.PI) < 0.1 && input.thrust === 1 && !input.fire, 'flees when hurt');
   }
   // Farm: no enemy, a rock in range: shoot it; a mineral nearby: go for it.

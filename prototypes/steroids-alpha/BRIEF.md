@@ -215,6 +215,14 @@ currency; currency buys unlocks, QoL and options, never raw power.
 - Bots (owner, 12 November): AI pilots on Planet A only, present only while
   at least one real player is there. Planet B is players-only PvP. Bots spawn
   spread over the planet, as far from every ship as possible (owner).
+  Bots are beaten by out-playing them, not by stat handicaps (owner, 14
+  November 2026): they see about a screen around them (600 px), take about a
+  second to react to a newcomer, aim where they last saw a target (read four
+  times a second, so weaving makes them miss), lose interest after about 6 s
+  of fighting and wander off for about 4 s, and only one bot hunts a pilot at
+  a time. Duel measure (one bot vs a fresh pilot who does not shoot back):
+  before, about 2.6 s to die whatever the pilot did; after, about 3.6 s flying
+  straight, about 13 s turning gently, about 27 s weaving hard.
 - Missiles and mines (owner, 12 November): shop items with four tiers; each
   tier adds a charge. Charges refill automatically one at a time and are held
   until used. Two buttons with symbols and charge counts (keyboard Q and E).
