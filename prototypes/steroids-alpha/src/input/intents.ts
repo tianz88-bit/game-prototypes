@@ -13,6 +13,7 @@
 import { clientTune } from '../clientTune';
 import { TUNE } from '../../sim/tune';
 import { loadSave, writeSave } from '../save';
+import { logicalSize, toLogical } from '../base';
 
 export type SteerScheme = 'marker' | 'craft';
 
@@ -90,7 +91,6 @@ export class Intents {
    * the nose in craft mode (pull back = 180). Keyboard: hold S for a 180, A or D for 90 left or right.
    */
   dashAim(heading: number): number {
-    if (this.portraitBlocked) return NaN;
     const st = this.stick;
     if (st) {
       const r = clientTune.touch.joystickRadius;
@@ -113,17 +113,8 @@ export class Intents {
   private stickPointer: number | null = null;
   private firePointer: number | null = null;
 
-  /**
-   * Phone play is landscape only (owner decision). On a touch device held upright the game shows a
-   * rotate prompt and every intent reads as neutral until the phone is turned.
-   */
-  get portraitBlocked(): boolean {
-    return this.touch && window.innerHeight > window.innerWidth;
-  }
-
   /** Fire is held (keyboard Space or J, or a finger on the fire button). */
   get fire(): boolean {
-    if (this.portraitBlocked) return false;
     return this.firePointer !== null || this.held.has(' ') || this.held.has('j');
   }
 
@@ -145,10 +136,6 @@ export class Intents {
 
   /** True once per press since the last call. */
   consume(p: Press): boolean {
-    if (this.portraitBlocked) {
-      this.presses.clear();
-      return false;
-    }
     const had = this.presses.has(p);
     this.presses.delete(p);
     return had;
@@ -196,7 +183,6 @@ export class Intents {
 
   /** The move intent for one step, from whichever device is active. speed is the ship's current speed. */
   flight(speed: number): { turn: number; aim: number; thrust: number } {
-    if (this.portraitBlocked) return { turn: 0, aim: NaN, thrust: 0 };
     const st = this.stick;
     if (!st) {
       // No finger on the stick counts as the stick at rest: in marker mode the ship eases back to
@@ -225,9 +211,7 @@ export class Intents {
       this.touch = true;
       this.scheme = 'marker';
     }
-    if (this.portraitBlocked) return;
-    const x = e.clientX;
-    const y = e.clientY;
+    const { x, y } = toLogical(e.clientX, e.clientY);
     this.taps.push({ x, y });
     const hit = (z: Zone | null): boolean => !!z && Math.abs(x - z.x) <= z.hw && Math.abs(y - z.y) <= z.hh;
     if (hit(this.copyZone?.zone ?? null)) this.copyPointer = e.pointerId;
@@ -263,7 +247,7 @@ export class Intents {
       this.presses.add('scheme');
       return;
     }
-    if (this.touch && x < window.innerWidth / 2 && this.stickPointer === null) {
+    if (this.touch && x < logicalSize().w / 2 && this.stickPointer === null) {
       this.stickPointer = e.pointerId;
       this.stick = { ox: x, oy: y, dx: 0, dy: 0 };
     }
@@ -272,8 +256,9 @@ export class Intents {
   private onMove(e: PointerEvent): void {
     if (e.pointerId !== this.stickPointer || !this.stick) return;
     const r = clientTune.touch.joystickRadius;
-    let dx = e.clientX - this.stick.ox;
-    let dy = e.clientY - this.stick.oy;
+    const p = toLogical(e.clientX, e.clientY);
+    let dx = p.x - this.stick.ox;
+    let dy = p.y - this.stick.oy;
     const len = Math.hypot(dx, dy);
     if (len > r) {
       dx = (dx / len) * r;
@@ -287,7 +272,8 @@ export class Intents {
     if (e.pointerId === this.copyPointer) {
       this.copyPointer = null;
       const c = this.copyZone;
-      if (c && Math.abs(e.clientX - c.zone.x) <= c.zone.hw && Math.abs(e.clientY - c.zone.y) <= c.zone.hh) {
+      const p = toLogical(e.clientX, e.clientY);
+      if (c && Math.abs(p.x - c.zone.x) <= c.zone.hw && Math.abs(p.y - c.zone.y) <= c.zone.hh) {
         copyText(c.text).then((ok) => this.presses.add(ok ? 'copied' : 'copyFailed'));
       }
     }

@@ -710,7 +710,7 @@ export class FlightScene extends Phaser.Scene {
     const labels: Record<string, string> = { turret: 'TURRET', shield: 'SHIELD', damage: 'GUNS', missile: 'MISSILE', mine: 'MINES' };
     const x = 10;
     const mobile = intents.touch;
-    const available = window.innerWidth - Math.min(BOARD_CHIP_W, window.innerWidth * .34) - 30;
+    const available = logicalSize().w - Math.min(BOARD_CHIP_W, logicalSize().w * .34) - 30;
     const cols = mobile ? Math.max(1, Math.min(6, Math.floor(available / 88))) : 1;
     const bw = mobile ? Math.min(86, (available - (cols - 1) * 4) / cols) : 124;
     const bh = mobile ? 34 : 30;

@@ -21,9 +21,15 @@ All names, ships, pilots and art are original. Nothing is copied from either.
 
 - Browser game. Phaser 3, TypeScript (strict), Vite, per the repo stack.
 - All game UI drawn in the Phaser canvas. No DOM UI overlay.
-- Must be playable on a phone (repo rule kept, no exemption). Phones play in
-  landscape only (owner decision): held upright, the game asks the player to
-  turn the phone sideways.
+- Must be playable on a phone (repo rule kept, no exemption). The game is a
+  landscape game. Owner rule (14 November 2026): never block the player, so
+  there is no "turn your phone" screen. A phone held upright (screen more than
+  1.4 times taller than wide) draws the landscape game turned a quarter, as
+  native landscape games look when held upright; the player turns the phone or
+  plays it sideways. Near-square screens (open foldables, tablets) play as
+  they are. On touch devices, choosing a planet asks for fullscreen and, on
+  tall phones, a landscape lock (Android; iPad fullscreen only; iPhone Safari
+  allows neither). A refusal never stops play.
 - Client deploys to itch.io via Butler (repo default for new prototypes).
 - Server deploys to Cloudflare Workers (Durable Objects + D1).
 - No new npm dependencies without owner approval.

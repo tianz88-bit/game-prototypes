@@ -5,6 +5,7 @@ import { PLANETS } from '../../sim/planets';
 import type { PlanetId } from '../../sim/planets';
 import { SHARE_URL, logicalSize, serverOrigin } from '../base';
 import QRCode from 'qrcode';
+import { goImmersive } from '../input/immersive';
 import { intents } from '../input/intents';
 import { fitCamera, text, versionStamp } from './common';
 import { cleanName } from '../../sim/protocol';
@@ -41,7 +42,9 @@ function nameField(): HTMLInputElement {
     field.style.cssText =
       'position:fixed;display:none;margin:0;padding:0;border:0;outline:none;background:transparent;' +
       'color:transparent;caret-color:transparent;font-size:16px;z-index:5;touch-action:manipulation;';
-    document.body.appendChild(field);
+    // Inside the game's container, so it turns with the game when drawn sideways (base.placeContainer);
+    // the container's transform makes this fixed field position in the game's logical space.
+    (document.getElementById('app') ?? document.body).appendChild(field);
   }
   return field;
 }
@@ -168,8 +171,7 @@ export class MenuScene extends Phaser.Scene {
     // Opening the keyboard resizes the page and re-runs this layout; keep what is being typed.
     if (document.activeElement !== f && !this.codeMode) f.value = loadSave().name ?? '';
     f.setAttribute('aria-label', this.codeMode ? 'Recovery code' : 'Pilot name');
-    const r = this.game.canvas.getBoundingClientRect();
-    Object.assign(f.style, { display: 'block', left: `${r.left + w / 2 - bw / 2}px`, top: `${r.top + ny - 18}px`, width: `${bw}px`, height: '36px' });
+    Object.assign(f.style, { display: 'block', left: `${w / 2 - bw / 2}px`, top: `${ny - 18}px`, width: `${bw}px`, height: '36px' });
 
     text(this, w / 2, ny + 34, 'Choose a planet to drop into', 14, '#8fa2c8').setOrigin(0.5);
     const bh = Math.min(64, Math.max(44, (h - (ny + 60) - 24) / 2 - 12));
@@ -297,6 +299,7 @@ export class MenuScene extends Phaser.Scene {
       const b = this.buttons.find((b) => Math.abs(t.x - b.x) <= b.w / 2 && Math.abs(t.y - b.y) <= b.h / 2);
       if (b) {
         writeSave({ name });
+        goImmersive(intents.touch);
         this.scene.start('flight', { planet: b.id });
         return;
       }
