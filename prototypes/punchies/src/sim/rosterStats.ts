@@ -1,12 +1,13 @@
 import {charTune,punchCfg,uppercutStars,type CharId} from './character';
 import {tune} from './tune';
-export const STAT_RANGES={durability:[.7,1.25],endurance:[.75,1.25],speed:[.8,1.25],power:[.8,1.3],reach:[.75,1.2]} as const;
+export const STAT_RANGES={durability:[.65,1.35],endurance:[.85,1.15],speed:[.8,1.25],power:[.8,1.3],reach:[.7,1.25]} as const;
 export type RosterStat=keyof typeof STAT_RANGES;
 const types=['jab','cross','hook'] as const;
 const mean=(xs:number[])=>xs.reduce((a,b)=>a+b,0)/xs.length;
-/** Fixed Base benchmark: 60% fill. Ranges never depend on the selected roster. */
+/** Stable display bounds: logarithmic 40–100% fill; Power keeps its prior curve. */
 export function statFill(stat:RosterStat,score:number):number{
  const [min,max]=STAT_RANGES[stat];
+ if(stat!=='power'){const x=Math.max(0,Math.min(1,(score-min)/(max-min)));return .4+.6*Math.log1p(x)/Math.LN2;}
  return Math.max(0,Math.min(1,score<=1?.6*(score-min)/(1-min):.6+.4*(score-1)/(max-1)));
 }
 export function rosterScores(id:CharId):Record<RosterStat,number>{
