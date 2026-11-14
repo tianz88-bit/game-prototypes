@@ -1,3 +1,5 @@
+import { CombatHud } from '../render/combatHud';
+import { shipPreview } from '../render/shipPreview';
 import {configVersion} from '../liveConfig';
 // On a planet. The view is centred on your ship. Gameplay is a flat wrapping map; everything is
 // drawn through the planet projection (render/planet.ts) so the map reads as a ball seen from above,
@@ -26,7 +28,7 @@ import { Explosion } from '../render/explosion';
 import { loadSave, recordRun } from '../save';
 import type { ShipPlacement } from '../render/shipView';
 import { missileLock } from '../../sim/ordnance';
-import { UI, css, panel, controlFace } from '../render/ui';
+import { UI, css, panel, controlFace, controlClearRight } from '../render/ui';
 import { unlockById } from '../../sim/unlocks';
 import type { Look } from '../../sim/unlocks';
 import { drawPickup, drawOrdnance, drawExplosionCore, drawBullet, drawDrone, drawHitSpark } from '../render/worldArt';
@@ -56,7 +58,7 @@ export class FlightScene extends Phaser.Scene {
   private hullBorder!: Phaser.GameObjects.Graphics;
   private hullHitAt=-1e9;
   private missileTrails = new Map<number, {x:number;y:number;at:number}[]>();
-  private effects: { x: number; y: number; at: number; r: number; ms: number; colour: number; chips?: number; heal?: boolean; sparkAngle?: number }[] = [];
+  private effects: { x: number; y: number; at: number; r: number; ms: number; colour: number; chips?: number; heal?: boolean; sparkAngle?: number; shatter?: boolean }[] = [];
   private explosions: Explosion[] = [];
   /** Where each ship was last drawn (world), to aim shield hits. */
   private shipAt = new Map<number, { x: number; y: number }>();
@@ -70,15 +72,14 @@ export class FlightScene extends Phaser.Scene {
   /** Leaderboard chips by ship id; each slides to its rank's position. */
   private board = new Map<number, BoardChip>();
   private boardTitle!: Phaser.GameObjects.Text;
-  private powerText!: Phaser.GameObjects.Text;
+  private combatHud!: CombatHud;
+  private evolvePreview!: Phaser.GameObjects.Container;
   /** Charge counts on the missile and mine buttons. */
   private weaponTexts: Phaser.GameObjects.Text[] = [];
   /** Bounty label: over the holder's ship, at the edge tracker, or "BOUNTY ON YOU". */
   private bountyText!: Phaser.GameObjects.Text;
   /** Label on the warp button: lockdown countdown, WARP, or warp progress and CANCEL. */
   private warpText!: Phaser.GameObjects.Text;
-  /** Salvage carried, beside the hull bar. */
-  private salvageText!: Phaser.GameObjects.Text;
   /** Hot zone label: on the zone when in view, else on its edge tracker. */
   private hotZoneText!: Phaser.GameObjects.Text;
   private lockedOnMe = false;
@@ -148,13 +149,14 @@ export class FlightScene extends Phaser.Scene {
     this.schemeLabel = text(this, 0, 0, '', 11, '#dfe8ff').setOrigin(0.5).setDepth(951).setVisible(false);
     this.message = text(this, w / 2, logicalSize().h * 0.3, '', 18, '#ffffff').setOrigin(0.5).setDepth(950);
     this.boardTitle = text(this, 0, 0, 'KO · POWER', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
-    this.salvageText = text(this, 0, 0, '', 12, '#ffd23a').setOrigin(1, 0.5).setDepth(953).setVisible(false);
+
     this.hotZoneText = text(this, 0, 0, '', 11, '#7dffc4').setOrigin(0.5).setDepth(953).setVisible(false);
     this.warpText = text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(953).setVisible(false);
     this.bountyText = text(this, 0, 0, '', 11, '#ffd23a').setOrigin(0.5).setDepth(953).setVisible(false);
     this.lockText = text(this, 0, 0, 'MISSILE LOCK', 13, '#ff5a3a').setOrigin(0.5).setDepth(953).setVisible(false);
     this.weaponTexts = [0, 1].map(() => text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(952).setVisible(false));
-    this.powerText = text(this, 0, 0, '', 11, '#ffd98a').setOrigin(0.5, 1).setDepth(950).setVisible(false);
+    this.combatHud = new CombatHud(this);
+    this.evolvePreview = shipPreview(this,2,0,0,0,18,16).setDepth(952).setVisible(false);
     this.shopTexts = [...SHOP_ITEMS, 'evolve'].map(() => ({
       title: text(this, 0, 0, '', 12, '#ffffff').setOrigin(0, 0.5).setDepth(951).setVisible(false),
       sub: text(this, 0, 0, '', 10, '#c9d6f2').setOrigin(0, 0.5).setDepth(951).setVisible(false),
@@ -249,11 +251,12 @@ export class FlightScene extends Phaser.Scene {
         }
       }
       else if (f.kind === 'shieldBreak') {
-        // The shield shatters: a bright ring around the ship (placeholder; the break grace is running).
+        // Broken shield cells drift outward rather than using the brown debris chips.
         const at = this.shipAt.get(f.id);
         if (at) {
-          this.effects.push({ x: at.x, y: at.y, at: this.time.now, r: 70, ms: 420, colour: 0x9fe8ff, chips: 12 });
-          this.effects.push({ x: at.x, y: at.y, at: this.time.now, r: 40, ms: 260, colour: 0xffffff });
+          const s=f.id===this.net.myId?this.net.predicted:this.net.remoteRender().find(r=>r.id===f.id)?.s;
+          const size=chassisStats(s?.chassis??0,TUNE).radius/TUNE.ship.radius;
+          this.effects.push({ x: at.x, y: at.y, at: this.time.now, r: 70*size, ms: 420, colour: 0x9fe8ff, shatter: true });
         }
       } else if (f.kind === 'shield') {
         // Direction from the ship to the impact, on screen.
@@ -378,6 +381,13 @@ export class FlightScene extends Phaser.Scene {
     ship.update({ ...at, brightness: this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0 }, s, this.time.now);
     this.drawTurrets(id, s, at);
     if (s.dashCharge > 0) this.drawDashCharge(s, at, mine);
+    if (mine && s.shield <= .001 && at.visible) {
+      const size=chassisStats(s.chassis,TUNE).radius/TUNE.ship.radius;
+      const g=this.turretGfx, x=at.x, y=at.y-Math.max(42,clientTune.render.shipRingRadius*clientTune.render.shipScale*size+12)*at.scale, k=Math.max(.7,at.scale);
+      g.lineStyle(5*k,0x081426,.95);g.beginPath();g.moveTo(x-6*k,y-5*k);g.lineTo(x+6*k,y-5*k);g.lineTo(x+5*k,y+3*k);g.lineTo(x,y+8*k);g.lineTo(x-5*k,y+3*k);g.closePath();g.strokePath();
+      g.lineStyle(2*k,0xffa078,.9);g.beginPath();g.moveTo(x-6*k,y-5*k);g.lineTo(x-5*k,y+3*k);g.lineTo(x,y+8*k);g.lineTo(x+5*k,y+3*k);g.lineTo(x+6*k,y-5*k);g.strokePath();
+      g.lineBetween(x+7*k,y-7*k,x-7*k,y+8*k);
+    }
   }
 
   /**
@@ -456,27 +466,42 @@ export class FlightScene extends Phaser.Scene {
     const g = this.overlay;
     const now = performance.now();
     const left = Math.max(0, (z.movesAt - now) / 1000);
-    const label = `HOT ZONE x${TUNE.hotZone.salvageMultiplier}  ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`;
+    const label = `SALVAGE ZONE ×${TUNE.hotZone.salvageMultiplier}  ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`;
     const centre = this.toScreen(z.x, z.y);
     const dx = wrapDelta(z.x, p.x, W);
     const dy = wrapDelta(z.y, p.y, H);
     const inside = Math.hypot(dx, dy) <= z.r;
+    const badge=(x:number,y:number,s:string)=>{
+      this.hotZoneText.setVisible(true).setText(s);
+      const colour=inside?'#c9f4c9':'#a8dcca';
+      if(this.hotZoneText.style.color!==colour)this.hotZoneText.setColor(colour);
+      const bw=this.hotZoneText.width+20;
+      const right=intents.touch&&y>h*.4?controlClearRight(w):w-10;
+      x=Math.max(bw/2+10,Math.min(right-bw/2,x));
+      const shopBottom=Math.max(0,...intents.shopZones.map(z=>z.zone.y+z.zone.hh));
+      const top=intents.touch?Math.max(112,shopBottom+64):112;
+      y=Math.max(top,Math.min(h-126,y));
+      panel(g,x-bw/2,y-11,bw,22,inside?0x9edbaa:0x567e78,inside);
+      this.hotZoneText.setPosition(x,y);
+    };
     // The ring, through the planet projection (segments on the visible side only).
     const n = 48;
-    g.lineStyle(2, 0x7dffc4, 0.55);
+    const ring=this.world;
+    ring.lineStyle(2, 0x7dffc4, 0.55);
     let prev: { x: number; y: number; visible: boolean } | null = null;
     for (let i = 0; i <= n; i++) {
       const a = (i / n) * Math.PI * 2;
       const q = this.toScreen(z.x + Math.cos(a) * z.r, z.y + Math.sin(a) * z.r);
-      if (prev && prev.visible && q.visible && i % 2 === 0) g.lineBetween(prev.x, prev.y, q.x, q.y);
+      if (prev && prev.visible && q.visible && i % 2 === 0) ring.lineBetween(prev.x, prev.y, q.x, q.y);
+      if(q.visible&&i%8===0){ring.fillStyle(0x102e30,.95);ring.fillRect(q.x-4,q.y-4,8,8);ring.fillStyle(0xc1edb3,.9);ring.fillRect(q.x-2,q.y-2,4,4);}
       prev = q;
     }
     if (inside) {
-      this.hotZoneText.setVisible(true).setText(label).setPosition(w / 2, h - 66);
+      badge(w/2,h-124,label);
       return;
     }
     if (centre.visible && centre.x > 40 && centre.x < w - 40 && centre.y > 40 && centre.y < h - 40) {
-      this.hotZoneText.setVisible(true).setText(label).setPosition(centre.x, centre.y);
+      badge(centre.x,centre.y,label);
       return;
     }
     const a = Math.atan2(dy, dx);
@@ -486,7 +511,7 @@ export class FlightScene extends Phaser.Scene {
     const y = h / 2 + s * h * 0.33;
     g.fillStyle(0x7dffc4, 0.85);
     g.fillTriangle(x + c * 14, y + s * 14, x - c * 6 - s * 10, y - s * 6 + c * 10, x - c * 6 + s * 10, y - s * 6 - c * 10);
-    this.hotZoneText.setVisible(true).setText(`${label}  ${Math.round(Math.max(0, Math.hypot(dx, dy) - z.r) / 100) * 100}m`).setPosition(x - c * 70, y - s * 34);
+    badge(x-c*70,y-s*34,`${label}  ${Math.round(Math.max(0, Math.hypot(dx, dy) - z.r) / 100) * 100}m`);
   }
 
   /**
@@ -610,6 +635,7 @@ export class FlightScene extends Phaser.Scene {
     const boardBottom=Math.max(0,...[...this.board.values()].map(chip=>chip.y+BOARD_CHIP_H/2))+20;
     if(y<260 && x-bw/2<170)x=170+bw/2+5;
     if(y<boardBottom && x+bw/2>w-Math.min(BOARD_CHIP_W,w*.34)-18)x=w-Math.min(BOARD_CHIP_W,w*.34)-23-bw/2;
+    if(intents.touch&&y>h*.4)x=Math.max(bw/2+4,Math.min(controlClearRight(w)-bw/2,x));
     t.setPosition(x,y);
     this.overlay.fillStyle(0x221f2c,.9);this.overlay.fillRoundedRect(x-bw/2,y-bh/2,bw,bh,4);
     this.overlay.lineStyle(1,0xbf9550,.8);this.overlay.strokeRoundedRect(x-bw/2,y-bh/2,bw,bh,4);
@@ -701,6 +727,7 @@ export class FlightScene extends Phaser.Scene {
   private drawShop(p: ShipState | null): void {
     const g = this.overlay;
     const show = !!p && !this.net.death;
+    this.evolvePreview.setVisible(false);
     for (const t of this.shopTexts) {
       t.title.setVisible(show);
       t.sub.setVisible(show);
@@ -726,8 +753,8 @@ export class FlightScene extends Phaser.Scene {
       t.sub
         .setFontSize(mobile ? 9 : 9)
         .setPosition(bx + 5, y + (mobile ? 24 : 22))
-        .setText(offer ? `${offer.cost}c · need ${offer.floor}` : 'maxed')
-        .setColor(can ? '#bfffd0' : '#6d7a96');
+        .setText(offer ? `${offer.cost} MIN · ${offer.floor}PWR` : 'MAXED')
+        .setColor(can ? '#c7f1dd' : '#a1afbf');
       intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
     });
     // Evolve (owner design): the fighters can become the Battlecruiser during a run, once they have
@@ -744,75 +771,22 @@ export class FlightScene extends Phaser.Scene {
     const b = TUNE.battlecruiser;
     const can = canEvolve(p, TUNE);
     const ups = upgradeTotal(p);
-    panel(g, bx, y, bw, bh, can ? UI.uiGold : UI.uiBorder, can);
+    panel(g, bx, y, bw, bh, can ? UI.uiGold : 0x80664b, can);
+    this.evolvePreview.setPosition(bx+bw-15,y+10).setAlpha(can?1:.5).setVisible(true);
     t.title.setFontSize(mobile ? 10 : 11).setPosition(bx + 5, y + 9).setText(`${intents.touch ? '' : '[6] '}EVOLVE`).setColor(can ? '#ffd23a' : css(0x91a5bb));
     t.sub
       .setFontSize(9)
       .setPosition(bx + 5, y + (mobile ? 24 : 22))
-      .setText(can ? `${b.cost}c · battlecruiser` : ups < b.minUpgrades ? `upgrades ${ups}/${b.minUpgrades}` : `${b.cost}c · need ${b.powerFloor}`)
-      .setColor(can ? '#ffe9a8' : '#6d7a96');
+      .setText(can ? `${b.cost} MIN` : ups < b.minUpgrades ? `upgrades ${ups}/${b.minUpgrades}` : p.hullMax < b.powerFloor ? `NEED ${b.powerFloor} PWR` : `NEED ${b.cost} MIN`)
+      .setColor(can ? '#ffe9a8' : '#b5a48f');
     intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
   }
 
   private drawTouch(w: number, h: number): void {
     const g = this.overlay;
     g.clear();
-    // Shield (blue, taken first) over hull (green), bottom centre. Hull is minerals, so the bar is
-    // measured against the most this ship has carried: losing minerals empties it, collecting refills
-    // it, and growing past the old best keeps it full. Power (hull points) is written above.
     const p = this.net.predicted;
-    this.powerText.setVisible(!!p && !this.net.death);
-    this.salvageText.setVisible(false);
-    if (p && !this.net.death) {
-      const bw = Math.min(220, w * 0.5);
-      panel(g,w/2-bw/2-9,h-50,bw+38,46,UI.uiBorder);
-      const hull = Math.max(0, Math.min(1, p.hp / Math.max(1, p.hullMax)));
-      const shield = Math.max(0, Math.min(1, p.shield / maxShield(p, TUNE)));
-      const capped = p.hullMax >= TUNE.ship.powerCap;
-      this.powerText.setPosition(w / 2, h - 30).setText(`HULL ${Math.round(p.hp)}/${Math.round(p.hullMax)}${capped ? '  MAX' : ''}`);
-      // Salvage carried this run: banked on extraction, dropped as gold on death.
-      this.salvageText.setVisible(true).setPosition(w / 2 + bw / 2 + 28, h - 60).setText(`SALVAGE ${Math.floor(p.salvage)}`);
-      g.fillStyle(0x000000, 0.45);
-      g.fillRect(w / 2 - bw / 2, h - 27, bw, 6);
-      g.fillRect(w / 2 - bw / 2, h - 16, bw, 8);
-      g.fillStyle(UI.uiAccent, 0.95);
-      g.fillRect(w / 2 - bw / 2, h - 27, bw * shield, 6);
-      // Shield down (owner request): the bar glows red and fills with flashing red as the recharge
-      // cooldown runs out; the blue refill takes over when it starts recharging.
-      if (shield <= 0.001 && p.shieldCd > 0) {
-        const t = this.time.now;
-        const progress = Math.max(0, Math.min(1, 1 - p.shieldCd / TUNE.ship.shieldRegenDelaySeconds));
-        const pulse = 0.5 + 0.5 * Math.sin(t / 90);
-        g.fillStyle(0xff3a2a, 0.18 + 0.14 * pulse);
-        g.fillRoundedRect(w / 2 - bw / 2 - 4, h - 31, bw + 8, 14, 5);
-        g.fillStyle(0xff3a2a, 0.45 + 0.45 * pulse);
-        g.fillRect(w / 2 - bw / 2, h - 27, bw * progress, 6);
-        g.lineStyle(1, 0xff6a5a, 0.5 + 0.4 * pulse);
-        g.strokeRect(w / 2 - bw / 2, h - 27, bw, 6);
-      }
-      g.fillStyle(hull > 0.35 ? 0x7ee0ad : UI.uiDanger, 0.95);
-      g.fillRect(w / 2 - bw / 2, h - 16, bw * hull, 8);
-      // Gun heat: a short upright bar right of the health bars; red and flashing while locked.
-      const hx = w / 2 + bw / 2 + 8;
-      g.fillStyle(0x000000, 0.45);
-      g.fillRect(hx, h - 27, 6, 19);
-      const hot = p.overheated;
-      const flash = hot && Math.floor(this.time.now / 150) % 2 === 0;
-      g.fillStyle(hot ? (flash ? 0xffffff : 0xff4a3a) : p.heat > 0.7 ? 0xff8a3a : 0xffc14a, 0.95);
-      g.fillRect(hx, h - 8 - 19 * p.heat, 6, 19 * p.heat);
-      // Dash: a yellow upright bar beside the heat bar. It refills over the cooldown and is full when
-      // the dash is ready; while charging it pulses white as the charge fills.
-      const dx = hx + 10;
-      g.fillStyle(0x000000, 0.45);
-      g.fillRect(dx, h - 27, 6, 19);
-      const sh = TUNE.ship;
-      const charging = p.dashCharge > 0;
-      const fill = charging ? 1 - p.dashCharge / sh.dashChargeSeconds : p.dashTime > 0 ? p.dashTime / sh.dashDuration : 1 - Math.max(0, p.dashCd) / sh.dashCooldown;
-      const ready = !charging && p.dashTime <= 0 && p.dashCd <= 0;
-      const pulse = charging && Math.floor(this.time.now / 100) % 2 === 0;
-      g.fillStyle(charging ? (pulse ? 0xffffff : 0xfff07a) : ready ? 0xffe14a : 0xb89a2a, 0.95);
-      g.fillRect(dx, h - 8 - 19 * fill, 6, 19 * fill);
-    }
+    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now);
     this.drawShop(p);
     this.drawWeapons(p, w, h);
     this.drawBounty(p, w, h);
@@ -878,8 +852,8 @@ export class FlightScene extends Phaser.Scene {
     const tagColour=unlockById(look.tag)?.colour;
     const colour=tagColour!==undefined?css(tagColour):mine?'#9fefff':bot?'#a9bdcf':'#ffc9a8';
     if(tag.style.color!==colour)tag.setColor(colour);
-    const below = (clientTune.render.shipRingRadius * clientTune.render.shipScale * size + 4) * at.scale;
-    tag.setPosition(at.x, at.y + below).setVisible(at.visible);
+    const below = (Math.max(clientTune.render.shipRingRadius * clientTune.render.shipScale * size, size > 2 ? 76 : 38) + 10) * at.scale;
+    tag.setStroke('#081426', 3).setPosition(at.x, at.y + below).setVisible(at.visible);
   }
 
   /**
@@ -1114,6 +1088,18 @@ export class FlightScene extends Phaser.Scene {
       const at = this.toScreen(e.x, e.y);
       if (!at.visible) continue;
       const k = (this.time.now - e.at) / e.ms;
+      if(e.shatter){
+        const radius=e.r*at.scale;
+        for(let i=0;i<10;i++){
+          const a=i*Math.PI/5+.15,d=radius*(.55+k*.65),len=radius*.22*(1-k*.55);
+          const x=at.x+Math.cos(a)*d,y=at.y+Math.sin(a)*d,side=a+Math.PI/2+k*(i%2?1:-1);
+          const dx=Math.cos(side)*len,dy=Math.sin(side)*len;
+          g.fillStyle(i%3?0x83d6e9:0xfff2d5,(1-k)*.7);
+          g.fillTriangle(x-dx,y-dy,x+dx,y+dy,x+Math.cos(a)*len*.6,y+Math.sin(a)*len*.6);
+          g.lineStyle(1,0xd7faff,1-k);g.lineBetween(x-dx,y-dy,x+dx,y+dy);
+        }
+        continue;
+      }
       if(e.sparkAngle!==undefined){drawHitSpark(g,at,k,e.sparkAngle,e.x+e.y);continue;}
       g.lineStyle(3, e.colour, (1 - k) * (e.chips ? .4 : 1));
       g.strokeCircle(at.x, at.y, e.r * (0.4 + k) * at.scale);
@@ -1226,7 +1212,7 @@ export class FlightScene extends Phaser.Scene {
     const planet = PLANETS.find((p) => p.id === this.planet)?.label ?? this.planet;
     const n = this.net;
     const ships = (own ? 1 : 0) + n.remoteCount;
-    this.status.setText(`${planet}  ·  ${ships} nearby  ·  ${Math.round(own?.speed ?? 0)} px/s  ·  ${Math.round(n.rttMs)} ms`);
+    this.status.setText(`${planet}  ·  ${ships} nearby  ·  SPEED ${Math.round(own?.speed ?? 0)}${DEBUG?`  ·  ${Math.round(n.rttMs)} ms`:n.rttMs>250?'  ·  POOR SIGNAL':''}`);
     const msg: Record<string, string> = {
       connecting: 'Connecting…',
       open: '',

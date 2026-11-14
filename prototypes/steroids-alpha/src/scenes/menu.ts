@@ -1,3 +1,5 @@
+import { shipPreview } from '../render/shipPreview';
+import { PALETTES } from '../render/palette';
 // Main menu: enter a pilot name, then pick a planet to drop into. The hangar (stash and loadout)
 // comes in a later milestone. The name is shown under your ship and on the leaderboard.
 import Phaser from 'phaser';
@@ -127,7 +129,11 @@ export class MenuScene extends Phaser.Scene {
     const top = h * 0.5 - 90;
     panel(this.add.graphics(), x - pw / 2, top, pw, 214, UI.uiGold);
     text(this, x, top + 16, 'CREDITS', 11, '#8fa2c8').setOrigin(0.5);
-    text(this, x, top + 40, credits, 24, '#ffd23a').setOrigin(0.5);
+    text(this, x-30, top + 40, credits, 24, '#ffd23a').setOrigin(0.5);
+    const look=loadSave().look??{};
+    const palette=Number((look.palette??'palette.0').split('.')[1]);
+    shipPreview(this,look.ship==='ship.interceptor'?1:0,palette,x+pw*.26,top+37,pw*.38,48);
+    text(this,x,top+242,`${look.ship==='ship.interceptor'?'INTERCEPTOR':'SCRAPPY'} · ${PALETTES[palette]?.name.split(' / ')[0]??'Cobalt'}`,10,'#b5ccdc').setOrigin(.5);
     text(this, x, top + 70, 'RECOVERY CODE', 10, '#8fa2c8').setOrigin(0.5);
     text(this, x, top + 88, recovery || '-', 13, '#dfe8ff').setOrigin(0.5);
     text(this, x, top + 104, 'Write it down to keep your credits', 9, '#6d7a96').setOrigin(0.5);
@@ -135,7 +141,7 @@ export class MenuScene extends Phaser.Scene {
     // HANGAR: spend credits on unlocks.
     const hy = top + 138;
     panel(this.add.graphics(), x - bwid / 2, hy - 16, bwid, 32, UI.uiGold, true);
-    text(this, x, hy, 'HANGAR', 13, '#ffd23a').setOrigin(0.5);
+    text(this, x, hy, 'SHIP + PALETTE', 12, '#ffd23a').setOrigin(0.5);
     this.hangarButton = { x, y: hy, w: bwid, h: 32 };
     const by = top + 178;
     panel(this.add.graphics(), x - bwid / 2, by - 16, bwid, 32, this.codeMode ? UI.uiDanger : UI.uiBorder, this.codeMode);
