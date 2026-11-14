@@ -8,6 +8,7 @@ import { FlightScene } from './scenes/flight';
 import { HangarScene } from './scenes/hangar';
 import { mountDebugPanelIfRequested } from './debug/debugPanel';
 import { shipArtStatus } from './render/shipArt';
+import { rockCoverage } from './render/rockPainted';
 import { TUNE } from '../sim/tune';
 import { topSpeed } from '../sim/ship';
 
@@ -114,6 +115,7 @@ if (DEBUG) {
       ordnance: () => [...(flight()?.net.ordnance.values() ?? [])],
       /** Debug only: the flight scene itself, for render checks that stage state. */
       flightScene: () => flight(),
+      rockCoverage: () => rockCoverage(),
       weaponButtons: () => ({ missile: intents.missileButton, mine: intents.mineButton }),
       warpButton: () => intents.warpButton,
       bullets: () => flight()?.net.bullets.length ?? 0,

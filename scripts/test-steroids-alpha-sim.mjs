@@ -72,7 +72,7 @@ function emptyWorld(seed = 7) {
   return w;
 }
 function rock(w, size, x, y, vx = 0, vy = 0, hp = tune.asteroid.hp[size]) {
-  const a = { id: 500 + w.asteroids.size, size, x, y, vx, vy, t0: w.tick, hp };
+  const a = { id: 500 + w.asteroids.size, size, x, y, vx, vy, t0: w.tick, hp, family: 1 };
   w.asteroids.set(a.id, a);
   return a;
 }
@@ -749,7 +749,7 @@ assert.equal(S.cleanName(null), '');
   assert.deepEqual(S.decodeClient(S.encodeBuy(0, 2)), { type: S.MSG.BUY, item: 0, tier: 2 });
   const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5, salvage: 87.5, chassis: 2 };
   assert.deepEqual(S.decodeServer(S.encodeSnapshot(1234, 55, [ship])), { type: S.MSG.SNAPSHOT, tick: 1234, ackSeq: 55, ships: [ship] });
-  const rockRec = { id: 3, size: 1, x: 10.5, y: 20.25, vx: -30, vy: 12.5, t0: 900, hp: 30 };
+  const rockRec = { id: 3, size: 1, x: 10.5, y: 20.25, vx: -30, vy: 12.5, t0: 900, hp: 30, family: 2 };
   assert.deepEqual(S.decodeServer(S.encodeAsteroids([rockRec])).asteroids, [rockRec]);
   assert.deepEqual(S.decodeServer(S.encodeGone([{ id: 3, x: 1.5, y: 2.5 }])).gone, [{ id: 3, x: 1.5, y: 2.5 }]);
   const shot = { owner: 4, x: 5.5, y: 6.5, vx: 900, vy: -12.5, side: -1 };
@@ -1489,6 +1489,19 @@ assert.equal(S.cleanName(null), '');
   // The snapshot carries the ship type.
   const back = S.decodeServer(S.encodeSnapshot(1, 0, [{ id: 1, ...S.copyShip(a) }]));
   assert.equal(back.ships[0].chassis, 2, 'chassis on the wire');
+}
+
+// --- Asteroid colour families: fragments keep the parent's family (owner art rule). ---
+{
+  const w = emptyWorld();
+  w.tune.asteroid.targetMass = 56;
+  for (let i = 0; i < 40; i++) w.step();
+  const fams = new Set([...w.asteroids.values()].map((a) => a.family));
+  assert(fams.size >= 2 && [...fams].every((f) => f >= 0 && f <= 2), 'new rocks come in several families');
+  const parent = { id: 7, size: 0, x: 100, y: 100, vx: 0, vy: 0, t0: 0, hp: 1, family: 2 };
+  let n = 900;
+  const kids = S.splitAsteroid(parent, { x: 100, y: 100 }, 1, 0, 10, 0, () => n++, rng(3), tune);
+  assert(kids.length === 2 && kids.every((k) => k.family === 2), 'fragments keep the family');
 }
 
 console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, bots, ramming, health boosts, kill credit, missiles, mines, bounty, lockdown, warp-out, salvage, hot zone, ship types, evolving and settings upgrade all pass.');

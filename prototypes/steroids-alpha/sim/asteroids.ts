@@ -16,6 +16,8 @@ export interface Asteroid {
   vy: number;
   t0: number;
   hp: number;
+  /** Colour family (owner art): 0 ochre, 1 lavender, 2 teal. Fragments keep their parent's. */
+  family: number;
 }
 
 export const SMALLEST = 2;
@@ -70,6 +72,7 @@ export function splitAsteroid(
       vy: a.vy + dy * push + dx * side * spread * j,
       t0: tick,
       hp: t.hp[size],
+      family: a.family ?? 0,
     });
   }
   return out;

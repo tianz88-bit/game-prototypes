@@ -31,6 +31,7 @@ import { unlockById } from '../../sim/unlocks';
 import type { Look } from '../../sim/unlocks';
 import { drawPickup, drawOrdnance, drawExplosionCore, drawBullet, drawDrone, drawHitSpark } from '../render/worldArt';
 import { PixelRocks } from '../render/rockPixels';
+import { PaintedRocks, paintedRocksReady } from '../render/rockPainted';
 
 const W = TUNE.world.width;
 const H = TUNE.world.height;
@@ -50,7 +51,8 @@ export class FlightScene extends Phaser.Scene {
   private coords!: Phaser.GameObjects.Text;
   private schemeLabel!: Phaser.GameObjects.Text;
   private world!: Phaser.GameObjects.Graphics;
-  private rocks!: PixelRocks;
+  /** Painted rocks (owner art); the pixel rocks only if that art failed to load. */
+  private rocks!: PixelRocks | PaintedRocks;
   private hullBorder!: Phaser.GameObjects.Graphics;
   private hullHitAt=-1e9;
   private missileTrails = new Map<number, {x:number;y:number;at:number}[]>();
@@ -136,7 +138,7 @@ export class FlightScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(SPACE);
     this.ground = new PlanetGround(this, 1);
     this.world = this.add.graphics().setDepth(15);
-    this.rocks = new PixelRocks(this);
+    this.rocks = paintedRocksReady() ? new PaintedRocks(this) : new PixelRocks(this);
     this.turretGfx = this.add.graphics().setDepth(23);
     this.overlay = this.add.graphics().setDepth(900);
     this.hullBorder=this.add.graphics().setDepth(940);
@@ -1036,7 +1038,7 @@ export class FlightScene extends Phaser.Scene {
       const r = TUNE.asteroid.radius[a.size];
       if (!this.toScreen(x, y).visible) continue;
       const flash = now - (this.net.asteroidHitAt.get(a.id) ?? -1e9) < 90;
-      this.rocks.draw(a.id,x,y,r,a.hp/TUNE.asteroid.hp[a.size],flash,light,this.frame.sun,(px,py)=>this.toScreen(px,py));
+      this.rocks.draw(a.id,x,y,r,a.hp/TUNE.asteroid.hp[a.size],flash,light,this.frame.sun,(px,py)=>this.toScreen(px,py),a.size,a.family);
     }
     this.rocks.end();
     // Cosmetic bob and sparkle never alter the server's pickup position or collection radius.
