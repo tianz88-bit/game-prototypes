@@ -126,7 +126,14 @@
     "fireConeDeg": 10,
     "burstHeat": 0.85,
     "resumeHeat": 0.4,
-    "spawnRockClearance": 200
+    "spawnRockClearance": 200,
+    "sightRange": 600,
+    "reactionSeconds": 0.9,
+    "reactionJitterSeconds": 0.5,
+    "perceptionSeconds": 0.25,
+    "attentionSeconds": 6,
+    "distractedSeconds": 4,
+    "maxBotsPerTarget": 1
   },
   "warp": {
     "lockdownSeconds": 180,

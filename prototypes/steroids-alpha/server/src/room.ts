@@ -144,8 +144,9 @@ export class Room {
     // Too few: one at a time, once their respawn delay is over.
     this.botRespawnAt = this.botRespawnAt.filter((t) => t > this.tick);
     if (this.bots.size + this.botRespawnAt.length < want) this.addBot();
+    const brains = [...this.bots.values()].map((x) => x.brain);
     for (const b of this.bots.values()) {
-      const { input, buy } = botThink(b.id, b.ship, this.world, b.brain, this.tune, Math.random);
+      const { input, buy } = botThink(b.id, b.ship, this.world, b.brain, this.tune, Math.random, brains);
       if (buy) this.world.buy(b.id, buy.item, buy.tier);
       this.world.stepShip(b.id, input);
     }
