@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-14 claude forgiving-shield
+DID: shield breaking hit absorbed + 0.5 s hull grace (once per recharge cycle, re-armed above 50%); regen delay 3 s, 35%/s; HUD shield bar glows/fills flashing red during the cooldown when down; shatter ring on break.
+FILES: sim/{ship,world,protocol}.ts src/net/client.ts src/scenes/flight.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
+SEAM: protocol 19 ShipState.shieldCd (server-set). hits[].broke -> fx 'shieldBreak'. ship tune keys shieldBreakGraceSeconds, shieldGraceRechargeFraction.
+CROSS: none
+FOR codex: shatter effect and red cooldown bar are placeholders (flight.ts drawTouch, 'shieldBreak' fx); a shield-down warning on the ship would help.
+
 ## 2026-11-14 claude bot-behaviour
 DID: bots play worse instead of weaker stats: sight 600, reaction ~0.9 s, aim at last-read position (4 reads/s), attention 6 s then distracted 4 s, one bot per pilot. Duel (pilot not firing back): 2.6 s -> straight 3.6 / gentle 13 / weave 27 s.
 FILES: sim/bots.ts server/src/room.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
@@ -97,10 +104,3 @@ FILES: src/render/worldArt.ts src/scenes/flight.ts src/net/client.ts
 SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
 CROSS: src/net/client.ts attaches a fixed cosmetic gun-side look to transient visual bullets; no wire or prediction changes.
 FOR claude: Typecheck/build/rig/sim pass; desktop/DPR2 variants inspected, two-client/bot capture ~56 FPS on AMD D3D11, zero errors. 900 outline cases enclose collision circles. Drone aim/muzzle slots and all combat tuning preserved.
-
-## 2026-11-13 claude bot-spread
-DID: bots spawn anywhere on the planet, best of 32 points by distance to the nearest ship, clear of rocks (bots.spawnRockClearance 200). Players still drop at the centre.
-FILES: sim/world.ts server/src/room.ts tune.json scripts/test-steroids-alpha-sim.mjs
-SEAM: World.addShip(id, spread?)
-CROSS: none
-FOR codex: nothing.

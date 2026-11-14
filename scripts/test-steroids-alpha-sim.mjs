@@ -177,46 +177,70 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
 }
 
 // Hull presentation metadata follows actual damage, including spillover and invulnerability.
-for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,false],[1,4,false,true],[0,4,false,true],[0,4,true,false],[0,0,false,false]]){
+// (A breaking hit is absorbed in full once per recharge cycle: shield 1 vs damage 4 leaves the hull alone.)
+for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,false],[1,4,false,false],[0,4,false,true],[0,4,true,false],[0,0,false,false]]){
  const w=emptyWorld(),ship=placeShip(w,1,1000,1000,0);ship.shield=shield;w.invulnerable=invulnerable;
  const before=ship.hp;w['damageShip'](1,ship,damage,0,1000,1000);const hit=w.drain().hits.at(-1);
  assert.equal(hit.hull,want);assert.equal(hit.hull,ship.hp<before);assert.equal(hit.shielded,shield>0);
 }
 
-// --- Shield: absorbs first, overflow reaches the hull, regenerates after a quiet spell. ---
+// --- Shield (forgiving, owner 14 November 2026): absorbs first; the hit that breaks it is absorbed in
+// full and the hull is then safe for shieldBreakGraceSeconds; this save happens once per recharge
+// cycle; recharging starts shieldRegenDelaySeconds after the last hit. ---
 {
+  const sh = tune.ship;
+  const graceTicks = Math.round(sh.shieldBreakGraceSeconds * tune.net.tickHz);
   const w = emptyWorld();
   const a = placeShip(w, 1, 1000, 1000, 0);
   const b = placeShip(w, 2, 1200, 1000, Math.PI / 2);
   a.speed = b.speed = tune.ship.minSpeed;
-  // Shoot b until the shield is gone and the hull has taken some.
+  // A gun burst into b: record when the shield broke and when the hull was first touched.
   const hits = [];
-  for (let i = 0; i < 600 && b.hp === tune.ship.maxHp; i++) {
-    a.x = 1000; a.y = 1000; a.heading = 0;
+  let brokeAt = null;
+  let hullAt = null;
+  for (let i = 0; i < 600 && b.hp === sh.maxHp; i++) {
+    a.x = 1000; a.y = 1000; a.heading = 0; a.heat = 0; a.overheated = false;
     b.x = 1200; b.y = 1000;
     w.stepShip(1, { ...idle, fire: true });
     w.step();
-    hits.push(...w.drain().hits);
+    const ev = w.drain().hits;
+    hits.push(...ev);
+    if (brokeAt === null && ev.some((h) => h.broke)) brokeAt = w.tick;
+    if (b.hp < sh.maxHp) hullAt = w.tick;
   }
-  // Every hit is reported with where it landed; the shield effect shows only while the shield holds.
   assert(hits.length > 1 && hits.every((h) => h.id === 2));
-  assert(hits.slice(0, -1).every((h) => h.shielded), 'hits while the shield holds are shielded');
-  // The breaking hit is shielded only if some shield was left to soak part of it.
-  assert.equal(hits[hits.length - 1].shielded, tune.ship.maxShield % tune.weapon.damage !== 0, 'the hit that reaches the hull');
-  near(tune.ship.maxHp - b.hp, hits.length * tune.weapon.damage - tune.ship.maxShield, 1e-9, 'overflow goes to the hull');
   assert(hits.every((h) => h.x < 1200 && Math.abs(h.y - 1000) < 40), 'impacts land on the side facing the shooter');
-  assert.equal(b.shield, 0, 'shield emptied before the hull is touched');
-  assert(b.hp < tune.ship.maxHp && b.hp > 0);
+  assert(brokeAt !== null, 'the shield broke');
+  const breaker = hits.findIndex((h) => h.broke);
+  assert(hits.slice(0, breaker + 1).every((h) => h.shielded && !h.hull), 'up to and including the breaking hit, nothing reaches the hull');
+  assert(hullAt - brokeAt >= graceTicks, `hull safe for the break grace (${hullAt - brokeAt} ticks)`);
+  assert.equal(b.shield, 0);
+  near(sh.maxHp - b.hp, tune.weapon.damage, 1e-9, 'after the grace, the next hit reaches the hull in full');
   const hpAfter = b.hp;
-  // Move b away so no more bullets land. No regeneration before the delay...
+  // Out of the line of fire: no recharge during the delay, then shieldRegenPerSecond of the pool per second.
   b.x = 3000; b.y = 3000;
-  const quiet = Math.round(tune.ship.shieldRegenDelaySeconds * tune.net.tickHz);
+  near(b.shieldCd, sh.shieldRegenDelaySeconds, 0.1, 'shield cooldown restarted by the last hit');
+  const quiet = Math.round(sh.shieldRegenDelaySeconds * tune.net.tickHz);
   for (let i = 0; i < quiet - 2; i++) w.step();
-  assert.equal(b.shield, 0, 'no regeneration within 5 s of the last hit');
-  // ...then 5% of the shield pool per second.
+  assert.equal(b.shield, 0, 'no recharge within the delay');
+  assert(b.shieldCd > 0, 'cooldown still running');
   for (let i = 0; i < 2 + tune.net.tickHz; i++) w.step();
-  near(b.shield, tune.ship.maxShield * tune.ship.shieldRegenPerSecond, tune.ship.maxShield * 0.01, 'about 5% per second after the delay');
+  near(b.shield, sh.maxShield * sh.shieldRegenPerSecond, sh.maxShield * 0.04, 'recharge rate after the delay');
   assert.equal(b.hp, hpAfter, 'the hull does not regenerate');
+  // Once per cycle: break again before it recharges past half and the overflow reaches the hull.
+  w.drain();
+  assert(b.shield < sh.maxShield * sh.shieldGraceRechargeFraction);
+  const sBefore = b.shield;
+  w['damageShip'](2, b, sBefore + 10, 1, b.x, b.y);
+  near(hpAfter - b.hp, 10, 1e-6, 'no second save until the shield recharges past half');
+  // Recharged past half: the shield saves again.
+  b.shield = sh.maxShield * 0.6;
+  w.step();
+  const hp2 = b.hp;
+  w['damageShip'](2, b, b.shield + 30, 1, b.x, b.y);
+  assert.equal(b.hp, hp2, 'recharged past half: the breaking hit is absorbed again');
+  w['damageShip'](2, b, 20, 1, b.x, b.y);
+  assert.equal(b.hp, hp2, 'and the grace protects the hull right after');
 }
 
 // --- A ship at 0 hull is destroyed; the killing shot's owner is credited; bullets spare their owner. ---
@@ -771,7 +795,7 @@ assert.equal(S.cleanName(null), '');
   assert(Number.isNaN(back.aim));
   assert(Number.isNaN(S.decodeClient(S.encodeInput({ ...input, dashAim: 99 })).input.dashAim), 'bad dash aims are dropped');
   assert.deepEqual(S.decodeClient(S.encodeBuy(0, 2)), { type: S.MSG.BUY, item: 0, tier: 2 });
-  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5, salvage: 87.5, chassis: 2 };
+  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5, salvage: 87.5, chassis: 2, shieldCd: 1.5 };
   assert.deepEqual(S.decodeServer(S.encodeSnapshot(1234, 55, [ship])), { type: S.MSG.SNAPSHOT, tick: 1234, ackSeq: 55, ships: [ship] });
   const rockRec = { id: 3, size: 1, x: 10.5, y: 20.25, vx: -30, vy: 12.5, t0: 900, hp: 30, family: 2 };
   assert.deepEqual(S.decodeServer(S.encodeAsteroids([rockRec])).asteroids, [rockRec]);

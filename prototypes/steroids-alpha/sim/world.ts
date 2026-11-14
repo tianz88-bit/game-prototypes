@@ -93,7 +93,7 @@ export interface WorldEvents {
   /** Ships destroyed this tick. */
   deaths: DeathEvent[];
   /** Hits on ships: where the hit landed, and whether the shield took it (for the shield effect). */
-  hits: { id: number; x: number; y: number; shielded: boolean; hull: boolean }[];
+  hits: { id: number; x: number; y: number; shielded: boolean; hull: boolean; broke?: boolean }[];
   /** Health boosts dropped, and boosts taken (by = ship id) or expired (by = 0). */
   pickups: Pickup[];
   pickupsGone: { id: number; by: number }[];
@@ -140,6 +140,10 @@ export class World {
   private rammed = new Set<number>();
   /** Tick of the last damage each ship took, for shield regeneration. */
   private lastHit = new Map<number, number>();
+  /** Shield break grace (owner, 14 November 2026): hull safe until this tick after the shield breaks. */
+  private graceUntil = new Map<number, number>();
+  /** The shield can save its ship (absorb the breaking hit, then grace) once per recharge cycle. */
+  private graceSpent = new Set<number>();
   private events: WorldEvents = noEvents();
   private readonly dt: number;
   /** Test servers only (TEST_SHIP_HP): ships take no damage, so a browser check can fly freely. */
@@ -249,6 +253,8 @@ export class World {
     this.spawnedAt.delete(id);
     this.botIds.delete(id);
     this.lastHit.delete(id);
+    this.graceUntil.delete(id);
+    this.graceSpent.delete(id);
     this.turrets.delete(id);
     this.rammed.delete(id);
     this.prev.delete(id);
@@ -433,14 +439,15 @@ export class World {
       }
     }
 
-    // Shields come back after a quiet spell.
-    const quiet = Math.round(t.ship.shieldRegenDelaySeconds * t.net.tickHz);
+    // Shields come back after a quiet spell (shieldCd counts it down; every hit resets it).
     for (const [id, s] of this.ships) {
       const top = maxShield(s, t);
       if (s.shield > top) s.shield = top;
-      if (s.hp <= 0 || s.shield >= top) continue;
-      if (this.tick - (this.lastHit.get(id) ?? -Infinity) < quiet) continue;
+      s.shieldCd = Math.max(0, s.shieldCd - this.dt);
+      if (s.shield >= top * t.ship.shieldGraceRechargeFraction) this.graceSpent.delete(id);
+      if (s.hp <= 0 || s.shield >= top || s.shieldCd > 0) continue;
       s.shield = Math.min(top, s.shield + top * t.ship.shieldRegenPerSecond * this.dt);
+      if (s.shield >= top * t.ship.shieldGraceRechargeFraction) this.graceSpent.delete(id);
     }
 
     // Warp complete: the ship launches off the planet (extracted), unless destroyed this tick.
@@ -698,18 +705,31 @@ export class World {
   /** The shield takes damage first; what it cannot hold goes to the hull. */
   private damageShip(id: number, s: ShipState, damage: number, attacker: number, atX: number, atY: number): void {
     if (s.hp <= 0) return;
+    const t = this.tune;
     this.lastHit.set(id, this.tick);
+    s.shieldCd = t.ship.shieldRegenDelaySeconds;
     // Any damage in warp mode resets the warp distance (brief); warp mode itself continues.
     if (s.warping && damage > 0) s.warpDist = 0;
-    this.events.hits.push({ id, x: atX, y: atY, shielded: s.shield > 0, hull: !this.invulnerable && damage > s.shield });
+    // Forgiving shield (owner, 14 November 2026): the hit that breaks the shield is absorbed in full,
+    // then the hull is safe for shieldBreakGraceSeconds, so a burst breaks the shield and leaves the
+    // pilot a moment to get away. Once per recharge cycle: it is ready again only after the shield
+    // recharges past shieldGraceRechargeFraction of its maximum.
+    const inGrace = this.tick < (this.graceUntil.get(id) ?? -1);
+    const saves = s.shield > 0 && !this.graceSpent.has(id);
+    const breaks = saves && damage >= s.shield;
+    const absorbed = saves ? damage : Math.min(s.shield, damage);
+    const toHull = inGrace ? 0 : damage - absorbed;
+    this.events.hits.push({ id, x: atX, y: atY, shielded: s.shield > 0 || inGrace, hull: !this.invulnerable && toHull > 0, broke: breaks });
     if (this.invulnerable) return;
-    const absorbed = Math.min(s.shield, damage);
-    s.shield -= absorbed;
+    s.shield = Math.max(0, s.shield - absorbed);
+    if (breaks) {
+      this.graceUntil.set(id, this.tick + Math.round(t.ship.shieldBreakGraceSeconds * t.net.tickHz));
+      this.graceSpent.add(id);
+    }
     const before = s.hp;
-    s.hp = Math.max(0, s.hp - (damage - absorbed));
+    s.hp = Math.max(0, s.hp - toHull);
     // Hull is minerals: some of what is knocked off spills where the ship is, for anyone to collect.
     // A destroyed ship loses everything and spills a share of all it carried.
-    const t = this.tune;
     // Destroyed: a share of everything carried (the hull maximum) spills.
     const spill = s.hp === 0 ? s.hullMax * t.ship.deathSpillFraction : (before - s.hp) * t.ship.hullSpillFraction;
     this.spillMinerals(s.x, s.y, spill, s.hp === 0 ? 90 : 40, id);

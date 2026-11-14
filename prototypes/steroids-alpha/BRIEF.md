@@ -235,6 +235,14 @@ currency; currency buys unlocks, QoL and options, never raw power.
 - Missile lock (owner, 12 November): a locked missile in flight shows a lock
   crosshair on its target for both the pilot who fired and the target (the
   target only once the missile is launched).
+- Forgiving shield (owner, 14 November 2026): the shield is the health a
+  pilot can afford to lose. The hit that breaks it is absorbed in full and the
+  hull then takes no damage for 0.5 s (a shatter effect), so one burst cannot
+  go straight through to death. This save works once per recharge cycle
+  (ready again when the shield is back above half). Recharge starts 3 s after
+  the last hit (was 5 s) at 35% of the bar per second (was 20%). While the
+  shield is down, its bar glows red and fills with flashing red as the
+  recharge cooldown runs out.
 - Shield hit effect: a glowing sphere tiled with hexagons around the craft
   (owner reference image); some hexagons on the hit side flash (owner).
 - Dash ram (owner picked): dashing into a ship damages it, scaled by gun

@@ -248,7 +248,14 @@ export class FlightScene extends Phaser.Scene {
           this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 70, ms: 500, colour: nova.colour ?? 0xb48cff, chips: 14 });
         }
       }
-      else if (f.kind === 'shield') {
+      else if (f.kind === 'shieldBreak') {
+        // The shield shatters: a bright ring around the ship (placeholder; the break grace is running).
+        const at = this.shipAt.get(f.id);
+        if (at) {
+          this.effects.push({ x: at.x, y: at.y, at: this.time.now, r: 70, ms: 420, colour: 0x9fe8ff, chips: 12 });
+          this.effects.push({ x: at.x, y: at.y, at: this.time.now, r: 40, ms: 260, colour: 0xffffff });
+        }
+      } else if (f.kind === 'shield') {
         // Direction from the ship to the impact, on screen.
         const ship = this.shipAt.get(f.id);
         if (ship) {
@@ -770,6 +777,19 @@ export class FlightScene extends Phaser.Scene {
       g.fillRect(w / 2 - bw / 2, h - 16, bw, 8);
       g.fillStyle(UI.uiAccent, 0.95);
       g.fillRect(w / 2 - bw / 2, h - 27, bw * shield, 6);
+      // Shield down (owner request): the bar glows red and fills with flashing red as the recharge
+      // cooldown runs out; the blue refill takes over when it starts recharging.
+      if (shield <= 0.001 && p.shieldCd > 0) {
+        const t = this.time.now;
+        const progress = Math.max(0, Math.min(1, 1 - p.shieldCd / TUNE.ship.shieldRegenDelaySeconds));
+        const pulse = 0.5 + 0.5 * Math.sin(t / 90);
+        g.fillStyle(0xff3a2a, 0.18 + 0.14 * pulse);
+        g.fillRoundedRect(w / 2 - bw / 2 - 4, h - 31, bw + 8, 14, 5);
+        g.fillStyle(0xff3a2a, 0.45 + 0.45 * pulse);
+        g.fillRect(w / 2 - bw / 2, h - 27, bw * progress, 6);
+        g.lineStyle(1, 0xff6a5a, 0.5 + 0.4 * pulse);
+        g.strokeRect(w / 2 - bw / 2, h - 27, bw, 6);
+      }
       g.fillStyle(hull > 0.35 ? 0x7ee0ad : UI.uiDanger, 0.95);
       g.fillRect(w / 2 - bw / 2, h - 16, bw * hull, 8);
       // Gun heat: a short upright bar right of the health bars; red and flashing while locked.
