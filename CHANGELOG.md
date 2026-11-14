@@ -3,6 +3,17 @@
 Base-level (repo-wide) changes that individual prototypes should
 account for the next time they're touched. Newest entries first.
 
+## 2026-11-14 - Never block the player
+
+**What changed:** CLAUDE.md gains an owner rule: no screen, overlay or state may stop play until
+the player changes their device or browser (no rotate prompts, no screen-size or browser walls).
+Prototypes adapt instead; Steroids-Alpha and Punchies draw a landscape game turned a quarter on an
+upright phone with touch remapped.
+
+**Applies to:** every prototype. Known blocking guards still in place: mp-console and mp-net
+(`src/orientation/orientation.ts`, overlay on wrong orientation) and suits-mp (portrait guard).
+Remove them when that prototype is next touched.
+
 ## 2026-10-22 - arena-sim and firestorm-net 0.15.0: 2x2 nodes, speed boosters, protocol 9
 
 **What changed:** arena-sim 0.15.0: nodes are 2x2 cells (`MapNode.cell` is the top-left cell, `pos` the shared
