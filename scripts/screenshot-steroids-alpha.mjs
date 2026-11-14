@@ -84,19 +84,20 @@ try {
   await desk.waitForFunction((n) => window.__steroids.remotes().length === n, before, { timeout: 5000 });
 
   // Phone: straight in, touch controls, simulated lag.
-  // Phones play in landscape (owner decision). First check that a phone held upright is asked to
-  // turn sideways and cannot fly meanwhile.
+  // Phones held upright are never blocked (owner decision): the landscape game is drawn turned a
+  // quarter, and taps land where the turned buttons are drawn.
   const uprightCtx = await phoneBrowser.newContext({ ...devices['iPhone 13'], deviceScaleFactor: 1 });
   const upright = await uprightCtx.newPage();
   watch('upright', upright);
   await upright.goto(url('debug=1'), { waitUntil: 'networkidle' });
   await upright.waitForFunction(() => window.__steroids?.menuButtons().length === 2);
-  assert.equal(await api(upright, () => window.__steroids.portraitBlocked()), true, 'upright phone shows the rotate prompt');
+  assert.equal(await api(upright, () => window.__steroids.sideways()), true, 'upright phone draws the game sideways');
+  await upright.screenshot({ path: path.join(outDir, 'phone-upright-sideways.png') });
   const b0 = (await api(upright, () => window.__steroids.menuButtons()))[0];
-  await upright.touchscreen.tap(b0.x, b0.y);
-  await wait(400);
-  assert.equal(await api(upright, () => window.__steroids.scene()), 'menu', 'upright phone input is blocked');
-  await upright.screenshot({ path: path.join(outDir, 'phone-upright-rotate.png') });
+  const uprightH = await api(upright, () => window.innerHeight);
+  await upright.touchscreen.tap(b0.y, uprightH - b0.x);
+  await upright.waitForFunction(() => window.__steroids.own() !== null, null, { timeout: 10000 });
+  await upright.screenshot({ path: path.join(outDir, 'phone-upright-flight.png') });
   await uprightCtx.close();
 
   const phoneCtx = await named(await phoneBrowser.newContext({ ...devices['iPhone 13 landscape'], deviceScaleFactor: 1 }), 'Phone Pilot');
@@ -105,7 +106,7 @@ try {
   await phone.goto(url('debug=1&planet=alpha&lag=120'), { waitUntil: 'networkidle' });
   await phone.waitForFunction(() => window.__steroids.own() !== null, null, { timeout: 10000 });
   assert.equal(await api(phone, () => window.__steroids.shipArt()), expectArt, 'phone ship art');
-  assert.equal(await api(phone, () => window.__steroids.portraitBlocked()), false, 'landscape phone is not blocked');
+  assert.equal(await api(phone, () => window.__steroids.sideways()), false, 'landscape phone is drawn as is');
 
   // Each sees the other.
   await desk.waitForFunction(() => window.__steroids.remotes().length >= 1, null, { timeout: 5000 });

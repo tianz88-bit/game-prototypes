@@ -1,9 +1,8 @@
 import Phaser from 'phaser';
-import { DEBUG, DPR, refreshDpr } from './base';
+import { DEBUG, DPR, logicalSize, placeContainer, refreshDpr, refreshSideways, sideways } from './base';
 import { intents } from './input/intents';
 import { BootScene } from './scenes/boot';
 import { MenuScene } from './scenes/menu';
-import { RotateScene } from './scenes/rotate';
 import { FlightScene } from './scenes/flight';
 import { HangarScene } from './scenes/hangar';
 import { mountDebugPanelIfRequested } from './debug/debugPanel';
@@ -14,33 +13,37 @@ import { topSpeed } from '../sim/ship';
 
 // The pixel buffer is logical size x DPR; Scale zoom of 1/DPR shows it at CSS size,
 // and every scene's camera zoom of DPR maps logical coordinates back onto it.
+const app = document.getElementById('app') as HTMLElement;
+placeContainer(app);
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'app',
-  width: Math.round(window.innerWidth * DPR),
-  height: Math.round(window.innerHeight * DPR),
+  width: Math.round(logicalSize().w * DPR),
+  height: Math.round(logicalSize().h * DPR),
   backgroundColor: '#05070d',
   scale: { mode: Phaser.Scale.NONE, zoom: 1 / DPR },
   // Phaser input is off: all input goes through the intent layer.
   input: { mouse: false, touch: false, keyboard: false, gamepad: false },
   render: { antialias: true, roundPixels: false },
-  scene: [BootScene, MenuScene, FlightScene, HangarScene, RotateScene],
+  scene: [BootScene, MenuScene, FlightScene, HangarScene],
 });
 
 game.events.once(Phaser.Core.Events.READY, () => {
   intents.attach(game.canvas);
-  // Always running, on top of everything: the landscape prompt for phones held upright.
-  game.scene.run('rotate');
-  game.scene.bringToTop('rotate');
 });
 
 function fit(): void {
   const dprChanged = refreshDpr();
   if (dprChanged) game.scale.setZoom(1 / DPR);
-  game.scale.resize(Math.round(window.innerWidth * DPR), Math.round(window.innerHeight * DPR));
+  refreshSideways();
+  placeContainer(app);
+  const { w, h } = logicalSize();
+  game.scale.resize(Math.round(w * DPR), Math.round(h * DPR));
   game.events.emit('dpr');
 }
 window.addEventListener('resize', fit);
+// A text field closing ends the hold on the quarter turn (base.refreshSideways).
+window.addEventListener('focusout', () => setTimeout(fit, 0));
 function watchDpr(): void {
   matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`).addEventListener(
     'change',
@@ -109,7 +112,7 @@ if (DEBUG) {
       hangarButton: () => (game.scene.getScene('menu') as MenuScene).hangarButton,
       hangar: () => { const h = game.scene.getScene('hangar') as HangarScene; return game.scene.isActive('hangar') ? { credits: h.credits, unlocks: h.unlocks, cards: h.cards.map((c) => ({ id: c.u.id, x: c.x, y: c.y })), tabs: h.tabs, back: h.backButton } : null; },
       accountButton: () => (game.scene.getScene('menu') as MenuScene).accountButton,
-      portraitBlocked: () => intents.portraitBlocked,
+      sideways: () => sideways(),
       asteroids: () => flight()?.net.asteroidRender().map((r) => ({ id: r.a.id, size: r.a.size, hp: r.a.hp, x: r.x, y: r.y })) ?? [],
       splits: () => flight()?.net.splits ?? 0,
       ordnance: () => [...(flight()?.net.ordnance.values() ?? [])],
