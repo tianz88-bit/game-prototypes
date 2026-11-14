@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-14 claude hangar-tabs
+DID: Hangar by category (owner): tabs SHIPS, PALETTES, FLAMES, SHIELDS, KILL FX, BADGES, NAMES, EXTRAS; larger cards; Battlecruiser info card in SHIPS. Open tab remembered while the game is open.
+FILES: src/scenes/hangar.ts src/main.ts
+SEAM: none (test hook hangar().tabs)
+CROSS: none
+FOR codex: tab and card styling are placeholders.
+
 ## 2026-11-14 claude ships-v2
 DID: Interceptor (credit unlock, Hangar) and Battlecruiser (in-run EVOLVE: 6 upgrades, 300 power, 120c) live on the kit art; four palettes replace tints (legacy tints map/claim). Rig is profile-driven; per-ship textures, shadows, palette remap textures; 4-cannon recoil; escorts.
 FILES: sim/{chassis,ship,shop,world,turrets,protocol,liveConfig,unlocks}.ts server/src/{room,index,bank}.ts src/render/{shipRig,shipArt,shipView,shipProfiles,palette}.ts src/scenes/{flight,hangar}.ts src/input/intents.ts art/{interceptor-v2,battlecruiser-v1,ships-v2}/* art/prepare-assets.mjs tune.json scripts/test-steroids-alpha-{sim,bank}.mjs
@@ -97,10 +104,3 @@ FILES: client.tune.json src/render/ui.ts src/scenes/{flight,menu}.ts sim/liveCon
 SEAM: STEER face + intents.schemeButton move together to bottom-left; render.ui* palette defaults added, older configs upgraded without overwriting tuning. Other zones/gameplay/calibration unchanged.
 CROSS: sim/liveConfig.ts bounds only six UI RGB paths to integer 0..0xffffff and corners to 0..16; scripts/test-steroids-live-config.mjs boundary/migration coverage; menu styling only.
 FOR claude: Typecheck/build/rig/sim/live-config pass; desktop + DPR2 phone HUD/menu/death inspected; real STEER taps toggle both ways. 2 clients + bots baseline pacing, zero errors. QR quiet zone retained.
-
-## 2026-11-13 codex codex/steroids-markers
-DID: Gold segmented bounty rings and star badges, backed/clamped tracker labels, matching board accent and a persistent framed MISSILE LOCK warning.
-FILES: src/scenes/flight.ts
-SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
-CROSS: none (render/shared drawing)
-FOR claude: Typecheck/build/rig/sim pass. Brave desktop + DPR2 phone owner/near/edge bounty fixtures inspected; 2 clients + 4 bots baseline pacing, zero console/page errors; bounty rules and lock selection untouched.

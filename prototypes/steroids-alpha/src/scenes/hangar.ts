@@ -13,13 +13,19 @@ import { UNLOCKS, effectiveOwned, unclaimedLegacy, unlockPrice } from '../../sim
 import type { Unlock } from '../../sim/unlocks';
 import { buyUnlock, ensureAccount } from '../net/account';
 
-/** Rows of the grid: what sits together. */
-const ROWS: string[][] = [
-  ['ship.scrappy', 'ship.interceptor', 'palette.0', 'palette.1', 'palette.2', 'palette.3'],
-  ['flame.green', 'flame.violet', 'flame.white', 'flame.red', 'killfx.nova'],
-  ['shield.green', 'shield.gold', 'shield.pink', 'runlog'],
-  ['badge.crown', 'badge.spark', 'badge.skull', 'tag.gold', 'tag.mint', 'tag.rose'],
+/** Categories, one per tab (owner request: the shop by category). */
+const TABS: { label: string; items: string[] }[] = [
+  { label: 'SHIPS', items: ['ship.scrappy', 'ship.interceptor'] },
+  { label: 'PALETTES', items: ['palette.0', 'palette.1', 'palette.2', 'palette.3'] },
+  { label: 'FLAMES', items: ['flame.green', 'flame.violet', 'flame.white', 'flame.red'] },
+  { label: 'SHIELDS', items: ['shield.green', 'shield.gold', 'shield.pink'] },
+  { label: 'KILL FX', items: ['killfx.nova'] },
+  { label: 'BADGES', items: ['badge.crown', 'badge.spark', 'badge.skull'] },
+  { label: 'NAMES', items: ['tag.gold', 'tag.mint', 'tag.rose'] },
+  { label: 'EXTRAS', items: ['runlog'] },
 ];
+/** The open tab, kept while the game is open (back to the menu and in again). */
+let openTab = 0;
 
 interface Card {
   u: Unlock;
@@ -34,6 +40,7 @@ export class HangarScene extends Phaser.Scene {
   unlocks: string[] = [];
   cards: Card[] = [];
   backButton = { x: 0, y: 0, w: 0, h: 0 };
+  tabs: { index: number; label: string; x: number; y: number; w: number; h: number }[] = [];
   /** The item waiting for its confirming second tap. */
   private armed: string | null = null;
   private note = '';
@@ -85,15 +92,30 @@ export class HangarScene extends Phaser.Scene {
     text(this, 70, 26, 'BACK', 13).setOrigin(0.5);
 
     const look = loadSave().look ?? {};
-    const cols = 6;
     const gap = 8;
-    const cw = Math.min(180, (w - 40 - gap * (cols - 1)) / cols);
-    const top = 54;
-    const ch = Math.min(72, (h - top - 34) / ROWS.length - gap);
+    // Tabs: one per category.
+    const tw = Math.min(124, (w - 40 - gap * (TABS.length - 1)) / TABS.length);
+    const tLeft = (w - (tw * TABS.length + gap * (TABS.length - 1))) / 2;
+    this.tabs = TABS.map((t, i) => {
+      const x = tLeft + i * (tw + gap) + tw / 2;
+      const y = 70;
+      const on = i === openTab;
+      panel(this.add.graphics(), x - tw / 2, y - 16, tw, 32, on ? UI.uiAccent : UI.uiBorder, on);
+      text(this, x, y, t.label, tw < 100 ? 11 : 12, on ? '#ffffff' : '#9fb3d6').setOrigin(0.5);
+      return { index: i, label: t.label, x, y, w: tw, h: 32 };
+    });
+    // The open category's items, large cards.
+    const items = TABS[openTab].items;
+    const cols = Math.min(4, Math.max(2, items.length));
+    const cw = Math.min(250, (w - 40 - gap * (cols - 1)) / cols);
+    const ch = Math.min(84, (h - 104 - 50) / 2 - gap);
+    const top = 104;
     const left = (w - (cw * cols + gap * (cols - 1))) / 2;
     this.cards = [];
-    ROWS.forEach((row, r) => {
-      row.forEach((id, c) => {
+    items.forEach((id, n) => {
+      {
+        const c = n % cols;
+        const r = Math.floor(n / cols);
         const u = UNLOCKS.find((x) => x.id === id);
         if (!u) return;
         const x = left + c * (cw + gap) + cw / 2;
@@ -113,14 +135,26 @@ export class HangarScene extends Phaser.Scene {
         else text(this, sx, y, '≡', 18, '#dfe8ff').setOrigin(0.5);
         const price = this.priceOf(u);
         const status = equipped ? (u.slot === 'ship' ? 'FLYING' : 'EQUIPPED') : armed ? 'Tap to confirm' : owned ? (u.slot === 'qol' ? 'OWNED · tap to view' : u.slot === 'ship' ? 'OWNED · tap to fly' : 'OWNED · tap to wear') : price === 0 ? 'FREE (old tint)' : `${price} credits`;
-        const small = cw < 140;
-        text(this, sx + 16, y - 9, u.name, small ? 10 : 12, '#e8f0ff').setOrigin(0, 0.5);
-        text(this, sx + 16, y + 9, status, small ? 9 : 10, equipped ? '#7fe9ff' : armed ? '#ffd23a' : owned ? '#9fb3d6' : '#ffd98a').setOrigin(0, 0.5);
+        const small = cw < 160;
+        text(this, sx + 16, y - 10, u.name, small ? 11 : 15, '#e8f0ff').setOrigin(0, 0.5);
+        text(this, sx + 16, y + 11, status, small ? 10 : 12, equipped ? '#7fe9ff' : armed ? '#ffd23a' : owned ? '#9fb3d6' : '#ffd98a').setOrigin(0, 0.5);
         this.cards.push({ u, x, y, w: cw, h: ch });
-      });
+      }
     });
-    // The Battlecruiser is not bought here: fighters evolve into it during a run (owner design).
-    text(this, w / 2, h - 34, 'BATTLECRUISER: evolve during a run (shop: EVOLVE), with enough upgrades and power', 11, '#8fa2c8').setOrigin(0.5);
+    if (openTab === 0) {
+      // The Battlecruiser is not bought here: fighters evolve into it during a run (owner design).
+      const n = items.length;
+      const x = left + (n % cols) * (cw + gap) + cw / 2;
+      const y = top + Math.floor(n / cols) * (ch + gap) + ch / 2;
+      const g = this.add.graphics();
+      panel(g, x - cw / 2, y - ch / 2, cw, ch, 0x2a3550);
+      const sx = x - cw / 2 + 18;
+      g.fillStyle(0xffd23a, 0.8);
+      g.fillRect(sx - 9, y - 8, 18, 16);
+      text(this, sx + 16, y - 9, 'Battlecruiser', cw < 160 ? 10 : 12, '#e8f0ff').setOrigin(0, 0.5);
+      text(this, sx + 16, y + 9, 'Evolve during a run', cw < 160 ? 9 : 10, '#8fa2c8').setOrigin(0, 0.5);
+      text(this, w / 2, h - 34, 'Battlecruiser: in a run, the EVOLVE card unlocks with enough upgrades and power', 11, '#8fa2c8').setOrigin(0.5);
+    }
     if (this.note) text(this, w / 2, h - 16, this.note, 12, '#ffd98a').setOrigin(0.5);
     if (this.showRuns) this.drawRuns(w, h);
     versionStamp(this);
@@ -205,6 +239,14 @@ export class HangarScene extends Phaser.Scene {
     for (const t of intents.drainTaps()) {
       if (this.showRuns) {
         this.showRuns = false;
+        this.layout();
+        return;
+      }
+      const tab = this.tabs.find((b) => Math.abs(t.x - b.x) <= b.w / 2 && Math.abs(t.y - b.y) <= b.h / 2);
+      if (tab) {
+        openTab = tab.index;
+        this.armed = null;
+        this.note = '';
         this.layout();
         return;
       }
