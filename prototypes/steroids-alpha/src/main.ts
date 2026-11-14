@@ -106,7 +106,7 @@ if (DEBUG) {
       nameBox: () => (game.scene.getScene('menu') as MenuScene).nameBox,
       menuCredits: () => (game.scene.getScene('menu') as MenuScene).credits,
       hangarButton: () => (game.scene.getScene('menu') as MenuScene).hangarButton,
-      hangar: () => { const h = game.scene.getScene('hangar') as HangarScene; return game.scene.isActive('hangar') ? { credits: h.credits, unlocks: h.unlocks, cards: h.cards.map((c) => ({ id: c.u.id, x: c.x, y: c.y })), back: h.backButton } : null; },
+      hangar: () => { const h = game.scene.getScene('hangar') as HangarScene; return game.scene.isActive('hangar') ? { credits: h.credits, unlocks: h.unlocks, cards: h.cards.map((c) => ({ id: c.u.id, x: c.x, y: c.y })), tabs: h.tabs, back: h.backButton } : null; },
       accountButton: () => (game.scene.getScene('menu') as MenuScene).accountButton,
       portraitBlocked: () => intents.portraitBlocked,
       asteroids: () => flight()?.net.asteroidRender().map((r) => ({ id: r.a.id, size: r.a.size, hp: r.a.hp, x: r.x, y: r.y })) ?? [],
