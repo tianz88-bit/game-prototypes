@@ -1,0 +1,167 @@
+{
+  "status": "proposal only; owner/Claude must approve and tune; no live values changed",
+  "basis": "rig plane x=right,y=rear; game local forward=-y*0.18,right=x*0.18. Excludes screen-space facing/lift offsets, projection, recoil and power growth. Use original trimmed aspect ratio only for muzzle tip.",
+  "referenceArtScale": 0.18,
+  "ships": {
+    "scrappy": {
+      "radiusProposal": 26,
+      "radiusBasis": "Preserve existing tune.ship.radius",
+      "muzzles": [
+        {
+          "forward": 14,
+          "right": -34
+        },
+        {
+          "forward": 14,
+          "right": 34
+        }
+      ],
+      "turretMounts": [
+        {
+          "forward": -14,
+          "right": -24
+        },
+        {
+          "forward": -14,
+          "right": 24
+        },
+        {
+          "forward": 10,
+          "right": -32
+        },
+        {
+          "forward": 10,
+          "right": 32
+        }
+      ]
+    },
+    "interceptor": {
+      "radiusProposal": 24,
+      "radiusBasis": "Conservative central-hull circle; proposal, not automatic art-bounds scaling",
+      "muzzles": [
+        {
+          "id": "gunL",
+          "rig": {
+            "x": -91,
+            "y": -60.71353251318102
+          },
+          "world": {
+            "forward": 10.928435852372584,
+            "right": -16.38
+          },
+          "recoilDelayMs": 0,
+          "recoilMultiplier": 1
+        },
+        {
+          "id": "gunR",
+          "rig": {
+            "x": 91,
+            "y": -60.71353251318102
+          },
+          "world": {
+            "forward": 10.928435852372584,
+            "right": 16.38
+          },
+          "recoilDelayMs": 0,
+          "recoilMultiplier": 1
+        }
+      ],
+      "turretMounts": [
+        {
+          "forward": -14,
+          "right": -24
+        },
+        {
+          "forward": -14,
+          "right": 24
+        },
+        {
+          "forward": 10,
+          "right": -32
+        },
+        {
+          "forward": 10,
+          "right": 32
+        }
+      ]
+    },
+    "battlecruiser": {
+      "radiusProposal": 60,
+      "radiusBasis": "Conservative central hull/bastion coverage; proposal; exclude barrels, shield and drone orbit",
+      "muzzles": [
+        {
+          "id": "gunL",
+          "rig": {
+            "x": -115,
+            "y": -495.55555555555554
+          },
+          "world": {
+            "forward": 89.19999999999999,
+            "right": -20.7
+          },
+          "recoilDelayMs": 0,
+          "recoilMultiplier": 2.6
+        },
+        {
+          "id": "gunR",
+          "rig": {
+            "x": 115,
+            "y": -495.55555555555554
+          },
+          "world": {
+            "forward": 89.19999999999999,
+            "right": 20.7
+          },
+          "recoilDelayMs": 70,
+          "recoilMultiplier": 2.6
+        },
+        {
+          "id": "gunOuterL",
+          "rig": {
+            "x": -310,
+            "y": -425.55555555555554
+          },
+          "world": {
+            "forward": 76.6,
+            "right": -55.8
+          },
+          "recoilDelayMs": 140,
+          "recoilMultiplier": 2.6
+        },
+        {
+          "id": "gunOuterR",
+          "rig": {
+            "x": 310,
+            "y": -425.55555555555554
+          },
+          "world": {
+            "forward": 76.6,
+            "right": 55.8
+          },
+          "recoilDelayMs": 210,
+          "recoilMultiplier": 2.6
+        }
+      ],
+      "turretMounts": [
+        {
+          "forward": -10,
+          "right": -106.2
+        },
+        {
+          "forward": -10,
+          "right": 106.2
+        },
+        {
+          "forward": 35,
+          "right": -106.2
+        },
+        {
+          "forward": 35,
+          "right": 106.2
+        }
+      ],
+      "baseDroneCount": null,
+      "shieldCapacity": null
+    }
+  }
+}
