@@ -7,7 +7,11 @@
 // Then:
 //   node scripts/screenshot-steroids-alpha.mjs http://127.0.0.1:4173/prototypes/steroids-alpha/ <output-dir>
 //
-// One desktop client (menu -> Planet A, keyboard) and one phone client (touch joystick
+// Needs a machine that keeps both headless clients near 30 FPS (a GPU helps). On an overloaded
+// box (software WebGL in a small container ran at about 6 FPS with 1-2 s of input backlog) the
+// prediction and planet-rotation checks fail because the clients starve, not because of the game.
+//
+// One desktop client (menu -> Planet B, keyboard) and one phone client (touch joystick
 // fire and dash buttons, with 120 ms of simulated round-trip lag) share a planet. Checks that
 // each sees the other, that prediction stays in step with the server, and that there are
 // no console errors.
@@ -48,8 +52,9 @@ try {
   await desk.goto(url('debug=1'), { waitUntil: 'networkidle' });
   await desk.waitForFunction(() => window.__steroids?.menuButtons().length === 2);
   await desk.screenshot({ path: path.join(outDir, 'desktop-menu.png') });
-  const btn = (await api(desk, () => window.__steroids.menuButtons()))[0];
-  assert.equal(btn.id, 'alpha');
+  // Planet B: no bots, whose shots would knock the test ships about and cloud the prediction check.
+  const btn = (await api(desk, () => window.__steroids.menuButtons()))[1];
+  assert.equal(btn.id, 'beta');
   await desk.mouse.click(btn.x, btn.y);
   await desk.waitForFunction(() => window.__steroids.scene() === 'flight' && window.__steroids.own() !== null, null, { timeout: 10000 });
   // The approved Human Nomad rig is drawn (not the placeholder triangles), unless EXPECT_PLACEHOLDER=1.
@@ -58,7 +63,20 @@ try {
 
   // Ships never stop, so the desktop holds turn-right while the others join: it circles in the
   // drop zone (turn radius = speed / turn rate, about 80 px) and stays in view range of newcomers.
-  const h0 = (await api(desk, () => window.__steroids.own())).heading;
+  // The turn is summed inside the page every frame (each frame turns far less than half a circle), so
+  // neither a near-full turn nor a slow screenshot between samples can alias it to a small angle.
+  await api(desk, () => {
+    const wrap = (a) => ((a + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    let last = window.__steroids.own().heading;
+    window.__turned = 0;
+    const tick = () => {
+      if (window.__turned === null) return;
+      const h = window.__steroids.own()?.heading;
+      if (h !== undefined) { window.__turned += wrap(h - last); last = h; }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
   await desk.keyboard.down('ArrowRight');
   // Close-ups of your own ship through the turn: eight headings for the rig check.
   const turnShots = [];
@@ -69,19 +87,20 @@ try {
     turnShots.push({ file, rigDeg: Math.round((((heading * 180) / Math.PI + 90) % 360 + 360) % 360) });
     await wait(150);
   }
-  const h1 = (await api(desk, () => window.__steroids.own())).heading;
-  const turned = Math.abs(((h1 - h0 + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+  const turned = Math.abs(await api(desk, () => { const t = window.__turned; window.__turned = null; return t; }));
   assert(turned > 1, `desktop keyboard turned the ship (${turned.toFixed(2)} rad)`);
 
   // Drop in and out: a third client joins, the desktop draws it, it leaves, the desktop stops drawing it.
-  const before = (await api(desk, () => window.__steroids.remotes())).length;
+  // Tracked by the third ship's id, not a count of remotes.
   const thirdCtx = await phoneBrowser.newContext({ viewport: { width: 800, height: 600 } });
   const third = await thirdCtx.newPage();
   watch('third', third);
-  await third.goto(url('debug=1&planet=alpha'), { waitUntil: 'networkidle' });
-  await desk.waitForFunction((n) => window.__steroids.remotes().length === n + 1, before, { timeout: 5000 });
+  await third.goto(url('debug=1&planet=beta'), { waitUntil: 'networkidle' });
+  await third.waitForFunction(() => window.__steroids.myId() > 0, null, { timeout: 10000 });
+  const thirdId = await api(third, () => window.__steroids.myId());
+  await desk.waitForFunction((id) => window.__steroids.remotes().some((r) => r.id === id), thirdId, { timeout: 5000 });
   await thirdCtx.close();
-  await desk.waitForFunction((n) => window.__steroids.remotes().length === n, before, { timeout: 5000 });
+  await desk.waitForFunction((id) => !window.__steroids.remotes().some((r) => r.id === id), thirdId, { timeout: 5000 });
 
   // Phone: straight in, touch controls, simulated lag.
   // Phones held upright are never blocked (owner decision): the landscape game is drawn turned a
@@ -93,7 +112,7 @@ try {
   await upright.waitForFunction(() => window.__steroids?.menuButtons().length === 2);
   assert.equal(await api(upright, () => window.__steroids.sideways()), true, 'upright phone draws the game sideways');
   await upright.screenshot({ path: path.join(outDir, 'phone-upright-sideways.png') });
-  const b0 = (await api(upright, () => window.__steroids.menuButtons()))[0];
+  const b0 = (await api(upright, () => window.__steroids.menuButtons()))[1];
   const uprightH = await api(upright, () => window.innerHeight);
   await upright.touchscreen.tap(b0.y, uprightH - b0.x);
   await upright.waitForFunction(() => window.__steroids.own() !== null, null, { timeout: 10000 });
@@ -103,7 +122,7 @@ try {
   const phoneCtx = await named(await phoneBrowser.newContext({ ...devices['iPhone 13 landscape'], deviceScaleFactor: 1 }), 'Phone Pilot');
   const phone = await phoneCtx.newPage();
   watch('phone', phone);
-  await phone.goto(url('debug=1&planet=alpha&lag=120'), { waitUntil: 'networkidle' });
+  await phone.goto(url('debug=1&planet=beta&lag=120'), { waitUntil: 'networkidle' });
   await phone.waitForFunction(() => window.__steroids.own() !== null, null, { timeout: 10000 });
   assert.equal(await api(phone, () => window.__steroids.shipArt()), expectArt, 'phone ship art');
   assert.equal(await api(phone, () => window.__steroids.sideways()), false, 'landscape phone is drawn as is');
@@ -203,29 +222,9 @@ try {
   const eased = (await api(phone, () => window.__steroids.own())).speed;
   assert(eased < 160, `stick at rest decelerates to minimum speed (${eased.toFixed(0)})`);
 
-  // Switch the stick to craft-relative with the on-screen STEER button, then: right rotates, down brakes.
-  const touchAt = async (pt, id) => {
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: pt.x, y: pt.y, id }] });
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  };
-  const schemeZone = (await api(phone, () => window.__steroids.zones())).scheme;
-  await touchAt(schemeZone, 5);
-  await phone.waitForFunction(() => window.__steroids.scheme() === 'craft', null, { timeout: 2000 });
-  const c0 = await api(phone, () => window.__steroids.own());
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: sx, y: sy, id: 6 }] });
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: sx + 60, y: sy, id: 6 }] });
-  await wait(500);
-  const c1 = await api(phone, () => window.__steroids.own());
-  const spun = ((c1.heading - c0.heading + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-  assert(spun > 0.8, `craft stick right rotated the ship clockwise (${spun.toFixed(2)} rad)`);
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: sx, y: sy + 60, id: 6 }] });
-  await wait(1000);
-  const c2 = await api(phone, () => window.__steroids.own());
-  assert(c2.speed < 160, `craft stick down braked (${c2.speed.toFixed(0)})`);
-  await phone.screenshot({ path: path.join(outDir, 'phone-craft.png') });
-  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await touchAt(schemeZone, 7);
-  await phone.waitForFunction(() => window.__steroids.scheme() === 'marker', null, { timeout: 2000 });
+  // Phones always steer with the direction marker (owner decision): no STEER button, no craft mode.
+  assert.equal((await api(phone, () => window.__steroids.zones())).scheme, null, 'no STEER button on phones');
+  assert.equal(await api(phone, () => window.__steroids.scheme()), 'marker', 'phone stays on the marker');
 
   const dashBtn = (await api(phone, () => window.__steroids.zones())).dash;
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: dashBtn.x, y: dashBtn.y, id: 2 }] });
@@ -279,13 +278,40 @@ try {
   assert(sawBullets >= 1, `bullets were drawn (${sawBullets})`);
   assert(after.rocks.some((r) => r.size > 0), 'smaller pieces exist after the split');
   await phone.screenshot({ path: path.join(outDir, 'phone-after-split.png') });
-  await desk.waitForFunction((n) => window.__steroids.splits() > n, deskSplits0, { timeout: 8000 });
+  // The desktop only hears about rocks inside its interest radius (1400 px), and the hunt can take the
+  // phone anywhere on the planet, so the desktop must see the split only when it was in range.
+  const [pAt, dAt] = await Promise.all([api(phone, () => window.__steroids.own()), api(desk, () => window.__steroids.own())]);
+  const apart = Math.hypot(d(pAt.x, dAt.x), d(pAt.y, dAt.y));
+  const deskSawSplit = apart < 1100;
+  if (deskSawSplit) await desk.waitForFunction((n) => window.__steroids.splits() > n, deskSplits0, { timeout: 8000 });
 
   // Fly straight for a while. Prediction should agree with the server: corrections rare, and
   // never more than a couple of steps (one step at cruise speed is 260/30 = 8.7px). A jittery
   // network occasionally costs one step; anything bigger means client and server diverged.
-  await Promise.all([api(phone, () => window.__steroids.resetCorrections()), api(desk, () => window.__steroids.resetCorrections())]);
-  await wait(3000);
+  // A bump (rock contact) knocks a ship about 64 px (knockback 320 / decay 5) against rocks the
+  // client sees slightly late, so that correction is expected: a window in which either ship carried
+  // any knockback (watched every frame, shield up or down) is flown again.
+  const watchBumps = (page) => api(page, () => {
+    window.__bumped = false;
+    const tick = () => {
+      const o = window.__steroids.own();
+      if (o && Math.hypot(o.kx, o.ky) > 1) window.__bumped = true;
+      if (!window.__bumpDone) requestAnimationFrame(tick);
+    };
+    window.__bumpDone = false;
+    requestAnimationFrame(tick);
+  });
+  const bumped = (page) => api(page, () => { window.__bumpDone = true; return window.__bumped; });
+  let cleanWindow = false;
+  for (let tries = 0; tries < 8 && !cleanWindow; tries++) {
+    // Let any knockback from before the window die away first (it decays to under 1 px/s in about 1.2 s).
+    await wait(1200);
+    await Promise.all([watchBumps(phone), watchBumps(desk)]);
+    await Promise.all([api(phone, () => window.__steroids.resetCorrections()), api(desk, () => window.__steroids.resetCorrections())]);
+    await wait(3000);
+    cleanWindow = !(await bumped(phone)) && !(await bumped(desk));
+  }
+  assert(cleanWindow, 'a 3 s window without bumps for the prediction check');
   const pStats = await api(phone, () => window.__steroids.stats());
   const dStats = await api(desk, () => window.__steroids.stats());
   for (const [name, page] of [['phone', phone], ['desktop', desk]]) {
@@ -301,7 +327,7 @@ try {
   const fpsOf = (page) => page.evaluate(() => new Promise((r) => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 1000) requestAnimationFrame(f); else r(n); }; requestAnimationFrame(f); }));
   const fps = { desk: await fpsOf(desk), phone: await fpsOf(phone) };
 
-  console.log(JSON.stringify({ fps, turnShots, ids, turned: Number(turned.toFixed(2)), phoneHeading: Number(steered.heading.toFixed(2)), phoneStats: pStats, deskStats: dStats, remoteGapPx: Math.round(gap), dropInOut: 'ok', hunt: { splits: after.splits, hp: after.hp, rocks: after.rocks.length } }));
+  console.log(JSON.stringify({ fps, turnShots, ids, turned: Number(turned.toFixed(2)), phoneHeading: Number(steered.heading.toFixed(2)), phoneStats: pStats, deskStats: dStats, remoteGapPx: Math.round(gap), dropInOut: 'ok', deskSplitCheck: deskSawSplit ? 'seen' : `skipped, ${Math.round(apart)} px apart`, hunt: { splits: after.splits, hp: after.hp, rocks: after.rocks.length } }));
 } finally {
   await deskBrowser.close();
   await phoneBrowser.close();

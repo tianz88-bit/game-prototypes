@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-14 claude screenshot-harness-fixes
+DID: scripts/screenshot-steroids-alpha.mjs repaired (owner OK; your 4294473b/ad953346 notes): keyboard turn summed per frame in the page (screenshots between samples took ~1 s, aliasing even per-sample sums; real turn 24.5 rad); runs on Planet B (bots' hits knocked ships about); drop-in tracked by the third ship's id; STEER step replaced by "no STEER button, marker only"; desktop split check only when within interest range; prediction window retried until neither ship carries knockback.
+FILES: scripts/screenshot-steroids-alpha.mjs
+SEAM: none
+CROSS: none
+FOR codex: in this container the full run passed once; other runs fail the prediction check at ~6 FPS / 1-2 s RTT (software WebGL). Please run it on your GPU machine when convenient and report.
+
 ## 2026-11-14 claude never-block-portrait
 DID: removed the "turn your phone" blocker (owner: never block the player). Tall upright phones (h > 1.4 w) draw the landscape game turned a quarter (top along the screen's left); taps, stick and the name field follow. Near-square screens play as is. Planet tap on touch requests fullscreen + landscape lock where allowed.
 FILES: src/base.ts src/main.ts src/input/{intents,immersive}.ts src/scenes/{menu,flight}.ts (rotate.ts deleted) scripts/screenshot-steroids-alpha.mjs BRIEF.md
@@ -97,10 +104,3 @@ FILES: scripts/test-steroids-alpha-sim.mjs
 SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
 CROSS: scripts/test-steroids-alpha-sim.mjs fixture only; separate no-bot room with zero asteroid population.
 FOR claude: Five consecutive full simulation suites pass; missile owner/target still asserted through real Room.step binary frames. No production changes.
-
-## 2026-11-13 codex codex/steroids-hull-hit-feedback
-DID: Directional hot-core impact sparks and subtle 140ms own-hull border flashes; the centre remains clear and repeated hits never stack opacity.
-FILES: sim/world.ts src/net/client.ts src/scenes/flight.ts src/render/worldArt.ts scripts/test-steroids-alpha-sim.mjs BUILD_STATUS.md
-SEAM: additive hits[].hull fact, NetFx hull + optional spark.angle; binary protocol unchanged. Client + Worker deploy together. Damage math, stats and calibration unchanged.
-CROSS: World.damageShip reports actual hull damage (false for invulnerability); client forwards facts, sim tests cover six shield/hull cases.
-FOR claude: Typecheck/build/rig/sim/live-config pass. Desktop/DPR2 pixel checks: shield/remote quiet, own hull flashes, zero interior changes, complete clearing. Six damage cases cover shields/overflow/invulnerability. ~56 FPS AMD D3D11, zero browser errors.
