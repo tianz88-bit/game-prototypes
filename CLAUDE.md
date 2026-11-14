@@ -146,6 +146,14 @@ bindings are acceptable; absent ones are not.
 
 Exception: Firestorm Arena does not require phone play.
 
+Never block the player (owner rule, 14 November 2026). No screen,
+overlay or state may stop play until the player changes something about
+their device or browser: no "rotate your phone" prompts, no "use a
+bigger screen" or "use another browser" walls. Adapt instead (for
+example, draw a landscape game turned a quarter on an upright phone, or
+lay out for the size given). Hints are fine only if play continues
+underneath and they never swallow input. This applies to every prototype.
+
 ## Networking
 
 Prototypes using Trystero's Nostr strategy for WebRTC signaling
