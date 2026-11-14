@@ -65,6 +65,8 @@ export interface ShipState {
   salvage: number;
   /** Ship type (sim/chassis.ts): 0 Scrappy, 1 Interceptor, 2 Battlecruiser. Set only by the server. */
   chassis: number;
+  /** Seconds until the shield starts recharging (reset by every hit). Set only by the server. */
+  shieldCd: number;
 }
 
 export interface ShipInput {
@@ -141,7 +143,7 @@ export function maxShield(s: ShipState, tune: Tune): number {
 }
 
 export function newShip(x: number, y: number, heading: number, speed: number): ShipState {
-  return { x, y, heading, speed, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0, salvage: 0, chassis: SCRAPPY };
+  return { x, y, heading, speed, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0, salvage: 0, chassis: SCRAPPY, shieldCd: 0 };
 }
 
 /** Warp top speed: warp.topSpeedFactor times this ship's top speed (only slightly faster, so pursuit is possible). */
@@ -150,7 +152,7 @@ export function warpSpeed(hp: number, tune: Tune, chassis = SCRAPPY): number {
 }
 
 export function copyShip(s: ShipState): ShipState {
-  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist, salvage: s.salvage, chassis: s.chassis };
+  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist, salvage: s.salvage, chassis: s.chassis, shieldCd: s.shieldCd };
 }
 
 /** Advance one fixed step. Mutates and returns s. */

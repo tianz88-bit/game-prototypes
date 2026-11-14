@@ -52,6 +52,7 @@ export type NetFx =
   | { kind: 'blast'; x: number; y: number; r: number; ordnance: 'missile' | 'mine'; shot: boolean }
   | { kind: 'mineral'; x: number; y: number }
   | { kind: 'shield'; id: number; x: number; y: number }
+  | { kind: 'shieldBreak'; id: number; x: number; y: number }
   | { kind: 'hull'; id: number; x: number; y: number };
 
 interface Timed {
@@ -172,7 +173,7 @@ export class NetClient {
   }
 
   /** Roster, deaths and pickups arrive as JSON text frames. */
-  private handleText(msg: { type?: string; id?: number; power?: number; kills?: number; ships?: { id: number; x: number; y: number }[]; x?: number; y?: number; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean; hull?: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral' | 'salvage'; value: number }[]; r?: number; seconds?: number; salvage?: number; amount?: number; balance?: number | null; error?: string; remove?: { id: number; by: number }[] }): void {
+  private handleText(msg: { type?: string; id?: number; power?: number; kills?: number; ships?: { id: number; x: number; y: number }[]; x?: number; y?: number; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean; hull?: boolean; broke?: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral' | 'salvage'; value: number }[]; r?: number; seconds?: number; salvage?: number; amount?: number; balance?: number | null; error?: string; remove?: { id: number; by: number }[] }): void {
     if (msg.type === 'roster' && Array.isArray(msg.players)) {
       this.roster = new Map(msg.players.map((p) => [p.id, p]));
     } else if (msg.type === 'extracted') {
@@ -197,6 +198,7 @@ export class NetClient {
     } else if (msg.type === 'hits' && Array.isArray(msg.hits)) {
       for (const h of msg.hits) {
         if (h.shielded) this.fx.push({ kind: 'shield', id: h.id, x: h.x, y: h.y });
+        if (h.broke) this.fx.push({ kind: 'shieldBreak', id: h.id, x: h.x, y: h.y });
         if (h.hull===true || (h.hull===undefined && !h.shielded)) this.fx.push({ kind: 'hull', id: h.id, x: h.x, y: h.y });
       }
     } else if (msg.type === 'blasts' && Array.isArray(msg.blasts)) {
