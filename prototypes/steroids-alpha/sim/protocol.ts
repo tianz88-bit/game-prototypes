@@ -22,7 +22,7 @@ import type { Look } from './unlocks';
 //   ORDNANCE  u8 type, u16 count, count x (u16 id, u8 kind 0 missile / 1 mine, u16 owner, f32 x, f32 y,
 //             f32 heading, u8 hp percent, u8 armed, u16 target): missiles and mines near you, every snapshot
 //   PONG      u8 type, f64 clientTimeMs
-//   ASTEROIDS u8 type, u16 count, count x (u16 id, u8 size, f32 x, f32 y, f32 vx, f32 vy, u32 t0, f32 hp)
+//   ASTEROIDS u8 type, u16 count, count x (u16 id, u8 size, f32 x, f32 y, f32 vx, f32 vy, u32 t0, f32 hp, u8 family)
 //             New asteroids, or ones whose hp changed. Sent in full to a client when it joins.
 //   GONE      u8 type, u16 count, count x (u16 id, f32 x, f32 y)   asteroids destroyed, and where
 //   SHOTS     u8 type, u32 tick, u16 count, count x (u16 owner, f32 x, f32 y, f32 vx, f32 vy, i8 side)
@@ -31,7 +31,7 @@ import type { ShipInput, ShipState } from './ship';
 import type { Asteroid } from './asteroids';
 import type { ShotEvent } from './world';
 
-export const PROTOCOL_VERSION = 17;
+export const PROTOCOL_VERSION = 18;
 
 export const MSG = {
   INPUT: 1,
@@ -129,7 +129,7 @@ export const INPUT_BYTES = 22;
 export const PING_BYTES = 9;
 export const BUY_BYTES = 3;
 const SHIP_BYTES = 2 + 4 * 10 + 1 + 2 + 4 + 1 + 3 + 8 + 4 + 8 + 4 + 9 + 4 + 1;
-const ASTEROID_BYTES = 2 + 1 + 4 * 4 + 4 + 4;
+const ASTEROID_BYTES = 2 + 1 + 4 * 4 + 4 + 4 + 1;
 const GONE_BYTES = 2 + 4 * 2;
 const SHOT_BYTES = 2 + 4 * 4 + 1;
 const ORDNANCE_BYTES = 2 + 1 + 2 + 4 * 3 + 1 + 1 + 2;
@@ -226,6 +226,7 @@ export function encodeAsteroids(list: Asteroid[]): ArrayBuffer {
     v.setFloat32(o + 15, a.vy, true);
     v.setUint32(o + 19, a.t0 >>> 0, true);
     v.setFloat32(o + 23, a.hp, true);
+    v.setUint8(o + 27, a.family ?? 0);
     o += ASTEROID_BYTES;
   }
   return buf;
@@ -384,6 +385,7 @@ export function decodeServer(buf: ArrayBuffer): ServerMessage | null {
         vy: v.getFloat32(o + 15, true),
         t0: v.getUint32(o + 19, true),
         hp: v.getFloat32(o + 23, true),
+        family: Math.min(2, v.getUint8(o + 27)),
       });
       o += ASTEROID_BYTES;
     }

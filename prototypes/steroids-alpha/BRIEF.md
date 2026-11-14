@@ -259,6 +259,13 @@ Both schemes are supported (owner decision), through the intent layer:
 
 ## Asteroids
 
+- Look (owner, 14 November 2026): broad cel-shaded painted rocks matching the
+  ships (owner art, R2 visual-review-v4), replacing the pixel rocks. Three
+  colour families (ochre, lavender, teal), each with a parent, two medium and
+  two small variants. Fragments keep the parent's colour family (server);
+  siblings use different variants. A painted rock is never drawn smaller than
+  its hitbox: it is scaled so the circle inside its body is the collision
+  circle (drawn width 1.3-1.7x the hitbox, depending on the shape).
 Asteroids replace bots as the non-player targets (owner decision).
 
 - They float over the planet surface in straight lines and wrap around it.

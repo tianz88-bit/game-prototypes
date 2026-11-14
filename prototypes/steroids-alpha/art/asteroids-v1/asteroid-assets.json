@@ -1,0 +1,144 @@
+{
+  "source": "Codex visual review pack v4 (owner art, 2026-11-14); candidates in key-art-v02. Staged as loose/asteroid-<name>.png",
+  "r2Object": "steroids-alpha_visual-review-v4_assets.zip",
+  "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_visual-review-v4_assets.zip",
+  "zipSha256": "75c35d88b5a617337e80638c36c23beae2ffcd7a0a5acd92afb52a9fe05ad8d1",
+  "familyRule": "Fragments keep the parent colour family; siblings use different variants.",
+  "assets": [
+    {
+      "name": "ochre-parent",
+      "family": "ochre",
+      "stage": "parent",
+      "variant": 1,
+      "deliveryPath": "loose/world/asteroids/ochre-parent.png",
+      "sha256": "440d15e8bc7eb07ef5c35d1bc86834ee7be5d6fa7a9ad0ee5a5db026eb0a959b",
+      "bytes": 286861
+    },
+    {
+      "name": "ochre-medium-1",
+      "family": "ochre",
+      "stage": "medium",
+      "variant": 1,
+      "deliveryPath": "loose/world/asteroids/ochre-medium-1.png",
+      "sha256": "ba01fbaa9606e60768ea27af7942a26a4b92d6b0967ba869184957c865a2017f",
+      "bytes": 237652
+    },
+    {
+      "name": "ochre-medium-2",
+      "family": "ochre",
+      "stage": "medium",
+      "variant": 2,
+      "deliveryPath": "loose/world/asteroids/ochre-medium-2.png",
+      "sha256": "848d88119189023f06e154e7307c794d2b5385eb7f3d7696320ba08ef006ae61",
+      "bytes": 209847
+    },
+    {
+      "name": "ochre-small-1",
+      "family": "ochre",
+      "stage": "small",
+      "variant": 1,
+      "deliveryPath": "loose/world/asteroids/ochre-small-1.png",
+      "sha256": "ab6cc3c53c5a04e06daf5142208acca3288002f72498e7370810243381e57c10",
+      "bytes": 100296
+    },
+    {
+      "name": "ochre-small-2",
+      "family": "ochre",
+      "stage": "small",
+      "variant": 2,
+      "deliveryPath": "loose/world/asteroids/ochre-small-2.png",
+      "sha256": "b72dfb46f4ad259b36434307e27743180e45269c8be7a330896489681f4cbd90",
+      "bytes": 125315
+    },
+    {
+      "name": "lavender-parent",
+      "family": "lavender",
+      "stage": "parent",
+      "variant": 1,
+      "deliveryPath": "loose/world/asteroids/lavender-parent.png",
+      "sha256": "8daba5676606dbb3b56e0448e43a5fd3d40e556b4ad0340eb37bfbc5343329b9",
+      "bytes": 340375
+    },
+    {
+      "name": "lavender-medium-1",
+      "family": "lavender",
+      "stage": "medium",
+      "variant": 1,
+      "deliveryPath": "loose/world/asteroids/lavender-medium-1.png",
+      "sha256": "cbd92f59f60473a5082e15cd7724b6e9986d7269196534d3203389cbec957010",
+      "bytes": 178271
+    },
+    {
+      "name": "lavender-medium-2",
+      "family": "lavender",
+      "stage": "medium",
+      "variant": 2,
+      "deliveryPath": "loose/world/asteroids/lavender-medium-2.png",
+      "sha256": "50b9a4cfdb36eb1e35fa0f3a9832b4787683fbcbeb965cc11ceb6e3b72924aaa",
+      "bytes": 174358
+    },
+    {
+      "name": "lavender-small-1",
+      "family": "lavender",
+      "stage": "small",
+      "variant": 1,
+      "deliveryPath": "loose/world/asteroids/lavender-small-1.png",
+      "sha256": "20a31dcdffc890d2b0c6d451e74890ba6f7edc732502d38856dc403386e19fb8",
+      "bytes": 90509
+    },
+    {
+      "name": "lavender-small-2",
+      "family": "lavender",
+      "stage": "small",
+      "variant": 2,
+      "deliveryPath": "loose/world/asteroids/lavender-small-2.png",
+      "sha256": "6573c2ade12494a098780949026a32bd5a0d644bff47b143d07cd97ba5e3d524",
+      "bytes": 89595
+    },
+    {
+      "name": "teal-parent",
+      "family": "teal",
+      "stage": "parent",
+      "variant": 1,
+      "deliveryPath": "loose/world/asteroids/teal-parent.png",
+      "sha256": "1ba7cb5a7cbf13df74697e765606560f1db4c5413839c91a3b7af22fcd277305",
+      "bytes": 227029
+    },
+    {
+      "name": "teal-medium-1",
+      "family": "teal",
+      "stage": "medium",
+      "variant": 1,
+      "deliveryPath": "loose/world/asteroids/teal-medium-1.png",
+      "sha256": "3b341de5ba6b6379b989a6fa8c9e12cf1b081647d0a0c53944b919a85e2d7bd9",
+      "bytes": 177578
+    },
+    {
+      "name": "teal-medium-2",
+      "family": "teal",
+      "stage": "medium",
+      "variant": 2,
+      "deliveryPath": "loose/world/asteroids/teal-medium-2.png",
+      "sha256": "b915990e8e5ac9b42dc9db3f08aef2c2843244a66238455b6e2293157ce936d3",
+      "bytes": 162886
+    },
+    {
+      "name": "teal-small-1",
+      "family": "teal",
+      "stage": "small",
+      "variant": 1,
+      "deliveryPath": "loose/world/asteroids/teal-small-1.png",
+      "sha256": "b1fea2eaea7ae98e5ced8dff8a13113b813fcef6de7972d1e8d3d85fa3bd7651",
+      "bytes": 92792
+    },
+    {
+      "name": "teal-small-2",
+      "family": "teal",
+      "stage": "small",
+      "variant": 2,
+      "deliveryPath": "loose/world/asteroids/teal-small-2.png",
+      "sha256": "d950a283732a37cc649c327c914debf30faf88e25316768a590dee541ac25c0e",
+      "bytes": 99972
+    }
+  ]
+}

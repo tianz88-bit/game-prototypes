@@ -848,7 +848,8 @@ export class World {
       if (!clear) continue;
       const dir = this.rng() * Math.PI * 2;
       const speed = t.asteroid.speedMin + this.rng() * (t.asteroid.speedMax - t.asteroid.speedMin);
-      const a: Asteroid = { id: this.newAsteroidId(), size: 0, x, y, vx: Math.cos(dir) * speed, vy: Math.sin(dir) * speed, t0: this.tick, hp: t.asteroid.hp[0] };
+      const a: Asteroid = { id: this.newAsteroidId(), size: 0, x, y, vx: Math.cos(dir) * speed, vy: Math.sin(dir) * speed, t0: this.tick, hp: t.asteroid.hp[0], family: 0 };
+      a.family = a.id % 3; // colour family from the id: no extra random draws
       this.asteroids.set(a.id, a);
       this.events.asteroids.push(a);
       mass += asteroidMass(0);

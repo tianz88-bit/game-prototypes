@@ -49,8 +49,41 @@ async function stageExtraShips(assetsSrcDir) {
   }
 }
 
+/** Painted asteroids (owner art): 3 colour families x parent + 2 medium + 2 small, from the visual pack. */
+async function stageAsteroids(assetsSrcDir) {
+  const m = JSON.parse(readFileSync(path.join(here, 'asteroids-v1', 'asteroid-assets.json'), 'utf8'));
+  const zip = new AdmZip(await fetchVerified(m));
+  for (const a of m.assets) {
+    const e = zip.getEntry(a.deliveryPath);
+    if (!e) throw new Error(`prepare-assets: ${a.deliveryPath} missing from ${m.r2Object}`);
+    const data = e.getData();
+    const sha = createHash('sha256').update(data).digest('hex');
+    if (sha !== a.sha256) throw new Error(`prepare-assets: ${a.deliveryPath} SHA-256 ${sha} does not match ${a.sha256}`);
+    writeFileSync(path.join(assetsSrcDir, 'loose', `asteroid-${a.name}.png`), data);
+  }
+  console.log(`prepare-assets: asteroids-v1: ${m.assets.length} painted rocks verified and staged`);
+}
+
+/** Download an R2 zip (cached by its SHA-256 in .cache/) and check the hash. */
+async function fetchVerified(m) {
+  const cache = path.join(here, '..', '..', '..', '.cache');
+  mkdirSync(cache, { recursive: true });
+  const cached = path.join(cache, `${m.zipSha256}.zip`);
+  let bytes = existsSync(cached) ? readFileSync(cached) : null;
+  if (!bytes || createHash('sha256').update(bytes).digest('hex') !== m.zipSha256) {
+    const r = await fetch(m.url);
+    if (!r.ok) throw new Error(`prepare-assets: ${m.r2Object} HTTP ${r.status}`);
+    bytes = Buffer.from(await r.arrayBuffer());
+    const sha = createHash('sha256').update(bytes).digest('hex');
+    if (sha !== m.zipSha256) throw new Error(`prepare-assets: ${m.r2Object} SHA-256 ${sha} does not match ${m.zipSha256}`);
+    writeFileSync(cached, bytes);
+  }
+  return bytes;
+}
+
 export default async function prepare({ assetsSrcDir }) {
   await stageExtraShips(assetsSrcDir);
+  await stageAsteroids(assetsSrcDir);
   for (const ship of SHIPS) {
     const { assets } = JSON.parse(readFileSync(ship.list, 'utf8'));
     for (const a of assets) {
