@@ -1,5 +1,33 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 codex P1-combat-preview
+DID: Painted missiles/mines/repair pods; smoke, armed/search/observed-seeking cues and lock brackets; differentiated death/missile/mine/split/Nova/ram/hit/shield-shatter effects; heading-only dash charge and subtle hull-border accents.
+FILES: art/combat-backlog-v1/* art/prepare-assets.mjs render/{combatSprites,combatEffects,worldArt}.ts scenes/flight.ts
+SEAM: optional painted/seeking ordnance cue, CombatImpact render tag; existing sim/wire/radii unchanged. Three new source PNGs/ZIP local, hash-verified preview cache; reserved R2 object NOT uploaded.
+CROSS: scene event/draw wiring only, no tuning/input. Typecheck/build/rig/sim/live-config,22 desktop/mobile frames + Canvas checks pass; actual fire/dash and2clients+4bots ~57FPS on PC, no errors.
+FOR claude: LOCAL PREVIEW, not published. Owner must review screenshots before live. Gallery outputs/steroids-alpha/backlog-review/index.html; branch codex/steroids-combat-backlog-preview. No PR opened because repository auto-merge would publish.
+
+## 2026-11-15 codex P2-clan-preview
+DID: Crimson fractured dust and Azure glacial terrain, fortified treasury, pads/over-pad/docked states, rotating turrets/flash, projected dome/hit/push, gate and compact banners.
+FILES: render/{clanBaseArt,planetGround}.ts scenes/flight.ts drawBase
+SEAM: drawClanBase/styleClanBanner read existing layout/tune; exact coordinates/radii/projection retained.
+CROSS: drawBase render integration only.24 WebGL +2Canvas captures, real docked/over-pad getter and GLSL checks pass; labels/limb clipping corrected.
+FOR claude: LOCAL PREVIEW, not published. Owner must review screenshots before live. Gallery outputs/steroids-alpha/backlog-review/index.html; branch codex/steroids-combat-backlog-preview. No PR opened because repository auto-merge would publish.
+
+## 2026-11-15 codex P3-progression-preview
+DID: Evolution assembly/shield lock, capital escorts/name clearance, warp aperture/launch and two painted asteroid fracture stages.
+FILES: render/{progressionArt,rockPainted}.ts scenes/flight.ts
+SEAM: progression/followId visual effect tags; chassis observed from server, no control lock/gameplay changes. Damage textures share original alpha/registration/coverage.
+CROSS: placeShip/event drawing only.14 desktop/mobile frames; all30 damage variants preserve alpha exactly and change RGB; no browser errors.
+FOR claude: LOCAL PREVIEW, not published. Owner must review screenshots before live. Gallery outputs/steroids-alpha/backlog-review/index.html; branch codex/steroids-combat-backlog-preview. No PR opened because repository auto-merge would publish.
+
+## 2026-11-15 codex P4-HUD-preview
+DID: Authored hangar emblems, segmented target health, nose chevron, full cargo cue, reconnect/lost banners and projected salvage ring. Connection alerts take precedence over informational labels.
+FILES: render/{flightIndicators,combatHud}.ts scenes/{hangar,flight}.ts
+SEAM: drawing helpers only; preserved compact mobile controls/uiZones, authoritative values and desktop-style own vitals.
+CROSS: scene styling only.27 desktop/mobile/small captures +6connection/2cargo rechecks pass, no errors; alert placement clears combat and upgrade drawer.
+FOR claude: LOCAL PREVIEW, not published. Owner must review screenshots before live. Gallery outputs/steroids-alpha/backlog-review/index.html; branch codex/steroids-combat-backlog-preview. No PR opened because repository auto-merge would publish.
+
 ## 2026-11-15 claude clan-planets-v0
 DID: two demo clans (menu pick, save.clan, sent as ?clan=); PLANETS now Lawless A, Satellite B, Crimson Home, Azure Home. Home planets (sim/clanBase.ts): treasury at map centre, 6 pads, 6 base turrets, shield dome, gate at (0,0). Members spawn by the pads and may stop over a pad (stepShip floor 0): docked = safe, repaired, salvage unloaded to the treasury (Room.treasury, DO storage 'treasury'). Non-members spawn at the gate, are fired on by base turrets, pushed out of the dome; their bullets/ordnance stop at it. Arrival warnings and docking banner. Ground tint per clan.
 FILES: sim/{planets,clanBase,ship,world,protocol,liveConfig}.ts server/src/{room,index}.ts src/{net/client,input/intents,scenes/menu,scenes/flight,render/planetGround,save,main,liveConfig}.ts tune.json (base group) scripts/test-steroids-alpha-{sim,bank}.mjs scripts/screenshot-steroids-alpha.mjs BRIEF.md GFX_BRIEF.md DESIGN_LONGGAME.md
@@ -76,31 +104,3 @@ FILES: sim/{ship,protocol,bots,liveConfig}.ts server/src/room.ts src/{input/inte
 SEAM: ShipInput.dashAim removed; wire offset 18 stays as a reserved NaN float (protocol 19 unchanged). ThrusterInput.dashing; ThrusterVFX.update(..., trailStretch, dashStretch). clientTune.render.{thrusterDashStretch,bulletScale,hitSparkScale}; tune.bots.lingerSeconds.
 CROSS: src/render/{thrusters,shipView}.ts (dash stretch), worldArt draw calls get a scaled `at` (drawHitSpark/drawBullet unchanged).
 FOR codex: the dash aim arrow during the charge now just points along the heading; restyle or drop it.
-
-## 2026-11-15 codex control-ffd
-DID: per-part hardline FFD for acceleration/braking/yaw on all 3 ships; passive rotation stays on the original rig. Preserves inverted yaw, fixed Z, recoil, vibration, palette/depth shading and tilted exhaust origins; no raster baking.
-FILES: render/{shipTilt,partFFD,shipView}.ts scenes/flight.ts main.ts client.tune.json sim/liveConfig.ts scripts/test-steroids-{alpha-rig,live-config}.mjs COLLAB/BRIEF/BUILD_STATUS.md
-SEAM: optional ShipView/DrawnShip control cue; own intent vs explicit remote observed motion, absent cue level. render.ffd* live settings, old records upgrade; no protocol/gameplay changes.
-CROSS: scene control forwarding, bounded config validation and regression tests. Typecheck/build/sim/live-config/396 poses + 14400 lab FFD points pass; Brave WebGL/Canvas 36 states, mobile marker/brake, disable/slow/failure fallback, context restoration and 2-client check pass (~58/57 FPS PC).
-FOR claude: Owner approved; PR #478 merged/live, client 43689948315 and Worker 43689948353 passed. Brave verified build 151126r0052 FFD, disable fallback and level return with no errors. render.ffdEnabled=0 selects original sprites; slow frames >50ms for 2s fall back, 5s healthy recovers; distant cutoff scale .15. Meshes are cached per view and destroyed with it. FFD is visual only; authoritative hitboxes/muzzle points unchanged. Per-chassis live calibration and orbital transitions remain pending.
-
-## 2026-11-15 codex compact-ui
-DID: compact labelled shield/hull/heat/dash cluster, shield reboot and break cells, readable salvage/zone badges, actual rig ship/palette previews, EVOLVE thumbnail and capital name clearance; navy/cream panel material across menus and controls.
-FILES: src/render/{ui,combatHud,shipPreview}.ts src/scenes/{flight,hangar,menu}.ts BUILD_STATUS.md
-SEAM: none; wire, gameplay tuning and action/shop hit zones retained.
-CROSS: scene presentation only. Typecheck/build/396-pose rig/sim/live-config pass; Brave DPR2 desktop/844x390/667x375/upright UI and controls inspected; two-client check passed at 57 FPS (PC emulation).
-FOR claude: owner approved live publishing; PR #476 merged as 422d8a9, client run 43687328183 succeeded. Live HUD/planet snapshots verified in Brave with zero errors. Full harness needs a shooting-phase split baseline; its absolute splits>=1 can skip the hunt before bullets appear. Local Brave adapter uses splits>phaseStart; production harness unchanged. FFD, per-chassis hosted calibration and orbital transitions still pending.
-
-## 2026-11-14 claude screenshot-harness-fixes
-DID: scripts/screenshot-steroids-alpha.mjs repaired (owner OK; your 4294473b/ad953346 notes): keyboard turn summed per frame in the page (screenshots between samples took ~1 s, aliasing even per-sample sums; real turn 24.5 rad); runs on Planet B (bots' hits knocked ships about); drop-in tracked by the third ship's id; STEER step replaced by "no STEER button, marker only"; desktop split check only when within interest range; prediction window retried until neither ship carries knockback.
-FILES: scripts/screenshot-steroids-alpha.mjs
-SEAM: none
-CROSS: none
-FOR codex: in this container the full run passed once; other runs fail the prediction check at ~6 FPS / 1-2 s RTT (software WebGL). Please run it on your GPU machine when convenient and report.
-
-## 2026-11-14 claude never-block-portrait
-DID: removed the "turn your phone" blocker (owner: never block the player). Tall upright phones (h > 1.4 w) draw the landscape game turned a quarter (top along the screen's left); taps, stick and the name field follow. Near-square screens play as is. Planet tap on touch requests fullscreen + landscape lock where allowed.
-FILES: src/base.ts src/main.ts src/input/{intents,immersive}.ts src/scenes/{menu,flight}.ts (rotate.ts deleted) scripts/screenshot-steroids-alpha.mjs BRIEF.md
-SEAM: logicalSize() is landscape when sideways; pointer coords go through base.toLogical; #app is the rotated container (name field lives inside it). Test hook sideways() replaces portraitBlocked().
-CROSS: none
-FOR codex: read sizes from logicalSize(), never window.innerWidth/Height; DOM elements over the canvas go inside #app.

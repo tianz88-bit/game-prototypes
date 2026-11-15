@@ -1,3 +1,4 @@
+import { drawUnlockEmblem } from '../render/flightIndicators';
 import { shipPreview } from '../render/shipPreview';
 // Hangar: spend banked credits on unlocks (sim/unlocks.ts: cosmetics and quality of life, never
 // raw power) and choose what to wear. Buying takes two taps (tap, then tap again to confirm); the
@@ -109,7 +110,7 @@ export class HangarScene extends Phaser.Scene {
     const items = TABS[openTab].items;
     const shipTab = openTab === 0;
     const visualTab = shipTab || openTab === 1;
-    const cols = shipTab ? 3 : Math.min(4, Math.max(2, items.length));
+    const cols = shipTab ? 3 : Math.min(4, Math.max(1, items.length));
     const cw = Math.min(250, (w - 40 - gap * (cols - 1)) / cols);
     const ch = visualTab ? Math.min(270, h - 158) : Math.min(84, (h - 104 - 50) / 2 - gap);
     const top = 104;
@@ -130,23 +131,18 @@ export class HangarScene extends Phaser.Scene {
         const g = this.add.graphics();
         panel(g, x - cw / 2, y - ch / 2, cw, ch, equipped ? UI.uiAccent : armed ? UI.uiGold : owned ? UI.uiBorder : 0x2a3550, equipped || armed);
         // Swatch on the left: colour, flame colours or the badge glyph.
-        const sx = x - cw / 2 + 18;
         if (visualTab) {
           const chassis = shipTab ? (u.index ?? 0) : (look.ship === 'ship.interceptor' ? 1 : 0);
           const palette = shipTab ? Number((look.palette ?? 'palette.0').split('.')[1]) : (u.index ?? 0);
           shipPreview(this, chassis, palette, x, y-ch/2+(ch-60)/2+6, cw-36, ch-76, { spin: true, relative: shipTab });
           if (u.palette) u.palette.forEach((p,i)=>{g.fillStyle(p,1);g.fillRoundedRect(x-26+i*18,y+ch/2-63,14,5,1);});
         }
-        else if (u.palette) u.palette.forEach((p, i) => { g.fillStyle(p, 1); g.fillCircle(sx - 6 + (i % 2) * 12, y - 6 + Math.floor(i / 2) * 12, 5); });
-        else if (u.slot === 'ship') { g.fillStyle(u.index === 1 ? 0x7fe9ff : 0x5fa8ff, 1); g.fillTriangle(sx, y - 11, sx - 8, y + 9, sx + 8, y + 9); }
-        else if (u.colour !== undefined) { g.fillStyle(u.colour, 1); g.fillCircle(sx, y, 10); }
-        else if (u.glyph) text(this, sx, y, u.glyph, 18, '#ffd23a').setOrigin(0.5);
-        else text(this, sx, y, '≡', 18, '#dfe8ff').setOrigin(0.5);
+        else drawUnlockEmblem(g,u,x-cw/2+(cw<175?25:32),y,Math.min(cw<175?36:48,ch-18));
         const price = this.priceOf(u);
         const status = equipped ? (u.slot === 'ship' ? 'FLYING' : 'EQUIPPED') : armed ? 'Tap to confirm' : owned ? (u.slot === 'qol' ? 'OWNED · tap to view' : u.slot === 'ship' ? 'OWNED · tap to fly' : 'OWNED · tap to wear') : price === 0 ? 'FREE (old tint)' : `${price} credits`;
-        const small = cw < 160;
-        text(this, visualTab ? x-cw/2+14 : sx+16, visualTab ? y+ch/2-38 : y-10, u.name, small ? 11 : 15, '#e8f0ff').setOrigin(0, 0.5);
-        text(this, visualTab ? x-cw/2+14 : sx+16, visualTab ? y+ch/2-17 : y+11, status, small ? 10 : 12, equipped ? '#7fe9ff' : armed ? '#ffd23a' : owned ? '#9fb3d6' : '#ffd98a').setOrigin(0, 0.5);
+        const small = cw < (visualTab ? 160 : 210);
+        text(this, visualTab ? x-cw/2+14 : x-cw/2+(cw<175?50:64), visualTab ? y+ch/2-38 : y-10, u.name, small ? 11 : 15, '#e8f0ff').setOrigin(0, 0.5);
+        text(this, visualTab ? x-cw/2+14 : x-cw/2+(cw<175?50:64), visualTab ? y+ch/2-17 : y+11, status, cw<175 ? 9 : small ? 10 : 12, equipped ? '#7fe9ff' : armed ? '#ffd23a' : owned ? '#9fb3d6' : '#ffd98a').setOrigin(0, 0.5);
         this.cards.push({ u, x, y, w: cw, h: ch });
       }
     });

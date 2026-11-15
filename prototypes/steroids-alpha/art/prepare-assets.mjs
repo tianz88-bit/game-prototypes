@@ -86,7 +86,8 @@ export default async function prepare({ assetsSrcDir }) {
   await stageExtraShips(assetsSrcDir);
   await stageAsteroids(assetsSrcDir);
   // Preserve original PNGs in the delivery ZIP; only runtime copies are resolution-bounded.
-  const combat = JSON.parse(readFileSync(path.join(here,'combat-title-v1','assets.json'),'utf8'));
+  for (const pack of ['combat-title-v1','combat-backlog-v1']) {
+  const combat = JSON.parse(readFileSync(path.join(here,pack,'assets.json'),'utf8'));
   const combatZip = new AdmZip(await fetchVerified(combat));
   for (const a of combat.assets) {
     const entry = combatZip.getEntry(a.deliveryPath);
@@ -97,6 +98,7 @@ export default async function prepare({ assetsSrcDir }) {
       .toFile(path.join(assetsSrcDir,'loose',`combat-${a.name}.png`));
   }
   console.log(`prepare-assets: combat/title: ${combat.assets.length} sources verified and runtime copies staged`);
+  }
   for (const ship of SHIPS) {
     const { assets } = JSON.parse(readFileSync(ship.list, 'utf8'));
     for (const a of assets) {

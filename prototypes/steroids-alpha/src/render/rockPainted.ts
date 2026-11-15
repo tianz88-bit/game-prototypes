@@ -18,6 +18,8 @@ const TEXTURE_MAX = 256;
 
 interface RockArt {
   key: string;
+  /** Shared damage variants preserve the original alpha/body registration exactly. */
+  damaged: [string,string];
   /** Anchor (deepest body point) as a fraction of the trimmed texture. */
   ax: number;
   ay: number;
@@ -30,6 +32,35 @@ interface RockArt {
 const art = new Map<string, RockArt>();
 const srcKey = (name: string): string => `rock-src-${name}`;
 let ready = false;
+
+/** Bake fissures only into existing painted pixels; never erode or expand the collision-covering body. */
+function damageTextures(scene:Phaser.Scene,base:HTMLCanvasElement,key:string,name:string,ax:number,ay:number,inR:number):[string,string] {
+  const keys:[string,string]=[`${key}-worn`,`${key}-fractured`];
+  const seed=[...name].reduce((n,c)=>(n*33+c.charCodeAt(0))>>>0,5381),angle=(seed%628)/100;
+  const cx=base.width*ax,cy=base.height*ay,r=inR*base.width;
+  const highlight=name.startsWith('lavender')?'#d6cbe5':name.startsWith('teal')?'#c1e2cd':'#f7c989';
+  keys.forEach((damageKey,stage)=>{
+    if(scene.textures.exists(damageKey))scene.textures.remove(damageKey);
+    const canvas=document.createElement('canvas');canvas.width=base.width;canvas.height=base.height;
+    const ctx=canvas.getContext('2d') as CanvasRenderingContext2D;ctx.drawImage(base,0,0);
+    ctx.globalCompositeOperation='source-atop';ctx.lineJoin='bevel';ctx.lineCap='butt';
+    for(let branch=0;branch<(stage?4:2);branch++){
+      const a=angle+branch*(stage?1.57:2.7),ca=Math.cos(a),sa=Math.sin(a),spread=r*(stage?.95:.7);
+      const points=[[cx-ca*r*.18,cy-sa*r*.18],[cx+ca*spread*.22-sa*r*.12,cy+sa*spread*.22+ca*r*.12],[cx+ca*spread*.56+sa*r*.08,cy+sa*spread*.56-ca*r*.08],[cx+ca*spread,cy+sa*spread]];
+      const stroke=(offset:number,width:number,colour:string)=>{
+        ctx.strokeStyle=colour;ctx.lineWidth=width;ctx.beginPath();points.forEach(([x,y],i)=>i?ctx.lineTo(x-sa*offset,y+ca*offset):ctx.moveTo(x-sa*offset,y+ca*offset));ctx.stroke();
+      };
+      stroke(1.1,Math.max(1.5,r*.045),highlight);
+      stroke(0,Math.max(1.8,r*(stage?.055:.04)),'#292635');
+      if(stage){
+        const mid=points[2];ctx.strokeStyle='#302b3b';ctx.lineWidth=Math.max(1.2,r*.025);ctx.beginPath();ctx.moveTo(mid[0],mid[1]);ctx.lineTo(mid[0]+Math.cos(a+.9)*r*.2,mid[1]+Math.sin(a+.9)*r*.2);ctx.stroke();
+      }
+    }
+    ctx.globalCompositeOperation='source-over';
+    scene.textures.addCanvas(damageKey,canvas)!.setFilter(Phaser.Textures.FilterMode.LINEAR);
+  });
+  return keys;
+}
 
 export function queuePaintedRocks(scene: Phaser.Scene): void {
   for (const a of manifest.assets) scene.load.image(srcKey(a.name), `assets/loose/asteroid-${a.name}.png`);
@@ -88,7 +119,9 @@ export function preparePaintedRocks(scene: Phaser.Scene): boolean {
       if (scene.textures.exists(key)) scene.textures.remove(key);
       scene.textures.addCanvas(key, c)!.setFilter(Phaser.Textures.FilterMode.LINEAR);
       scene.textures.remove(srcKey(a.name));
-      art.set(a.name, { key, ax: (bx + 0.5) / gw, ay: (by + 0.5) / gh, inR, aspect: h / w });
+      const ax=(bx+.5)/gw,ay=(by+.5)/gh;
+      const damaged=damageTextures(scene,c,key,a.name,ax,ay,inR);
+      art.set(a.name, { key, damaged, ax, ay, inR, aspect: h / w });
     }
     ready = true;
   } catch (e) {
@@ -155,17 +188,20 @@ export class PaintedRocks {
       }
       this.active.set(id, mesh);
     }
-    mesh.setTexture(a.key).setVisible(true);
+    const damageKey=hp<.35?a.damaged[1]:hp<.7?a.damaged[0]:a.key;
+    mesh.setTexture(damageKey).setVisible(true);
     mesh.tintFill = flash;
     this.seen.add(id);
     if (mesh instanceof Phaser.GameObjects.Image) {
       const left = points[10], right = points[14], top = points[2], bottom = points[22];
       const mid = { x: (points[0].x + points[24].x) / 2, y: (points[0].y + points[24].y) / 2 };
       mesh.setPosition(mid.x, mid.y).setDisplaySize(Math.hypot(right.x - left.x, right.y - left.y), Math.hypot(bottom.x - top.x, bottom.y - top.y)).setRotation(Math.atan2(right.y - left.y, right.x - left.x));
+      const shade=flash?255:Math.round(255*Math.max(.22,light*(.9+.1*Math.max(0,Math.min(1,hp)))));
+      mesh.setTint((shade<<16)|(shade<<8)|shade);
       return;
     }
-    // Damaged rocks darken a little (the painted art has no crack stages); sun and night as before.
-    const wear = 0.82 + 0.18 * Math.max(0, Math.min(1, hp));
+    // Shared baked fissure stages carry damage, while only a restrained wear tint affects the paint.
+    const wear = 0.9 + 0.1 * Math.max(0, Math.min(1, hp));
     for (const v of mesh.vertices) {
       const i = Math.round(v.u * 4);
       const j = Math.round(v.v * 4);

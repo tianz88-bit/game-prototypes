@@ -1,4 +1,8 @@
+import { drawCombatImpact, drawShieldShatter } from '../render/combatEffects';
+import type { CombatImpact } from '../render/combatEffects';
+import {drawEvolve,drawWarpCharge,drawWarpLaunch,drawCapitalEscort,shipTagClearance,EVOLVE_ART_MS,WARP_LAUNCH_ART_MS} from '../render/progressionArt';
 import { CombatHud } from '../render/combatHud';
+import { drawTargetMeter, drawNoseMarker, drawSalvageZoneRing, drawConnectionBanner } from '../render/flightIndicators';
 import { CombatSprites } from '../render/combatSprites';
 import { mobileHeader } from '../render/mobileFlightUi';
 import { shipPreview } from '../render/shipPreview';
@@ -29,6 +33,7 @@ import { shipArtStatus,buildShadow,CALIBRATION,SHADOW_ANCHOR } from '../render/s
 import { lightingRadius, planetFrame, projectOffset, shipShadow, sunState } from '../render/planet';
 import type { PlanetFrame } from '../render/planet';
 import { PlanetGround } from '../render/planetGround';
+import { drawClanBase, styleClanBanner } from '../render/clanBaseArt';
 import { Explosion } from '../render/explosion';
 import { loadSave, recordRun } from '../save';
 import type { ShipPlacement } from '../render/shipView';
@@ -64,12 +69,14 @@ export class FlightScene extends Phaser.Scene {
   private coords!: Phaser.GameObjects.Text;
   private schemeLabel!: Phaser.GameObjects.Text;
   private world!: Phaser.GameObjects.Graphics;
+  private ordnanceCues!: Phaser.GameObjects.Graphics;
   /** Painted rocks (owner art); the pixel rocks only if that art failed to load. */
   private rocks!: PixelRocks | PaintedRocks;
   private hullBorder!: Phaser.GameObjects.Graphics;
   private hullHitAt=-1e9;
   private missileTrails = new Map<number, {x:number;y:number;at:number}[]>();
-  private effects: { x: number; y: number; at: number; r: number; ms: number; colour: number; chips?: number; heal?: boolean; sparkAngle?: number; shatter?: boolean }[] = [];
+  private mineMotion = new Map<number,{x:number;y:number;movedAt:number}>();
+  private effects: { x: number; y: number; at: number; r: number; ms: number; colour: number; chips?: number; heal?: boolean; sparkAngle?: number; shatter?: boolean; combat?:CombatImpact; progression?:'evolve'|'warp'; palette?:number; followId?:number }[] = [];
   private explosions: Explosion[] = [];
   /** Where each ship was last drawn (world), to aim shield hits. */
   private shipAt = new Map<number, { x: number; y: number }>();
@@ -158,6 +165,7 @@ export class FlightScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(SPACE);
     this.ground = new PlanetGround(this, 1, PLANET_TINT[planetClan(this.planet)] ?? [1, 1, 1]);
     this.world = this.add.graphics().setDepth(15);
+    this.ordnanceCues = this.add.graphics().setDepth(27);
     this.rocks = paintedRocksReady() ? new PaintedRocks(this) : new PixelRocks(this);
     this.turretGfx = this.add.graphics().setDepth(23);
     this.overlay = this.add.graphics().setDepth(900);
@@ -279,9 +287,7 @@ export class FlightScene extends Phaser.Scene {
         // Nova kill effect (an unlock the killer wears): violet rings over the explosion.
         const nova = unlockById(this.net.roster.get(f.killer)?.look?.killfx);
         if (nova) {
-          this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 190, ms: 900, colour: nova.colour ?? 0xb48cff });
-          this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 120, ms: 700, colour: 0xf3e8ff });
-          this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 70, ms: 500, colour: nova.colour ?? 0xb48cff, chips: 14 });
+          this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 190, ms: 900, colour: nova.colour ?? 0xb48cff, combat:'nova' });
         }
       }
       else if (f.kind === 'shieldBreak') {
@@ -305,22 +311,19 @@ export class FlightScene extends Phaser.Scene {
       else if (f.kind === 'gold') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 30, ms: 450, colour: 0xffd23a, chips: 10 });
       else if (f.kind === 'warpout') {
         // A ship launching off the planet: a bright cyan flash and a wide ring.
-        this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 150, ms: 700, colour: 0x7fe9ff });
-        this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 50, ms: 350, colour: 0xffffff });
+        this.effects.push({ x:f.x,y:f.y,at:this.time.now,r:150,ms:WARP_LAUNCH_ART_MS,colour:0x7fe9ff,progression:'warp' });
       } else if (f.kind === 'blast') {
         // Shot down: a small white pop. Went off: an orange ring the size of the blast.
-        if (f.shot) this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: Math.min(24,f.r), ms: 240, colour: 0xffffff, chips: 5 });
+        if (f.shot) this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: Math.min(24,f.r), ms: 240, colour: 0xffffff, combat:'shot' });
         else {
-          this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.r, ms: f.ordnance === 'mine' ? 480 : 320, colour: 0xff8a3a, chips: 12 });
-          this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.r * 0.5, ms: 200, colour: 0xfff2c4 });
+          this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.r, ms: f.ordnance === 'mine' ? 480 : 320, colour: 0xff8a3a, combat:f.ordnance==='mine'?'mine':'missile' });
         }
       } else if (f.kind === 'ram') {
         this.ramCount++;
-        this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 70, ms: 380, colour: 0xffa04a });
-        this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 34, ms: 200, colour: 0xffffff });
+        this.effects.push({ x:f.x,y:f.y,at:this.time.now,r:70,ms:380,colour:0xffa04a,combat:'ram' });
       } else if (f.kind === 'mineral') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 24, ms: 420, colour: 0xffc14a, chips: 8 });
       else if (f.kind === 'heal') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: TUNE.asteroid.pickupRadius, ms: 500, colour: 0x7dff9a, heal: true });
-      else this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.kind === 'burst' ? TUNE.asteroid.radius[f.size] : 9, ms: f.kind === 'burst' ? 420 : 180, colour: 0xffc78a, chips: f.kind === 'burst' ? 10 : 4 });
+      else this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.kind === 'burst' ? TUNE.asteroid.radius[f.size] : 9, ms: f.kind === 'burst' ? 420 : 180, colour: 0xffc78a, chips: f.kind === 'burst' ? 10 : 4, combat:f.kind==='burst'?'asteroid':undefined });
     }
     this.drawWorld();
     this.drawTouch(w, h);
@@ -368,7 +371,7 @@ export class FlightScene extends Phaser.Scene {
   }
 
   /**
-   * Clan home planet (owner, Clan planets v0; placeholder shapes until Codex's art): the shield
+   * Clan home planet: the shield
    * dome over the treasury and pads, the landing pads, the treasury with the clan's total, the base
    * turrets, and the gate where non-members arrive. Arrival warning and the docked banner.
    */
@@ -382,80 +385,20 @@ export class FlightScene extends Phaser.Scene {
       const d = this.net.deposited;
       note = 'DOCKED · REPAIRING' + (d && performance.now() - d.at < 3000 ? `\n+${d.amount} salvage to the ${clanName(this.net.clan)} treasury` : '');
     }
-    this.banner.setVisible(!!note && !this.net.death && !this.net.extracted).setText(note).setPosition(w / 2, intents.touch ? 118 : 86);
+    this.banner.setVisible(!!note && this.net.status==='open' && !this.net.death && !this.net.extracted).setText(note).setPosition(w / 2, intents.touch ? 118 : 86);
+    styleClanBanner(this.banner,layout?.clan??0,this.net.clan===layout?.clan,!!this.net.docked,w,intents.touch);
     this.treasuryText.setVisible(false);
     this.gateText.setVisible(false);
     if (!layout || !p) return;
-    const colour = CLANS.find((c) => c.id === layout.clan)?.colour ?? 0xffffff;
-    const g = this.world;
-    const b = TUNE.base;
-    const ring = (x: number, y: number, r: number, n: number, dashed: boolean): void => {
-      let prev: { x: number; y: number; visible: boolean } | null = null;
-      for (let i = 0; i <= n; i++) {
-        const a = (i / n) * Math.PI * 2;
-        const q = this.toScreen(x + Math.cos(a) * r, y + Math.sin(a) * r);
-        if (prev && prev.visible && q.visible && (!dashed || i % 2 === 0)) g.lineBetween(prev.x, prev.y, q.x, q.y);
-        prev = q;
-      }
-    };
-    // Shield dome.
-    g.lineStyle(3, colour, 0.35 + 0.1 * Math.sin(now / 400));
-    ring(layout.treasury.x, layout.treasury.y, b.domeRadius, 72, false);
-    g.lineStyle(1, 0xffffff, 0.18);
-    ring(layout.treasury.x, layout.treasury.y, b.domeRadius - 8, 72, true);
-    // Landing pads: a member over one sees it light up.
-    const myPad = this.net.clan === layout.clan ? padUnder(layout, p, TUNE) : -1;
-    layout.pads.forEach((pad, i) => {
-      const lit = i === myPad;
-      g.lineStyle(lit ? 3 : 2, lit ? 0x9fffd0 : colour, lit ? 0.95 : 0.6);
-      ring(pad.x, pad.y, b.padRadius, 24, false);
-      const c = this.toScreen(pad.x, pad.y);
-      if (c.visible) {
-        g.fillStyle(lit ? 0x9fffd0 : colour, lit ? 0.22 : 0.1);
-        g.fillCircle(c.x, c.y, b.padRadius * 0.55 * c.scale);
-        g.lineStyle(2, 0xffffff, 0.5);
-        const k = 10 * c.scale;
-        g.lineBetween(c.x - k, c.y, c.x + k, c.y);
-        g.lineBetween(c.x, c.y - k, c.x, c.y + k);
-      }
-    });
-    // Treasury: a hexagonal vault with the clan's total.
-    const t = this.toScreen(layout.treasury.x, layout.treasury.y);
-    if (t.visible) {
-      const r = 60 * t.scale;
-      const pts = Array.from({ length: 6 }, (_, i) => ({ x: t.x + Math.cos(i * Math.PI / 3 + Math.PI / 6) * r, y: t.y + Math.sin(i * Math.PI / 3 + Math.PI / 6) * r }));
-      g.fillStyle(0x0b1626, 0.9);
-      g.fillPoints(pts, true);
-      g.lineStyle(3, colour, 0.95);
-      g.strokePoints(pts, true);
-      g.fillStyle(0xffd27a, 0.9);
-      g.fillCircle(t.x, t.y, 14 * t.scale);
-      const total = this.net.treasury?.total ?? 0;
-      this.treasuryText.setVisible(true).setText(`${clanName(layout.clan).toUpperCase()} TREASURY\n${total.toLocaleString('en-US')}`).setPosition(t.x, t.y + r + 18 * t.scale);
+    const labels=drawClanBase(this.world,{layout,own:p,member:this.net.clan===layout.clan,docked:!!this.net.docked,now,tune:TUNE,
+      project:(x,y)=>this.toScreen(x,y),aim:this.baseAim,firedAt:this.baseFiredAt,impacts:this.effects});
+    if(labels.treasury){
+      const at=labels.treasury,total=this.net.treasury?.total??0;
+      const below=at.y+78*at.scale,labelY=!intents.touch&&below>h-138?at.y-84*at.scale:below;
+      this.treasuryText.setVisible(true).setText(`${clanName(layout.clan).toUpperCase()} TREASURY\n${total.toLocaleString('en-US')}`)
+        .setPosition(at.x,labelY).setStroke('#102035',3);
     }
-    // Base turrets: a dome with a barrel, turned to where it last fired.
-    layout.turrets.forEach((at, i) => {
-      const q = this.toScreen(at.x, at.y);
-      if (!q.visible) return;
-      const k = Math.max(0.7, q.scale);
-      const aim = this.baseAim[i] ?? -Math.PI / 2;
-      const ahead = this.toScreen(at.x + Math.cos(aim) * 30, at.y + Math.sin(aim) * 30);
-      const dir = Math.atan2(ahead.y - q.y, ahead.x - q.x);
-      const flash = now - (this.baseFiredAt[i] ?? -1e9) < 90;
-      g.fillStyle(0x081426, 0.9);
-      g.fillCircle(q.x, q.y, 15 * k);
-      g.lineStyle(6 * k, flash ? 0xfff2c4 : 0x9aa8b8, 1);
-      g.lineBetween(q.x, q.y, q.x + Math.cos(dir) * 24 * k, q.y + Math.sin(dir) * 24 * k);
-      g.fillStyle(colour, 1);
-      g.fillCircle(q.x, q.y, 10 * k);
-    });
-    // Gate: where non-members arrive, on the far side from the treasury.
-    g.lineStyle(3, 0xff8c6e, 0.7);
-    ring(layout.gate.x, layout.gate.y, 120, 40, true);
-    const gq = this.toScreen(layout.gate.x, layout.gate.y);
-    if (gq.visible) this.gateText.setVisible(true).setPosition(gq.x, gq.y);
-    void w;
-    void h;
+    if(labels.gate)this.gateText.setVisible(true).setPosition(labels.gate.x,labels.gate.y+145*labels.gate.scale).setStroke('#102035',3);
   }
 
   /** Leaderboard names, top to bottom (test hook). */
@@ -507,6 +450,7 @@ export class FlightScene extends Phaser.Scene {
     // Ship type from the server (it changes when a ship evolves) and palette from the roster look.
     const palette = unlockById(this.net.roster.get(id)?.look?.palette)?.index ?? 0;
     let ship = this.ships.get(id);
+    if(ship && ship.chassis!==s.chassis && s.chassis===BATTLECRUISER)this.effects.push({x:s.x,y:s.y,at:this.time.now,r:shipRadius(s.hullMax,TUNE,s.chassis),ms:EVOLVE_ART_MS,colour:0,progression:'evolve',palette,followId:id});
     if (ship && (ship.chassis !== s.chassis || ship.palette !== palette)) {
       ship.destroy();
       this.ships.delete(id);
@@ -554,49 +498,20 @@ export class FlightScene extends Phaser.Scene {
     const k = Math.max(0.8, at.scale);
     const c = Math.cos(dir), n = Math.sin(dir);
     const x = at.x + c * R, y = at.y + n * R;
-    const back = 7 * k, wide = 6 * k;
-    const g = this.turretGfx;
-    for (const [w, colour, alpha] of [[4 * k, 0x081426, 0.7], [2 * k, 0x9fefff, 0.9]] as const) {
-      g.lineStyle(w, colour, alpha);
-      g.beginPath();
-      g.moveTo(x - c * back - n * wide, y - n * back + c * wide);
-      g.lineTo(x, y);
-      g.lineTo(x - c * back + n * wide, y - n * back - c * wide);
-      g.strokePath();
-    }
+    drawNoseMarker(this.turretGfx,x,y,dir,k);
   }
 
   /**
    * Dash wind-up (placeholder effect): energy sparks converge on the ship and a ring tightens as the
    * charge fills. On your own ship an arrow shows where the boost will go (the direction held now).
    */
-  private drawDashCharge(s: ShipState, at: { x: number; y: number; scale: number; visible: boolean }, mine: boolean): void {
-    if (!at.visible) return;
-    this.dashChargeFrames++;
-    const g = this.turretGfx;
-    const k = 1 - s.dashCharge / TUNE.ship.dashChargeSeconds; // 0 → 1 as it charges
-    const now = this.time.now;
-    const R = clientTune.render.shipRingRadius * clientTune.render.shipScale * at.scale * chassisStats(s.chassis, TUNE).radius / TUNE.ship.radius;
-    g.lineStyle(2 + 2 * k, 0x9fefff, 0.35 + 0.5 * k);
-    for(let i=0;i<4;i++){g.beginPath();g.arc(at.x,at.y,R*(2.1-k),i*Math.PI/2+.12,i*Math.PI/2+1.35);g.strokePath();}
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * Math.PI * 2 + now / 260;
-      const d = R * (2.3 - 1.3 * ((k + i * 0.1) % 1));
-      g.fillStyle(0xd6fbff, 0.5 + 0.5 * k);
-      const size=2+3*k;g.fillRect(at.x+Math.cos(a)*d-size/2,at.y+Math.sin(a)*d-size/2,size,size*1.4);
-    }
-    if (mine) {
-      const dir = s.heading;
-      const tip = R * 2.6;
-      const bx = at.x + Math.cos(dir) * R * 1.4;
-      const by = at.y + Math.sin(dir) * R * 1.4;
-      const tx = at.x + Math.cos(dir) * tip;
-      const ty = at.y + Math.sin(dir) * tip;
-      g.lineStyle(3, 0xffffff, 0.85);
-      g.lineBetween(bx, by, tx, ty);
-      g.fillStyle(0xffffff, 0.9);
-      g.fillTriangle(tx + Math.cos(dir) * 8, ty + Math.sin(dir) * 8, tx + Math.cos(dir + 2.4) * 8, ty + Math.sin(dir + 2.4) * 8, tx + Math.cos(dir - 2.4) * 8, ty + Math.sin(dir - 2.4) * 8);
-    }
+  private drawDashCharge(s:ShipState,at:{x:number;y:number;scale:number;visible:boolean},mine:boolean):void {
+    if(!at.visible)return;this.dashChargeFrames++;
+    const g=this.turretGfx,k=at.scale,f=1-s.dashCharge/TUNE.ship.dashChargeSeconds,r=(46-18*f)*k*chassisStats(s.chassis,TUNE).radius/TUNE.ship.radius,c=Math.cos(s.heading),sn=Math.sin(s.heading);
+    g.lineStyle(Math.max(1,2*k),0x88e5ed,.4+.5*f);
+    for(let i=0;i<4;i++){const a=s.heading+i*Math.PI/2;g.beginPath();g.arc(at.x,at.y,r,a+.15,a+.9);g.strokePath();}
+    for(let i=0;i<8;i++){const a=i*Math.PI/4+this.time.now*.001,d=r+(1-f)*28*k;g.fillStyle(i%2?0xffc778:0xa5f1fa,.5+.5*f);g.fillRect(at.x+Math.cos(a)*d-1.5*k,at.y+Math.sin(a)*d-1.5*k,3*k,3*k);}
+    if(mine){const x=at.x+c*(r+13*k),y=at.y+sn*(r+13*k);g.lineStyle(Math.max(1,3*k),0xe4faff,.9);g.lineBetween(x-c*7*k-sn*6*k,y-sn*7*k+c*6*k,x,y);g.lineBetween(x,y,x-c*7*k+sn*6*k,y-sn*7*k-c*6*k);}
   }
 
   /**
@@ -626,7 +541,7 @@ export class FlightScene extends Phaser.Scene {
       const d = ((want - prev + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
       const a = prev + d * 0.15;
       aim.angle[i] = a;
-      drawDrone(g,x,y,k,a,now,id+i,light,now-(aim.firedAt[i]??-1e9)<70,unlockById(this.net.roster.get(id)?.look?.palette)?.index??0);
+      (s.chassis===BATTLECRUISER?drawCapitalEscort:drawDrone)(g,x,y,k,a,now,id+i,light,now-(aim.firedAt[i]??-1e9)<70,unlockById(this.net.roster.get(id)?.look?.palette)?.index??0);
     }
   }
 
@@ -637,7 +552,7 @@ export class FlightScene extends Phaser.Scene {
   private drawHotZone(p: ShipState | null, w: number, h: number): void {
     const z = this.net.hotZone;
     this.hotZoneText.setVisible(false);
-    if (!p || !z || z.r <= 0 || this.net.death || this.net.extracted) return;
+    if (!p || !z || z.r <= 0 || this.net.status!=='open' || this.net.death || this.net.extracted) return;
     const g = this.overlay;
     const now = performance.now();
     const left = Math.max(0, (z.movesAt - now) / 1000);
@@ -659,18 +574,8 @@ export class FlightScene extends Phaser.Scene {
       panel(g,x-bw/2,y-11,bw,22,inside?0x9edbaa:0x567e78,inside);
       this.hotZoneText.setPosition(x,y);
     };
-    // The ring, through the planet projection (segments on the visible side only).
-    const n = 48;
-    const ring=this.world;
-    ring.lineStyle(2, 0x7dffc4, 0.55);
-    let prev: { x: number; y: number; visible: boolean } | null = null;
-    for (let i = 0; i <= n; i++) {
-      const a = (i / n) * Math.PI * 2;
-      const q = this.toScreen(z.x + Math.cos(a) * z.r, z.y + Math.sin(a) * z.r);
-      if (prev && prev.visible && q.visible && i % 2 === 0) ring.lineBetween(prev.x, prev.y, q.x, q.y);
-      if(q.visible&&i%8===0){ring.fillStyle(0x102e30,.95);ring.fillRect(q.x-4,q.y-4,8,8);ring.fillStyle(0xc1edb3,.9);ring.fillRect(q.x-2,q.y-2,4,4);}
-      prev = q;
-    }
+    // Ground-only boundary retains the exact server radius and projection.
+    drawSalvageZoneRing(this.world,z,(x,y)=>this.toScreen(x,y),inside,now);
     if (intents.touch) {
       if(inside){this.hotZoneText.setVisible(true).setText('ZONE ×'+TUNE.hotZone.salvageMultiplier).setPosition(w<600?280:304,90);return;}
       if(centre.visible && centre.x>40 && centre.x<w-40 && centre.y>94 && centre.y<h-60)return;
@@ -732,13 +637,10 @@ export class FlightScene extends Phaser.Scene {
   }
 
   /** Locked missile crosshair: a red ring with four inward ticks, slowly turning and pulsing. */
-  private drawCrosshair(g: Phaser.GameObjects.Graphics, x: number, y: number, r: number, now: number): void {
-    const pulse=.8+.2*Math.sin(now/130),rot=now/1500;
-    g.lineStyle(5,0x182333,.9);g.strokeCircle(x,y,r);
-    g.lineStyle(2,0xff7859,pulse);
-    for(let i=0;i<4;i++){const a=rot+i*Math.PI/2;g.beginPath();g.arc(x,y,r,a+.12,a+1.15);g.strokePath();
-      g.lineBetween(x+Math.cos(a)*r*1.2,y+Math.sin(a)*r*1.2,x+Math.cos(a)*r*.85,y+Math.sin(a)*r*.85);}
-    g.fillStyle(0xfff0c7,pulse);g.fillCircle(x,y,Math.max(1.2,r*.035));
+  private drawCrosshair(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number,now:number):void {
+    const pulse=.8+.2*Math.sin(now/130),len=Math.max(5,r*.28);
+    for(const dx of [-1,1])for(const dy of [-1,1]){const px=x+dx*r,py=y+dy*r;g.lineStyle(5,0x112234,.9);g.lineBetween(px-dx*len,py,px,py);g.lineBetween(px,py,px,py-dy*len);g.lineStyle(2,0xff8c65,pulse);g.lineBetween(px-dx*len,py,px,py);g.lineBetween(px,py,px,py-dy*len);}
+    g.lineStyle(1.5,0xffd9a0,.7);g.beginPath();g.arc(x,y,r*.83,now*.002,now*.002+.75);g.strokePath();
   }
 
   /**
@@ -749,13 +651,13 @@ export class FlightScene extends Phaser.Scene {
   private drawBounty(p: ShipState | null, w: number, h: number): void {
     const g = this.overlay;
     const now = this.time.now;
-    const warning=!!p && this.lockedOnMe && !this.net.death;
+    const warning=!!p && this.lockedOnMe && this.net.status==='open' && !this.net.death;
     this.lockText.setVisible(warning).setAlpha(.8+.2*Math.sin(now/120)).setPosition(w / 2, h * 0.3);
     if(warning){g.fillStyle(0x26151e,.92);g.fillRoundedRect(w/2-76,h*.3-12,152,24,5);
       g.lineStyle(1.5,0xff8664,.85);g.strokeRoundedRect(w/2-76,h*.3-12,152,24,5);}
     const b = this.net.bounty;
     this.bountyText.setVisible(false);
-    if (!p || !b || this.net.death || this.net.extracted) return;
+    if (!p || !b || this.net.status!=='open' || this.net.death || this.net.extracted) return;
     const pulse = 0.7 + 0.3 * Math.sin(now / 200);
     if (b.id === this.net.myId) {
       const at = this.toScreen(p.x, p.y);
@@ -1060,7 +962,7 @@ export class FlightScene extends Phaser.Scene {
     const tagColour=unlockById(look.tag)?.colour;
     const colour=tagColour!==undefined?css(tagColour):mine?'#9fefff':bot?'#a9bdcf':'#ffc9a8';
     if(tag.style.color!==colour)tag.setColor(colour);
-    const below = (Math.max(clientTune.render.shipRingRadius * clientTune.render.shipScale * size, size > 2 ? 76 : 38) + 10) * at.scale;
+    const below = (Math.max(clientTune.render.shipRingRadius * clientTune.render.shipScale * size, shipTagClearance(size)) + 10) * at.scale;
     tag.setStroke('#081426', 3).setPosition(at.x, at.y + below).setVisible(at.visible && !(mine && intents.touch));
   }
 
@@ -1078,18 +980,14 @@ export class FlightScene extends Phaser.Scene {
       return;
     }
     const fade = Math.min(1, (TARGET_BAR_MS - age) / 800);
-    const below = (Math.max(clientTune.render.shipRingRadius * clientTune.render.shipScale * size, size > 2 ? 76 : 38) + 10) * at.scale;
+    const below = (Math.max(clientTune.render.shipRingRadius * clientTune.render.shipScale * size, shipTagClearance(size)) + 10) * at.scale;
     const k = Math.max(0.8, at.scale);
     const w = 46 * k, h = 5 * k;
     const x = at.x - w / 2, y = at.y + below + 16 * k;
     const shieldMax = maxShield(s, TUNE);
     const onShield = s.shield > 0.5 && shieldMax > 0;
     const share = onShield ? s.shield / shieldMax : Math.max(0, s.hp) / Math.max(1, s.hullMax);
-    const g = this.turretGfx;
-    g.fillStyle(0x081426, 0.85 * fade);
-    g.fillRect(x - k, y - k, w + 2 * k, h + 2 * k);
-    g.fillStyle(onShield ? 0x6fd6ff : 0xffa95e, 0.95 * fade);
-    g.fillRect(x, y, w * Math.max(0, Math.min(1, share)), h);
+    drawTargetMeter(this.turretGfx,x,y,w,h,share,onShield,fade);
   }
 
   /**
@@ -1217,6 +1115,7 @@ export class FlightScene extends Phaser.Scene {
       const x = this.net.extracted;
       // Extracted: the run's result. Banking the haul as currency comes with the bank milestone.
       this.message.setAlign('center').setText(extracted ? `EXTRACTED\nSalvage ${x?.salvage ?? 0}  ·  Power ${x?.power ?? 0}  ·  ${x?.kills ?? 0} KO` : by);
+      this.message.setFontSize(18).setWordWrapWidth(0);
       const bw = 140;
       const bh = 44;
       this.deathButtons = (['respawn', 'menu'] as const).map((id, i) => {
@@ -1269,6 +1168,7 @@ export class FlightScene extends Phaser.Scene {
   private drawWorld(): void {
     const g = this.world;
     g.clear();
+    this.ordnanceCues.clear();
     const now = performance.now();
     const light = this.objectLight();
     this.rocks.begin();
@@ -1284,7 +1184,7 @@ export class FlightScene extends Phaser.Scene {
     for (const item of this.net.pickups.values()) {
       const at = this.toScreen(item.x, item.y);
       if (!at.visible) continue;
-      if(item.kind === 'mineral' || item.kind === 'salvage'){
+      {
         const radius=(item.kind==='salvage'?8+Math.sqrt(item.value)*1.6:7+Math.sqrt(item.value)*3)*at.scale;
         if(this.combatSprites.pickup(at,radius,item.kind,item.id,now))continue;
       }
@@ -1312,11 +1212,8 @@ export class FlightScene extends Phaser.Scene {
       const at = this.toScreen(x.x, x.y);
       if (!at.visible) continue;
       const t = x.age / Explosion.LIFE;
-      drawExplosionCore(g,at,t);
-      g.lineStyle(4 * at.scale + 1, 0xffc070, Math.max(0, 1 - t * 1.6));
-      g.strokeCircle(at.x, at.y, (20 + 220 * t) * at.scale);
-      g.lineStyle(2 * at.scale + 1, 0xffffff, Math.max(0, 0.7 - t * 1.4));
-      g.strokeCircle(at.x, at.y, (10 + 140 * t) * at.scale);
+      g.lineStyle(Math.max(1,1.6*at.scale),0xffd18b,Math.max(0,.45-t));
+      for(let i=0;i<6;i++){g.beginPath();g.arc(at.x,at.y,(20+220*t)*at.scale,i*Math.PI/3,i*Math.PI/3+.5);g.strokePath();}
       for (const s of x.sparks) {
         const a = 1 - x.age / s.life;
         if (a <= 0) continue;
@@ -1337,24 +1234,18 @@ export class FlightScene extends Phaser.Scene {
           true,
         );
       }
+      drawExplosionCore(g,at,t);
     }
     this.effects = this.effects.filter((e) => this.time.now - e.at < e.ms);
     for (const e of this.effects) {
-      const at = this.toScreen(e.x, e.y);
+      const follow=e.followId?this.shipAt.get(e.followId):undefined;
+      const at = this.toScreen(follow?.x??e.x, follow?.y??e.y);
       if (!at.visible) continue;
       const k = (this.time.now - e.at) / e.ms;
-      if(e.shatter){
-        const radius=e.r*at.scale;
-        for(let i=0;i<10;i++){
-          const a=i*Math.PI/5+.15,d=radius*(.55+k*.65),len=radius*.22*(1-k*.55);
-          const x=at.x+Math.cos(a)*d,y=at.y+Math.sin(a)*d,side=a+Math.PI/2+k*(i%2?1:-1);
-          const dx=Math.cos(side)*len,dy=Math.sin(side)*len;
-          g.fillStyle(i%3?0x83d6e9:0xfff2d5,(1-k)*.7);
-          g.fillTriangle(x-dx,y-dy,x+dx,y+dy,x+Math.cos(a)*len*.6,y+Math.sin(a)*len*.6);
-          g.lineStyle(1,0xd7faff,1-k);g.lineBetween(x-dx,y-dy,x+dx,y+dy);
-        }
-        continue;
-      }
+      if(e.progression==='evolve'){drawEvolve(g,at,k,e.r,e.palette);continue;}
+      if(e.progression==='warp'){drawWarpLaunch(g,at,k,e.r,e.palette);continue;}
+      if(e.combat){drawCombatImpact(g,at,k,e.combat,e.r,e.colour);continue;}
+      if(e.shatter){drawShieldShatter(g,at,k,e.r);continue;}
       if(e.sparkAngle!==undefined){drawHitSpark(g,{...at,scale:at.scale*clientTune.render.hitSparkScale},k,e.sparkAngle,e.x+e.y);continue;}
       g.lineStyle(3, e.colour, (1 - k) * (e.chips ? .4 : 1));
       g.strokeCircle(at.x, at.y, e.r * (0.4 + k) * at.scale);
@@ -1382,7 +1273,6 @@ export class FlightScene extends Phaser.Scene {
       if(!this.combatSprites.bullet({...head,scale:head.scale*bulletScale},tail,b.mine,!!b.small,b.look??0))
         drawBullet(g,{...head,scale:head.scale*bulletScale},tail,b.mine,!!b.small,b.look??0);
     }
-    this.combatSprites.end();
     // Missiles and mines. Missiles are carried forward from the last snapshot so they fly smoothly.
     const tNow = performance.now();
     for (const o of this.net.ordnance.values()) {
@@ -1395,11 +1285,22 @@ export class FlightScene extends Phaser.Scene {
         if(!trail.length || now-trail[trail.length-1].at>40)trail.push({x:o.x,y:o.y,at:now});
         while(trail.length>8 || (trail.length && now-trail[0].at>360))trail.shift();
         for(let i=0;i<trail.length;i++){const q=this.toScreen(trail[i].x,trail[i].y);if(!q.visible)continue;
-          g.fillStyle(0x93b4c5,.18*(i+1)/trail.length);g.fillCircle(q.x,q.y,(2+(trail.length-i)*.65)*q.scale);}
+          const age=(now-trail[i].at)/360,pr=(2+age*8)*q.scale;
+          g.fillStyle(0x283648,(1-age)*.38);g.fillCircle(q.x,q.y+pr*.25,pr);
+          g.fillStyle(0xa4acb6,(1-age)*.18);g.fillCircle(q.x-pr*.2,q.y-pr*.3,pr*.7);}
       }
-      drawOrdnance(g,o,at,o.owner===this.net.myId,now,TUNE.mine.triggerRadius);
+      const painted=this.combatSprites.ordnance(o,at);
+      let seeking=false;
+      if(o.kind===1){
+        const prev=this.mineMotion.get(o.id),moved=prev&&Math.hypot(wrapDelta(o.x,prev.x,W),wrapDelta(o.y,prev.y,H))>.1;
+        const movedAt=moved?now:prev?.movedAt??-1e9;
+        this.mineMotion.set(o.id,{x:o.x,y:o.y,movedAt});seeking=o.armed&&now-movedAt<160;
+      }
+      drawOrdnance(this.ordnanceCues,o,at,o.owner===this.net.myId,now,TUNE.mine.triggerRadius,painted,seeking);
     }
+    this.combatSprites.end();
     for(const id of this.missileTrails.keys())if(!this.net.ordnance.has(id))this.missileTrails.delete(id);
+    for(const id of this.mineMotion.keys())if(!this.net.ordnance.has(id))this.mineMotion.delete(id);
 
     // Warping ships (everyone sees them, so they can give chase): a cyan ring that fills with progress.
     {
@@ -1412,12 +1313,7 @@ export class FlightScene extends Phaser.Scene {
         if (!at.visible) continue;
         const r = 50 * at.scale * shipRadius(s.hullMax, TUNE, s.chassis) / TUNE.ship.radius;
         const f = Math.min(1, s.warpDist / TUNE.warp.distance);
-        g.lineStyle(2, 0x7fe9ff, 0.35);
-        g.strokeCircle(at.x, at.y, r);
-        g.lineStyle(3, 0x7fe9ff, 0.9);
-        g.beginPath();
-        g.arc(at.x, at.y, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f);
-        g.strokePath();
+        drawWarpCharge(g,at,r,f,now);
       }
     }
     // Missile lock: brackets on the ship a missile would lock onto now.
@@ -1463,6 +1359,7 @@ export class FlightScene extends Phaser.Scene {
     const age=this.time.now-this.hullHitAt;
     if(age<0 || age>=140)return;
     const fade=(1-age/140)**2;
+    g.lineStyle(3,0xffb279,.18*fade);for(const x of [8,w-8])for(const y of [8,h-8]){const dx=x<w/2?1:-1,dy=y<h/2?1:-1;g.lineBetween(x,y,x+dx*28,y);g.lineBetween(x,y,x,y+dy*28);}
     for(let i=0;i<7;i++){const inset=i*4+2;
       g.lineStyle(4,0xffa67d,.075*fade*(1-i/7)**2);g.strokeRect(inset,inset,w-inset*2,h-inset*2);}
   }
@@ -1482,7 +1379,11 @@ export class FlightScene extends Phaser.Scene {
       destroyed: '',
       extracted: '',
     };
-    if (!n.death && n.status !== 'destroyed' && !n.extracted && n.status !== 'extracted') this.message.setAlign('center').setText(n.status === 'open' && !own ? 'Dropping in…' : msg[n.status]);
+    if (!n.death && n.status !== 'destroyed' && !n.extracted && n.status !== 'extracted') {
+      this.message.setAlign('center').setText(n.status === 'open' && !own ? 'Dropping in…' : msg[n.status]);
+      const {w,h}=logicalSize();
+      drawConnectionBanner(this.overlay,this.message,w,h,n.status,intents.touch);
+    }
     if (DEBUG && own) {
       this.coords.setText(`x ${own.x.toFixed(0)}  y ${own.y.toFixed(0)}  pending ${n.pendingCount}  corr ${n.lastCorrection.toFixed(1)}`);
     }

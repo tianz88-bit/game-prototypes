@@ -139,3 +139,7 @@ through the hash-verified R2 pipeline; keep fallbacks when a texture is missing;
      reconnecting and lost-ship banners, salvage-zone ring (drawHotZone).
 
 Separate, already dispatched: orbital zoom transition.
+
+## Local review pass — 15 November 2026
+
+All four Art backlog groups implemented on codex/steroids-combat-backlog-preview. See HANDOFF/BUILD_STATUS for code and checks. Actual-renderer screenshots are grouped by priority in outputs/steroids-alpha/backlog-review/index.html. No live changes; owner screenshot review is required first. New missile/mine/repair raster sources and ZIP remain local until approval. Orbital zoom remains separate.

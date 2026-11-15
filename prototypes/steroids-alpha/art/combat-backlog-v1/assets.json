@@ -1,0 +1,56 @@
+{
+  "source": "Local owner-review preview. New matching painted ordnance/heal sprites, built-in image generation; original PNG alpha/source frames preserved. Do NOT publish pack or merge before screenshot approval.",
+  "r2Object": "steroids-alpha_combat-backlog-v1_assets.zip",
+  "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_combat-backlog-v1_assets.zip",
+  "zipSha256": "155c58afbb103592a20075b35f5e2b92ca4a77b9d51fc1c0e966083ccd283218",
+  "assets": [
+    {
+      "name": "missile",
+      "deliveryPath": "loose/missile.png",
+      "sourceSize": [
+        2172,
+        724
+      ],
+      "trimFrame": {
+        "x": 137,
+        "y": 36,
+        "w": 1906,
+        "h": 662
+      },
+      "sha256": "8fe1b8cde06b8dd1710f7cecb0ef2b0e5a13d2db1823716d41283f5a81ab58e9",
+      "runtimeMax": 192
+    },
+    {
+      "name": "mine",
+      "deliveryPath": "loose/mine.png",
+      "sourceSize": [
+        1263,
+        1246
+      ],
+      "trimFrame": {
+        "x": 148,
+        "y": 105,
+        "w": 960,
+        "h": 1069
+      },
+      "sha256": "55285803107ba6f1a641dd612d3ad8d7f07757bed7324187eb52c60523aba020",
+      "runtimeMax": 192
+    },
+    {
+      "name": "health-pod",
+      "deliveryPath": "loose/health-pod.png",
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "trimFrame": {
+        "x": 215,
+        "y": 227,
+        "w": 824,
+        "h": 827
+      },
+      "sha256": "23777690dcc6ab8919155d14cc481c6287f8fb505c49364b9f8c414d0c96159d",
+      "runtimeMax": 192
+    }
+  ]
+}

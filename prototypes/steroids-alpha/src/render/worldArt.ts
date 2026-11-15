@@ -1,3 +1,4 @@
+import { drawImpactSpark, drawDeathCore, drawOrdnanceCue } from './combatEffects';
 import { PALETTES } from './palette';
 import type Phaser from 'phaser';
 import type { OrdnanceView } from '../../sim/protocol';
@@ -80,20 +81,9 @@ export function drawDrone(g:Phaser.GameObjects.Graphics,x:number,y:number,k:numb
   if(firing){const q=p(14,0),l=p(10,-3),rr=p(10,3);g.fillStyle(0xf8ffd9,1);g.fillTriangle(q.x,q.y,l.x,l.y,rr.x,rr.y);}
 }
 
-export function drawHitSpark(g:Phaser.GameObjects.Graphics,at:{x:number;y:number;scale:number},t:number,angle:number,seed:number):void {
-  const k=at.scale,fade=(1-t)**2,travel=1-(1-t)**2;
-  for(let i=0;i<9;i++){
-    const a=angle+(i-4)*.25+Math.sin(seed+i*7)*.12;
-    const d=(3+travel*(18+(i%3)*8))*k,len=(4+9*(1-t))*k,c=Math.cos(a),s=Math.sin(a);
-    g.lineStyle(Math.max(.8,(i%3===0?2.3:1.4)*k),i%3===0?0xff9561:i%3===1?0xffd785:0xf2fff1,fade);
-    g.lineBetween(at.x+c*d,at.y+s*d,at.x+c*(d+len),at.y+s*(d+len));
-  }
-  if(t<.3){const r=(4+6*t)*k;g.fillStyle(0xfff7d7,(1-t/.3)*.9);g.fillRect(at.x-r,at.y-k,r*2,k*2);g.fillRect(at.x-k,at.y-r,k*2,r*2);}
-  g.fillStyle(0x586576,fade*.85);
-  for(let i=0;i<2;i++){const a=angle+(i?1:-1),d=travel*18*k;g.fillRect(at.x+Math.cos(a)*d,at.y+Math.sin(a)*d,3*k,2*k);}
-}
+export function drawHitSpark(g:Phaser.GameObjects.Graphics,at:{x:number;y:number;scale:number},t:number,angle:number,seed:number):void { drawImpactSpark(g,at,t,angle,seed); }
 
-export function drawOrdnance(g: Phaser.GameObjects.Graphics, o: OrdnanceView,
+function drawOrdnanceFallback(g: Phaser.GameObjects.Graphics, o: OrdnanceView,
   at: {x: number; y: number; scale: number}, own: boolean, now: number, triggerRadius: number): void {
   const {x,y}=at,k=at.scale,signal=own?0x75e7ff:0xff8664;
   const c=Math.cos(o.heading),s=Math.sin(o.heading);
@@ -119,19 +109,9 @@ export function drawOrdnance(g: Phaser.GameObjects.Graphics, o: OrdnanceView,
     g.fillStyle(signal,1);g.fillRect(x-12*k,y-23*k,24*k*Math.max(0,o.hp),4*k);}
 }
 
-export function drawExplosionCore(g:Phaser.GameObjects.Graphics,at:{x:number;y:number;scale:number},t:number):void {
-  const {x,y}=at,k=at.scale;
-  if(t>.08 && t<.7){
-    g.fillStyle(0x29313e,.25*(1-t/.7));
-    for(let i=0;i<5;i++){const a=i*2.4,d=(28+t*65)*k;g.fillCircle(x+Math.cos(a)*d,y+Math.sin(a)*d,(16+t*22)*k);}
-  }
-  if(t<.32){
-    const f=t/.32,r=(25+65*Math.sqrt(f))*k;
-    g.fillStyle(0xff8854,.55*(1-f));
-    for(let i=0;i<6;i++){const a=i*Math.PI/3;g.fillTriangle(x+Math.cos(a)*r*1.45,y+Math.sin(a)*r*1.45,
-      x+Math.cos(a-.4)*r*.5,y+Math.sin(a-.4)*r*.5,x+Math.cos(a+.4)*r*.5,y+Math.sin(a+.4)*r*.5);}
-    g.fillStyle(0xffbf6c,.75*(1-f));g.fillCircle(x,y,r*.6);
-    g.fillStyle(0xfff4cd,.9*(1-f));g.fillCircle(x,y,r*.34);
-  }
-  if(t<.08){g.fillStyle(0xe5fbff,1-t/.08);g.fillCircle(x,y,(22+80*t)*k);}
+export function drawExplosionCore(g:Phaser.GameObjects.Graphics,at:{x:number;y:number;scale:number},t:number):void { drawDeathCore(g,at,t); }
+
+export function drawOrdnance(g:Phaser.GameObjects.Graphics,o:OrdnanceView,at:{x:number;y:number;scale:number},own:boolean,now:number,triggerRadius:number,painted=false,seeking=false):void {
+  if(painted)drawOrdnanceCue(g,o,at,own,now,triggerRadius,seeking);
+  else drawOrdnanceFallback(g,o,at,own,now,triggerRadius);
 }
