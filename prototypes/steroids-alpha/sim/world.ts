@@ -456,7 +456,18 @@ export class World {
           if (!hits(s.x, s.y, k.x, k.y, t.asteroid.pickupRadius + shipRadius(s.hullMax, t, s.chassis))) continue;
           // A health boost repairs (up to the hull maximum).
           if (k.kind === 'heal') s.hp = Math.min(s.hullMax, s.hp + t.ship.maxHp * t.asteroid.healthHealFraction);
-          else if (k.kind === 'salvage') s.salvage += k.value;
+          else if (k.kind === 'salvage') {
+            // Cargo hold (owner, 15 November 2026): at most salvage.cargoMax carried. A full ship
+            // leaves gold where it lies for others; a nearly full one takes what fits.
+            const room = Math.max(0, t.salvage.cargoMax - s.salvage);
+            if (room <= 0) continue;
+            const taken = Math.min(k.value, room);
+            s.salvage += taken;
+            if (k.value - taken > 0.5) {
+              k.value -= taken;
+              continue;
+            }
+          }
           else {
             // Minerals repair damage first; the rest grows the hull maximum (power), up to the cap.
             const repair = Math.min(k.value, Math.max(0, s.hullMax - s.hp));
@@ -465,7 +476,7 @@ export class World {
             s.hp += repair + grow;
             s.shield = Math.min(maxShield(s, t), s.shield + k.value);
             // Mined minerals also add salvage (bots never earn it); minerals spilled by ships do not.
-            if (!this.botIds.has(id)) s.salvage += k.salvage;
+            if (!this.botIds.has(id)) s.salvage = Math.min(t.salvage.cargoMax, s.salvage + k.salvage);
           }
           by = id;
           break;

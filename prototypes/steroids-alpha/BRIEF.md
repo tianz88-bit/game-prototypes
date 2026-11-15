@@ -414,6 +414,10 @@ Owner direction (13 November 2026). Replaces the earlier gear-stash design.
     is shown to everyone (edge tracker, like the bounty), pulling farmers
     together so fights happen. Radius, duration and multiplier are tuned.
   - Extracting banks carried salvage as credits, 1:1. Dying loses it.
+  - Cargo hold (owner, 15 November 2026): at most 400 salvage carried
+    (salvage.cargoMax). When full, mining still adds power but no salvage,
+    gold pickups stay on the ground for others (a nearly full hold takes what
+    fits), and the HUD reads "FULL · WARP OUT", so banking beats farming.
   - Practice planet: no salvage.
   - First values (tune.json `salvage`, `hotZone`; not tuned by playing): 1
     salvage per mined mineral, kill share 50%, repeat-kill window 10 min,

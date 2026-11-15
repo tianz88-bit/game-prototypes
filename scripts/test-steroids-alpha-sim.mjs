@@ -845,6 +845,31 @@ assert.equal(S.cleanName(null), '');
   assert.deepEqual([a.shield, b.shield], after, 'no second bump within the grace');
 }
 
+// --- Cargo hold (owner, 15 November 2026): at most salvage.cargoMax carried; a full ship leaves gold
+// where it lies, a nearly full one takes what fits, and mining stops adding salvage. ---
+{
+  const w = emptyWorld();
+  const s = placeShip(w, 1, 1000, 1000, 0);
+  const cap = tune.salvage.cargoMax;
+  s.speed = 0;
+  s.salvage = cap - 5;
+  w.pickups.set(901, { id: 901, x: 1000, y: 1000, kind: 'salvage', value: 20, from: 0, lockedUntil: 0, expires: w.tick + 100, salvage: 0 });
+  w.stepShip(1, idle);
+  w.step();
+  assert.equal(s.salvage, cap, 'a nearly full hold takes what fits');
+  assert(w.pickups.has(901) && Math.abs(w.pickups.get(901).value - 15) < 1e-9, 'the rest stays on the ground');
+  w.stepShip(1, idle);
+  w.step();
+  assert.equal(s.salvage, cap, 'a full hold takes no more');
+  assert(w.pickups.has(901), 'and leaves the gold for others');
+  w.pickups.delete(901);
+  w.pickups.set(902, { id: 902, x: 1000, y: 1000, kind: 'mineral', value: 5, from: 0, lockedUntil: 0, expires: w.tick + 100, salvage: 5 });
+  const power = s.hullMax;
+  w.stepShip(1, idle);
+  w.step();
+  assert(!w.pickups.has(902) && s.hullMax > power && s.salvage === cap, 'mining still adds power but no salvage past the cap');
+}
+
 // --- Wire format round trips. ---
 {
   const input = { seq: 77, turn: -0.5, aim: NaN, thrust: 1, dash: true, fire: true, missile: true, mine: false, warp: true };
