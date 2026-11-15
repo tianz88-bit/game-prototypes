@@ -13,7 +13,7 @@ import { topSpeed } from './ship';
 import { asteroidPos } from './asteroids';
 import type { World } from './world';
 import { angleDelta, wrapDelta } from './wrap';
-import { SHOP_ITEMS, canBuy, shopTier } from './shop';
+import { SHOP_ITEMS, EVOLVE_ITEM, canBuy, canEvolve, shopTier } from './shop';
 
 export const BOT_NAMES = ['Vega', 'Orion', 'Lyra', 'Draco', 'Nova', 'Cygnus', 'Rigel', 'Altair'];
 
@@ -35,10 +35,12 @@ export interface BotBrain {
   distractedUntil: number;
   /** Where it last read its target to be, and how it was moving (aim uses this, not the truth). */
   seen: { x: number; y: number; vx: number; vy: number; at: number } | null;
+  /** World tick it dropped in (the room sets it): bots warp out after bots.warpAfterSeconds. */
+  bornAt: number;
 }
 
 export function newBrain(rng: () => number): BotBrain {
-  return { aimError: 0, cooling: false, wander: rng() * Math.PI * 2, nextBuy: Math.floor(rng() * 3), target: 0, reactAt: 0, engagedSince: 0, distractedUntil: 0, seen: null };
+  return { aimError: 0, cooling: false, wander: rng() * Math.PI * 2, nextBuy: Math.floor(rng() * 3), target: 0, reactAt: 0, engagedSince: 0, distractedUntil: 0, seen: null, bornAt: 0 };
 }
 
 const idleInput = (): ShipInput => ({ seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, missile: false, mine: false, warp: false });
@@ -95,8 +97,25 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
   const reacting = !!enemy && tick < brain.reactAt;
 
   // Shop: now and then, buy the next affordable upgrade.
+  // Bots leave like players do (owner, 15 November 2026): strong enough (bots.warpPower) or long
+  // enough on the planet (bots.warpAfterSeconds), a bot warps out once its lockdown is over and a
+  // fresh one replaces it, so no bot snowballs forever. While warping it just flies on (warp mode
+  // limits steering and firing anyway); damage resets its warp as for anyone.
+  if (s.warping) {
+    input.thrust = 1;
+    return { input, buy: null };
+  }
+  const leaving = s.hullMax >= t.warpPower || tick - brain.bornAt >= t.warpAfterSeconds * hz;
+  if (leaving && s.lockdown <= 0) {
+    input.warp = true;
+    input.thrust = 1;
+    return { input, buy: null };
+  }
+
   let buy: { item: number; tier: number } | null = null;
-  if (rng() < 0.02) {
+  // Evolve into the Battlecruiser as soon as it qualifies (owner: bots should know how).
+  if (canEvolve(s, tune) && rng() < 0.05) buy = { item: EVOLVE_ITEM, tier: 0 };
+  else if (rng() < 0.02) {
     for (let k = 0; k < SHOP_ITEMS.length && !buy; k++) {
       const item = (brain.nextBuy + k) % SHOP_ITEMS.length;
       const name = SHOP_ITEMS[item];

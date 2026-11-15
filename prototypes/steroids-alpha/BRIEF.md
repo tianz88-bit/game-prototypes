@@ -211,7 +211,7 @@ currency; currency buys unlocks, QoL and options, never raw power.
 - Aim assist (owner request): a narrow cone ahead of the ship bends shots
   slightly toward a target, ships before asteroids.
 - Dash (owner design, Thunderdogs reference, 12 November): press dash to
-  start a 0.8 s charge (energy effect) during which the ship cannot steer;
+  start a 0.4 s charge (owner, 15 November: was 0.8 s) during which the ship cannot steer;
   when it completes the ship boosts straight ahead (owner, 15 November: no
   direction picking) at 1.8x the ship's top speed for 0.8 s (1.6 s
   total, about 500 px for a fresh ship), ignoring braking. Steering is locked for the whole dash, charge
@@ -238,6 +238,12 @@ currency; currency buys unlocks, QoL and options, never raw power.
   Bots leave only when players leave, not when one is destroyed (owner, 15
   November): after the last pilot is destroyed they stay for 60 s
   (bots.lingerSeconds) so a respawn finds them.
+  Bots leave like players (owner, 15 November): at 350 power
+  (bots.warpPower) or after 5 minutes on the planet (bots.warpAfterSeconds)
+  a bot warps out once its lockdown is over (everyone sees the warp, and it
+  can be chased and shot down), and a fresh bot replaces it. Bots evolve into
+  the Battlecruiser when they qualify, so one can peak as a Battlecruiser
+  before it leaves.
   Bots are beaten by out-playing them, not by stat handicaps (owner, 14
   November 2026): they see about a screen around them (600 px), take about a
   second to react to a newcomer, aim where they last saw a target (read four

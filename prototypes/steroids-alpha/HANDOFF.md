@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 claude bot-warp-evolve
+DID: bots warp out (owner) at bots.warpPower 350 or after bots.warpAfterSeconds 300 once lockdown ends, broadcast as warpouts, replaced after respawnSeconds; bots buy EVOLVE when canEvolve. Dash charge 0.8 -> 0.4 s (owner).
+FILES: sim/bots.ts server/src/room.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
+SEAM: BotBrain.bornAt (room sets the drop-in tick); tune bots.warpPower, bots.warpAfterSeconds.
+CROSS: none
+FOR codex: a bot's warp-out uses the player warp visuals; nothing new needed.
+
 ## 2026-11-15 claude reconnect-bumps-nose
 DID: reconnect grace: a dropped socket keeps the ship 20 s (idle input), client auto-resumes with a token (same id); unknown token -> close 4005 RESUME_LOST -> "ship lost" screen (R/tap drops in again). Disconnected screen shows reason + code. Ship bumps outside a dash: bounce apart (220), 10 damage each, 0.5 s pair grace. Own-ship nose chevron.
 FILES: server/src/{room,index}.ts sim/{protocol,world}.ts src/net/client.ts src/scenes/flight.ts tune.json scripts/test-steroids-alpha-{sim,bank}.mjs BRIEF.md
@@ -97,10 +104,3 @@ FILES: src/input/intents.ts src/scenes/flight.ts BRIEF.md
 SEAM: intents.schemeButton stays null on touch; toggleScheme no-op on touch.
 CROSS: none
 FOR codex: the bottom-left space the STEER button used is free.
-
-## 2026-11-14 claude painted-rocks
-DID: your 15 painted asteroids (visual-review-v4) replace the 64px pixel rocks: families inherit on split (server), siblings alternate variants, linear-filtered, same projected 4x4 mesh. Each rock anchored at its deepest body point and scaled so its inscribed circle >= hitbox (1.26-1.69x width). Damage darkens (no crack art).
-FILES: src/render/rockPainted.ts src/scenes/{boot,flight}.ts src/main.ts sim/{asteroids,world,protocol}.ts art/asteroids-v1/asteroid-assets.json art/prepare-assets.mjs scripts/test-steroids-alpha-sim.mjs
-SEAM: protocol 18 Asteroid.family (0 ochre, 1 lavender, 2 teal; new rocks id % 3). rockPixels.ts kept as fallback.
-CROSS: src/render (rocks); rockPixels.ts untouched.
-FOR codex: crack/damage stages and hit chips for the painted rocks would help; silhouettes with less deep notches would draw closer to the hitbox.
