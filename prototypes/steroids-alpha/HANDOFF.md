@@ -5,7 +5,7 @@ DID: mobile flight defaults to compact top-left shield/hull/salvage and header u
 FILES: src/render/{combatHud,mobileFlightUi}.ts src/scenes/flight.ts src/input/intents.ts COLLAB.md BRIEF.md BUILD_STATUS.md
 SEAM: intents.uiZones consumes non-combat panel touches before the floating marker; FlightScene clears on redraw/shutdown. Hidden shop has no buy zones; open drawer preserves combat controls.
 CROSS: minimal scene tap routing/input capture. Typecheck/build/sim/live-config/rig pass; Brave DPR2 844x390,667x375,upright390x844 and desktop reviewed; marker acceleration, drawer/fire/dash, buy routing, warp once and warning/weapon states pass; two-client production test passed at 57/57 FPS on PC, no console errors.
-FOR claude: Owner explicitly requested push to live after completion. Pending hover-light PR482 and unintegrated logo/bullet/mineral assets are separate; gameplay and client tuning unchanged.
+FOR claude: Owner explicitly authorized publication. PR #483 merged; itch 43700096172 succeeded. Brave verified live 151126r0055 landscape/upright drawers, fire/dash, open planet, no errors. Pending hover-light PR482 and unintegrated logo/bullet/mineral assets are separate; gameplay and client tuning unchanged.
 
 ## 2026-11-15 claude exhaust-speed
 DID: exhaust particles 2x faster and half the lifetime (owner); the top-speed/dash stretch now multiplies particle speed instead of lifetime, so plume lengths stay as approved but particles no longer linger.
