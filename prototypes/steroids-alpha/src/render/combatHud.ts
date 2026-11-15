@@ -59,7 +59,9 @@ export class CombatHud {
     panel(g,right-132,sy,132,19,UI.uiGold);
     // A faceted salvage coin, repeated on pickups and the carried balance.
     g.fillStyle(0xe3a248,1);g.fillPoints([{x:right-119,y:sy+4},{x:right-114,y:sy+4},{x:right-111,y:sy+9},{x:right-114,y:sy+14},{x:right-119,y:sy+14},{x:right-122,y:sy+9}],true);
-    label(6,right-9,sy+3,`SALVAGE ${Math.floor(p.salvage)}`,0xffdd95,10,1);
+    // Cargo hold (owner): carried / max; when full, the cue is to warp out and bank it.
+    const cargo=TUNE.salvage.cargoMax,full=p.salvage>=cargo-.5;
+    label(6,right-9,sy+3,full?`FULL · WARP OUT`:`SALVAGE ${Math.floor(p.salvage)}/${cargo}`,full?0xff9a7a:0xffdd95,10,1);
     // Slow warning beat only; no full-screen pulse while the shield recovers.
     if(down){g.lineStyle(2,0xff9868,.45+.2*Math.sin(now/230));g.lineBetween(x+12,y+21,x+42,y+21);}
   }

@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 claude cargo-hold
+DID: salvage carried capped at salvage.cargoMax 400 (owner): full ship skips gold pickups (left for others, partial takes leave the rest), mining adds power but no salvage past the cap. HUD salvage reads "SALVAGE n/400", full = "FULL · WARP OUT" (orange).
+FILES: sim/{world,liveConfig}.ts src/render/combatHud.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
+SEAM: tune salvage.cargoMax.
+CROSS: src/render/combatHud.ts (yours): salvage label text/colour only.
+FOR codex: a full-hold cue near the Warp button would help; the label is the only signal now.
+
 ## 2026-11-15 claude target-bar
 DID: hits[] carry `by` (attacker id); the client keeps net.engaged (ships we hit -> time) and draws a small bar under their name for 5 s: blue shield fraction while shield > 0, then orange hull fraction.
 FILES: sim/world.ts src/net/client.ts src/scenes/flight.ts scripts/test-steroids-alpha-sim.mjs BRIEF.md
@@ -97,10 +104,3 @@ FILES: sim/{ship,world,protocol}.ts src/net/client.ts src/scenes/flight.ts tune.
 SEAM: protocol 19 ShipState.shieldCd (server-set). hits[].broke -> fx 'shieldBreak'. ship tune keys shieldBreakGraceSeconds, shieldGraceRechargeFraction.
 CROSS: none
 FOR codex: shatter effect and red cooldown bar are placeholders (flight.ts drawTouch, 'shieldBreak' fx); a shield-down warning on the ship would help.
-
-## 2026-11-14 claude bot-behaviour
-DID: bots play worse instead of weaker stats: sight 600, reaction ~0.9 s, aim at last-read position (4 reads/s), attention 6 s then distracted 4 s, one bot per pilot. Duel (pilot not firing back): 2.6 s -> straight 3.6 / gentle 13 / weave 27 s.
-FILES: sim/bots.ts server/src/room.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
-SEAM: botThink(..., others: BotBrain[]); BotBrain gains target/reactAt/engagedSince/distractedUntil/seen; new bots tune keys.
-CROSS: none
-FOR codex: nothing.
