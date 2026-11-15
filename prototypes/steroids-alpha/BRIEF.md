@@ -218,7 +218,10 @@ currency; currency buys unlocks, QoL and options, never raw power.
   and boost (owner, 12 November). Cooldown 8 s,
   shown by a yellow bar next to the gun heat bar. Dash ram damage hits shields
   first, like any damage. Exhaust plume: 2x longer at top speed than
-  before and 3x in a dash (owner, 15 November).
+  before and 3x in a dash (owner, 15 November). Exhaust particles fly 2x
+  faster and live half as long; the longer plume comes from particle speed,
+  not lifetime (owner, 15 November; clientTune exhaustSpeedScale and
+  exhaustLifeScale).
 - Feel pass (owner, 15 November): acceleration and braking doubled (440 /
   600); bullets drawn 2x bigger with the same hitbox; hit sparks 2x bigger.
 - Hull: power is the hull maximum. Minerals repair damage first, then raise

@@ -36,6 +36,8 @@
     "thrusterHoldMs": 140,
     "thrusterTopSpeedStretch": 3,
     "thrusterDashStretch": 5,
+    "exhaustSpeedScale": 2,
+    "exhaustLifeScale": 0.5,
     "bulletScale": 2,
     "hitSparkScale": 2,
     "shipRingRadius": 190,

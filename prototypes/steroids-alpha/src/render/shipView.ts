@@ -233,6 +233,8 @@ export class ShipView {
   /** Exhaust lives in ship-relative units and is drawn at the ship's place and scale on screen. */
   private updateExhaust(dt: number, demand: ThrusterInput, angle: number, timeMs: number, at: ShipPlacement, boosting: boolean): void {
     const nozzles:[NozzleOrigin,NozzleOrigin]=[this.nozzle('engineL',angle,timeMs),this.nozzle('engineR',angle,timeMs)];
+    this.exhaust.speedScale = clientTune.render.exhaustSpeedScale;
+    this.exhaust.lifeScale = clientTune.render.exhaustLifeScale;
     this.exhaust.update(dt, demand, nozzles, clientTune.render.thrusterTopSpeedStretch, clientTune.render.thrusterDashStretch);
     const g = this.exhaustGfx;
     g.clear();
