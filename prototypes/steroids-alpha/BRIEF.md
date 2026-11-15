@@ -212,13 +212,15 @@ currency; currency buys unlocks, QoL and options, never raw power.
   slightly toward a target, ships before asteroids.
 - Dash (owner design, Thunderdogs reference, 12 November): press dash to
   start a 0.8 s charge (energy effect) during which the ship cannot steer;
-  hold a direction during the charge, and when it completes the ship snaps to
-  that direction and boosts at 1.8x the ship's top speed for 0.8 s (1.6 s
+  when it completes the ship boosts straight ahead (owner, 15 November: no
+  direction picking) at 1.8x the ship's top speed for 0.8 s (1.6 s
   total, about 500 px for a fresh ship), ignoring braking. Steering is locked for the whole dash, charge
   and boost (owner, 12 November). Cooldown 8 s,
   shown by a yellow bar next to the gun heat bar. Dash ram damage hits shields
-  first, like any damage. Touch: stick direction; keyboard: hold
-  S (back) or A/D (sides) during the charge.
+  first, like any damage. Exhaust plume: 2x longer at top speed than
+  before and 3x in a dash (owner, 15 November).
+- Feel pass (owner, 15 November): acceleration and braking doubled (440 /
+  600); bullets drawn 2x bigger with the same hitbox; hit sparks 2x bigger.
 - Hull: power is the hull maximum. Minerals repair damage first, then raise
   the maximum. Shop purchases lower the maximum; current hull only drops if
   it is above the new maximum (owner design, 12 November).
@@ -227,6 +229,9 @@ currency; currency buys unlocks, QoL and options, never raw power.
 - Bots (owner, 12 November): AI pilots on Planet A only, present only while
   at least one real player is there. Planet B is players-only PvP. Bots spawn
   spread over the planet, as far from every ship as possible (owner).
+  Bots leave only when players leave, not when one is destroyed (owner, 15
+  November): after the last pilot is destroyed they stay for 60 s
+  (bots.lingerSeconds) so a respawn finds them.
   Bots are beaten by out-playing them, not by stat handicaps (owner, 14
   November 2026): they see about a screen around them (600 px), take about a
   second to react to a newcomer, aim where they last saw a target (read four
@@ -260,7 +265,9 @@ currency; currency buys unlocks, QoL and options, never raw power.
 - Dash ram (owner picked): dashing into a ship damages it, scaled by gun
   upgrades, and throws both apart.
 - Destroyed ship (owner decision): it explodes, then the player chooses
-  Respawn (same planet, fresh ship) or Menu.
+  Respawn (same planet, fresh ship) or Menu. Keyboard: R (or Space) respawns,
+  Esc goes to the menu; the keys are shown on the buttons (owner, 15
+  November).
 - Kills leaderboard on every planet (owner decision): one chip per player
   (rank, name, kills), sorted by kills. Chips slide to their new places when
   the order changes, and a chip pops when its kills go up. A player's kills

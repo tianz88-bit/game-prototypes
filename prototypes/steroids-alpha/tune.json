@@ -22,8 +22,8 @@
     "minSpeed": 140,
     "cruiseSpeed": 260,
     "maxSpeed": 350,
-    "acceleration": 220,
-    "braking": 300,
+    "acceleration": 440,
+    "braking": 600,
     "turnRate": 3.2,
     "dashSpeedFactor": 1.8,
     "dashChargeSeconds": 0.8,
@@ -120,6 +120,7 @@
   "bots": {
     "count": 4,
     "respawnSeconds": 5,
+    "lingerSeconds": 60,
     "engageRange": 700,
     "preferredRange": 320,
     "collectRange": 600,

@@ -24,6 +24,8 @@ export interface ThrusterInput {
   right: boolean;
   /** 0..1, how close the craft is to top speed (1 at max speed or dashing): stretches the plume. */
   speedTrail?: number;
+  /** Dashing: the plume takes the (longer) dash stretch instead. */
+  dashing?: boolean;
 }
 
 export interface ExhaustParticle {
@@ -89,11 +91,14 @@ export class ThrusterVFX {
   }
 
   /** origins: craft-left then craft-right nozzle. */
-  /** trailStretch: how much longer the plume gets at top speed (1 = twice as long). */
-  update(dt: number, input: ThrusterInput, origins: [NozzleOrigin, NozzleOrigin], trailStretch = 0): void {
+  /**
+   * trailStretch: how much longer the plume gets at top speed (1 = twice as long); dashStretch: the
+   * same while dashing.
+   */
+  update(dt: number, input: ThrusterInput, origins: [NozzleOrigin, NozzleOrigin], trailStretch = 0, dashStretch = trailStretch): void {
     dt = Math.min(0.05, Math.max(0, dt));
     const trail = Math.max(0, Math.min(1, input.speedTrail ?? 0));
-    const stretch = 1 + trail * trailStretch;
+    const stretch = input.dashing ? 1 + dashStretch : 1 + trail * trailStretch;
     const edges = { throttle: input.throttle && !this.previous.throttle, left: input.left && !this.previous.left, right: input.right && !this.previous.right };
     // The outside engine drives the yaw.
     // At top speed both engines keep running strong, even with the throttle released.

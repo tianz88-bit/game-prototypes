@@ -231,4 +231,47 @@ function d1() {
   assert.equal(p2.ship.chassis, 0, 'no interceptor without the unlock');
 }
 
-console.log('Steroids-Alpha bank: codes, hashed accounts, idempotent capped credits, recovery, room auth, banking on extraction, unlock purchases, palettes from tints, ship choice and owned looks all pass.');
+// Room bots (owner, 15 November 2026): they stay when the only player is destroyed, so a respawn finds
+// them, and leave when the planet has been empty for bots.lingerSeconds or a player disconnects.
+{
+  const tune = JSON.parse(readFileSync(path.join(root, 'prototypes/steroids-alpha/tune.json'), 'utf8'));
+  class Sock extends EventTarget { sent = []; closed = 0; send(v) { this.sent.push(v); } close(c) { this.closed = c; this.dispatchEvent(new Event('close')); } }
+  const room = new B.Room(undefined, () => {}); // ships take damage here (no test shipHp)
+  room.setBots(true);
+  room.join(new Sock(), 'Solo');
+  room.stop();
+  for (let i = 0; i < 30 && room.bots.size < tune.bots.count; i++) room.step();
+  assert.equal(room.bots.size, tune.bots.count, 'bots join the player');
+  // Destroy a player inside the next step (after the world steps, before the room reads its events).
+  const destroy = (pl) => {
+    const step = room.world.step.bind(room.world);
+    room.world.step = () => { step(); pl.ship.shield = 0; room.world.damageShip(pl.id, pl.ship, 1e6, 0, pl.ship.x, pl.ship.y); room.world.step = step; };
+    room.step();
+  };
+  const [p] = [...room.players.values()];
+  destroy(p);
+  assert.equal(room.players.size, 0, 'the destroyed player has left');
+  assert.equal(room.bots.size, tune.bots.count, 'bots stay after the only player is destroyed');
+  for (let i = 0; i < 5 * tune.net.tickHz; i++) room.step();
+  assert.equal(room.bots.size, tune.bots.count, 'still there a few seconds later');
+  room.join(new Sock(), 'Back');
+  room.stop();
+  for (let i = 0; i < (tune.bots.lingerSeconds + 2) * tune.net.tickHz; i++) room.step();
+  assert.equal(room.bots.size, tune.bots.count, 'a respawn keeps them for as long as it stays');
+  // The respawned player closes the tab: bots go at once.
+  const [q] = [...room.players.values()];
+  q.ws.close(1000);
+  assert.equal(room.bots.size, 0, 'a player leaving (not destroyed) takes the bots with them');
+  // Destroyed and never back: they go when the linger runs out.
+  room.join(new Sock(), 'Gone');
+  room.stop();
+  for (let i = 0; i < 30 && room.bots.size < tune.bots.count; i++) room.step();
+  const [r] = [...room.players.values()];
+  destroy(r);
+  assert.equal(room.bots.size, tune.bots.count, 'bots linger again');
+  for (let i = 0; i < tune.bots.lingerSeconds * tune.net.tickHz + 2 && room.bots.size; i++) room.step();
+  assert.equal(room.bots.size, 0, 'and leave when the linger runs out');
+  room.stop();
+}
+
+console.log('Steroids-Alpha bank: codes, hashed accounts, idempotent capped credits, recovery, room auth, banking on extraction, unlock purchases, palettes from tints, ship choice, owned looks and lingering bots all pass.');

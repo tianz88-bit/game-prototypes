@@ -172,8 +172,9 @@ export class FlightScene extends Phaser.Scene {
     const dash = intents.consume('secondary');
     const missile = intents.consume('missile');
     const mine = intents.consume('mine');
-    const warp = intents.consume('warp');
     const over = dead || !!this.net.extracted || this.net.status === 'extracted';
+    // R is Warp in flight and Respawn on the death screen, which reads it itself.
+    const warp = !over && intents.consume('warp');
     if (!over) {
       intents.consume('primary');
       intents.consume('pause'); // No menu exit mid-run: leave by warping out (lockdown, then Warp).
@@ -181,7 +182,7 @@ export class FlightScene extends Phaser.Scene {
     if (intents.consume('scheme')) intents.toggleScheme();
     const heading = this.net.predicted?.heading ?? 0;
     const move = intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed);
-    this.net.update({ ...move, dash, dashAim: intents.dashAim(heading), fire: intents.fire, missile, mine, warp });
+    this.net.update({ ...move, dash, fire: intents.fire, missile, mine, warp });
     // Shop: each tap asks the server for the tier on offer now; the server checks power and price.
     for (const item of intents.consumeBuys()) {
       const p = this.net.predicted;
@@ -412,8 +413,7 @@ export class FlightScene extends Phaser.Scene {
       const size=2+3*k;g.fillRect(at.x+Math.cos(a)*d-size/2,at.y+Math.sin(a)*d-size/2,size,size*1.4);
     }
     if (mine) {
-      const aim = intents.dashAim(s.heading);
-      const dir = Number.isFinite(aim) ? aim : s.heading;
+      const dir = s.heading;
       const tip = R * 2.6;
       const bx = at.x + Math.cos(dir) * R * 1.4;
       const by = at.y + Math.sin(dir) * R * 1.4;
@@ -956,7 +956,7 @@ export class FlightScene extends Phaser.Scene {
 
   /**
    * After our ship is destroyed: who did it, and Respawn (back onto this planet) or Menu.
-   * Keyboard: Space or J respawns, Esc goes to the menu. Returns true if the scene was left.
+   * Keyboard: R, Space or J respawns, Esc goes to the menu. Returns true if the scene was left.
    */
   private deathScreen(w: number, h: number, extracted = false): boolean {
     if (!this.deathShownAt) {
@@ -979,7 +979,9 @@ export class FlightScene extends Phaser.Scene {
       this.deathButtons = (['respawn', 'menu'] as const).map((id, i) => {
         const x = w / 2 + (i === 0 ? -1 : 1) * (bw / 2 + 10);
         const y = h * 0.3 + 56;
-        return { id, x, y, w: bw, h: bh, label: text(this, x, y, id === 'respawn' ? (extracted ? 'DROP IN' : 'RESPAWN') : 'MENU', 16).setOrigin(0.5).setDepth(961) };
+        // Keyboard shortcuts shown on the buttons (owner): R respawns, Esc goes to the menu. Not on touch.
+        const key = intents.touch ? '' : id === 'respawn' ? ' (R)' : ' (Esc)';
+        return { id, x, y, w: bw, h: bh, label: text(this, x, y, (id === 'respawn' ? (extracted ? 'DROP IN' : 'RESPAWN') : 'MENU') + key, 16).setOrigin(0.5).setDepth(961) };
       });
     }
     // Extracted: the bank's answer arrives a moment later.
@@ -1004,7 +1006,10 @@ export class FlightScene extends Phaser.Scene {
       const b = ready && this.deathButtons.find((b) => Math.abs(t.x - b.x) <= b.w / 2 && Math.abs(t.y - b.y) <= b.h / 2);
       if (b) choice = b.id;
     }
-    if (ready && intents.consume('primary')) choice = 'respawn';
+    // R (the warp key in flight) and Space respawn; Esc goes to the menu. Presses before the buttons
+    // show are dropped, so a key hit in the fight that ended does not skip the screen.
+    if (!ready) for (const p of ['primary', 'warp', 'pause'] as const) intents.consume(p);
+    if (ready && (intents.consume('primary') || intents.consume('warp'))) choice = 'respawn';
     if (ready && intents.consume('pause')) choice = 'menu';
     if (choice === 'respawn') {
       this.scene.restart({ planet: this.planet });
@@ -1102,7 +1107,7 @@ export class FlightScene extends Phaser.Scene {
         }
         continue;
       }
-      if(e.sparkAngle!==undefined){drawHitSpark(g,at,k,e.sparkAngle,e.x+e.y);continue;}
+      if(e.sparkAngle!==undefined){drawHitSpark(g,{...at,scale:at.scale*clientTune.render.hitSparkScale},k,e.sparkAngle,e.x+e.y);continue;}
       g.lineStyle(3, e.colour, (1 - k) * (e.chips ? .4 : 1));
       g.strokeCircle(at.x, at.y, e.r * (0.4 + k) * at.scale);
       if (e.heal) {
@@ -1119,12 +1124,14 @@ export class FlightScene extends Phaser.Scene {
       }
     }
     // Threat silhouettes and lock cues always draw after translucent explosion/collection effects.
+    // Drawn bulletScale times bigger (owner); the hit radius is the server's and does not change.
+    const bulletScale = clientTune.render.bulletScale;
     for (const b of this.net.bullets) {
-      const len = b.small ? 0.012 : 0.018;
+      const len = (b.small ? 0.012 : 0.018) * bulletScale;
       const head = this.toScreen(b.x, b.y);
       const tail = this.toScreen(b.x - b.vx * len, b.y - b.vy * len);
       if (!head.visible || !tail.visible) continue;
-      drawBullet(g,head,tail,b.mine,!!b.small,b.look??0);
+      drawBullet(g,{...head,scale:head.scale*bulletScale},tail,b.mine,!!b.small,b.look??0);
     }
     // Missiles and mines. Missiles are carried forward from the last snapshot so they fly smoothly.
     const tNow = performance.now();

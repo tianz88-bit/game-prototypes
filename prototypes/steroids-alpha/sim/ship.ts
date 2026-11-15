@@ -80,11 +80,6 @@ export interface ShipInput {
   thrust: number;
   /** Dash requested on this step. */
   dash: boolean;
-  /**
-   * Dash direction held this step (radians), or NaN for straight ahead. Sent every step while the
-   * dash charges; the direction held when the charge completes is where the boost goes.
-   */
-  dashAim: number;
   /** Fire held on this step. */
   fire: boolean;
   /** Launch a missile / drop a mine this step (pressed once). */
@@ -182,8 +177,8 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune)
   s.heading = angleDelta(s.heading, 0);
 
   // Dash (owner design, Thunderdogs-like): pressing it starts a dashChargeSeconds wind-up. While it
-  // charges the player holds a direction; when it completes the ship snaps to that direction and
-  // boosts at dashSpeedFactor x top speed for dashDuration, ignoring the brake. Afterwards the extra
+  // charges steering is locked; when it completes the ship boosts straight ahead (owner, 15 November
+  // 2026: no direction picking) at dashSpeedFactor x top speed for dashDuration, ignoring the brake. Afterwards the extra
   // speed bleeds off at the braking rate back to top speed.
   if (input.dash && s.dashCd <= 0 && s.dashCharge <= 0 && s.dashTime <= 0) {
     s.dashCharge = tune.ship.dashChargeSeconds;
@@ -194,7 +189,6 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune)
     if (s.dashCharge <= 1e-9) {
       s.dashCharge = 0;
       s.dashTime = tune.ship.dashDuration;
-      if (Number.isFinite(input.dashAim)) s.heading = angleDelta(input.dashAim, 0);
     }
   }
   // Power makes a ship slower: both caps come down as it grows.

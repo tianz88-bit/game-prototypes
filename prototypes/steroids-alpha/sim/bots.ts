@@ -41,7 +41,7 @@ export function newBrain(rng: () => number): BotBrain {
   return { aimError: 0, cooling: false, wander: rng() * Math.PI * 2, nextBuy: Math.floor(rng() * 3), target: 0, reactAt: 0, engagedSince: 0, distractedUntil: 0, seen: null };
 }
 
-const idleInput = (): ShipInput => ({ seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN, missile: false, mine: false, warp: false });
+const idleInput = (): ShipInput => ({ seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, missile: false, mine: false, warp: false });
 
 /** One tick of decisions for bot id. */
 export function botThink(id: number, s: ShipState, world: World, brain: BotBrain, tune: Tune, rng: () => number, others: readonly BotBrain[] = []): { input: ShipInput; buy: { item: number; tier: number } | null } {
@@ -118,11 +118,8 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
     const away = Math.atan2(-enemy.dy, -enemy.dx);
     input.aim = away;
     input.thrust = 1;
-    if (s.dashCd <= 0 && rng() < 0.05) {
-      input.dash = true;
-      input.dashAim = away;
-    }
-    if (s.dashCharge > 0) input.dashAim = away;
+    // Dashes go straight ahead, so only once it faces away.
+    if (s.dashCd <= 0 && Math.abs(angleDelta(away, s.heading)) < 0.4 && rng() < 0.05) input.dash = true;
     // Mines behind it for whoever is chasing.
     input.mine = s.mineCharges > 0 && enemy.d < 400 && rng() < 0.05;
     return { input, buy };
@@ -142,11 +139,7 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
     // A missile when the target is in the lock cone.
     input.missile = s.missileCharges > 0 && off < (tune.missile.lockConeDeg * Math.PI) / 360 && enemy.d < tune.missile.lockRange && rng() < 0.04;
     // A dash to close in (or ram) when lined up at middle range.
-    if (s.dashCd <= 0 && off < 0.3 && enemy.d > 250 && enemy.d < 600 && rng() < 0.03) {
-      input.dash = true;
-      input.dashAim = Math.atan2(enemy.dy, enemy.dx);
-    }
-    if (s.dashCharge > 0) input.dashAim = Math.atan2(enemy.dy, enemy.dx);
+    if (s.dashCd <= 0 && off < 0.3 && enemy.d > 250 && enemy.d < 600 && rng() < 0.03) input.dash = true;
     return { input, buy };
   }
 
