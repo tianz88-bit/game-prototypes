@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 codex backlog-release
+DID: owner reviewed all4priority boards and explicitly approved publication. Uploaded/re-fetched the3sprite source ZIP with matching SHA-256; integrated newer gun convergence, idle exhaust and72%shadow/60pxglow/docked landing from PR498/499.
+FILES: approved P1–P4 art pass; source manifest/README, GFX_BRIEF, BUILD_STATUS, COLLAB.
+SEAM: prior preview contracts retained; no new gameplay/tuning/protocol/input/rig changes from this art pass. Upstream authoritative changes preserved.
+CROSS: latestmain flight.ts merged cleanly; status-note conflict keeps both agents' work. Full integrated checks and deployment verification recorded at release completion.
+FOR claude: owner said go live with all and sync; gate satisfied. R2 object steroids-alpha_combat-backlog-v1_assets.zip SHA155c58afbb103592a20075b35f5e2b92ca4a77b9d51fc1c0e966083ccd283218; publishing currentbranch, will report PR/run/livebuild in thread07e15987.
+
 ## 2026-11-15 claude converge-exhaust
 DID: aim assist locks a target from the ship centre (cone/range, ships first) and each gun leads it from its own muzzle (cap weapon.assistConvergeMaxDeg 20) so both streams land; bots get no assist. Exhaust speed/life scales now ramp with the plume stretch (idle plume back to the original look); landed ships emit no exhaust (ThrusterInput.off).
 FILES: sim/{ship,world,liveConfig}.ts src/{net/client,render/thrusters,render/shipView}.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
@@ -97,10 +104,3 @@ FILES: art/combat-title-v1/* art/prepare-assets.mjs render/{combatSprites,combat
 SEAM: queue/prepareCombatArt and pooled CombatSprites, optional drone palette index; hoverLight* live render keys upgrade older records. Nine original PNG hashes checked from R2; runtime textures bounded to 192/1024. No wire or gameplay tuning changes.
 CROSS: scene art wiring/action hit rectangles and bounded config validation/tests. Typecheck/build/sim/live-config/rig pass; 4 DPR2 Brave viewports + forced Canvas, nine assets, warnings, controls with drawer, buy/warp routing and stable pool verified with no errors; production two-client check passes at 57/57 FPS on PC.
 FOR claude: PR485 merged75a909, itch43705423342 succeeded; public Brave151126r0056 landscape/upright verified all9textures, painted shots, smaller controls, drawers, hover and open planet, zero errors. PR482 superseded/closed. Worker bank test could randomly kill its respawn pilot during62s presence interval; use existing world.invulnerable only for that interval, restoring damage before explicit-death checks. Three fresh bank runs pass.
-
-## 2026-11-15 codex mobile-focus
-DID: mobile flight defaults to compact top-left shield/hull/salvage and header upgrade/rank/warp buttons; upgrades and rank open one at a time. Heat is on Fire, dash cooldown stays on Dash; smaller zone cue and no own-name/bounty text clutter. Desktop unchanged.
-FILES: src/render/{combatHud,mobileFlightUi}.ts src/scenes/flight.ts src/input/intents.ts COLLAB.md BRIEF.md BUILD_STATUS.md
-SEAM: intents.uiZones consumes non-combat panel touches before the floating marker; FlightScene clears on redraw/shutdown. Hidden shop has no buy zones; open drawer preserves combat controls.
-CROSS: minimal scene tap routing/input capture. Typecheck/build/sim/live-config/rig pass; Brave DPR2 844x390,667x375,upright390x844 and desktop reviewed; marker acceleration, drawer/fire/dash, buy routing, warp once and warning/weapon states pass; two-client production test passed at 57/57 FPS on PC, no console errors.
-FOR claude: Owner explicitly authorized publication. PR #483 merged; itch 43700096172 succeeded. Brave verified live 151126r0055 landscape/upright drawers, fire/dash, open planet, no errors. Pending hover-light PR482 and unintegrated logo/bullet/mineral assets are separate; gameplay and client tuning unchanged.

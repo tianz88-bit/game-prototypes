@@ -1,6 +1,6 @@
 ## Current milestone
 
-All four owner-prioritized art backlog groups are implemented as a local review pass on codex/steroids-combat-backlog-preview from e610545. Nothing uploaded, merged or deployed. The owner requested screenshots before live. Actual-renderer review gallery: outputs/steroids-alpha/backlog-review/index.html. Existing public game is unchanged by this pass.
+Owner approved all four art backlog groups for live after the screenshot review. Source pack uploaded to R2 and fetched back with matching hash; publication and live verification are in progress. The release integrates main3a38092, preserving PR498 smaller shadows/round glow/docked landing and PR499 gun convergence/idle exhaust/engines-off. Review evidence: outputs/steroids-alpha/backlog-review/index.html.
 
 ## What was implemented
 
@@ -12,21 +12,20 @@ All four owner-prioritized art backlog groups are implemented as a local review 
 ## Key technical decisions
 
 - No sim, gameplay tuning, protocol, authoritative positions/radii, ship rig or input-zone changes. Render observes existing state; seeking cue infers recent mine movement without new wire data.
-- Original source PNGs/ZIP/prompt metadata stay in outputs/steroids-alpha/combat-backlog-v01. Hash-verified local cache feeds existing asset pipeline; source pack public R2 URL is reserved, NOT uploaded. Approval must precede upload/merge. Missing body textures retain procedural fallback.
+- Original source PNGs/ZIP/prompt metadata stay in outputs/steroids-alpha/combat-backlog-v01. Public R2 ZIP fetched back and SHA-256 verified; source files and registration retain their hashes through the asset pipeline. Owner explicitly approved upload/merge/publication. Missing body textures retain procedural fallback.
 - Per-scene sprite reuse and shared textures; code-driven VFX support WebGL and Canvas. Thirty fracture variants preserve body alpha pixel-for-pixel and existing collision coverage.
 - Typecheck/build/396 rig poses +14400FFD points/sim/live-config pass. Actual-renderer desktop1280x720/mobile844x390 DPR2 plus667x375 HUD checks, WebGL/Canvas and error checks pass.
 - Two real connected clients with four bots on alpha: ~56.6/56.8FPS, p95~18.1/18ms on this PC atDPR2; Crimson ~56.8/56.6FPS. Real fire/dash worked, no browser errors. Test browsers close; local preview servers stop after capture.
 
 ## Open questions
 
-- Owner reviews the screenshot gallery before any live release. No implementation decision is waiting on the owner.
+- Screenshot review and publication approval received. No implementation question is blocking release.
 
 ## Known issues
 
 - Real phone/Safari/Android hardware performance remains unmeasured; browser phone emulation is not hardware evidence.
-- New art pack must be uploaded only after review; a clean remote build cannot fetch the reserved object yet.
 - Separate orbital zoom transition and per-chassis hosted calibration remain outside this prioritized art pass.
 
 ## Next proposed step
 
-Owner reviews combat first, then clan/progression/HUD screenshots. After explicit approval, upload the source pack, verify clean-fetch hashes, create appropriately scoped PRs and publish/check the live game.
+Complete the approved publication, verify the public build and report the PR/deployment/build to Claude in Agent Comms thread07e15987. Orbital zoom and per-chassis hosted calibration remain separate tasks.
