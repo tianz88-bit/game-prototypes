@@ -18,7 +18,23 @@ import type { PlanetId } from '../../sim/planets';
 import { clientTune } from '../clientTune';
 import { SIM_LAG_MS, serverOrigin } from '../base';
 
-export type NetStatus = 'connecting' | 'open' | 'full' | 'closed' | 'destroyed' | 'extracted';
+export type NetStatus = 'connecting' | 'open' | 'reconnecting' | 'lost' | 'full' | 'closed' | 'destroyed' | 'extracted';
+
+/** Why a connection closed, in words for the Disconnected screen (owner: show the reason). */
+export function closeReason(code: number, reason: string): string {
+  const known: Record<number, string> = {
+    1000: 'closed',
+    1001: 'server going away (update)',
+    1006: 'connection dropped',
+    1008: 'too many inputs',
+    1011: 'server error',
+    1012: 'server restarting (update)',
+    [CLOSE.BAD_PROTOCOL]: 'game version mismatch, reload the page',
+    [CLOSE.RESUME_LOST]: 'away too long, or the server was updated',
+  };
+  const words = known[code] ?? 'unknown';
+  return `${words} · code ${code}${reason && !words.includes(reason) && reason !== 'ship lost' ? ` · ${reason}` : ''}`;
+}
 
 /** A bullet as drawn. Damage is decided by the server; this is only what the player sees. */
 export interface VisualBullet {
@@ -89,6 +105,20 @@ export class NetClient {
   private clockOffset: number | null = null;
   private ws: WebSocket | null = null;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
+  /**
+   * Reconnect grace (owner, 15 November 2026): the room keeps our ship for a while after the
+   * connection drops; this token takes it back. Null until the room sends it.
+   */
+  private resumeToken: string | null = null;
+  private graceSeconds = 0;
+  /** performance.now() after which we stop trying to resume. */
+  private resumeDeadline = 0;
+  private leaving = false;
+  /** How the last connection closed (shown on the Disconnected screen). */
+  closeInfo: { code: number; reason: string } | null = null;
+  /** Times our ship was resumed after a dropped connection (test hook). */
+  resumes = 0;
+  private resuming = false;
 
   /** Names and kills of everyone on the planet, by id. */
   roster = new Map<number, RosterEntry>();
@@ -130,16 +160,25 @@ export class NetClient {
     private readonly name = '',
   ) {}
 
-  connect(): void {
-    const url = `${serverOrigin()}/ws/${this.planet}?v=${PROTOCOL_VERSION}${this.name ? `&name=${encodeURIComponent(this.name)}` : ''}`;
+  connect(resume = false): void {
+    const url = `${serverOrigin()}/ws/${this.planet}?v=${PROTOCOL_VERSION}${this.name ? `&name=${encodeURIComponent(this.name)}` : ''}${resume && this.resumeToken ? `&resume=${encodeURIComponent(this.resumeToken)}` : ''}`;
     const ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
     this.ws = ws;
     ws.addEventListener('open', () => {
+      if (this.ws !== ws) return;
       this.status = 'open';
-      // Name our bank account first, so the room can credit an extraction to it.
-      const secret = loadSave().account?.secret;
-      if (secret) ws.send(JSON.stringify({ type: 'auth', secret, look: loadSave().look ?? {} }));
+      if (resume) {
+        // Same ship: whatever was predicted while away is stale; the next snapshot is the truth.
+        this.pending = [];
+        this.accumulator = 0;
+        this.visualError = { x: 0, y: 0, heading: 0 };
+        this.resuming = true;
+      } else {
+        // Name our bank account first, so the room can credit an extraction to it.
+        const secret = loadSave().account?.secret;
+        if (secret) ws.send(JSON.stringify({ type: 'auth', secret, look: loadSave().look ?? {} }));
+      }
       this.ping();
       this.pingTimer = setInterval(() => this.ping(), clientTune.net.pingIntervalMs);
     });
@@ -156,12 +195,34 @@ export class NetClient {
       if(SIM_LAG_MS>0)setTimeout(receive,SIM_LAG_MS);else receive();
     });
     ws.addEventListener('close', (e) => {
-      this.status = e.code === CLOSE.ROOM_FULL ? 'full' : e.code === CLOSE.DESTROYED ? 'destroyed' : e.code === CLOSE.EXTRACTED ? 'extracted' : 'closed';
+      if (this.ws !== ws) return;
       if (this.pingTimer) clearInterval(this.pingTimer);
+      this.pingTimer = null;
+      this.closeInfo = { code: e.code, reason: e.reason };
+      const final: Partial<Record<number, NetStatus>> = { [CLOSE.ROOM_FULL]: 'full', [CLOSE.DESTROYED]: 'destroyed', [CLOSE.EXTRACTED]: 'extracted', [CLOSE.RESUME_LOST]: 'lost', [CLOSE.BAD_PROTOCOL]: 'closed', 1008: 'closed' };
+      const now = performance.now();
+      if (final[e.code] || this.leaving || !this.resumeToken) {
+        this.status = final[e.code] ?? 'closed';
+        return;
+      }
+      // Dropped: try to take the ship back until the room's grace period runs out.
+      if (this.status !== 'reconnecting') this.resumeDeadline = now + this.graceSeconds * 1000;
+      if (now >= this.resumeDeadline) {
+        this.status = 'closed';
+        return;
+      }
+      this.status = 'reconnecting';
+      setTimeout(() => { if (!this.leaving && this.status === 'reconnecting') this.connect(true); }, 1000);
     });
   }
 
+  /** Seconds left to take the ship back while reconnecting. */
+  get resumeSecondsLeft(): number {
+    return Math.max(0, Math.ceil((this.resumeDeadline - performance.now()) / 1000));
+  }
+
   close(): void {
+    this.leaving = true;
     if (this.pingTimer) clearInterval(this.pingTimer);
     this.ws?.close();
   }
@@ -179,7 +240,10 @@ export class NetClient {
 
   /** Roster, deaths and pickups arrive as JSON text frames. */
   private handleText(msg: { type?: string; id?: number; power?: number; kills?: number; ships?: { id: number; x: number; y: number }[]; x?: number; y?: number; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean; hull?: boolean; broke?: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral' | 'salvage'; value: number }[]; r?: number; seconds?: number; salvage?: number; amount?: number; balance?: number | null; error?: string; remove?: { id: number; by: number }[] }): void {
-    if (msg.type === 'roster' && Array.isArray(msg.players)) {
+    if (msg.type === 'resume' && typeof (msg as { token?: unknown }).token === 'string') {
+      this.resumeToken = (msg as { token: string }).token;
+      this.graceSeconds = Number(msg.seconds) || 0;
+    } else if (msg.type === 'roster' && Array.isArray(msg.players)) {
       this.roster = new Map(msg.players.map((p) => [p.id, p]));
     } else if (msg.type === 'extracted') {
       this.extracted = { power: Number(msg.power) || 0, kills: Number(msg.kills) || 0, salvage: Number(msg.salvage) || 0 };
@@ -267,6 +331,8 @@ export class NetClient {
       return;
     }
     if (msg.type === MSG.WELCOME) {
+      if (this.resuming && msg.id === this.myId) this.resumes++;
+      this.resuming = false;
       this.myId = msg.id;
       return;
     }

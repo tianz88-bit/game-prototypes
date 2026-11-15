@@ -16,7 +16,8 @@
     "inputBufferSteps": 2,
     "maxQueuedInputs": 6,
     "maxGuessedSteps": 30,
-    "forgiveGuessAfterTicks": 15
+    "forgiveGuessAfterTicks": 15,
+    "reconnectGraceSeconds": 20
   },
   "ship": {
     "minSpeed": 140,
@@ -46,7 +47,9 @@
     "deathSpillFraction": 0.5,
     "spillLockSeconds": 3,
     "dashRamDamage": 30,
-    "dashRamSelfDamage": 8
+    "dashRamSelfDamage": 8,
+    "bumpDamage": 10,
+    "bumpKnockbackSpeed": 220
   },
   "weapon": {
     "fireIntervalSteps": 4,

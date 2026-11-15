@@ -270,6 +270,12 @@ currency; currency buys unlocks, QoL and options, never raw power.
   (owner reference image); some hexagons on the hit side flash (owner).
 - Dash ram (owner picked): dashing into a ship damages it, scaled by gun
   upgrades, and throws both apart.
+- Ship bumps (owner, 15 November): ships that touch outside a dash no longer
+  pass through each other; both bounce apart and take 10 damage (shield
+  first), at most once per pair every 0.5 s (ship.bumpDamage,
+  bumpKnockbackSpeed, contactGraceSeconds).
+- Nose marker (owner, 15 November): a small chevron just ahead of your own
+  ship shows where the guns point.
 - Destroyed ship (owner decision): it explodes, then the player chooses
   Respawn (same planet, fresh ship) or Menu. Keyboard: R (or Space) respawns,
   Esc goes to the menu; the keys are shown on the buttons (owner, 15
@@ -442,8 +448,13 @@ Owner direction (13 November 2026). Replaces the earlier gear-stash design.
   Bought in the Hangar (menu); two taps to buy, tap an owned item to wear or
   remove it. The server sets prices, checks the balance in the same
   statement, and shows other pilots only the looks an account owns.
-- Default (confirm): disconnecting leaves the ship on the planet for a grace
-  period; if it is not reconnected in time, it is lost as if destroyed.
+- Reconnect grace (owner, 15 November 2026): a dropped connection leaves the
+  ship on the planet (flying on, nothing pressed, still vulnerable) for 20 s
+  (net.reconnectGraceSeconds); the client reconnects on its own and takes the
+  ship back. After that the ship is gone (it vanishes; no spill). A server
+  update restarts the planet, so a ship cannot survive one: the client then
+  says the ship was lost and offers to drop in again. The Disconnected
+  screen shows why the connection closed (reason and code).
 
 ## Identity
 

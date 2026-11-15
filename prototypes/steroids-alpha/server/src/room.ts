@@ -66,6 +66,13 @@ interface Player {
   look: Look;
   /** Room tick at drop-in: the chosen ship type applies only within its first moments. */
   joinedAt: number;
+  /** Secret the client presents (?resume=) to take this ship back after a dropped connection. */
+  resume: string;
+  /**
+   * Connection lost (owner, 15 November 2026: reconnect grace): the ship stays on the planet, flying
+   * on idle input, until this tick; the pilot can resume it before then. -1 while connected.
+   */
+  awayUntil: number;
 }
 
 /**
@@ -174,30 +181,75 @@ export class Room {
   }
 
   /** Attach a freshly accepted socket. Returns false (and closes it) when the room is full. */
-  join(ws: CfSocket, requestedName?: string | null): boolean {
+  join(ws: CfSocket, requestedName?: string | null, resume?: string | null): boolean {
+    if (resume) {
+      const back = [...this.players.values()].find((p) => p.resume === resume);
+      if (!back) {
+        // Lost while away, or the planet restarted (a server update): the client offers Respawn.
+        ws.close(CLOSE.RESUME_LOST, 'ship lost');
+        return false;
+      }
+      this.reattach(back, ws);
+      return true;
+    }
     if (this.players.size >= TUNE.net.maxPlayersPerRoom) {
       ws.close(CLOSE.ROOM_FULL, 'room full');
       return false;
     }
     const id = this.allocateId();
     const spawn = this.world.addShip(id);
-    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null, look: {}, joinedAt: this.tick };
+    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null, look: {}, joinedAt: this.tick, resume: crypto.randomUUID(), awayUntil: -1 };
     this.players.set(id, player);
     this.lingerUntil = -1;
+    this.attach(player, ws);
+    return true;
+  }
 
-    ws.addEventListener('message', (e: MessageEvent) => this.onMessage(player, e.data));
-    ws.addEventListener('close', () => this.leave(id));
-    ws.addEventListener('error', () => this.leave(id));
+  /** A dropped pilot is back within the grace period: same ship, same id, a fresh socket. */
+  private reattach(player: Player, ws: CfSocket): void {
+    const old = player.ws;
+    player.ws = ws;
+    player.awayUntil = -1;
+    player.queue = [];
+    player.deficit = 0;
+    player.deficitTicks = 0;
+    player.started = false;
+    player.budgetAt = Date.now();
+    player.packets = 0;
+    // If the server had not noticed the old socket was gone, retire it quietly.
+    if (old !== ws) try { old.close(1000, 'resumed'); } catch { /* already closed */ }
+    this.attach(player, ws);
+  }
+
+  /** Wire a socket to its player and send the state a client starts from. */
+  private attach(player: Player, ws: CfSocket): void {
+    ws.addEventListener('message', (e: MessageEvent) => { if (player.ws === ws) this.onMessage(player, e.data); });
+    ws.addEventListener('close', () => this.dropped(player, ws));
+    ws.addEventListener('error', () => this.dropped(player, ws));
 
     this.send(player,JSON.stringify({type:'config',record:this.config}));
-    this.send(player, encodeWelcome(id, this.tick));
+    this.send(player, encodeWelcome(player.id, this.tick));
     this.send(player, encodeAsteroids([...this.world.asteroids.values()]));
     this.send(player, JSON.stringify({ type: 'pickups', add: [...this.world.pickups.values()].map(({ id, x, y, kind, value }) => ({ id, x, y, kind, value })), remove: [] }));
     this.send(player, this.hotZoneFrame());
     this.send(player, this.snapshotFor(player));
+    this.send(player, JSON.stringify({ type: 'resume', token: player.resume, seconds: this.tune.net.reconnectGraceSeconds }));
     this.broadcastRoster();
     this.start();
-    return true;
+  }
+
+  /** The socket closed without the room closing it: keep the ship for the grace period. */
+  private dropped(player: Player, ws: CfSocket): void {
+    if (player.ws !== ws || !this.players.has(player.id) || player.awayUntil >= 0) return;
+    const grace = Math.round(this.tune.net.reconnectGraceSeconds * this.tune.net.tickHz);
+    if (grace <= 0) return this.leave(player.id);
+    player.awayUntil = this.tick + grace;
+    // Nobody at the controls: the ship flies on with nothing pressed (it eases to minimum speed).
+    player.queue = [];
+    player.last = { ...IDLE_INPUT, seq: player.last.seq };
+    player.deficit = 0;
+    player.owedDash = false;
+    player.owedWarp = false;
   }
 
   /** The hot zone for clients: centre, radius and seconds until it moves. */
@@ -352,6 +404,8 @@ export class Room {
   private buys: { id: number; item: number; tier: number }[] = [];
   private step(): void {
     for (const b of this.buys.splice(0)) if (this.players.has(b.id)) this.world.buy(b.id, b.item, b.tier);
+    // Pilots away longer than the grace period lose their ship.
+    for (const p of [...this.players.values()]) if (p.awayUntil >= 0 && this.tick >= p.awayUntil) this.leave(p.id);
     for (const p of this.players.values()) this.stepPlayer(p);
     this.stepBots();
     if (this.players.size === 0) {
@@ -554,6 +608,7 @@ export class Room {
   }
 
   private send(p: Player, buf: ArrayBuffer|string): void {
+    if (p.awayUntil >= 0) return;
     try {
       p.ws.send(buf);
     } catch {

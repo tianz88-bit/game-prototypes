@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 claude reconnect-bumps-nose
+DID: reconnect grace: a dropped socket keeps the ship 20 s (idle input), client auto-resumes with a token (same id); unknown token -> close 4005 RESUME_LOST -> "ship lost" screen (R/tap drops in again). Disconnected screen shows reason + code. Ship bumps outside a dash: bounce apart (220), 10 damage each, 0.5 s pair grace. Own-ship nose chevron.
+FILES: server/src/{room,index}.ts sim/{protocol,world}.ts src/net/client.ts src/scenes/flight.ts tune.json scripts/test-steroids-alpha-{sim,bank}.mjs BRIEF.md
+SEAM: text frame {type:'resume',token,seconds} after welcome; ws ?resume=<token>; CLOSE.RESUME_LOST 4005; NetStatus 'reconnecting' | 'lost'; net.closeInfo, closeReason(); Player.resume/awayUntil; tune net.reconnectGraceSeconds, ship.bumpDamage, ship.bumpKnockbackSpeed. Protocol 19 unchanged.
+CROSS: none
+FOR codex: nose chevron (flight.ts drawNose), the "Reconnecting… Ns" line and the lost-ship message are placeholders.
+
 ## 2026-11-15 claude shot-look
 DID: gun shots no longer alternate looks by side (owner): both guns fire energy-bolt-standard; from GUNS (damage) tier 2 both fire energy-pulse-heavy. Remote shots use the shooter's last snapshot damageTier.
 FILES: src/net/client.ts client.tune.json sim/liveConfig.ts BRIEF.md
@@ -97,10 +104,3 @@ FILES: src/render/rockPainted.ts src/scenes/{boot,flight}.ts src/main.ts sim/{as
 SEAM: protocol 18 Asteroid.family (0 ochre, 1 lavender, 2 teal; new rocks id % 3). rockPixels.ts kept as fallback.
 CROSS: src/render (rocks); rockPixels.ts untouched.
 FOR codex: crack/damage stages and hit chips for the painted rocks would help; silhouettes with less deep notches would draw closer to the hitbox.
-
-## 2026-11-14 claude hangar-tabs
-DID: Hangar by category (owner): tabs SHIPS, PALETTES, FLAMES, SHIELDS, KILL FX, BADGES, NAMES, EXTRAS; larger cards; Battlecruiser info card in SHIPS. Open tab remembered while the game is open.
-FILES: src/scenes/hangar.ts src/main.ts
-SEAM: none (test hook hangar().tabs)
-CROSS: none
-FOR codex: tab and card styling are placeholders.
