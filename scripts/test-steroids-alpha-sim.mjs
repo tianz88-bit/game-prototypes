@@ -870,6 +870,69 @@ assert.equal(S.cleanName(null), '');
   assert(!w.pickups.has(902) && s.hullMax > power && s.salvage === cap, 'mining still adds power but no salvage past the cap');
 }
 
+// --- Clan home planets (owner, Clan planets v0): docking, shield dome, base turrets, deposits. ---
+{
+  const w = emptyWorld();
+  w.setPlanet('crimson');
+  const L = w.layout;
+  assert(L && L.clan === 1 && L.pads.length === tune.base.pads && L.turrets.length === tune.base.turrets, 'crimson home has the base layout');
+  const pad = L.pads[0];
+  // A member over a pad brakes all the way to a stop (ships never stop anywhere else).
+  const m = w.addShipNear(1, pad.x, pad.y, 0);
+  w.clanOf.set(1, 1);
+  Object.assign(m, { x: pad.x, y: pad.y, speed: 100, heading: 0 });
+  for (let i = 0; i < 30; i++) { w.stepShip(1, { ...idle, thrust: -1 }); m.x = pad.x; m.y = pad.y; w.step(); }
+  assert.equal(m.speed, 0, 'a member over its pad can stop');
+  assert(w.docked(1), 'and is docked');
+  // Docked: safe, repaired, salvage unloaded into the treasury.
+  m.hp = 10;
+  m.salvage = 37.5;
+  w['damageShip'](1, m, 30, 0, m.x, m.y);
+  assert.equal(m.hp, 10, 'a docked ship takes no damage');
+  w.stepShip(1, idle);
+  w.step();
+  assert(m.hp > 10, 'a docked ship is repaired');
+  const ev = w.drain();
+  assert.deepEqual(ev.deposits, [{ id: 1, amount: 37 }], 'whole salvage unloaded to the treasury');
+  // Elsewhere the floor is the normal minimum speed.
+  const away = w.addShipNear(2, 100, 100, 0);
+  w.clanOf.set(2, 1);
+  Object.assign(away, { x: L.treasury.x + 900, y: L.treasury.y, speed: tune.ship.minSpeed });
+  for (let i = 0; i < 10; i++) { w.stepShip(2, { ...idle, thrust: -1 }); w.step(); }
+  assert(away.speed >= tune.ship.minSpeed, 'no stopping away from a pad');
+  // A non-member inside the dome is pushed back to its edge; non-member bullets stop at the shield.
+  const intruder = w.addShipNear(3, L.treasury.x, L.treasury.y, 0);
+  w.clanOf.set(3, 2);
+  Object.assign(intruder, { x: L.treasury.x + 50, y: L.treasury.y, speed: tune.ship.minSpeed, heading: Math.PI });
+  w.stepShip(3, idle);
+  w.step();
+  const dIn = Math.hypot(S.wrapDelta(intruder.x, L.treasury.x, tune.world.width), S.wrapDelta(intruder.y, L.treasury.y, tune.world.height));
+  assert(dIn >= tune.base.domeRadius - 20, `a non-member cannot stay inside the shield (${dIn.toFixed(0)} px out)`);
+  // Base turrets fire on the non-member in range, never on members.
+  w.drain();
+  Object.assign(intruder, { x: L.turrets[0].x + 200, y: L.turrets[0].y, kx: 0, ky: 0 });
+  let baseShots = 0;
+  for (let i = 0; i < 4 * tune.net.tickHz; i++) {
+    for (const id of [1, 2, 3]) w.stepShip(id, idle);
+    w.step();
+    baseShots += w.drain().shots.filter((sh) => sh.side >= 40 && sh.owner === 0).length;
+    if (baseShots) break;
+  }
+  assert(baseShots > 0, 'base turrets fire on a non-member in range');
+  const calm = emptyWorld();
+  calm.setPlanet('crimson');
+  const friend = calm.addShipNear(1, calm.layout.turrets[0].x + 200, calm.layout.turrets[0].y, 0);
+  calm.clanOf.set(1, 1);
+  void friend;
+  let friendly = 0;
+  for (let i = 0; i < 3 * tune.net.tickHz; i++) { calm.stepShip(1, idle); calm.step(); friendly += calm.drain().shots.filter((sh) => sh.side >= 40).length; }
+  assert.equal(friendly, 0, 'base turrets hold fire for members');
+  // Open planets have no layout and the usual floor.
+  const open = emptyWorld();
+  open.setPlanet('alpha');
+  assert.equal(open.layout, null, 'open planets have no base');
+}
+
 // --- Wire format round trips. ---
 {
   const input = { seq: 77, turn: -0.5, aim: NaN, thrust: 1, dash: true, fire: true, missile: true, mine: false, warp: true };

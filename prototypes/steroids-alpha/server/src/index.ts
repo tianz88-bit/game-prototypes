@@ -144,7 +144,8 @@ export class PlanetRoom {
     this.refreshing=(async()=>{try{const r=await this.env.PLANET_CONFIG.get(this.env.PLANET_CONFIG.idFromName('active')).fetch(new Request('https://internal/config'));if(r.ok)this.room.applyConfig(parseRecord(await r.json()));}catch{/* Keep last known-good settings on temporary failure. */}})().finally(()=>{this.refreshing=null;});return this.refreshing;
   }
 
-  constructor(_state: unknown, private env: Env) {
+  private loaded = false;
+  constructor(private state: { storage: { get<T>(key: string): Promise<T | undefined>; put(key: string, value: unknown): Promise<void> } }, private env: Env) {
     const hp = Number(env.TEST_SHIP_HP);
     const db = env.STASH;
     this.room = new Room(Number.isFinite(hp) && hp > 0 ? hp : undefined,()=>void this.refreshConfig(), db ? (secret, amount, runId) => creditExtraction(db, secret, amount, runId) : undefined, db ? async (secret) => { const a = await accountFor(db, secret); return a ? ownedUnlocks(db, a) : null; } : undefined);
@@ -162,8 +163,17 @@ export class PlanetRoom {
     const url = new URL(request.url);
     // The planet this room serves (from /ws/<planet>): Planet A has bots, Planet B does not.
     const planet = PLANETS.find((p) => url.pathname === `/ws/${p.id}`);
-    if (planet) this.room.setBots(planet.bots);
-    this.room.join(server, url.searchParams.get('name'), url.searchParams.get('resume'));
+    if (planet) {
+      this.room.setBots(planet.bots);
+      this.room.setPlanet(planet.id);
+    }
+    // Clan home planets keep their treasury across restarts (Durable Object storage).
+    if (!this.loaded) {
+      this.loaded = true;
+      this.room.setTreasury((await this.state.storage.get<number>('treasury')) ?? 0);
+      this.room.onTreasury = (total) => void this.state.storage.put('treasury', total);
+    }
+    this.room.join(server, url.searchParams.get('name'), url.searchParams.get('resume'), url.searchParams.get('clan'));
     return new Response(null, { status: 101, webSocket: client } as ResponseInit);
   }
 }

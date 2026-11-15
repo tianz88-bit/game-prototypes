@@ -101,6 +101,40 @@ currency; currency buys unlocks, QoL and options, never raw power.
   the light has no jump at the map seam; the drop zone starts in daylight;
   the planet turns 1 degree per second (a 6 minute day).
 
+## Clan planets v0 (owner, 15 November 2026)
+
+First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this section only.
+
+- **Two demo clans.** The player picks one in the menu; switching is free while testing. No
+  clan creation, invites or roles yet. The choice is sent on joining a planet (trusted from the
+  client for this demo slice).
+- **Four planets in the menu:** each clan's home planet, plus the two existing planets in new
+  roles:
+  - **Planet A: Lawless.** Bots stay. Joining shows a warning that bots will hunt you down.
+  - **Planet B: Satellite** (the clan farming satellite of the design doc; no clan ownership
+    yet, players-only as before).
+- **Clan home planet layout:** a **treasury** building at a fixed spot, **landing pads** in a
+  ring around it, **turrets** around the base, and the **gate** on the opposite side of the
+  planet from the treasury.
+- **Landing (docking):** a member's ship over a pad may brake all the way to a stop (ships
+  never stop anywhere else). A docked ship:
+  - is safe (takes no damage);
+  - is repaired (hull and shield);
+  - unloads its carried salvage into the clan treasury.
+  Docking to bank your own credits at home is "maybe later" (owner).
+- **Anyone can enter a clan planet.** Non-members:
+  - arrive at the gate (the fixed entry point opposite the treasury);
+  - get a warning that the clan's turrets will fire on them;
+  - are shot on sight by the turrets;
+  - cannot get through the shield over the treasury and the docks (ships are pushed out, their
+    bullets stop at the shield).
+- **Treasury:** shows the clan's total, filled by docking deposits; persisted across server
+  updates. Spending it comes in a later phase.
+- **Art:** placeholders first (recoloured planet surface, simple shapes); Codex is briefed for
+  clan planet skins, the treasury, pads, turrets, shield and gate.
+- Not in this slice: wars, guest passes, clan techs, buildings, satellites owned by clans,
+  prestige points.
+
 ## Lockdown and warp-out
 
 - **Lockdown:** 3 minutes from drop-in. The Warp button is visible but offline,
@@ -564,7 +598,8 @@ Tweakpane panel via `?debug=1` with copy-to-clipboard, per repo rules.
 
 ## Out of scope (binding for v1)
 
-- More than 2 PvP planets and 1 practice planet.
+- More than 2 PvP planets and 1 practice planet, except the two clan home planets (owner, 15
+  November 2026: Clan planets v0).
 - Bots / AI enemy ships on Planet B (owner, 12 November: Planet A has bots,
   Planet B stays players-only PvP).
 - Clouds over the map during play.

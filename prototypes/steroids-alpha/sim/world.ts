@@ -10,6 +10,8 @@ import { wrap, wrapDelta, angleDelta } from './wrap';
 import { TURRET_SIDE, turretCount, turretPosition } from './turrets';
 import { SHOP_ITEMS, buy, EVOLVE_ITEM, evolve } from './shop';
 import { missileLock } from './ordnance';
+import { BASE_OWNER, BASE_TURRET_SIDE, baseLayout, insideDome, isDocked, speedFloor } from './clanBase';
+import type { BaseLayout } from './clanBase';
 
 interface Bullet {
   owner: number;
@@ -106,9 +108,11 @@ export interface WorldEvents {
   extracted: { id: number; x: number; y: number }[];
   /** Set when the hot zone moved this tick. */
   hotZone: HotZone | null;
+  /** Clan home planets: salvage unloaded by docked members into the clan treasury. */
+  deposits: { id: number; amount: number }[];
 }
 
-const noEvents = (): WorldEvents => ({ asteroids: [], gone: [], shots: [], deaths: [], hits: [], pickups: [], pickupsGone: [], rams: [], blasts: [], extracted: [], hotZone: null });
+const noEvents = (): WorldEvents => ({ asteroids: [], gone: [], shots: [], deaths: [], hits: [], pickups: [], pickupsGone: [], rams: [], blasts: [], extracted: [], hotZone: null, deposits: [] });
 
 export class World {
   tick = 0;
@@ -151,6 +155,32 @@ export class World {
   private readonly dt: number;
   /** Test servers only (TEST_SHIP_HP): ships take no damage, so a browser check can fly freely. */
   invulnerable = false;
+  /** Clan home planet layout (sim/clanBase.ts), or null on open planets. */
+  layout: BaseLayout | null = null;
+  /** Each ship's clan (0: none). Set by the room on joining. */
+  readonly clanOf = new Map<number, number>();
+  private baseAim: number[] = [];
+  private baseCd: number[] = [];
+
+  /** Make this world a clan home planet (or not), from the planet id. */
+  setPlanet(planet: string): void {
+    this.layout = baseLayout(planet, this.tune);
+    this.baseAim = (this.layout?.turrets ?? []).map(() => -Math.PI / 2);
+    this.baseCd = (this.layout?.turrets ?? []).map(() => 0);
+  }
+
+  /** A ship dropping in at a given point (clan home planets: members by the pads, others at the gate). */
+  addShipNear(id: number, x: number, y: number, spread: number): ShipState {
+    const a = this.rng() * Math.PI * 2;
+    const d = this.rng() * spread;
+    return this.placeNewShip(id, { x: wrap(x + Math.cos(a) * d, this.tune.world.width), y: wrap(y + Math.sin(a) * d, this.tune.world.height) });
+  }
+
+  /** Docked on a pad of its own clan's home planet (safe, repairing, unloading). */
+  docked(id: number): boolean {
+    const s = this.ships.get(id);
+    return !!s && isDocked(this.layout, this.clanOf.get(id) ?? 0, s, this.tune);
+  }
 
   constructor(
     private readonly tune: Tune,
@@ -258,6 +288,7 @@ export class World {
     this.lastHit.delete(id);
     this.graceUntil.delete(id);
     this.graceSpent.delete(id);
+    this.clanOf.delete(id);
     this.turrets.delete(id);
     this.rammed.delete(id);
     this.prev.delete(id);
@@ -271,7 +302,7 @@ export class World {
     const missilesBefore = s.missileShots;
     const minesBefore = s.mineShots;
     this.prev.set(id, { x: s.x, y: s.y });
-    stepShip(s, input, this.dt, this.tune);
+    stepShip(s, input, this.dt, this.tune, speedFloor(this.layout, this.clanOf.get(id) ?? 0, s, this.tune));
     if (s.missileShots !== missilesBefore) this.launchMissile(id, s);
     if (s.mineShots !== minesBefore) this.dropMine(id, s);
     if (s.shots !== before) {
@@ -296,6 +327,7 @@ export class World {
     };
 
     this.stepTurrets(pos);
+    this.stepBase(pos);
     this.stepOrdnance(pos);
 
     // Bullets.
@@ -328,9 +360,16 @@ export class World {
           break;
         }
       }
+      // The clan base shield stops bullets from anyone but the clan's members.
+      const base = this.layout;
+      if (!spent && base && b.owner !== BASE_OWNER && (this.clanOf.get(b.owner) ?? 0) !== base.clan && insideDome(base, b.x, b.y, t)) {
+        spent = true;
+        this.events.blasts.push({ x: b.x, y: b.y, r: 14, kind: 'missile', shot: true });
+      }
       if (!spent) {
         for (const [id, s] of this.ships) {
           if (id === b.owner || s.hp <= 0) continue;
+          if (base && b.owner === BASE_OWNER && (this.clanOf.get(id) ?? 0) === base.clan) continue;
           if (!hits(b.x, b.y, s.x, s.y, shipRadius(s.hullMax, t, s.chassis) + t.weapon.bulletRadius)) continue;
           this.damageShip(id, s, b.damage, b.owner, b.x, b.y);
           spent = true;
@@ -564,6 +603,76 @@ export class World {
     }
   }
 
+  /**
+   * Clan home planet (owner, Clan planets v0): the shield dome keeps non-members out (pushed back to
+   * its edge, their missiles and mines popped), docked members are repaired and unload their salvage
+   * into the treasury, and the base turrets fire on non-members in range.
+   */
+  private stepBase(pos: Map<number, { x: number; y: number }>): void {
+    const base = this.layout;
+    if (!base) return;
+    void pos;
+    const t = this.tune;
+    const b = t.base;
+    const W = t.world.width;
+    const H = t.world.height;
+    const member = (id: number): boolean => (this.clanOf.get(id) ?? 0) === base.clan;
+    for (const [id, s] of this.ships) {
+      if (s.hp <= 0) continue;
+      if (!member(id)) {
+        const dx = wrapDelta(s.x, base.treasury.x, W);
+        const dy = wrapDelta(s.y, base.treasury.y, H);
+        const d = Math.hypot(dx, dy);
+        if (d < b.domeRadius) {
+          const ux = d > 1e-6 ? dx / d : 1;
+          const uy = d > 1e-6 ? dy / d : 0;
+          s.x = wrap(base.treasury.x + ux * b.domeRadius, W);
+          s.y = wrap(base.treasury.y + uy * b.domeRadius, H);
+          s.kx = ux * t.ship.knockbackSpeed;
+          s.ky = uy * t.ship.knockbackSpeed;
+        }
+        continue;
+      }
+      if (!isDocked(base, base.clan, s, t)) continue;
+      s.hp = Math.min(s.hullMax, s.hp + s.hullMax * b.dockRepairPerSecond * this.dt);
+      s.shield = Math.min(maxShield(s, t), s.shield + maxShield(s, t) * b.dockRepairPerSecond * this.dt);
+      if (s.salvage >= 1) {
+        const amount = Math.floor(s.salvage);
+        s.salvage -= amount;
+        this.events.deposits.push({ id, amount });
+      }
+    }
+    for (const o of [...this.ordnance.values()]) {
+      if (member(o.owner) || !insideDome(base, o.x, o.y, t)) continue;
+      this.ordnance.delete(o.id);
+      this.events.blasts.push({ x: o.x, y: o.y, r: (o.kind === 'missile' ? t.missile.radius : t.mine.radius) * 2, kind: o.kind, shot: true });
+    }
+    // Base turrets: nearest non-member ship in range, turn toward it, fire when lined up.
+    base.turrets.forEach((at, i) => {
+      if (this.baseCd[i] > 0) this.baseCd[i]--;
+      let best: { dx: number; dy: number; d: number } | null = null;
+      for (const [id, s] of this.ships) {
+        if (s.hp <= 0 || member(id)) continue;
+        const dx = wrapDelta(s.x, at.x, W);
+        const dy = wrapDelta(s.y, at.y, H);
+        const d = Math.hypot(dx, dy);
+        if (d <= b.turretRange && (!best || d < best.d)) best = { dx, dy, d };
+      }
+      if (!best) return;
+      const want = Math.atan2(best.dy, best.dx);
+      const diff = angleDelta(want, this.baseAim[i]);
+      const step = b.turretTurnRate * this.dt;
+      this.baseAim[i] = angleDelta(this.baseAim[i] + Math.max(-step, Math.min(step, diff)), 0);
+      if (this.baseCd[i] > 0 || Math.abs(angleDelta(want, this.baseAim[i])) > 0.12) return;
+      this.baseCd[i] = b.turretFireIntervalSteps;
+      const vx = Math.cos(this.baseAim[i]) * b.turretBulletSpeed;
+      const vy = Math.sin(this.baseAim[i]) * b.turretBulletSpeed;
+      const life = Math.ceil(((b.turretRange + 60) / b.turretBulletSpeed) * t.net.tickHz);
+      this.bullets.push({ owner: BASE_OWNER, damage: b.turretDamage, x: at.x, y: at.y, vx, vy, life });
+      this.events.shots.push({ owner: BASE_OWNER, x: at.x, y: at.y, vx, vy, side: BASE_TURRET_SIDE + i });
+    });
+  }
+
   private newOrdnanceId(): number {
     for (;;) {
       const id = this.nextOrdnanceId;
@@ -754,6 +863,8 @@ export class World {
   /** The shield takes damage first; what it cannot hold goes to the hull. */
   private damageShip(id: number, s: ShipState, damage: number, attacker: number, atX: number, atY: number): void {
     if (s.hp <= 0) return;
+    // Docked on its clan's pad: safe (owner, Clan planets v0).
+    if (this.docked(id)) return;
     const t = this.tune;
     this.lastHit.set(id, this.tick);
     s.shieldCd = t.ship.shieldRegenDelaySeconds;

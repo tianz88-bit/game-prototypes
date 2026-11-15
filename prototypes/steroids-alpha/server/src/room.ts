@@ -1,3 +1,4 @@
+import { isClanId } from '../../sim/planets';
 import { bundledRecord } from '../../sim/liveConfig';
 import type { ConfigRecord } from '../../sim/liveConfig';
 // One running planet room: the authority for every ship on that planet.
@@ -66,6 +67,8 @@ interface Player {
   look: Look;
   /** Room tick at drop-in: the chosen ship type applies only within its first moments. */
   joinedAt: number;
+  /** Clan chosen in the menu (0: none). Trusted from the client in the Clan planets v0 demo. */
+  clan: number;
   /** Secret the client presents (?resume=) to take this ship back after a dropped connection. */
   resume: string;
   /**
@@ -107,7 +110,7 @@ export class Room {
   applyConfig(record:ConfigRecord):void{
     if(record.version===this.config.version)return;
     this.config=record;
-    for(const group of ['ship','weapon','turret','shop','missile','mine','bots','warp','salvage','hotZone','interceptor','battlecruiser','asteroid','planet'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
+    for(const group of ['ship','weapon','turret','shop','missile','mine','bots','warp','salvage','hotZone','interceptor','battlecruiser','asteroid','planet','base'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
     for(const p of this.players.values()){
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
       p.ship.hullMax=Math.min(this.tune.ship.powerCap,p.ship.hullMax);p.ship.hp=Math.min(p.ship.hullMax,p.ship.hp);
@@ -141,6 +144,21 @@ export class Room {
   private lingerUntil = -1;
   private bots = new Map<number, { id: number; name: string; kills: number; brain: BotBrain; ship: ShipState }>();
   private botRespawnAt: number[] = [];
+  /** Clan home planets: the clan treasury (persisted by the Durable Object through onTreasury). */
+  treasury = 0;
+  onTreasury: ((total: number) => void) | null = null;
+  setTreasury(total: number): void {
+    this.treasury = Math.max(0, Math.floor(Number(total) || 0));
+  }
+
+  /** The planet this room serves: clan home planets get the base layout (sim/clanBase.ts). */
+  setPlanet(planet: string): void {
+    if (this.planetSet) return;
+    this.planetSet = true;
+    this.world.setPlanet(planet);
+  }
+  private planetSet = false;
+
   setBots(enabled: boolean): void {
     this.botsEnabled = enabled;
   }
@@ -181,7 +199,7 @@ export class Room {
   }
 
   /** Attach a freshly accepted socket. Returns false (and closes it) when the room is full. */
-  join(ws: CfSocket, requestedName?: string | null, resume?: string | null): boolean {
+  join(ws: CfSocket, requestedName?: string | null, resume?: string | null, requestedClan?: string | number | null): boolean {
     if (resume) {
       const back = [...this.players.values()].find((p) => p.resume === resume);
       if (!back) {
@@ -197,8 +215,12 @@ export class Room {
       return false;
     }
     const id = this.allocateId();
-    const spawn = this.world.addShip(id);
-    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null, look: {}, joinedAt: this.tick, resume: crypto.randomUUID(), awayUntil: -1 };
+    const clan = isClanId(Number(requestedClan)) ? Number(requestedClan) : 0;
+    // Clan home planets (owner): members drop in by the landing pads, everyone else at the gate.
+    const base = this.world.layout;
+    const spawn = !base ? this.world.addShip(id) : clan === base.clan ? this.world.addShipNear(id, base.treasury.x, base.treasury.y, this.tune.base.padRing) : this.world.addShipNear(id, base.gate.x, base.gate.y, 120);
+    this.world.clanOf.set(id, clan);
+    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null, look: {}, joinedAt: this.tick, resume: crypto.randomUUID(), awayUntil: -1, clan };
     this.players.set(id, player);
     this.lingerUntil = -1;
     this.attach(player, ws);
@@ -234,6 +256,7 @@ export class Room {
     this.send(player, this.hotZoneFrame());
     this.send(player, this.snapshotFor(player));
     this.send(player, JSON.stringify({ type: 'resume', token: player.resume, seconds: this.tune.net.reconnectGraceSeconds }));
+    if (this.world.layout) this.send(player, JSON.stringify({ type: 'treasury', clan: this.world.layout.clan, total: this.treasury }));
     this.broadcastRoster();
     this.start();
   }
@@ -425,6 +448,16 @@ export class Room {
       }
     }
     if (ev.hits.length) this.broadcast(JSON.stringify({ type: 'hits', hits: ev.hits }));
+    // Docked members unloaded salvage into the clan treasury (owner, Clan planets v0).
+    if (ev.deposits.length && this.world.layout) {
+      for (const d of ev.deposits) {
+        this.treasury += d.amount;
+        const p = this.players.get(d.id);
+        if (p) this.send(p, JSON.stringify({ type: 'deposited', amount: d.amount }));
+      }
+      this.onTreasury?.(this.treasury);
+      this.broadcast(JSON.stringify({ type: 'treasury', clan: this.world.layout.clan, total: this.treasury }));
+    }
     if (ev.rams.length) this.broadcast(JSON.stringify({ type: 'rams', rams: ev.rams }));
     if (ev.hotZone) this.broadcast(this.hotZoneFrame());
     if (ev.blasts.length) this.broadcast(JSON.stringify({ type: 'blasts', blasts: ev.blasts }));
@@ -516,7 +549,7 @@ export class Room {
   private broadcastRoster(): void {
     const players = [...this.players.values(), ...this.bots.values()];
     this.rosterKey = players.map((p) => `${p.id}:${Math.round(p.ship.hullMax)}:${p.kills}:${upgradeCount(p.ship)}`).join(',');
-    this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.round(p.ship.hullMax), level: upgradeCount(p.ship), bot: this.bots.has(p.id), look: (p as Partial<Player>).look ?? {} })) }));
+    this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.round(p.ship.hullMax), level: upgradeCount(p.ship), bot: this.bots.has(p.id), look: (p as Partial<Player>).look ?? {}, clan: (p as Partial<Player>).clan ?? 0 })) }));
   }
 
   /**

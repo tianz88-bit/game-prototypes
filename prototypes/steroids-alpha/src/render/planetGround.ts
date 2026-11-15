@@ -50,6 +50,7 @@ uniform float haloPx;
 uniform float mapSize;
 uniform vec3 sun;
 uniform float flipY;
+uniform vec3 tint;
 varying vec2 fragCoord;
 
 vec3 softLight(vec3 b, vec3 l) {
@@ -94,7 +95,7 @@ void main() {
   float theta = asin(min(r, 1.));
   vec2 dir = r > 1e-5 ? d / (r * radiusPx) : vec2(0.);
   vec2 world = dir * worldRadius * theta + camera;
-  vec3 colour = texture2D(iChannel0, fract(world / 500.)).rgb;
+  vec3 colour = texture2D(iChannel0, fract(world / 500.)).rgb * tint;
   vec2 sw = vec2(3. * world.x - world.y, world.x + 4. * world.y) / mapSize + vec2(0., .5);
   vec4 s = texture2D(iChannel1, fract(sw));
   colour = mix(colour, s.rgb, s.a * .66);
@@ -142,9 +143,14 @@ export class PlanetGround {
   private shader: Phaser.GameObjects.Shader | null = null;
   private disc: Phaser.GameObjects.Graphics | null = null;
 
+  /**
+   * tint: multiplies the ground colour (placeholder planet skins: clan home planets are tinted in
+   * their clan's hue until Codex delivers real skins). [1, 1, 1] is the original surface.
+   */
   constructor(
     private scene: Phaser.Scene,
     depth: number,
+    private tint: [number, number, number] = [1, 1, 1],
   ) {
     if (scene.game.renderer.type === Phaser.WEBGL && scene.textures.exists(GROUND_TILE) && scene.textures.exists(SAND_CHANNEL)) {
       const base = new Phaser.Display.BaseShader('planet-ground', FRAGMENT, undefined, {
@@ -155,6 +161,7 @@ export class PlanetGround {
         mapSize: { type: '1f', value: TUNE.world.width },
         sun: { type: '3f', value: { x: 0, y: 0, z: 1 } },
         flipY: { type: '1f', value: 1 },
+        tint: { type: '3f', value: { x: tint[0], y: tint[1], z: tint[2] } },
       });
       this.shader = scene.add.shader(base, 0, 0, 16, 16, [GROUND_TILE, SAND_CHANNEL]).setOrigin(0).setDepth(depth);
     } else {
@@ -177,7 +184,8 @@ export class PlanetGround {
     } else if (this.disc) {
       const k = Math.round(0x88 * frame.brightness);
       this.disc.clear();
-      this.disc.fillStyle((k << 16) | (Math.round(0x65 * frame.brightness) << 8) | Math.round(0x78 * frame.brightness), 1);
+      const [r, gr, b] = this.tint;
+      this.disc.fillStyle((Math.min(255, Math.round(k * r)) << 16) | (Math.min(255, Math.round(0x65 * frame.brightness * gr)) << 8) | Math.min(255, Math.round(0x78 * frame.brightness * b)), 1);
       this.disc.fillCircle(w / 2, h / 2, radiusPx);
     }
   }

@@ -4,7 +4,7 @@ import { PALETTES } from '../render/palette';
 // Main menu: enter a pilot name, then pick a planet to drop into. The hangar (stash and loadout)
 // comes in a later milestone. The name is shown under your ship and on the leaderboard.
 import Phaser from 'phaser';
-import { PLANETS } from '../../sim/planets';
+import { CLANS, PLANETS } from '../../sim/planets';
 import type { PlanetId } from '../../sim/planets';
 import { SHARE_URL, logicalSize, serverOrigin } from '../base';
 import QRCode from 'qrcode';
@@ -55,6 +55,7 @@ function nameField(): HTMLInputElement {
 export class MenuScene extends Phaser.Scene {
   buttons: MenuButton[] = [];
   nameBox = { x: 0, y: 0, w: 0, h: 0 };
+  clanButtons: { id: number; x: number; y: number; w: number; h: number }[] = [];
   private nameText!: Phaser.GameObjects.Text;
   private nameFrame!: Phaser.GameObjects.Rectangle;
 
@@ -183,16 +184,35 @@ export class MenuScene extends Phaser.Scene {
     f.setAttribute('aria-label', this.codeMode ? 'Recovery code' : 'Pilot name');
     Object.assign(f.style, { display: 'block', left: `${w / 2 - bw / 2}px`, top: `${ny - 18}px`, width: `${bw}px`, height: '36px' });
 
-    text(this, w / 2, ny + 34, 'Choose a planet to drop into', 14, '#8fa2c8').setOrigin(0.5);
-    const bh = Math.min(64, Math.max(44, (h - (ny + 60) - 24) / 2 - 12));
+    // Demo clan (owner, Clan planets v0): pick one; switching is free while testing.
+    const myClan = loadSave().clan ?? 0;
+    const cy = ny + 40;
+    text(this, w / 2 - bw / 2, cy, 'CLAN', 11, '#8fa2c8').setOrigin(0, 0.5);
+    const pw = (bw - 52) / 2;
+    this.clanButtons = CLANS.map((c, i) => {
+      const x = w / 2 - bw / 2 + 46 + pw / 2 + i * (pw + 6);
+      const on = myClan === c.id;
+      const g = this.add.graphics();
+      panel(g, x - pw / 2, cy - 14, pw, 28, on ? c.colour : UI.uiBorder, on);
+      text(this, x, cy, c.name.toUpperCase(), 12, on ? '#ffffff' : '#9fb3d6').setOrigin(0.5);
+      return { id: c.id, x, y: cy, w: pw, h: 28 };
+    });
+    text(this, w / 2, cy + 30, 'Choose a planet to drop into', 13, '#8fa2c8').setOrigin(0.5);
+    // Four planets in a 2 x 2 grid: the open planets on top, the clan homes below.
+    const gap = 10;
+    const cw = (bw - gap) / 2;
+    const top = cy + 46;
+    const bh = Math.min(60, Math.max(42, (h - top - 20) / 2 - gap));
     this.buttons = PLANETS.map((p, i) => {
-      const x = w / 2;
-      const y = ny + 60 + bh / 2 + i * (bh + 12);
-      const card=this.add.graphics();panel(card,x-bw/2,y-bh/2,bw,bh,UI.uiAccent,true);
-      card.fillStyle(p.colour,.8);card.fillRoundedRect(x-bw/2+5,y-bh/2+5,5,bh-10,2);
-      text(this, x, y - (bh > 52 ? 8 : 6), p.label, 22).setOrigin(0.5);
-      this.countText.set(p.id, text(this, x, y + (bh > 52 ? 16 : 12), '', 12, '#c9d6f2').setOrigin(0.5));
-      return { id: p.id, x, y, w: bw, h: bh };
+      const x = w / 2 - bw / 2 + cw / 2 + (i % 2) * (cw + gap);
+      const y = top + bh / 2 + Math.floor(i / 2) * (bh + gap);
+      const home = p.clan !== 0;
+      const mine = home && p.clan === myClan;
+      const card=this.add.graphics();panel(card,x-cw/2,y-bh/2,cw,bh,mine?(CLANS.find((c)=>c.id===p.clan)?.colour??UI.uiAccent):UI.uiAccent,true);
+      card.fillStyle(p.colour,.8);card.fillRoundedRect(x-cw/2+5,y-bh/2+5,5,bh-10,2);
+      text(this, x, y - (bh > 50 ? 8 : 6), p.label, 16).setOrigin(0.5);
+      this.countText.set(p.id, text(this, x, y + (bh > 50 ? 13 : 10), '', 11, '#c9d6f2').setOrigin(0.5));
+      return { id: p.id, x, y, w: cw, h: bh };
     });
     this.drawShare(w, h, bw);
     this.drawAccount(w, h, bw);
@@ -295,6 +315,12 @@ export class MenuScene extends Phaser.Scene {
       if (hb && !this.codeMode && Math.abs(t.x - hb.x) <= hb.w / 2 && Math.abs(t.y - hb.y) <= hb.h / 2) {
         writeSave({ name });
         this.scene.start('hangar', { credits: this.credits, unlocks: this.unlocks });
+        return;
+      }
+      const cb = this.clanButtons.find((b) => Math.abs(t.x - b.x) <= b.w / 2 && Math.abs(t.y - b.y) <= b.h / 2);
+      if (cb && !this.codeMode) {
+        writeSave({ clan: cb.id });
+        this.layout();
         return;
       }
       const ab = this.accountButton;

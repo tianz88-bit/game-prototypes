@@ -91,3 +91,24 @@ The Agent Comms mailbox was down when this was written, so this file is the hand
 - Hot zone: dashed green ring on the planet, label with bonus and timer, green edge arrow
   (flight.ts drawHotZone).
 - SALVAGE counter above the hull panel (drawTouch).
+
+## Clan planets v0 art (owner, 15 November 2026)
+
+Placeholders are live (BRIEF.md "Clan planets v0"); replace freely, keep positions and sizes from
+`sim/clanBase.ts` and `tune.json` `base` (all world units).
+
+1. **Two clan planet skins** (Crimson home, Azure home): today the shared ground is tinted
+   (`PLANET_TINT` in `src/scenes/flight.ts`, `tint` uniform in `src/render/planetGround.ts`). Each
+   home planet needs its own surface that reads as that clan's (warm crimson, cool azure).
+2. **Treasury building** at the map centre (placeholder: hexagon, about 60 world units across),
+   with the clan total shown under it. Should read as a fortified vault.
+3. **Landing pads** (6, radius 55, ring radius 230): must show clearly when a member is over one
+   (placeholder: green ring) and when docked.
+4. **Base turrets** (6, ring radius 470): static, turn and fire at non-members; a firing flash.
+5. **Shield dome** (radius 340) over the treasury and pads; a hit effect where non-member bullets
+   stop (placeholder: a small white pop) and where intruders are pushed back.
+6. **Gate** (radius 120) at the far side of the planet, where non-members arrive.
+7. **Banner** text under the warp panel (arrival warnings, DOCKED · REPAIRING, deposit line).
+
+Code seams: `FlightScene.drawBase`, `PlanetGround(scene, depth, tint)`, fx `baseTurret`
+(index, angle), test hooks `__steroids.layout()`, `docked()`, `treasury()`.
