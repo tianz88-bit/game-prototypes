@@ -1,4 +1,6 @@
 import {applyServerConfig} from '../liveConfig';
+import { BASE_TURRET_SIDE, baseLayout, isDocked, speedFloor } from '../../sim/clanBase';
+import type { BaseLayout } from '../../sim/clanBase';
 // Connection to a planet room, with the client half of the netcode:
 //  - own ship: predicted every fixed step from local input, then reconciled against
 //    the server (rewind to the server state, replay unacknowledged inputs), with the
@@ -56,6 +58,8 @@ export type NetFx =
   | { kind: 'shot'; id: number; side: number }
   /** A turret on ship id fired at angle (radians, world). */
   | { kind: 'turret'; id: number; index: number; angle: number }
+  /** A clan base turret (index in the layout) fired at angle. */
+  | { kind: 'baseTurret'; index: number; angle: number }
   | { kind: 'burst'; x: number; y: number; size: number }
   | { kind: 'spark'; x: number; y: number; angle?: number }
   | { kind: 'explosion'; x: number; y: number; killer: number }
@@ -160,13 +164,33 @@ export class NetClient {
   bytesIn = 0;
   snapshots = 0;
 
+  /** Clan home planet layout (null on open planets): docking is predicted like the server's. */
+  readonly layout: BaseLayout | null;
   constructor(
     readonly planet: PlanetId,
     private readonly name = '',
-  ) {}
+    /** Our demo clan (0: none). Sent on joining; the room trusts it in Clan planets v0. */
+    readonly clan = 0,
+  ) {
+    this.layout = baseLayout(planet, TUNE);
+  }
+  /** Clan treasury of this home planet, as last heard; and our last unload into it. */
+  treasury: { clan: number; total: number } | null = null;
+  deposited: { amount: number; at: number } | null = null;
+  /** Our ship is docked on one of our clan's pads (predicted). */
+  get docked(): boolean {
+    return !!this.predicted && isDocked(this.layout, this.clan, this.predicted, TUNE);
+  }
+  /** Lowest speed our ship may slow to right now (0 over our clan's landing pad). */
+  get speedFloorNow(): number {
+    return this.predicted ? this.floor(this.predicted) : TUNE.ship.minSpeed;
+  }
+  private floor(s: ShipState): number {
+    return speedFloor(this.layout, this.clan, s, TUNE);
+  }
 
   connect(resume = false): void {
-    const url = `${serverOrigin()}/ws/${this.planet}?v=${PROTOCOL_VERSION}${this.name ? `&name=${encodeURIComponent(this.name)}` : ''}${resume && this.resumeToken ? `&resume=${encodeURIComponent(this.resumeToken)}` : ''}`;
+    const url = `${serverOrigin()}/ws/${this.planet}?v=${PROTOCOL_VERSION}${this.name ? `&name=${encodeURIComponent(this.name)}` : ''}${resume && this.resumeToken ? `&resume=${encodeURIComponent(this.resumeToken)}` : ''}${this.clan ? `&clan=${this.clan}` : ''}`;
     const ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
     this.ws = ws;
@@ -245,7 +269,11 @@ export class NetClient {
 
   /** Roster, deaths and pickups arrive as JSON text frames. */
   private handleText(msg: { type?: string; id?: number; power?: number; kills?: number; ships?: { id: number; x: number; y: number }[]; x?: number; y?: number; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean; hull?: boolean; broke?: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral' | 'salvage'; value: number }[]; r?: number; seconds?: number; salvage?: number; amount?: number; balance?: number | null; error?: string; remove?: { id: number; by: number }[] }): void {
-    if (msg.type === 'resume' && typeof (msg as { token?: unknown }).token === 'string') {
+    if (msg.type === 'treasury') {
+      this.treasury = { clan: Number((msg as { clan?: unknown }).clan) || 0, total: Number((msg as { total?: unknown }).total) || 0 };
+    } else if (msg.type === 'deposited') {
+      this.deposited = { amount: Number(msg.amount) || 0, at: performance.now() };
+    } else if (msg.type === 'resume' && typeof (msg as { token?: unknown }).token === 'string') {
       this.resumeToken = (msg as { token: string }).token;
       this.graceSeconds = Number(msg.seconds) || 0;
     } else if (msg.type === 'roster' && Array.isArray(msg.players)) {
@@ -323,6 +351,13 @@ export class NetClient {
     }
     if (msg.type === MSG.SHOTS) {
       for (const s of msg.shots) {
+        if (s.side >= BASE_TURRET_SIDE) {
+          // Clan base turret (owner, Clan planets v0): a heavy bolt, and the turret turns to fire.
+          const life = ((TUNE.base.turretRange + 60) / TUNE.base.turretBulletSpeed) * 1000;
+          this.bullets.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, life, mine: false, look: 1 });
+          this.fx.push({ kind: 'baseTurret', index: s.side - BASE_TURRET_SIDE, angle: Math.atan2(s.vy, s.vx) });
+          continue;
+        }
         if (s.side >= TURRET_SIDE) {
           const life = ((TUNE.turret.range + 60) / TUNE.turret.bulletSpeed) * 1000;
           this.bullets.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, life, mine: s.owner === this.myId, small: true });
@@ -370,7 +405,7 @@ export class NetClient {
   private reconcile(auth: SnapshotShip, ackSeq: number): void {
     this.pending = this.pending.filter((i) => i.seq > ackSeq);
     const replay = copyShip(auth);
-    for (const input of this.pending) stepShip(replay, input, stepSeconds(TUNE), TUNE);
+    for (const input of this.pending) stepShip(replay, input, stepSeconds(TUNE), TUNE, this.floor(replay));
     if (!this.predicted) {
       this.predicted = replay;
       return;
@@ -433,7 +468,7 @@ export class NetClient {
         if (this.pending.length > 120) this.pending.shift();
         this.send(encodeInput(cmd));
         const shots = this.predicted.shots;
-        stepShip(this.predicted, cmd, stepSeconds(TUNE), TUNE);
+        stepShip(this.predicted, cmd, stepSeconds(TUNE), TUNE, this.floor(this.predicted));
         if (this.predicted.shots !== shots) {
           // Our own bullet appears at once; the server fires its real one when this input arrives.
           // Same aim assist as the server, against where this client sees the targets.

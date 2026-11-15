@@ -164,12 +164,13 @@ export class Intents {
   }
 
   /** The move intent for one step, from whichever device is active. speed is the ship's current speed. */
-  flight(speed: number): { turn: number; aim: number; thrust: number } {
+  /** floor: the lowest speed allowed here (0 over one's own landing pad: the stick at rest lands). */
+  flight(speed: number, floor = TUNE.ship.minSpeed): { turn: number; aim: number; thrust: number } {
     const st = this.stick;
     if (!st) {
       // No finger on the stick counts as the stick at rest: in marker mode the ship eases back to
       // minimum speed. Keyboard throttle, when pressed, still wins.
-      const rest = this.touch && this.scheme === 'marker' && speed > TUNE.ship.minSpeed ? -1 : 0;
+      const rest = this.touch && this.scheme === 'marker' && speed > floor ? -1 : 0;
       return { turn: this.turn, aim: NaN, thrust: this.thrust !== 0 ? this.thrust : rest };
     }
     const r = clientTune.touch.joystickRadius;
@@ -183,7 +184,7 @@ export class Intents {
     // Direction marker (owner decision): with the stick at rest the ship eases back to minimum speed.
     // Pushing it accelerates, gently at first and at full strength only near the edge.
     const mag = Math.min(1, Math.hypot(nx, ny));
-    if (mag < dead) return { turn: 0, aim: NaN, thrust: speed > TUNE.ship.minSpeed ? -1 : 0 };
+    if (mag < dead) return { turn: 0, aim: NaN, thrust: speed > floor ? -1 : 0 };
     const push = (mag - dead) / (1 - dead);
     return { turn: 0, aim: Math.atan2(ny, nx), thrust: Math.pow(push, clientTune.touch.markerThrustCurve) };
   }

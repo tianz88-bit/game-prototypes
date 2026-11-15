@@ -166,6 +166,21 @@
     "salvageMultiplier": 2,
     "spawnShare": 0.5
   },
+  "base": {
+    "pads": 6,
+    "padRing": 230,
+    "padRadius": 55,
+    "dockSpeed": 20,
+    "dockRepairPerSecond": 0.25,
+    "domeRadius": 340,
+    "turrets": 6,
+    "turretRing": 470,
+    "turretRange": 650,
+    "turretDamage": 6,
+    "turretFireIntervalSteps": 9,
+    "turretBulletSpeed": 850,
+    "turretTurnRate": 2.5
+  },
   "interceptor": {
     "radius": 24,
     "speedFactor": 1.12,

@@ -175,6 +175,16 @@ earlier "never raw power" rule for clan play. Fenced in so open public planets s
   until they join a clan, or converted to a small amount of credits).
 - **Open:** the contribution limit's size and time frame (for example per day or per week).
 
+## 7a. Prestige points
+
+- **Decided (owner, 15 November 2026):** prestige points are earned only by the **top players of
+  the top clans**.
+- **Decided:** they unlock **unique cosmetics**.
+- **Decided:** those cosmetics belong to the player and **go with them to another clan** if they
+  move (unlike clan resources, which stay with the clan).
+- **Open:** how "top clans" and "top players" are measured (season ranking, siege wins,
+  contribution) and how often prestige is awarded.
+
 ## 8. Seasons
 
 - **Decided:** themed seasons. Details stay in this design doc until the owner schedules them.
@@ -236,3 +246,4 @@ Each phase should be fun on its own with few players.
 11. Null-sec rules: which clan features apply there and what can be earned.
 12. Which stats clan techs can buff, and how the 20% cap is split between them.
 13. Feeder limits: per-feeder cap and whether non-capital clan ships can be fed.
+14. Prestige points: how top clans and top players are measured, and how often prestige is awarded.

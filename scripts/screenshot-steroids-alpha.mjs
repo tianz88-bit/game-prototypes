@@ -50,7 +50,7 @@ try {
   const desk = await (await named(await deskBrowser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 }), 'Desk Ace')).newPage();
   watch('desktop', desk);
   await desk.goto(url('debug=1'), { waitUntil: 'networkidle' });
-  await desk.waitForFunction(() => window.__steroids?.menuButtons().length === 2);
+  await desk.waitForFunction(() => window.__steroids?.menuButtons().length >= 2);
   await desk.screenshot({ path: path.join(outDir, 'desktop-menu.png') });
   // Planet B: no bots, whose shots would knock the test ships about and cloud the prediction check.
   const btn = (await api(desk, () => window.__steroids.menuButtons()))[1];
@@ -109,7 +109,7 @@ try {
   const upright = await uprightCtx.newPage();
   watch('upright', upright);
   await upright.goto(url('debug=1'), { waitUntil: 'networkidle' });
-  await upright.waitForFunction(() => window.__steroids?.menuButtons().length === 2);
+  await upright.waitForFunction(() => window.__steroids?.menuButtons().length >= 2);
   assert.equal(await api(upright, () => window.__steroids.sideways()), true, 'upright phone draws the game sideways');
   await upright.screenshot({ path: path.join(outDir, 'phone-upright-sideways.png') });
   const b0 = (await api(upright, () => window.__steroids.menuButtons()))[1];

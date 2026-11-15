@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 claude clan-planets-v0
+DID: two demo clans (menu pick, save.clan, sent as ?clan=); PLANETS now Lawless A, Satellite B, Crimson Home, Azure Home. Home planets (sim/clanBase.ts): treasury at map centre, 6 pads, 6 base turrets, shield dome, gate at (0,0). Members spawn by the pads and may stop over a pad (stepShip floor 0): docked = safe, repaired, salvage unloaded to the treasury (Room.treasury, DO storage 'treasury'). Non-members spawn at the gate, are fired on by base turrets, pushed out of the dome; their bullets/ordnance stop at it. Arrival warnings and docking banner. Ground tint per clan.
+FILES: sim/{planets,clanBase,ship,world,protocol,liveConfig}.ts server/src/{room,index}.ts src/{net/client,input/intents,scenes/menu,scenes/flight,render/planetGround,save,main,liveConfig}.ts tune.json (base group) scripts/test-steroids-alpha-{sim,bank}.mjs scripts/screenshot-steroids-alpha.mjs BRIEF.md GFX_BRIEF.md DESIGN_LONGGAME.md
+SEAM: stepShip(..., floor); World.setPlanet/layout/clanOf/addShipNear/docked; WorldEvents.deposits; shots side >= BASE_TURRET_SIDE (40), owner BASE_OWNER (0); text frames 'treasury' {clan,total} and 'deposited' {amount}; RosterEntry.clan; PlanetGround(scene, depth, tint); intents.flight(speed, floor); hooks layout()/docked()/treasury().
+CROSS: src/render/planetGround.ts (yours): tint uniform added, default [1,1,1] keeps the old look.
+FOR codex: art brief in Agent Comms (thread 07e15987) and GFX_BRIEF.md "Clan planets v0 art".
+
 ## 2026-11-15 claude cargo-hold
 DID: salvage carried capped at salvage.cargoMax 400 (owner): full ship skips gold pickups (left for others, partial takes leave the rest), mining adds power but no salvage past the cap. HUD salvage reads "SALVAGE n/400", full = "FULL · WARP OUT" (orange).
 FILES: sim/{world,liveConfig}.ts src/render/combatHud.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
@@ -97,10 +104,3 @@ FILES: src/base.ts src/main.ts src/input/{intents,immersive}.ts src/scenes/{menu
 SEAM: logicalSize() is landscape when sideways; pointer coords go through base.toLogical; #app is the rotated container (name field lives inside it). Test hook sideways() replaces portraitBlocked().
 CROSS: none
 FOR codex: read sizes from logicalSize(), never window.innerWidth/Height; DOM elements over the canvas go inside #app.
-
-## 2026-11-14 claude forgiving-shield
-DID: shield breaking hit absorbed + 0.5 s hull grace (once per recharge cycle, re-armed above 50%); regen delay 3 s, 35%/s; HUD shield bar glows/fills flashing red during the cooldown when down; shatter ring on break.
-FILES: sim/{ship,world,protocol}.ts src/net/client.ts src/scenes/flight.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
-SEAM: protocol 19 ShipState.shieldCd (server-set). hits[].broke -> fx 'shieldBreak'. ship tune keys shieldBreakGraceSeconds, shieldGraceRechargeFraction.
-CROSS: none
-FOR codex: shatter effect and red cooldown bar are placeholders (flight.ts drawTouch, 'shieldBreak' fx); a shield-down warning on the ship would help.

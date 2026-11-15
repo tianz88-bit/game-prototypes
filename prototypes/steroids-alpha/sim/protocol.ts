@@ -74,6 +74,8 @@ export interface RosterEntry {
   bot?: boolean;
   /** Cosmetics worn (owned unlocks only, checked by the server). */
   look?: Look;
+  /** Clan id (0 or absent: none), for the clan tag. */
+  clan?: number;
 }
 
 /** Player names: trimmed, printable, at most 16 characters; empty means none given. */

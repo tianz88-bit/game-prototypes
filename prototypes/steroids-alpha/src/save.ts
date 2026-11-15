@@ -14,6 +14,8 @@ export interface Save {
   account?: { secret: string; recovery: string };
   /** Cosmetics equipped (unlock id per slot); the server only shows what the account owns. */
   look?: Look;
+  /** Demo clan chosen in the menu (Clan planets v0): 1 or 2. Absent until the player picks. */
+  clan?: number;
   /** Recent runs, newest first (at most 10), for the Run history unlock. Always recorded. */
   runs?: RunRecord[];
 }

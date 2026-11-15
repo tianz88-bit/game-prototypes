@@ -21,6 +21,8 @@ import { DEBUG, DEBUG_ROTATION, logicalSize } from '../base';
 import { clientTune } from '../clientTune';
 import { intents } from '../input/intents';
 import { NetClient, closeReason } from '../net/client';
+import { CLANS, clanName, planetClan } from '../../sim/planets';
+import { padUnder } from '../../sim/clanBase';
 import { fitCamera, text, versionStamp } from './common';
 import { ShipView } from '../render/shipView';
 import { shipArtStatus,buildShadow,CALIBRATION,SHADOW_ANCHOR } from '../render/shipArt';
@@ -44,6 +46,9 @@ const SPACE = 0x060b17;
 
 /** How long a target's health bar stays after your last hit on it. */
 const TARGET_BAR_MS = 5000;
+
+/** Placeholder clan planet skins (owner, Clan planets v0): the ground tinted in the clan's hue. */
+const PLANET_TINT: Record<number, [number, number, number]> = { 1: [1.35, 0.72, 0.74], 2: [0.55, 0.82, 1.55] };
 
 export class FlightScene extends Phaser.Scene {
   net!: NetClient;
@@ -118,7 +123,7 @@ export class FlightScene extends Phaser.Scene {
     this.runStartedAt = Date.now();
     this.mobilePanel = null;
     this.ships.clear();
-    this.net = new NetClient(this.planet, loadSave().name ?? '');
+    this.net = new NetClient(this.planet, loadSave().name ?? '', loadSave().clan ?? 0);
     this.explosions = [];
     this.effects = [];
     this.hullHitAt=-1e9;
@@ -151,7 +156,7 @@ export class FlightScene extends Phaser.Scene {
     this.deathButtons = [];
     fitCamera(this);
     this.cameras.main.setBackgroundColor(SPACE);
-    this.ground = new PlanetGround(this, 1);
+    this.ground = new PlanetGround(this, 1, PLANET_TINT[planetClan(this.planet)] ?? [1, 1, 1]);
     this.world = this.add.graphics().setDepth(15);
     this.rocks = paintedRocksReady() ? new PaintedRocks(this) : new PixelRocks(this);
     this.turretGfx = this.add.graphics().setDepth(23);
@@ -162,6 +167,13 @@ export class FlightScene extends Phaser.Scene {
     this.coords = text(this, 8, 16, '', 10, '#7d8db0').setDepth(950).setVisible(DEBUG);
     this.schemeLabel = text(this, 0, 0, '', 11, '#dfe8ff').setOrigin(0.5).setDepth(951).setVisible(false);
     this.message = text(this, w / 2, logicalSize().h * 0.3, '', 18, '#ffffff').setOrigin(0.5).setDepth(950);
+    // Clan planets v0 labels: treasury, gate, and the arrival / docking banner.
+    this.treasuryText = text(this, 0, 0, '', 12, '#ffe7b0').setOrigin(0.5).setDepth(31).setAlign('center').setVisible(false);
+    this.gateText = text(this, 0, 0, 'GATE', 12, '#ffb4a2').setOrigin(0.5).setDepth(31).setVisible(false);
+    this.banner = text(this, w / 2, 86, '', 14, '#ffe2b8').setOrigin(0.5).setDepth(951).setAlign('center').setVisible(false);
+    this.arrivedAt = performance.now();
+    this.baseAim = [];
+    this.baseFiredAt = [];
     this.boardTitle = text(this, 0, 0, 'KO · POWER', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
 
     this.hotZoneText = text(this, 0, 0, '', 11, '#7dffc4').setOrigin(0.5).setDepth(953).setVisible(false);
@@ -196,7 +208,7 @@ export class FlightScene extends Phaser.Scene {
     }
     if (intents.consume('scheme')) intents.toggleScheme();
     const heading = this.net.predicted?.heading ?? 0;
-    const move = intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed);
+    const move = intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed, this.net.speedFloorNow);
     this.net.update({ ...move, dash, fire: intents.fire, missile, mine, warp });
     // Shop: each tap asks the server for the tier on offer now; the server checks power and price.
     for (const item of intents.consumeBuys()) {
@@ -246,6 +258,10 @@ export class FlightScene extends Phaser.Scene {
 
     for (const f of this.net.drainFx()) {
       if (f.kind === 'shot') this.ships.get(f.id)?.fire(f.side);
+      else if (f.kind === 'baseTurret') {
+        this.baseAim[f.index] = f.angle;
+        this.baseFiredAt[f.index] = this.time.now;
+      }
       else if (f.kind === 'turret') {
         let aim = this.turretAim.get(f.id);
         if (!aim) this.turretAim.set(f.id, (aim = { angle: [], firedAt: [] }));
@@ -333,6 +349,113 @@ export class FlightScene extends Phaser.Scene {
         if (button) this.mobilePanel = this.mobilePanel === button.action ? null : button.action;
       }
     }
+  }
+
+  private treasuryText!: Phaser.GameObjects.Text;
+  private gateText!: Phaser.GameObjects.Text;
+  private banner!: Phaser.GameObjects.Text;
+  private arrivedAt = 0;
+  private baseAim: number[] = [];
+  private baseFiredAt: number[] = [];
+
+  /** Arrival warning (owner): what kind of planet this is and what to expect. */
+  private arrivalNote(): string {
+    const home = planetClan(this.planet);
+    if (this.planet === 'alpha') return 'LAWLESS SPACE\nBots will hunt you down';
+    if (!home) return 'SATELLITE\nFarm and fight; no turrets, no shields';
+    const owner = clanName(home).toUpperCase();
+    return this.net.clan === home ? `${owner} HOME\nStop over a landing pad to dock: safe, repair, unload salvage` : `${owner} TERRITORY\nTheir turrets fire on sight. Their shield keeps you out`;
+  }
+
+  /**
+   * Clan home planet (owner, Clan planets v0; placeholder shapes until Codex's art): the shield
+   * dome over the treasury and pads, the landing pads, the treasury with the clan's total, the base
+   * turrets, and the gate where non-members arrive. Arrival warning and the docked banner.
+   */
+  private drawBase(p: ShipState | null, w: number, h: number): void {
+    const layout = this.net.layout;
+    const now = this.time.now;
+    // Banner: arrival note for 6 s, then docking status at home.
+    let note = '';
+    if (performance.now() - this.arrivedAt < 6000) note = this.arrivalNote();
+    if (this.net.docked) {
+      const d = this.net.deposited;
+      note = 'DOCKED · REPAIRING' + (d && performance.now() - d.at < 3000 ? `\n+${d.amount} salvage to the ${clanName(this.net.clan)} treasury` : '');
+    }
+    this.banner.setVisible(!!note && !this.net.death && !this.net.extracted).setText(note).setPosition(w / 2, intents.touch ? 118 : 86);
+    this.treasuryText.setVisible(false);
+    this.gateText.setVisible(false);
+    if (!layout || !p) return;
+    const colour = CLANS.find((c) => c.id === layout.clan)?.colour ?? 0xffffff;
+    const g = this.world;
+    const b = TUNE.base;
+    const ring = (x: number, y: number, r: number, n: number, dashed: boolean): void => {
+      let prev: { x: number; y: number; visible: boolean } | null = null;
+      for (let i = 0; i <= n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const q = this.toScreen(x + Math.cos(a) * r, y + Math.sin(a) * r);
+        if (prev && prev.visible && q.visible && (!dashed || i % 2 === 0)) g.lineBetween(prev.x, prev.y, q.x, q.y);
+        prev = q;
+      }
+    };
+    // Shield dome.
+    g.lineStyle(3, colour, 0.35 + 0.1 * Math.sin(now / 400));
+    ring(layout.treasury.x, layout.treasury.y, b.domeRadius, 72, false);
+    g.lineStyle(1, 0xffffff, 0.18);
+    ring(layout.treasury.x, layout.treasury.y, b.domeRadius - 8, 72, true);
+    // Landing pads: a member over one sees it light up.
+    const myPad = this.net.clan === layout.clan ? padUnder(layout, p, TUNE) : -1;
+    layout.pads.forEach((pad, i) => {
+      const lit = i === myPad;
+      g.lineStyle(lit ? 3 : 2, lit ? 0x9fffd0 : colour, lit ? 0.95 : 0.6);
+      ring(pad.x, pad.y, b.padRadius, 24, false);
+      const c = this.toScreen(pad.x, pad.y);
+      if (c.visible) {
+        g.fillStyle(lit ? 0x9fffd0 : colour, lit ? 0.22 : 0.1);
+        g.fillCircle(c.x, c.y, b.padRadius * 0.55 * c.scale);
+        g.lineStyle(2, 0xffffff, 0.5);
+        const k = 10 * c.scale;
+        g.lineBetween(c.x - k, c.y, c.x + k, c.y);
+        g.lineBetween(c.x, c.y - k, c.x, c.y + k);
+      }
+    });
+    // Treasury: a hexagonal vault with the clan's total.
+    const t = this.toScreen(layout.treasury.x, layout.treasury.y);
+    if (t.visible) {
+      const r = 60 * t.scale;
+      const pts = Array.from({ length: 6 }, (_, i) => ({ x: t.x + Math.cos(i * Math.PI / 3 + Math.PI / 6) * r, y: t.y + Math.sin(i * Math.PI / 3 + Math.PI / 6) * r }));
+      g.fillStyle(0x0b1626, 0.9);
+      g.fillPoints(pts, true);
+      g.lineStyle(3, colour, 0.95);
+      g.strokePoints(pts, true);
+      g.fillStyle(0xffd27a, 0.9);
+      g.fillCircle(t.x, t.y, 14 * t.scale);
+      const total = this.net.treasury?.total ?? 0;
+      this.treasuryText.setVisible(true).setText(`${clanName(layout.clan).toUpperCase()} TREASURY\n${total.toLocaleString('en-US')}`).setPosition(t.x, t.y + r + 18 * t.scale);
+    }
+    // Base turrets: a dome with a barrel, turned to where it last fired.
+    layout.turrets.forEach((at, i) => {
+      const q = this.toScreen(at.x, at.y);
+      if (!q.visible) return;
+      const k = Math.max(0.7, q.scale);
+      const aim = this.baseAim[i] ?? -Math.PI / 2;
+      const ahead = this.toScreen(at.x + Math.cos(aim) * 30, at.y + Math.sin(aim) * 30);
+      const dir = Math.atan2(ahead.y - q.y, ahead.x - q.x);
+      const flash = now - (this.baseFiredAt[i] ?? -1e9) < 90;
+      g.fillStyle(0x081426, 0.9);
+      g.fillCircle(q.x, q.y, 15 * k);
+      g.lineStyle(6 * k, flash ? 0xfff2c4 : 0x9aa8b8, 1);
+      g.lineBetween(q.x, q.y, q.x + Math.cos(dir) * 24 * k, q.y + Math.sin(dir) * 24 * k);
+      g.fillStyle(colour, 1);
+      g.fillCircle(q.x, q.y, 10 * k);
+    });
+    // Gate: where non-members arrive, on the far side from the treasury.
+    g.lineStyle(3, 0xff8c6e, 0.7);
+    ring(layout.gate.x, layout.gate.y, 120, 40, true);
+    const gq = this.toScreen(layout.gate.x, layout.gate.y);
+    if (gq.visible) this.gateText.setVisible(true).setPosition(gq.x, gq.y);
+    void w;
+    void h;
   }
 
   /** Leaderboard names, top to bottom (test hook). */
@@ -871,6 +994,7 @@ export class FlightScene extends Phaser.Scene {
     this.drawBounty(p, w, h);
     this.drawWarp(p, w, h);
     this.drawHotZone(p, w, h);
+    this.drawBase(p, w, h);
     this.schemeLabel.setVisible(false);
     if (!intents.touch) {
       intents.dashButton = null;

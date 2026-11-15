@@ -301,4 +301,46 @@ function d1() {
   room.stop();
 }
 
-console.log('Steroids-Alpha bank: codes, hashed accounts, idempotent capped credits, recovery, room auth, banking on extraction, unlock purchases, palettes from tints, ship choice, owned looks, lingering bots and reconnect grace all pass.');
+// Clan home planet room (owner, Clan planets v0): members drop in by the pads, others at the gate;
+// docking unloads salvage into the treasury, which the room reports and hands to storage.
+{
+  const tune = JSON.parse(readFileSync(path.join(root, 'prototypes/steroids-alpha/tune.json'), 'utf8'));
+  class Sock extends EventTarget { sent = []; closed = 0; send(v) { this.sent.push(v); } close(c) { this.closed = c; } }
+  const room = new B.Room(undefined, () => {});
+  room.setBots(false);
+  room.setPlanet('crimson');
+  room.setTreasury(100);
+  const saved = [];
+  room.onTreasury = (t) => saved.push(t);
+  const ms = new Sock();
+  const xs = new Sock();
+  room.join(ms, 'Member', null, '1');
+  room.join(xs, 'Raider', null, '2');
+  room.stop();
+  const [m, x] = [...room.players.values()];
+  const L = room.world.layout;
+  const d = (p, q) => Math.hypot(((p.x - q.x + tune.world.width * 1.5) % tune.world.width) - tune.world.width / 2, ((p.y - q.y + tune.world.height * 1.5) % tune.world.height) - tune.world.height / 2);
+  assert(d(m.ship, L.treasury) <= tune.base.padRing + 1, 'a member drops in by the pads');
+  assert(d(x.ship, L.gate) <= 121, 'a non-member arrives at the gate');
+  assert.equal(m.clan, 1);
+  assert.equal(x.clan, 2);
+  const frames = (s) => s.sent.filter((v) => typeof v === 'string').map((v) => JSON.parse(v));
+  assert(frames(ms).some((f) => f.type === 'treasury' && f.total === 100), 'joiners hear the treasury');
+  // Dock the member on a pad with salvage aboard.
+  Object.assign(m.ship, { x: L.pads[0].x, y: L.pads[0].y, speed: 0, salvage: 42 });
+  m.started = true;
+  room.step();
+  assert.equal(room.treasury, 142, 'docking unloads salvage into the treasury');
+  assert.deepEqual(saved, [142], 'and the new total goes to storage');
+  assert(frames(ms).some((f) => f.type === 'deposited' && f.amount === 42), 'the pilot hears the deposit');
+  assert(frames(xs).some((f) => f.type === 'treasury' && f.total === 142), 'everyone hears the new total');
+  const roster = frames(ms).filter((f) => f.type === 'roster').pop();
+  assert(roster.players.some((r) => r.clan === 1) && roster.players.some((r) => r.clan === 2), 'roster carries clans');
+  // A made-up clan id is ignored.
+  const odd = new Sock();
+  room.join(odd, 'Odd', null, '9');
+  room.stop();
+  assert.equal([...room.players.values()].find((p) => p.name === 'Odd').clan, 0, 'unknown clan ids count as no clan');
+}
+
+console.log('Steroids-Alpha bank: codes, hashed accounts, idempotent capped credits, recovery, room auth, banking on extraction, unlock purchases, palettes from tints, ship choice, owned looks, lingering bots, reconnect grace and clan home rooms all pass.');

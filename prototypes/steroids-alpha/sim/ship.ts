@@ -151,7 +151,8 @@ export function copyShip(s: ShipState): ShipState {
 }
 
 /** Advance one fixed step. Mutates and returns s. */
-export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune): ShipState {
+/** floor: the lowest speed allowed this step (0 over one's own clan landing pad, sim/clanBase.ts). */
+export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune, floor = tune.ship.minSpeed): ShipState {
   // Lockdown counts down from drop-in; then Warp starts warp mode, and pressing it again cancels.
   s.lockdown = Math.max(0, s.lockdown - dt);
   if (input.warp) {
@@ -201,7 +202,7 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune)
   } else {
     const thrust = Math.max(-1, Math.min(1, input.thrust));
     if (s.speed > top) s.speed = Math.max(top, s.speed - tune.ship.braking * dt + Math.min(0, thrust) * tune.ship.braking * dt);
-    else s.speed = Math.max(tune.ship.minSpeed, Math.min(top, s.speed + thrust * (thrust > 0 ? tune.ship.acceleration * chassisStats(s.chassis, tune).accel : tune.ship.braking) * dt));
+    else s.speed = Math.max(floor, Math.min(top, s.speed + thrust * (thrust > 0 ? tune.ship.acceleration * chassisStats(s.chassis, tune).accel : tune.ship.braking) * dt));
   }
   const speed = s.speed;
   if (s.warping) s.warpDist += speed * dt;
