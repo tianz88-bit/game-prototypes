@@ -22,7 +22,7 @@ import { clientTune } from '../clientTune';
 import { intents } from '../input/intents';
 import { NetClient, closeReason } from '../net/client';
 import { CLANS, clanName, planetClan } from '../../sim/planets';
-import { padUnder } from '../../sim/clanBase';
+import { isDocked, padUnder } from '../../sim/clanBase';
 import { fitCamera, text, versionStamp } from './common';
 import { ShipView } from '../render/shipView';
 import { shipArtStatus,buildShadow,CALIBRATION,SHADOW_ANCHOR } from '../render/shipArt';
@@ -351,6 +351,8 @@ export class FlightScene extends Phaser.Scene {
     }
   }
 
+  /** How far each ship has come down onto a landing pad (0 flying, 1 landed), eased per frame. */
+  private landedLevel = new Map<number, number>();
   private treasuryText!: Phaser.GameObjects.Text;
   private gateText!: Phaser.GameObjects.Text;
   private banner!: Phaser.GameObjects.Text;
@@ -529,7 +531,12 @@ export class FlightScene extends Phaser.Scene {
     if (!mine) this.drawTargetBar(id, s, at, chassisStats(s.chassis, TUNE).radius / TUNE.ship.radius);
     ship.setLook(this.net.roster.get(id)?.look ?? {});
     // Ships darken 30% on the night side (owner decision); asteroids and pickups only 10%.
-    ship.update({ ...at, brightness: this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0 }, s, this.time.now, control);
+    // Docked ships come down onto their pad (owner): eased so landing and take-off read smoothly.
+    const docked = isDocked(this.net.layout, mine ? this.net.clan : this.net.roster.get(id)?.clan ?? 0, s, TUNE);
+    const was = this.landedLevel.get(id) ?? 0;
+    const landed = was + ((docked ? 1 : 0) - was) * Math.min(1, this.game.loop.delta / 250);
+    this.landedLevel.set(id, landed);
+    ship.update({ ...at, brightness: this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0, landed }, s, this.time.now, control);
     this.drawTurrets(id, s, at);
     if (s.dashCharge > 0) this.drawDashCharge(s, at, mine);
     else if (mine && at.visible) this.drawNose(s, at);

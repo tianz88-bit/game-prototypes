@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 claude ship-ground-cues
+DID: shadows drawn at render.shadowScale (0.72) of the ship in flight; hover glow 60 x 60 (round, smaller; was 112 x 38); docked ships ease (250 ms) down to the shadow's size, onto their shadow, hover lift to 0 and glow faded.
+FILES: src/render/shipView.ts src/scenes/flight.ts client.tune.json sim/liveConfig.ts BRIEF.md
+SEAM: ShipPlacement.landed (0..1); clientTune.render.shadowScale.
+CROSS: src/render/shipView.ts (yours): shadow scale, landed shrink/hover/glow fade only.
+FOR codex: docked ships sit wherever they stopped on the pad; a snap/settle effect to the pad centre would help.
+
 ## 2026-11-15 claude clan-planets-v0
 DID: two demo clans (menu pick, save.clan, sent as ?clan=); PLANETS now Lawless A, Satellite B, Crimson Home, Azure Home. Home planets (sim/clanBase.ts): treasury at map centre, 6 pads, 6 base turrets, shield dome, gate at (0,0). Members spawn by the pads and may stop over a pad (stepShip floor 0): docked = safe, repaired, salvage unloaded to the treasury (Room.treasury, DO storage 'treasury'). Non-members spawn at the gate, are fired on by base turrets, pushed out of the dome; their bullets/ordnance stop at it. Arrival warnings and docking banner. Ground tint per clan.
 FILES: sim/{planets,clanBase,ship,world,protocol,liveConfig}.ts server/src/{room,index}.ts src/{net/client,input/intents,scenes/menu,scenes/flight,render/planetGround,save,main,liveConfig}.ts tune.json (base group) scripts/test-steroids-alpha-{sim,bank}.mjs scripts/screenshot-steroids-alpha.mjs BRIEF.md GFX_BRIEF.md DESIGN_LONGGAME.md
@@ -97,10 +104,3 @@ FILES: scripts/screenshot-steroids-alpha.mjs
 SEAM: none
 CROSS: none
 FOR codex: in this container the full run passed once; other runs fail the prediction check at ~6 FPS / 1-2 s RTT (software WebGL). Please run it on your GPU machine when convenient and report.
-
-## 2026-11-14 claude never-block-portrait
-DID: removed the "turn your phone" blocker (owner: never block the player). Tall upright phones (h > 1.4 w) draw the landscape game turned a quarter (top along the screen's left); taps, stick and the name field follow. Near-square screens play as is. Planet tap on touch requests fullscreen + landscape lock where allowed.
-FILES: src/base.ts src/main.ts src/input/{intents,immersive}.ts src/scenes/{menu,flight}.ts (rotate.ts deleted) scripts/screenshot-steroids-alpha.mjs BRIEF.md
-SEAM: logicalSize() is landscape when sideways; pointer coords go through base.toLogical; #app is the rotated container (name field lives inside it). Test hook sideways() replaces portraitBlocked().
-CROSS: none
-FOR codex: read sizes from logicalSize(), never window.innerWidth/Height; DOM elements over the canvas go inside #app.

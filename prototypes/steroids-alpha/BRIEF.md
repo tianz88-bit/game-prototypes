@@ -92,6 +92,8 @@ currency; currency buys unlocks, QoL and options, never raw power.
   fading out at night) all follow it. Turning the ship in place never changes
   the light. The planet's turn comes from the server clock, so players in the
   same place see the same light.
+- Ship shadows are drawn smaller than the ship in flight (render.shadowScale 0.72) and the hover
+  glow under a ship is a small round pool (owner, 15 November 2026).
 - Ships and other game objects dim only about 10% on the night side, so they
   stay readable; the ground goes properly dark (owner decision).
 - Thruster exhaust: steady at idle, a burst when throttle or a turn starts,
@@ -122,6 +124,8 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
   - is repaired (hull and shield);
   - unloads its carried salvage into the clan treasury.
   Docking to bank your own credits at home is "maybe later" (owner).
+  A docked ship comes down onto its pad: it shrinks to its shadow's size and sits on it, and its
+  hover glow fades (owner, 15 November).
 - **Anyone can enter a clan planet.** Non-members:
   - arrive at the gate (the fixed entry point opposite the treasury);
   - get a warning that the clan's turrets will fire on them;
