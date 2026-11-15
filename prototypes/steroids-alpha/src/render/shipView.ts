@@ -1,6 +1,6 @@
 // One ship on screen, drawn with the approved Human Nomad rig: twelve parts in fixed Z order with
 // the kit's 3% per-layer shading, parent-accumulated facing offsets, engine rattle, canopy lean on turns,
-// hover lift and a hard ground shadow cast away from the planet's sun. A ground ring marks your ship (cyan) versus others (orange).
+// hover lift and a hard ground shadow cast away from the planet's sun. Quiet ground plates identify your ship.
 // Guns kick with the kit's recoil curve when they fire. Thruster exhaust comes from the nozzles.
 // Per-part control FFD uses the lab relief mesh; the original Images remain the fallback.
 import Phaser from 'phaser';
@@ -16,6 +16,7 @@ import { clientTune } from '../clientTune';
 import { TUNE } from '../../sim/tune';
 import { PALETTES } from './palette';
 import { hoverLightTexture } from './hoverLight';
+import { drawShipMarkerPlates } from './flightIndicators';
 import { ThrusterVFX } from './thrusters';
 import type { NozzleOrigin, ThrusterInput } from './thrusters';
 
@@ -40,6 +41,9 @@ export interface ShipPlacement {
    * its shadow's size and sits on it, and its hover glow fades out.
    */
   landed?: number;
+  /** Orbital arrival/departure: visual height in screen pixels; ground anchors stay fixed. */
+  orbitalLift?: number;
+  orbitalGroundAlpha?: number;
 }
 
 export class ShipView {
@@ -103,8 +107,7 @@ export class ShipView {
     // Bigger ships (sim/chassis.ts radius) get a bigger ring and shield bubble.
     this.sizeRatio = chassisStats(chassis, TUNE).radius / TUNE.ship.radius;
     const r = clientTune.render.shipRingRadius * this.sizeRatio;
-    this.ring.lineStyle(2 / clientTune.render.shipScale, mine ? 0x5fe3ff : 0xff8a4a, 0.55);
-    this.ring.strokeCircle(0, 0, r);
+    drawShipMarkerPlates(this.ring,r,mine,clientTune.render.shipScale);
     const colour = Number.parseInt((PALETTES[palette] ?? PALETTES[0]).glow.slice(1),16);
     // Ground-only self-light is separate from the sun-driven silhouette and selection ring.
     this.hoverLight = scene.add.image(0,0,hoverLightTexture(scene,colour)).setDepth(13).setBlendMode(Phaser.BlendModes.ADD);
@@ -129,6 +132,9 @@ export class ShipView {
    * and boosting (dash) drive the thrusters: accelerating fires both engines, turning fires the outside one.
    */
   update(at: ShipPlacement, headingRad: number, timeMs: number, speed: number, boosting: boolean, control?: FFDControl | 'observed'): void {
+    const groundY=at.y;
+    const groundAlpha=at.orbitalGroundAlpha??1;
+    if(at.orbitalLift)at={...at,y:at.y-at.orbitalLift};
     this.exhaustGfx.setVisible(at.visible);
     this.container.setVisible(at.visible);
     this.shadow.setVisible(at.visible && at.shadowAlpha > 0.01);
@@ -147,9 +153,9 @@ export class ShipView {
     const light = clientTune.render;
     const groundScale = at.scale * light.referenceHeight / 900;
     const night = Math.max(0, Math.min(1, (1-at.brightness) / .3));
-    this.hoverLight.setPosition(x+light.hoverLightX*groundScale,y+light.hoverLightY*groundScale)
+    this.hoverLight.setPosition(x+light.hoverLightX*groundScale,groundY+light.hoverLightY*groundScale)
       .setDisplaySize(light.hoverLightWidth*groundScale*this.sizeRatio,light.hoverLightHeight*groundScale*this.sizeRatio)
-      .setAlpha(light.hoverLightOpacity*(.7+.3*night)*(1-landed));
+      .setAlpha(light.hoverLightOpacity*(.7+.3*night)*(1-landed)*groundAlpha);
     // Sunlight scales every layer's 3% step shade together; retint only when it changes visibly.
     if (Math.abs(at.brightness - this.lastBrightness) > 0.004) {
       this.lastBrightness = at.brightness;
@@ -223,9 +229,9 @@ export class ShipView {
     this.shadow
       .setPosition(at.shadowX + (x - at.shadowX) * landed, at.shadowY + (y - at.shadowY) * landed)
       .setScale(shadowDrawScale)
-      .setAlpha(cal.shadow.opacity * at.shadowAlpha)
+      .setAlpha(cal.shadow.opacity * at.shadowAlpha * groundAlpha)
       .setRotation((angle * Math.PI) / 180);
-    this.ring.setPosition(x, y).setScale(scale);
+    this.ring.setPosition(x, groundY).setScale(scale).setAlpha(groundAlpha);
   }
 
   /** Nozzle of an engine core: 43% of the core's length aft of its centre, as in the handoff's lab. */

@@ -147,3 +147,7 @@ All four Art backlog groups implemented on codex/steroids-combat-backlog-preview
 ## Publication approved — 15 November 2026
 
 Owner reviewed the four priority boards and explicitly approved the complete pass for live. The three new sources are uploaded/re-fetched/hash-verified in R2. Release preserves newer main targeting, exhaust and docked-ground changes. See BUILD_STATUS/HANDOFF for publication results; orbital zoom remains separate.
+
+## Orbital and building preview — 16 November 2026
+
+Owner requested preview before publication. Local branch codex/steroids-orbit-nexus-preview implements the orbital spec above, quieter ship markers, a larger three-layer treasury nexus and layered twin-cannon tower buildings. Projected neighbouring axes drive building bearing/foreshortening, with separate raised parts and alternating visual barrel recoil. Actual authoritative base positions, collision sizes and firing counts are unchanged. Seven new original painted sources remain local and hash-verified; proposed R2 object is not uploaded. Desktop/mobile motion and building captures: outputs/steroids-alpha/orbit-review/index.html. Await owner review before upload, PR or deploy.

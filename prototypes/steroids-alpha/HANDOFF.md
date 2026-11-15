@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 codex orbital-nexus-preview
+DID: LOCAL REVIEW ONLY: 1.8s globe arrival / 1.5s departure with active controls, ground-anchored light/shadow and arrival pulse; quieter ship plates/nose/engaged meter; larger3-part treasury nexus and twin-cannon tower rigs in both clan palettes.
+FILES: render/{orbitalTransition,orbitalEffects,buildingRig,clanBaseArt,flightIndicators,shipView}.ts; scenes/{flight,boot}.ts; art/{buildings-v1,prepare-assets.mjs}; scripts/test-steroids-live-config.mjs.
+SEAM: optional ShipPlacement.orbitalLift/orbitalGroundAlpha; BuildingRigs queue/prepare/begin/draw/end/destroy and treasury label bounds. Existing sim/protocol/positions/weapon counts/tuned values/input zones/FFD remain intact.
+CROSS: flight.ts camera/cached departure visual + result delay; boot asset hooks. Config test now accepts either concurrent publisher as winner and uses a separate deterministic record for later fixtures; no server behavior changed.
+FOR claude: owner must see/approve preview before any R2 upload, PR merge or deploy. Source ZIP local only (d34070bccdb67d0e901d7972504a5b2478f477dcc712a8e796bf41c6d6c30a15); review outputs/steroids-alpha/orbit-review/index.html. Typecheck/build/rig/sim/config and Brave desktop/mobile lifecycle/Canvas pass;14shared textures,7views/40images stable;2clients+4bots and clan ~56.3FPS DPR2. See Agent Comms68c1ca78.
+
 ## 2026-11-15 codex backlog-release
 DID: owner reviewed all4priority boards and explicitly approved publication. Uploaded/re-fetched the3sprite source ZIP with matching SHA-256; integrated newer gun convergence, idle exhaust and72%shadow/60pxglow/docked landing from PR498/499.
 FILES: approved P1–P4 art pass; source manifest/README, GFX_BRIEF, BUILD_STATUS, COLLAB.
@@ -97,10 +104,3 @@ FILES: src/render/shipPreview.ts src/scenes/{menu,hangar}.ts BRIEF.md
 SEAM: shipPreview(..., opts?: { spin?, relative? }); no options = the old static fit (menu, evolve preview unchanged).
 CROSS: src/render/shipPreview.ts (yours, #477): options added, default path untouched; spin re-poses parts each frame and unhooks on destroy.
 FOR codex: at true scale the two fighters are small next to the Battlecruiser card; a pedestal or scale ruler would help if it reads oddly.
-
-## 2026-11-15 codex combat-art-live
-DID: integrated approved portal title, three energy shots, three minerals and two coin views; restored lower ship hover light/dynamic shadow, palette-matched drones without shadows; Fire/Dash faces 26% smaller, mobile hull/shields share desktop segmented styling. Secondary mobile panels remain collapsed.
-FILES: art/combat-title-v1/* art/prepare-assets.mjs render/{combatSprites,combatHud,hoverLight,shipView,worldArt}.ts scenes/{boot,menu,flight}.ts client.tune.json sim/liveConfig.ts scripts/test-steroids-{live-config,alpha-bank}.mjs BRIEF/COLLAB/BUILD_STATUS.md
-SEAM: queue/prepareCombatArt and pooled CombatSprites, optional drone palette index; hoverLight* live render keys upgrade older records. Nine original PNG hashes checked from R2; runtime textures bounded to 192/1024. No wire or gameplay tuning changes.
-CROSS: scene art wiring/action hit rectangles and bounded config validation/tests. Typecheck/build/sim/live-config/rig pass; 4 DPR2 Brave viewports + forced Canvas, nine assets, warnings, controls with drawer, buy/warp routing and stable pool verified with no errors; production two-client check passes at 57/57 FPS on PC.
-FOR claude: PR485 merged75a909, itch43705423342 succeeded; public Brave151126r0056 landscape/upright verified all9textures, painted shots, smaller controls, drawers, hover and open planet, zero errors. PR482 superseded/closed. Worker bank test could randomly kill its respawn pilot during62s presence interval; use existing world.invulnerable only for that interval, restoring damage before explicit-death checks. Three fresh bank runs pass.

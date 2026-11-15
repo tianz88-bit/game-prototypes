@@ -4,6 +4,10 @@ import {drawEvolve,drawWarpCharge,drawWarpLaunch,drawCapitalEscort,shipTagCleara
 import { CombatHud } from '../render/combatHud';
 import { drawTargetMeter, drawNoseMarker, drawSalvageZoneRing, drawConnectionBanner } from '../render/flightIndicators';
 import { CombatSprites } from '../render/combatSprites';
+import { BuildingRigs } from '../render/buildingRig';
+import { OrbitalTransition } from '../render/orbitalTransition';
+import type { OrbitalPose } from '../render/orbitalTransition';
+import { drawOrbitalEffects } from '../render/orbitalEffects';
 import { mobileHeader } from '../render/mobileFlightUi';
 import { shipPreview } from '../render/shipPreview';
 import type { FFDControl } from '../render/shipTilt';
@@ -92,6 +96,11 @@ export class FlightScene extends Phaser.Scene {
   private boardTitle!: Phaser.GameObjects.Text;
   private combatHud!: CombatHud;
   private combatSprites!: CombatSprites;
+  private buildingRigs!:BuildingRigs;
+  private orbital=new OrbitalTransition();
+  private orbit:OrbitalPose={phase:'waiting',progress:0,zoom:.34,lift:0,groundAlpha:1,arrivalPulse:-1};
+  private orbitGfx!:Phaser.GameObjects.Graphics;
+  private lastOwn:ShipState|null=null;
   private mobilePanel: 'shop' | 'board' | null = null;
   private mobileButtons: { action: 'shop' | 'board'; x: number; y: number; w: number }[] = [];
   private mobileNavLabels: Phaser.GameObjects.Text[] = [];
@@ -127,6 +136,8 @@ export class FlightScene extends Phaser.Scene {
   private runStartedAt = 0;
 
   create(): void {
+    this.orbital.reset();
+    this.lastOwn=null;
     this.runStartedAt = Date.now();
     this.mobilePanel = null;
     this.ships.clear();
@@ -142,6 +153,7 @@ export class FlightScene extends Phaser.Scene {
       this.game.events.off('dpr', this.build, this);
       this.net.close();
       this.combatSprites?.destroy();
+      this.buildingRigs?.destroy();
       intents.dashButton = null;
       intents.schemeButton = null;
       intents.fireButton = null;
@@ -156,6 +168,7 @@ export class FlightScene extends Phaser.Scene {
 
   private build(): void {
     this.combatSprites?.destroy();
+    this.buildingRigs?.destroy();
     this.children.removeAll(true);
     this.ships.clear();
     this.tags.clear();
@@ -168,6 +181,7 @@ export class FlightScene extends Phaser.Scene {
     this.ordnanceCues = this.add.graphics().setDepth(27);
     this.rocks = paintedRocksReady() ? new PaintedRocks(this) : new PixelRocks(this);
     this.turretGfx = this.add.graphics().setDepth(23);
+    this.orbitGfx=this.add.graphics().setDepth(28);
     this.overlay = this.add.graphics().setDepth(900);
     this.hullBorder=this.add.graphics().setDepth(940);
     const { w } = logicalSize();
@@ -191,6 +205,7 @@ export class FlightScene extends Phaser.Scene {
     this.weaponTexts = [0, 1].map(() => text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(952).setVisible(false));
     this.combatHud = new CombatHud(this);
     this.combatSprites = new CombatSprites(this);
+    this.buildingRigs=new BuildingRigs(this);
     this.mobileNavLabels = [0,1].map(() => text(this,0,0,'',11).setOrigin(.5).setDepth(954).setVisible(false));
     this.evolvePreview = shipPreview(this,2,0,0,0,18,16).setDepth(952).setVisible(false);
     this.shopTexts = [...SHOP_ITEMS, 'evolve'].map(() => ({
@@ -231,25 +246,31 @@ export class FlightScene extends Phaser.Scene {
 
     const { w, h } = logicalSize();
     const own = this.net.ownRender();
+    const extracted=!!this.net.extracted || this.net.status==='extracted';
+    if(own && !extracted && !dead)this.lastOwn={...own};
+    this.orbit=this.orbital.update(this.time.now,!!own,extracted,dead);
+    const leaving=extracted && !dead && this.orbit.phase==='exit';
+    const cameraShip=leaving?this.lastOwn:own;
     // After our ship is destroyed the view stays on the wreck.
-    const cx = own?.x ?? this.net.death?.x ?? W / 2;
-    const cy = own?.y ?? this.net.death?.y ?? H / 2;
+    const cx = (extracted?this.lastOwn:cameraShip)?.x ?? this.net.death?.x ?? W / 2;
+    const cy = (extracted?this.lastOwn:cameraShip)?.y ?? this.net.death?.y ?? H / 2;
     // One frame for everything drawn this tick: where the view is on the ball and how the sun falls.
     // The planet's turn comes from the server's clock, so players in the same place see the same light.
     // Travel is measured from the middle of the map, so the drop zone starts in daylight.
     const rotationDeg = DEBUG_ROTATION ?? (this.net.asteroidTick() / TUNE.net.tickHz) * TUNE.planet.rotationDegPerSec;
     this.rotationDeg = rotationDeg;
     this.frame = planetFrame(cx - W / 2, cy - H / 2, rotationDeg, lightingRadius(W), sunState(TUNE.planet.sunAzimuthDeg, TUNE.planet.sunElevationDeg));
-    this.view = { cx, cy, w, h, k: h / clientTune.render.referenceHeight };
+    this.view = { cx, cy, w, h, k: h / clientTune.render.referenceHeight * this.orbit.zoom };
     this.ground.update(w, h, this.view.k, this.frame);
 
     this.turretGfx.clear();
     const alive = new Set<number>();
-    // An extracted ship has left the planet: it is no longer drawn.
+    // Live ships follow snapshots; departure briefly retains only a cached visual after extraction.
     if (own && !this.net.extracted && this.net.status !== 'extracted') {
       alive.add(this.net.myId);
       this.placeShip(this.net.myId, own, true, move);
     }
+    if(leaving && this.lastOwn){alive.add(this.net.myId);this.placeShip(this.net.myId,this.lastOwn,true);}
     for (const r of this.net.remoteRender()) {
       alive.add(r.id);
       this.placeShip(r.id, r.s, false);
@@ -326,13 +347,14 @@ export class FlightScene extends Phaser.Scene {
       else this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.kind === 'burst' ? TUNE.asteroid.radius[f.size] : 9, ms: f.kind === 'burst' ? 420 : 180, colour: 0xffc78a, chips: f.kind === 'burst' ? 10 : 4, combat:f.kind==='burst'?'asteroid':undefined });
     }
     this.drawWorld();
+    drawOrbitalEffects(this.orbitGfx,this.orbit,w,h);
     this.drawTouch(w, h);
     this.drawHullBorder(w,h);
     this.drawStatus(own);
     this.drawBoard(w);
 
-    if (this.net.extracted || this.net.status === 'extracted') {
-      if (this.deathScreen(w, h, true)) return;
+    if ((this.net.extracted || this.net.status === 'extracted') && !dead) {
+      if (this.orbit.phase==='complete' && this.deathScreen(w, h, true)) return;
     } else if (this.net.death || this.net.status === 'destroyed') {
       if (this.deathScreen(w, h)) return;
     } else if (this.net.status === 'lost') {
@@ -393,10 +415,11 @@ export class FlightScene extends Phaser.Scene {
     this.gateText.setVisible(false);
     if (!layout || !p) return;
     const labels=drawClanBase(this.world,{layout,own:p,member:this.net.clan===layout.clan,docked:!!this.net.docked,now,tune:TUNE,
-      project:(x,y)=>this.toScreen(x,y),aim:this.baseAim,firedAt:this.baseFiredAt,impacts:this.effects});
+      project:(x,y)=>this.toScreen(x,y),aim:this.baseAim,firedAt:this.baseFiredAt,impacts:this.effects,
+      rigs:this.buildingRigs,sun:this.frame.sun,daylight:this.frame.daylight,brightness:this.objectLight()});
     if(labels.treasury){
       const at=labels.treasury,total=this.net.treasury?.total??0;
-      const below=at.y+78*at.scale,labelY=!intents.touch&&below>h-138?at.y-84*at.scale:below;
+      const below=at.labelY??at.y+78*at.scale,labelY=!intents.touch&&below>h-138?at.y-220*at.scale:below;
       this.treasuryText.setVisible(true).setText(`${clanName(layout.clan).toUpperCase()} TREASURY\n${total.toLocaleString('en-US')}`)
         .setPosition(at.x,labelY).setStroke('#102035',3);
     }
@@ -467,20 +490,26 @@ export class FlightScene extends Phaser.Scene {
     // Power makes ships bigger: drawn at the same growth as their hit radius.
     // (Each ship's art already has its own size; only power growth scales it here.)
     at.scale *= powerGrowth(s.hullMax, TUNE);
+    const orbital=mine && (this.orbit.phase==='entry' || this.orbit.phase==='exit');
+    // The pilot remains readable at orbit zoom; only the world recedes beneath the craft.
+    if(orbital)at.scale/=this.orbit.zoom;
     // The hard shadow lies on the ground, away from the sun.
     const sh = shipShadow(this.frame.sun, clientTune.render.shadowReach);
     sh.x+=CALIBRATION.shadow.x-SHADOW_ANCHOR.x;sh.y+=CALIBRATION.shadow.y-SHADOW_ANCHOR.y;
     const shadow = this.toScreen(s.x + sh.x, s.y + sh.y);
     this.placeTag(id, at, mine, chassisStats(s.chassis, TUNE).radius / TUNE.ship.radius);
+    if(orbital)this.tags.get(id)?.setVisible(false);
     if (!mine) this.drawTargetBar(id, s, at, chassisStats(s.chassis, TUNE).radius / TUNE.ship.radius);
     ship.setLook(this.net.roster.get(id)?.look ?? {});
     // Ships darken 30% on the night side (owner decision); asteroids and pickups only 10%.
     // Docked ships come down onto their pad (owner): eased so landing and take-off read smoothly.
-    const docked = isDocked(this.net.layout, mine ? this.net.clan : this.net.roster.get(id)?.clan ?? 0, s, TUNE);
+    const docked = !orbital && isDocked(this.net.layout, mine ? this.net.clan : this.net.roster.get(id)?.clan ?? 0, s, TUNE);
     const was = this.landedLevel.get(id) ?? 0;
     const landed = was + ((docked ? 1 : 0) - was) * Math.min(1, this.game.loop.delta / 250);
     this.landedLevel.set(id, landed);
-    ship.update({ ...at, brightness: this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0, landed }, s, this.time.now, control);
+    ship.update({ ...at, brightness: this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0, landed,
+      orbitalLift:orbital?this.orbit.lift*this.view.h:0,orbitalGroundAlpha:orbital?this.orbit.groundAlpha:1 }, s, this.time.now, control);
+    if(orbital)return;
     this.drawTurrets(id, s, at);
     if (s.dashCharge > 0) this.drawDashCharge(s, at, mine);
     else if (mine && at.visible) this.drawNose(s, at);
@@ -903,7 +932,9 @@ export class FlightScene extends Phaser.Scene {
     this.drawBounty(p, w, h);
     this.drawWarp(p, w, h);
     this.drawHotZone(p, w, h);
+    this.buildingRigs.begin();
     this.drawBase(p, w, h);
+    this.buildingRigs.end();
     this.schemeLabel.setVisible(false);
     if (!intents.touch) {
       intents.dashButton = null;

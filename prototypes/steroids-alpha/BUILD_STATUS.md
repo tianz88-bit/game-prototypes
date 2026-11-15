@@ -1,31 +1,35 @@
 ## Current milestone
 
-Owner approved all four art backlog groups for live after the screenshot review. Source pack uploaded to R2 and fetched back with matching hash; PR500 merged398b045; itch run43733278666 uploaded successfully. Public Brave build151126r0067 verified all12textures, painted ordnance/repair sprites, mobile/upright drawer/fire/dash, both clan skins and open planet connections with zero browser errors. Worker health is protocol19 and healthy. The release integrates main3a38092, preserving PR498 smaller shadows/round glow/docked landing and PR499 gun convergence/idle exhaust/engines-off. Review evidence: outputs/steroids-alpha/backlog-review/index.html.
+LOCAL PREVIEW ONLY on codex/steroids-orbit-nexus-preview, based on main472a0ed. Owner requested orbital entry/exit, quieter ship UI, a larger treasury nexus and rigged twin-cannon towers, with preview before live. Review gallery: outputs/steroids-alpha/orbit-review/index.html. Nothing in this pass has been uploaded to R2, pushed, merged or deployed. Previous approved public release remains151126r0067 (PR500/501).
 
 ## What was implemented
 
-- P1 combat: three new matching painted missile/mine/repair-pod sources; smoke, arming/search/observed-seeking cues and lock brackets; death, missile/mine/shot-down blasts, asteroid splits, shield shatter, Nova, hull sparks/border hit and dash-ram feedback; heading-only charge cue.
-- P2 clan planets: distinct Crimson/Azure materials, fortified treasury, pads with alignment/docked states, turrets/flash, projected dome with impact/push cues, gate and banners.
-- P3 progression: evolution assembly and shield lock, capital escorts/name clearance, warp aperture and launch; two alpha-preserving fracture stages for all painted rocks.
-- P4 HUD/menus: hangar emblems, target meter, nose marker, cargo cue, connection alerts, salvage ring; alerts clear other informational labels and mobile control space.
+- OrbitalTransition starts on the first own snapshot: whole globe at34% play zoom,1.8s descent and atmosphere streak, ground light/shadow fade-in and arrival pulse. Input/prediction continue. Entry begins below the fixed Warp chip.
+- On extraction, the server state remains extracted while a cached own ship plays a1.5s visual departure. The usual extracted-result panel follows; ordinary death retains its700ms panel delay. DROP IN and RESPAWN replay entry; resize preserves elapsed time.
+- Persistent neon selection circumference replaced by small navy/cream/cyan plates. Nose cue is smaller; engaged target meters share the panel material language.
+- Seven new original painted building parts:3-layer treasury nexus and4-part towers with a duplicated barrel. Fixed layers, projected bearing/foreshortening, separate ground shadows, clan palettes and alternating visual barrel recoil/flash. Treasury foundation260world units; no simulation footprint/radius/firing change.
+- Boot/pipeline loads bounded shared runtime textures; procedural building fallback remains. Scene rebuild/shutdown releases owned views. Seven original PNGs, exact generation metadata and ZIP stay in outputs/steroids-alpha/buildings-rig-v01; content-addressed cache supports local builds.
+- Required config regression test had a pre-existing concurrent-publish winner assumption. It now verifies the actual winner, then uses a separate deterministic edited record for later fixtures. Server code unchanged.
 
-## Key technical decisions
+## Validation
 
-- No sim, gameplay tuning, protocol, authoritative positions/radii, ship rig or input-zone changes. Render observes existing state; seeking cue infers recent mine movement without new wire data.
-- Original source PNGs/ZIP/prompt metadata stay in outputs/steroids-alpha/combat-backlog-v01. Public R2 ZIP fetched back and SHA-256 verified; source files and registration retain their hashes through the asset pipeline. Owner explicitly approved upload/merge/publication. Missing body textures retain procedural fallback.
-- Per-scene sprite reuse and shared textures; code-driven VFX support WebGL and Canvas. Thirty fracture variants preserve body alpha pixel-for-pixel and existing collision coverage.
-- Typecheck/build/396 rig poses +14400FFD points/sim/live-config pass. Actual-renderer desktop1280x720/mobile844x390 DPR2 plus667x375 HUD checks, WebGL/Canvas and error checks pass.
-- Two real connected clients with four bots on alpha: ~56.6/56.8FPS, p95~18.1/18ms on this PC atDPR2; Crimson ~56.8/56.6FPS. Real fire/dash worked, no browser errors. Test browsers close; local preview servers stop after capture.
+- Typecheck and production build pass (existing repo bundle-size/dynamic-import warnings only).
+-396rig poses and14400FFD points pass; sim suite passes; live-config suite passes3consecutive runs after the test-only race correction.
+- Brave desktop1280x720/mobile844x390 DPR2: real entry input/prediction, resize continuity, extraction retention/result timing, real DROP IN/RESPAWN and normal death timing pass, zero browser errors. Four animated renderer captures plus phase screenshots. Entry/departure deterministic frames use local visual fixtures; real input was checked separately.
+-36building captures (24scene states plus12camera-orbit frames), both clans and viewports. Alternating barrel recoil verified.14shared clan textures plus1shadow texture; raw source textures released;7views/40images stable across120camera updates.
+- Canvas fallback renders all7buildings with14shared textures and completes arrival; no page errors.
+- Two real connected desktop/mobile clients atDPR2: alpha with4bots56.34/56.28FPS, Crimson56.28/56.30FPS, p95~18.1ms; real fire/dash pass, zero browser errors.
 
-## Open questions
+## Assets and publication gate
 
-- Screenshot review and publication approval received. No implementation question is blocking release.
+Proposed object steroids-alpha_buildings-rig-v1_assets.zip is NOT uploaded. Source ZIP7,939,933bytes; SHA-256 d34070bccdb67d0e901d7972504a5b2478f477dcc712a8e796bf41c6d6c30a15. Metadata: art/buildings-v1/assets.json. No PNG/ZIP is in Git. A clean remote build will need this exact source object uploaded only after owner review approval. No PR is opened because repo auto-merge would publish.
 
-## Known issues
+## Known limits
 
-- Real phone/Safari/Android hardware performance remains unmeasured; browser phone emulation is not hardware evidence.
-- Separate orbital zoom transition and per-chassis hosted calibration remain outside this prioritized art pass.
+- Phone emulation is not real phone/Safari/Android performance evidence.
+- Departure/death visual timing tests stage local flags rather than performing real extraction/banking; existing simulation tests cover authoritative extraction rules.
+- Per-chassis hosted calibration remains a separate task.
 
 ## Next proposed step
 
-Owner playtests the approved art on real phones. Publication is complete and verified; Claude receives the PR/run/build evidence in thread07e15987. Orbital zoom and per-chassis hosted calibration remain separate tasks.
+Owner reviews orbital motion, nexus proportions, tower readability and restrained ship markers in the local gallery. After approval: upload/re-fetch/hash-verify the exact source ZIP, rebase against current main while preserving Claude's changes, run required checks, PR/merge/deploy and verify the public itch build. Current publication approval has not been given for this preview.
