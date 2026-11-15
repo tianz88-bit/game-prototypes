@@ -1436,8 +1436,11 @@ assert.equal(S.cleanName(null), '');
     room.join(s1, 'Runner');
     room.join(s2, 'Watcher');
     room.stop();
-    const [p1] = [...room.players.values()];
+    const [p1, p2] = [...room.players.values()];
     const id = p1.id;
+    // Keep the watcher well away: two ships spawned on top of each other would bump, and any hit
+    // resets a warp run (random spawns made this flaky once ship bumps arrived).
+    p2.ship.x = (p1.ship.x + tune.world.width / 2) % tune.world.width;
     p1.started = true; // as if its client had sent inputs
     p1.ship.lockdown = 0;
     p1.ship.warping = true;
