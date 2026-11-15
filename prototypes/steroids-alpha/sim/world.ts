@@ -138,6 +138,8 @@ export class World {
   private prev = new Map<number, { x: number; y: number }>();
   /** Ships whose current dash has already rammed someone. */
   private rammed = new Set<number>();
+  /** Ship bumps: tick until which a pair ("lowId:highId") cannot bump again. */
+  private bumpUntil = new Map<string, number>();
   /** Tick of the last damage each ship took, for shield regeneration. */
   private lastHit = new Map<number, number>();
   /** Shield break grace (owner, 14 November 2026): hull safe until this tick after the shield breaks. */
@@ -367,6 +369,41 @@ export class World {
         this.events.rams.push({ id, target: oid, x: wrap(s.x + dx * sr, W), y: wrap(s.y + dy * sr, H) });
         break;
       }
+    }
+
+    // Ship bumps (owner, 15 November 2026): ships that touch outside a dash no longer pass through each
+    // other. Both bounce apart (bumpKnockbackSpeed) and take bumpDamage (shield first, credited to the
+    // other ship); the same pair cannot bump again for contactGraceSeconds.
+    {
+      const list = [...this.ships];
+      for (let i = 0; i < list.length; i++) {
+        const [ida, a] = list[i];
+        if (a.hp <= 0 || a.dashTime > 0) continue;
+        const ra = shipRadius(a.hullMax, t, a.chassis);
+        for (let j = i + 1; j < list.length; j++) {
+          const [idb, b] = list[j];
+          if (b.hp <= 0 || b.dashTime > 0) continue;
+          const rb = shipRadius(b.hullMax, t, b.chassis);
+          let dx = wrapDelta(b.x, a.x, W);
+          let dy = wrapDelta(b.y, a.y, H);
+          const d = Math.hypot(dx, dy);
+          if (d >= ra + rb) continue;
+          const key = ida < idb ? `${ida}:${idb}` : `${idb}:${ida}`;
+          if ((this.bumpUntil.get(key) ?? -1) > this.tick) continue;
+          this.bumpUntil.set(key, this.tick + Math.round(t.ship.contactGraceSeconds * t.net.tickHz));
+          if (d > 1e-6) { dx /= d; dy /= d; } else { dx = 1; dy = 0; }
+          const k = t.ship.bumpKnockbackSpeed;
+          a.kx = -dx * k;
+          a.ky = -dy * k;
+          b.kx = dx * k;
+          b.ky = dy * k;
+          const cx = wrap(a.x + dx * ra, W);
+          const cy = wrap(a.y + dy * ra, H);
+          this.damageShip(idb, b, t.ship.bumpDamage, ida, cx, cy);
+          this.damageShip(ida, a, t.ship.bumpDamage, idb, cx, cy);
+        }
+      }
+      if (this.bumpUntil.size > 256) for (const [k, until] of this.bumpUntil) if (until <= this.tick) this.bumpUntil.delete(k);
     }
 
     // Ships against asteroids: the ship takes contact damage, the asteroid is smashed and splits, and

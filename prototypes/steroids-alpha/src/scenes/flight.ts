@@ -20,7 +20,7 @@ import { wrapDelta } from '../../sim/wrap';
 import { DEBUG, DEBUG_ROTATION, logicalSize } from '../base';
 import { clientTune } from '../clientTune';
 import { intents } from '../input/intents';
-import { NetClient } from '../net/client';
+import { NetClient, closeReason } from '../net/client';
 import { fitCamera, text, versionStamp } from './common';
 import { ShipView } from '../render/shipView';
 import { shipArtStatus,buildShadow,CALIBRATION,SHADOW_ANCHOR } from '../render/shipArt';
@@ -184,7 +184,7 @@ export class FlightScene extends Phaser.Scene {
     const dash = intents.consume('secondary');
     const missile = intents.consume('missile');
     const mine = intents.consume('mine');
-    const over = dead || !!this.net.extracted || this.net.status === 'extracted';
+    const over = dead || !!this.net.extracted || this.net.status === 'extracted' || this.net.status === 'lost';
     // R is Warp in flight and Respawn on the death screen, which reads it itself.
     const warp = !over && intents.consume('warp');
     if (!over) {
@@ -313,6 +313,12 @@ export class FlightScene extends Phaser.Scene {
       if (this.deathScreen(w, h, true)) return;
     } else if (this.net.death || this.net.status === 'destroyed') {
       if (this.deathScreen(w, h)) return;
+    } else if (this.net.status === 'lost') {
+      // The ship was lost while the connection was down (or the server restarted): drop in again.
+      if (intents.consume('primary') || intents.consume('warp') || intents.drainTaps().length) {
+        this.scene.restart({ planet: this.planet });
+        return;
+      }
     } else if (this.net.status === 'closed' || this.net.status === 'full') {
       for (const _ of intents.drainTaps()) {
         this.scene.start('menu');
@@ -399,12 +405,37 @@ export class FlightScene extends Phaser.Scene {
     ship.update({ ...at, brightness: this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0 }, s, this.time.now, control);
     this.drawTurrets(id, s, at);
     if (s.dashCharge > 0) this.drawDashCharge(s, at, mine);
+    else if (mine && at.visible) this.drawNose(s, at);
     if (mine && s.shield <= .001 && at.visible) {
       const size=chassisStats(s.chassis,TUNE).radius/TUNE.ship.radius;
       const g=this.turretGfx, x=at.x, y=at.y-Math.max(42,clientTune.render.shipRingRadius*clientTune.render.shipScale*size+12)*at.scale, k=Math.max(.7,at.scale);
       g.lineStyle(5*k,0x081426,.95);g.beginPath();g.moveTo(x-6*k,y-5*k);g.lineTo(x+6*k,y-5*k);g.lineTo(x+5*k,y+3*k);g.lineTo(x,y+8*k);g.lineTo(x-5*k,y+3*k);g.closePath();g.strokePath();
       g.lineStyle(2*k,0xffa078,.9);g.beginPath();g.moveTo(x-6*k,y-5*k);g.lineTo(x-5*k,y+3*k);g.lineTo(x,y+8*k);g.lineTo(x+5*k,y+3*k);g.lineTo(x+6*k,y-5*k);g.strokePath();
       g.lineBetween(x+7*k,y-7*k,x-7*k,y+8*k);
+    }
+  }
+
+  /**
+   * Nose marker (owner, 15 November 2026): a small chevron just past your own ship's ring, where the
+   * guns point, for aiming and orientation. The direction is projected through the planet view.
+   */
+  private drawNose(s: ShipState, at: { x: number; y: number; scale: number; visible: boolean }): void {
+    const ahead = this.toScreen(s.x + Math.cos(s.heading) * 40, s.y + Math.sin(s.heading) * 40);
+    if (!ahead.visible) return;
+    const dir = Math.atan2(ahead.y - at.y, ahead.x - at.x);
+    const R = clientTune.render.shipRingRadius * clientTune.render.shipScale * at.scale * chassisStats(s.chassis, TUNE).radius / TUNE.ship.radius * 1.3 + 6;
+    const k = Math.max(0.8, at.scale);
+    const c = Math.cos(dir), n = Math.sin(dir);
+    const x = at.x + c * R, y = at.y + n * R;
+    const back = 7 * k, wide = 6 * k;
+    const g = this.turretGfx;
+    for (const [w, colour, alpha] of [[4 * k, 0x081426, 0.7], [2 * k, 0x9fefff, 0.9]] as const) {
+      g.lineStyle(w, colour, alpha);
+      g.beginPath();
+      g.moveTo(x - c * back - n * wide, y - n * back + c * wide);
+      g.lineTo(x, y);
+      g.lineTo(x - c * back + n * wide, y - n * back - c * wide);
+      g.strokePath();
     }
   }
 
@@ -1288,12 +1319,14 @@ export class FlightScene extends Phaser.Scene {
     const msg: Record<string, string> = {
       connecting: 'Connecting…',
       open: '',
+      reconnecting: `Connection lost. Reconnecting… ${n.resumeSecondsLeft}s`,
+      lost: `Your ship was lost while disconnected\n(${n.closeInfo ? closeReason(n.closeInfo.code, n.closeInfo.reason) : ''})\nTap or press R to drop in again`,
       full: 'Planet is full. Tap to go back',
-      closed: 'Disconnected. Tap to go back',
+      closed: `Disconnected${n.closeInfo ? ` (${closeReason(n.closeInfo.code, n.closeInfo.reason)})` : ''}\nTap to go back`,
       destroyed: '',
       extracted: '',
     };
-    if (!n.death && n.status !== 'destroyed' && !n.extracted && n.status !== 'extracted') this.message.setText(n.status === 'open' && !own ? 'Dropping in…' : msg[n.status]);
+    if (!n.death && n.status !== 'destroyed' && !n.extracted && n.status !== 'extracted') this.message.setAlign('center').setText(n.status === 'open' && !own ? 'Dropping in…' : msg[n.status]);
     if (DEBUG && own) {
       this.coords.setText(`x ${own.x.toFixed(0)}  y ${own.y.toFixed(0)}  pending ${n.pendingCount}  corr ${n.lastCorrection.toFixed(1)}`);
     }

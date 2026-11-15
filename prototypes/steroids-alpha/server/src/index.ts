@@ -163,7 +163,7 @@ export class PlanetRoom {
     // The planet this room serves (from /ws/<planet>): Planet A has bots, Planet B does not.
     const planet = PLANETS.find((p) => url.pathname === `/ws/${p.id}`);
     if (planet) this.room.setBots(planet.bots);
-    this.room.join(server, url.searchParams.get('name'));
+    this.room.join(server, url.searchParams.get('name'), url.searchParams.get('resume'));
     return new Response(null, { status: 101, webSocket: client } as ResponseInit);
   }
 }

@@ -265,9 +265,30 @@ function d1() {
   room.world.invulnerable = false;
   assert.ok(room.players.has(q.id), 'pilot stays alive for the presence check');
   assert.equal(room.bots.size, tune.bots.count, 'a respawn keeps them for as long as it stays');
-  // The respawned player closes the tab: bots go at once.
-  q.ws.close(1000);
-  assert.equal(room.bots.size, 0, 'a player leaving (not destroyed) takes the bots with them');
+  // The respawned player's connection drops: the ship (and the bots) stay for the reconnect grace.
+  const token = q.resume;
+  q.ws.close(1006);
+  room.step();
+  assert(room.players.has(q.id) && q.awayUntil > 0, 'a dropped pilot keeps the ship');
+  assert.equal(room.bots.size, tune.bots.count, 'bots stay while the pilot may come back');
+  // Back within the grace: same ship, same id, new socket, told its resume token again.
+  const back = new Sock();
+  room.join(back, 'Back', token);
+  room.stop();
+  assert.equal(q.ws, back, 'resumed onto the new socket');
+  assert.equal(q.awayUntil, -1, 'no longer away');
+  assert(back.sent.some((m) => typeof m === 'string' && JSON.parse(m).type === 'resume' && JSON.parse(m).token === token), 'resume token sent again');
+  // An unknown token (ship lost, or the server restarted) is refused with RESUME_LOST.
+  const stale = new Sock();
+  room.join(stale, 'Stale', 'not-a-token');
+  assert.equal(stale.closed, B.CLOSE.RESUME_LOST, 'unknown resume token: ship lost');
+  // Dropped and never back: the ship goes when the grace runs out, and the bots with it.
+  q.ws.close(1006);
+  room.world.invulnerable = true;
+  for (let i = 0; i < tune.net.reconnectGraceSeconds * tune.net.tickHz + 2 && room.players.size; i++) room.step();
+  room.world.invulnerable = false;
+  assert.equal(room.players.size, 0, 'the ship is lost after the grace');
+  assert.equal(room.bots.size, 0, 'and the bots leave with the last player');
   // Destroyed and never back: they go when the linger runs out.
   room.join(new Sock(), 'Gone');
   room.stop();
@@ -280,4 +301,4 @@ function d1() {
   room.stop();
 }
 
-console.log('Steroids-Alpha bank: codes, hashed accounts, idempotent capped credits, recovery, room auth, banking on extraction, unlock purchases, palettes from tints, ship choice, owned looks and lingering bots all pass.');
+console.log('Steroids-Alpha bank: codes, hashed accounts, idempotent capped credits, recovery, room auth, banking on extraction, unlock purchases, palettes from tints, ship choice, owned looks, lingering bots and reconnect grace all pass.');

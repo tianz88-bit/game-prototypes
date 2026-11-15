@@ -53,6 +53,8 @@ export const CLOSE = {
   DESTROYED: 4003,
   /** The ship completed its warp run and left the planet. */
   EXTRACTED: 4004,
+  /** A resume token the room no longer knows: the ship was lost while away (or the server restarted). */
+  RESUME_LOST: 4005,
 } as const;
 
 export interface SnapshotShip extends ShipState {

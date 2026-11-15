@@ -724,8 +724,12 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
     room.world.invulnerable = true; // the rest keep fighting while we wait; no other losses meanwhile
     for (let i = 0; i < bt.respawnSeconds * tune.net.tickHz + 5; i++) room.step();
     assert.equal(room.bots.size, bt.count, 'and is replaced after respawnSeconds');
+    // A dropped connection keeps the ship (and the bots) for the reconnect grace, then all go.
     sock.close();
-    assert.equal(ships(room), 0, 'bots leave with the last player');
+    room.step();
+    assert.equal(ships(room), 1 + bt.count, 'a dropped pilot keeps the ship during the grace period');
+    for (let i = 0; i < tune.net.reconnectGraceSeconds * tune.net.tickHz + 2 && room.players.size; i++) room.step();
+    assert.equal(ships(room), 0, 'bots leave with the last player once the grace runs out');
   }
 }
 
@@ -785,6 +789,30 @@ assert.equal(S.cleanName(null), '');
     const d = Math.hypot(a.x - tune.world.width / 2, a.y - tune.world.height / 2);
     assert(d >= tune.asteroid.spawnClearRadius, 'drop zone kept clear');
   }
+}
+
+// --- Ship bumps (owner, 15 November 2026): ships touching outside a dash bounce apart and both take
+// bumpDamage (shield first); the same pair cannot bump again for contactGraceSeconds. ---
+{
+  const w = emptyWorld();
+  const a = w.addShip(1);
+  const b = w.addShip(2);
+  Object.assign(a, { x: 1000, y: 1000, heading: 0, speed: 0, kx: 0, ky: 0 });
+  Object.assign(b, { x: 1020, y: 1000, heading: Math.PI, speed: 0, kx: 0, ky: 0 });
+  const shields = [a.shield, b.shield];
+  w.stepShip(1, idle);
+  w.stepShip(2, idle);
+  w.step();
+  assert(a.kx < 0 && b.kx > 0, 'bumped ships are pushed apart');
+  near(shields[0] - a.shield + (a.hullMax - a.hp), tune.ship.bumpDamage, 1e-9, 'each takes bumpDamage');
+  near(shields[1] - b.shield + (b.hullMax - b.hp), tune.ship.bumpDamage, 1e-9, 'both of them');
+  Object.assign(a, { x: 1000, y: 1000 });
+  Object.assign(b, { x: 1020, y: 1000 });
+  const after = [a.shield, b.shield];
+  w.stepShip(1, idle);
+  w.stepShip(2, idle);
+  w.step();
+  assert.deepEqual([a.shield, b.shield], after, 'no second bump within the grace');
 }
 
 // --- Wire format round trips. ---
