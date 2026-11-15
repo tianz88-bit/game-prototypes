@@ -104,6 +104,8 @@ export class FlightScene extends Phaser.Scene {
   private warpText!: Phaser.GameObjects.Text;
   /** Hot zone label: on the zone when in view, else on its edge tracker. */
   private hotZoneText!: Phaser.GameObjects.Text;
+  /** Edge markers for clan base landmarks (treasury, gate). */
+  private baseMarkerTexts: Phaser.GameObjects.Text[] = [];
   private lockedOnMe = false;
   /** Shown to a pilot with a missile locked on them in flight. */
   private lockText!: Phaser.GameObjects.Text;
@@ -185,6 +187,7 @@ export class FlightScene extends Phaser.Scene {
     this.boardTitle = text(this, 0, 0, 'KO · POWER', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
 
     this.hotZoneText = text(this, 0, 0, '', 11, '#7dffc4').setOrigin(0.5).setDepth(953).setVisible(false);
+    this.baseMarkerTexts = [0, 1].map(() => text(this, 0, 0, '', 10, '#ffffff').setOrigin(0.5).setDepth(953).setVisible(false));
     this.warpText = text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(953).setVisible(false);
     this.bountyText = text(this, 0, 0, '', 11, '#ffd23a').setOrigin(0.5).setDepth(953).setVisible(false);
     this.lockText = text(this, 0, 0, 'MISSILE LOCK', 13, '#ff5a3a').setOrigin(0.5).setDepth(953).setVisible(false);
@@ -613,6 +616,46 @@ export class FlightScene extends Phaser.Scene {
   }
 
   /**
+   * Clan base landmarks (owner, 15 November 2026): while off screen, an arrow on the screen edge with
+   * a label and distance. Members always see their treasury; visitors see the gate and the treasury.
+   */
+  private drawBaseMarkers(p: ShipState | null, w: number, h: number): void {
+    this.baseMarkerTexts.forEach((t) => t.setVisible(false));
+    const L = this.net.layout;
+    if (!p || !L || this.net.status !== 'open' || this.net.death || this.net.extracted) return;
+    const member = this.net.clan === L.clan;
+    const owner = clanName(L.clan).toUpperCase();
+    const marks = member
+      ? [{ at: L.treasury, label: 'TREASURY', colour: 0xffd27a }]
+      : [{ at: L.gate, label: 'GATE', colour: 0x8fe3ff }, { at: L.treasury, label: `${owner} TREASURY`, colour: 0xff8f73 }];
+    const g = this.overlay;
+    const touch = intents.touch;
+    marks.forEach((m, i) => {
+      const dx = wrapDelta(m.at.x, p.x, W), dy = wrapDelta(m.at.y, p.y, H);
+      const c0 = this.toScreen(m.at.x, m.at.y);
+      if (c0.visible && c0.x > 30 && c0.x < w - 30 && c0.y > 30 && c0.y < h - 30) return;
+      const a = Math.atan2(dy, dx), c = Math.cos(a), s = Math.sin(a);
+      // An outer ring of its own (the hot-zone and bounty arrows sit further in), kept clear of the
+      // touch buttons, the bottom HUD and the top bar.
+      let x = w / 2 + c * w * 0.45, y = h / 2 + s * h * 0.42;
+      if (touch && y > h * 0.4) x = Math.min(x, controlClearRight(w) - 30);
+      const hudTop = Math.abs(x - w / 2) < (touch ? 0 : 220) ? h - 160 : h - 40;
+      y = Math.max(touch ? 120 : 80, Math.min(hudTop, y));
+      const k = touch ? 0.7 : 1;
+      g.fillStyle(m.colour, 0.9);
+      g.fillTriangle(x + c * 12 * k, y + s * 12 * k, x - c * 5 * k - s * 8 * k, y - s * 5 * k + c * 8 * k, x - c * 5 * k + s * 8 * k, y - s * 5 * k - c * 8 * k);
+      const d = Math.hypot(dx, dy);
+      const t = this.baseMarkerTexts[i];
+      t.setVisible(true).setFontSize(touch ? 9 : 10).setText(`${m.label} ${d >= 1000 ? (d / 1000).toFixed(1) + 'k' : Math.round(d / 100) * 100}`);
+      const css = '#' + m.colour.toString(16).padStart(6, '0');
+      if (t.style.color !== css) t.setColor(css);
+      const tx = Math.max(t.width / 2 + 6, Math.min(w - t.width / 2 - 6, x - c * 22 * k));
+      const ty = Math.max(10, Math.min(h - 10, y - s * 22 * k + (Math.abs(s) < 0.5 ? 14 * k : 0)));
+      t.setPosition(tx, ty);
+    });
+  }
+
+  /**
    * Warp button, mobile header or desktop top centre (keyboard R). During lockdown it is offline with a
    * countdown; then WARP; while warping it fills with the distance covered and a tap cancels.
    */
@@ -907,6 +950,7 @@ export class FlightScene extends Phaser.Scene {
     this.drawBounty(p, w, h);
     this.drawWarp(p, w, h);
     this.drawHotZone(p, w, h);
+    this.drawBaseMarkers(p, w, h);
     this.drawBase(p, w, h);
     this.schemeLabel.setVisible(false);
     if (!intents.touch) {
