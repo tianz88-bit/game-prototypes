@@ -1,4 +1,5 @@
 import { CombatHud } from '../render/combatHud';
+import { mobileHeader } from '../render/mobileFlightUi';
 import { shipPreview } from '../render/shipPreview';
 import type { FFDControl } from '../render/shipTilt';
 import {configVersion} from '../liveConfig';
@@ -74,6 +75,9 @@ export class FlightScene extends Phaser.Scene {
   private board = new Map<number, BoardChip>();
   private boardTitle!: Phaser.GameObjects.Text;
   private combatHud!: CombatHud;
+  private mobilePanel: 'shop' | 'board' | null = null;
+  private mobileButtons: { action: 'shop' | 'board'; x: number; y: number; w: number }[] = [];
+  private mobileNavLabels: Phaser.GameObjects.Text[] = [];
   private evolvePreview!: Phaser.GameObjects.Container;
   /** Charge counts on the missile and mine buttons. */
   private weaponTexts: Phaser.GameObjects.Text[] = [];
@@ -107,6 +111,7 @@ export class FlightScene extends Phaser.Scene {
 
   create(): void {
     this.runStartedAt = Date.now();
+    this.mobilePanel = null;
     this.ships.clear();
     this.net = new NetClient(this.planet, loadSave().name ?? '');
     this.explosions = [];
@@ -126,6 +131,7 @@ export class FlightScene extends Phaser.Scene {
       intents.mineButton = null;
       intents.warpButton = null;
       intents.shopZones = [];
+      intents.uiZones = [];
     });
     intents.drainTaps();
   }
@@ -157,6 +163,7 @@ export class FlightScene extends Phaser.Scene {
     this.lockText = text(this, 0, 0, 'MISSILE LOCK', 13, '#ff5a3a').setOrigin(0.5).setDepth(953).setVisible(false);
     this.weaponTexts = [0, 1].map(() => text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(952).setVisible(false));
     this.combatHud = new CombatHud(this);
+    this.mobileNavLabels = [0,1].map(() => text(this,0,0,'',11).setOrigin(.5).setDepth(954).setVisible(false));
     this.evolvePreview = shipPreview(this,2,0,0,0,18,16).setDepth(952).setVisible(false);
     this.shopTexts = [...SHOP_ITEMS, 'evolve'].map(() => ({
       title: text(this, 0, 0, '', 12, '#ffffff').setOrigin(0, 0.5).setDepth(951).setVisible(false),
@@ -307,7 +314,10 @@ export class FlightScene extends Phaser.Scene {
         return;
       }
     } else {
-      intents.drainTaps();
+      for (const tap of intents.drainTaps()) {
+        const button = this.mobileButtons.find(b => Math.abs(tap.x-b.x)<=b.w/2 && Math.abs(tap.y-b.y)<=22);
+        if (button) this.mobilePanel = this.mobilePanel === button.action ? null : button.action;
+      }
     }
   }
 
@@ -498,6 +508,13 @@ export class FlightScene extends Phaser.Scene {
       if(q.visible&&i%8===0){ring.fillStyle(0x102e30,.95);ring.fillRect(q.x-4,q.y-4,8,8);ring.fillStyle(0xc1edb3,.9);ring.fillRect(q.x-2,q.y-2,4,4);}
       prev = q;
     }
+    if (intents.touch) {
+      if(inside){this.hotZoneText.setVisible(true).setText('ZONE ×'+TUNE.hotZone.salvageMultiplier).setPosition(w<600?190:248,78);return;}
+      if(centre.visible && centre.x>40 && centre.x<w-40 && centre.y>94 && centre.y<h-60)return;
+      const a=Math.atan2(dy,dx),c=Math.cos(a),s=Math.sin(a);
+      const x=w/2+c*w*.3,y=Math.max(100,Math.min(h-110,h/2+s*h*.25));
+      g.fillStyle(0x9edbaa,.8);g.fillTriangle(x+c*7,y+s*7,x-c*4-s*5,y-s*4+c*5,x-c*4+s*5,y-s*4-c*5);return;
+    }
     if (inside) {
       badge(w/2,h-124,label);
       return;
@@ -517,7 +534,7 @@ export class FlightScene extends Phaser.Scene {
   }
 
   /**
-   * Warp button, top centre (touch and mouse; keyboard R). During lockdown it is offline with a
+   * Warp button, mobile header or desktop top centre (keyboard R). During lockdown it is offline with a
    * countdown; then WARP; while warping it fills with the distance covered and a tap cancels.
    */
   private drawWarp(p: ShipState | null, w: number, h: number): void {
@@ -526,12 +543,11 @@ export class FlightScene extends Phaser.Scene {
     const alive = !!p && !this.net.death && !this.net.extracted && this.net.status === 'open';
     this.warpText.setVisible(alive);
     if (!p || !alive) return;
-    const bw = intents.touch ? 176 : 156;
+    const header = mobileHeader(w);
+    const bw = intents.touch ? header.warp.w : 156;
     const bh = intents.touch ? 36 : 28;
-    const x = w / 2;
-    // Below the shop: on phones the shop is a row across the top, so sit just under its lowest edge.
-    const shopBottom = Math.max(0, ...intents.shopZones.map((z) => z.zone.y + z.zone.hh));
-    const y = intents.touch ? Math.max(64, shopBottom + 10 + bh / 2) : 50;
+    const x = intents.touch ? header.warp.x : w / 2;
+    const y = intents.touch ? header.warp.y : 50;
     const locked = p.lockdown > 0;
     const accent = p.warping ? 0x7fe9ff : locked ? UI.uiBorder : UI.uiAccent;
     panel(g, x - bw / 2, y - bh / 2, bw, bh, accent, !locked);
@@ -548,8 +564,8 @@ export class FlightScene extends Phaser.Scene {
       : locked
         ? `WARP OFFLINE ${sec === 60 ? m + 1 : m}:${String(sec === 60 ? 0 : sec).padStart(2, '0')}`
         : `WARP${key}`;
-    this.warpText.setText(label).setPosition(x, y).setColor(locked && !p.warping ? '#8fa2c8' : '#ffffff');
-    if (!locked || p.warping) intents.warpButton = { x, y, hw: bw / 2, hh: bh / 2 };
+    this.warpText.setFontSize(intents.touch ? (header.tight ? 9 : 11) : 12).setText(intents.touch ? label.replace(" OFFLINE", "").replace("  CANCEL", " ×") : label).setPosition(x, y).setColor(locked && !p.warping ? '#8fa2c8' : '#ffffff');
+    if (!locked || p.warping) intents.warpButton = { x, y, hw: bw / 2, hh: intents.touch ? 22 : bh / 2 };
   }
 
   /** Locked missile crosshair: a red ring with four inward ticks, slowly turning and pulsing. */
@@ -583,6 +599,7 @@ export class FlightScene extends Phaser.Scene {
       const r=46 * at.scale * shipRadius(p.hullMax, TUNE, p.chassis) / TUNE.ship.radius;
       this.bountyRing(g,at.x,at.y,r,pulse);
       g.fillStyle(0xffd36d,1);this.drawStar(g,at.x,at.y-r-10,5);
+      if(intents.touch)return;
       this.bountyText.setVisible(true).setText('BOUNTY ON YOU').setPosition(w / 2, h * 0.3 + 32);
       this.bountyPlate(w,h);
       return;
@@ -668,7 +685,7 @@ export class FlightScene extends Phaser.Scene {
     const g = this.overlay;
     intents.missileButton = null;
     intents.mineButton = null;
-    const show = !!p && !this.net.death;
+    const show = !!p && !this.net.death && !this.net.extracted;
     this.weaponTexts.forEach((t) => t.setVisible(false));
     if (!p || !show) return;
     const touch = intents.touch;
@@ -728,7 +745,7 @@ export class FlightScene extends Phaser.Scene {
    */
   private drawShop(p: ShipState | null): void {
     const g = this.overlay;
-    const show = !!p && !this.net.death;
+    const show = !!p && !this.net.death && !this.net.extracted && (!intents.touch || this.mobilePanel === 'shop');
     this.evolvePreview.setVisible(false);
     for (const t of this.shopTexts) {
       t.title.setVisible(show);
@@ -737,24 +754,22 @@ export class FlightScene extends Phaser.Scene {
     intents.shopZones = [];
     if (!p || !show) return;
     const labels: Record<string, string> = { turret: 'TURRET', shield: 'SHIELD', damage: 'GUNS', missile: 'MISSILE', mine: 'MINES' };
-    const x = 10;
-    const mobile = intents.touch;
-    const available = logicalSize().w - Math.min(BOARD_CHIP_W, logicalSize().w * .34) - 30;
-    const cols = mobile ? Math.max(1, Math.min(6, Math.floor(available / 88))) : 1;
-    const bw = mobile ? Math.min(86, (available - (cols - 1) * 4) / cols) : 124;
-    const bh = mobile ? 34 : 30;
+    const mobile = intents.touch, drawer = mobileHeader(logicalSize().w).drawer;
+    const x = mobile ? drawer.x : 10, cols = mobile ? 3 : 1;
+    const bw = mobile ? (drawer.w-12)/3 : 124, bh = mobile ? 44 : 30;
+    if (mobile) intents.uiZones.push({x:x+drawer.w/2,y:drawer.y+47,hw:drawer.w/2,hh:47});
     SHOP_ITEMS.forEach((item, i) => {
-      const bx = x + (i % cols) * (bw + 4);
-      const y = (mobile ? 28 : 38) + Math.floor(i / cols) * (bh + 4);
+      const bx = x + (i % cols) * (bw + (mobile ? 6 : 4));
+      const y = (mobile ? drawer.y : 38) + Math.floor(i / cols) * (bh + (mobile ? 6 : 4));
       const offer = shopOffer(p, item, TUNE);
       const can = canBuy(p, item, TUNE);
       panel(g,bx,y,bw,bh,can?UI.uiAccent:UI.uiBorder,can);
       const key = intents.touch ? '' : `[${i + 1}] `;
       const t = this.shopTexts[i];
-      t.title.setFontSize(mobile ? 10 : 11).setPosition(bx + 5, y + 9).setText(`${key}${labels[item]} ${shopTier(p, item)}/4`).setColor(css(can?UI.uiText:0x91a5bb));
+      t.title.setFontSize(mobile ? 10 : 11).setPosition(bx + 5, y + (mobile ? 13 : 9)).setText(`${key}${labels[item]} ${shopTier(p, item)}/4`).setColor(css(can?UI.uiText:0x91a5bb));
       t.sub
         .setFontSize(mobile ? 9 : 9)
-        .setPosition(bx + 5, y + (mobile ? 24 : 22))
+        .setPosition(bx + 5, y + (mobile ? 31 : 22))
         .setText(offer ? `${offer.cost} MIN · ${offer.floor}PWR` : 'MAXED')
         .setColor(can ? '#c7f1dd' : '#a1afbf');
       intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
@@ -768,27 +783,49 @@ export class FlightScene extends Phaser.Scene {
       return;
     }
     const i = EVOLVE_ITEM;
-    const bx = x + (i % cols) * (bw + 4);
-    const y = (mobile ? 28 : 38) + Math.floor(i / cols) * (bh + 4);
+    const bx = x + (i % cols) * (bw + (mobile ? 6 : 4));
+    const y = (mobile ? drawer.y : 38) + Math.floor(i / cols) * (bh + (mobile ? 6 : 4));
     const b = TUNE.battlecruiser;
     const can = canEvolve(p, TUNE);
     const ups = upgradeTotal(p);
     panel(g, bx, y, bw, bh, can ? UI.uiGold : 0x80664b, can);
     this.evolvePreview.setPosition(bx+bw-15,y+10).setAlpha(can?1:.5).setVisible(true);
-    t.title.setFontSize(mobile ? 10 : 11).setPosition(bx + 5, y + 9).setText(`${intents.touch ? '' : '[6] '}EVOLVE`).setColor(can ? '#ffd23a' : css(0x91a5bb));
+    t.title.setFontSize(mobile ? 10 : 11).setPosition(bx + 5, y + (mobile ? 13 : 9)).setText(`${intents.touch ? '' : '[6] '}EVOLVE`).setColor(can ? '#ffd23a' : css(0x91a5bb));
     t.sub
       .setFontSize(9)
-      .setPosition(bx + 5, y + (mobile ? 24 : 22))
+      .setPosition(bx + 5, y + (mobile ? 31 : 22))
       .setText(can ? `${b.cost} MIN` : ups < b.minUpgrades ? `upgrades ${ups}/${b.minUpgrades}` : p.hullMax < b.powerFloor ? `NEED ${b.powerFloor} PWR` : `NEED ${b.cost} MIN`)
       .setColor(can ? '#ffe9a8' : '#b5a48f');
     intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
   }
 
+  /** Secondary mobile information stays behind a single shallow drawer. */
+  private drawMobileNav(p: ShipState | null,w:number):void {
+    this.mobileButtons=[];this.mobileNavLabels.forEach(t=>t.setVisible(false));
+    if(!intents.touch || !p || this.net.death || this.net.extracted)return;
+    const header=mobileHeader(w),ranked=[...this.net.roster.values()].sort((a,b)=>b.power-a.power||a.id-b.id);
+    const rank=ranked.findIndex(r=>r.id===this.net.myId)+1;
+    const offers=SHOP_ITEMS.filter(item=>canBuy(p,item,TUNE)).length+(canEvolve(p,TUNE)?1:0);
+    const entries = [
+      {action:'shop' as const,rect:header.shop,label:`${header.tight?'UPG':'UPGRADES'}${offers?' +'+offers:''}`},
+      {action:'board' as const,rect:header.board,label:`${header.tight?'':'RANK '}#${rank||'–'}`},
+    ];
+    entries.forEach(({action,rect,label},i)=>{
+      const open=this.mobilePanel===action;
+      panel(this.overlay,rect.x-rect.w/2,rect.y-18,rect.w,36,open?UI.uiAccent:UI.uiBorder,open);
+      this.mobileNavLabels[i].setVisible(true).setPosition(rect.x,rect.y).setFontSize(header.tight?10:11).setText(open?(header.tight?'×':'CLOSE ×'):label);
+      this.mobileButtons.push({action,x:rect.x,y:rect.y,w:rect.w});
+      intents.uiZones.push({x:rect.x,y:rect.y,hw:rect.w/2,hh:22});
+    });
+  }
+
   private drawTouch(w: number, h: number): void {
     const g = this.overlay;
     g.clear();
+    intents.uiZones = [];
     const p = this.net.predicted;
     this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now);
+    this.drawMobileNav(p,w);
     this.drawShop(p);
     this.drawWeapons(p, w, h);
     this.drawBounty(p, w, h);
@@ -809,7 +846,12 @@ export class FlightScene extends Phaser.Scene {
     const fr = clientTune.touch.fireButtonRadius;
     const fb = { x: w - m * 2 - r * 2 - fr, y: h - m - fr };
     intents.fireButton = { x: fb.x, y: fb.y, hw: fr * 1.2, hh: fr * 1.2 };
+    this.combatHud.heatWarning(fb.x,fb.y+fr*.65);
     controlFace(g,fb.x,fb.y,fr,UI.uiDanger,intents.fire);
+    if (p && p.heat > .6) {
+      g.lineStyle(3,p.overheated?0xff8565:0xf3ba71,.9);g.beginPath();
+      g.arc(fb.x,fb.y,fr-7,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,p.heat));g.strokePath();
+    }
     g.lineStyle(2,UI.uiDanger,.9);g.strokeCircle(fb.x,fb.y,fr*.22);
     for(let i=0;i<4;i++){const a=i*Math.PI/2;g.lineBetween(fb.x+Math.cos(a)*fr*.32,fb.y+Math.sin(a)*fr*.32,fb.x+Math.cos(a)*fr*.48,fb.y+Math.sin(a)*fr*.48);}
     // No steering toggle on phones (owner, 14 November 2026): the stick is always the direction marker.
@@ -855,7 +897,7 @@ export class FlightScene extends Phaser.Scene {
     const colour=tagColour!==undefined?css(tagColour):mine?'#9fefff':bot?'#a9bdcf':'#ffc9a8';
     if(tag.style.color!==colour)tag.setColor(colour);
     const below = (Math.max(clientTune.render.shipRingRadius * clientTune.render.shipScale * size, size > 2 ? 76 : 38) + 10) * at.scale;
-    tag.setStroke('#081426', 3).setPosition(at.x, at.y + below).setVisible(at.visible);
+    tag.setStroke('#081426', 3).setPosition(at.x, at.y + below).setVisible(at.visible && !(mine && intents.touch));
   }
 
   /**
@@ -864,10 +906,16 @@ export class FlightScene extends Phaser.Scene {
    * kill, and one that climbed gets a brief glow while it moves.
    */
   private drawBoard(w: number): void {
-    const rows = [...this.net.roster.values()].sort((a, b) => b.power - a.power || a.id - b.id).slice(0, 8);
+    if (intents.touch && (this.mobilePanel !== 'board' || this.net.death || this.net.extracted)) {
+      this.boardTitle.setVisible(false);for(const chip of this.board.values())chip.box.setVisible(false);return;
+    }
+    const ranked = [...this.net.roster.values()].sort((a,b)=>b.power-a.power||a.id-b.id);
+    const rows = ranked.slice(0,intents.touch?4:8);
+    const own = ranked.find(r=>r.id===this.net.myId);
+    if(intents.touch && own && !rows.includes(own))rows.push(own);
     const cw = Math.min(BOARD_CHIP_W, w * 0.34);
     const right = w - 10;
-    const top = intents.touch ? 12 : 30;
+    const top = intents.touch ? 62 : 30;
     const ch=intents.touch?17:BOARD_CHIP_H;
     const now = this.time.now;
     this.boardTitle.setPosition(right, top).setVisible(rows.length > 0);
@@ -878,8 +926,10 @@ export class FlightScene extends Phaser.Scene {
         this.board.delete(id);
       }
     }
-    rows.forEach((r, rank) => {
-      const target = top + 15 + ch / 2 + rank * (ch + (intents.touch?2:4));
+    if(intents.touch && rows.length)intents.uiZones.push({x:right-cw/2,y:top+15+rows.length*19/2,hw:cw/2,hh:15+rows.length*19/2});
+    rows.forEach((r, row) => {
+      const rank=ranked.indexOf(r);
+      const target = top + 15 + ch / 2 + row * (ch + (intents.touch?2:4));
       let chip = this.board.get(r.id);
       if (!chip) {
         const g = this.add.graphics();
@@ -896,7 +946,8 @@ export class FlightScene extends Phaser.Scene {
       if (rank < chip.rank) chip.climbedAt = now;
       chip.kills = r.kills;
       chip.rank = rank;
-      chip.y += (target - chip.y) * 0.18;
+      chip.box.setVisible(true);
+      chip.y += (target - chip.y) * (intents.touch ? 1 : .18);
       if (Math.abs(target - chip.y) < 0.3) chip.y = target;
 
       const mine = r.id === this.net.myId;
@@ -1221,7 +1272,7 @@ export class FlightScene extends Phaser.Scene {
     const planet = PLANETS.find((p) => p.id === this.planet)?.label ?? this.planet;
     const n = this.net;
     const ships = (own ? 1 : 0) + n.remoteCount;
-    this.status.setText(`${planet}  ·  ${ships} nearby  ·  SPEED ${Math.round(own?.speed ?? 0)}${DEBUG?`  ·  ${Math.round(n.rttMs)} ms`:n.rttMs>250?'  ·  POOR SIGNAL':''}`);
+    this.status.setVisible(!intents.touch).setText(`${planet}  ·  ${ships} nearby  ·  SPEED ${Math.round(own?.speed ?? 0)}${DEBUG?`  ·  ${Math.round(n.rttMs)} ms`:n.rttMs>250?'  ·  POOR SIGNAL':''}`);
     const msg: Record<string, string> = {
       connecting: 'Connecting…',
       open: '',

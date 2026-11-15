@@ -27,6 +27,8 @@ Change a seam = HANDOFF entry tagged `SEAM:` + message to the other agent. Never
 - `clientTune.render.*`: codex owns values; claude owns `tune.json` (gameplay feel). Values set by the owner are never changed without an owner request (CLAUDE.md).
 - `render.ffd*`: bounded live visual settings; `ffdEnabled=0` selects the original sprite rig. Old records gain the bundled FFD defaults through upgradeConfig. No collision, weapon-origin or movement changes.
 
+- `intents.uiZones`: transient non-combat canvas hit rectangles, consumed before the floating steering marker. FlightScene rebuilds them with its visible mobile header/drawer and clears them on shutdown; buy/action zones keep their existing intent paths.
+
 ## Workflow per push
 
 GitHub identity: use **tianz88-bit** for this repository. The owner explicitly forbids using the other account, **zitian-FF / Venomnom**, for these games. Verify `gh api user --jq .login` before a push, PR, merge or workflow dispatch; stop if it is not tianz88-bit. The itch publisher remains **daily-daily-games**; do not confuse the GitHub identity with the itch namespace.

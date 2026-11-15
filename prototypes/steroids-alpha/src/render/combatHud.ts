@@ -13,6 +13,7 @@ export class CombatHud {
   }
   draw(g:Phaser.GameObjects.Graphics,p:ShipState|null,w:number,h:number,touch:boolean,now:number):void{
     this.labels.forEach(t=>t.setVisible(false));if(!p)return;
+    if(touch){this.drawMobile(g,p,w);return;}
     const width=touch?Math.min(280,w*.37):312;
     const right=touch?Math.min(w/2+width/2,controlClearRight(w)):w/2+width/2;
     const x=right-width,y=h-88;
@@ -58,4 +59,31 @@ export class CombatHud {
     // Slow warning beat only; no full-screen pulse while the shield recovers.
     if(down){g.lineStyle(2,0xff9868,.45+.2*Math.sin(now/230));g.lineBetween(x+12,y+21,x+42,y+21);}
   }
+
+  /** Two vital rows in a small header; heat and dash feedback live on their action buttons. */
+  private drawMobile(g:Phaser.GameObjects.Graphics,p:ShipState,w:number):void{
+    const x=12,y=12,width=w<600?144:190,max=maxShield(p,TUNE);
+    panel(g,x,y,width,52,UI.uiBorder);
+    const label=(i:number,px:number,py:number,s:string,c:number,origin=0)=>{
+      const t=this.labels[i],colour=css(c);t.setVisible(true).setOrigin(origin,0).setPosition(px,py).setFontSize(10).setText(s);
+      if(t.style.color!==colour)t.setColor(colour);
+    };
+    const row=(py:number,f:number,c:number)=>{
+      g.fillStyle(0x060e20,1);g.fillRoundedRect(x+10,py,width-20,5,2);
+      const fill=(width-20)*Math.max(0,Math.min(1,f));
+      if(fill>0){g.fillStyle(c,1);g.fillRoundedRect(x+10,py,fill,5,Math.min(2,fill/2));}
+    };
+    const down=p.shield<=.001,critical=p.hp/Math.max(1,p.hullMax)<=.35;
+    label(0,x+10,y+5,down?'SHIELD DOWN':'SHIELD',down?0xff9270:0x9beaff);
+    label(1,x+width-10,y+5,down&&p.shieldCd>0?`${p.shieldCd.toFixed(1)}s`:`${Math.ceil(p.shield)}/${Math.ceil(max)}`,down?0xffba8c:0xe4f6ff,1);
+    row(y+20,p.shield/Math.max(1,max),0x55cded);
+    label(2,x+10,y+28,critical?'HULL !':'HULL',critical?0xff9270:0xffe2b0);
+    label(3,x+width-10,y+28,`${Math.round(p.hp)}/${Math.round(p.hullMax)}`,critical?0xff9270:0xffedc7,1);
+    row(y+43,p.hp/Math.max(1,p.hullMax),critical?0xf37562:0xf2bc6c);
+    label(6,x+2,y+58,`SALVAGE ${Math.floor(p.salvage)}`,0xe8c88b);
+    const heat=this.labels[4];heat.setVisible(p.overheated).setOrigin(.5);
+    if(p.overheated){heat.setFontSize(9).setText('HOT');if(heat.style.color!=='#ffb09a')heat.setColor('#ffb09a');}
+  }
+
+  heatWarning(x:number,y:number):void { this.labels[4].setPosition(x,y); }
 }

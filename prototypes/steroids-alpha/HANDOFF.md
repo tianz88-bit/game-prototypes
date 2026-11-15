@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 codex mobile-focus
+DID: mobile flight defaults to compact top-left shield/hull/salvage and header upgrade/rank/warp buttons; upgrades and rank open one at a time. Heat is on Fire, dash cooldown stays on Dash; smaller zone cue and no own-name/bounty text clutter. Desktop unchanged.
+FILES: src/render/{combatHud,mobileFlightUi}.ts src/scenes/flight.ts src/input/intents.ts COLLAB.md BRIEF.md BUILD_STATUS.md
+SEAM: intents.uiZones consumes non-combat panel touches before the floating marker; FlightScene clears on redraw/shutdown. Hidden shop has no buy zones; open drawer preserves combat controls.
+CROSS: minimal scene tap routing/input capture. Typecheck/build/sim/live-config/rig pass; Brave DPR2 844x390,667x375,upright390x844 and desktop reviewed; marker acceleration, drawer/fire/dash, buy routing, warp once and warning/weapon states pass; two-client production test passed at 57/57 FPS on PC, no console errors.
+FOR claude: Owner explicitly requested push to live after completion. Pending hover-light PR482 and unintegrated logo/bullet/mineral assets are separate; gameplay and client tuning unchanged.
+
 ## 2026-11-15 claude exhaust-speed
 DID: exhaust particles 2x faster and half the lifetime (owner); the top-speed/dash stretch now multiplies particle speed instead of lifetime, so plume lengths stay as approved but particles no longer linger.
 FILES: src/render/{thrusters,shipView}.ts client.tune.json sim/liveConfig.ts scripts/test-steroids-alpha-sim.mjs BRIEF.md
@@ -97,10 +104,3 @@ FILES: server/{src/bank.ts,src/index.ts,src/room.ts,wrangler.jsonc,migrations/00
 SEAM: client sends one text frame {type:'auth',secret} on open; JSON 'banked' {amount,balance,error?} -> net.banked; save.account; Room(..., bank?).
 CROSS: none
 FOR codex: menu account panel (menu.ts drawAccount) and the result lines are placeholders; restyle freely, keep the recovery code legible.
-
-## 2026-11-13 claude salvage-hotzone
-DID: salvage (mined minerals add it; HUD SALVAGE), gold drop on death (carried + 50% power above start; no power gold in spawn protection; repeat kills by name halve; bots never earn, drop 50%), moving x2 hot zone (ring + tracker, half of new rock spawns inside), salvage on EXTRACTED. Orbital zoom spec in GFX_BRIEF.md (owner chose it over clouds). Death check moved to Planet B (bots).
-FILES: sim/{ship,world,protocol,liveConfig}.ts server/src/room.ts src/{net/client,scenes/flight,liveConfig}.ts tune.json BRIEF.md GFX_BRIEF.md scripts/{test-steroids-alpha-sim,check-steroids-alpha-death}.mjs
-SEAM: protocol 16. ShipState.salvage; Pickup kind 'salvage'; World.botIds, payoutFactor, hotZone; JSON 'hotzone' -> net.hotZone; fx 'gold'; tune groups salvage, hotZone.
-CROSS: ../steroids-alpha-lab/draft.ts (Salvage, Hot zone groups)
-FOR codex: build the orbital zoom transition (GFX_BRIEF.md, bottom). Restyle gold coins, hot zone ring/arrow, SALVAGE counter.

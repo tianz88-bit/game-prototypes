@@ -1,13 +1,16 @@
 ## Current milestone
 
+Mobile focus pass (15 November, owner): compact top-left vitals/salvage, collapsible upgrade/rank drawers and small warp header. Secondary panels default closed; combat controls stay usable. Owner explicitly authorized publishing after verification. Typecheck/build/sim/live-config/rig, four-viewport DPR2 touch/layout checks and two-client production-bundle regression pass (57/57 FPS on this PC); deployment verification follows.
+
 Exhaust (15 November, owner): particles 2x faster, half the lifetime; top-speed and dash plume length now comes from speed instead of lingering particles (clientTune exhaustSpeedScale 2, exhaustLifeScale 0.5). Feel pass (15 November, owner): dash always boosts straight ahead (no direction picking); acceleration and braking doubled (440 / 600); bullets drawn 2x bigger (same hitbox); hit sparks 2x; exhaust plume 2x at top speed, 3x in a dash (new clientTune keys thrusterDashStretch, bulletScale, hitSparkScale); bots stay 60 s after the last pilot is destroyed (bots.lingerSeconds) and leave at once when players disconnect; death screen R respawns, Esc menu, keys shown on the buttons. Live settings republished after deploy. Human Nomad ships are integrated (Scrappy, Interceptor and in-run Battlecruiser evolution). Owner approved publication; PR #476 is merged and live (client run 43687328183). Brave verified the published HUD and live planet snapshots with no browser errors. PR #478 implements and verifies control-driven, per-part FFD on all three ships, with the original sprite rig as fallback. Owner approved publication; PR #478 merged as fd79c5e and client/Worker deployments passed (43689948315 / 43689948353). Brave verified live build 151126r0052: active per-part acceleration/yaw meshes, sprite-disable fallback, return to level, open planet connection and no browser errors.
 
 ## What was implemented
 
+- Mobile vitals/salvage in a 190x52 top-left header; upgrade availability and rank as compact header buttons. Upgrades and rank default closed. Heat warning/progress moves onto Fire; Dash retains its cooldown arc. Mobile zone/bounty/self-name/telemetry clutter reduced; urgent missile warning retained.
 - Per-part WebGL FFD for acceleration/braking/yaw: approved lab relief and projection, -13/+17 pitch, inverted +/-22 yaw bank, eased return to the exact sprite pose. Heading changes without a control cue stay level.
 - Original sprite rig for Canvas, the live disable switch, failed mesh allocation, distant ships and sustained slow frames; healthy pacing restores FFD. No texture baking or per-frame GPU allocation. Tilted engine nozzles keep exhaust attached.
 
-- Compact instrument cluster: labelled shield and hull bars with values, segmented fills, critical hull colour, shield-down/reboot countdown, labelled heat lock and dash charge/cooldown/ready states. Salvage is a separate gold balance above the cluster.
+- Desktop instrument cluster: labelled shield and hull bars with values, segmented fills, critical hull colour, shield-down/reboot countdown, labelled heat lock and dash charge/cooldown/ready states. Salvage is a separate gold balance above the cluster.
 - Navy panel edges, cream highlights and coloured insets shared by the menu, Hangar, leaderboard, upgrade cards, end-of-run panels and touch controls.
 - Hangar ship cards and four palette cards composite the actual rig parts. The menu shows the selected fighter and palette; Battlecruiser remains an in-run evolution, with a thumbnail and explicit requirements on its EVOLVE card.
 - Capital names sit below the larger silhouette and have a dark outline. Shield breaks emit blue/cream cells and the own ship shows a broken-shield cue while down.
@@ -20,7 +23,7 @@ Exhaust (15 November, owner): particles 2x faster, half the lifetime; top-speed 
 - Bounded render.ffd* settings upgrade older published records automatically. Own intent gates FFD; remote ships explicitly use filtered observed acceleration/yaw. Gameplay/wire fields are unchanged.
 - Canvas-only UI; no new DOM overlay, raster asset, dependency, protocol or gameplay tuning changes.
 - Layout reads logicalSize(), including the landscape canvas quarter-turn on upright touch phones. No orientation blocker.
-- Fire, dash, missile, mine and shop input rectangles retain their existing locations. The meter cluster and lower badges fit to the left of the fire button's enlarged hit area.
+- Fire, dash, missile and mine retain their existing mobile hit locations. The mobile shop now has a 3-by-2 drawer with 44px cards, matched buy rectangles and no hidden buy targets when closed. Header/drawer touches are consumed before steering; only one secondary drawer opens at a time.
 - Previews reuse the calibrated profile, fixed layer order and 3% per-layer shading. They create no world shadows, particles or gameplay objects.
 - HUD text objects are reused; colour changes are conditional to avoid unnecessary text texture uploads. Scenes destroy their display objects when rebuilt or left.
 - Verification: typecheck, production build, 396-pose rig parity, sim and live-config tests pass. Brave desktop 1280x720 and mobile 844x390/667x375 at DPR2 plus upright 390x844 reviewed, including low hull, shield reboot, overheat, weapon charges, evolution-ready and capital states.
@@ -44,4 +47,4 @@ Exhaust (15 November, owner): particles 2x faster, half the lifetime; top-speed 
 
 ## Next proposed step
 
-Owner reviews the UI on mobile, especially meter readability while steering and firing. Continue the separate art tasks: per-chassis calibration, orbital entry/exit and salvage/world polish. Playtest the control tilts on real phones. Keep gameplay tuning with Claude and the owner.
+Owner playtests the simplified live mobile flight UI, especially opening upgrades while steering and firing. Continue the separate art tasks: per-chassis calibration, orbital entry/exit and salvage/world polish. Playtest the control tilts on real phones. Keep gameplay tuning with Claude and the owner.
