@@ -1,0 +1,154 @@
+{
+  "source": "Existing owner-reviewed portal title and combat-sprites-v01. Owner requested full integration/live publication 15 November 2026. Original transparent PNGs preserved in R2; runtime copies downsampled without source cropping.",
+  "r2Object": "steroids-alpha_combat-title-v1_assets.zip",
+  "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_combat-title-v1_assets.zip",
+  "zipSha256": "33f68604997a3698fb7d98dcd61d98f6f7d14fb9be491f1d635e1e03f8bc9096",
+  "assets": [
+    {
+      "name": "energy-bolt-standard",
+      "source": "assets/energy-bolt-standard.png",
+      "sourceSize": [
+        2172,
+        724
+      ],
+      "trimFrame": {
+        "x": 285,
+        "y": 164,
+        "w": 1668,
+        "h": 410
+      },
+      "deliveryPath": "loose/energy-bolt-standard.png",
+      "sha256": "c68a93592a59e07a0b1a8b6e0dbda8937b9dd804552becb285f3b79d7aa500f1",
+      "runtimeMax": 192
+    },
+    {
+      "name": "energy-pulse-heavy",
+      "source": "assets/energy-pulse-heavy.png",
+      "sourceSize": [
+        1983,
+        793
+      ],
+      "trimFrame": {
+        "x": 224,
+        "y": 65,
+        "w": 1544,
+        "h": 644
+      },
+      "deliveryPath": "loose/energy-pulse-heavy.png",
+      "sha256": "f124063fc1a5187fac149685b24ed53e4eb961206e8e5fcb5b8effd87a89e522",
+      "runtimeMax": 192
+    },
+    {
+      "name": "energy-bolt-drone",
+      "source": "assets/energy-bolt-drone.png",
+      "sourceSize": [
+        1774,
+        887
+      ],
+      "trimFrame": {
+        "x": 449,
+        "y": 248,
+        "w": 822,
+        "h": 380
+      },
+      "deliveryPath": "loose/energy-bolt-drone.png",
+      "sha256": "f7bda6cfde0f3e7ae15c53d6580db65e7fc2a71a7a2f79493eb81f8d2cc722ef",
+      "runtimeMax": 192
+    },
+    {
+      "name": "mineral-shard",
+      "source": "assets/mineral-shard.png",
+      "sourceSize": [
+        1261,
+        1247
+      ],
+      "trimFrame": {
+        "x": 267,
+        "y": 224,
+        "w": 724,
+        "h": 710
+      },
+      "deliveryPath": "loose/mineral-shard.png",
+      "sha256": "637da087bf10a7e0e6684f469619bbdb3ce883e22da6c5273f69551a301e5394",
+      "runtimeMax": 192
+    },
+    {
+      "name": "mineral-cluster",
+      "source": "assets/mineral-cluster.png",
+      "sourceSize": [
+        1341,
+        1173
+      ],
+      "trimFrame": {
+        "x": 155,
+        "y": 122,
+        "w": 1022,
+        "h": 961
+      },
+      "deliveryPath": "loose/mineral-cluster.png",
+      "sha256": "e1cacbdbaba9a57c7bd59b4f3ddcb2bf1c8ced868085b235eaa2ecc291177df0",
+      "runtimeMax": 192
+    },
+    {
+      "name": "mineral-nugget",
+      "source": "assets/mineral-nugget.png",
+      "sourceSize": [
+        1312,
+        1199
+      ],
+      "trimFrame": {
+        "x": 212,
+        "y": 182,
+        "w": 867,
+        "h": 825
+      },
+      "deliveryPath": "loose/mineral-nugget.png",
+      "sha256": "1203c162bfe4e4da894a90fc63f258c59e7431856bb6f8b944c1ec47b153bd90",
+      "runtimeMax": 192
+    },
+    {
+      "name": "salvage-coin-face",
+      "source": "assets/salvage-coin-face.png",
+      "sourceSize": [
+        1312,
+        1199
+      ],
+      "trimFrame": {
+        "x": 133,
+        "y": 107,
+        "w": 1038,
+        "h": 961
+      },
+      "deliveryPath": "loose/salvage-coin-face.png",
+      "sha256": "19e9f54e03a1fff3aa7b8fe9c2b3e8dae9d030d717dcd3a26076fbb5ff8ec1d7",
+      "runtimeMax": 192
+    },
+    {
+      "name": "salvage-coin-tilted",
+      "source": "assets/salvage-coin-tilted.png",
+      "sourceSize": [
+        1536,
+        1024
+      ],
+      "trimFrame": {
+        "x": 592,
+        "y": 207,
+        "w": 351,
+        "h": 610
+      },
+      "deliveryPath": "loose/salvage-coin-tilted.png",
+      "sha256": "6315b5dc02573dcdbacf30d8540ab462ffc77bee8b9a6b55421e025748603513",
+      "runtimeMax": 192
+    },
+    {
+      "name": "title-portals",
+      "deliveryPath": "loose/title-portals.png",
+      "sourceSize": [
+        2172,
+        724
+      ],
+      "sha256": "cac0dc276b2139b20d174d86b121242647689905462552aa7d36724937314dc3",
+      "runtimeMax": 1024
+    }
+  ]
+}

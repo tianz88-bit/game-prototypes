@@ -5,6 +5,9 @@ import {createPublisher,WORKFLOW} from './steroids-lab-server.mjs';
 const result=await build({stdin:{contents:`export * from './prototypes/steroids-alpha/sim/liveConfig.ts';export * from './prototypes/steroids-alpha/server/src/configStore.ts';export * from './prototypes/steroids-alpha/server/src/configAuth.ts';export * from './prototypes/steroids-alpha/server/src/room.ts';export * from './prototypes/steroids-alpha/sim/protocol.ts';export * from './prototypes/steroids-alpha-lab/preview.ts';export * from './prototypes/steroids-alpha/server/src/adminAuth.ts';export * from './prototypes/steroids-alpha/server/src/admin.ts';export {default as worker} from './prototypes/steroids-alpha/server/src/index.ts';export {currentData,importSettings,baseVersion} from './prototypes/steroids-alpha-lab/draft.ts';`,resolveDir:process.cwd(),loader:'ts'},bundle:true,platform:'node',format:'esm',write:false});
 const S=await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));
 const base=S.defaultConfig();assert.deepEqual(S.validateConfig(base),base);
+const preHover=structuredClone(base);for(const key of Object.keys(preHover.clientTune.render))if(key.startsWith('hoverLight'))delete preHover.clientTune.render[key];
+assert.deepEqual(S.validateConfig(preHover).clientTune.render,base.clientTune.render);
+for(const [key,value]of [['hoverLightOpacity',1.1],['hoverLightWidth',0],['hoverLightY',201]]){const d=structuredClone(base);d.clientTune.render[key]=value;assert.throws(()=>S.validateConfig(d));}
 // Old published settings inherit the new visual defaults; FFD remains bounded and switchable.
 const preFFD=structuredClone(base);for(const key of Object.keys(preFFD.clientTune.render))if(key.startsWith('ffd'))delete preFFD.clientTune.render[key];
 assert.deepEqual(S.validateConfig(preFFD).clientTune.render,base.clientTune.render);

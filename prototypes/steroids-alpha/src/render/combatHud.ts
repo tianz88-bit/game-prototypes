@@ -3,7 +3,7 @@ import type { ShipState } from '../../sim/ship';
 import { maxShield } from '../../sim/ship';
 import { TUNE } from '../../sim/tune';
 import { text } from '../scenes/common';
-import { panel, css, UI, controlClearRight } from './ui';
+import { panel, css, UI } from './ui';
 
 /** One bounded instrument cluster. Touch targets stay outside it. */
 export class CombatHud {
@@ -13,11 +13,10 @@ export class CombatHud {
   }
   draw(g:Phaser.GameObjects.Graphics,p:ShipState|null,w:number,h:number,touch:boolean,now:number):void{
     this.labels.forEach(t=>t.setVisible(false));if(!p)return;
-    if(touch){this.drawMobile(g,p,w);return;}
-    const width=touch?Math.min(280,w*.37):312;
-    const right=touch?Math.min(w/2+width/2,controlClearRight(w)):w/2+width/2;
-    const x=right-width,y=h-88;
-    panel(g,x,y,width,80,UI.uiBorder);
+    const width=touch?Math.min(240,w*.4):312;
+    const right=touch?12+width:w/2+width/2;
+    const x=right-width,y=touch?12:h-88;
+    panel(g,x,y,width,touch?64:80,UI.uiBorder);
     const label=(i:number,px:number,py:number,s:string,c:number=UI.uiText,size=11,origin=0)=>{
       const t=this.labels[i],colour=css(c);
       t.setVisible(true).setPosition(px,py).setOrigin(origin,0).setFontSize(size).setText(s);
@@ -42,6 +41,7 @@ export class CombatHud {
     label(2,x+12,y+34,critical?'HULL !':p.hullMax>=TUNE.ship.powerCap?'HULL MAX':'HULL',critical?0xff9270:0xffe2b0,10);
     label(3,right-12,y+34,`${Math.round(p.hp)} / ${Math.round(p.hullMax)}`,critical?0xff9270:0xffedc7,10,1);
     row(y+49,hull,critical?0xf37562:0xf2bc6c);
+    if(!touch){
     const half=(width-30)/2;
     const chip=(cx:number,f:number,c:number)=>{g.fillStyle(0x081426,1);g.fillRoundedRect(cx,y+63,half,12,3);const fill=half*Math.max(0,Math.min(1,f));if(fill>0){g.fillStyle(c,.25);g.fillRoundedRect(cx,y+63,fill,12,Math.min(3,fill/2));}};
     chip(x+12,p.heat,p.overheated?0xff6c59:0xffae5e);
@@ -51,38 +51,17 @@ export class CombatHud {
     chip(x+18+half,dash,0x87d6cf);
     label(4,x+16,y+62,p.overheated?'HEAT · LOCKED':`HEAT ${Math.round(p.heat*100)}%`,p.overheated?0xff9b81:0xffd7a7,9);
     label(5,x+22+half,y+62,charging?'DASH · CHARGING':p.dashTime>0?'DASH · ACTIVE':ready?'DASH · READY':`DASH ${Math.max(0,p.dashCd).toFixed(1)}s`,0xb0e8e3,9);
-    const sy=y-23;
+    }else{
+      const heat=this.labels[4];heat.setVisible(p.overheated).setOrigin(.5);
+      if(p.overheated){heat.setFontSize(9).setText('HOT');if(heat.style.color!=='#ffb09a')heat.setColor('#ffb09a');}
+    }
+    const sy=touch?y+70:y-23;
     panel(g,right-132,sy,132,19,UI.uiGold);
     // A faceted salvage coin, repeated on pickups and the carried balance.
     g.fillStyle(0xe3a248,1);g.fillPoints([{x:right-119,y:sy+4},{x:right-114,y:sy+4},{x:right-111,y:sy+9},{x:right-114,y:sy+14},{x:right-119,y:sy+14},{x:right-122,y:sy+9}],true);
     label(6,right-9,sy+3,`SALVAGE ${Math.floor(p.salvage)}`,0xffdd95,10,1);
     // Slow warning beat only; no full-screen pulse while the shield recovers.
     if(down){g.lineStyle(2,0xff9868,.45+.2*Math.sin(now/230));g.lineBetween(x+12,y+21,x+42,y+21);}
-  }
-
-  /** Two vital rows in a small header; heat and dash feedback live on their action buttons. */
-  private drawMobile(g:Phaser.GameObjects.Graphics,p:ShipState,w:number):void{
-    const x=12,y=12,width=w<600?144:190,max=maxShield(p,TUNE);
-    panel(g,x,y,width,52,UI.uiBorder);
-    const label=(i:number,px:number,py:number,s:string,c:number,origin=0)=>{
-      const t=this.labels[i],colour=css(c);t.setVisible(true).setOrigin(origin,0).setPosition(px,py).setFontSize(10).setText(s);
-      if(t.style.color!==colour)t.setColor(colour);
-    };
-    const row=(py:number,f:number,c:number)=>{
-      g.fillStyle(0x060e20,1);g.fillRoundedRect(x+10,py,width-20,5,2);
-      const fill=(width-20)*Math.max(0,Math.min(1,f));
-      if(fill>0){g.fillStyle(c,1);g.fillRoundedRect(x+10,py,fill,5,Math.min(2,fill/2));}
-    };
-    const down=p.shield<=.001,critical=p.hp/Math.max(1,p.hullMax)<=.35;
-    label(0,x+10,y+5,down?'SHIELD DOWN':'SHIELD',down?0xff9270:0x9beaff);
-    label(1,x+width-10,y+5,down&&p.shieldCd>0?`${p.shieldCd.toFixed(1)}s`:`${Math.ceil(p.shield)}/${Math.ceil(max)}`,down?0xffba8c:0xe4f6ff,1);
-    row(y+20,p.shield/Math.max(1,max),0x55cded);
-    label(2,x+10,y+28,critical?'HULL !':'HULL',critical?0xff9270:0xffe2b0);
-    label(3,x+width-10,y+28,`${Math.round(p.hp)}/${Math.round(p.hullMax)}`,critical?0xff9270:0xffedc7,1);
-    row(y+43,p.hp/Math.max(1,p.hullMax),critical?0xf37562:0xf2bc6c);
-    label(6,x+2,y+58,`SALVAGE ${Math.floor(p.salvage)}`,0xe8c88b);
-    const heat=this.labels[4];heat.setVisible(p.overheated).setOrigin(.5);
-    if(p.overheated){heat.setFontSize(9).setText('HOT');if(heat.style.color!=='#ffb09a')heat.setColor('#ffb09a');}
   }
 
   heatWarning(x:number,y:number):void { this.labels[4].setPosition(x,y); }

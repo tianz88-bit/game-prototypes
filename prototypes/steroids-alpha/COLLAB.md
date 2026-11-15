@@ -29,6 +29,9 @@ Change a seam = HANDOFF entry tagged `SEAM:` + message to the other agent. Never
 
 - `intents.uiZones`: transient non-combat canvas hit rectangles, consumed before the floating steering marker. FlightScene rebuilds them with its visible mobile header/drawer and clears them on shutdown; buy/action zones keep their existing intent paths.
 
+- `queueCombatArt/prepareCombatArt` loads the hash-verified R2 title/combat pack in Boot. `CombatSprites` reuses images per FlightScene and clears them on shutdown/rebuild; missing art keeps procedural fallbacks. `drawDrone(..., palette=0)` reads the ship palette without changing mounts/aim.
+- `render.hoverLight*` controls a cached ground-only pool below each ship, separate from its sun shadow. Older live records receive the bundled defaults.
+
 ## Workflow per push
 
 GitHub identity: use **tianz88-bit** for this repository. The owner explicitly forbids using the other account, **zitian-FF / Venomnom**, for these games. Verify `gh api user --jq .login` before a push, PR, merge or workflow dispatch; stop if it is not tianz88-bit. The itch publisher remains **daily-daily-games**; do not confuse the GitHub identity with the itch namespace.

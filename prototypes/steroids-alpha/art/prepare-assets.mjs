@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AdmZip from 'adm-zip';
+import sharp from 'sharp';
 import buildTerrain from './terrain-v09/build-terrain.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -84,6 +85,18 @@ async function fetchVerified(m) {
 export default async function prepare({ assetsSrcDir }) {
   await stageExtraShips(assetsSrcDir);
   await stageAsteroids(assetsSrcDir);
+  // Preserve original PNGs in the delivery ZIP; only runtime copies are resolution-bounded.
+  const combat = JSON.parse(readFileSync(path.join(here,'combat-title-v1','assets.json'),'utf8'));
+  const combatZip = new AdmZip(await fetchVerified(combat));
+  for (const a of combat.assets) {
+    const entry = combatZip.getEntry(a.deliveryPath);
+    if (!entry) throw new Error(`prepare-assets: missing ${a.deliveryPath}`);
+    const source = entry.getData();
+    if (createHash('sha256').update(source).digest('hex') !== a.sha256) throw new Error(`prepare-assets: ${a.name} hash mismatch`);
+    await sharp(source).resize({width:a.runtimeMax,height:a.runtimeMax,fit:'inside',withoutEnlargement:true}).png()
+      .toFile(path.join(assetsSrcDir,'loose',`combat-${a.name}.png`));
+  }
+  console.log(`prepare-assets: combat/title: ${combat.assets.length} sources verified and runtime copies staged`);
   for (const ship of SHIPS) {
     const { assets } = JSON.parse(readFileSync(ship.list, 'utf8'));
     for (const a of assets) {

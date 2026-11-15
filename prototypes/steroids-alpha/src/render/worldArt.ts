@@ -1,3 +1,4 @@
+import { PALETTES } from './palette';
 import type Phaser from 'phaser';
 import type { OrdnanceView } from '../../sim/protocol';
 
@@ -64,18 +65,18 @@ export function drawBullet(g:Phaser.GameObjects.Graphics,head:{x:number;y:number
   }
 }
 
-/** A weapon drone hovers over a detached hard shadow; its gun axis and muzzle stay at the original mount. */
-export function drawDrone(g:Phaser.GameObjects.Graphics,x:number,y:number,k:number,a:number,now:number,seed:number,light:number,firing:boolean):void {
+/** A palette-matched weapon drone floats without a ground light or shadow; its gun axis and muzzle stay at the original mount. */
+export function drawDrone(g:Phaser.GameObjects.Graphics,x:number,y:number,k:number,a:number,now:number,seed:number,light:number,firing:boolean,palette=0):void {
+  const colours=PALETTES[palette]??PALETTES[0],primary=parseInt(colours.primary.slice(1),16),accent=parseInt(colours.accent.slice(1),16),glow=parseInt(colours.glow.slice(1),16);
   const r=5.5*k,c=Math.cos(a),s=Math.sin(a),bob=Math.sin(now/210+seed)*k;
   const p=(u:number,v:number)=>({x:x+(c*u-s*v)*k,y:y+(s*u+c*v)*k});
-  g.fillStyle(0x07121d,.45);g.fillEllipse(x+2*k,y+8*k,22*k,8*k);
-  const aft=p(-8,0);g.fillStyle(0x6ce1ff,.65);g.fillEllipse(aft.x,aft.y+2*k,5*k,9*k+bob);
+  const aft=p(-8,0);g.fillStyle(glow,.65);g.fillEllipse(aft.x,aft.y+2*k,5*k,9*k+bob);
   const hull=[p(6,0),p(2,-5),p(-5,-4),p(-8,0),p(-5,4),p(2,5)];
-  g.fillStyle(tint(0xd6c6a6,light),1);g.fillPoints(hull,true);g.lineStyle(Math.max(1,k*1.5),0x253c50,1);g.strokePoints(hull,true);
-  for(const side of [-1,1]){const q=p(-2,side*(7+bob/Math.max(.01,k)));g.fillStyle(tint(0xe3914e,light),1);g.fillEllipse(q.x,q.y,8*k,4*k);g.fillStyle(0xc2f8ff,.9);g.fillCircle(q.x,q.y,1.3*k);}
+  g.fillStyle(tint(primary,light),1);g.fillPoints(hull,true);g.lineStyle(Math.max(1,k*1.5),0x253c50,1);g.strokePoints(hull,true);
+  for(const side of [-1,1]){const q=p(-2,side*(7+bob/Math.max(.01,k)));g.fillStyle(tint(accent,light),1);g.fillEllipse(q.x,q.y,8*k,4*k);g.fillStyle(glow,.9);g.fillCircle(q.x,q.y,1.3*k);}
   g.lineStyle(Math.max(3,5*k),0x1a2638,1);g.lineBetween(x,y,x+c*r*2,y+s*r*2);
   g.lineStyle(Math.max(1,2*k),tint(0xdce8e1,light),1);g.lineBetween(x,y,x+c*r*2,y+s*r*2);
-  g.fillStyle(0x235c75,1);g.fillCircle(x,y,3*k);g.fillStyle(0xb6faff,.95);g.fillCircle(x+c*k,y+s*k,1.6*k);
+  g.fillStyle(0x235c75,1);g.fillCircle(x,y,3*k);g.fillStyle(glow,.95);g.fillCircle(x+c*k,y+s*k,1.6*k);
   if(firing){const q=p(14,0),l=p(10,-3),rr=p(10,3);g.fillStyle(0xf8ffd9,1);g.fillTriangle(q.x,q.y,l.x,l.y,rr.x,rr.y);}
 }
 
