@@ -1,6 +1,6 @@
 ## Current milestone
 
-Owner approved all four art backlog groups for live after the screenshot review. Source pack uploaded to R2 and fetched back with matching hash; publication and live verification are in progress. The release integrates main3a38092, preserving PR498 smaller shadows/round glow/docked landing and PR499 gun convergence/idle exhaust/engines-off. Review evidence: outputs/steroids-alpha/backlog-review/index.html.
+Owner approved all four art backlog groups for live after the screenshot review. Source pack uploaded to R2 and fetched back with matching hash; PR500 merged398b045; itch run43733278666 uploaded successfully. Public Brave build151126r0067 verified all12textures, painted ordnance/repair sprites, mobile/upright drawer/fire/dash, both clan skins and open planet connections with zero browser errors. Worker health is protocol19 and healthy. The release integrates main3a38092, preserving PR498 smaller shadows/round glow/docked landing and PR499 gun convergence/idle exhaust/engines-off. Review evidence: outputs/steroids-alpha/backlog-review/index.html.
 
 ## What was implemented
 
@@ -28,4 +28,4 @@ Owner approved all four art backlog groups for live after the screenshot review.
 
 ## Next proposed step
 
-Complete the approved publication, verify the public build and report the PR/deployment/build to Claude in Agent Comms thread07e15987. Orbital zoom and per-chassis hosted calibration remain separate tasks.
+Owner playtests the approved art on real phones. Publication is complete and verified; Claude receives the PR/run/build evidence in thread07e15987. Orbital zoom and per-chassis hosted calibration remain separate tasks.
