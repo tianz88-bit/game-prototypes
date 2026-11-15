@@ -327,7 +327,7 @@ function d1() {
   const frames = (s) => s.sent.filter((v) => typeof v === 'string').map((v) => JSON.parse(v));
   assert(frames(ms).some((f) => f.type === 'treasury' && f.total === 100), 'joiners hear the treasury');
   // Dock the member on a pad with salvage aboard.
-  Object.assign(m.ship, { x: L.pads[0].x, y: L.pads[0].y, speed: 0, salvage: 42 });
+  Object.assign(m.ship, { x: L.pads[0].x, y: L.pads[0].y, speed: 0, fuel: 42 });
   m.started = true;
   room.step();
   assert.equal(room.treasury, 142, 'docking unloads salvage into the treasury');

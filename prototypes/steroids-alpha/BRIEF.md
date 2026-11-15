@@ -122,8 +122,13 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
   never stop anywhere else). A docked ship:
   - is safe (takes no damage);
   - is repaired (hull and shield);
-  - unloads its carried salvage into the clan treasury.
+  - unloads its carried fuel into the clan treasury.
   Docking to bank your own credits at home is "maybe later" (owner).
+- **No salvage on home planets (owner, 15 November):** minerals mined on a clan home planet give
+  members **Fuel** (a clan resource, working name) instead of salvage, so safe home planets cannot
+  be farmed for credits. Fuel fills the same 400 hold, the hot zone doubles it, it is lost on death,
+  and docking unloads it into the treasury. Fuel is what will pay building upkeep once upkeep
+  exists. Non-members mine neither and do not see the hot zone. No gold drops on home planets.
   A docked ship comes down onto its pad: it shrinks to its shadow's size and sits on it, and its
   hover glow fades and its engines (exhaust) switch off (owner, 15 November).
 - **Anyone can enter a clan planet.** Non-members:
@@ -260,7 +265,8 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
   and boost (owner, 12 November). Cooldown 8 s,
   shown by a yellow bar next to the gun heat bar. Dash ram damage hits shields
   first, like any damage. Exhaust plume: 2x longer at top speed than
-  before and 3x in a dash (owner, 15 November). Exhaust particles fly 2x
+  before and 3x in a dash (owner, 15 November). "Top speed" is each ship's
+  own top speed (power and chassis lower it), not the fixed 350 (owner, 15 November). Exhaust particles fly 2x
   faster and live half as long; the longer plume comes from particle speed,
   not lifetime (owner, 15 November; clientTune exhaustSpeedScale and
   exhaustLifeScale).
