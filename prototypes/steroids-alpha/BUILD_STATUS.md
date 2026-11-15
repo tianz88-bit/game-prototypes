@@ -1,6 +1,6 @@
 ## Current milestone
 
-Human Nomad ships are integrated (Scrappy, Interceptor and in-run Battlecruiser evolution). PR #476 is prepared for owner visual review; it has not been merged or deployed. The current pass updates the game's canvas UI to match the ship materials and improves combat-meter readability while preserving mobile action space.
+Human Nomad ships are integrated (Scrappy, Interceptor and in-run Battlecruiser evolution). Owner approved publication; PR #476 is merged and live (client run 43687328183). Brave verified the published HUD and live planet snapshots with no browser errors. The current pass updates the game's canvas UI to match the ship materials and improves combat-meter readability while preserving mobile action space.
 
 ## What was implemented
 
