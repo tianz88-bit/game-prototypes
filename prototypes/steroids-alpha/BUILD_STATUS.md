@@ -1,6 +1,6 @@
 ## Current milestone
 
-Human Nomad ships are integrated (Scrappy, Interceptor and in-run Battlecruiser evolution). Owner approved publication; PR #476 is merged and live (client run 43687328183). Brave verified the published HUD and live planet snapshots with no browser errors. The current pass ports the approved control-driven, per-part FFD to all three ships, with the original sprite rig as the compatibility fallback.
+Human Nomad ships are integrated (Scrappy, Interceptor and in-run Battlecruiser evolution). Owner approved publication; PR #476 is merged and live (client run 43687328183). Brave verified the published HUD and live planet snapshots with no browser errors. PR #478 implements and verifies control-driven, per-part FFD on all three ships, with the original sprite rig as fallback. It awaits explicit owner publishing approval; the live game still uses the sprite rig.
 
 ## What was implemented
 
