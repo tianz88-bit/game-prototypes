@@ -112,3 +112,30 @@ Placeholders are live (BRIEF.md "Clan planets v0"); replace freely, keep positio
 
 Code seams: `FlightScene.drawBase`, `PlanetGround(scene, depth, tint)`, fx `baseTurret`
 (index, angle), test hooks `__steroids.layout()`, `docked()`, `treasury()`.
+
+## Art backlog (owner priority, 15 November 2026)
+
+One prioritized list, top first. Sent to Codex in Agent Comms (thread 07e15987). Constraints: no
+gameplay, tuning or protocol changes; sizes and hitboxes stay as in `sim/` and `tune.json`; assets
+through the hash-verified R2 pipeline; keep fallbacks when a texture is missing; preserve mobile
+`uiZones`. Owner sees screenshots before anything goes live.
+
+1. **Combat**
+   - Missiles and mines: bodies, missile smoke trail, mine arming/seeking states, lock-on crosshair
+     (`render/worldArt.ts` drawOrdnance; flight.ts missile trails and lock cues).
+   - Explosions: ship death (`render/explosion.ts`, drawExplosionCore), missile and mine blasts,
+     asteroid break/split, shield shatter ring, Nova kill-effect rings.
+   - Hits: hit sparks (drawHitSpark), hull-hit flash, dash-ram impact.
+   - Health pickups (medical cross, still procedural).
+   - Dash wind-up effect (drawDashCharge); its arrow follows the heading (dash is straight-only).
+2. **Clan planets** (section "Clan planets v0 art" above).
+3. **Ships and progression**
+   - Evolve transformation effect; Battlecruiser escort turrets and name-tag placement.
+   - Warp-out: warping ring and launch flash.
+   - Asteroid damage stages (painted rocks only darken today).
+4. **HUD and menus**
+   - Hangar icons and swatches for flames, shields, kill FX, badges.
+   - Target health bar (drawTargetBar), nose chevron (drawNose), cargo-full cue near Warp,
+     reconnecting and lost-ship banners, salvage-zone ring (drawHotZone).
+
+Separate, already dispatched: orbital zoom transition.
