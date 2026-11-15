@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 claude base-markers
+DID: clan home planets show edge arrows with label and distance for off-screen landmarks: members see their treasury; visitors see the gate and the enemy treasury. Own outer ring, kept clear of touch buttons, bottom HUD and the bounty/hot-zone arrows.
+FILES: src/scenes/flight.ts BRIEF.md
+SEAM: FlightScene.drawBaseMarkers (client only, no protocol change).
+CROSS: none.
+FOR codex: placeholder triangles + text; a landmark icon set (treasury, gate) would fit here.
+
 ## 2026-11-15 claude clan-fuel
 DID: no salvage on clan home planets: members mine Fuel (ShipState.fuel, same 400 hold, hot zone x2, lost on death) and docking unloads it to the treasury; non-members mine nothing and do not see the hot zone; no gold drops at home. Exhaust full plume now keys on each ship's own top speed (topSpeed(hullMax, chassis)), not 350.
 FILES: sim/{ship,protocol,world}.ts src/render/{combatHud,shipView}.ts src/scenes/flight.ts scripts/test-steroids-alpha-{sim,bank}.mjs BRIEF.md DESIGN_LONGGAME.md
@@ -97,10 +104,3 @@ FILES: src/net/client.ts client.tune.json sim/liveConfig.ts BRIEF.md
 SEAM: clientTune.render.heavyShotGunTier (2); bullet look = damageTier >= it ? 1 : 0 (combatSprites/drawBullet unchanged).
 CROSS: none
 FOR codex: the pulse now marks an upgraded gun; a small muzzle change at tier 2 would sell the upgrade.
-
-## 2026-11-15 claude hangar-spin
-DID: menu button "SHIP + PALETTE" -> "HANGAR" (owner). Hangar ship/palette previews turn on the rig (45 deg/s); the ships tab draws Scrappy, Interceptor and Battlecruiser at sizes relative to each other (by hit radius).
-FILES: src/render/shipPreview.ts src/scenes/{menu,hangar}.ts BRIEF.md
-SEAM: shipPreview(..., opts?: { spin?, relative? }); no options = the old static fit (menu, evolve preview unchanged).
-CROSS: src/render/shipPreview.ts (yours, #477): options added, default path untouched; spin re-poses parts each frame and unhooks on destroy.
-FOR codex: at true scale the two fighters are small next to the Battlecruiser card; a pedestal or scale ruler would help if it reads oddly.

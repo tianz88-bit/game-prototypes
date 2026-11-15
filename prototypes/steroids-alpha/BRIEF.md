@@ -124,6 +124,9 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
   - is repaired (hull and shield);
   - unloads its carried fuel into the clan treasury.
   Docking to bank your own credits at home is "maybe later" (owner).
+- **Landmark markers (owner, 15 November):** on a clan home planet, while off screen, an edge arrow
+  with a label and distance points to key spots. Members always see their treasury; visitors see the
+  gate and the enemy treasury. Open planets get none.
 - **No salvage on home planets (owner, 15 November):** minerals mined on a clan home planet give
   members **Fuel** (a clan resource, working name) instead of salvage, so safe home planets cannot
   be farmed for credits. Fuel fills the same 400 hold, the hot zone doubles it, it is lost on death,

@@ -1,5 +1,7 @@
 ## Current milestone
 
+Base markers (15 November, claude): clan home planets point to off-screen landmarks with edge arrows and distances (members: treasury; visitors: gate and enemy treasury).
+
 Clan fuel (15 November, claude): clan home planets drop no salvage; members mine Fuel there (same 400 hold, lost on death) and dock to unload it into the treasury, which will fund building upkeep later. Exhaust plume length now follows each ship's own top speed. Protocol 20.
 
 Owner approved all four art backlog groups for live after the screenshot review. Source pack uploaded to R2 and fetched back with matching hash; PR500 merged398b045; itch run43733278666 uploaded successfully. Public Brave build151126r0067 verified all12textures, painted ordnance/repair sprites, mobile/upright drawer/fire/dash, both clan skins and open planet connections with zero browser errors. Worker health is protocol19 and healthy. The release integrates main3a38092, preserving PR498 smaller shadows/round glow/docked landing and PR499 gun convergence/idle exhaust/engines-off. Review evidence: outputs/steroids-alpha/backlog-review/index.html.
