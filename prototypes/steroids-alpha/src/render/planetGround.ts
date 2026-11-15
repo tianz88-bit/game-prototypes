@@ -7,6 +7,7 @@ import Phaser from 'phaser';
 import { TUNE } from '../../sim/tune';
 import { clientTune } from '../clientTune';
 import type { PlanetFrame } from './planet';
+import { projectOffset } from './planet';
 
 export const GROUND_TILE = 'terrain-ground-tile';
 export const SAND_CHANNEL = 'terrain-sand-channel';
@@ -51,6 +52,7 @@ uniform float mapSize;
 uniform vec3 sun;
 uniform float flipY;
 uniform vec3 tint;
+uniform float clanSkin;
 varying vec2 fragCoord;
 
 vec3 softLight(vec3 b, vec3 l) {
@@ -86,7 +88,8 @@ void main() {
     if (t >= 1.) { gl_FragColor = vec4(0.); return; }
     float lit = .18 + .82 * smoothstep(-.35, .65, dot(normalize(d), sun.xy));
     float a = .28 * pow(1. - t, 2.) * lit;
-    gl_FragColor = vec4(vec3(.37, .67, .90) * a, a);
+    vec3 atmosphere = clanSkin > .5 && clanSkin < 1.5 ? vec3(.94, .47, .35) : vec3(.37, .67, .90);
+    gl_FragColor = vec4(atmosphere * a, a);
     return;
   }
   vec3 normal = vec3(d / radiusPx, sqrt(max(0., 1. - r * r)));
@@ -95,7 +98,7 @@ void main() {
   float theta = asin(min(r, 1.));
   vec2 dir = r > 1e-5 ? d / (r * radiusPx) : vec2(0.);
   vec2 world = dir * worldRadius * theta + camera;
-  vec3 colour = texture2D(iChannel0, fract(world / 500.)).rgb * tint;
+  vec3 colour = texture2D(iChannel0, fract(world / 500.)).rgb;
   vec2 sw = vec2(3. * world.x - world.y, world.x + 4. * world.y) / mapSize + vec2(0., .5);
   vec4 s = texture2D(iChannel1, fract(sw));
   colour = mix(colour, s.rgb, s.a * .66);
@@ -122,6 +125,29 @@ void main() {
   // The alpha feather of the existing sand art supplies a small bank at either edge.
   float bank = (smoothstep(.05, .20, s.a) - smoothstep(.25, .46, s.a));
   colour *= 1. - bank * .10;
+  // Clan homes share the projection and relief, but have authored surface materials rather than
+  // a whole-disc colour multiplication. Two periodic noise scales keep all map seams stationary.
+  if (clanSkin > .5) {
+    float terrainValue = dot(colour, vec3(.299, .587, .114));
+    float continent = groundNoise(world, 16.);
+    float mineral = dust; // reuse the existing fine noise; only one extra broad noise sample
+    if (clanSkin < 1.5) {
+      // Crimson: rust-red rock plates, peach dust channels and dark cooling seams.
+      colour = mix(vec3(.25, .13, .19), vec3(.69, .36, .32), clamp(terrainValue * .8 + continent * .48, 0., 1.));
+      colour = mix(colour, vec3(.71, .48, .36), s.a * .34);
+      float seam = 1. - smoothstep(.012, .042, abs(mineral - .49));
+      colour *= 1. - seam * .16 * (1. - s.a);
+      colour += vec3(.12, .035, .018) * smoothstep(.70, .90, mineral) * .5;
+    } else {
+      // Azure: slate-blue basins, pale glacial shelves and quiet turquoise mineral seams.
+      colour = mix(vec3(.13, .23, .34), vec3(.43, .59, .66), clamp(terrainValue * .65 + continent * .6, 0., 1.));
+      float frost = smoothstep(.48, .75, continent) * smoothstep(.34, .66, mineral);
+      colour = mix(colour, vec3(.62, .73, .72), frost * .42);
+      colour = mix(colour, vec3(.24, .44, .51), s.a * .48);
+      float vein = 1. - smoothstep(.015, .04, abs(mineral - .54));
+      colour += vec3(.025, .055, .06) * vein * .55;
+    }
+  } else colour *= tint;
   float facing = dot(normal, sun);
   float lighting = .20 + .84 * max(0., facing);
   vec3 night = vec3(.50, .62, .94);
@@ -132,7 +158,8 @@ void main() {
   colour = mix(vec3(.39, .35, .48) * lighting, colour, smoothstep(0., .17, depth));
   float rim = 1. - smoothstep(0., .48, depth);
   float lit = .28 + .72 * smoothstep(-.35, .65, dot(normal, sun));
-  colour = mix(colour, softLight(colour, vec3(.40, .72, .86)), rim * .72 * lit);
+  vec3 rimColour = clanSkin > .5 && clanSkin < 1.5 ? vec3(.92, .57, .40) : vec3(.40, .72, .86);
+  colour = mix(colour, softLight(colour, rimColour), rim * .72 * lit);
   // Soften the very edge so the limb is not a hard pixel stair.
   float edge = smoothstep(0., 1.5 / radiusPx, 1. - r);
   gl_FragColor = vec4(colour * edge, edge);
@@ -142,16 +169,18 @@ void main() {
 export class PlanetGround {
   private shader: Phaser.GameObjects.Shader | null = null;
   private disc: Phaser.GameObjects.Graphics | null = null;
+  private clanSkin = 0;
 
   /**
-   * tint: multiplies the ground colour (placeholder planet skins: clan home planets are tinted in
-   * their clan's hue until Codex delivers real skins). [1, 1, 1] is the original surface.
+   * The existing Crimson/Azure tint signatures select their authored materials; [1,1,1] retains
+   * the original surface. Custom non-clan tints still multiply the original ground.
    */
   constructor(
     private scene: Phaser.Scene,
     depth: number,
     private tint: [number, number, number] = [1, 1, 1],
   ) {
+    this.clanSkin = tint[0]>1.1 ? 1 : tint[2]>1.1 ? 2 : 0;
     if (scene.game.renderer.type === Phaser.WEBGL && scene.textures.exists(GROUND_TILE) && scene.textures.exists(SAND_CHANNEL)) {
       const base = new Phaser.Display.BaseShader('planet-ground', FRAGMENT, undefined, {
         camera: { type: '2f', value: { x: 0, y: 0 } },
@@ -162,6 +191,7 @@ export class PlanetGround {
         sun: { type: '3f', value: { x: 0, y: 0, z: 1 } },
         flipY: { type: '1f', value: 1 },
         tint: { type: '3f', value: { x: tint[0], y: tint[1], z: tint[2] } },
+        clanSkin: { type: '1f', value: this.clanSkin },
       });
       this.shader = scene.add.shader(base, 0, 0, 16, 16, [GROUND_TILE, SAND_CHANNEL]).setOrigin(0).setDepth(depth);
     } else {
@@ -185,8 +215,24 @@ export class PlanetGround {
       const k = Math.round(0x88 * frame.brightness);
       this.disc.clear();
       const [r, gr, b] = this.tint;
-      this.disc.fillStyle((Math.min(255, Math.round(k * r)) << 16) | (Math.min(255, Math.round(0x65 * frame.brightness * gr)) << 8) | Math.min(255, Math.round(0x78 * frame.brightness * b)), 1);
+      const base=this.clanSkin===1?[137,70,67]:this.clanSkin===2?[61,94,111]:null;
+      const colour=base?((Math.round(base[0]*frame.brightness)<<16)|(Math.round(base[1]*frame.brightness)<<8)|Math.round(base[2]*frame.brightness)):
+        ((Math.min(255,Math.round(k*r))<<16)|(Math.min(255,Math.round(0x65*frame.brightness*gr))<<8)|Math.min(255,Math.round(0x78*frame.brightness*b)));
+      this.disc.fillStyle(colour,1);
       this.disc.fillCircle(w / 2, h / 2, radiusPx);
+      if(this.clanSkin){
+        const g=this.disc,crimson=this.clanSkin===1,cell=220;
+        const cx=Math.floor(frame.camera.x/cell),cy=Math.floor(frame.camera.y/cell);
+        for(let iy=-5;iy<=5;iy++)for(let ix=-5;ix<=5;ix++){
+          const wx=(cx+ix)*cell,wy=(cy+iy)*cell,seed=Math.abs(Math.sin((cx+ix)*17.17+(cy+iy)*43.43));
+          const p=projectOffset(wx-frame.camera.x,wy-frame.camera.y,clientTune.render.planetRadius);if(!p.visible||p.scale<.12)continue;
+          const x=w/2+p.x*viewScale,y=h/2+p.y*viewScale,k=p.scale*viewScale,r=(26+seed*34)*k;
+          if(Math.hypot(x-w/2,y-h/2)+r*1.4>radiusPx)continue;
+          g.fillStyle(crimson?0x4d2937:0x284758,.45);g.fillEllipse(x,y+r*.18,r*2,r*1.4);
+          g.lineStyle(Math.max(.7,k*2),crimson?0xda8b67:0x8abcbf,.4*frame.brightness);g.beginPath();g.arc(x,y,r,-2.8,-.3);g.strokePath();
+          if(seed>.55){g.fillStyle(crimson?0xc27959:0xa2c2c1,.22);g.fillTriangle(x-r*.8,y+r*.4,x+r*.9,y+r*.1,x+r*.4,y+r*.65);}
+        }
+      }
     }
   }
 }

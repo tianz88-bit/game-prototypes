@@ -4,12 +4,13 @@ import { maxShield } from '../../sim/ship';
 import { TUNE } from '../../sim/tune';
 import { text } from '../scenes/common';
 import { panel, css, UI } from './ui';
+import { mobileHeader } from './mobileFlightUi';
 
 /** One bounded instrument cluster. Touch targets stay outside it. */
 export class CombatHud {
   private labels: Phaser.GameObjects.Text[];
   constructor(scene: Phaser.Scene){
-    this.labels=Array.from({length:7},()=>text(scene,0,0,'',11).setDepth(953).setVisible(false));
+    this.labels=Array.from({length:8},()=>text(scene,0,0,'',11).setDepth(953).setVisible(false));
   }
   draw(g:Phaser.GameObjects.Graphics,p:ShipState|null,w:number,h:number,touch:boolean,now:number):void{
     this.labels.forEach(t=>t.setVisible(false));if(!p)return;
@@ -55,13 +56,19 @@ export class CombatHud {
       const heat=this.labels[4];heat.setVisible(p.overheated).setOrigin(.5);
       if(p.overheated){heat.setFontSize(9).setText('HOT');if(heat.style.color!=='#ffb09a')heat.setColor('#ffb09a');}
     }
+    const cargo=TUNE.salvage.cargoMax,full=p.salvage>=cargo-.5;
     const sy=touch?y+70:y-23;
-    panel(g,right-132,sy,132,19,UI.uiGold);
+    panel(g,right-132,sy,132,19,full?0xf39872:UI.uiGold);
     // A faceted salvage coin, repeated on pickups and the carried balance.
     g.fillStyle(0xe3a248,1);g.fillPoints([{x:right-119,y:sy+4},{x:right-114,y:sy+4},{x:right-111,y:sy+9},{x:right-114,y:sy+14},{x:right-119,y:sy+14},{x:right-122,y:sy+9}],true);
     // Cargo hold (owner): carried / max; when full, the cue is to warp out and bank it.
-    const cargo=TUNE.salvage.cargoMax,full=p.salvage>=cargo-.5;
-    label(6,right-9,sy+3,full?`FULL · WARP OUT`:`SALVAGE ${Math.floor(p.salvage)}/${cargo}`,full?0xff9a7a:0xffdd95,10,1);
+    label(6,right-9,sy+3,`SALVAGE ${Math.floor(p.salvage)}/${cargo}`,full?0xffb394:0xffdd95,10,1);
+    if(full){
+      const warp=mobileHeader(w).warp,cx=touch?warp.x:w/2,cy=touch?52:69,bw=touch?warp.w:142;
+      g.fillStyle(0x261a23,.92);g.fillRoundedRect(cx-bw/2,cy,bw,15,3);
+      g.lineStyle(1,0xf39872,.7);g.lineBetween(cx-bw/2+4,cy+14,cx+bw/2-4,cy+14);
+      label(7,cx,cy+1,'FULL · WARP OUT',0xffbd91,touch?9:10,.5);
+    }
     // Slow warning beat only; no full-screen pulse while the shield recovers.
     if(down){g.lineStyle(2,0xff9868,.45+.2*Math.sin(now/230));g.lineBetween(x+12,y+21,x+42,y+21);}
   }

@@ -1,13 +1,16 @@
 import Phaser from 'phaser';
 import manifest from '../../art/combat-title-v1/assets.json';
+import backlog from '../../art/combat-backlog-v1/assets.json';
+import type { OrdnanceView } from '../../sim/protocol';
+const assets=[...manifest.assets,...backlog.assets];
 
 export const combatKey = (name:string):string => `combat-${name}`;
 export function queueCombatArt(scene:Phaser.Scene):void {
-  for(const a of manifest.assets)scene.load.image(combatKey(a.name),`assets/loose/combat-${a.name}.png`);
+  for(const a of assets)scene.load.image(combatKey(a.name),`assets/loose/combat-${a.name}.png`);
 }
 /** Runtime body frames retain the source registration metadata; no source art is cropped. */
 export function prepareCombatArt(scene:Phaser.Scene):void {
-  for(const a of manifest.assets){
+  for(const a of assets){
     const key=combatKey(a.name);if(!scene.textures.exists(key))continue;
     const texture=scene.textures.get(key),image=texture.getSourceImage() as HTMLImageElement;
     const t='trimFrame' in a ? a.trimFrame : undefined;
@@ -35,9 +38,9 @@ export class CombatSprites {
     if(image.depth!==depth)image.setDepth(depth);
     return image;
   }
-  pickup(at:{x:number;y:number;scale:number},radius:number,kind:'mineral'|'salvage',id:number,now:number):boolean {
+  pickup(at:{x:number;y:number;scale:number},radius:number,kind:'mineral'|'salvage'|'heal',id:number,now:number):boolean {
     const phase=now/280+id;
-    const name=kind==='salvage'?(Math.cos(phase)>.25?'salvage-coin-face':'salvage-coin-tilted'):['mineral-shard','mineral-cluster','mineral-nugget'][id%3];
+    const name=kind==='heal'?'health-pod':kind==='salvage'?(Math.cos(phase)>.25?'salvage-coin-face':'salvage-coin-tilted'):['mineral-shard','mineral-cluster','mineral-nugget'][id%3];
     const image=this.image(name,at.x,at.y+Math.sin(now/460+id)*2*at.scale,radius*2,18);
     if(image && kind==='salvage'){
       // Both painted views share a fixed height as the token turns edge-on.
@@ -54,5 +57,10 @@ export class CombatSprites {
     return !!image;
   }
   end():void {for(let i=this.used;i<this.images.length;i++)this.images[i].setVisible(false);}
+  ordnance(o:OrdnanceView,at:{x:number;y:number;scale:number}):boolean {
+    const image=this.image(o.kind===0?'missile':'mine',at.x,at.y,(o.kind===0?30:32)*at.scale,26);
+    if(image)image.setRotation(o.heading).setAlpha(o.kind===1&&!o.armed?.72:1);
+    return !!image;
+  }
   destroy():void {for(const image of this.images)image.destroy();this.images=[];}
 }
