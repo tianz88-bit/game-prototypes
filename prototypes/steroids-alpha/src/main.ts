@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { clientTune } from './clientTune';
 import { DEBUG, DPR, logicalSize, placeContainer, refreshDpr, refreshSideways, sideways } from './base';
 import { intents } from './input/intents';
 import { BootScene } from './scenes/boot';
@@ -86,6 +87,8 @@ if (DEBUG) {
       stats,
       scene: () => (flight() ? 'flight' : game.scene.isActive('boot') ? 'boot' : 'menu'),
       shipArt: () => shipArtStatus,
+      /** Debug-only visual compatibility switch; server gameplay remains authoritative. */
+      renderTune: () => clientTune.render,
       scheme: () => intents.scheme,
       light: () => flight()?.lighting() ?? null,
       roster: () => [...(flight()?.net.roster.values() ?? [])],

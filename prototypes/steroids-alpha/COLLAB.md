@@ -20,11 +20,12 @@ Crossing a lane is allowed. When you do: keep it minimal, and log it in HANDOFF.
 Change a seam = HANDOFF entry tagged `SEAM:` + message to the other agent. Never silently.
 
 - `ShipPlacement` (`src/render/shipView.ts`): x, y, scale, visible, brightness, shadowX/Y/Alpha. Logic fills it; render draws it.
-- `ShipView.update(at, headingRad, timeMs, speed)`, `.fire(side)`, `.shieldHit(angle)`, `.destroy()`.
-- `DrawnShip` interface (`flight.ts`): what the scene calls per ship.
+- `ShipView.update(at, headingRad, timeMs, speed, boosting, control?)`, `.fire(side)`, `.shieldHit(angle)`, `.destroy()`. FFD control is `{thrust,turn,aim}` for own intent, `'observed'` for remote motion, or absent for level rotation. The old five-argument call stays level.
+- `DrawnShip.update(at, state, timeMs, control?)` (`flight.ts`): own move intent is forwarded without changing the network input; remotes opt into observed FFD. No wire fields added.
 - Fx events (`src/net/client.ts` `drainFx()`): `shot | burst | spark | explosion | heal | shield`. Logic emits; render consumes. New effect = claude adds the event kind, codex draws it.
 - `ShipState` fields (`sim/ship.ts`) are read-only to render.
 - `clientTune.render.*`: codex owns values; claude owns `tune.json` (gameplay feel). Values set by the owner are never changed without an owner request (CLAUDE.md).
+- `render.ffd*`: bounded live visual settings; `ffdEnabled=0` selects the original sprite rig. Old records gain the bundled FFD defaults through upgradeConfig. No collision, weapon-origin or movement changes.
 
 ## Workflow per push
 

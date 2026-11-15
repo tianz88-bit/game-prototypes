@@ -2,10 +2,13 @@
 // the kit's 3% per-layer shading, parent-accumulated facing offsets, engine rattle, canopy lean on turns,
 // hover lift and a hard ground shadow cast away from the planet's sun. A ground ring marks your ship (cyan) versus others (orange).
 // Guns kick with the kit's recoil curve when they fire. Thruster exhaust comes from the nozzles.
-// Not yet ported: FFD pitch/bank tilt (needs a Phaser Mesh renderer and profiling).
+// Per-part control FFD uses the lab relief mesh; the original Images remain the fallback.
 import Phaser from 'phaser';
 import { depth, layerBrightness, pose, recoilPose, rigAngle } from './shipRig';
 import type { RigModule } from './shipRig';
+import { PartFFD } from './partFFD';
+import { advanceTilt, projectTiltPoint, tiltBasis } from './shipTilt';
+import type { FFDControl, TiltBasis } from './shipTilt';
 import { paletteTexture, profileFor, shadowKey } from './shipArt';
 import type { ShipProfile } from './shipProfiles';
 import { chassisStats } from '../../sim/chassis';
@@ -34,7 +37,15 @@ export interface ShipPlacement {
 
 export class ShipView {
   private container: Phaser.GameObjects.Container;
-  private parts: { m: RigModule; img: Phaser.GameObjects.Image; scale: number; shade: number }[] = [];
+  private parts: { m: RigModule; img: Phaser.GameObjects.Image; scale: number; shade: number; ffd: PartFFD | null }[] = [];
+  private tilt = { pitch: 0, bank: 0 };
+  private tiltProjection: TiltBasis | null = null;
+  private slowMs = 0;
+  private healthyMs = 0;
+  private reducedFFD = false;
+  private failedFFD = false;
+  private motionAccel = 0;
+  private motionYawRate = 0;
   /** Which ship this draws (sim/chassis.ts) and its rig. */
   readonly profile: ShipProfile;
   private sizeRatio = 1;
@@ -76,7 +87,7 @@ export class ShipView {
       : { body: mix(shield, 0x000000, 0.8), rim: shield, flash: mix(shield, 0xffffff, 0.75), cell: mix(shield, 0xffffff, 0.35), edge: mix(shield, 0xffffff, 0.15), edgeHot: mix(shield, 0xffffff, 0.8) };
   }
 
-  constructor(scene: Phaser.Scene, mine: boolean, readonly chassis = 0, readonly palette = 0) {
+  constructor(private scene: Phaser.Scene, mine: boolean, readonly chassis = 0, readonly palette = 0) {
     this.profile = profileFor(chassis);
     const cal = this.profile.calibration;
     const mods = this.profile.modules;
@@ -97,7 +108,8 @@ export class ShipView {
       const scale = cal.modules[m.id].width / img.width;
       img.setScale(scale);
       this.container.add(img);
-      this.parts.push({ m, img, scale, shade: layerBrightness(m, cal, mods) });
+      const ffd = scene.game.renderer.type === Phaser.WEBGL ? new PartFFD(scene, this.container, m, img) : null;
+      this.parts.push({ m, img, scale, shade: layerBrightness(m, cal, mods), ffd });
     }
   }
 
@@ -105,7 +117,7 @@ export class ShipView {
    * headingRad uses game convention (0 = +x). timeMs drives idle motion. speed (world units a second)
    * and boosting (dash) drive the thrusters: accelerating fires both engines, turning fires the outside one.
    */
-  update(at: ShipPlacement, headingRad: number, timeMs: number, speed: number, boosting: boolean): void {
+  update(at: ShipPlacement, headingRad: number, timeMs: number, speed: number, boosting: boolean, control?: FFDControl | 'observed'): void {
     this.exhaustGfx.setVisible(at.visible);
     this.container.setVisible(at.visible);
     this.shadow.setVisible(at.visible && at.shadowAlpha > 0.01);
@@ -133,6 +145,28 @@ export class ShipView {
     const t = clientTune.render;
     const accel = this.lastSpeed === null ? 0 : ((speed - this.lastSpeed) / dt) * 1000;
     const degPerSec = (dA / dt) * 1000;
+    // Simulation ticks can be slower than display frames. Filter the alternating zero/spike
+    // derivatives so a steady held manoeuvre produces a steady tilt rather than a vibration.
+    const motionEase = 1 - Math.exp(-t.ffdResponse * Math.min(.05, dt / 1000));
+    this.motionAccel = dt > 250 ? 0 : this.motionAccel + (accel - this.motionAccel) * motionEase;
+    this.motionYawRate = dt > 250 ? 0 : this.motionYawRate + (degPerSec - this.motionYawRate) * motionEase;
+    // Drop to the unchanged rig during sustained slow frames, then recover after healthy pacing.
+    // A hidden-tab gap is not evidence of a slow GPU.
+    if (dt < 250) {
+      if (dt > t.ffdSlowFrameMs) { this.slowMs += dt; this.healthyMs = 0; }
+      else { this.slowMs = Math.max(0, this.slowMs - dt); this.healthyMs += dt; }
+      if (this.slowMs >= t.ffdSlowSeconds * 1000) this.reducedFFD = true;
+      if (this.healthyMs >= t.ffdRecoverySeconds * 1000) this.reducedFFD = false;
+    }
+    if (dt > 250 || t.ffdEnabled < .5 || this.reducedFFD) this.tilt.pitch = this.tilt.bank = 0;
+    else advanceTilt(this.tilt, control, this.motionAccel, this.motionYawRate, boosting, dt / 1000, t);
+    const gl = this.scene.game.renderer.type === Phaser.WEBGL ? (this.scene.game.renderer as Phaser.Renderer.WebGL.WebGLRenderer).gl : null;
+    let activeFFD = !!gl && !gl.isContextLost() && !this.failedFFD && t.ffdEnabled >= .5 && !this.reducedFFD && at.scale >= t.ffdMinScale && (this.tilt.pitch !== 0 || this.tilt.bank !== 0);
+    if (activeFFD) {
+      try { for (const p of this.parts) if (!p.ffd?.ensure()) activeFFD = false; }
+      catch { this.failedFFD = true; activeFFD = false; console.warn('Ship deformation unavailable; retaining the sprite rig.'); }
+    }
+    this.tiltProjection = activeFFD ? tiltBasis(this.tilt.pitch, this.tilt.bank, angle) : null;
     if (boosting || accel > t.thrusterAccel) this.demandUntil.throttle = timeMs + t.thrusterHoldMs;
     if (degPerSec < -t.thrusterTurnDegPerSec) this.demandUntil.left = timeMs + t.thrusterHoldMs;
     if (degPerSec > t.thrusterTurnDegPerSec) this.demandUntil.right = timeMs + t.thrusterHoldMs;
@@ -149,13 +183,15 @@ export class ShipView {
     const mods = this.profile.modules;
     const hover = cal.hoverLift;
     this.now = timeMs;
-    for (const { m, img, scale } of this.parts) {
+    for (const { m, img, scale, ffd } of this.parts) {
       const gun = m.asset === 'gun';
       const k = gun ? recoilPose(timeMs - (this.firedAt[m.side ?? 1] ?? -1e9)) : null;
       const kick = k ? (k.kick * (m.recoilScale ?? 1)) / 7 : 0;
       const p = pose(m, angle, cal, timeMs, 1, turn, kick, mods);
       img.setPosition(p.x, p.y - hover).setRotation(p.rotation);
       if (k) img.setScale(scale * k.scaleX, scale * k.scaleY);
+      ffd?.show(activeFFD);
+      if (this.tiltProjection) ffd!.draw(p, cal.modules[m.id].width, k?.scaleX ?? 1, k?.scaleY ?? 1, hover, this.tiltProjection);
     }
     this.container.setPosition(x, y).setScale(scale);
     this.updateExhaust(dt / 1000, demand, angle, timeMs, at, boosting);
@@ -176,12 +212,21 @@ export class ShipView {
     const w = cal.modules[id].width;
     const h = (w * part.img.height) / part.img.width;
     const k = clientTune.render.shipScale;
+    const x = p.x - Math.sin(p.rotation) * h * .43, y = p.y + Math.cos(p.rotation) * h * .43;
+    const q = this.tiltProjection ? projectTiltPoint(x, y, 0, this.tiltProjection) : { x, y };
+    let rotation = p.rotation, width = w;
+    if (this.tiltProjection) {
+      const aft = projectTiltPoint(x - Math.sin(p.rotation) * 10, y + Math.cos(p.rotation) * 10, 0, this.tiltProjection);
+      const edge = projectTiltPoint(x + Math.cos(p.rotation) * w, y + Math.sin(p.rotation) * w, 0, this.tiltProjection);
+      rotation = Math.atan2(-(aft.x - q.x), aft.y - q.y);
+      width = Math.hypot(edge.x - q.x, edge.y - q.y);
+    }
     return {
-      x: (p.x - Math.sin(p.rotation) * h * 0.43) * k,
-      y: (p.y + Math.cos(p.rotation) * h * 0.43 - cal.hoverLift) * k,
-      width: w * k * 0.7,
+      x: q.x * k,
+      y: (q.y - cal.hoverLift) * k,
+      width: width * k * 0.7,
       particleScale: k / 0.48,
-      angle: (p.rotation * 180) / Math.PI,
+      angle: (rotation * 180) / Math.PI,
     };
   }
 
@@ -314,6 +359,7 @@ export class ShipView {
   }
 
   destroy(): void {
+    for (const p of this.parts) p.ffd?.destroy();
     this.container.destroy();
     this.exhaustGfx.destroy();
     this.shieldGfx.destroy();

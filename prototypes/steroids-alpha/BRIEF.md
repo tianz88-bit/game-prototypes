@@ -150,6 +150,12 @@ currency; currency buys unlocks, QoL and options, never raw power.
   fixed Z order, 3% shading per lower layer, engine rattle, gun recoil, hard
   ground shadow, FFD pitch/bank tilt on thrust/brake/yaw. The game uses a
   TypeScript port of that rig, checked against the kit's own output.
+- Owner FFD direction (15 November 2026): each part has its own hardline-aligned
+  mesh, enabled only by acceleration, braking or yaw; ordinary rotation stays
+  level. Preserve the approved -13/+17 degree pitch and inverted +/-22 degree
+  bank, engine vibration, recoil, fixed Z and palette/shading. Retain the current
+  sprite rig for Canvas, disabled or failed deformation, distant ships and sustained
+  slow frames. FFD changes visuals only; no change to hitboxes, shots or movement.
 - Placeholder shapes remain as the fallback when art is not available.
 - Art pipeline per repo rules (R2 zip, packed/ and loose/).
 

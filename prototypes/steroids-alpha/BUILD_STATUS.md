@@ -1,8 +1,11 @@
 ## Current milestone
 
-Human Nomad ships are integrated (Scrappy, Interceptor and in-run Battlecruiser evolution). Owner approved publication; PR #476 is merged and live (client run 43687328183). Brave verified the published HUD and live planet snapshots with no browser errors. The current pass updates the game's canvas UI to match the ship materials and improves combat-meter readability while preserving mobile action space.
+Human Nomad ships are integrated (Scrappy, Interceptor and in-run Battlecruiser evolution). Owner approved publication; PR #476 is merged and live (client run 43687328183). Brave verified the published HUD and live planet snapshots with no browser errors. The current pass ports the approved control-driven, per-part FFD to all three ships, with the original sprite rig as the compatibility fallback.
 
 ## What was implemented
+
+- Per-part WebGL FFD for acceleration/braking/yaw: approved lab relief and projection, -13/+17 pitch, inverted +/-22 yaw bank, eased return to the exact sprite pose. Heading changes without a control cue stay level.
+- Original sprite rig for Canvas, the live disable switch, failed mesh allocation, distant ships and sustained slow frames; healthy pacing restores FFD. No texture baking or per-frame GPU allocation. Tilted engine nozzles keep exhaust attached.
 
 - Compact instrument cluster: labelled shield and hull bars with values, segmented fills, critical hull colour, shield-down/reboot countdown, labelled heat lock and dash charge/cooldown/ready states. Salvage is a separate gold balance above the cluster.
 - Navy panel edges, cream highlights and coloured insets shared by the menu, Hangar, leaderboard, upgrade cards, end-of-run panels and touch controls.
@@ -14,6 +17,7 @@ Human Nomad ships are integrated (Scrappy, Interceptor and in-run Battlecruiser 
 
 ## Key technical decisions
 
+- Bounded render.ffd* settings upgrade older published records automatically. Own intent gates FFD; remote ships explicitly use filtered observed acceleration/yaw. Gameplay/wire fields are unchanged.
 - Canvas-only UI; no new DOM overlay, raster asset, dependency, protocol or gameplay tuning changes.
 - Layout reads logicalSize(), including the landscape canvas quarter-turn on upright touch phones. No orientation blocker.
 - Fire, dash, missile, mine and shop input rectangles retain their existing locations. The meter cluster and lower badges fit to the left of the fire button's enlarged hit area.
@@ -21,6 +25,8 @@ Human Nomad ships are integrated (Scrappy, Interceptor and in-run Battlecruiser 
 - HUD text objects are reused; colour changes are conditional to avoid unnecessary text texture uploads. Scenes destroy their display objects when rebuilt or left.
 - Verification: typecheck, production build, 396-pose rig parity, sim and live-config tests pass. Brave desktop 1280x720 and mobile 844x390/667x375 at DPR2 plus upright 390x844 reviewed, including low hull, shield reboot, overheat, weapon charges, evolution-ready and capital states.
 - Two-client Brave regression passed: keyboard turn, drop-in/out, phone steering/fire/dash, a new asteroid split, both clients observing it and prediction. About 57 FPS on this PC, phone emulated RTT 140ms, maximum corrections below 0.001 world units, no browser errors. Scratch adapter uses installed Brave and a shooting-phase split baseline; tracked harness is unchanged.
+
+- FFD verification: 14,400 lab-reference panel points plus control gating/inverted-yaw/return tests; WebGL and forced Canvas on all 3 chassis (36 cases), real keyboard and mobile marker/braking, manual disable, slow-frame recovery, simulated allocation failure and WebGL context restoration pass with zero browser errors. Two-client check measured about 58 desktop / 57 emulated-phone FPS, comparable to the prior 57/57 PC baseline.
 
 ## Open questions
 
@@ -31,11 +37,11 @@ Human Nomad ships are integrated (Scrappy, Interceptor and in-run Battlecruiser 
 
 - Real phone hardware performance and notch/home-indicator behaviour have not been measured.
 - The tracked browser harness tests absolute splits>=1 during its shooting phase. An earlier unrelated split can end the hunt before its bullet assertion samples a shot. The local adapter waits for a new split relative to phase start; Claude has the finding.
-- Live FFD acceleration/braking/yaw tilt remains unported. The lab is still the reference; ordinary heading rotation should remain level.
+- Real Safari/iPhone and Android hardware coverage for FFD remains unmeasured; only Brave WebGL/Canvas and emulated mobile were verified. The fallback preserves play when deformation is unavailable.
 - Hosted calibration currently publishes the starter's calibration; new chassis use their checked-in profile calibration. A per-chassis live calibration map is pending.
 - Orbital entry/exit zoom, remaining salvage pickup appearance and ground props/horizon clipping are pending art work.
 - Hosted Access is configured owner-only; a real owner email-code sign-in and browser publish still need direct end-to-end verification. The local private publisher remains stopped.
 
 ## Next proposed step
 
-Owner reviews the UI on mobile, especially meter readability while steering and firing. Continue the separate art tasks: control-driven FFD, per-chassis calibration, orbital entry/exit and salvage/world polish. Keep gameplay tuning with Claude and the owner.
+Owner reviews the UI on mobile, especially meter readability while steering and firing. Continue the separate art tasks: per-chassis calibration, orbital entry/exit and salvage/world polish. Playtest the control tilts on real phones. Keep gameplay tuning with Claude and the owner.

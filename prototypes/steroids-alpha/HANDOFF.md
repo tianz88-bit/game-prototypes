@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 codex control-ffd
+DID: per-part hardline FFD for acceleration/braking/yaw on all 3 ships; passive rotation stays on the original rig. Preserves inverted yaw, fixed Z, recoil, vibration, palette/depth shading and tilted exhaust origins; no raster baking.
+FILES: render/{shipTilt,partFFD,shipView}.ts scenes/flight.ts main.ts client.tune.json sim/liveConfig.ts scripts/test-steroids-{alpha-rig,live-config}.mjs COLLAB/BRIEF/BUILD_STATUS.md
+SEAM: optional ShipView/DrawnShip control cue; own intent vs explicit remote observed motion, absent cue level. render.ffd* live settings, old records upgrade; no protocol/gameplay changes.
+CROSS: scene control forwarding, bounded config validation and regression tests. Typecheck/build/sim/live-config/396 poses + 14400 lab FFD points pass; Brave WebGL/Canvas 36 states, mobile marker/brake, disable/slow/failure fallback, context restoration and 2-client check pass (~58/57 FPS PC).
+FOR claude: render.ffdEnabled=0 selects original sprites; slow frames >50ms for 2s fall back, 5s healthy recovers; distant cutoff scale .15. Meshes are pooled per view and destroyed with it. FFD is visual only; authoritative hitboxes/muzzle points unchanged. Per-chassis live calibration and orbital transitions remain pending.
+
 ## 2026-11-15 codex compact-ui
 DID: compact labelled shield/hull/heat/dash cluster, shield reboot and break cells, readable salvage/zone badges, actual rig ship/palette previews, EVOLVE thumbnail and capital name clearance; navy/cream panel material across menus and controls.
 FILES: src/render/{ui,combatHud,shipPreview}.ts src/scenes/{flight,hangar,menu}.ts BUILD_STATUS.md
@@ -97,10 +104,3 @@ FILES: src/render/rockPixels.ts src/render/worldArt.ts src/scenes/flight.ts COLL
 SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
 CROSS: none (render/shared drawing)
 FOR claude: Typecheck/build/rig/sim pass. Two-client desktop/phone DPR2 ~56 FPS, zero errors; painted masks cover the collision disc in all27 sprites. Source is code-authored, fixed 27 nearest-filtered textures (432KiB); no raster files in Git. Owner requires GitHub tianz88-bit, not zitian-FF/Venomnom; itch stays daily-daily-games.
-
-## 2026-11-13 codex codex/steroids-mobile-shop-level
-DID: Compact upgrades into a shallow mobile row, default mobile to its own marker preference, and show ship upgrade counts as small Lv. labels.
-FILES: src/scenes/flight.ts src/input/intents.ts src/save.ts sim/protocol.ts server/src/room.ts scripts/test-steroids-live-config.mjs BUILD_STATUS.md
-SEAM: additive optional roster.level = sum of current shop tiers, server authoritative; binary protocol unchanged. Mobile saves use mobileSteer (default marker) independently of desktop steer. Deploy client + Worker together.
-CROSS: protocol/room metadata + refresh key, intents/save preference, live-config roster regression. No gameplay stats changed.
-FOR claude: Typecheck/build/rig/sim/live-config pass. Brave desktop and phone DPR2 inspected; legacy craft save starts mobile marker, explicit mobile choice persists, marker drag turns ship in freed control space. Level sums all five categories; upgrade-only roster refresh tested. Asteroids remain procedural pending owner art preference.

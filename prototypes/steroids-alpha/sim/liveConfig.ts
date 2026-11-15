@@ -110,6 +110,7 @@ export function validateConfig(input: unknown): ConfigData {
     if(n<0 || n>10000) fail('Visual setting out of range');
   }
   if (r.uiRadius > 16) fail('UI corners must stay within 0–16 pixels');
+  if (![0,1].includes(r.ffdEnabled) || r.ffdAccelPitch>30 || r.ffdBrakePitch>30 || r.ffdYawBank>30 || r.ffdResponse<=0 || r.ffdResponse>30 || r.ffdAccelThreshold>200 || r.ffdYawFullDegPerSec<=0 || r.ffdYawFullDegPerSec>720 || r.ffdMinScale>1 || r.ffdSlowFrameMs<16 || r.ffdSlowFrameMs>250 || r.ffdSlowSeconds<=0 || r.ffdSlowSeconds>10 || r.ffdRecoverySeconds<=0 || r.ffdRecoverySeconds>30) fail('Ship deformation settings out of range');
   return value;
 }
 export function parseRecord(input: unknown): ConfigRecord {
