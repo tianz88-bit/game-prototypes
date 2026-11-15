@@ -125,7 +125,7 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
   - unloads its carried salvage into the clan treasury.
   Docking to bank your own credits at home is "maybe later" (owner).
   A docked ship comes down onto its pad: it shrinks to its shadow's size and sits on it, and its
-  hover glow fades (owner, 15 November).
+  hover glow fades and its engines (exhaust) switch off (owner, 15 November).
 - **Anyone can enter a clan planet.** Non-members:
   - arrive at the gate (the fixed entry point opposite the treasury);
   - get a warning that the clan's turrets will fire on them;
@@ -248,6 +248,10 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
   compensate.
 - Aim assist (owner request): a narrow cone ahead of the ship bends shots
   slightly toward a target, ships before asteroids.
+  Owner, 15 November: once a target is locked (in the cone and range), both guns
+  turn from their own muzzles to where it will be when the shot arrives, so both
+  streams land (up to weapon.assistConvergeMaxDeg 20 off each gun's resting line).
+  Bots do not get this assist; they aim for themselves.
 - Dash (owner design, Thunderdogs reference, 12 November): press dash to
   start a 0.4 s charge (owner, 15 November: was 0.8 s) during which the ship cannot steer;
   when it completes the ship boosts straight ahead (owner, 15 November: no

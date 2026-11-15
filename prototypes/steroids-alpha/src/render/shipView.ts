@@ -218,7 +218,7 @@ export class ShipView {
       if (this.tiltProjection) ffd!.draw(p, cal.modules[m.id].width, k?.scaleX ?? 1, k?.scaleY ?? 1, hover, this.tiltProjection);
     }
     this.container.setPosition(x, y).setScale(scale);
-    this.updateExhaust(dt / 1000, demand, angle, timeMs, at, boosting);
+    this.updateExhaust(dt / 1000, landed > 0.3 ? { ...demand, throttle: false, left: false, right: false, off: true } : demand, angle, timeMs, at, boosting && landed <= 0.3);
     this.drawShield(at, timeMs);
     this.shadow
       .setPosition(at.shadowX + (x - at.shadowX) * landed, at.shadowY + (y - at.shadowY) * landed)
@@ -275,7 +275,7 @@ export class ShipView {
       }
       g.fillPoints(pts, true);
     };
-    for(let i=0;i<nozzles.length;i++){
+    for(let i=0;i<nozzles.length && !demand.off;i++){
       const n=nozzles[i],a=n.angle*Math.PI/180,len=n.width*(this.exhaust.strong[i]?1.5: .7)*(boosting?1.6:1);
       g.fillStyle(0x73d9ff,.25);rect(n.x,n.y,n.width*.65,len,a,len*.4);
       g.fillStyle(0xe8fdff,.85);rect(n.x,n.y,n.width*.24,n.width*.38,a,n.width*.12);

@@ -473,8 +473,8 @@ export class NetClient {
           // Our own bullet appears at once; the server fires its real one when this input arrives.
           // Same aim assist as the server, against where this client sees the targets.
           const targets = [
-            ...this.remoteRender().map((r) => ({ x: r.s.x, y: r.s.y, ship: true })),
-            ...this.asteroidRender().map((r) => ({ x: r.x, y: r.y, ship: false })),
+            ...this.remoteRender().map((r) => ({ x: r.s.x, y: r.s.y, ship: true, vx: Math.cos(r.s.heading) * r.s.speed + r.s.kx, vy: Math.sin(r.s.heading) * r.s.speed + r.s.ky })),
+            ...this.asteroidRender().map((r) => ({ x: r.x, y: r.y, ship: false, vx: r.a.vx, vy: r.a.vy })),
           ];
           const shot = muzzleShot(this.predicted, TUNE, targets);
           this.bullets.push({ x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: TUNE.weapon.bulletLifeSteps * STEP_MS, mine: true, look: shotLook(this.predicted.damageTier) });
