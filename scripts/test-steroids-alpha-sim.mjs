@@ -886,16 +886,17 @@ assert.equal(S.cleanName(null), '');
   for (let i = 0; i < 30; i++) { w.stepShip(1, { ...idle, thrust: -1 }); m.x = pad.x; m.y = pad.y; w.step(); }
   assert.equal(m.speed, 0, 'a member over its pad can stop');
   assert(w.docked(1), 'and is docked');
-  // Docked: safe, repaired, salvage unloaded into the treasury.
+  // Docked: safe, repaired, fuel unloaded into the treasury.
   m.hp = 10;
-  m.salvage = 37.5;
+  m.fuel = 37.5;
   w['damageShip'](1, m, 30, 0, m.x, m.y);
   assert.equal(m.hp, 10, 'a docked ship takes no damage');
   w.stepShip(1, idle);
   w.step();
   assert(m.hp > 10, 'a docked ship is repaired');
   const ev = w.drain();
-  assert.deepEqual(ev.deposits, [{ id: 1, amount: 37 }], 'whole salvage unloaded to the treasury');
+  assert.deepEqual(ev.deposits, [{ id: 1, amount: 37 }], 'whole fuel load unloaded to the treasury');
+  assert(m.fuel < 1, 'only a fraction stays aboard after unloading');
   // Elsewhere the floor is the normal minimum speed.
   const away = w.addShipNear(2, 100, 100, 0);
   w.clanOf.set(2, 1);
@@ -929,6 +930,32 @@ assert.equal(S.cleanName(null), '');
   let friendly = 0;
   for (let i = 0; i < 3 * tune.net.tickHz; i++) { calm.stepShip(1, idle); calm.step(); friendly += calm.drain().shots.filter((sh) => sh.side >= 40).length; }
   assert.equal(friendly, 0, 'base turrets hold fire for members');
+  // Home mining (owner): members mine fuel, never salvage; non-members get neither.
+  const mine = emptyWorld();
+  mine.setPlanet('crimson');
+  const far = { x: mine.layout.treasury.x + 1500, y: mine.layout.treasury.y };
+  const miner = placeShip(mine, 1, far.x, far.y, 0);
+  mine.clanOf.set(1, 1);
+  miner.speed = 0;
+  mine.pickups.set(903, { id: 903, x: far.x, y: far.y, kind: 'mineral', value: 5, from: 0, lockedUntil: 0, expires: mine.tick + 100, salvage: 5 });
+  mine.stepShip(1, idle);
+  mine.step();
+  assert(miner.fuel === 5 && miner.salvage === 0, `a member mines fuel, not salvage (fuel ${miner.fuel}, salvage ${miner.salvage})`);
+  const guest = placeShip(mine, 2, far.x + 600, far.y, 0);
+  mine.clanOf.set(2, 2);
+  guest.speed = 0;
+  mine.pickups.set(904, { id: 904, x: far.x + 600, y: far.y, kind: 'mineral', value: 5, from: 0, lockedUntil: 0, expires: mine.tick + 100, salvage: 5 });
+  mine.stepShip(1, idle); mine.stepShip(2, idle);
+  mine.step();
+  assert(guest.fuel === 0 && guest.salvage === 0, 'a non-member mines neither fuel nor salvage on a home planet');
+  // A death on a home planet drops no gold and loses the carried fuel.
+  const before = [...mine.pickups.values()].filter((k) => k.kind === 'salvage').length;
+  miner.salvage = 50;
+  miner.shield = 0;
+  mine['damageShip'](1, miner, 9999, 2, miner.x, miner.y);
+  const after = [...mine.pickups.values()].filter((k) => k.kind === 'salvage').length;
+  assert.equal(after, before, 'no gold drops on a home planet');
+  assert.equal(miner.fuel, 0, 'carried fuel is lost on death');
   // Open planets have no layout and the usual floor.
   const open = emptyWorld();
   open.setPlanet('alpha');
@@ -970,7 +997,7 @@ assert.equal(S.cleanName(null), '');
   // The old dash-aim float is still on the wire (reserved): whatever an old client puts there is ignored.
   { const buf = S.encodeInput(input); new DataView(buf).setFloat32(18, 1.5, true); assert(!('dashAim' in S.decodeClient(buf).input), 'dash aim is no longer read'); }
   assert.deepEqual(S.decodeClient(S.encodeBuy(0, 2)), { type: S.MSG.BUY, item: 0, tier: 2 });
-  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5, salvage: 87.5, chassis: 2, shieldCd: 1.5 };
+  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5, salvage: 87.5, chassis: 2, shieldCd: 1.5, fuel: 33.5 };
   assert.deepEqual(S.decodeServer(S.encodeSnapshot(1234, 55, [ship])), { type: S.MSG.SNAPSHOT, tick: 1234, ackSeq: 55, ships: [ship] });
   const rockRec = { id: 3, size: 1, x: 10.5, y: 20.25, vx: -30, vy: 12.5, t0: 900, hp: 30, family: 2 };
   assert.deepEqual(S.decodeServer(S.encodeAsteroids([rockRec])).asteroids, [rockRec]);

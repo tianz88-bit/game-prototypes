@@ -108,7 +108,7 @@ export interface WorldEvents {
   extracted: { id: number; x: number; y: number }[];
   /** Set when the hot zone moved this tick. */
   hotZone: HotZone | null;
-  /** Clan home planets: salvage unloaded by docked members into the clan treasury. */
+  /** Clan home planets: fuel unloaded by docked members into the clan treasury. */
   deposits: { id: number; amount: number }[];
 }
 
@@ -516,7 +516,11 @@ export class World {
             s.hp += repair + grow;
             s.shield = Math.min(maxShield(s, t), s.shield + k.value);
             // Mined minerals also add salvage (bots never earn it); minerals spilled by ships do not.
-            if (!this.botIds.has(id)) s.salvage = Math.min(t.salvage.cargoMax, s.salvage + k.salvage);
+            // Clan home planets (owner, 15 November 2026): no salvage; members mine fuel for the
+            // clan treasury instead (visitors get neither).
+            if (this.layout) {
+              if ((this.clanOf.get(id) ?? 0) === this.layout.clan) s.fuel = Math.min(t.salvage.cargoMax, s.fuel + k.salvage);
+            } else if (!this.botIds.has(id)) s.salvage = Math.min(t.salvage.cargoMax, s.salvage + k.salvage);
           }
           by = id;
           break;
@@ -606,7 +610,7 @@ export class World {
 
   /**
    * Clan home planet (owner, Clan planets v0): the shield dome keeps non-members out (pushed back to
-   * its edge, their missiles and mines popped), docked members are repaired and unload their salvage
+   * its edge, their missiles and mines popped), docked members are repaired and unload their fuel
    * into the treasury, and the base turrets fire on non-members in range.
    */
   private stepBase(pos: Map<number, { x: number; y: number }>): void {
@@ -637,9 +641,9 @@ export class World {
       if (!isDocked(base, base.clan, s, t)) continue;
       s.hp = Math.min(s.hullMax, s.hp + s.hullMax * b.dockRepairPerSecond * this.dt);
       s.shield = Math.min(maxShield(s, t), s.shield + maxShield(s, t) * b.dockRepairPerSecond * this.dt);
-      if (s.salvage >= 1) {
-        const amount = Math.floor(s.salvage);
-        s.salvage -= amount;
+      if (s.fuel >= 1) {
+        const amount = Math.floor(s.fuel);
+        s.fuel -= amount;
         this.events.deposits.push({ id, amount });
       }
     }
@@ -902,7 +906,9 @@ export class World {
       const fresh = this.tick - (this.spawnedAt.get(id) ?? -Infinity) <= 2 * t.net.tickHz;
       let payout = fresh ? 0 : sv.killPowerShare * Math.max(0, s.hullMax - t.ship.maxHp) * this.payoutFactor(id, attacker);
       if (this.botIds.has(id)) payout *= sv.botDropFactor;
-      this.dropGold(s.x, s.y, s.salvage + payout, id);
+      // No salvage on clan home planets (owner): no gold drops there; carried fuel is simply lost.
+      if (!this.layout) this.dropGold(s.x, s.y, s.salvage + payout, id);
+      s.fuel = 0;
       s.salvage = 0;
       this.events.deaths.push({ id, x: s.x, y: s.y, killer: attacker });
     }

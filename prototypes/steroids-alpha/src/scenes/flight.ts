@@ -15,7 +15,7 @@ import Phaser from 'phaser';
 import { TUNE } from '../../sim/tune';
 import { PLANETS } from '../../sim/planets';
 import type { PlanetId } from '../../sim/planets';
-import { maxShield, shipRadius, powerGrowth } from '../../sim/ship';
+import { maxShield, shipRadius, powerGrowth, topSpeed } from '../../sim/ship';
 import { TURRET_MOUNTS, turretCount } from '../../sim/turrets';
 import { BATTLECRUISER, TURRET_MOUNTS_BY_CHASSIS, chassisStats, upgradeTotal } from '../../sim/chassis';
 import { SHOP_ITEMS, canBuy, shopOffer, shopTier, EVOLVE_ITEM, canEvolve } from '../../sim/shop';
@@ -369,7 +369,7 @@ export class FlightScene extends Phaser.Scene {
     if (this.planet === 'alpha') return 'LAWLESS SPACE\nBots will hunt you down';
     if (!home) return 'SATELLITE\nFarm and fight; no turrets, no shields';
     const owner = clanName(home).toUpperCase();
-    return this.net.clan === home ? `${owner} HOME\nStop over a landing pad to dock: safe, repair, unload salvage` : `${owner} TERRITORY\nTheir turrets fire on sight. Their shield keeps you out`;
+    return this.net.clan === home ? `${owner} HOME\nMine fuel for the treasury; stop over a landing pad to dock and unload it` : `${owner} TERRITORY\nTheir turrets fire on sight. Their shield keeps you out`;
   }
 
   /**
@@ -385,7 +385,7 @@ export class FlightScene extends Phaser.Scene {
     if (performance.now() - this.arrivedAt < 6000) note = this.arrivalNote();
     if (this.net.docked) {
       const d = this.net.deposited;
-      note = 'DOCKED · REPAIRING' + (d && performance.now() - d.at < 3000 ? `\n+${d.amount} salvage to the ${clanName(this.net.clan)} treasury` : '');
+      note = 'DOCKED · REPAIRING' + (d && performance.now() - d.at < 3000 ? `\n+${d.amount} fuel to the ${clanName(this.net.clan)} treasury` : '');
     }
     this.banner.setVisible(!!note && this.net.status==='open' && !this.net.death && !this.net.extracted).setText(note).setPosition(w / 2, intents.touch ? 118 : 86);
     styleClanBanner(this.banner,layout?.clan??0,this.net.clan===layout?.clan,!!this.net.docked,w,intents.touch);
@@ -397,7 +397,7 @@ export class FlightScene extends Phaser.Scene {
     if(labels.treasury){
       const at=labels.treasury,total=this.net.treasury?.total??0;
       const below=at.y+78*at.scale,labelY=!intents.touch&&below>h-138?at.y-84*at.scale:below;
-      this.treasuryText.setVisible(true).setText(`${clanName(layout.clan).toUpperCase()} TREASURY\n${total.toLocaleString('en-US')}`)
+      this.treasuryText.setVisible(true).setText(`${clanName(layout.clan).toUpperCase()} TREASURY\nFUEL ${total.toLocaleString('en-US')}`)
         .setPosition(at.x,labelY).setStroke('#102035',3);
     }
     if(labels.gate)this.gateText.setVisible(true).setPosition(labels.gate.x,labels.gate.y+145*labels.gate.scale).setStroke('#102035',3);
@@ -563,7 +563,11 @@ export class FlightScene extends Phaser.Scene {
     const g = this.overlay;
     const now = performance.now();
     const left = Math.max(0, (z.movesAt - now) / 1000);
-    const label = `SALVAGE ZONE ×${TUNE.hotZone.salvageMultiplier}  ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`;
+    // On one's own home planet minerals give fuel, not salvage; the zone doubles that instead.
+    // Visitors mine nothing on someone else's home planet, so the zone is not shown to them.
+    if (this.net.layout && this.net.clan !== this.net.layout.clan) return;
+    const zoneOf = this.net.layout ? 'FUEL' : 'SALVAGE';
+    const label = `${zoneOf} ZONE ×${TUNE.hotZone.salvageMultiplier}  ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`;
     const centre = this.toScreen(z.x, z.y);
     const dx = wrapDelta(z.x, p.x, W);
     const dy = wrapDelta(z.y, p.y, H);
@@ -896,7 +900,7 @@ export class FlightScene extends Phaser.Scene {
     g.clear();
     intents.uiZones = [];
     const p = this.net.predicted;
-    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now);
+    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now, !!this.net.layout && this.net.clan === this.net.layout.clan);
     this.drawMobileNav(p,w);
     this.drawShop(p);
     this.drawWeapons(p, w, h);
@@ -1449,7 +1453,7 @@ class RigShip implements DrawnShip {
 
   update(at: ShipPlacement, s: ShipState, timeMs: number, control?: FFDControl): void {
     // A dash counts as full throttle for the exhaust.
-    this.view.update(at, s.heading, timeMs, s.speed, s.dashTime > 0, control ?? 'observed');
+    this.view.update(at, s.heading, timeMs, s.speed, s.dashTime > 0, control ?? 'observed', topSpeed(s.hullMax, TUNE, s.chassis));
   }
 
   fire(side: number): void {

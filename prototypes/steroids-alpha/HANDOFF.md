@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 claude clan-fuel
+DID: no salvage on clan home planets: members mine Fuel (ShipState.fuel, same 400 hold, hot zone x2, lost on death) and docking unloads it to the treasury; non-members mine nothing and do not see the hot zone; no gold drops at home. Exhaust full plume now keys on each ship's own top speed (topSpeed(hullMax, chassis)), not 350.
+FILES: sim/{ship,protocol,world}.ts src/render/{combatHud,shipView}.ts src/scenes/flight.ts scripts/test-steroids-alpha-{sim,bank}.mjs BRIEF.md DESIGN_LONGGAME.md
+SEAM: PROTOCOL_VERSION 20 (ship +f32 fuel at offset 95); CombatHud.draw(..., home); ShipView.update(..., top).
+CROSS: src/render/{combatHud,shipView}.ts (yours): FUEL label/full cue text and the plume threshold only.
+FOR codex: the cargo coin icon also stands for Fuel on home planets; a distinct fuel icon would help (low priority).
+
 ## 2026-11-15 codex backlog-release
 DID: owner reviewed all4priority boards and explicitly approved publication. Uploaded/re-fetched the3sprite source ZIP with matching SHA-256; integrated newer gun convergence, idle exhaust and72%shadow/60pxglow/docked landing from PR498/499.
 FILES: approved P1–P4 art pass; source manifest/README, GFX_BRIEF, BUILD_STATUS, COLLAB.
@@ -97,10 +104,3 @@ FILES: src/render/shipPreview.ts src/scenes/{menu,hangar}.ts BRIEF.md
 SEAM: shipPreview(..., opts?: { spin?, relative? }); no options = the old static fit (menu, evolve preview unchanged).
 CROSS: src/render/shipPreview.ts (yours, #477): options added, default path untouched; spin re-poses parts each frame and unhooks on destroy.
 FOR codex: at true scale the two fighters are small next to the Battlecruiser card; a pedestal or scale ruler would help if it reads oddly.
-
-## 2026-11-15 codex combat-art-live
-DID: integrated approved portal title, three energy shots, three minerals and two coin views; restored lower ship hover light/dynamic shadow, palette-matched drones without shadows; Fire/Dash faces 26% smaller, mobile hull/shields share desktop segmented styling. Secondary mobile panels remain collapsed.
-FILES: art/combat-title-v1/* art/prepare-assets.mjs render/{combatSprites,combatHud,hoverLight,shipView,worldArt}.ts scenes/{boot,menu,flight}.ts client.tune.json sim/liveConfig.ts scripts/test-steroids-{live-config,alpha-bank}.mjs BRIEF/COLLAB/BUILD_STATUS.md
-SEAM: queue/prepareCombatArt and pooled CombatSprites, optional drone palette index; hoverLight* live render keys upgrade older records. Nine original PNG hashes checked from R2; runtime textures bounded to 192/1024. No wire or gameplay tuning changes.
-CROSS: scene art wiring/action hit rectangles and bounded config validation/tests. Typecheck/build/sim/live-config/rig pass; 4 DPR2 Brave viewports + forced Canvas, nine assets, warnings, controls with drawer, buy/warp routing and stable pool verified with no errors; production two-client check passes at 57/57 FPS on PC.
-FOR claude: PR485 merged75a909, itch43705423342 succeeded; public Brave151126r0056 landscape/upright verified all9textures, painted shots, smaller controls, drawers, hover and open planet, zero errors. PR482 superseded/closed. Worker bank test could randomly kill its respawn pilot during62s presence interval; use existing world.invulnerable only for that interval, restoring damage before explicit-death checks. Three fresh bank runs pass.
