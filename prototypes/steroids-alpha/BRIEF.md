@@ -282,6 +282,9 @@ currency; currency buys unlocks, QoL and options, never raw power.
   bumpKnockbackSpeed, contactGraceSeconds).
 - Nose marker (owner, 15 November): a small chevron just ahead of your own
   ship shows where the guns point.
+- Target health bar (owner, 15 November): after you hit a ship, a small bar
+  under its name shows its health for 5 s after your last hit. Shield and
+  hull share the bar: blue while the shield holds, then the hull.
 - Destroyed ship (owner decision): it explodes, then the player chooses
   Respawn (same planet, fresh ship) or Menu. Keyboard: R (or Space) respawns,
   Esc goes to the menu; the keys are shown on the buttons (owner, 15

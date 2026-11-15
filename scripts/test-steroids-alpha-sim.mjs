@@ -834,6 +834,8 @@ assert.equal(S.cleanName(null), '');
   assert(a.kx < 0 && b.kx > 0, 'bumped ships are pushed apart');
   near(shields[0] - a.shield + (a.hullMax - a.hp), tune.ship.bumpDamage, 1e-9, 'each takes bumpDamage');
   near(shields[1] - b.shield + (b.hullMax - b.hp), tune.ship.bumpDamage, 1e-9, 'both of them');
+  const bumpHits = w.drain().hits;
+  assert(bumpHits.some((h) => h.id === 2 && h.by === 1) && bumpHits.some((h) => h.id === 1 && h.by === 2), 'hits name the attacker (target health bar)');
   Object.assign(a, { x: 1000, y: 1000 });
   Object.assign(b, { x: 1020, y: 1000 });
   const after = [a.shield, b.shield];
