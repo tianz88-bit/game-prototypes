@@ -268,6 +268,49 @@ export interface AssistTarget {
   x: number;
   y: number;
   ship: boolean;
+  /** Velocity (world units a second), so both guns can lead a moving target. */
+  vx?: number;
+  vy?: number;
+}
+
+/**
+ * The target the aim assist locks onto: within assistRange and assistConeDeg of the nose, seen from
+ * the ship's centre; ships before asteroids, then the smallest angle off the nose.
+ */
+export function assistPick(x: number, y: number, heading: number, targets: readonly AssistTarget[], tune: Tune): AssistTarget | null {
+  const w = tune.weapon;
+  const cone = (w.assistConeDeg * Math.PI) / 180;
+  if (cone <= 0) return null;
+  let best: { off: number; t: AssistTarget } | null = null;
+  for (const t of targets) {
+    const dx = wrapDelta(t.x, x, tune.world.width);
+    const dy = wrapDelta(t.y, y, tune.world.height);
+    if (dx * dx + dy * dy > w.assistRange * w.assistRange) continue;
+    const off = Math.abs(angleDelta(Math.atan2(dy, dx), heading));
+    if (off > cone) continue;
+    if (!best || (t.ship && !best.t.ship) || (t.ship === best.t.ship && off < best.off)) best = { off, t };
+  }
+  return best?.t ?? null;
+}
+
+/**
+ * Both guns on the locked target (owner, 15 November 2026): each gun turns from its own muzzle to
+ * where the target will be when the shot arrives, so both streams land, by at most
+ * assistConvergeMaxDeg off the gun's resting line. No target: the resting line.
+ */
+function convergeOn(x: number, y: number, base: number, v: number, target: AssistTarget | null, tune: Tune): number {
+  if (!target) return base;
+  let px = target.x;
+  let py = target.y;
+  for (let i = 0; i < 2; i++) {
+    const d = Math.hypot(wrapDelta(px, x, tune.world.width), wrapDelta(py, y, tune.world.height));
+    const t = d / Math.max(1, v);
+    px = target.x + (target.vx ?? 0) * t;
+    py = target.y + (target.vy ?? 0) * t;
+  }
+  const aim = Math.atan2(wrapDelta(py, y, tune.world.height), wrapDelta(px, x, tune.world.width));
+  const cap = (tune.weapon.assistConvergeMaxDeg * Math.PI) / 180;
+  return base + Math.max(-cap, Math.min(cap, angleDelta(aim, base)));
 }
 
 /**
@@ -303,7 +346,7 @@ export function muzzleShot(s: ShipState, tune: Tune, targets: readonly AssistTar
     const x = wrap(s.x + (c * g.forward - sn * g.right) * grow, tune.world.width);
     const y = wrap(s.y + (sn * g.forward + c * g.right) * grow, tune.world.height);
     const v = tune.weapon.bulletSpeed + s.speed;
-    const dir = assistDirection(x, y, s.heading - Math.atan2(g.right * grow, tune.weapon.convergeDistance), targets, tune);
+    const dir = convergeOn(x, y, s.heading - Math.atan2(g.right * grow, tune.weapon.convergeDistance), v, assistPick(s.x, s.y, s.heading, targets, tune), tune);
     return { x, y, vx: Math.cos(dir) * v, vy: Math.sin(dir) * v, side: g.side };
   }
   const side = s.shots % 2 === 1 ? 1 : -1;
@@ -319,7 +362,7 @@ export function muzzleShot(s: ShipState, tune: Tune, targets: readonly AssistTar
   const x = wrap(s.x + c * f - sn * l, tune.world.width);
   const y = wrap(s.y + sn * f + c * l, tune.world.height);
   const base = s.heading - side * Math.atan2(tune.weapon.muzzleSide * grow, tune.weapon.convergeDistance);
-  const dir = assistDirection(x, y, base, targets, tune);
+  const dir = convergeOn(x, y, base, v, assistPick(s.x, s.y, s.heading, targets, tune), tune);
   return {
     x,
     y,

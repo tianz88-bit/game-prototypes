@@ -114,8 +114,9 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   // Shot along +x: both pieces are pushed along +x and fly apart in y.
   const push = tune.asteroid.splitPushPerDamage * 10;
   const spread = tune.asteroid.splitSpreadBase + tune.asteroid.splitSpreadPerDamage * 10;
-  // The guns converge, so the killing bullet arrives a few degrees off +x; allow for that tilt.
-  const tilt = Math.atan2(tune.weapon.muzzleSide, tune.weapon.convergeDistance);
+  // Both guns converge on the locked rock (owner, 15 November): the killing bullet arrives from its
+  // wing muzzle, angled in to the rock's centre 300 px ahead.
+  const tilt = Math.atan2(tune.weapon.muzzleSide, 300 - tune.weapon.muzzleForward);
   const mean = { vx: (kids[0].vx + kids[1].vx) / 2, vy: (kids[0].vy + kids[1].vy) / 2 };
   near(Math.hypot(mean.vx, mean.vy), push, 1e-6, 'pushed along the shot in proportion to damage');
   near(Math.abs(Math.atan2(mean.vy, mean.vx)), tilt, 1e-6, 'push follows the direction of the killing shot');
@@ -372,7 +373,8 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   const full = S.maxShield(tgt, tune);
   tgt.shield = full;
   for (let i = 0; i < 60 && tgt.shield === full; i++) {
-    big.x = 1000; big.y = 1000; big.heading = 0; tgt.x = 1200; tgt.y = 1000;
+    // The target is held in place, so it must not look like it is moving (the guns lead movers).
+    big.x = 1000; big.y = 1000; big.heading = 0; tgt.x = 1200; tgt.y = 1000; tgt.speed = 0;
     w2.stepShip(1, { ...idle, fire: true });
     w2.step();
   }
@@ -933,6 +935,32 @@ assert.equal(S.cleanName(null), '');
   assert.equal(open.layout, null, 'open planets have no base');
 }
 
+// --- Both guns on the locked target (owner, 15 November 2026): each gun leads the target from its
+// own muzzle, so both streams land; bots get no lock-on assist. ---
+{
+  for (const dist of [120, 250, 500]) {
+    const s = S.newShip(1000, 1000, 0, tune.ship.minSpeed);
+    s.hp = s.hullMax = tune.ship.maxHp;
+    const target = { x: 1000 + dist, y: 1000 + 10, ship: true, vx: 0, vy: 120 };
+    for (const shots of [0, 1]) {
+      s.shots = shots;
+      const shot = S.muzzleShot(s, tune, [target]);
+      // Where the bullet is when it reaches the target's predicted x.
+      const v = Math.hypot(shot.vx, shot.vy);
+      const t = (target.x - shot.x) / shot.vx;
+      const ty = target.y + target.vy * t;
+      const by = shot.y + shot.vy * t;
+      assert(Math.abs(by - ty) < tune.ship.radius, `gun ${shot.side} lands on a target ${dist} px out (${(by - ty).toFixed(1)} px off)`);
+      void v;
+    }
+  }
+  const s = S.newShip(1000, 1000, 0, tune.ship.minSpeed);
+  s.hp = s.hullMax = tune.ship.maxHp;
+  const plain = S.muzzleShot(s, tune, []);
+  const off = S.muzzleShot(s, tune, [{ x: 1000, y: 1400, ship: true }]);
+  near(Math.atan2(off.vy, off.vx), Math.atan2(plain.vy, plain.vx), 1e-12, 'no target in the cone: guns stay on their resting line');
+}
+
 // --- Wire format round trips. ---
 {
   const input = { seq: 77, turn: -0.5, aim: NaN, thrust: 1, dash: true, fire: true, missile: true, mine: false, warp: true };
@@ -1055,10 +1083,20 @@ assert.equal(S.cleanName(null), '');
   const plain = new ThrusterVFX(() => 0.5);
   tuned.speedScale = 2;
   tuned.lifeScale = 0.5;
-  tuned.spawn(origins[0], true);
-  plain.spawn(origins[0], true);
-  near(tuned.particles[0].vy / plain.particles[0].vy, 2, 1e-12, 'speed scale');
-  near(tuned.particles[0].life / plain.particles[0].life, 0.5, 1e-12, 'life scale');
+  // They apply as the plume stretches (full at top speed); the idle plume keeps its original look.
+  tuned.update(1 / 60, { ...idleIn, speedTrail: 1 }, origins, 0);
+  plain.update(1 / 60, { ...idleIn, speedTrail: 1 }, origins, 0);
+  near(tuned.particles[0].vy / plain.particles[0].vy, 2, 1e-12, 'speed scale at top speed');
+  near(tuned.particles[0].life / plain.particles[0].life, 0.5, 1e-12, 'life scale at top speed');
+  const idleT = new ThrusterVFX(() => 0.5);
+  const idleP = new ThrusterVFX(() => 0.5);
+  idleT.speedScale = 2;
+  idleT.lifeScale = 0.5;
+  for (let i = 0; i < 6; i++) { idleT.update(1 / 60, idleIn, origins, 0); idleP.update(1 / 60, idleIn, origins, 0); }
+  near(idleT.particles[0].life, idleP.particles[0].life, 1e-12, 'idle plume unchanged by the scales');
+  const parked = new ThrusterVFX(() => 0.5);
+  for (let i = 0; i < 30; i++) parked.update(1 / 60, { ...idleIn, throttle: i % 2 === 0, off: true }, origins, 0);
+  assert.equal(parked.particles.length, 0, 'landed: engines off, no exhaust');
 }
 
 // --- Dash: press = dashChargeSeconds wind-up; the direction held when it completes is where the

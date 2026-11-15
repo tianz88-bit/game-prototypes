@@ -26,6 +26,8 @@ export interface ThrusterInput {
   speedTrail?: number;
   /** Dashing: the plume takes the (longer) dash stretch instead. */
   dashing?: boolean;
+  /** Landed on a pad: the engines are off (no new particles; what is out fades). */
+  off?: boolean;
 }
 
 export interface ExhaustParticle {
@@ -66,6 +68,8 @@ export class ThrusterVFX {
    */
   speedScale = 1;
   lifeScale = 1;
+  private effSpeed = 1;
+  private effLife = 1;
 
   constructor(private random: () => number = Math.random) {}
 
@@ -74,7 +78,7 @@ export class ThrusterVFX {
     const particleScale = origin.particleScale ?? 1;
     const a = (origin.angle * Math.PI) / 180;
     const side = (r() - 0.5) * (burst ? 1.4 : 0.45);
-    const speed = (burst ? 180 : strong ? 270 : 95) * (0.7 + r() * 0.6) * particleScale * this.speedScale * stretch;
+    const speed = (burst ? 180 : strong ? 270 : 95) * (0.7 + r() * 0.6) * particleScale * this.effSpeed * stretch;
     const dx = -Math.sin(a);
     const dy = Math.cos(a);
     const sx = Math.cos(a);
@@ -86,7 +90,7 @@ export class ThrusterVFX {
       vx: (dx + sx * side) * speed,
       vy: (dy + sy * side) * speed,
       age: 0,
-      life: (burst ? 0.22 + r() * 0.22 : strong ? 0.22 + r() * 0.22 : 0.16 + r() * 0.21) * this.lifeScale,
+      life: (burst ? 0.22 + r() * 0.22 : strong ? 0.22 + r() * 0.22 : 0.16 + r() * 0.21) * this.effLife,
       w: (burst ? 4.5 + r() * 8 : 2.2 + r() * 3.5) * particleScale,
       h: (burst ? 6 + r() * 12 : strong ? 7 + r() * 13 : 4 + r() * 7) * particleScale * stretch,
       angle: a,
@@ -106,13 +110,18 @@ export class ThrusterVFX {
     dt = Math.min(0.05, Math.max(0, dt));
     const trail = Math.max(0, Math.min(1, input.speedTrail ?? 0));
     const stretch = input.dashing ? 1 + dashStretch : 1 + trail * trailStretch;
+    // Faster, shorter-lived particles (speedScale, lifeScale) apply as the plume stretches; at low
+    // speed the idle plume keeps its original look (owner: the minimum-speed exhaust was too small).
+    const k = input.dashing ? 1 : trail;
+    this.effSpeed = 1 + (this.speedScale - 1) * k;
+    this.effLife = 1 + (this.lifeScale - 1) * k;
     const edges = { throttle: input.throttle && !this.previous.throttle, left: input.left && !this.previous.left, right: input.right && !this.previous.right };
     // The outside engine drives the yaw.
     // At top speed both engines keep running strong, even with the throttle released.
     const cruising = trail >= 0.999;
     this.strong = [input.throttle || input.right || cruising, input.throttle || input.left || cruising];
     const burst = [edges.throttle || edges.right, edges.throttle || edges.left];
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 2 && !input.off; i++) {
       if (burst[i]) {
         this.bursts[i]++;
         this.flashes.push({ ...origins[i], age: 0, life: 0.18 });
