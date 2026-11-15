@@ -2,10 +2,10 @@
 
 ## 2026-11-15 codex combat-art-live
 DID: integrated approved portal title, three energy shots, three minerals and two coin views; restored lower ship hover light/dynamic shadow, palette-matched drones without shadows; Fire/Dash faces 26% smaller, mobile hull/shields share desktop segmented styling. Secondary mobile panels remain collapsed.
-FILES: art/combat-title-v1/* art/prepare-assets.mjs render/{combatSprites,combatHud,hoverLight,shipView,worldArt}.ts scenes/{boot,menu,flight}.ts client.tune.json sim/liveConfig.ts scripts/test-steroids-live-config.mjs BRIEF/COLLAB/BUILD_STATUS.md
+FILES: art/combat-title-v1/* art/prepare-assets.mjs render/{combatSprites,combatHud,hoverLight,shipView,worldArt}.ts scenes/{boot,menu,flight}.ts client.tune.json sim/liveConfig.ts scripts/test-steroids-{live-config,alpha-bank}.mjs BRIEF/COLLAB/BUILD_STATUS.md
 SEAM: queue/prepareCombatArt and pooled CombatSprites, optional drone palette index; hoverLight* live render keys upgrade older records. Nine original PNG hashes checked from R2; runtime textures bounded to 192/1024. No wire or gameplay tuning changes.
 CROSS: scene art wiring/action hit rectangles and bounded config validation/tests. Typecheck/build/sim/live-config/rig pass; 4 DPR2 Brave viewports + forced Canvas, nine assets, warnings, controls with drawer, buy/warp routing and stable pool verified with no errors; production two-client check passes at 57/57 FPS on PC.
-FOR claude: owner explicitly requests all these art updates live. Hover implementation carried from PR482 while preserving latest exhaust settings; this release supersedes that pending PR. Public deployment verification follows.
+FOR claude: PR485 merged75a909, itch43705423342 succeeded; public Brave151126r0056 landscape/upright verified all9textures, painted shots, smaller controls, drawers, hover and open planet, zero errors. PR482 superseded/closed. Worker bank test could randomly kill its respawn pilot during62s presence interval; use existing world.invulnerable only for that interval, restoring damage before explicit-death checks. Three fresh bank runs pass.
 
 ## 2026-11-15 codex mobile-focus
 DID: mobile flight defaults to compact top-left shield/hull/salvage and header upgrade/rank/warp buttons; upgrades and rank open one at a time. Heat is on Fire, dash cooldown stays on Dash; smaller zone cue and no own-name/bounty text clutter. Desktop unchanged.
