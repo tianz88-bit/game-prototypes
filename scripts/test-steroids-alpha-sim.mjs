@@ -884,7 +884,8 @@ assert.equal(S.cleanName(null), '');
   small.spawn({ ...origins[0], particleScale: 0.375 }, true);
   near(small.particles[0].w / big.particles[0].w, 0.375, 1e-12, 'particles scale with the craft');
   near(small.particles[0].vy / big.particles[0].vy, 0.375, 1e-12, 'particle speed scales with the craft');
-  // At top speed both engines run strong and the plume is longer (taller, longer-lived particles).
+  // At top speed both engines run strong and the plume is longer: taller, faster particles (owner,
+  // 15 November: the plume grows by speed, not by lingering).
   const slow = new ThrusterVFX(() => 0.5);
   const fast = new ThrusterVFX(() => 0.5);
   for (let i = 0; i < 30; i++) {
@@ -892,8 +893,26 @@ assert.equal(S.cleanName(null), '');
     fast.update(1 / 60, { ...idleIn, speedTrail: 1 }, origins, 1);
   }
   assert.deepEqual(fast.strong, [true, true], 'top speed keeps both engines strong');
+  // Same engine strength (throttle held), with and without the top-speed stretch.
+  const held = new ThrusterVFX(() => 0.5);
+  const top = new ThrusterVFX(() => 0.5);
+  for (let i = 0; i < 30; i++) {
+    held.update(1 / 60, { ...idleIn, throttle: true }, origins, 1);
+    top.update(1 / 60, { ...idleIn, throttle: true, speedTrail: 1 }, origins, 1);
+  }
+  const fastest = (v) => Math.max(...v.particles.map((p) => Math.hypot(p.vx, p.vy)));
   const longest = (v) => Math.max(...v.particles.map((p) => p.life));
-  assert(longest(fast) > longest(slow) * 1.5, 'top-speed plume lasts longer');
+  assert(fastest(top) > fastest(held) * 1.5, 'top-speed plume particles fly faster');
+  near(longest(top), longest(held), 1e-9, 'and do not linger longer');
+  // Speed and life scales (client tune): faster particles that fade sooner.
+  const tuned = new ThrusterVFX(() => 0.5);
+  const plain = new ThrusterVFX(() => 0.5);
+  tuned.speedScale = 2;
+  tuned.lifeScale = 0.5;
+  tuned.spawn(origins[0], true);
+  plain.spawn(origins[0], true);
+  near(tuned.particles[0].vy / plain.particles[0].vy, 2, 1e-12, 'speed scale');
+  near(tuned.particles[0].life / plain.particles[0].life, 0.5, 1e-12, 'life scale');
 }
 
 // --- Dash: press = dashChargeSeconds wind-up; the direction held when it completes is where the

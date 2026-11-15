@@ -60,6 +60,13 @@ export class ThrusterVFX {
   private previous: ThrusterInput = { throttle: false, left: false, right: false };
   private credits: [number, number] = [0, 0];
 
+  /**
+   * Owner, 15 November 2026: particles fly faster (speedScale) and fade sooner (lifeScale), and a
+   * longer plume (top speed, dash) comes from faster particles, not longer-lived ones.
+   */
+  speedScale = 1;
+  lifeScale = 1;
+
   constructor(private random: () => number = Math.random) {}
 
   spawn(origin: NozzleOrigin, strong: boolean, burst = false, stretch = 1): void {
@@ -67,7 +74,7 @@ export class ThrusterVFX {
     const particleScale = origin.particleScale ?? 1;
     const a = (origin.angle * Math.PI) / 180;
     const side = (r() - 0.5) * (burst ? 1.4 : 0.45);
-    const speed = (burst ? 180 : strong ? 270 : 95) * (0.7 + r() * 0.6) * particleScale;
+    const speed = (burst ? 180 : strong ? 270 : 95) * (0.7 + r() * 0.6) * particleScale * this.speedScale * stretch;
     const dx = -Math.sin(a);
     const dy = Math.cos(a);
     const sx = Math.cos(a);
@@ -79,7 +86,7 @@ export class ThrusterVFX {
       vx: (dx + sx * side) * speed,
       vy: (dy + sy * side) * speed,
       age: 0,
-      life: (burst ? 0.22 + r() * 0.22 : strong ? 0.22 + r() * 0.22 : 0.16 + r() * 0.21) * stretch,
+      life: (burst ? 0.22 + r() * 0.22 : strong ? 0.22 + r() * 0.22 : 0.16 + r() * 0.21) * this.lifeScale,
       w: (burst ? 4.5 + r() * 8 : 2.2 + r() * 3.5) * particleScale,
       h: (burst ? 6 + r() * 12 : strong ? 7 + r() * 13 : 4 + r() * 7) * particleScale * stretch,
       angle: a,
