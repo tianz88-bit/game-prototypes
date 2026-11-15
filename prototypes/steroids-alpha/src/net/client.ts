@@ -68,6 +68,11 @@ interface Remote {
 const W = TUNE.world.width;
 const H = TUNE.world.height;
 const STEP_MS = stepSeconds(TUNE) * 1000;
+/**
+ * Gun shot look (owner, 15 November 2026): both guns fire the standard bolt; from the
+ * heavyShotGunTier-th GUNS upgrade on, both fire the heavy pulse (the "power wave").
+ */
+const shotLook = (damageTier: number): number => (damageTier >= clientTune.render.heavyShotGunTier ? 1 : 0);
 
 export class NetClient {
   status: NetStatus = 'connecting';
@@ -254,7 +259,9 @@ export class NetClient {
           this.fx.push({ kind: 'turret', id: s.owner, index: s.side - TURRET_SIDE, angle: Math.atan2(s.vy, s.vx) });
           continue;
         }
-        this.bullets.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, life: TUNE.weapon.bulletLifeSteps * STEP_MS, mine: false, look:s.side===1?0:1 });
+        const buf = this.remotes.get(s.owner)?.buf;
+        const shooter = buf && buf.length ? buf[buf.length - 1].s : null;
+        this.bullets.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, life: TUNE.weapon.bulletLifeSteps * STEP_MS, mine: false, look: shotLook(shooter?.damageTier ?? 0) });
         this.fx.push({ kind: 'shot', id: s.owner, side: s.side });
       }
       return;
@@ -363,7 +370,7 @@ export class NetClient {
             ...this.asteroidRender().map((r) => ({ x: r.x, y: r.y, ship: false })),
           ];
           const shot = muzzleShot(this.predicted, TUNE, targets);
-          this.bullets.push({ x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: TUNE.weapon.bulletLifeSteps * STEP_MS, mine: true, look:shot.side===1?0:1 });
+          this.bullets.push({ x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: TUNE.weapon.bulletLifeSteps * STEP_MS, mine: true, look: shotLook(this.predicted.damageTier) });
           this.fx.push({ kind: 'shot', id: this.myId, side: shot.side });
         }
       }

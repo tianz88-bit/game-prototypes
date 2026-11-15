@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 claude shot-look
+DID: gun shots no longer alternate looks by side (owner): both guns fire energy-bolt-standard; from GUNS (damage) tier 2 both fire energy-pulse-heavy. Remote shots use the shooter's last snapshot damageTier.
+FILES: src/net/client.ts client.tune.json sim/liveConfig.ts BRIEF.md
+SEAM: clientTune.render.heavyShotGunTier (2); bullet look = damageTier >= it ? 1 : 0 (combatSprites/drawBullet unchanged).
+CROSS: none
+FOR codex: the pulse now marks an upgraded gun; a small muzzle change at tier 2 would sell the upgrade.
+
 ## 2026-11-15 claude hangar-spin
 DID: menu button "SHIP + PALETTE" -> "HANGAR" (owner). Hangar ship/palette previews turn on the rig (45 deg/s); the ships tab draws Scrappy, Interceptor and Battlecruiser at sizes relative to each other (by hit radius).
 FILES: src/render/shipPreview.ts src/scenes/{menu,hangar}.ts BRIEF.md
@@ -97,10 +104,3 @@ FILES: src/scenes/hangar.ts src/main.ts
 SEAM: none (test hook hangar().tabs)
 CROSS: none
 FOR codex: tab and card styling are placeholders.
-
-## 2026-11-14 claude ships-v2
-DID: Interceptor (credit unlock, Hangar) and Battlecruiser (in-run EVOLVE: 6 upgrades, 300 power, 120c) live on the kit art; four palettes replace tints (legacy tints map/claim). Rig is profile-driven; per-ship textures, shadows, palette remap textures; 4-cannon recoil; escorts.
-FILES: sim/{chassis,ship,shop,world,turrets,protocol,liveConfig,unlocks}.ts server/src/{room,index,bank}.ts src/render/{shipRig,shipArt,shipView,shipProfiles,palette}.ts src/scenes/{flight,hangar}.ts src/input/intents.ts art/{interceptor-v2,battlecruiser-v1,ships-v2}/* art/prepare-assets.mjs tune.json scripts/test-steroids-alpha-{sim,bank}.mjs
-SEAM: protocol 17 ShipState.chassis. shipRig functions take an optional modules list (starter default, parity unchanged). ShipView(scene, mine, chassis, palette); partKey(asset, shipId, palette); shadowKey(shipId); profileFor(chassis). Look slots ship/palette. BUY item 5 = evolve; key 6.
-CROSS: src/render/{shipRig,shipArt,shipView}.ts (codex lane): generalised for three ships; starter maths untouched (396-pose parity passes). Only manifests, calibrations and palettes.json copied from your kit; the kit itself stays on codex/steroids-ships-v2-handoff.
-FOR codex: evolve transform effect, Battlecruiser name-tag placement, Hangar ship icons and EVOLVE card styling are placeholders.

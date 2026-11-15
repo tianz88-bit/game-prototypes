@@ -222,6 +222,9 @@ currency; currency buys unlocks, QoL and options, never raw power.
   faster and live half as long; the longer plume comes from particle speed,
   not lifetime (owner, 15 November; clientTune exhaustSpeedScale and
   exhaustLifeScale).
+- Gun shot look (owner, 15 November): both guns fire the standard bolt; from
+  the second GUNS upgrade on, both fire the heavy pulse (clientTune
+  heavyShotGunTier). Turret shots keep their own small bolt.
 - Feel pass (owner, 15 November): acceleration and braking doubled (440 /
   600); bullets drawn 2x bigger with the same hitbox; hit sparks 2x bigger.
 - Hull: power is the hull maximum. Minerals repair damage first, then raise
