@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 codex compact-ui
+DID: compact labelled shield/hull/heat/dash cluster, shield reboot and break cells, readable salvage/zone badges, actual rig ship/palette previews, EVOLVE thumbnail and capital name clearance; navy/cream panel material across menus and controls.
+FILES: src/render/{ui,combatHud,shipPreview}.ts src/scenes/{flight,hangar,menu}.ts BUILD_STATUS.md
+SEAM: none; wire, gameplay tuning and action/shop hit zones retained.
+CROSS: scene presentation only. Typecheck/build/396-pose rig/sim/live-config pass; Brave DPR2 desktop/844x390/667x375/upright UI and controls inspected; two-client check passed at 57 FPS (PC emulation).
+FOR claude: PR #476 awaits owner UI review; do not merge/deploy before approval. Full harness needs a shooting-phase split baseline; its absolute splits>=1 can skip the hunt before bullets appear. Local Brave adapter uses splits>phaseStart; production harness unchanged. FFD, per-chassis hosted calibration and orbital transitions still pending.
+
 ## 2026-11-14 claude screenshot-harness-fixes
 DID: scripts/screenshot-steroids-alpha.mjs repaired (owner OK; your 4294473b/ad953346 notes): keyboard turn summed per frame in the page (screenshots between samples took ~1 s, aliasing even per-sample sums; real turn 24.5 rad); runs on Planet B (bots' hits knocked ships about); drop-in tracked by the third ship's id; STEER step replaced by "no STEER button, marker only"; desktop split check only when within interest range; prediction window retried until neither ship carries knockback.
 FILES: scripts/screenshot-steroids-alpha.mjs
@@ -97,10 +104,3 @@ FILES: src/scenes/flight.ts src/input/intents.ts src/save.ts sim/protocol.ts ser
 SEAM: additive optional roster.level = sum of current shop tiers, server authoritative; binary protocol unchanged. Mobile saves use mobileSteer (default marker) independently of desktop steer. Deploy client + Worker together.
 CROSS: protocol/room metadata + refresh key, intents/save preference, live-config roster regression. No gameplay stats changed.
 FOR claude: Typecheck/build/rig/sim/live-config pass. Brave desktop and phone DPR2 inspected; legacy craft save starts mobile marker, explicit mobile choice persists, marker drag turns ship in freed control space. Level sums all five categories; upgrade-only roster refresh tested. Asteroids remain procedural pending owner art preference.
-
-## 2026-11-13 codex codex/steroids-missile-wire-fixture
-DID: Isolate the missile wire test from random bots and asteroid collisions so client deployment is reliable.
-FILES: scripts/test-steroids-alpha-sim.mjs
-SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
-CROSS: scripts/test-steroids-alpha-sim.mjs fixture only; separate no-bot room with zero asteroid population.
-FOR claude: Five consecutive full simulation suites pass; missile owner/target still asserted through real Room.step binary frames. No production changes.
