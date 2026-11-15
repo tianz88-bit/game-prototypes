@@ -1,6 +1,6 @@
 # Steroids-Alpha: Long Game Design (clans, home planets, territory, economy, seasons)
 
-Status: design doc, owner-directed (15 November 2026). Nothing in this file is built until the
+Status: design doc, owner-directed (15 November 2026; clan power added the same day). Nothing in this file is built until the
 owner moves a piece of it into `BRIEF.md`, which stays the source of truth for what gets built.
 Decisions marked **Decided** come from the owner; **Proposal** items are drafts for the owner to
 accept, change or drop; **Open** items need an owner answer.
@@ -14,7 +14,8 @@ accept, change or drop; **Open** items need an owner answer.
 - Create epic, planned clan-versus-clan fights (sieges) on top of everyday skirmishes.
 - Keep the current rogue-like extraction loop intact: drop in, fight and mine, extract or lose
   what you carry.
-- Keep open-planet runs fair: clan progression never makes a ship stronger in a normal run.
+- Keep open public planets fair: clan power (techs, unique ships) only applies on clan turf, in
+  wars and in null-sec areas, never on the open public planets (see section 4a).
 
 ## 2. The three layers
 
@@ -44,8 +45,9 @@ for territory, territory produces more resources.
 
 ## 4. Home planets
 
-- **Decided:** each clan has a home planet. Clan power shows **only** here: shields, static
-  defenses and buildings. Ships in open runs are never boosted by clan progression.
+- **Decided:** each clan has a home planet: shields, static defenses and buildings. Clan ship
+  power (techs, unique ships) is covered in section 4a and applies only on clan turf, in wars
+  and in null-sec areas; never on open public planets.
 - **Decided:** home planets are **shielded by default**. The shield drops only during a declared
   war or an event. Solo raids are impossible by design.
 - **Decided:** **friendly passes** let guests visit: while a guest visit is active, shields are
@@ -60,6 +62,56 @@ for territory, territory produces more resources.
 - **Risk noted:** a friendly pass lets a guest scout defenses before a war. Options: allow it
   (spies are fun), limit passes to clans with a non-aggression pact, or log every visit.
   **Open:** which option.
+
+## 4a. Clan power: techs, unique ships and capital ships
+
+Owner decision (15 November 2026): clans get a real edge over clanless "wildmen", replacing the
+earlier "never raw power" rule for clan play. Fenced in so open public planets stay fair.
+
+### Clan techs (% buffs)
+
+- **Decided:** clan techs give % buffs (for example damage, shield, speed) that make clan ships
+  stronger in fights.
+- **Decided:** buffs apply **only on clan turf** (the clan's own satellites and home planet),
+  **in declared wars**, and in **null-sec areas**. On the open public planets (today's Planet A
+  and Planet B) every ship is equal.
+- **Decided:** a hard cap of **+20% total** clan bonus to start (to be tested), designed to be
+  **hard to reach and hard to maintain**.
+- **Decided:** techs need **building upkeep**; stop paying and they switch off.
+- **Note:** buffs multiply in real-time fights. +10% damage and +10% shield is about a 21% edge
+  in an even duel; the 20% cap is roughly a 40% duel edge if split that way. Test with care.
+- **Proposal:** a small clan-tier badge on ships so opponents can see a teched clan.
+
+### Unique clan ships
+
+- **Decided:** big clan upgrades unlock **unique ship blueprints**. Like the Battlecruiser
+  today, a pilot still has to mine minerals and reach the upgrades **in each run** to evolve into
+  one; the blueprint alone gives nothing.
+- **Decided:** many evolved clan ships can exist at once.
+
+### Capital ships
+
+- **Decided:** capital ships exist **only in raid games** (clan versus clan wars).
+- **Decided:** **one capital ship per clan** at a time, evolved like other ships: it needs enough
+  minerals collected during the war.
+
+### Feeders
+
+- **Decided:** in big wars, some players can play as **farmers**, mining and handing minerals to
+  the clan's capital ship (or other evolving clan ships).
+- **Decided:** mineral transfers happen **only during wars**.
+- **Decided exception to "no trading":** in-run transfers of run power (minerals) between clan
+  members during a war. Bankable resources (credits, basic resources, treasury) are never
+  tradeable.
+- **Proposal:** transfers only between members of the same clan, capped per feeder, to limit
+  alt-account feeding.
+
+### Null-sec areas
+
+- **Decided:** some null-sec areas exist "where people can have fun": lawless zones outside the
+  safe open planets.
+- **Open:** which rules apply there (clan buffs are on, per the decision above; whether unique
+  ships, capital ships or feeding are allowed; what can be earned there).
 
 ## 5. Wars and sieges
 
@@ -92,7 +144,8 @@ for territory, territory produces more resources.
 ### 7.1 Principles
 
 - **Decided:** **no trading** between players (like SLGs). Everything is bound to the player or
-  the clan.
+  the clan. One exception: in-run mineral transfers between clan members during wars (section
+  4a, Feeders).
 - **Decided:** **resource contribution is limited per clan member per time frame**, so there is
   no reason to overfarm. Run currencies (power, salvage) stay limited by the 400 cargo hold.
 - **Decided:** **clan buildings have upkeep**: an ongoing cost that keeps clans active and stops
@@ -134,7 +187,9 @@ for territory, territory produces more resources.
 
 - The rogue-like run loop: drop in, fight, mine, extract or die. Carried salvage and power are
   lost on death.
-- Fairness in open runs: no stat boosts from clans, accounts or purchases ("never raw power").
+- Fairness on open public planets: no stat boosts there from clans, accounts or purchases.
+  Clan power applies only on clan turf, in wars and in null-sec areas (section 4a). Personal
+  Hangar unlocks stay cosmetic and QoL ("never raw power" still holds for credits).
 - The never-block-the-player rule.
 
 ## 10. Technical notes
@@ -163,7 +218,7 @@ Each phase should be fun on its own with few players.
 3. **Satellites and basic resources:** clan-held satellites with basic-resource mining and
    unshielded PvP; territory income.
 4. **Sieges:** war declarations, shields that need a group, defenses, reinforcement timer and
-   scheduled war windows.
+   scheduled war windows; clan techs, unique ships, the capital ship and feeders.
 5. **Seasons:** themed seasons, seasonal currency, leaderboards and resets.
 
 ## 12. Open questions (summary)
@@ -178,3 +233,6 @@ Each phase should be fun on its own with few players.
 8. Basic resources extracted by clanless players.
 9. Contribution limit size and time frame.
 10. Season reset scope.
+11. Null-sec rules: which clan features apply there and what can be earned.
+12. Which stats clan techs can buff, and how the 20% cap is split between them.
+13. Feeder limits: per-feeder cap and whether non-capital clan ships can be fed.
