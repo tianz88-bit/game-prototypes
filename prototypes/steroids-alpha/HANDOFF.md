@@ -1,5 +1,19 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 claude converge-exhaust
+DID: aim assist locks a target from the ship centre (cone/range, ships first) and each gun leads it from its own muzzle (cap weapon.assistConvergeMaxDeg 20) so both streams land; bots get no assist. Exhaust speed/life scales now ramp with the plume stretch (idle plume back to the original look); landed ships emit no exhaust (ThrusterInput.off).
+FILES: sim/{ship,world,liveConfig}.ts src/{net/client,render/thrusters,render/shipView}.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
+SEAM: AssistTarget.vx/vy; assistPick(); muzzleShot converges on the pick; ThrusterInput.off.
+CROSS: src/render/{thrusters,shipView}.ts (yours): scale ramp and engines-off only.
+FOR codex: nothing new.
+
+## 2026-11-15 claude ship-ground-cues
+DID: shadows drawn at render.shadowScale (0.72) of the ship in flight; hover glow 60 x 60 (round, smaller; was 112 x 38); docked ships ease (250 ms) down to the shadow's size, onto their shadow, hover lift to 0 and glow faded.
+FILES: src/render/shipView.ts src/scenes/flight.ts client.tune.json sim/liveConfig.ts BRIEF.md
+SEAM: ShipPlacement.landed (0..1); clientTune.render.shadowScale.
+CROSS: src/render/shipView.ts (yours): shadow scale, landed shrink/hover/glow fade only.
+FOR codex: docked ships sit wherever they stopped on the pad; a snap/settle effect to the pad centre would help.
+
 ## 2026-11-15 codex P1-combat-preview
 DID: Painted missiles/mines/repair pods; smoke, armed/search/observed-seeking cues and lock brackets; differentiated death/missile/mine/split/Nova/ram/hit/shield-shatter effects; heading-only dash charge and subtle hull-border accents.
 FILES: art/combat-backlog-v1/* art/prepare-assets.mjs render/{combatSprites,combatEffects,worldArt}.ts scenes/flight.ts
@@ -90,17 +104,3 @@ FILES: src/render/{combatHud,mobileFlightUi}.ts src/scenes/flight.ts src/input/i
 SEAM: intents.uiZones consumes non-combat panel touches before the floating marker; FlightScene clears on redraw/shutdown. Hidden shop has no buy zones; open drawer preserves combat controls.
 CROSS: minimal scene tap routing/input capture. Typecheck/build/sim/live-config/rig pass; Brave DPR2 844x390,667x375,upright390x844 and desktop reviewed; marker acceleration, drawer/fire/dash, buy routing, warp once and warning/weapon states pass; two-client production test passed at 57/57 FPS on PC, no console errors.
 FOR claude: Owner explicitly authorized publication. PR #483 merged; itch 43700096172 succeeded. Brave verified live 151126r0055 landscape/upright drawers, fire/dash, open planet, no errors. Pending hover-light PR482 and unintegrated logo/bullet/mineral assets are separate; gameplay and client tuning unchanged.
-
-## 2026-11-15 claude exhaust-speed
-DID: exhaust particles 2x faster and half the lifetime (owner); the top-speed/dash stretch now multiplies particle speed instead of lifetime, so plume lengths stay as approved but particles no longer linger.
-FILES: src/render/{thrusters,shipView}.ts client.tune.json sim/liveConfig.ts scripts/test-steroids-alpha-sim.mjs BRIEF.md
-SEAM: ThrusterVFX.speedScale / lifeScale (default 1; shipView sets them from clientTune.render.exhaustSpeedScale / exhaustLifeScale).
-CROSS: src/render/thrusters.ts (your lab port): spawn() speed now x speedScale x stretch, life x lifeScale.
-FOR codex: with half as many live particles the plume reads thinner; if it needs density back, the emission rate (credits per second) is the knob.
-
-## 2026-11-15 claude feel-pass
-DID: dash boosts straight ahead (aimed dash removed; bots dash only when lined up); accel/brake 440/600; bullets drawn x2 (hitbox unchanged); hit sparks x2; plume x2 at top speed (thrusterTopSpeedStretch 1 -> 3), x3 in a dash (thrusterDashStretch 5); bots linger 60 s after the last pilot is destroyed, leave at once on disconnect; death screen R/Space respawn, Esc menu, keys on buttons; R no longer eaten as Warp while dead.
-FILES: sim/{ship,protocol,bots,liveConfig}.ts server/src/room.ts src/{input/intents,net/client,scenes/flight,render/thrusters,render/shipView}.ts tune.json client.tune.json ../steroids-alpha-lab/preview.ts scripts/test-steroids-alpha-{sim,bank}.mjs BRIEF.md
-SEAM: ShipInput.dashAim removed; wire offset 18 stays as a reserved NaN float (protocol 19 unchanged). ThrusterInput.dashing; ThrusterVFX.update(..., trailStretch, dashStretch). clientTune.render.{thrusterDashStretch,bulletScale,hitSparkScale}; tune.bots.lingerSeconds.
-CROSS: src/render/{thrusters,shipView}.ts (dash stretch), worldArt draw calls get a scaled `at` (drawHitSpark/drawBullet unchanged).
-FOR codex: the dash aim arrow during the charge now just points along the heading; restyle or drop it.

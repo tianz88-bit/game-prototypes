@@ -35,6 +35,11 @@ export interface ShipPlacement {
   shadowX: number;
   shadowY: number;
   shadowAlpha: number;
+  /**
+   * 0 in flight, 1 when docked on a landing pad (owner, 15 November 2026): a landed ship shrinks to
+   * its shadow's size and sits on it, and its hover glow fades out.
+   */
+  landed?: number;
 }
 
 export class ShipView {
@@ -132,14 +137,19 @@ export class ShipView {
     if (!at.visible) return;
     const x = at.x;
     const y = at.y;
-    const scale = clientTune.render.shipScale * at.scale;
+    // In flight the shadow is drawn smaller than the ship (render.shadowScale, owner); a docked ship
+    // comes down to the shadow's size (landed).
+    const landed = Math.max(0, Math.min(1, at.landed ?? 0));
+    const shadowScale = clientTune.render.shadowScale;
+    const scale = clientTune.render.shipScale * at.scale * (1 + (shadowScale - 1) * landed);
+    const shadowDrawScale = clientTune.render.shipScale * at.scale * shadowScale;
     // Approved placement: +2 X / +35 Y at a 1600x900 reference view, under the craft.
     const light = clientTune.render;
     const groundScale = at.scale * light.referenceHeight / 900;
     const night = Math.max(0, Math.min(1, (1-at.brightness) / .3));
     this.hoverLight.setPosition(x+light.hoverLightX*groundScale,y+light.hoverLightY*groundScale)
       .setDisplaySize(light.hoverLightWidth*groundScale*this.sizeRatio,light.hoverLightHeight*groundScale*this.sizeRatio)
-      .setAlpha(light.hoverLightOpacity*(.7+.3*night));
+      .setAlpha(light.hoverLightOpacity*(.7+.3*night)*(1-landed));
     // Sunlight scales every layer's 3% step shade together; retint only when it changes visibly.
     if (Math.abs(at.brightness - this.lastBrightness) > 0.004) {
       this.lastBrightness = at.brightness;
@@ -195,7 +205,7 @@ export class ShipView {
 
     const cal = this.profile.calibration;
     const mods = this.profile.modules;
-    const hover = cal.hoverLift;
+    const hover = cal.hoverLift * (1 - landed); // a landed ship sits on the ground
     this.now = timeMs;
     for (const { m, img, scale, ffd } of this.parts) {
       const gun = m.asset === 'gun';
@@ -208,11 +218,11 @@ export class ShipView {
       if (this.tiltProjection) ffd!.draw(p, cal.modules[m.id].width, k?.scaleX ?? 1, k?.scaleY ?? 1, hover, this.tiltProjection);
     }
     this.container.setPosition(x, y).setScale(scale);
-    this.updateExhaust(dt / 1000, demand, angle, timeMs, at, boosting);
+    this.updateExhaust(dt / 1000, landed > 0.3 ? { ...demand, throttle: false, left: false, right: false, off: true } : demand, angle, timeMs, at, boosting && landed <= 0.3);
     this.drawShield(at, timeMs);
     this.shadow
-      .setPosition(at.shadowX, at.shadowY)
-      .setScale(scale)
+      .setPosition(at.shadowX + (x - at.shadowX) * landed, at.shadowY + (y - at.shadowY) * landed)
+      .setScale(shadowDrawScale)
       .setAlpha(cal.shadow.opacity * at.shadowAlpha)
       .setRotation((angle * Math.PI) / 180);
     this.ring.setPosition(x, y).setScale(scale);
@@ -265,7 +275,7 @@ export class ShipView {
       }
       g.fillPoints(pts, true);
     };
-    for(let i=0;i<nozzles.length;i++){
+    for(let i=0;i<nozzles.length && !demand.off;i++){
       const n=nozzles[i],a=n.angle*Math.PI/180,len=n.width*(this.exhaust.strong[i]?1.5: .7)*(boosting?1.6:1);
       g.fillStyle(0x73d9ff,.25);rect(n.x,n.y,n.width*.65,len,a,len*.4);
       g.fillStyle(0xe8fdff,.85);rect(n.x,n.y,n.width*.24,n.width*.38,a,n.width*.12);

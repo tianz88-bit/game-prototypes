@@ -92,6 +92,8 @@ currency; currency buys unlocks, QoL and options, never raw power.
   fading out at night) all follow it. Turning the ship in place never changes
   the light. The planet's turn comes from the server clock, so players in the
   same place see the same light.
+- Ship shadows are drawn smaller than the ship in flight (render.shadowScale 0.72) and the hover
+  glow under a ship is a small round pool (owner, 15 November 2026).
 - Ships and other game objects dim only about 10% on the night side, so they
   stay readable; the ground goes properly dark (owner decision).
 - Thruster exhaust: steady at idle, a burst when throttle or a turn starts,
@@ -122,6 +124,8 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
   - is repaired (hull and shield);
   - unloads its carried salvage into the clan treasury.
   Docking to bank your own credits at home is "maybe later" (owner).
+  A docked ship comes down onto its pad: it shrinks to its shadow's size and sits on it, and its
+  hover glow fades and its engines (exhaust) switch off (owner, 15 November).
 - **Anyone can enter a clan planet.** Non-members:
   - arrive at the gate (the fixed entry point opposite the treasury);
   - get a warning that the clan's turrets will fire on them;
@@ -244,6 +248,10 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
   compensate.
 - Aim assist (owner request): a narrow cone ahead of the ship bends shots
   slightly toward a target, ships before asteroids.
+  Owner, 15 November: once a target is locked (in the cone and range), both guns
+  turn from their own muzzles to where it will be when the shot arrives, so both
+  streams land (up to weapon.assistConvergeMaxDeg 20 off each gun's resting line).
+  Bots do not get this assist; they aim for themselves.
 - Dash (owner design, Thunderdogs reference, 12 November): press dash to
   start a 0.4 s charge (owner, 15 November: was 0.8 s) during which the ship cannot steer;
   when it completes the ship boosts straight ahead (owner, 15 November: no

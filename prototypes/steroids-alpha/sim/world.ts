@@ -263,10 +263,10 @@ export class World {
   /** What a ship's aim assist may pick: other living ships, and asteroids where they are now. */
   assistTargets(id: number): AssistTarget[] {
     const out: AssistTarget[] = [];
-    for (const [oid, o] of this.ships) if (oid !== id && o.hp > 0) out.push({ x: o.x, y: o.y, ship: true });
+    for (const [oid, o] of this.ships) if (oid !== id && o.hp > 0) out.push({ x: o.x, y: o.y, ship: true, vx: Math.cos(o.heading) * o.speed + o.kx, vy: Math.sin(o.heading) * o.speed + o.ky });
     for (const a of this.asteroids.values()) {
       const p = asteroidPos(a, this.tick, this.tune);
-      out.push({ x: p.x, y: p.y, ship: false });
+      out.push({ x: p.x, y: p.y, ship: false, vx: a.vx, vy: a.vy });
     }
     return out;
   }
@@ -306,7 +306,8 @@ export class World {
     if (s.missileShots !== missilesBefore) this.launchMissile(id, s);
     if (s.mineShots !== minesBefore) this.dropMine(id, s);
     if (s.shots !== before) {
-      const shot = muzzleShot(s, this.tune, this.assistTargets(id));
+      // Bots aim for themselves (sim/bots.ts); the guns' lock-on assist is a pilot aid (owner).
+      const shot = muzzleShot(s, this.tune, this.botIds.has(id) ? [] : this.assistTargets(id));
       this.bullets.push({ owner: id, damage: this.tune.weapon.damage * damageScale(s, this.tune), x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: this.tune.weapon.bulletLifeSteps });
       this.events.shots.push({ owner: id, ...shot });
     }

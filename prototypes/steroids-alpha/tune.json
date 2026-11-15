@@ -63,6 +63,7 @@
     "assistConeDeg": 10,
     "assistRange": 650,
     "assistMaxDeg": 5,
+    "assistConvergeMaxDeg": 20,
     "heatPerShot": 0.113,
     "coolPerSecond": 0.35,
     "unlockHeat": 0.3

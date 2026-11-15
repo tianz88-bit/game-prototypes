@@ -97,7 +97,7 @@ export function validateConfig(input: unknown): ConfigData {
   { const z = value.tune.hotZone; if (!(z.radius >= 0) || !(z.moveSeconds > 0) || !(z.salvageMultiplier >= 1) || !(z.spawnShare >= 0 && z.spawnShare <= 1)) fail('Hot zone: radius 0 or more, move time above 0, multiplier 1 or more, spawn share 0..1'); }
   { const v = value.tune.warp; if (!(v.lockdownSeconds >= 0 && v.lockdownSeconds <= 1800) || !(v.acceleration > 0) || !(v.topSpeedFactor >= 1 && v.topSpeedFactor <= 3) || !(v.distance > 0) || !(v.steerFactor >= 0 && v.steerFactor <= 1)) fail('Warp: lockdown 0-1800 s, acceleration and distance above 0, top speed x1-3, steering 0..1'); }
   { const b = value.tune.bots; if (!Number.isInteger(b.count) || b.count < 0 || b.count > 8 || !(b.respawnSeconds >= 0) || !(b.lingerSeconds >= 0 && b.lingerSeconds <= 600) || !(b.fleeHullFraction >= 0 && b.fleeHullFraction <= 1) || !(b.burstHeat > b.resumeHeat && b.burstHeat <= 1)) fail('Bots: 0-8 bots, flee fraction 0..1, burst heat above resume heat'); }
-  if (!(w.assistConeDeg >= 0 && w.assistConeDeg <= 45) || w.assistRange < 0 || !(w.assistMaxDeg >= 0 && w.assistMaxDeg <= 30)) fail('Aim assist out of range');
+  if (!(w.assistConvergeMaxDeg >= 0 && w.assistConvergeMaxDeg <= 45) || !(w.assistConeDeg >= 0 && w.assistConeDeg <= 45) || w.assistRange < 0 || !(w.assistMaxDeg >= 0 && w.assistMaxDeg <= 30)) fail('Aim assist out of range');
   if (!(w.heatPerShot > 0 && w.heatPerShot <= 1) || !(w.coolPerSecond > 0) || w.unlockHeat < 0 || w.unlockHeat >= 1 || s.dashRamDamage < 0 || s.dashRamSelfDamage < 0) fail('Overheat and dash ram settings out of range');
   { const a = value.tune.asteroid; if (!(a.mineralChunkValue > 0) || !Number.isInteger(a.mineralChunksMax) || a.mineralChunksMax < 1 || !Number.isInteger(a.pickupsMax) || a.pickupsMax < 1) fail('Mineral chunks and pickup limits must be positive whole numbers'); }
   if (s.shieldRegenPerSecond > 1 || value.tune.asteroid.healthDropChance > 1 || value.tune.asteroid.healthHealFraction > 1) fail('Shield regeneration, drop chance and heal fraction are fractions (0–1)');
@@ -111,6 +111,7 @@ export function validateConfig(input: unknown): ConfigData {
     if(n<0 || n>10000) fail('Visual setting out of range');
   }
   if (r.uiRadius > 16) fail('UI corners must stay within 0–16 pixels');
+  if (!(r.shadowScale>=.2 && r.shadowScale<=1.5)) fail('Shadow scale must be 0.2-1.5');
   if (r.hoverLightX>100 || r.hoverLightY>200 || r.hoverLightWidth<=0 || r.hoverLightWidth>512 || r.hoverLightHeight<=0 || r.hoverLightHeight>256 || r.hoverLightOpacity>1) fail('Hover light settings out of range');
   if (![0,1].includes(r.ffdEnabled) || r.ffdAccelPitch>30 || r.ffdBrakePitch>30 || r.ffdYawBank>30 || r.ffdResponse<=0 || r.ffdResponse>30 || r.ffdAccelThreshold>200 || r.ffdYawFullDegPerSec<=0 || r.ffdYawFullDegPerSec>720 || r.ffdMinScale>1 || r.ffdSlowFrameMs<16 || r.ffdSlowFrameMs>250 || r.ffdSlowSeconds<=0 || r.ffdSlowSeconds>10 || r.ffdRecoverySeconds<=0 || r.ffdRecoverySeconds>30) fail('Ship deformation settings out of range');
   return value;
