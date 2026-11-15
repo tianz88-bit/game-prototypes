@@ -4,7 +4,7 @@
 //                direction marker the ship steers toward a direction; pushing further
 //                                 accelerates harder; letting go eases back to minimum speed
 //   primary    fire (held), also taps on menu buttons
-//   secondary  dash, aimed (see dashAim)
+//   secondary  dash (charges, then boosts straight ahead)
 //   buy        shop purchases (one-tap buttons top left, or number keys)
 //   pause      back
 // Devices: keyboard is craft-relative (A/D or left/right rotate, W/S or up/down throttle,
@@ -85,26 +85,6 @@ export class Intents {
     return this.buys.splice(0);
   }
 
-  /**
-   * Where an aimed dash should point (radians, world), or NaN for straight ahead. heading is the
-   * ship's current heading. Touch: the stick's direction, absolute in marker mode and relative to
-   * the nose in craft mode (pull back = 180). Keyboard: hold S for a 180, A or D for 90 left or right.
-   */
-  dashAim(heading: number): number {
-    const st = this.stick;
-    if (st) {
-      const r = clientTune.touch.joystickRadius;
-      const nx = st.dx / r;
-      const ny = st.dy / r;
-      if (Math.hypot(nx, ny) < clientTune.touch.deadZone) return NaN;
-      return this.scheme === 'marker' ? Math.atan2(ny, nx) : heading + Math.atan2(nx, -ny);
-    }
-    const h = (k: string): boolean => this.held.has(k);
-    if (h('s') || h('arrowdown')) return heading + Math.PI;
-    if (h('a') || h('arrowleft')) return heading - Math.PI / 2;
-    if (h('d') || h('arrowright')) return heading + Math.PI / 2;
-    return NaN;
-  }
   fireButton: Zone | null = null;
   schemeButton: Zone | null = null;
 

@@ -77,7 +77,7 @@ export type BankCredit = (secret: string, amount: number, runId: string) => Prom
 export type BankOwned = (secret: string) => Promise<string[] | null>;
 
 
-const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN, missile: false, mine: false, warp: false };
+const IDLE_INPUT: ShipInput = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, missile: false, mine: false, warp: false };
 const upgradeCount = (s: ShipState): number => s.turrets + s.shieldTier + s.damageTier + s.missileTier + s.mineTier;
 
 export class Room {
@@ -125,9 +125,13 @@ export class Room {
   /**
    * AI pilots (owner: Planet A only). They exist only while at least one real player is on the
    * planet: they join when someone does, respawn after respawnSeconds, and all leave with the last
-   * player. Set once from the planet the room serves.
+   * player. A destroyed player is still "on the planet" for bots.lingerSeconds (owner, 15 November
+   * 2026: bots go only when players leave, not when one is destroyed), so a respawn finds them.
+   * Set once from the planet the room serves.
    */
   private botsEnabled = false;
+  /** Tick until which the bots stay after the last player was destroyed (-1: not lingering). */
+  private lingerUntil = -1;
   private bots = new Map<number, { id: number; name: string; kills: number; brain: BotBrain; ship: ShipState }>();
   private botRespawnAt: number[] = [];
   setBots(enabled: boolean): void {
@@ -135,7 +139,8 @@ export class Room {
   }
 
   private stepBots(): void {
-    const want = this.botsEnabled && this.players.size > 0 ? Math.max(0, Math.min(this.tune.bots.count, TUNE.net.maxPlayersPerRoom - this.players.size)) : 0;
+    const present = this.players.size > 0 || this.tick < this.lingerUntil;
+    const want = this.botsEnabled && present ? Math.max(0, Math.min(this.tune.bots.count, TUNE.net.maxPlayersPerRoom - this.players.size)) : 0;
     // Too many (players joined, or the last player left): the newest go first.
     while (this.bots.size > want) {
       const last = [...this.bots.keys()].pop() as number;
@@ -178,6 +183,7 @@ export class Room {
     const spawn = this.world.addShip(id);
     const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null, look: {}, joinedAt: this.tick };
     this.players.set(id, player);
+    this.lingerUntil = -1;
 
     ws.addEventListener('message', (e: MessageEvent) => this.onMessage(player, e.data));
     ws.addEventListener('close', () => this.leave(id));
@@ -302,12 +308,20 @@ export class Room {
     while(player.queue.length > TUNE.net.maxQueuedInputs) player.queue.shift();
   }
 
-  private leave(id: number): void {
+  private leave(id: number, destroyed = false): void {
     if (!this.players.delete(id)) return;
     this.world.removeShip(id);
-    if (this.players.size === 0) for (const b of [...this.bots.keys()]) this.removeBot(b);
+    // Destroyed with nobody else here: keep the planet (and its bots) running for a respawn.
+    if (this.players.size === 0 && destroyed && this.botsEnabled && this.bots.size > 0) this.lingerUntil = this.tick + Math.round(this.tune.bots.lingerSeconds * this.tune.net.tickHz);
+    if (this.players.size === 0 && this.tick >= this.lingerUntil) this.empty();
     this.broadcastRoster();
-    if (this.players.size === 0) this.stop();
+  }
+
+  /** The last player is gone for good: the bots leave and the planet stops. */
+  private empty(): void {
+    this.lingerUntil = -1;
+    for (const b of [...this.bots.keys()]) this.removeBot(b);
+    this.stop();
   }
 
   private start(): void {
@@ -340,6 +354,10 @@ export class Room {
     for (const b of this.buys.splice(0)) if (this.players.has(b.id)) this.world.buy(b.id, b.item, b.tier);
     for (const p of this.players.values()) this.stepPlayer(p);
     this.stepBots();
+    if (this.players.size === 0) {
+      // Only a lingering planet ticks with nobody on it; it empties when the linger runs out.
+      if (this.tick >= this.lingerUntil) return this.empty();
+    }
     this.world.step();
     const ev = this.world.drain();
     if (ev.asteroids.length) this.broadcast(encodeAsteroids(ev.asteroids));
@@ -390,7 +408,7 @@ export class Room {
     for (const id of dead) {
       const p = this.players.get(id);
       if (!p) continue;
-      this.leave(id);
+      this.leave(id, true);
       try {
         p.ws.close(CLOSE.DESTROYED, 'destroyed');
       } catch {

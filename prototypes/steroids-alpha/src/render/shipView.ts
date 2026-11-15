@@ -174,7 +174,7 @@ export class ShipView {
     const top = TUNE.ship.maxSpeed;
     const from = top - (top - TUNE.ship.cruiseSpeed) / 2;
     const speedTrail = boosting ? 1 : Math.max(0, Math.min(1, (speed - from) / Math.max(1, top - 1 - from)));
-    const demand: ThrusterInput = { throttle: timeMs < this.demandUntil.throttle, left: timeMs < this.demandUntil.left, right: timeMs < this.demandUntil.right, speedTrail };
+    const demand: ThrusterInput = { throttle: timeMs < this.demandUntil.throttle, left: timeMs < this.demandUntil.left, right: timeMs < this.demandUntil.right, speedTrail, dashing: boosting };
     this.lastSpeed = speed;
     this.lastAngle = angle;
     this.lastTime = timeMs;
@@ -233,7 +233,7 @@ export class ShipView {
   /** Exhaust lives in ship-relative units and is drawn at the ship's place and scale on screen. */
   private updateExhaust(dt: number, demand: ThrusterInput, angle: number, timeMs: number, at: ShipPlacement, boosting: boolean): void {
     const nozzles:[NozzleOrigin,NozzleOrigin]=[this.nozzle('engineL',angle,timeMs),this.nozzle('engineR',angle,timeMs)];
-    this.exhaust.update(dt, demand, nozzles, clientTune.render.thrusterTopSpeedStretch);
+    this.exhaust.update(dt, demand, nozzles, clientTune.render.thrusterTopSpeedStretch, clientTune.render.thrusterDashStretch);
     const g = this.exhaustGfx;
     g.clear();
     const s = at.scale;

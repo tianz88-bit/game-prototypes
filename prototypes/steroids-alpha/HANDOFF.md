@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 claude feel-pass
+DID: dash boosts straight ahead (aimed dash removed; bots dash only when lined up); accel/brake 440/600; bullets drawn x2 (hitbox unchanged); hit sparks x2; plume x2 at top speed (thrusterTopSpeedStretch 1 -> 3), x3 in a dash (thrusterDashStretch 5); bots linger 60 s after the last pilot is destroyed, leave at once on disconnect; death screen R/Space respawn, Esc menu, keys on buttons; R no longer eaten as Warp while dead.
+FILES: sim/{ship,protocol,bots,liveConfig}.ts server/src/room.ts src/{input/intents,net/client,scenes/flight,render/thrusters,render/shipView}.ts tune.json client.tune.json ../steroids-alpha-lab/preview.ts scripts/test-steroids-alpha-{sim,bank}.mjs BRIEF.md
+SEAM: ShipInput.dashAim removed; wire offset 18 stays as a reserved NaN float (protocol 19 unchanged). ThrusterInput.dashing; ThrusterVFX.update(..., trailStretch, dashStretch). clientTune.render.{thrusterDashStretch,bulletScale,hitSparkScale}; tune.bots.lingerSeconds.
+CROSS: src/render/{thrusters,shipView}.ts (dash stretch), worldArt draw calls get a scaled `at` (drawHitSpark/drawBullet unchanged).
+FOR codex: the dash aim arrow during the charge now just points along the heading; restyle or drop it.
+
 ## 2026-11-15 codex control-ffd
 DID: per-part hardline FFD for acceleration/braking/yaw on all 3 ships; passive rotation stays on the original rig. Preserves inverted yaw, fixed Z, recoil, vibration, palette/depth shading and tilted exhaust origins; no raster baking.
 FILES: render/{shipTilt,partFFD,shipView}.ts scenes/flight.ts main.ts client.tune.json sim/liveConfig.ts scripts/test-steroids-{alpha-rig,live-config}.mjs COLLAB/BRIEF/BUILD_STATUS.md
@@ -97,10 +104,3 @@ FILES: sim/{ship,world,protocol,liveConfig}.ts server/src/room.ts src/{net/clien
 SEAM: protocol 15. ShipState + lockdown, warping, warpDist; ShipInput.warp; CLOSE.EXTRACTED; JSON 'extracted' (to pilot) and 'warpouts' -> fx kind 'warpout'; net.extracted; intents.warpButton; tune group warp.
 CROSS: ../steroids-alpha-lab (preview input, Warp group)
 FOR codex: placeholders: warp button (drawWarp), warping ring (drawWorld), 'warpout' fx rings, EXTRACTED panel (deathScreen extracted=true). A warp trail/charge look would help.
-
-## 2026-11-13 codex codex/steroids-pixel-rocks
-DID: Replace vector asteroids with chunky pixel-painted sprites: nine variants, three damage stages, planet projection and bright hit flashes.
-FILES: src/render/rockPixels.ts src/render/worldArt.ts src/scenes/flight.ts COLLAB.md BUILD_STATUS.md
-SEAM: none; gameplay, hitboxes, inputs and calibration unchanged.
-CROSS: none (render/shared drawing)
-FOR claude: Typecheck/build/rig/sim pass. Two-client desktop/phone DPR2 ~56 FPS, zero errors; painted masks cover the collision disc in all27 sprites. Source is code-authored, fixed 27 nearest-filtered textures (432KiB); no raster files in Git. Owner requires GitHub tianz88-bit, not zitian-FF/Venomnom; itch stays daily-daily-games.

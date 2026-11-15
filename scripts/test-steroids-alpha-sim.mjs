@@ -38,7 +38,7 @@ function rng(seed = 1) {
   let s = seed;
   return () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646;
 }
-const idle = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, dashAim: NaN, missile: false, mine: false, warp: false };
+const idle = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, missile: false, mine: false, warp: false };
 const near = (a, b, eps, what) => assert(Math.abs(a - b) <= eps, `${what}: ${a} vs ${b}`);
 
 // --- Throttle: accelerate to the maximum, brake to the minimum, never stop. ---
@@ -789,11 +789,12 @@ assert.equal(S.cleanName(null), '');
 
 // --- Wire format round trips. ---
 {
-  const input = { seq: 77, turn: -0.5, aim: NaN, thrust: 1, dash: true, fire: true, dashAim: -2.5, missile: true, mine: false, warp: true };
+  const input = { seq: 77, turn: -0.5, aim: NaN, thrust: 1, dash: true, fire: true, missile: true, mine: false, warp: true };
   const back = S.decodeClient(S.encodeInput(input)).input;
   assert.deepEqual({ ...back, aim: 0 }, { ...input, aim: 0 });
   assert(Number.isNaN(back.aim));
-  assert(Number.isNaN(S.decodeClient(S.encodeInput({ ...input, dashAim: 99 })).input.dashAim), 'bad dash aims are dropped');
+  // The old dash-aim float is still on the wire (reserved): whatever an old client puts there is ignored.
+  { const buf = S.encodeInput(input); new DataView(buf).setFloat32(18, 1.5, true); assert(!('dashAim' in S.decodeClient(buf).input), 'dash aim is no longer read'); }
   assert.deepEqual(S.decodeClient(S.encodeBuy(0, 2)), { type: S.MSG.BUY, item: 0, tier: 2 });
   const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5, salvage: 87.5, chassis: 2, shieldCd: 1.5 };
   assert.deepEqual(S.decodeServer(S.encodeSnapshot(1234, 55, [ship])), { type: S.MSG.SNAPSHOT, tick: 1234, ackSeq: 55, ships: [ship] });
@@ -899,22 +900,23 @@ assert.equal(S.cleanName(null), '');
 // boost goes, at dashSpeedFactor x top speed for dashDuration, ignoring the brake; then it eases out. ---
 {
   const dt = 1 / tune.net.tickHz;
-  const sh = S.newShip(0, 0, 0, tune.ship.minSpeed);
+  const sh = S.newShip(0, 0, Math.PI / 2, tune.ship.minSpeed);
   sh.hp = sh.hullMax = tune.ship.maxHp;
   const boost = S.dashSpeed(sh.hullMax, tune);
   near(boost, tune.ship.maxSpeed * tune.ship.dashSpeedFactor, 1e-9, 'dash speed is a multiple of top speed');
-  S.stepShip(sh, { ...idle, thrust: -1, dash: true, dashAim: 1 }, dt, tune);
+  S.stepShip(sh, { ...idle, thrust: -1, dash: true }, dt, tune);
   assert(sh.dashCharge > 0 && sh.dashTime === 0, 'pressing dash starts the charge');
+  const chargeHeading = sh.heading;
   let charge = 1;
   while (sh.dashCharge > 0) {
-    // The direction held changes during the charge; the last one counts. Steering is locked meanwhile.
+    // Steering (turn or a marker aim) is locked during the charge, and the boost goes straight ahead.
     const before = sh.heading;
-    S.stepShip(sh, { ...idle, thrust: -1, turn: 1, dashAim: Math.PI / 2 }, dt, tune);
+    S.stepShip(sh, { ...idle, thrust: -1, turn: 1, aim: 0.3 }, dt, tune);
     if (sh.dashCharge > 0) near(sh.heading, before, 1e-12, 'no steering while charging');
     charge++;
   }
   assert(Math.abs(charge * dt - tune.ship.dashChargeSeconds) <= dt, `charge lasts dashChargeSeconds (${charge} steps)`);
-  near(sh.heading, Math.PI / 2, 1e-6, 'boosts the way held when the charge completed');
+  near(sh.heading, chargeHeading, 1e-9, 'boosts straight ahead (no direction picking)');
   let n = 0;
   let y0 = sh.y;
   const startY = sh.y;

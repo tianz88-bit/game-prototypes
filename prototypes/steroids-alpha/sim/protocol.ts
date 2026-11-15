@@ -9,7 +9,7 @@ import type { Look } from './unlocks';
 // Clients never send configuration; their socket accepts only bounded intent/ping frames.
 //
 // Client -> server
-//   INPUT     u8 type, u32 seq, f32 turn, f32 aim, f32 thrust, u8 flags (bit0 dash, bit1 fire, bit2 missile, bit3 mine, bit4 warp), f32 dashAim (NaN = straight)
+//   INPUT     u8 type, u32 seq, f32 turn, f32 aim, f32 thrust, u8 flags (bit0 dash, bit1 fire, bit2 missile, bit3 mine, bit4 warp), f32 reserved (was the dash aim; written as NaN, ignored)
 //   BUY       u8 type, u8 item (index in sim/shop.ts SHOP_ITEMS), u8 tier (the tier being bought, so a repeated tap cannot buy twice)
 //   PING      u8 type, f64 clientTimeMs
 // Server -> client
@@ -143,7 +143,7 @@ export function encodeInput(input: ShipInput): ArrayBuffer {
   v.setFloat32(9, input.aim, true);
   v.setFloat32(13, input.thrust, true);
   v.setUint8(17, (input.dash ? 1 : 0) | (input.fire ? 2 : 0) | (input.missile ? 4 : 0) | (input.mine ? 8 : 0) | (input.warp ? 16 : 0));
-  v.setFloat32(18, input.dashAim, true);
+  v.setFloat32(18, NaN, true); // reserved: dashes always go straight
   return buf;
 }
 
@@ -297,7 +297,6 @@ export function decodeClient(buf: ArrayBuffer): ClientMessage | null {
     const aim = v.getFloat32(9, true);
     const thrust = v.getFloat32(13, true);
     const flags = v.getUint8(17);
-    const dashAim = v.getFloat32(18, true);
     return {
       type,
       input: {
@@ -311,7 +310,6 @@ export function decodeClient(buf: ArrayBuffer): ClientMessage | null {
         missile: (flags & 4) === 4,
         mine: (flags & 8) === 8,
         warp: (flags & 16) === 16,
-        dashAim: Number.isFinite(dashAim) && Math.abs(dashAim) <= Math.PI * 2 ? dashAim : NaN,
       },
     };
   }

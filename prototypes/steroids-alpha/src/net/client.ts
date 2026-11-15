@@ -331,7 +331,7 @@ export class NetClient {
    * engine's frame delta: Phaser smooths its delta and under-reports time when the frame rate drops,
    * which made a 37 fps client send 22 inputs a second to a server consuming 30.
    */
-  update(input: { turn: number; aim: number; thrust: number; dash: boolean; dashAim: number; fire: boolean; missile: boolean; mine: boolean; warp: boolean }): void {
+  update(input: { turn: number; aim: number; thrust: number; dash: boolean; fire: boolean; missile: boolean; mine: boolean; warp: boolean }): void {
     const now = performance.now();
     const deltaMs = this.lastFrameAt ? now - this.lastFrameAt : 0;
     this.lastFrameAt = now;
@@ -345,7 +345,7 @@ export class NetClient {
       while (this.accumulator >= STEP_MS) {
         this.accumulator -= STEP_MS;
         // Round to the 32-bit floats that go on the wire, so prediction uses exactly what the server gets.
-        const cmd: ShipInput = { seq: ++this.seq, turn: Math.fround(input.turn), aim: Math.fround(input.aim), thrust: Math.fround(input.thrust), dash: this.dashQueued, fire: input.fire, dashAim: Math.fround(input.dashAim), missile: this.missileQueued, mine: this.mineQueued, warp: this.warpQueued };
+        const cmd: ShipInput = { seq: ++this.seq, turn: Math.fround(input.turn), aim: Math.fround(input.aim), thrust: Math.fround(input.thrust), dash: this.dashQueued, fire: input.fire, missile: this.missileQueued, mine: this.mineQueued, warp: this.warpQueued };
         this.dashQueued = false;
         this.missileQueued = false;
         this.mineQueued = false;
