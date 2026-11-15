@@ -27,7 +27,7 @@
     "braking": 600,
     "turnRate": 3.2,
     "dashSpeedFactor": 1.8,
-    "dashChargeSeconds": 0.8,
+    "dashChargeSeconds": 0.4,
     "dashDuration": 0.8,
     "dashCooldown": 8,
     "maxHp": 50,
@@ -139,7 +139,9 @@
     "perceptionSeconds": 0.25,
     "attentionSeconds": 6,
     "distractedSeconds": 4,
-    "maxBotsPerTarget": 1
+    "maxBotsPerTarget": 1,
+    "warpPower": 350,
+    "warpAfterSeconds": 300
   },
   "warp": {
     "lockdownSeconds": 180,

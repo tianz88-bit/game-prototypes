@@ -672,6 +672,34 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
     const go = S.botThink(1, bot, w, S.newBrain(fixed), tune, fixed).input;
     assert(Math.abs(go.aim - Math.PI / 2) < 0.1, 'goes for minerals');
   }
+  // Leaving (owner, 15 November): strong enough or long enough on the planet, a bot warps out once
+  // its lockdown is over, and just flies on while warping. Not before the lockdown ends.
+  {
+    const w = emptyWorld();
+    const bot = placeShip(w, 1, 1000, 1000, 0);
+    bot.hp = bot.hullMax = bt.warpPower;
+    bot.lockdown = 5;
+    assert(!S.botThink(1, bot, w, S.newBrain(fixed), tune, fixed).input.warp, 'no warp during lockdown');
+    bot.lockdown = 0;
+    assert(S.botThink(1, bot, w, S.newBrain(fixed), tune, fixed).input.warp, 'a strong bot warps out');
+    bot.warping = true;
+    const flying = S.botThink(1, bot, w, S.newBrain(fixed), tune, fixed).input;
+    assert(!flying.warp && flying.thrust === 1 && !flying.fire, 'while warping it does not cancel, just flies on');
+    bot.warping = false;
+    bot.hp = bot.hullMax = tune.ship.maxHp;
+    const old = { ...S.newBrain(fixed), bornAt: w.tick - bt.warpAfterSeconds * tune.net.tickHz };
+    assert(S.botThink(1, bot, w, old, tune, fixed).input.warp, 'a bot that has been around long enough warps out');
+    assert(!S.botThink(1, bot, w, { ...S.newBrain(fixed), bornAt: w.tick }, tune, fixed).input.warp, 'a new weak bot stays');
+  }
+  // Evolve: a bot that qualifies for the Battlecruiser takes it.
+  {
+    const w = emptyWorld();
+    const bot = placeShip(w, 1, 1000, 1000, 0);
+    bot.hp = bot.hullMax = tune.battlecruiser.powerFloor + 10;
+    Object.assign(bot, { turrets: 2, shieldTier: 2, damageTier: 2 });
+    const { buy } = S.botThink(1, bot, w, { ...S.newBrain(() => 0), bornAt: w.tick }, tune, () => 0);
+    assert(buy && buy.item === 5 && w.buy(1, buy.item, buy.tier) && bot.chassis === 2, 'a qualifying bot evolves');
+  }
   // Shop: buys what it can afford (rng below the 2% gate).
   {
     const w = emptyWorld();

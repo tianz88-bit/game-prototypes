@@ -170,7 +170,7 @@ export class Room {
     const name = `BOT ${BOT_NAMES.find((n) => !used.has(`BOT ${n}`)) ?? id}`;
     const ship = this.world.addShip(id, true); // spread out, away from players
     this.world.botIds.add(id);
-    this.bots.set(id, { id, name, kills: 0, brain: newBrain(Math.random), ship });
+    this.bots.set(id, { id, name, kills: 0, brain: { ...newBrain(Math.random), bornAt: this.tick }, ship });
     this.broadcastRoster();
   }
 
@@ -473,7 +473,13 @@ export class Room {
     // go; the pilot gets a result frame, the salvage carried out is banked (the room's own count,
     // once per run), the pilot hears the result, then the room closes their connection.
     const out = ev.extracted.filter((x) => this.players.has(x.id) && !dead.has(x.id));
-    if (out.length) this.broadcast(JSON.stringify({ type: 'warpouts', ships: out }));
+    // Bots warp out too (owner): everyone sees them go, and a fresh bot follows after respawnSeconds.
+    const botsOut = ev.extracted.filter((x) => this.bots.has(x.id) && !dead.has(x.id));
+    if (out.length || botsOut.length) this.broadcast(JSON.stringify({ type: 'warpouts', ships: [...out, ...botsOut] }));
+    for (const x of botsOut) {
+      this.removeBot(x.id);
+      this.botRespawnAt.push(this.tick + Math.round(this.tune.bots.respawnSeconds * this.tune.net.tickHz));
+    }
     for (const x of out) {
       const p = this.players.get(x.id)!;
       const salvage = Math.floor(p.ship.salvage);
