@@ -5,7 +5,7 @@ DID: restored the separate soft ground hover pool missing from the live renderer
 FILES: render/{hoverLight,shipView}.ts client.tune.json sim/liveConfig.ts scripts/test-steroids-live-config.mjs BRIEF/BUILD_STATUS.md
 SEAM: render.hoverLight* live visual fields; older records inherit defaults, bounded settings; ShipPlacement and protocol unchanged.
 CROSS: config validator/test only. Typecheck/build/rig+FFD/live-config pass; 24 Brave WebGL/Canvas desktop/mobile day/night cases verify offset, palette textures and unchanged shadow placement with no browser errors.
-FOR claude: one cached 128px texture per glow palette; ships own only an Image, destroyed with view. Approved portal logo and 8 new painted bullet/mineral/coin sources are separate PC review assets, not part of this runtime PR; R2 delivery/integration follows art approval.
+FOR claude: PR #482 awaits owner live-publish approval; do not merge yet. One cached 128px texture per glow palette; ships own only an Image, destroyed with view. Approved portal logo and 8 new painted bullet/mineral/coin sources are separate PC review assets, not part of this runtime PR; R2 delivery/integration follows art approval.
 
 ## 2026-11-15 claude feel-pass
 DID: dash boosts straight ahead (aimed dash removed; bots dash only when lined up); accel/brake 440/600; bullets drawn x2 (hitbox unchanged); hit sparks x2; plume x2 at top speed (thrusterTopSpeedStretch 1 -> 3), x3 in a dash (thrusterDashStretch 5); bots linger 60 s after the last pilot is destroyed, leave at once on disconnect; death screen R/Space respawn, Esc menu, keys on buttons; R no longer eaten as Warp while dead.

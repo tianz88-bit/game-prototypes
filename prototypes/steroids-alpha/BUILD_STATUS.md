@@ -4,7 +4,7 @@ Feel pass (15 November, owner): dash always boosts straight ahead (no direction 
 
 ## What was implemented
 
-- Ground hover-light fix: the separate ground pool was absent from production. It now uses the approved +2X/+35Y at 1600x900 reference, palette colours, chassis/growth scaling and day/night contrast, while retaining the sun-driven hard shadow. One cached texture per palette, no drone ground light. Typecheck/build/rig/FFD/live-config and 24 Brave WebGL/Canvas desktop/mobile day/night cases pass.
+- PR #482 is ready for owner publishing approval, not merged/live. Ground hover-light fix: the separate ground pool was absent from production. It now uses the approved +2X/+35Y at 1600x900 reference, palette colours, chassis/growth scaling and day/night contrast, while retaining the sun-driven hard shadow. One cached texture per palette, no drone ground light. Typecheck/build/rig/FFD/live-config and 24 Brave WebGL/Canvas desktop/mobile day/night cases pass.
 
 - Per-part WebGL FFD for acceleration/braking/yaw: approved lab relief and projection, -13/+17 pitch, inverted +/-22 yaw bank, eased return to the exact sprite pose. Heading changes without a control cue stay level.
 - Original sprite rig for Canvas, the live disable switch, failed mesh allocation, distant ships and sustained slow frames; healthy pacing restores FFD. No texture baking or per-frame GPU allocation. Tilted engine nozzles keep exhaust attached.
