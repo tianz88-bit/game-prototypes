@@ -256,10 +256,16 @@ function d1() {
   assert.equal(room.bots.size, tune.bots.count, 'still there a few seconds later');
   room.join(new Sock(), 'Back');
   room.stop();
+  const [q] = [...room.players.values()];
+  assert.ok(q, 'respawn joined');
+  // This interval checks bot presence with a living pilot, not random combat survival.
+  // Use the world's existing test switch only here; explicit deaths below still take damage.
+  room.world.invulnerable = true;
   for (let i = 0; i < (tune.bots.lingerSeconds + 2) * tune.net.tickHz; i++) room.step();
+  room.world.invulnerable = false;
+  assert.ok(room.players.has(q.id), 'pilot stays alive for the presence check');
   assert.equal(room.bots.size, tune.bots.count, 'a respawn keeps them for as long as it stays');
   // The respawned player closes the tab: bots go at once.
-  const [q] = [...room.players.values()];
   q.ws.close(1000);
   assert.equal(room.bots.size, 0, 'a player leaving (not destroyed) takes the bots with them');
   // Destroyed and never back: they go when the linger runs out.
