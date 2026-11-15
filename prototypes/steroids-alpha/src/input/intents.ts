@@ -78,6 +78,8 @@ export class Intents {
   mineButton: Zone | null = null;
   /** One-tap shop buttons (top left in flight); a tap queues that item. */
   shopZones: { item: number; zone: Zone }[] = [];
+  /** Non-combat canvas controls/panels consume touches before the floating stick. */
+  uiZones: Zone[] = [];
   private buys: number[] = [];
 
   /** Shop items asked for since the last call (item numbers, see SHOP_ITEMS). */
@@ -203,6 +205,7 @@ export class Intents {
         return;
       }
     }
+    if (this.uiZones.some(hit)) return;
     if (hit(this.warpButton)) {
       this.presses.add('warp');
       return;
