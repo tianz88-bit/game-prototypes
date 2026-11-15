@@ -433,6 +433,9 @@ Owner direction (13 November 2026). Replaces the earlier gear-stash design.
   (4, 400), shield colours (3, 400), Nova kill effect (600), name badges (3,
   250) and name colours (3, 250), Run history (500, QoL: last 10 runs).
   Prices in tune.json `unlockPrices`, provisional until real runs are timed.
+  The menu button is HANGAR (owner, 15 November). Ship and palette cards
+  show the real ship turning on its rig; on the ships tab the ships are drawn
+  at their in-game sizes relative to each other (Battlecruiser largest).
   Bought in the Hangar (menu); two taps to buy, tap an owned item to wear or
   remove it. The server sets prices, checks the balance in the same
   statement, and shows other pilots only the looks an account owns.
