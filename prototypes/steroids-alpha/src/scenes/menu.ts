@@ -142,7 +142,7 @@ export class MenuScene extends Phaser.Scene {
     // HANGAR: spend credits on unlocks.
     const hy = top + 138;
     panel(this.add.graphics(), x - bwid / 2, hy - 16, bwid, 32, UI.uiGold, true);
-    text(this, x, hy, 'SHIP + PALETTE', 12, '#ffd23a').setOrigin(0.5);
+    text(this, x, hy, 'HANGAR', 12, '#ffd23a').setOrigin(0.5);
     this.hangarButton = { x, y: hy, w: bwid, h: 32 };
     const by = top + 178;
     panel(this.add.graphics(), x - bwid / 2, by - 16, bwid, 32, this.codeMode ? UI.uiDanger : UI.uiBorder, this.codeMode);

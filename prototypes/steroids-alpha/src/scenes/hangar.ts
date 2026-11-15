@@ -134,7 +134,7 @@ export class HangarScene extends Phaser.Scene {
         if (visualTab) {
           const chassis = shipTab ? (u.index ?? 0) : (look.ship === 'ship.interceptor' ? 1 : 0);
           const palette = shipTab ? Number((look.palette ?? 'palette.0').split('.')[1]) : (u.index ?? 0);
-          shipPreview(this, chassis, palette, x, y-ch/2+(ch-60)/2+6, cw-36, ch-76);
+          shipPreview(this, chassis, palette, x, y-ch/2+(ch-60)/2+6, cw-36, ch-76, { spin: true, relative: shipTab });
           if (u.palette) u.palette.forEach((p,i)=>{g.fillStyle(p,1);g.fillRoundedRect(x-26+i*18,y+ch/2-63,14,5,1);});
         }
         else if (u.palette) u.palette.forEach((p, i) => { g.fillStyle(p, 1); g.fillCircle(sx - 6 + (i % 2) * 12, y - 6 + Math.floor(i / 2) * 12, 5); });
@@ -155,7 +155,7 @@ export class HangarScene extends Phaser.Scene {
       const x = left + 2*(cw+gap)+cw/2, y = top+ch/2;
       const g=this.add.graphics();
       panel(g,x-cw/2,y-ch/2,cw,ch,0x937249);
-      shipPreview(this,2,Number((look.palette??'palette.0').split('.')[1]),x,y-ch/2+(ch-60)/2+6,cw-28,ch-70);
+      shipPreview(this,2,Number((look.palette??'palette.0').split('.')[1]),x,y-ch/2+(ch-60)/2+6,cw-36,ch-76,{ spin: true, relative: true });
       text(this,x-cw/2+14,y+ch/2-38,'Battlecruiser',cw<160?11:15,'#ffdc9b').setOrigin(0,.5);
       text(this,x-cw/2+14,y+ch/2-17,'EVOLVE IN RUN · 4 CANNONS',cw<190?9:10,'#c9b697').setOrigin(0,.5);
       text(this,w/2,h-34,'Choose a fighter here. Evolve into the Battlecruiser during a run.',11,'#acbdce').setOrigin(.5);

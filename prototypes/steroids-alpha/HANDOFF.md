@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 claude hangar-spin
+DID: menu button "SHIP + PALETTE" -> "HANGAR" (owner). Hangar ship/palette previews turn on the rig (45 deg/s); the ships tab draws Scrappy, Interceptor and Battlecruiser at sizes relative to each other (by hit radius).
+FILES: src/render/shipPreview.ts src/scenes/{menu,hangar}.ts BRIEF.md
+SEAM: shipPreview(..., opts?: { spin?, relative? }); no options = the old static fit (menu, evolve preview unchanged).
+CROSS: src/render/shipPreview.ts (yours, #477): options added, default path untouched; spin re-poses parts each frame and unhooks on destroy.
+FOR codex: at true scale the two fighters are small next to the Battlecruiser card; a pedestal or scale ruler would help if it reads oddly.
+
 ## 2026-11-15 codex combat-art-live
 DID: integrated approved portal title, three energy shots, three minerals and two coin views; restored lower ship hover light/dynamic shadow, palette-matched drones without shadows; Fire/Dash faces 26% smaller, mobile hull/shields share desktop segmented styling. Secondary mobile panels remain collapsed.
 FILES: art/combat-title-v1/* art/prepare-assets.mjs render/{combatSprites,combatHud,hoverLight,shipView,worldArt}.ts scenes/{boot,menu,flight}.ts client.tune.json sim/liveConfig.ts scripts/test-steroids-{live-config,alpha-bank}.mjs BRIEF/COLLAB/BUILD_STATUS.md
@@ -97,10 +104,3 @@ FILES: sim/{chassis,ship,shop,world,turrets,protocol,liveConfig,unlocks}.ts serv
 SEAM: protocol 17 ShipState.chassis. shipRig functions take an optional modules list (starter default, parity unchanged). ShipView(scene, mine, chassis, palette); partKey(asset, shipId, palette); shadowKey(shipId); profileFor(chassis). Look slots ship/palette. BUY item 5 = evolve; key 6.
 CROSS: src/render/{shipRig,shipArt,shipView}.ts (codex lane): generalised for three ships; starter maths untouched (396-pose parity passes). Only manifests, calibrations and palettes.json copied from your kit; the kit itself stays on codex/steroids-ships-v2-handoff.
 FOR codex: evolve transform effect, Battlecruiser name-tag placement, Hangar ship icons and EVOLVE card styling are placeholders.
-
-## 2026-11-13 claude unlock-shop
-DID: Hangar scene (menu -> HANGAR): buy/equip 20 unlocks from sim/unlocks.ts (tints, flames, shields, Nova kill fx, badges, name colours, run history). POST /account/buy (server price, atomic balance check); GET /account returns unlocks. Looks sent in the auth message, worn only when owned, broadcast in the roster. Run history recorded in the save.
-FILES: sim/unlocks.ts server/src/{bank,index,room}.ts src/scenes/{hangar,menu,flight}.ts src/net/{account,client}.ts src/save.ts src/main.ts src/render/{shipView,thrusters}.ts sim/protocol.ts tune.json scripts/test-steroids-alpha-bank.mjs
-SEAM: RosterEntry.look; ShipView.setLook(tint, palette, shield); ThrusterVFX.palette; DrawnShip.setLook; fx 'explosion' carries killer.
-CROSS: src/render/shipView.ts (tint multiply, shield colours from look), src/render/thrusters.ts (palette)
-FOR codex: hangar cards, swatches, Nova rings and badges are placeholders; restyle freely. Keep tint as a multiply over the art and shield colours readable.
