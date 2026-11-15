@@ -1,5 +1,6 @@
 import { CombatHud } from '../render/combatHud';
 import { shipPreview } from '../render/shipPreview';
+import type { FFDControl } from '../render/shipTilt';
 import {configVersion} from '../liveConfig';
 // On a planet. The view is centred on your ship. Gameplay is a flat wrapping map; everything is
 // drawn through the planet projection (render/planet.ts) so the map reads as a ball seen from above,
@@ -179,7 +180,8 @@ export class FlightScene extends Phaser.Scene {
     }
     if (intents.consume('scheme')) intents.toggleScheme();
     const heading = this.net.predicted?.heading ?? 0;
-    this.net.update({ ...intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed), dash, dashAim: intents.dashAim(heading), fire: intents.fire, missile, mine, warp });
+    const move = intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed);
+    this.net.update({ ...move, dash, dashAim: intents.dashAim(heading), fire: intents.fire, missile, mine, warp });
     // Shop: each tap asks the server for the tier on offer now; the server checks power and price.
     for (const item of intents.consumeBuys()) {
       const p = this.net.predicted;
@@ -210,7 +212,7 @@ export class FlightScene extends Phaser.Scene {
     // An extracted ship has left the planet: it is no longer drawn.
     if (own && !this.net.extracted && this.net.status !== 'extracted') {
       alive.add(this.net.myId);
-      this.placeShip(this.net.myId, own, true);
+      this.placeShip(this.net.myId, own, true, move);
     }
     for (const r of this.net.remoteRender()) {
       alive.add(r.id);
@@ -353,7 +355,7 @@ export class FlightScene extends Phaser.Scene {
     return { x: v.w / 2 + p.x * v.k, y: v.h / 2 + p.y * v.k, scale: p.scale * v.k, visible: p.visible };
   }
 
-  private placeShip(id: number, s: ShipState, mine: boolean): void {
+  private placeShip(id: number, s: ShipState, mine: boolean, control?: FFDControl): void {
     // Ship type from the server (it changes when a ship evolves) and palette from the roster look.
     const palette = unlockById(this.net.roster.get(id)?.look?.palette)?.index ?? 0;
     let ship = this.ships.get(id);
@@ -378,7 +380,7 @@ export class FlightScene extends Phaser.Scene {
     this.placeTag(id, at, mine, chassisStats(s.chassis, TUNE).radius / TUNE.ship.radius);
     ship.setLook(this.net.roster.get(id)?.look ?? {});
     // Ships darken 30% on the night side (owner decision); asteroids and pickups only 10%.
-    ship.update({ ...at, brightness: this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0 }, s, this.time.now);
+    ship.update({ ...at, brightness: this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0 }, s, this.time.now, control);
     this.drawTurrets(id, s, at);
     if (s.dashCharge > 0) this.drawDashCharge(s, at, mine);
     if (mine && s.shield <= .001 && at.visible) {
@@ -1261,7 +1263,7 @@ interface DrawnShip {
   setLook(look: Look): void;
   fire(side: number): void;
   shieldHit(angle: number): void;
-  update(at: ShipPlacement, s: ShipState, timeMs: number): void;
+  update(at: ShipPlacement, s: ShipState, timeMs: number, control?: FFDControl): void;
   destroy(): void;
 }
 
@@ -1278,9 +1280,9 @@ class RigShip implements DrawnShip {
     this.view.setLook(u(look.tint)?.colour ?? null, u(look.flame)?.palette ?? null, u(look.shield)?.colour ?? null);
   }
 
-  update(at: ShipPlacement, s: ShipState, timeMs: number): void {
+  update(at: ShipPlacement, s: ShipState, timeMs: number, control?: FFDControl): void {
     // A dash counts as full throttle for the exhaust.
-    this.view.update(at, s.heading, timeMs, s.speed, s.dashTime > 0);
+    this.view.update(at, s.heading, timeMs, s.speed, s.dashTime > 0, control ?? 'observed');
   }
 
   fire(side: number): void {

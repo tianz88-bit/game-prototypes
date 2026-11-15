@@ -5,6 +5,11 @@ import {createPublisher,WORKFLOW} from './steroids-lab-server.mjs';
 const result=await build({stdin:{contents:`export * from './prototypes/steroids-alpha/sim/liveConfig.ts';export * from './prototypes/steroids-alpha/server/src/configStore.ts';export * from './prototypes/steroids-alpha/server/src/configAuth.ts';export * from './prototypes/steroids-alpha/server/src/room.ts';export * from './prototypes/steroids-alpha/sim/protocol.ts';export * from './prototypes/steroids-alpha-lab/preview.ts';export * from './prototypes/steroids-alpha/server/src/adminAuth.ts';export * from './prototypes/steroids-alpha/server/src/admin.ts';export {default as worker} from './prototypes/steroids-alpha/server/src/index.ts';export {currentData,importSettings,baseVersion} from './prototypes/steroids-alpha-lab/draft.ts';`,resolveDir:process.cwd(),loader:'ts'},bundle:true,platform:'node',format:'esm',write:false});
 const S=await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));
 const base=S.defaultConfig();assert.deepEqual(S.validateConfig(base),base);
+// Old published settings inherit the new visual defaults; FFD remains bounded and switchable.
+const preFFD=structuredClone(base);for(const key of Object.keys(preFFD.clientTune.render))if(key.startsWith('ffd'))delete preFFD.clientTune.render[key];
+assert.deepEqual(S.validateConfig(preFFD).clientTune.render,base.clientTune.render);
+for(const [key,value]of [['ffdEnabled',2],['ffdYawBank',90],['ffdResponse',0],['ffdYawFullDegPerSec',0],['ffdSlowFrameMs',1]]){const d=structuredClone(base);d.clientTune.render[key]=value;assert.throws(()=>S.validateConfig(d));}
+const noFFD=structuredClone(base);noFFD.clientTune.render.ffdEnabled=0;assert.equal(S.validateConfig(noFFD).clientTune.render.ffdEnabled,0);
 for(const mutate of [d=>d.tune.world.width++,d=>d.tune.net.tickHz++,d=>d.tune.ship.minSpeed=500,d=>d.tune.weapon.fireIntervalSteps=.5,d=>d.calibration.modules.canopy.order.left=2,d=>d.calibration.modules.cockpit.width=Infinity,d=>d.tune.asteroid.radius.push(2),d=>d.clientTune.render.partTextureMax=8]){const d=structuredClone(base);mutate(d);assert.throws(()=>S.validateConfig(d));}
 // Only the six UI RGB fields accept 24-bit integers; normal tuning limits stay intact.
 for(const key of ['uiPanel','uiBorder','uiAccent','uiGold','uiDanger','uiText']){
