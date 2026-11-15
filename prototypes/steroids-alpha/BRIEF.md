@@ -156,6 +156,9 @@ currency; currency buys unlocks, QoL and options, never raw power.
   bank, engine vibration, recoil, fixed Z and palette/shading. Retain the current
   sprite rig for Canvas, disabled or failed deformation, distant ships and sustained
   slow frames. FFD changes visuals only; no change to hitboxes, shots or movement.
+- Ground hover light: a separate soft palette-coloured pool below each ship, offset
+  +2 X / +35 Y at the approved 1600x900 reference. Keep the dynamic sun shadow;
+  drones do not receive this ground light.
 - Placeholder shapes remain as the fallback when art is not available.
 - Art pipeline per repo rules (R2 zip, packed/ and loose/).
 

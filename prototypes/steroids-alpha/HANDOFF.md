@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 codex ground-hover-light
+DID: restored the separate soft ground hover pool missing from the live renderer: +2X/+35Y at 1600x900 reference, palette-coloured, lower than the craft, sized by chassis/growth. Sun-driven hard shadow and drone rendering retained.
+FILES: render/{hoverLight,shipView}.ts client.tune.json sim/liveConfig.ts scripts/test-steroids-live-config.mjs BRIEF/BUILD_STATUS.md
+SEAM: render.hoverLight* live visual fields; older records inherit defaults, bounded settings; ShipPlacement and protocol unchanged.
+CROSS: config validator/test only. Typecheck/build/rig+FFD/live-config pass; 24 Brave WebGL/Canvas desktop/mobile day/night cases verify offset, palette textures and unchanged shadow placement with no browser errors.
+FOR claude: one cached 128px texture per glow palette; ships own only an Image, destroyed with view. Approved portal logo and 8 new painted bullet/mineral/coin sources are separate PC review assets, not part of this runtime PR; R2 delivery/integration follows art approval.
+
 ## 2026-11-15 claude feel-pass
 DID: dash boosts straight ahead (aimed dash removed; bots dash only when lined up); accel/brake 440/600; bullets drawn x2 (hitbox unchanged); hit sparks x2; plume x2 at top speed (thrusterTopSpeedStretch 1 -> 3), x3 in a dash (thrusterDashStretch 5); bots linger 60 s after the last pilot is destroyed, leave at once on disconnect; death screen R/Space respawn, Esc menu, keys on buttons; R no longer eaten as Warp while dead.
 FILES: sim/{ship,protocol,bots,liveConfig}.ts server/src/room.ts src/{input/intents,net/client,scenes/flight,render/thrusters,render/shipView}.ts tune.json client.tune.json ../steroids-alpha-lab/preview.ts scripts/test-steroids-alpha-{sim,bank}.mjs BRIEF.md
@@ -97,10 +104,3 @@ FILES: sim/{ship,world,protocol,liveConfig}.ts server/src/room.ts src/{net/clien
 SEAM: protocol 16. ShipState.salvage; Pickup kind 'salvage'; World.botIds, payoutFactor, hotZone; JSON 'hotzone' -> net.hotZone; fx 'gold'; tune groups salvage, hotZone.
 CROSS: ../steroids-alpha-lab/draft.ts (Salvage, Hot zone groups)
 FOR codex: build the orbital zoom transition (GFX_BRIEF.md, bottom). Restyle gold coins, hot zone ring/arrow, SALVAGE counter.
-
-## 2026-11-13 claude warp-out
-DID: 3-min lockdown, Warp (R / top-centre button; phones: under the shop row), warp mode (1.15x top speed, 20% steering, no firing incl. turrets), damage resets distance, rocks plowed through, 3000 px extracts -> EXTRACTED screen (Drop in / Menu). Server guessed steps no longer repeat missile/mine/warp presses.
-FILES: sim/{ship,world,protocol,liveConfig}.ts server/src/room.ts src/{net/client,input/intents,scenes/flight,main,liveConfig}.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
-SEAM: protocol 15. ShipState + lockdown, warping, warpDist; ShipInput.warp; CLOSE.EXTRACTED; JSON 'extracted' (to pilot) and 'warpouts' -> fx kind 'warpout'; net.extracted; intents.warpButton; tune group warp.
-CROSS: ../steroids-alpha-lab (preview input, Warp group)
-FOR codex: placeholders: warp button (drawWarp), warping ring (drawWorld), 'warpout' fx rings, EXTRACTED panel (deathScreen extracted=true). A warp trail/charge look would help.
