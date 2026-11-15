@@ -631,3 +631,7 @@ Protocol v4 adds server-to-client settings messages before initial/cutover snaps
 ### Mobile flight information density (15 November 2026, owner)
 
 Keep shield/hull and salvage in a small top-left header. Upgrades and leaderboard default closed, with one shallow drawer open at a time from header buttons; Warp is a compact header control. Keep the marker steering and current fire/dash/missile/mine positions. Heat feedback belongs on Fire and dash cooldown on Dash. Ground-zone ring remains, with a small mobile directional cue; omit repeated own-name/bounty plates and flight telemetry during normal combat. Desktop retains its existing layout. Owner authorized publishing this mobile UI pass after verification.
+
+### Full art integration and mobile refinement (15 November 2026, owner)
+
+Install the approved portal STEROIDS–α title, three blue-white energy shot sprites with baked glow, three mineral variants and two salvage coin views. Keep gameplay trajectories, hitboxes and prices unchanged. Restore the separate hover pool below ships while retaining dynamic sun shadows; drones match the carrier palette and have no ground shadow/light. Shrink mobile Fire/Dash faces by 26%, retaining their centres and usable touch targets. Use the desktop segmented hull/shield styling, including highlights/reboot/critical states, in the compact mobile header. Keep secondary mobile panels collapsed. Owner explicitly authorized integrating this set and publishing live.

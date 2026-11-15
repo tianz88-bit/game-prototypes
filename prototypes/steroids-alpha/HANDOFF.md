@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 codex combat-art-live
+DID: integrated approved portal title, three energy shots, three minerals and two coin views; restored lower ship hover light/dynamic shadow, palette-matched drones without shadows; Fire/Dash faces 26% smaller, mobile hull/shields share desktop segmented styling. Secondary mobile panels remain collapsed.
+FILES: art/combat-title-v1/* art/prepare-assets.mjs render/{combatSprites,combatHud,hoverLight,shipView,worldArt}.ts scenes/{boot,menu,flight}.ts client.tune.json sim/liveConfig.ts scripts/test-steroids-live-config.mjs BRIEF/COLLAB/BUILD_STATUS.md
+SEAM: queue/prepareCombatArt and pooled CombatSprites, optional drone palette index; hoverLight* live render keys upgrade older records. Nine original PNG hashes checked from R2; runtime textures bounded to 192/1024. No wire or gameplay tuning changes.
+CROSS: scene art wiring/action hit rectangles and bounded config validation/tests. Typecheck/build/sim/live-config/rig pass; 4 DPR2 Brave viewports + forced Canvas, nine assets, warnings, controls with drawer, buy/warp routing and stable pool verified with no errors; production two-client check passes at 57/57 FPS on PC.
+FOR claude: owner explicitly requests all these art updates live. Hover implementation carried from PR482 while preserving latest exhaust settings; this release supersedes that pending PR. Public deployment verification follows.
+
 ## 2026-11-15 codex mobile-focus
 DID: mobile flight defaults to compact top-left shield/hull/salvage and header upgrade/rank/warp buttons; upgrades and rank open one at a time. Heat is on Fire, dash cooldown stays on Dash; smaller zone cue and no own-name/bounty text clutter. Desktop unchanged.
 FILES: src/render/{combatHud,mobileFlightUi}.ts src/scenes/flight.ts src/input/intents.ts COLLAB.md BRIEF.md BUILD_STATUS.md
@@ -97,10 +104,3 @@ FILES: sim/unlocks.ts server/src/{bank,index,room}.ts src/scenes/{hangar,menu,fl
 SEAM: RosterEntry.look; ShipView.setLook(tint, palette, shield); ThrusterVFX.palette; DrawnShip.setLook; fx 'explosion' carries killer.
 CROSS: src/render/shipView.ts (tint multiply, shield colours from look), src/render/thrusters.ts (palette)
 FOR codex: hangar cards, swatches, Nova rings and badges are placeholders; restyle freely. Keep tint as a multiply over the art and shield colours readable.
-
-## 2026-11-13 claude bank
-DID: D1 bank: anonymous accounts (hashed secret + recovery code), POST/GET /account, POST /account/recover; extraction banks salvage once per run (ledger sum = balance); menu credits panel + RESTORE; result shows Banked +N / Credits. Deploy workflow applies D1 migrations before deploy.
-FILES: server/{src/bank.ts,src/index.ts,src/room.ts,wrangler.jsonc,migrations/0001_bank.sql} src/{net/account,net/client,save,main}.ts src/scenes/{menu,flight}.ts scripts/test-steroids-alpha-bank.mjs .github/workflows/deploy-steroids-alpha-worker.yml
-SEAM: client sends one text frame {type:'auth',secret} on open; JSON 'banked' {amount,balance,error?} -> net.banked; save.account; Room(..., bank?).
-CROSS: none
-FOR codex: menu account panel (menu.ts drawAccount) and the result lines are placeholders; restyle freely, keep the recovery code legible.

@@ -1,3 +1,4 @@
+import { combatKey } from '../render/combatSprites';
 import { shipPreview } from '../render/shipPreview';
 import { PALETTES } from '../render/palette';
 // Main menu: enter a pilot name, then pick a planet to drop into. The hangar (stash and loadout)
@@ -160,13 +161,16 @@ export class MenuScene extends Phaser.Scene {
     backdrop.lineStyle(1,UI.uiBorder,.16);
     for(let i=0;i<12;i++)backdrop.lineBetween(i*w/8-h*.3,0,i*w/8+h*.3,h);
     backdrop.lineStyle(1,UI.uiAccent,.18);backdrop.strokeCircle(w*.13,h*.7,h*.32);backdrop.strokeCircle(w*.13,h*.7,h*.27);
-    backdrop.lineStyle(3,UI.uiGold,.75);backdrop.lineBetween(w/2-40,h*.11-20,w/2+40,h*.11-20);
     const title = Math.min(40, w / 10, h / 9);
-    text(this, w / 2, h * 0.11, 'STEROIDS-ALPHA', title, css(UI.uiText)).setOrigin(0.5);
+    const logoHeight=Math.min(144,h*.2,w*.24);
+    if(this.textures.exists(combatKey('title-portals'))){
+      const logo=this.add.image(w/2,8+logoHeight/2,combatKey('title-portals'));
+      logo.setDisplaySize(logoHeight*3,logoHeight);
+    }else text(this,w/2,h*.11,'STEROIDS–α',title,css(UI.uiText)).setOrigin(.5);
 
     // Pilot name.
     const bw = Math.min(320, w - 48);
-    const ny = h * 0.11 + title * 0.6 + 34;
+    const ny = Math.max(h*.11+title*.6+34,logoHeight+48);
     text(this, w / 2 - bw / 2, ny - 30, this.codeMode ? 'RECOVERY CODE (press Enter)' : 'PILOT NAME', 11, this.codeMode ? '#ffd98a' : '#8fa2c8');
     this.nameBox = { x: w / 2, y: ny, w: bw, h: 36 };
     intents.textBox = { zone: { x: w / 2, y: ny, hw: bw / 2, hh: 18 }, field: nameField() };

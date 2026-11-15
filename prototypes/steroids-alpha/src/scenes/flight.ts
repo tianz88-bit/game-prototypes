@@ -1,4 +1,5 @@
 import { CombatHud } from '../render/combatHud';
+import { CombatSprites } from '../render/combatSprites';
 import { mobileHeader } from '../render/mobileFlightUi';
 import { shipPreview } from '../render/shipPreview';
 import type { FFDControl } from '../render/shipTilt';
@@ -75,6 +76,7 @@ export class FlightScene extends Phaser.Scene {
   private board = new Map<number, BoardChip>();
   private boardTitle!: Phaser.GameObjects.Text;
   private combatHud!: CombatHud;
+  private combatSprites!: CombatSprites;
   private mobilePanel: 'shop' | 'board' | null = null;
   private mobileButtons: { action: 'shop' | 'board'; x: number; y: number; w: number }[] = [];
   private mobileNavLabels: Phaser.GameObjects.Text[] = [];
@@ -124,6 +126,7 @@ export class FlightScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off('dpr', this.build, this);
       this.net.close();
+      this.combatSprites?.destroy();
       intents.dashButton = null;
       intents.schemeButton = null;
       intents.fireButton = null;
@@ -137,6 +140,7 @@ export class FlightScene extends Phaser.Scene {
   }
 
   private build(): void {
+    this.combatSprites?.destroy();
     this.children.removeAll(true);
     this.ships.clear();
     this.tags.clear();
@@ -163,6 +167,7 @@ export class FlightScene extends Phaser.Scene {
     this.lockText = text(this, 0, 0, 'MISSILE LOCK', 13, '#ff5a3a').setOrigin(0.5).setDepth(953).setVisible(false);
     this.weaponTexts = [0, 1].map(() => text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(952).setVisible(false));
     this.combatHud = new CombatHud(this);
+    this.combatSprites = new CombatSprites(this);
     this.mobileNavLabels = [0,1].map(() => text(this,0,0,'',11).setOrigin(.5).setDepth(954).setVisible(false));
     this.evolvePreview = shipPreview(this,2,0,0,0,18,16).setDepth(952).setVisible(false);
     this.shopTexts = [...SHOP_ITEMS, 'evolve'].map(() => ({
@@ -463,7 +468,7 @@ export class FlightScene extends Phaser.Scene {
       const d = ((want - prev + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
       const a = prev + d * 0.15;
       aim.angle[i] = a;
-      drawDrone(g,x,y,k,a,now,id+i,light,now-(aim.firedAt[i]??-1e9)<70);
+      drawDrone(g,x,y,k,a,now,id+i,light,now-(aim.firedAt[i]??-1e9)<70,unlockById(this.net.roster.get(id)?.look?.palette)?.index??0);
     }
   }
 
@@ -509,7 +514,7 @@ export class FlightScene extends Phaser.Scene {
       prev = q;
     }
     if (intents.touch) {
-      if(inside){this.hotZoneText.setVisible(true).setText('ZONE ×'+TUNE.hotZone.salvageMultiplier).setPosition(w<600?190:248,78);return;}
+      if(inside){this.hotZoneText.setVisible(true).setText('ZONE ×'+TUNE.hotZone.salvageMultiplier).setPosition(w<600?280:304,90);return;}
       if(centre.visible && centre.x>40 && centre.x<w-40 && centre.y>94 && centre.y<h-60)return;
       const a=Math.atan2(dy,dx),c=Math.cos(a),s=Math.sin(a);
       const x=w/2+c*w*.3,y=Math.max(100,Math.min(h-110,h/2+s*h*.25));
@@ -839,12 +844,12 @@ export class FlightScene extends Phaser.Scene {
       return;
     }
     // Dash button in the bottom-right corner; the fire button, held to shoot, sits to its left.
-    const r = clientTune.touch.dashButtonRadius;
+    const anchorR = clientTune.touch.dashButtonRadius, r = anchorR * .74;
     const m = clientTune.touch.dashButtonMargin;
-    const b = { x: w - m - r, y: h - m - r, r };
+    const b = { x: w - m - anchorR, y: h - m - anchorR, r };
     intents.dashButton = { x: b.x, y: b.y, hw: r * 1.3, hh: r * 1.3 };
-    const fr = clientTune.touch.fireButtonRadius;
-    const fb = { x: w - m * 2 - r * 2 - fr, y: h - m - fr };
+    const anchorF = clientTune.touch.fireButtonRadius, fr = anchorF * .74;
+    const fb = { x: w - m * 2 - anchorR * 2 - anchorF, y: h - m - anchorF };
     intents.fireButton = { x: fb.x, y: fb.y, hw: fr * 1.2, hh: fr * 1.2 };
     this.combatHud.heatWarning(fb.x,fb.y+fr*.65);
     controlFace(g,fb.x,fb.y,fr,UI.uiDanger,intents.fire);
@@ -1087,10 +1092,15 @@ export class FlightScene extends Phaser.Scene {
       this.rocks.draw(a.id,x,y,r,a.hp/TUNE.asteroid.hp[a.size],flash,light,this.frame.sun,(px,py)=>this.toScreen(px,py),a.size,a.family);
     }
     this.rocks.end();
+    this.combatSprites.begin();
     // Cosmetic bob and sparkle never alter the server's pickup position or collection radius.
     for (const item of this.net.pickups.values()) {
       const at = this.toScreen(item.x, item.y);
       if (!at.visible) continue;
+      if(item.kind === 'mineral' || item.kind === 'salvage'){
+        const radius=(item.kind==='salvage'?8+Math.sqrt(item.value)*1.6:7+Math.sqrt(item.value)*3)*at.scale;
+        if(this.combatSprites.pickup(at,radius,item.kind,item.id,now))continue;
+      }
       if (item.kind === 'salvage') {
         // Gold salvage (placeholder): a spinning gold coin with a glow.
         const r = (8 + Math.sqrt(item.value) * 1.6) * at.scale;
@@ -1182,8 +1192,10 @@ export class FlightScene extends Phaser.Scene {
       const head = this.toScreen(b.x, b.y);
       const tail = this.toScreen(b.x - b.vx * len, b.y - b.vy * len);
       if (!head.visible || !tail.visible) continue;
-      drawBullet(g,{...head,scale:head.scale*bulletScale},tail,b.mine,!!b.small,b.look??0);
+      if(!this.combatSprites.bullet({...head,scale:head.scale*bulletScale},tail,b.mine,!!b.small,b.look??0))
+        drawBullet(g,{...head,scale:head.scale*bulletScale},tail,b.mine,!!b.small,b.look??0);
     }
+    this.combatSprites.end();
     // Missiles and mines. Missiles are carried forward from the last snapshot so they fly smoothly.
     const tNow = performance.now();
     for (const o of this.net.ordnance.values()) {

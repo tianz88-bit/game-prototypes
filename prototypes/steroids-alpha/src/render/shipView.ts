@@ -14,6 +14,8 @@ import type { ShipProfile } from './shipProfiles';
 import { chassisStats } from '../../sim/chassis';
 import { clientTune } from '../clientTune';
 import { TUNE } from '../../sim/tune';
+import { PALETTES } from './palette';
+import { hoverLightTexture } from './hoverLight';
 import { ThrusterVFX } from './thrusters';
 import type { NozzleOrigin, ThrusterInput } from './thrusters';
 
@@ -62,6 +64,7 @@ export class ShipView {
   private firedAt: Record<number, number> = { [-2]: -1e9, [-1]: -1e9, 1: -1e9, 2: -1e9 };
   private now = 0;
   private shadow: Phaser.GameObjects.Image;
+  private hoverLight: Phaser.GameObjects.Image;
   private ring: Phaser.GameObjects.Graphics;
   private lastAngle: number | null = null;
   private lastTime = 0;
@@ -97,6 +100,9 @@ export class ShipView {
     const r = clientTune.render.shipRingRadius * this.sizeRatio;
     this.ring.lineStyle(2 / clientTune.render.shipScale, mine ? 0x5fe3ff : 0xff8a4a, 0.55);
     this.ring.strokeCircle(0, 0, r);
+    const colour = Number.parseInt((PALETTES[palette] ?? PALETTES[0]).glow.slice(1),16);
+    // Ground-only self-light is separate from the sun-driven silhouette and selection ring.
+    this.hoverLight = scene.add.image(0,0,hoverLightTexture(scene,colour)).setDepth(13).setBlendMode(Phaser.BlendModes.ADD);
     this.shadow = scene.add.image(0, 0, shadowKey(this.profile.shipId)).setDepth(SHIP_DEPTH - 1).setAlpha(cal.shadow.opacity);
     this.exhaustGfx = scene.add.graphics().setDepth(SHIP_DEPTH - 0.5);
     this.shieldGfx = scene.add.graphics().setDepth(SHIP_DEPTH + 2).setBlendMode(Phaser.BlendModes.ADD);
@@ -122,10 +128,18 @@ export class ShipView {
     this.container.setVisible(at.visible);
     this.shadow.setVisible(at.visible && at.shadowAlpha > 0.01);
     this.ring.setVisible(at.visible);
+    this.hoverLight.setVisible(at.visible);
     if (!at.visible) return;
     const x = at.x;
     const y = at.y;
     const scale = clientTune.render.shipScale * at.scale;
+    // Approved placement: +2 X / +35 Y at a 1600x900 reference view, under the craft.
+    const light = clientTune.render;
+    const groundScale = at.scale * light.referenceHeight / 900;
+    const night = Math.max(0, Math.min(1, (1-at.brightness) / .3));
+    this.hoverLight.setPosition(x+light.hoverLightX*groundScale,y+light.hoverLightY*groundScale)
+      .setDisplaySize(light.hoverLightWidth*groundScale*this.sizeRatio,light.hoverLightHeight*groundScale*this.sizeRatio)
+      .setAlpha(light.hoverLightOpacity*(.7+.3*night));
     // Sunlight scales every layer's 3% step shade together; retint only when it changes visibly.
     if (Math.abs(at.brightness - this.lastBrightness) > 0.004) {
       this.lastBrightness = at.brightness;
@@ -366,6 +380,7 @@ export class ShipView {
     this.exhaustGfx.destroy();
     this.shieldGfx.destroy();
     this.shadow.destroy();
+    this.hoverLight.destroy();
     this.ring.destroy();
   }
 }
