@@ -116,6 +116,11 @@ export class NetClient {
   private leaving = false;
   /** How the last connection closed (shown on the Disconnected screen). */
   closeInfo: { code: number; reason: string } | null = null;
+  /**
+   * Ships we have hit and when (performance.now ms): their health bar shows for a while after our
+   * last hit (owner, 15 November 2026).
+   */
+  readonly engaged = new Map<number, number>();
   /** Times our ship was resumed after a dropped connection (test hook). */
   resumes = 0;
   private resuming = false;
@@ -266,6 +271,7 @@ export class NetClient {
       }
     } else if (msg.type === 'hits' && Array.isArray(msg.hits)) {
       for (const h of msg.hits) {
+        if ((h as { by?: number }).by === this.myId && h.id !== this.myId) this.engaged.set(h.id, performance.now());
         if (h.shielded) this.fx.push({ kind: 'shield', id: h.id, x: h.x, y: h.y });
         if (h.broke) this.fx.push({ kind: 'shieldBreak', id: h.id, x: h.x, y: h.y });
         if (h.hull===true || (h.hull===undefined && !h.shielded)) this.fx.push({ kind: 'hull', id: h.id, x: h.x, y: h.y });

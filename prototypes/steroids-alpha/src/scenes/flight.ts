@@ -42,6 +42,9 @@ const W = TUNE.world.width;
 const H = TUNE.world.height;
 const SPACE = 0x060b17;
 
+/** How long a target's health bar stays after your last hit on it. */
+const TARGET_BAR_MS = 5000;
+
 export class FlightScene extends Phaser.Scene {
   net!: NetClient;
   private planet!: PlanetId;
@@ -400,6 +403,7 @@ export class FlightScene extends Phaser.Scene {
     sh.x+=CALIBRATION.shadow.x-SHADOW_ANCHOR.x;sh.y+=CALIBRATION.shadow.y-SHADOW_ANCHOR.y;
     const shadow = this.toScreen(s.x + sh.x, s.y + sh.y);
     this.placeTag(id, at, mine, chassisStats(s.chassis, TUNE).radius / TUNE.ship.radius);
+    if (!mine) this.drawTargetBar(id, s, at, chassisStats(s.chassis, TUNE).radius / TUNE.ship.radius);
     ship.setLook(this.net.roster.get(id)?.look ?? {});
     // Ships darken 30% on the night side (owner decision); asteroids and pickups only 10%.
     ship.update({ ...at, brightness: this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0 }, s, this.time.now, control);
@@ -934,6 +938,34 @@ export class FlightScene extends Phaser.Scene {
     if(tag.style.color!==colour)tag.setColor(colour);
     const below = (Math.max(clientTune.render.shipRingRadius * clientTune.render.shipScale * size, size > 2 ? 76 : 38) + 10) * at.scale;
     tag.setStroke('#081426', 3).setPosition(at.x, at.y + below).setVisible(at.visible && !(mine && intents.touch));
+  }
+
+  /**
+   * Target health (owner, 15 November 2026): a small bar under the name of a ship you have hit, for
+   * a few seconds after your last hit. Shield and hull share it: blue while the shield holds, then
+   * the hull once the shield is gone.
+   */
+  private drawTargetBar(id: number, s: ShipState, at: { x: number; y: number; scale: number; visible: boolean }, size: number): void {
+    const hitAt = this.net.engaged.get(id);
+    if (hitAt === undefined || !at.visible) return;
+    const age = performance.now() - hitAt;
+    if (age > TARGET_BAR_MS) {
+      this.net.engaged.delete(id);
+      return;
+    }
+    const fade = Math.min(1, (TARGET_BAR_MS - age) / 800);
+    const below = (Math.max(clientTune.render.shipRingRadius * clientTune.render.shipScale * size, size > 2 ? 76 : 38) + 10) * at.scale;
+    const k = Math.max(0.8, at.scale);
+    const w = 46 * k, h = 5 * k;
+    const x = at.x - w / 2, y = at.y + below + 16 * k;
+    const shieldMax = maxShield(s, TUNE);
+    const onShield = s.shield > 0.5 && shieldMax > 0;
+    const share = onShield ? s.shield / shieldMax : Math.max(0, s.hp) / Math.max(1, s.hullMax);
+    const g = this.turretGfx;
+    g.fillStyle(0x081426, 0.85 * fade);
+    g.fillRect(x - k, y - k, w + 2 * k, h + 2 * k);
+    g.fillStyle(onShield ? 0x6fd6ff : 0xffa95e, 0.95 * fade);
+    g.fillRect(x, y, w * Math.max(0, Math.min(1, share)), h);
   }
 
   /**

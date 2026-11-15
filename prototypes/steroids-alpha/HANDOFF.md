@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-15 claude target-bar
+DID: hits[] carry `by` (attacker id); the client keeps net.engaged (ships we hit -> time) and draws a small bar under their name for 5 s: blue shield fraction while shield > 0, then orange hull fraction.
+FILES: sim/world.ts src/net/client.ts src/scenes/flight.ts scripts/test-steroids-alpha-sim.mjs BRIEF.md
+SEAM: WorldEvents.hits[].by; NetClient.engaged; FlightScene.drawTargetBar (placeholder style).
+CROSS: none
+FOR codex: the bar is a placeholder (two rects); restyle freely, keep blue = shield, then hull.
+
 ## 2026-11-15 claude bot-warp-evolve
 DID: bots warp out (owner) at bots.warpPower 350 or after bots.warpAfterSeconds 300 once lockdown ends, broadcast as warpouts, replaced after respawnSeconds; bots buy EVOLVE when canEvolve. Dash charge 0.8 -> 0.4 s (owner).
 FILES: sim/bots.ts server/src/room.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
@@ -97,10 +104,3 @@ FILES: sim/bots.ts server/src/room.ts tune.json scripts/test-steroids-alpha-sim.
 SEAM: botThink(..., others: BotBrain[]); BotBrain gains target/reactAt/engagedSince/distractedUntil/seen; new bots tune keys.
 CROSS: none
 FOR codex: nothing.
-
-## 2026-11-14 claude no-steer-toggle
-DID: phones always steer with the direction marker; the STEER toggle button and its zone are gone (saved craft setting ignored on touch).
-FILES: src/input/intents.ts src/scenes/flight.ts BRIEF.md
-SEAM: intents.schemeButton stays null on touch; toggleScheme no-op on touch.
-CROSS: none
-FOR codex: the bottom-left space the STEER button used is free.
