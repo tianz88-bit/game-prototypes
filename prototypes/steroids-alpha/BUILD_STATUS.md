@@ -1,6 +1,6 @@
 ## Current milestone
 
-Owner approved the Warp map and leaderboard for live publication on 16 November 2026. Release candidate on codex/steroids-warp-stellar-map, based on main9097c74. New pulsing WARP menu button, spinning-globe destination popup, and level/kills/minerals leaderboard implemented. Public build remains161126r0073 from the previous approved release. Review gallery: outputs/steroids-alpha/warp-map-preview/index.html. The reviewed candidate fb8c7c9 passed its checks; publishing and public verification are now authorized and in progress.
+LIVE as161126r0074 at https://daily-daily-games.itch.io/steroids-alpha. Owner approved after preview; PR510 merged969638bd. itch43829523905 and Worker43829523419 succeeded. Both Warp map and level/kills/minerals leaderboard are public. Local review gallery remains outputs/steroids-alpha/warp-map-preview/index.html.
 
 ## What was implemented
 
@@ -15,6 +15,8 @@ No dependencies, generated images, new R2 objects or extra permissions. The popu
 
 Typecheck/build/rig/sim/live-config pass. New meaningful ranking cases cover level vs kills, kills vs minerals, stable ties, old missing-level rosters and source immutability. Brave DPR2 PC1280x720, mobile844x390, small667x375 and upright390x844: all four selections, real second-tap warp, modal input isolation, hidden/restored name field and rotation pass. Desktop/mobile board ordering and compact rank agree. WebGL and Canvas repeat-open resource counts stay stable; resize preserves selection; stale Escape and simulated count503 fail gracefully. About60 FPS / p9516.8ms for the open four-globe map on this PC. No unexpected page/console errors; intentional503 injection is excluded from the error count. Evidence: outputs/steroids-alpha/warp-map-preview/{result,leaderboard,lifecycle}.json and actual-renderer screenshots/GIF.
 
+Public Brave verification: PC1280x720, phone844x390, small667x375 and upright390x844 DPR2 all loaded161126r0074. Real WARP open, all four globe selections/details, rotation, close/reopen and second-tap Satellite B entry pass; every client reaches flight with an open connection. Published desktop/mobile leaderboard order, mineral labels and compact rank pass using isolated client fixtures after network closure. Worker health OK/protocol20, zero unexpected browser errors. Evidence outputs/steroids-alpha/warp-live-verification/{result,leaderboard}.json and inspected screenshots.
+
 ## Open questions
 
 None blocking the requested behavior. Latest owner request is recorded in BRIEF.md.
@@ -25,4 +27,4 @@ Physical phone/Safari performance is unmeasured. Canvas uses simpler globe shadi
 
 ## Next proposed step
 
-Publish the approved pass, monitor itch and Worker workflows, verify the fresh public build and two-tap planet entry, then send Claude the release proof and menu/ranking contracts. Main remains unchanged at9097c74; no rebase or implementation changes required.
+Owner playtests the live Warp map and mineral leaderboard. Release proof and menu/ranking contracts are sent to Claude in Agent Comms thread b837277b.
