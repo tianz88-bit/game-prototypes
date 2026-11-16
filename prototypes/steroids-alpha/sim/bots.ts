@@ -12,6 +12,7 @@ import type { ShipInput, ShipState } from './ship';
 import { topSpeed } from './ship';
 import { asteroidPos } from './asteroids';
 import type { World } from './world';
+import type { BaseLayout } from './clanBase';
 import { angleDelta, wrapDelta } from './wrap';
 import { SHOP_ITEMS, EVOLVE_ITEM, canBuy, canEvolve, shopTier } from './shop';
 
@@ -56,6 +57,11 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
     const dy = wrapDelta(y, s.y, H);
     return { dx, dy, d: Math.hypot(dx, dy) };
   };
+  // Siege (owner, 16 November 2026): at war, bots fight the other clan only; attackers go for the
+  // base (turrets, then the shield, then the treasury), defenders guard it from outside the shield.
+  const war = world.atWar && world.layout ? world.layout : null;
+  const myClan = world.clanOf.get(id) ?? 0;
+  const defending = !!war && myClan === war.clan;
   brain.aimError = Math.max(-1, Math.min(1, brain.aimError + (rng() - 0.5) * 0.3)) ;
   const wobble = brain.aimError * ((t.aimErrorDeg * Math.PI) / 180);
 
@@ -67,6 +73,7 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
   if (tick >= brain.distractedUntil) {
     for (const [oid, o] of world.ships) {
       if (oid === id || o.hp <= 0) continue;
+      if (war && (world.clanOf.get(oid) ?? 0) === myClan) continue;
       const r = rel(o.x, o.y);
       if (r.d > t.sightRange || (oid !== brain.target && hunted(oid) >= t.maxBotsPerTarget)) continue;
       // Stick with the current target while it stays in sight.
@@ -84,7 +91,7 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
     brain.seen = null;
   }
   // Bored of a fight that goes on too long: off to do something else for a while.
-  if (enemy && tick - brain.engagedSince > t.attentionSeconds * hz) {
+  if (!war && enemy && tick - brain.engagedSince > t.attentionSeconds * hz) {
     brain.distractedUntil = tick + Math.round(t.distractedSeconds * hz);
     brain.target = 0;
     brain.seen = null;
@@ -105,7 +112,7 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
     input.thrust = 1;
     return { input, buy: null };
   }
-  const leaving = s.hullMax >= t.warpPower || tick - brain.bornAt >= t.warpAfterSeconds * hz;
+  const leaving = !war && s.hullMax >= t.warpPower || tick - brain.bornAt >= t.warpAfterSeconds * hz;
   if (leaving && s.lockdown <= 0) {
     input.warp = true;
     input.thrust = 1;
@@ -131,7 +138,8 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
   if (brain.cooling && s.heat <= t.resumeHeat) brain.cooling = false;
   const mayFire = !brain.cooling && !s.overheated;
 
-  const hurt = s.hp < s.hullMax * t.fleeHullFraction;
+  // Attackers respawn at once at the gate, so they press on instead of running.
+  const hurt = !(war && !defending) && s.hp < s.hullMax * t.fleeHullFraction;
   if (enemy && hurt && !reacting) {
     // Run: straight away from the threat, flat out, dashing when possible.
     const away = Math.atan2(-enemy.dy, -enemy.dx);
@@ -160,6 +168,30 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
     // A dash to close in (or ram) when lined up at middle range.
     if (s.dashCd <= 0 && off < 0.3 && enemy.d > 250 && enemy.d < 600 && rng() < 0.03) input.dash = true;
     return { input, buy };
+  }
+
+  if (war) {
+    const siege = siegeGoal(s, world, war, defending, tune, rel);
+    if (siege) {
+      const avoid = nearestRock(s, world, tune, rel);
+      if (avoid && avoid.d - avoid.r < 140) {
+        input.aim = Math.atan2(avoid.dy, avoid.dx) + Math.PI * 0.6;
+        input.thrust = 1;
+        return { input, buy };
+      }
+      const g = siege;
+      const aimAt = Math.atan2(g.dy, g.dx) + wobble * 0.5;
+      if (g.d < g.standoff) {
+        // Too close: swing round (ships never stop), holding fire until lined up again.
+        input.aim = aimAt + Math.PI / 2;
+        input.thrust = -1;
+      } else {
+        input.aim = aimAt;
+        input.thrust = g.d > g.standoff + 150 ? 1 : 0;
+        input.fire = g.shoot && mayFire && Math.abs(angleDelta(aimAt, s.heading)) < (t.fireConeDeg * Math.PI) / 180 && g.d < tune.weapon.assistRange;
+      }
+      return { input, buy };
+    }
   }
 
   // Nothing to fight: collect minerals nearby, else shoot the nearest rock, else wander.
@@ -198,4 +230,49 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
   input.aim = brain.wander;
   input.thrust = s.speed < topSpeed(s.hullMax, tune, s.chassis) * 0.8 ? 0.5 : 0;
   return { input, buy };
+}
+
+type Rel = (x: number, y: number) => { dx: number; dy: number; d: number };
+
+function nearestRock(s: ShipState, world: World, tune: Tune, rel: Rel): { dx: number; dy: number; d: number; r: number } | null {
+  let rock: { dx: number; dy: number; d: number; r: number } | null = null;
+  for (const a of world.asteroids.values()) {
+    const p = asteroidPos(a, world.tick, tune);
+    const r = rel(p.x, p.y);
+    if (!rock || r.d < rock.d) rock = { ...r, r: tune.asteroid.radius[a.size] };
+  }
+  void s;
+  return rock;
+}
+
+/**
+ * Where a bot heads at war with no enemy ship in sight. Attackers: the nearest live base turret, else
+ * the treasury (bullets break the shield on the way while it stands). Defenders: the turret ring, on
+ * the side of the nearest attacker (they cannot shoot from inside a standing shield).
+ */
+function siegeGoal(s: ShipState, world: World, base: BaseLayout, defending: boolean, tune: Tune, rel: Rel): { dx: number; dy: number; d: number; standoff: number; shoot: boolean } | null {
+  const sg = world.siege;
+  if (!sg) return null;
+  const b = tune.base;
+  if (!defending) {
+    let best: { dx: number; dy: number; d: number } | null = null;
+    base.turrets.forEach((at, i) => {
+      if (sg.turretHp[i] <= 0) return;
+      const r = rel(at.x, at.y);
+      if (!best || r.d < best.d) best = r;
+    });
+    if (best) return { ...(best as { dx: number; dy: number; d: number }), standoff: 380, shoot: true };
+    const r = rel(base.treasury.x, base.treasury.y);
+    return { ...r, standoff: sg.shield > 0 ? b.domeRadius + 200 : 260, shoot: true };
+  }
+  let threat: { x: number; y: number; d: number } | null = null;
+  for (const [oid, o] of world.ships) {
+    if (o.hp <= 0 || (world.clanOf.get(oid) ?? 0) === base.clan) continue;
+    const d = rel(o.x, o.y).d;
+    if (!threat || d < threat.d) threat = { x: o.x, y: o.y, d };
+  }
+  const W = tune.world.width, H = tune.world.height;
+  const a = threat ? Math.atan2(wrapDelta(threat.y, base.treasury.y, H), wrapDelta(threat.x, base.treasury.x, W)) : world.tick / (tune.net.tickHz * 20);
+  const post = rel(base.treasury.x + Math.cos(a) * b.turretRing, base.treasury.y + Math.sin(a) * b.turretRing);
+  return { ...post, standoff: 0, shoot: false };
 }
