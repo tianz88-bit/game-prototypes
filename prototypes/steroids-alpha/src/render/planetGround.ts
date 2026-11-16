@@ -199,6 +199,17 @@ export class PlanetGround {
     }
   }
 
+  /** Place a bounded globe preview without changing its surface projection. Flight remains at 0,0. */
+  setPosition(x: number, y: number): void {
+    this.shader?.setPosition(x, y);
+    this.disc?.setPosition(x, y);
+  }
+
+  destroy(): void {
+    this.shader?.destroy();
+    this.disc?.destroy();
+  }
+
   /** w, h: logical screen size. viewScale: screen pixels per world unit. */
   update(w: number, h: number, viewScale: number, frame: PlanetFrame): void {
     const radiusPx = clientTune.render.planetRadius * viewScale;
