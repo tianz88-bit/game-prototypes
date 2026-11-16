@@ -5,7 +5,14 @@ DID: muted cylinder supports, independent clan materials, root-contact and groun
 FILES: render/{buildingGeometry,buildingMaterials,buildingRig,clanBaseArt,planet,shipProfiles}, rigReview, sim/chassis, art/battlecruiser-v3, tests/docs.
 SEAM: projectGround optional callback; planet camera=travel, sunlight=travel+spin. Capital GUNS forward81.07,right±38.7/±55.8; future client+Worker release together. No stats/footprint/equipment/wire changes.
 CROSS: minimal cannon-origin data and its simulation test; review muzzle uses shared tower height constants. Typecheck/build/sim/config/rig/new grounding tests pass;8 desktop/mobile7-building root/column fixtures and10 lab interaction cases pass, no errors/capture/recording.
-FOR claude: owner approved live release. R2-v3 ZIP/10parts now uploaded and publicly hash-verified. Main PR521/522 Sparrow/siege/pod changes preserved. Release/public checks in progress; no competing ship/ground edits until final handoff.
+FOR claude: owner approved live release. R2-v3 ZIP/10parts now uploaded and publicly hash-verified. Main PR521/522/523 Sparrow/siege/pod/Warzone changes preserved, including protocol23. Release/public checks in progress; no competing ship/ground edits until final handoff.
+## 2026-11-16 claude warzone-playable
+DID: Warzone playable: in PLANETS (menu, stellar map 5 globes), Room round flow peace -> countdown 10 s (both clans) -> war (+2 bots per side) -> over 8 s -> countdown/peace; release 10 s when a side empties; joins refused at war (CLOSE.WAR_LOCKED) and without a clan (CLOSE.NEED_CLAN); in-place war respawns (warDown/warUp frames; attackers instant at gate, defenders 15 s at pads); towers hold fire outside a war; 'siege' frames drive a top HUD panel, destroyed-tower crosses, shield ring, respawn countdown. Fixed: refused connections no longer stay hidden behind the hyperspace animation (affected planet-full too). Protocol 23.
+FILES: sim/{planets,protocol,world,bots}.ts server/src/room.ts src/net/client.ts src/scenes/flight.ts src/render/stellarMap.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
+SEAM: Room.siegePhase/stepSiege/siegeFrame; NetClient.siege/warDown; SiegeView; CLOSE.WAR_LOCKED/NEED_CLAN.
+CROSS: src/render/stellarMap.ts (yours): five positions and a Warzone intel/tint; flight maskOrbitalUi skips refused connections.
+FOR codex: Warzone needs art: damaged/destroyed towers, shield strength, Nexus health, a Warzone globe look distinct from Crimson.
+
 ## 2026-11-16 claude siege-values-pods
 DID: siege values for the Sparrow starter (turrets 110, shield 750, treasury 1100, owner: tweak after playtests); siege bots detour for mineral spills within 320 px (power moves to whoever cleans up); sim option attPower/defPower (first life only) and any-tune overrides. Repair pods drawn at render.healDropScale (0.8) of the pickup radius.
 FILES: tune.json client.tune.json sim/{bots,liveConfig}.ts src/scenes/flight.ts BRIEF.md scripts/sim-steroids-alpha-siege.mjs
@@ -96,10 +103,3 @@ FILES: src/input/intents.ts src/scenes/{flight,menu}.ts src/save.ts client.tune.
 SEAM: clientTune.mouse is now {deadZone} only; Save.keyHints; Intents.mouseSteering (cursor aim) and mouse fire.
 CROSS: src/scenes/flight.ts: reticle and key hints are placeholder overlay drawing.
 FOR codex: the zoom-out makes ships and rocks about 19% smaller on screen; check painted art still reads well, and a styled aim reticle would help.
-
-## 2026-11-16 claude mouse-marker
-DID: PC mouse marker scheme (default): hold left mouse, ship steers to the cursor, thrust by distance (clientTune.mouse markerRadius 240 / deadZone 40, touch thrust curve), cursor on ship brakes, release eases to min speed; WASD still works. Menu CONTROLS row (PC only): MOUSE / KEYBOARD. After warping out the result screen offers Menu only (no Drop in).
-FILES: src/input/intents.ts src/scenes/{flight,menu}.ts client.tune.json sim/liveConfig.ts BRIEF.md
-SEAM: Intents.mouse/mouseOrigin/mouseSteering/setScheme; clientTune.mouse (deployment-locked like touch).
-CROSS: src/scenes/flight.ts: cursor ring drawn on the overlay while steering (placeholder look).
-FOR codex: the cursor ring/line is a placeholder; a styled steering reticle would help.

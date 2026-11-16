@@ -20,6 +20,22 @@ import type { PlanetId } from '../../sim/planets';
 import { clientTune } from '../clientTune';
 import { SIM_LAG_MS, serverOrigin } from '../base';
 
+/** Warzone round state, as the room broadcasts it (server/src/room.ts siegeFrame). */
+export interface SiegeView {
+  phase: 'peace' | 'countdown' | 'war' | 'release' | 'over';
+  /** Seconds left in the countdown, release or round. */
+  left: number;
+  tickets: number;
+  turrets: number[];
+  shield: number;
+  broken: boolean;
+  treasury: number;
+  winner: number;
+  reason: string;
+  crimson: number;
+  azure: number;
+}
+
 export type NetStatus = 'connecting' | 'open' | 'reconnecting' | 'lost' | 'full' | 'closed' | 'destroyed' | 'extracted';
 
 /** Why a connection closed, in words for the Disconnected screen (owner: show the reason). */
@@ -33,6 +49,8 @@ export function closeReason(code: number, reason: string): string {
     1012: 'server restarting (update)',
     [CLOSE.BAD_PROTOCOL]: 'game version mismatch, reload the page',
     [CLOSE.RESUME_LOST]: 'away too long, or the server was updated',
+    [CLOSE.WAR_LOCKED]: 'a war is on in the Warzone: try again when it ends',
+    [CLOSE.NEED_CLAN]: 'pick Crimson or Azure in the menu to fight in the Warzone',
   };
   const words = known[code] ?? 'unknown';
   return `${words} · code ${code}${reason && !words.includes(reason) && reason !== 'ship lost' ? ` · ${reason}` : ''}`;
@@ -137,6 +155,10 @@ export class NetClient {
   hotZone: { x: number; y: number; r: number; movesAt: number } | null = null;
   /** Set when our own ship is destroyed: where, and who did it (0 = an asteroid). */
   death: { x: number; y: number; killer: number; killerName: string } | null = null;
+  /** Warzone state from the room (null elsewhere). */
+  siege: SiegeView | null = null;
+  /** Warzone: destroyed at war; back at our side's spawn at this time (performance.now ms). */
+  warDown: { until: number } | null = null;
   /** Set when our warp run completed and we left the planet: what we carried out. */
   extracted: { power: number; kills: number; salvage: number } | null = null;
   /** After an extraction: what the bank credited and the new balance (or why it could not). */
@@ -230,7 +252,7 @@ export class NetClient {
       if (this.pingTimer) clearInterval(this.pingTimer);
       this.pingTimer = null;
       this.closeInfo = { code: e.code, reason: e.reason };
-      const final: Partial<Record<number, NetStatus>> = { [CLOSE.ROOM_FULL]: 'full', [CLOSE.DESTROYED]: 'destroyed', [CLOSE.EXTRACTED]: 'extracted', [CLOSE.RESUME_LOST]: 'lost', [CLOSE.BAD_PROTOCOL]: 'closed', 1008: 'closed' };
+      const final: Partial<Record<number, NetStatus>> = { [CLOSE.ROOM_FULL]: 'full', [CLOSE.DESTROYED]: 'destroyed', [CLOSE.EXTRACTED]: 'extracted', [CLOSE.RESUME_LOST]: 'lost', [CLOSE.BAD_PROTOCOL]: 'closed', 1008: 'closed' , [CLOSE.WAR_LOCKED]: 'closed', [CLOSE.NEED_CLAN]: 'closed' };
       const now = performance.now();
       if (final[e.code] || this.leaving || !this.resumeToken) {
         this.status = final[e.code] ?? 'closed';
@@ -271,6 +293,23 @@ export class NetClient {
 
   /** Roster, deaths and pickups arrive as JSON text frames. */
   private handleText(msg: { type?: string; id?: number; power?: number; kills?: number; ships?: { id: number; x: number; y: number }[]; x?: number; y?: number; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean; hull?: boolean; broke?: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral' | 'salvage'; value: number }[]; r?: number; seconds?: number; salvage?: number; amount?: number; balance?: number | null; error?: string; remove?: { id: number; by: number }[] }): void {
+    if (msg.type === 'siege') {
+      this.siege = msg as unknown as SiegeView;
+      return;
+    }
+    if (msg.type === 'warDown') {
+      this.warDown = { until: performance.now() + (Number(msg.seconds) || 0) * 1000 };
+      return;
+    }
+    if (msg.type === 'warUp') {
+      // A new ship at our side's spawn: the next snapshot is the truth.
+      this.warDown = null;
+      this.pending = [];
+      this.accumulator = 0;
+      this.visualError = { x: 0, y: 0, heading: 0 };
+      this.resuming = true;
+      return;
+    }
     if (msg.type === 'treasury') {
       this.treasury = { clan: Number((msg as { clan?: unknown }).clan) || 0, total: Number((msg as { total?: unknown }).total) || 0 };
     } else if (msg.type === 'deposited') {
@@ -297,7 +336,10 @@ export class NetClient {
       for (const d of msg.deaths) {
         this.fx.push({ kind: 'explosion', x: d.x, y: d.y, killer: d.killer });
         this.remotes.delete(d.id);
-        if (d.id === this.myId) this.death = { x: d.x, y: d.y, killer: d.killer, killerName: this.roster.get(d.killer)?.name ?? '' };
+        // At war the pilot stays on the planet and respawns in place (Warzone): no death screen.
+        const atWar = this.siege?.phase === 'war' || this.siege?.phase === 'release';
+        if (d.id === this.myId && atWar) this.warDown = { until: performance.now() + 15000 };
+        else if (d.id === this.myId) this.death = { x: d.x, y: d.y, killer: d.killer, killerName: this.roster.get(d.killer)?.name ?? '' };
       }
     } else if (msg.type === 'hits' && Array.isArray(msg.hits)) {
       for (const h of msg.hits) {

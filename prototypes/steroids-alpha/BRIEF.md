@@ -166,8 +166,8 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
 
 ## Siege v0: Warzone (owner, 16 November 2026)
 
-First clan-versus-clan fight. Built in two steps: the rules and a headless bot simulation first
-(done), then the playable planet.
+First clan-versus-clan fight. Built in two steps: the rules and a headless bot simulation first,
+then the playable planet (both done, 16 November 2026).
 
 - **Warzone planet:** a clan base (treasury, shield dome, 6 turrets, pads, gate) defended by
   **Azure**; **Crimson** attacks. Separate from the clan home planets, which stay peaceful.
@@ -193,6 +193,16 @@ First clan-versus-clan fight. Built in two steps: the rules and a headless bot s
   are still there.
 - **On Warzone:** mining and upgrades as usual (power only: no salvage, no fuel); no warp-out during
   a war. **No rewards** for now.
+- **Playable (step 2):** Warzone is in the menu and on the stellar map. Only clan pilots can join
+  (others are told to pick a clan); during a war (and its round-over pause) newcomers are refused
+  with a "war is on" message. A pilot destroyed at war stays on the planet and respawns in place
+  (no death screen): attackers at once at the gate, defenders after the countdown at the pads; war
+  bots respawn the same way. Outside a war the towers hold fire. The top panel shows the phase,
+  countdowns, tickets, round timer and tower/shield/Nexus health; destroyed towers are crossed out
+  and the shield ring fades with its strength (placeholder looks until art). The round-over pause
+  is 8 s, then a new countdown if both clans are still there.
+- Idea for later (owner): more minerals and rare mineral-rich asteroids on Warzone for quick
+  farming.
 - Starting values (to be tuned by the owner after playtests; lowered 16 November for the weaker
   Sparrow starter): turrets 110 HP, shield 750 HP
   regenerating 2 HP/s per live turret, treasury 1,100 HP, 20 tickets, defender respawn 15 s. Headless

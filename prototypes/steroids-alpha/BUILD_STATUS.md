@@ -1,6 +1,9 @@
 ## Current milestone
 
-Owner approved the grounded-building and capital-v3 release on17November. R2 upload and public ZIP/10part hash verification are complete. Integrating main717c6f4 (PR521/522) and running final checks before coordinated client/Worker release. Previous public prototype counter82; final version will be verified after deployment.
+Owner approved the grounded-building and capital-v3 release on17November. R2 upload and public ZIP/10part hash verification are complete. Integrating mainebb8a2b (PR521/522/523) and running final checks before coordinated client/Worker release. Previous public prototype counter83; final version will be verified after deployment.
+
+Main PR523 playable Warzone and protocol23 are also preserved.
+
 
 ## What was implemented
 
