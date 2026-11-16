@@ -64,10 +64,10 @@ export const GUNS: Record<number, readonly (Mount & { side: number })[]> = {
     { forward: 10.93, right: 16.38, side: 1 },
   ],
   [BATTLECRUISER]: [
-    { forward: 89.2, right: -20.7, side: -1 },
-    { forward: 89.2, right: 20.7, side: 1 },
-    { forward: 76.6, right: -55.8, side: -2 },
-    { forward: 76.6, right: 55.8, side: 2 },
+    { forward: 81.07, right: -38.7, side: -1 },
+    { forward: 81.07, right: 38.7, side: 1 },
+    { forward: 81.07, right: -55.8, side: -2 },
+    { forward: 81.07, right: 55.8, side: 2 },
   ],
 };
 

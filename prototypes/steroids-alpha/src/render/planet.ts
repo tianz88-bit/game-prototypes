@@ -7,7 +7,8 @@
 // is over the horizon and hidden.
 //
 // Light: one sun, fixed in space. The planet turns beneath it and the ship travels over it, and both
-// move the same "where am I on the ball" position, which drives terrain scroll and sunlight together.
+// move the sun-relative position. Map coordinates co-rotate with the planet, so a fixed foundation
+// stays on the same texel; travelling across the surface scrolls terrain and sunlight together.
 // Turning the ship in place never changes the light.
 
 export interface Projected {
@@ -51,7 +52,7 @@ const smooth = (a: number, b: number, x: number): number => {
 };
 
 export interface PlanetFrame {
-  /** Where the terrain is sampled for the centre of the view: travel plus the planet's turn. */
+  /** Planet-fixed terrain coordinates at the view centre. Planet rotation affects sun, not these. */
   camera: { x: number; y: number };
   /** Sun direction in the local frame: x right, y down the screen, z up out of the ground. */
   sun: Vec3;
@@ -72,8 +73,8 @@ export function lightingRadius(worldWidth: number): number {
 
 export function planetFrame(travelX: number, travelY: number, rotationDeg: number, radius: number, sunFixed: Vec3): PlanetFrame {
   const rotation = (rotationDeg * Math.PI) / 180;
-  const camera = { x: travelX + rotation * radius, y: travelY };
-  const lon = camera.x / radius;
+  const camera = { x: travelX, y: travelY };
+  const lon = travelX / radius + rotation;
   const lat = camera.y / radius;
   const c = Math.cos(lon);
   const s = Math.sin(lon);

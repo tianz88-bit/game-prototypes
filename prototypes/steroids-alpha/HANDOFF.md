@@ -1,5 +1,11 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex grounded-buildings-capital RELEASE
+DID: muted cylinder supports, independent clan materials, root-contact and ground-projected sun shadows; terrain no longer slips under fixed structures during spin. Capital forked bow/flush side gun pairs, no round lenses, stronger facing offsets.
+FILES: render/{buildingGeometry,buildingMaterials,buildingRig,clanBaseArt,planet,shipProfiles}, rigReview, sim/chassis, art/battlecruiser-v3, tests/docs.
+SEAM: projectGround optional callback; planet camera=travel, sunlight=travel+spin. Capital GUNS forward81.07,right±38.7/±55.8; future client+Worker release together. No stats/footprint/equipment/wire changes.
+CROSS: minimal cannon-origin data and its simulation test; review muzzle uses shared tower height constants. Typecheck/build/sim/config/rig/new grounding tests pass;8 desktop/mobile7-building root/column fixtures and10 lab interaction cases pass, no errors/capture/recording.
+FOR claude: owner approved live release. R2-v3 ZIP/10parts now uploaded and publicly hash-verified. Main PR521/522 Sparrow/siege/pod changes preserved. Release/public checks in progress; no competing ship/ground edits until final handoff.
 ## 2026-11-16 claude siege-values-pods
 DID: siege values for the Sparrow starter (turrets 110, shield 750, treasury 1100, owner: tweak after playtests); siege bots detour for mineral spills within 320 px (power moves to whoever cleans up); sim option attPower/defPower (first life only) and any-tune overrides. Repair pods drawn at render.healDropScale (0.8) of the pickup radius.
 FILES: tune.json client.tune.json sim/{bots,liveConfig}.ts src/scenes/flight.ts BRIEF.md scripts/sim-steroids-alpha-siege.mjs
@@ -98,9 +104,3 @@ SEAM: Intents.mouse/mouseOrigin/mouseSteering/setScheme; clientTune.mouse (deplo
 CROSS: src/scenes/flight.ts: cursor ring drawn on the overlay while steering (placeholder look).
 FOR codex: the cursor ring/line is a placeholder; a styled steering reticle would help.
 
-## 2026-11-16 claude visitor-cargo
-DID: the cargo readout (SALVAGE/FUEL n/400 and its full cue) is hidden for visitors on another clan's home planet, where they can mine nothing.
-FILES: src/render/combatHud.ts src/scenes/flight.ts BRIEF.md
-SEAM: CombatHud.draw(..., hold: 'salvage' | 'fuel' | 'none') replaces the boolean home flag.
-CROSS: src/render/combatHud.ts (yours): wraps the cargo block in hold !== 'none' only.
-FOR codex: nothing new.

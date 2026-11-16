@@ -1,0 +1,53 @@
+// Ground attachment/material regressions. No browser or screen capture.
+import assert from 'node:assert/strict';
+import { build } from 'esbuild';
+
+async function load(file) {
+  const r=await build({entryPoints:[file],bundle:true,platform:'node',format:'esm',write:false});
+  return import('data:text/javascript;base64,'+Buffer.from(r.outputFiles[0].text).toString('base64'));
+}
+const G=await load('prototypes/steroids-alpha/src/render/buildingGeometry.ts');
+const M=await load('prototypes/steroids-alpha/src/render/buildingMaterials.ts');
+const P=await load('prototypes/steroids-alpha/src/render/planet.ts');
+const R=await load('prototypes/steroids-alpha/src/render/shipProfiles.ts');
+const C=await load('prototypes/steroids-alpha/sim/chassis.ts');
+const Rig=await load('prototypes/steroids-alpha/src/render/shipRig.ts');
+const near=(a,b,label)=>assert(Math.abs(a-b)<1e-7,`${label}: ${a} != ${b}`);
+const inside=(polygon,p)=>polygon.every((a,i)=>{
+  const b=polygon[(i+1)%polygon.length];return(b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x)>=-1e-7;
+});
+let shadows=0;
+for(const root of [[0,0],[400,320],[-950,80]])for(const angle of [0,45,90,180,270,360]){
+  const frame=P.planetFrame(0,0,angle,P.lightingRadius(8000),P.sunState(225,50));
+  const project=(dx,dy)=>{const q=P.projectOffset(root[0]+dx,root[1]+dy,1600);return {...q,x:640+q.x,y:360+q.y};};
+  const at=project(0,0),p={id:'test',at,clan:1,now:0,sun:frame.sun,projectGround:project};
+  const polygon=G.buildingShadowPolygon(p,220,145,100);
+  assert(polygon.length>=3&&inside(polygon,at),'directional cast always includes its foundation');
+  assert.deepEqual(G.buildingPoint(p,0),{x:at.x,y:at.y},'plate and column share the ground root');
+  const texel={x:frame.camera.x+root[0],y:frame.camera.y+root[1]};
+  assert.deepEqual(texel,{x:root[0],y:root[1]},'planet rotation cannot slide surface beneath a root');
+  shadows++;
+}
+const original=new Uint8ClampedArray([0,97,242,220,255,135,0,255,115,217,255,128,5,9,18,255,230,220,200,255,0,0,0,0]);
+const red=original.slice(),blue=original.slice();M.remapBuildingPixels(red,1);M.remapBuildingPixels(blue,2);
+assert.notDeepEqual(red.slice(0,12),blue.slice(0,12),'clans have distinct enamel/trim/glass');
+for(const pixels of [red,blue]){
+  for(let i=3;i<original.length;i+=4)assert.equal(pixels[i],original[i],'alpha preserved');
+  assert.deepEqual(pixels.slice(12),original.slice(12),'dark lines, cream metal and transparency preserved');
+}
+const profile=R.SHIP_PROFILES[2],modules=profile.modules,cal=profile.calibration;
+assert.equal(modules.filter(m=>m.asset==='shield-emitter').length,0,'forward glass lenses removed');
+const guns=modules.filter(m=>m.asset==='gun');assert.equal(guns.length,4);
+for(const side of [-1,1]){
+  const pair=guns.filter(m=>Math.sign(m.x)===side);assert.equal(pair.length,2);
+  assert.equal(pair[0].parent,pair[1].parent,'a flush pair belongs to one side housing');
+  for(const angle of [0,45,90,135,180,225,270,315]){
+    const a=Rig.pose(pair[0],angle,cal,0,0,0,0,modules),b=Rig.pose(pair[1],angle,cal,0,0,0,0,modules);
+    const r=angle*Math.PI/180;near((a.x-b.x)*Math.sin(r)-(a.y-b.y)*Math.cos(r),0,'paired gun tips remain flush through rotation');
+  }
+}
+assert(C.GUNS[2].every(m=>m.forward===C.GUNS[2][0].forward),'all four simulation origins share the bow line');
+assert(C.GUNS[2].filter(m=>m.right<0).length===2&&C.GUNS[2].filter(m=>m.right>0).length===2);
+assert(cal.modules.armour.offsets.up.y<cal.modules.armour.offsets.right.y&&cal.modules.armour.offsets.right.y<cal.modules.armour.offsets.down.y,'cardinal depth compresses toward down view');
+assert(Math.abs(cal.modules.armour.offsets.up.y+cal.modules.cockpit.offsets.up.y+cal.modules.canopy.offsets.up.y)>=90,'bridge depth is exaggerated above the deck');
+console.log(`Building grounding: ${shadows} projected sun/root cases; clan materials, flush capital mounts and stronger depth pass.`);

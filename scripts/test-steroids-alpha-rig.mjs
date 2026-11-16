@@ -72,3 +72,6 @@ const remote=hold('observed',220,-95);assert(remote.pitch < -12.9 && remote.bank
 for(let i=0;i<90;i++)tilt.advanceTilt(remote,{thrust:0,turn:0,aim:NaN},0,0,false,1/60,visual);
 assert.deepEqual(remote,{pitch:0,bank:0},'released controls return exactly to the original sprite pose');
 console.log(`Ship FFD: ${points} reference panel points, control gating, inverted yaw and exact return to level pass.`);
+
+// Ground attachment and capital gun layout share this existing release gate.
+await import('./test-steroids-alpha-buildings.mjs');

@@ -5,13 +5,10 @@ import type { ShipState } from '../../sim/ship';
 import type { Tune } from '../../sim/tune';
 import { wrapDelta } from '../../sim/wrap';
 import type { BuildingRigs, BuildingRigPose } from './buildingRig';
+import { clanArtColours } from './buildingMaterials';
+export { CLAN_ART, clanArtColours } from './buildingMaterials';
 
 /** Broad painted-metal planes, cream bevels and emissive insets follow the Nomad ships. */
-export const CLAN_ART = {
-  crimson: { hull:0xb43e51, mid:0xe35c65, shade:0x652d43, light:0xffb879, glow:0xff9e77, dark:0x291f35 },
-  azure: { hull:0x286caf, mid:0x579fe1, shade:0x293b64, light:0xa2e5ec, glow:0x77e5f2, dark:0x152b45 },
-};
-export const clanArtColours=(clan:number)=>clan===1?CLAN_ART.crimson:CLAN_ART.azure;
 type At={x:number;y:number;scale:number;visible:boolean};
 type Point={x:number;y:number};
 export interface ClanBaseArtOptions {
@@ -65,7 +62,8 @@ export function drawClanBase(g:Phaser.GameObjects.Graphics,o:ClanBaseArtOptions)
     const qx=project(x+24,y),qy=project(x,y+24),dx=qx.x-at.x,dy=qx.y-at.y;
     const basisAngle=qx.visible?Math.atan2(dy,dx):0;
     const foreshorten=qx.visible&&qy.visible?Math.max(.55,Math.min(1.15,Math.hypot(qy.x-at.x,qy.y-at.y)/Math.max(.001,Math.hypot(dx,dy)))):1;
-    return{id,at,clan:layout.clan,now,basisAngle,foreshorten,sun:o.sun,daylight:o.daylight,brightness:o.brightness};
+    return{id,at,clan:layout.clan,now,basisAngle,foreshorten,sun:o.sun,daylight:o.daylight,brightness:o.brightness,
+      projectGround:(dx,dy)=>project(x+dx,y+dy)};
   };
   // A projected perimeter and two light latitude bands suggest a dome without a solid gameplay veil.
   g.lineStyle(2,c.glow,.42+.06*Math.sin(now/550));ring(g,o,layout.treasury.x,layout.treasury.y,b.domeRadius,72);

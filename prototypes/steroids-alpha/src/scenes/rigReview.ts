@@ -5,6 +5,7 @@ import { fitCamera, text, versionStamp } from './common';
 import { panel, UI } from '../render/ui';
 import { ShipView } from '../render/shipView';
 import { BuildingRigs, buildingKey } from '../render/buildingRig';
+import { TOWER_BARREL_LIFT } from '../render/buildingGeometry';
 import { CombatSprites } from '../render/combatSprites';
 import { profileFor } from '../render/shipArt';
 import { applyServerConfig, configVersion } from '../liveConfig';
@@ -222,8 +223,8 @@ export class RigReviewScene extends Phaser.Scene {
           this.lastTurret = now; this.towerBarrel = 1 - this.towerBarrel;
           const lateral = this.towerBarrel === 0 ? -8 : 8;
           // The production tower's raised barrel tip, including its initial six-pixel kick.
-          this.shot(Math.cos(aim) * 33 - Math.sin(aim) * lateral - Math.sin(basis) * 42 * .35,
-            (pose.at.y - y) / scale + Math.sin(aim) * 33 + Math.cos(aim) * lateral - Math.cos(basis) * 42,
+          this.shot(Math.cos(aim) * 33 - Math.sin(aim) * lateral - Math.sin(basis) * TOWER_BARREL_LIFT * .35,
+            (pose.at.y - y) / scale + Math.sin(aim) * 33 + Math.cos(aim) * lateral - Math.cos(basis) * TOWER_BARREL_LIFT,
             Math.cos(aim) * TUNE.turret.bulletSpeed, Math.sin(aim) * TUNE.turret.bulletSpeed, true);
         }
         this.buildings.drawTurret({ ...pose, angle: aim, firedAt: this.lastTurret });
