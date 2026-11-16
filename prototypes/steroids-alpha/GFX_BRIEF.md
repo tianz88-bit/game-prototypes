@@ -155,3 +155,7 @@ Owner requested preview before publication. Local branch codex/steroids-orbit-ne
 ## Ship-centred instruments — 16 November 2026
 
 Owner replaced the flat hull/shield/heat/dash panel with two semicircles around the pilot. Left shows shield until depletion, then hull; hull/total always below. Right splits remaining weapon capacity (1-heat) and dash. Recovery states remain visible. Local preview: outputs/steroids-alpha/semicircle-hud-preview/index.html. Prior screenshot-before-live gate remains in force.
+
+## HUD refinement — 16 November 2026
+
+Owner clarified that dash and weapon each need a full right semicircle, concentric and thinner than shield/hull. Revised to lighter translucent segmented arcs with each symbol embedded in its own base notch. Original GoldenEye is the visual reference. Latest local review: outputs/steroids-alpha/semicircle-hud-preview-v2/index.html. Recovery behavior remains unchanged; still not deployed.

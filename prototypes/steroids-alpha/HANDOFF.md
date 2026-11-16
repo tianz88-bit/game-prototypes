@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 codex translucent-HUD-preview
+DID: owner correction: weapon and dash each get a full concentric right semicircle (inner weapon, outer dash), thinner than left shield/hull. Lighter translucent segmented tracks inspired by original GoldenEye. All symbols embedded in each meter's bottom socket/notch; no floating glyphs. Recovery states retained.
+FILES: src/render/combatHud.ts; BUILD_STATUS/GFX_BRIEF.
+SEAM: none; same optional projected anchor, existing shield/hull/heat/dash inputs and button positions.
+CROSS: none. No game values, input, ship rig, network or source art changes.
+FOR claude: still local preview, not approved live. Evidence outputs/steroids-alpha/semicircle-hud-preview-v2/index.html;21 desktop/mobile/small-phone state screenshots and2 recovery GIFs,0 browser errors. Typecheck/build/rig pass. Earlier input validation remains applicable because only drawing changed.
+
 ## 2026-11-16 codex semicircle-HUD-preview
 DID: LOCAL PREVIEW: two ship-centred instrument halves. Left shield becomes hull when depleted, with inner shield-reboot progress; hull/total below. Right weapon capacity counts down as heat rises and refills on cooling, plus dash charge/active/cooldown. Old panel, duplicate button meters, own marker plates/name and broken-shield icon removed.
 FILES: render/{combatHud,shipView}.ts scenes/flight.ts; BUILD_STATUS/COLLAB/GFX_BRIEF.
@@ -97,10 +104,3 @@ FILES: server/src/{room,index}.ts sim/{protocol,world}.ts src/net/client.ts src/
 SEAM: text frame {type:'resume',token,seconds} after welcome; ws ?resume=<token>; CLOSE.RESUME_LOST 4005; NetStatus 'reconnecting' | 'lost'; net.closeInfo, closeReason(); Player.resume/awayUntil; tune net.reconnectGraceSeconds, ship.bumpDamage, ship.bumpKnockbackSpeed. Protocol 19 unchanged.
 CROSS: none
 FOR codex: nose chevron (flight.ts drawNose), the "Reconnecting… Ns" line and the lost-ship message are placeholders.
-
-## 2026-11-15 claude shot-look
-DID: gun shots no longer alternate looks by side (owner): both guns fire energy-bolt-standard; from GUNS (damage) tier 2 both fire energy-pulse-heavy. Remote shots use the shooter's last snapshot damageTier.
-FILES: src/net/client.ts client.tune.json sim/liveConfig.ts BRIEF.md
-SEAM: clientTune.render.heavyShotGunTier (2); bullet look = damageTier >= it ? 1 : 0 (combatSprites/drawBullet unchanged).
-CROSS: none
-FOR codex: the pulse now marks an upgraded gun; a small muzzle change at tier 2 would sell the upgrade.

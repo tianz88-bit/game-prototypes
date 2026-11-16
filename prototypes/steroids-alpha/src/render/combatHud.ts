@@ -29,44 +29,55 @@ export class CombatHud {
         if(end-start<=.001)return;
         g.lineStyle(width,colour,alpha);g.beginPath();g.arc(x,y,radius,start,end,false);g.strokePath();
       };
-      // Wide navy recess, cream bevel and a coloured inset: the same materials as the panel UI.
-      const meter=(start:number,end:number,value:number,colour:number)=>{
-        arc(r,start,end,8*k,0x071321,.9);
-        arc(r+.8*k,start,end,5.2*k,0x4b5e6a,.72);
-        arc(r,start,end,3.8*k,0x142735,.95);
-        arc(r,start,start+(end-start)*clamp(value),3.8*k,colour,.94);
-        arc(r-1.1*k,start,start+(end-start)*clamp(value),.8*k,0xf3e5c9,.62);
-        // Subtle separators make small changes readable against detailed terrain.
-        for(let i=1;i<6;i++){
-          const a=start+(end-start)*i/6,c=Math.cos(a),s=Math.sin(a);
-          g.lineStyle(.8*k,0x081522,.72);g.lineBetween(x+c*(r-2.3*k),y+s*(r-2.3*k),x+c*(r+2.3*k),y+s*(r+2.3*k));
+      // Light segmented arcs borrow the quiet instrument feel of the original GoldenEye HUD.
+      // Each right-hand instrument has its own full semicircle, thinner than the shield/hull.
+      const meter=(radius:number,start:number,end:number,value:number,colour:number,width:number,fromBottom=false)=>{
+        const f=clamp(value),a=fromBottom?end-(end-start)*f:start,b=fromBottom?end:start+(end-start)*f;
+        arc(radius,start,end,width+2*k,0x071321,.4);
+        arc(radius,start,end,width,0x7a929b,.2);
+        arc(radius,a,b,width,colour,.68);
+        arc(radius-width*.3,a,b,.55*k,0xf3e5c9,.3);
+        for(let i=1;i<9;i++){
+          const angle=start+(end-start)*i/9,c=Math.cos(angle),sn=Math.sin(angle);
+          g.lineStyle(.85*k,0x081522,.58);g.lineBetween(x+c*(radius-width*.65),y+sn*(radius-width*.65),x+c*(radius+width*.65),y+sn*(radius+width*.65));
         }
-        for(const a of [start,end]){const c=Math.cos(a),s=Math.sin(a);g.lineStyle(1.2*k,0xded1b6,.68);g.lineBetween(x+c*(r-2*k),y+s*(r-2*k),x+c*(r+2*k),y+s*(r+2*k));}
       };
-      const leftStart=Math.PI/2+gap,leftEnd=Math.PI*1.5-gap;
-      meter(leftStart,leftEnd,down?hull:shield,down?(critical?0xf17d68:0xf2bc6c):0x61d7ed);
+      // A small socket is physically joined to the meter's bottom end; symbols live inside it.
+      const socket=(radius:number,a:number,colour:number,kind:'shield'|'weapon'|'dash')=>{
+        const cx=x+Math.cos(a)*radius,cy=y+Math.sin(a)*radius;
+        g.fillStyle(0x0c1b29,.55);g.fillPoints([{x:cx-3.8*k,y:cy-4*k},{x:cx+3.8*k,y:cy-4*k},{x:cx+3.2*k,y:cy+3*k},{x:cx,y:cy+4*k},{x:cx-3.2*k,y:cy+3*k}],true);
+        g.lineStyle(.7*k,colour,.5);g.lineBetween(cx-3.8*k,cy-3.5*k,cx+3.8*k,cy-3.5*k);
+        if(kind==='shield'){
+          g.fillStyle(colour,.8);g.fillPoints([{x:cx-2*k,y:cy-2.5*k},{x:cx+2*k,y:cy-2.5*k},{x:cx+1.5*k,y:cy+.5*k},{x:cx,y:cy+2.5*k},{x:cx-1.5*k,y:cy+.5*k}],true);
+          if(down){g.lineStyle(.8*k,0x0c1b29,.9);g.lineBetween(cx-2*k,cy+2*k,cx+2*k,cy-2*k);}
+        }else if(kind==='weapon'){
+          g.fillStyle(colour,.8);for(const dx of [-1.5,1.5]){g.fillRect(cx+(dx-.55)*k,cy-1.5*k,1.1*k,3.5*k);g.fillTriangle(cx+(dx-.55)*k,cy-1.5*k,cx+(dx+.55)*k,cy-1.5*k,cx+dx*k,cy-2.8*k);}
+        }else{
+          g.lineStyle(.9*k,colour,.85);for(const dx of [-1.5,1.5]){g.beginPath();g.moveTo(cx+(dx-1)*k,cy-2*k);g.lineTo(cx+(dx+1)*k,cy);g.lineTo(cx+(dx-1)*k,cy+2*k);g.strokePath();}
+        }
+      };
+      const leftBase=Math.PI/2+gap,leftStart=leftBase+.15,leftEnd=Math.PI*1.5-gap;
+      const shieldColour=down?(critical?0xf17d68:0xf2bc6c):0x61d7ed;
+      meter(r,leftStart,leftEnd,down?hull:shield,shieldColour,4.5*k);
+      socket(r,leftBase+.07,shieldColour,'shield');
       if(down && p.shieldCd>0){
         const recovery=clamp(1-p.shieldCd/TUNE.ship.shieldRegenDelaySeconds);
-        arc(r-6*k,leftStart,leftEnd,1.5*k,0x173d4e,.9);
-        arc(r-6*k,leftStart,leftStart+(leftEnd-leftStart)*recovery,1.5*k,0x82deeb,.65+.2*Math.sin(now/230));
+        arc(r-5*k,leftStart,leftEnd,1.1*k,0x173d4e,.45);
+        arc(r-5*k,leftStart,leftStart+(leftEnd-leftStart)*recovery,1.1*k,0x82deeb,.45+.15*Math.sin(now/230));
       }
-      const rightStart=-Math.PI/2+gap,rightEnd=Math.PI/2-gap,split=rightStart+(rightEnd-rightStart)*.57;
-      meter(rightStart,split-.065,1-clamp(p.heat),p.overheated?0xf18d73:0xf2bc6c);
+      const rightStart=-Math.PI/2+gap,rightBase=Math.PI/2-gap,rightEnd=rightBase-.15;
+      const weaponRadius=r,dashRadius=r+9*k;
+      const weaponColour=p.overheated?0xf18d73:0xf2bc6c;
+      meter(weaponRadius,rightStart,rightEnd,1-clamp(p.heat),weaponColour,2.3*k,true);
+      socket(weaponRadius,rightBase-.07,weaponColour,'weapon');
       const charging=p.dashCharge>0,active=p.dashTime>0;
       const dash=charging?1-p.dashCharge/TUNE.ship.dashChargeSeconds:active?1:1-p.dashCd/TUNE.ship.dashCooldown;
-      meter(split+.065,rightEnd,dash,charging?0xffdfaa:active?0xedfff2:0x83d6cf);
-      // Small material emblems, rather than extra text and boxes around the cockpit.
-      const ix=x-r-9*k,iy=y;
-      g.fillStyle(down?0xf2bc6c:0x90e5ef,.9);g.fillPoints([{x:ix-3*k,y:iy-4*k},{x:ix+3*k,y:iy-4*k},{x:ix+2*k,y:iy+1*k},{x:ix,y:iy+4*k},{x:ix-2*k,y:iy+1*k}],true);
-      if(down){g.lineStyle(k,0x071321,1);g.lineBetween(ix-3*k,iy+3*k,ix+3*k,iy-3*k);}
-      const wx=x+r+9*k,wy=y-r*.46;
-      g.fillStyle(p.overheated?0xf18d73:0xf2bc6c,.9);for(const dx of [-2,2])g.fillRect(wx+(dx-1)*k,wy-3*k,2*k,6*k);
-      if(p.overheated){label(1,wx+2*k,wy-16*k,'LOCK',0xffad8f,8);arc(r-6*k,rightStart,split-.065,1.4*k,0xffb183,.5+.25*Math.sin(now/180));}
-      const dy=y+r*.5;
-      g.lineStyle(1.4*k,active?0xf0ffe9:0x9fddd4,.9);
-      for(const dx of [-2,2]){g.beginPath();g.moveTo(wx+(dx-2)*k,dy-3*k);g.lineTo(wx+(dx+1)*k,dy);g.lineTo(wx+(dx-2)*k,dy+3*k);g.strokePath();}
-      if(charging||active){const a=.35+.25*Math.sin(now/95);arc(r+3*k,split+.065,rightEnd,1.2*k,0xf0dfba,a);}
-      label(0,x,y+r+8*k,`${Math.round(p.hp)} / ${Math.round(p.hullMax)}`,critical?0xffa28d:0xf0e5cd,touch?10:11);
+      const dashColour=charging?0xffdfaa:active?0xedfff2:0x83d6cf;
+      meter(dashRadius,rightStart,rightEnd,dash,dashColour,2.3*k,true);
+      socket(dashRadius,rightBase-.07,dashColour,'dash');
+      if(p.overheated){arc(weaponRadius-3*k,rightStart,rightEnd,.8*k,0xffb183,.3+.2*Math.sin(now/180));}
+      if(charging||active){arc(dashRadius+2*k,rightStart,rightEnd,.8*k,0xf0dfba,.25+.18*Math.sin(now/95));}
+      label(0,x,y+r+17*k,`${Math.round(p.hp)} / ${Math.round(p.hullMax)}`,critical?0xffa28d:0xf0e5cd,touch?10:11);
     }
     // Cargo stays in a corner, outside the centred flight instruments and phone controls.
     const cargo=TUNE.salvage.cargoMax,full=p.salvage>=cargo-.5,x=12,y=touch?18:h-30;
