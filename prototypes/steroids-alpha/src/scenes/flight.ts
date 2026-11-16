@@ -1,3 +1,4 @@
+import { rankPilots, mineralCount } from '../../sim/leaderboard';
 import { drawCombatImpact, drawShieldShatter } from '../render/combatEffects';
 import type { CombatImpact } from '../render/combatEffects';
 import {drawEvolve,drawWarpCharge,drawWarpLaunch,drawCapitalEscort,shipTagClearance,EVOLVE_ART_MS,WARP_LAUNCH_ART_MS} from '../render/progressionArt';
@@ -204,7 +205,7 @@ export class FlightScene extends Phaser.Scene {
     this.arrivedAt = performance.now();
     this.baseAim = [];
     this.baseFiredAt = [];
-    this.boardTitle = text(this, 0, 0, 'KO · POWER', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
+    this.boardTitle = text(this, 0, 0, 'LEVEL · KO · MINERALS', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
 
     this.hotZoneText = text(this, 0, 0, '', 11, '#7dffc4').setOrigin(0.5).setDepth(953).setVisible(false);
     this.keyHintsOn = loadSave().keyHints !== false;
@@ -977,7 +978,7 @@ export class FlightScene extends Phaser.Scene {
   private drawMobileNav(p: ShipState | null,w:number):void {
     this.mobileButtons=[];this.mobileNavLabels.forEach(t=>t.setVisible(false));
     if(!intents.touch || !p || this.net.death || this.net.extracted)return;
-    const header=mobileHeader(w),ranked=[...this.net.roster.values()].sort((a,b)=>b.power-a.power||a.id-b.id);
+    const header=mobileHeader(w),ranked=rankPilots(this.net.roster.values());
     const rank=ranked.findIndex(r=>r.id===this.net.myId)+1;
     const offers=SHOP_ITEMS.filter(item=>canBuy(p,item,TUNE)).length+(canEvolve(p,TUNE)?1:0);
     const entries = [
@@ -1102,7 +1103,7 @@ export class FlightScene extends Phaser.Scene {
   }
 
   /**
-   * Power leaderboard, top right: one chip per player (rank, name, power = minerals carried). When the
+   * Level / kills / minerals leaderboard, top right: one chip per player. When the
    * order changes the chips slide to their new places; a chip pops orange when that player scores a
    * kill, and one that climbed gets a brief glow while it moves.
    */
@@ -1110,7 +1111,7 @@ export class FlightScene extends Phaser.Scene {
     if (intents.touch && (this.mobilePanel !== 'board' || this.net.death || this.net.extracted)) {
       this.boardTitle.setVisible(false);for(const chip of this.board.values())chip.box.setVisible(false);return;
     }
-    const ranked = [...this.net.roster.values()].sort((a,b)=>b.power-a.power||a.id-b.id);
+    const ranked = rankPilots(this.net.roster.values());
     const rows = ranked.slice(0,intents.touch?4:8);
     const own = ranked.find(r=>r.id===this.net.myId);
     if(intents.touch && own && !rows.includes(own))rows.push(own);
@@ -1165,7 +1166,7 @@ export class FlightScene extends Phaser.Scene {
         }
         g.lineStyle(1.5, bounty ? 0xffd36d : mine ? 0x5fe3ff : 0x3d4a66, bounty || mine ? 0.95 : 0.8);
         g.strokeRoundedRect(-cw / 2, -ch / 2, cw, ch, Math.min(UI.uiRadius,ch/3));
-        // Power pill on the right.
+        // Mineral balance pill on the right.
         const pw = 34;
         g.fillStyle(pop > 0 ? 0xffb34a : mine ? 0x2a7f9c : 0x2a3550, 1);
         g.fillRoundedRect(cw / 2 - pw - 3, -ch / 2 + 3, pw, ch - 6, (ch - 6) / 2);
@@ -1196,9 +1197,10 @@ export class FlightScene extends Phaser.Scene {
       const tagColour=unlockById(r.look?.tag)?.colour;
       const colour=tagColour!==undefined?css(tagColour):mine?'#9fefff':r.bot===true?'#a9bdcf':'#dfe8ff';
       if(chip.nameT.style.color!==colour)chip.nameT.setColor(colour);
-      if (chip.killsT.text !== `${r.power}`) chip.killsT.setText(`${r.power}`);
+      const minerals = `${mineralCount(r)}`;
+      if (chip.killsT.text !== minerals) chip.killsT.setText(minerals);
       chip.levelT.setText(r.level === undefined ? 'Lv.–' : `Lv.${r.level}`);
-      // Player kills only (asteroids never score), next to the power pill.
+      // Player kills only (asteroids never score), next to the minerals pill.
       const frags = `${r.kills} KO`;
       if (chip.fragsT.text !== frags) chip.fragsT.setText(frags);
       // A chip on the move draws over the one it is passing.

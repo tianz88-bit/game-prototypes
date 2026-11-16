@@ -240,7 +240,7 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
   - More power: the ship is slower (dash too) and bigger (an easier target).
     Growth has diminishing returns and caps out. Firepower comes from the
     shop, not from power (12 November).
-  - The leaderboard ranks by power.
+  - The leaderboard ranks by level, then player kills, then mineral balance (owner, 16 November).
   - Arena only for now: minerals do not go to the stash.
   - Balancing is Claude's call.
 - Shop (owner design, 12 November 2026): upgrades bought with minerals
@@ -341,8 +341,10 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
   Respawn (same planet, fresh ship) or Menu. Keyboard: R (or Space) respawns,
   Esc goes to the menu; the keys are shown on the buttons (owner, 15
   November).
-- Kills leaderboard on every planet (owner decision): one chip per player
-  (rank, name, kills), sorted by kills. Chips slide to their new places when
+- Leaderboard on every planet (owner, 16 November): one chip per player
+  (rank, name, level, kills, minerals), sorted by level, then kills, then minerals descending.
+  Stable player id breaks exact ties. Mineral balance is the existing hull/shop currency;
+  the wire field remains `power`. Chips slide to their new places when
   the order changes, and a chip pops when its kills go up. A player's kills
   reset to 0 when they die.
 - Night side (owner decision): ships are drawn 30% darker at full night;
@@ -418,10 +420,13 @@ cloud layer no longer fits.
   camera pulls back and the planet shrinks into space, then the result
   panel. The server has already removed the ship, so it is visual only.
 - Built by Codex from the spec in GFX_BRIEF.md (visual lane).
-- Space hub (owner decision): the planet select is a space scene. The player
-  flies their ship in space and dives into a planet to enter it (the same
-  orbital zoom); after the warp they rise back out into space. The hub is solo: only the player is in it, and it runs on the
-  client. Shared space with other players is out of scope for v1.
+- Stellar map (owner, 16 November): a pulsing WARP button on the main menu opens a canvas popup
+  containing all four destinations as spinning globes, using the gameplay terrain materials.
+  First tap highlights a globe and shows real player count, hostile/neutral/friendly territory
+  relative to the selected clan, resource types and entry notes. Tapping that selected globe
+  again starts the existing orbital entry. Closing/Escape returns to the menu; menu controls
+  underneath the popup cannot receive taps. Counts refresh from `/planets`; unavailable counts
+  stay unknown. No shared-space or free-flight hub is added in this pass.
 
 ## Ships (owner, 14 November 2026)
 

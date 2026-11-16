@@ -66,7 +66,7 @@ export interface RosterEntry {
   id: number;
   name: string;
   kills: number;
-  /** Hull maximum (power, the minerals invested): the leaderboard ranks by this. */
+  /** Mineral balance / hull maximum. Legacy wire name retained; rank is level, kills, then minerals. */
   power: number;
   /** Current upgrades across all five shop categories; absent on older servers. */
   level?: number;

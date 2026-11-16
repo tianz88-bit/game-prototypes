@@ -1,8 +1,7 @@
 import { combatKey } from '../render/combatSprites';
 import { shipPreview } from '../render/shipPreview';
 import { PALETTES } from '../render/palette';
-// Main menu: enter a pilot name, then pick a planet to drop into. The hangar (stash and loadout)
-// comes in a later milestone. The name is shown under your ship and on the leaderboard.
+// Main menu: name, clan, loadout and a two-step destination choice through the Warp stellar map.
 import Phaser from 'phaser';
 import { CLANS, PLANETS } from '../../sim/planets';
 import type { PlanetId } from '../../sim/planets';
@@ -16,6 +15,7 @@ import { loadSave, writeSave } from '../save';
 import { clientTune } from '../clientTune';
 import { UI, css, panel } from '../render/ui';
 import { ensureAccount, recoverAccount } from '../net/account';
+import { StellarMap } from '../render/stellarMap';
 
 export interface MenuButton {
   id: PlanetId;
@@ -62,12 +62,19 @@ export class MenuScene extends Phaser.Scene {
   hintButtons: { on: boolean; x: number; y: number; w: number; h: number }[] = [];
   private nameText!: Phaser.GameObjects.Text;
   private nameFrame!: Phaser.GameObjects.Rectangle;
+  warpButton: { x: number; y: number; w: number; h: number } | null = null;
+  stellarMap: StellarMap | null = null;
+  private mapOpen = false;
+  private selectedPlanet: PlanetId | null = null;
+  private warpPulse!: Phaser.GameObjects.Graphics;
 
   constructor() {
     super('menu');
   }
 
   create(): void {
+    this.mapOpen = false;
+    this.selectedPlanet = null;
     this.layout();
     this.game.events.on('dpr', this.layout, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -77,6 +84,8 @@ export class MenuScene extends Phaser.Scene {
       f.style.display = 'none';
       intents.textBox = null;
       intents.copyZone = null;
+      this.stellarMap?.destroy();
+      this.stellarMap = null;
     });
     nameField().onkeydown = (e) => {
       if (e.key !== 'Enter') return;
@@ -157,8 +166,11 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private layout(): void {
-    this.children.removeAll(true);
-    this.countText.clear();
+    this.stellarMap?.destroy();
+    this.stellarMap = null;
+    // DisplayList.removeAll(true) skips removal callbacks; it does not destroy game objects.
+    // Destroy the old text canvases, previews and graphics when rebuilding the menu/modal.
+    this.children.getAll().forEach(child => child.destroy());
     fitCamera(this);
     const { w, h } = logicalSize();
     this.add.rectangle(w / 2, h / 2, w, h, 0x07101c);
@@ -228,27 +240,22 @@ export class MenuScene extends Phaser.Scene {
       });
       py = hy;
     } else this.hintButtons = [];
-    text(this, w / 2, py + 30, 'Choose a planet to drop into', 13, '#8fa2c8').setOrigin(0.5);
-    // Four planets in a 2 x 2 grid: the open planets on top, the clan homes below.
-    const gap = 10;
-    const cw = (bw - gap) / 2;
-    const top = py + 46;
-    const bh = Math.min(60, Math.max(42, (h - top - 20) / 2 - gap));
-    this.buttons = PLANETS.map((p, i) => {
-      const x = w / 2 - bw / 2 + cw / 2 + (i % 2) * (cw + gap);
-      const y = top + bh / 2 + Math.floor(i / 2) * (bh + gap);
-      const home = p.clan !== 0;
-      const mine = home && p.clan === myClan;
-      const card=this.add.graphics();panel(card,x-cw/2,y-bh/2,cw,bh,mine?(CLANS.find((c)=>c.id===p.clan)?.colour??UI.uiAccent):UI.uiAccent,true);
-      card.fillStyle(p.colour,.8);card.fillRoundedRect(x-cw/2+5,y-bh/2+5,5,bh-10,2);
-      text(this, x, y - (bh > 50 ? 8 : 6), p.label, 16).setOrigin(0.5);
-      this.countText.set(p.id, text(this, x, y + (bh > 50 ? 13 : 10), '', 11, '#c9d6f2').setOrigin(0.5));
-      return { id: p.id, x, y, w: cw, h: bh };
-    });
+    const wy = Math.min(h - 54, py + 60);
+    this.warpButton = { x: w / 2, y: wy, w: bw, h: 54 };
+    panel(this.add.graphics(), w / 2 - bw / 2, wy - 27, bw, 54, UI.uiAccent, true);
+    this.warpPulse = this.add.graphics();
+    text(this, w / 2, wy - 5, 'WARP', 23, css(UI.uiText)).setOrigin(.5);
+    text(this, w / 2, wy + 14, 'OPEN STELLAR MAP', 9, css(UI.uiAccent)).setOrigin(.5);
+    this.buttons = [];
     this.drawShare(w, h, bw);
     this.drawAccount(w, h, bw);
     versionStamp(this);
     this.showCounts();
+    if (this.mapOpen) {
+      f.blur(); f.style.display = 'none'; intents.textBox = null; intents.copyZone = null;
+      this.stellarMap = new StellarMap(this, w, h, myClan, this.selectedPlanet, this.counts);
+      this.buttons = this.stellarMap.planets.map(({ id, x, y, w, h }) => ({ id, x, y, w, h }));
+    }
   }
 
   /** Share: a QR code of the game's page beside the menu; tapping it copies the link. */
@@ -287,33 +294,40 @@ export class MenuScene extends Phaser.Scene {
 
   /** Pilots on each planet, from the server; refreshed every few seconds while the menu is open. */
   private counts: Record<string, number> | null = null;
-  private countText = new Map<string, Phaser.GameObjects.Text>();
   private countsAt = -1e9;
   private async pollCounts(): Promise<void> {
     try {
       const url = serverOrigin().replace(/^ws/, 'http') + '/planets';
       const r = await fetch(url, { cache: 'no-store' });
-      if (r.ok) this.counts = ((await r.json()) as { planets: Record<string, number> }).planets;
+      this.counts = r.ok ? ((await r.json()) as { planets: Record<string, number> }).planets : null;
     } catch {
-      // Offline or the server is unreachable: leave the counts off.
+      this.counts = null;
     }
     if (this.scene.isActive()) this.showCounts();
   }
 
-  /** The pilot count shown on each planet button (test hook). */
+  /** The real player counts shown under the globes (test hook). */
   countLabels(): Record<string, string> {
-    return Object.fromEntries([...this.countText].map(([id, t]) => [id, t.text]));
+    return Object.fromEntries(PLANETS.map(p => {
+      const n = this.counts?.[p.id];
+      return [p.id, n === undefined || n < 0 ? 'Players unavailable' : `${n} ${n === 1 ? 'player' : 'players'}`];
+    }));
   }
 
   private showCounts(): void {
-    for (const [id, t] of this.countText) {
-      if (!t.active) continue;
-      const n = this.counts?.[id];
-      t.setText(n === undefined || n < 0 ? '' : n === 1 ? '1 pilot' : `${n} pilots`);
-    }
+    this.stellarMap?.setCounts(this.counts);
   }
 
   update(time: number): void {
+    this.stellarMap?.update(time);
+    if (!this.mapOpen && this.warpButton) {
+      const b = this.warpButton, pulse = .5 + .5 * Math.sin(time / 330);
+      this.warpPulse.clear().lineStyle(1.5, UI.uiAccent, .25 + pulse * .65);
+      this.warpPulse.strokeRoundedRect(b.x - b.w / 2 - 3 - pulse * 3, b.y - b.h / 2 - 3 - pulse * 3,
+        b.w + 6 + pulse * 6, b.h + 6 + pulse * 6, UI.uiRadius + 3);
+    }
+    const closeMap = intents.consume('pause');
+    if (this.mapOpen && closeMap) { this.mapOpen = false; this.layout(); return; }
     const copied = intents.consume('copied');
     const failed = intents.consume('copyFailed');
     if (this.shareHint?.active && (copied || failed)) {
@@ -339,6 +353,16 @@ export class MenuScene extends Phaser.Scene {
     if (!this.codeMode) this.nameText.setText(name || editing ? name + caret : 'Tap to enter a name').setColor(name || editing ? '#e8f0ff' : '#6d7a96');
     this.nameFrame.setStrokeStyle(1, editing ? UI.uiAccent : UI.uiBorder);
     for (const t of intents.drainTaps()) {
+      if (this.stellarMap) {
+        const action = this.stellarMap.tap(t.x, t.y);
+        if (action?.kind === 'close') { this.mapOpen = false; this.layout(); return; }
+        if (action?.kind === 'select') this.selectedPlanet = action.planet;
+        if (action?.kind === 'warp') {
+          writeSave({ name }); goImmersive(intents.touch);
+          this.scene.start('flight', { planet: action.planet }); return;
+        }
+        continue;
+      }
       const n = this.nameBox;
       // Taps on the name box belong to the text field over it.
       if (Math.abs(t.x - n.x) <= n.w / 2 && Math.abs(t.y - n.y) <= n.h / 2) continue;
@@ -375,11 +399,10 @@ export class MenuScene extends Phaser.Scene {
         this.layout();
         return;
       }
-      const b = this.buttons.find((b) => Math.abs(t.x - b.x) <= b.w / 2 && Math.abs(t.y - b.y) <= b.h / 2);
-      if (b) {
+      const b = this.warpButton;
+      if (b && !this.codeMode && Math.abs(t.x - b.x) <= b.w / 2 && Math.abs(t.y - b.y) <= b.h / 2) {
         writeSave({ name });
-        goImmersive(intents.touch);
-        this.scene.start('flight', { planet: b.id });
+        this.mapOpen = true; this.selectedPlanet = null; this.layout();
         return;
       }
     }

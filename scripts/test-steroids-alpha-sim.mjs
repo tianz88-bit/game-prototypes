@@ -22,6 +22,7 @@ export * from ${JSON.stringify(path.join(sim, 'chassis.ts'))};
 export { Room } from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/server/src/room.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'asteroids.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'protocol.ts'))};
+export * from ${JSON.stringify(path.join(sim, 'leaderboard.ts'))};
 export * as thrusters from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/src/render/thrusters.ts'))};
 export * as liveConfig from ${JSON.stringify(path.join(sim, 'liveConfig.ts'))};
 export * as planet from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/src/render/planet.ts'))};`;
@@ -40,6 +41,22 @@ function rng(seed = 1) {
 }
 const idle = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, missile: false, mine: false, warp: false };
 const near = (a, b, eps, what) => assert(Math.abs(a - b) <= eps, `${what}: ${a} vs ${b}`);
+
+// Level wins over kills, kills over minerals; ties are stable by player id, including older rosters.
+{
+  const rows = [
+    { id: 9, name: 'Rich', level: 1, kills: 50, power: 999 },
+    { id: 4, name: 'Veteran', level: 3, kills: 0, power: 1 },
+    { id: 5, name: 'Fighter', level: 2, kills: 4, power: 10 },
+    { id: 2, name: 'Miner', level: 2, kills: 3, power: 100 },
+    { id: 1, name: 'Tie', level: 2, kills: 3, power: 100 },
+    { id: 8, name: 'Older', kills: 100, power: 9999 },
+  ];
+  const original = rows.map(r => r.id);
+  assert.deepEqual(S.rankPilots(rows.values()).map(r => r.id), [4, 5, 1, 2, 9, 8], 'level, kills, minerals, stable id');
+  assert.deepEqual(rows.map(r => r.id), original, 'ranking never mutates the source roster');
+  assert.equal(S.mineralCount(rows[0]), 999, 'mineral balance uses authoritative existing hull currency');
+}
 
 // --- Throttle: accelerate to the maximum, brake to the minimum, never stop. ---
 {

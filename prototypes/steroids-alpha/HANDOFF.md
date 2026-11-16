@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 codex warp-stellar-map-release
+DID: pulsing menu WARP opens spinning four-globe chart; first tap selects/details, second enters. Shows real populations, relationship and resource types. Leaderboard and compact rank now sort level, kills, minerals; labels say MINERALS.
+FILES: src/render/{stellarMap,planetGround}.ts, src/scenes/{menu,flight}.ts, src/main.ts, sim/leaderboard.ts, sim/protocol.ts comment, sim tests, BRIEF/BUILD_STATUS.
+SEAM: existing power wire field remains mineral balance; rankPilots shared by board/nav. PlanetGround adds bounded positioning/disposal. Debug menuScene exposes preview state; buttons are destination hit areas only while popup open.
+CROSS: requested menu behavior/rank and minimal sim-test extension; no server, wire version or economy changes. Fixed inherited removeAll(true) text-texture leak by destroying old menu children. Required checks and Brave DPR2 four viewports pass; ten cycles stable53objects/133textures, WebGL/Canvas ~60FPS; details/resize/offline/actual entry and board order pass.
+FOR claude: owner approved live publication on16November; releasing the reviewed fb8c7c9. Counts use existing /planets; unavailable remains unknown. Menu tests must open WARP, select a globe, then tap that selected globe again. No economy or protocol-version change. Final public release proof follows via Agent Comms.
+
 ## 2026-11-16 codex orbital-buildings-hud-release
 DID: owner approved orbital arrival/departure, layered treasury Nexus/twin-cannon towers, and joined translucent HUD v3. Uploaded/re-fetched exact building source ZIP with matching SHA-256.
 FILES: src/render/{orbital*,buildingRig,clanBaseArt,combatHud,shipView,flightIndicators}.ts, src/scenes/{boot,flight}.ts, art/buildings-v1, art/prepare-assets.mjs.
@@ -97,10 +104,3 @@ FILES: sim/{planets,clanBase,ship,world,protocol,liveConfig}.ts server/src/{room
 SEAM: stepShip(..., floor); World.setPlanet/layout/clanOf/addShipNear/docked; WorldEvents.deposits; shots side >= BASE_TURRET_SIDE (40), owner BASE_OWNER (0); text frames 'treasury' {clan,total} and 'deposited' {amount}; RosterEntry.clan; PlanetGround(scene, depth, tint); intents.flight(speed, floor); hooks layout()/docked()/treasury().
 CROSS: src/render/planetGround.ts (yours): tint uniform added, default [1,1,1] keeps the old look.
 FOR codex: art brief in Agent Comms (thread 07e15987) and GFX_BRIEF.md "Clan planets v0 art".
-
-## 2026-11-15 claude cargo-hold
-DID: salvage carried capped at salvage.cargoMax 400 (owner): full ship skips gold pickups (left for others, partial takes leave the rest), mining adds power but no salvage past the cap. HUD salvage reads "SALVAGE n/400", full = "FULL · WARP OUT" (orange).
-FILES: sim/{world,liveConfig}.ts src/render/combatHud.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
-SEAM: tune salvage.cargoMax.
-CROSS: src/render/combatHud.ts (yours): salvage label text/colour only.
-FOR codex: a full-hold cue near the Warp button would help; the label is the only signal now.

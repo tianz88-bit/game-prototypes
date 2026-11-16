@@ -111,6 +111,8 @@ if (DEBUG) {
       /** Debug only: a blocked hit on your ship, to review the shield effect. */
       shieldHit: (angle?: number) => flight()?.debugShieldHit(angle),
       nameBox: () => (game.scene.getScene('menu') as MenuScene).nameBox,
+      /** Debug-only menu handle for map selection, resize and lifecycle checks. */
+      menuScene: () => game.scene.isActive('menu') ? game.scene.getScene('menu') as MenuScene : null,
       menuCredits: () => (game.scene.getScene('menu') as MenuScene).credits,
       hangarButton: () => (game.scene.getScene('menu') as MenuScene).hangarButton,
       hangar: () => { const h = game.scene.getScene('hangar') as HangarScene; return game.scene.isActive('hangar') ? { credits: h.credits, unlocks: h.unlocks, cards: h.cards.map((c) => ({ id: c.u.id, x: c.x, y: c.y })), tabs: h.tabs, back: h.backButton } : null; },
