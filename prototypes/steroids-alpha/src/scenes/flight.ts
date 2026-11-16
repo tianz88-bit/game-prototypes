@@ -106,6 +106,9 @@ export class FlightScene extends Phaser.Scene {
   private hotZoneText!: Phaser.GameObjects.Text;
   /** Edge markers for clan base landmarks (treasury, gate). */
   private baseMarkerTexts: Phaser.GameObjects.Text[] = [];
+  /** PC key hints, bottom left (owner, 16 November 2026; menu setting KEY HINTS). */
+  private keyHints!: Phaser.GameObjects.Text;
+  private keyHintsOn = true;
   private lockedOnMe = false;
   /** Shown to a pilot with a missile locked on them in flight. */
   private lockText!: Phaser.GameObjects.Text;
@@ -187,6 +190,8 @@ export class FlightScene extends Phaser.Scene {
     this.boardTitle = text(this, 0, 0, 'KO · POWER', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
 
     this.hotZoneText = text(this, 0, 0, '', 11, '#7dffc4').setOrigin(0.5).setDepth(953).setVisible(false);
+    this.keyHintsOn = loadSave().keyHints !== false;
+    this.keyHints = text(this, 0, 0, '', 10, '#8fa2c8').setOrigin(0, 1).setDepth(950).setAlpha(0.75).setVisible(false);
     this.baseMarkerTexts = [0, 1].map(() => text(this, 0, 0, '', 10, '#ffffff').setOrigin(0.5).setDepth(953).setVisible(false));
     this.warpText = text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(953).setVisible(false);
     this.bountyText = text(this, 0, 0, '', 11, '#ffd23a').setOrigin(0.5).setDepth(953).setVisible(false);
@@ -618,6 +623,19 @@ export class FlightScene extends Phaser.Scene {
     badge(x-c*70,y-s*34,`${label}  ${Math.round(Math.max(0, Math.hypot(dx, dy) - z.r) / 100) * 100}m`);
   }
 
+  /** Key hints for the PC control scheme in use, bottom left; off in the menu (KEY HINTS). */
+  private drawKeyHints(p: ShipState | null, _w: number, h: number): void {
+    const show = !intents.touch && !!p && !this.net.death && !this.net.extracted && this.keyHintsOn;
+    this.keyHints.setVisible(show);
+    if (!show) return;
+    const lines = intents.scheme === 'marker'
+      ? ['MOUSE  steer', 'LEFT CLICK  fire', 'RIGHT CLICK  missile', 'W  accelerate   S  brake', 'SHIFT  dash   E  mine', 'R  warp   1-6  upgrades']
+      : ['A / D  turn', 'W / S  throttle', 'SPACE  fire   SHIFT  dash', 'Q  missile   E  mine', 'R  warp   1-6  upgrades'];
+    const t = lines.join('\n');
+    if (this.keyHints.text !== t) this.keyHints.setText(t);
+    this.keyHints.setPosition(12, h - 12);
+  }
+
   /**
    * Clan base landmarks (owner, 15 November 2026): while off screen, an arrow on the screen edge with
    * a label and distance. Members always see their treasury; visitors see the gate and the treasury.
@@ -954,20 +972,17 @@ export class FlightScene extends Phaser.Scene {
     this.drawWarp(p, w, h);
     this.drawHotZone(p, w, h);
     this.drawBaseMarkers(p, w, h);
+    this.drawKeyHints(p, w, h);
     this.drawBase(p, w, h);
     this.schemeLabel.setVisible(false);
-    if (intents.mouseSteering) {
-      // Mouse marker: a ring at the cursor and a faint line from the ship; the ring fills as the
-      // cursor moves out toward full thrust, and turns into a brake mark over the ship.
-      const m = intents.mouse!, o = intents.mouseOrigin!;
-      const d = Math.hypot(m.x - o.x, m.y - o.y);
-      const { markerRadius, deadZone } = clientTune.mouse;
-      const push = Math.max(0, Math.min(1, (d - deadZone) / Math.max(1, markerRadius - deadZone)));
-      g.lineStyle(1, 0xffffff, 0.18);
-      if (d >= deadZone) g.lineBetween(o.x, o.y, m.x, m.y);
-      g.lineStyle(2, d < deadZone ? UI.uiDanger : UI.uiAccent, 0.75);
-      g.strokeCircle(m.x, m.y, 12);
-      if (push > 0) { g.fillStyle(UI.uiAccent, 0.15 + 0.35 * push); g.fillCircle(m.x, m.y, 4 + 7 * push); }
+    if (!intents.touch && intents.scheme === 'marker' && intents.mouse && p && !this.net.death && !this.net.extracted) {
+      // Mouse aim reticle (placeholder look): a ring at the cursor, a faint line from the ship while
+      // it steers; dim when the cursor rests on the ship or a button (no steering then).
+      const m = intents.mouse, o = intents.mouseOrigin, on = intents.mouseSteering;
+      if (on && o) { g.lineStyle(1, 0xffffff, 0.12); g.lineBetween(o.x, o.y, m.x, m.y); }
+      g.lineStyle(2, UI.uiAccent, on ? 0.8 : 0.3);
+      g.strokeCircle(m.x, m.y, 10);
+      if (intents.fire) { g.fillStyle(UI.uiDanger, 0.6); g.fillCircle(m.x, m.y, 4); }
     }
     if (!intents.touch) {
       intents.dashButton = null;
