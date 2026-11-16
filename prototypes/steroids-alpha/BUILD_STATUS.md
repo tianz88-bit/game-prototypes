@@ -1,5 +1,7 @@
 ## Current milestone
 
+Mouse controls (16 November, claude): PC defaults to a hold-left-mouse marker (ship steers toward the cursor); a menu CONTROLS setting switches to keyboard-only. Warping out now ends at the menu (no Drop in).
+
 Visitor cargo (16 November, claude): visitors on another clan's home planet no longer see a cargo readout, since they cannot mine there.
 
 Base markers (15 November, claude): clan home planets point to off-screen landmarks with edge arrows and distances (members: treasury; visitors: gate and enemy treasury).

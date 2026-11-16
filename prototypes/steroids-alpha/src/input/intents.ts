@@ -7,6 +7,10 @@
 //   secondary  dash (charges, then boosts straight ahead)
 //   buy        shop purchases (one-tap buttons top left, or number keys)
 //   pause      back
+// PC (owner, 16 November 2026): the default scheme is the mouse marker: hold the left button and the
+// ship steers toward the cursor, accelerating harder the further the cursor is from the ship (cursor
+// on the ship brakes); release and it eases back to minimum speed. Keyboard keys still work and win
+// while pressed. The keyboard-only scheme ('craft') is the alternative, chosen in the menu.
 // Devices: keyboard is craft-relative (A/D or left/right rotate, W/S or up/down throttle,
 // Shift or K dash (with S for a 180, A or D for 90 degrees), Space or J fire, Q missile, E mine, 1-5 buy turret/shield/guns/missile/mine). Touch: floating stick on the left half, in the scheme
 // chosen with the on-screen STEER button (remembered per browser), plus fire and dash buttons.
@@ -89,6 +93,26 @@ export class Intents {
 
   fireButton: Zone | null = null;
   schemeButton: Zone | null = null;
+  /** Mouse cursor, logical pixels (PC). */
+  mouse: { x: number; y: number } | null = null;
+  /** The left button is held for the mouse marker (pressed on the play area, not a button). */
+  private mousePointer: number | null = null;
+  /** WASD/arrows were used to fly since the last mouse press: the ship then holds its speed on
+   *  release, as in the keyboard scheme, instead of easing back to minimum speed. */
+  private keyboardFlying = false;
+  /** Our ship's screen position, set by the flight scene each frame (the mouse marker steers from it). */
+  mouseOrigin: { x: number; y: number } | null = null;
+
+  /** The mouse marker is steering right now (for drawing). */
+  get mouseSteering(): boolean {
+    return !this.touch && this.scheme === 'marker' && this.mousePointer !== null && !!this.mouse && !!this.mouseOrigin;
+  }
+
+  setScheme(s: SteerScheme): void {
+    if (this.touch) return;
+    this.scheme = s;
+    writeSave({ steer: s });
+  }
 
   private presses = new Set<Press>();
   private held = new Set<string>();
@@ -113,6 +137,7 @@ export class Intents {
       this.refreshTurn();
       this.endStick();
       this.firePointer = null;
+      this.mousePointer = null;
     });
   }
 
@@ -142,6 +167,7 @@ export class Intents {
       if (k === 'e') this.presses.add('mine');
       if (k === 'r') this.presses.add('warp');
     }
+    if (down && ['arrowleft', 'arrowright', 'arrowup', 'arrowdown', 'a', 'd', 'w', 's'].includes(k)) this.keyboardFlying = true;
     if (down) this.held.add(k);
     else this.held.delete(k);
     if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', 'a', 'd', 'w', 's', ' '].includes(k)) e.preventDefault();
@@ -167,10 +193,19 @@ export class Intents {
   /** floor: the lowest speed allowed here (0 over one's own landing pad: the stick at rest lands). */
   flight(speed: number, floor = TUNE.ship.minSpeed): { turn: number; aim: number; thrust: number } {
     const st = this.stick;
+    // Mouse marker (PC): while the left button is held and no steering or throttle key is pressed.
+    if (!st && this.mouseSteering && this.turn === 0 && this.thrust === 0) {
+      const m = this.mouse!, o = this.mouseOrigin!;
+      const dx = m.x - o.x, dy = m.y - o.y, d = Math.hypot(dx, dy);
+      const { markerRadius, deadZone } = clientTune.mouse;
+      if (d < deadZone) return { turn: 0, aim: NaN, thrust: speed > floor ? -1 : 0 };
+      const push = Math.min(1, (d - deadZone) / Math.max(1, markerRadius - deadZone));
+      return { turn: 0, aim: Math.atan2(dy, dx), thrust: Math.pow(push, clientTune.touch.markerThrustCurve) };
+    }
     if (!st) {
       // No finger on the stick counts as the stick at rest: in marker mode the ship eases back to
       // minimum speed. Keyboard throttle, when pressed, still wins.
-      const rest = this.touch && this.scheme === 'marker' && speed > floor ? -1 : 0;
+      const rest = this.scheme === 'marker' && (this.touch || !this.keyboardFlying) && speed > floor ? -1 : 0;
       return { turn: this.turn, aim: NaN, thrust: this.thrust !== 0 ? this.thrust : rest };
     }
     const r = clientTune.touch.joystickRadius;
@@ -231,6 +266,12 @@ export class Intents {
       this.presses.add('scheme');
       return;
     }
+    if (!this.touch && e.pointerType === 'mouse' && e.button === 0 && this.scheme === 'marker') {
+      this.mouse = { x, y };
+      this.mousePointer = e.pointerId;
+      this.keyboardFlying = false;
+      return;
+    }
     if (this.touch && x < logicalSize().w / 2 && this.stickPointer === null) {
       this.stickPointer = e.pointerId;
       this.stick = { ox: x, oy: y, dx: 0, dy: 0 };
@@ -238,6 +279,7 @@ export class Intents {
   }
 
   private onMove(e: PointerEvent): void {
+    if (e.pointerType === 'mouse') this.mouse = toLogical(e.clientX, e.clientY);
     if (e.pointerId !== this.stickPointer || !this.stick) return;
     const r = clientTune.touch.joystickRadius;
     const p = toLogical(e.clientX, e.clientY);
@@ -263,6 +305,7 @@ export class Intents {
     }
     if (e.pointerId === this.stickPointer) this.endStick();
     if (e.pointerId === this.firePointer) this.firePointer = null;
+    if (e.pointerId === this.mousePointer) this.mousePointer = null;
   }
 
   private endStick(): void {

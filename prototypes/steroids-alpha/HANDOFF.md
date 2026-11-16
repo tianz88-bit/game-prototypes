@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 claude mouse-marker
+DID: PC mouse marker scheme (default): hold left mouse, ship steers to the cursor, thrust by distance (clientTune.mouse markerRadius 240 / deadZone 40, touch thrust curve), cursor on ship brakes, release eases to min speed; WASD still works. Menu CONTROLS row (PC only): MOUSE / KEYBOARD. After warping out the result screen offers Menu only (no Drop in).
+FILES: src/input/intents.ts src/scenes/{flight,menu}.ts client.tune.json sim/liveConfig.ts BRIEF.md
+SEAM: Intents.mouse/mouseOrigin/mouseSteering/setScheme; clientTune.mouse (deployment-locked like touch).
+CROSS: src/scenes/flight.ts: cursor ring drawn on the overlay while steering (placeholder look).
+FOR codex: the cursor ring/line is a placeholder; a styled steering reticle would help.
+
 ## 2026-11-16 claude visitor-cargo
 DID: the cargo readout (SALVAGE/FUEL n/400 and its full cue) is hidden for visitors on another clan's home planet, where they can mine nothing.
 FILES: src/render/combatHud.ts src/scenes/flight.ts BRIEF.md
@@ -97,10 +104,3 @@ FILES: sim/bots.ts server/src/room.ts tune.json scripts/test-steroids-alpha-sim.
 SEAM: BotBrain.bornAt (room sets the drop-in tick); tune bots.warpPower, bots.warpAfterSeconds.
 CROSS: none
 FOR codex: a bot's warp-out uses the player warp visuals; nothing new needed.
-
-## 2026-11-15 claude reconnect-bumps-nose
-DID: reconnect grace: a dropped socket keeps the ship 20 s (idle input), client auto-resumes with a token (same id); unknown token -> close 4005 RESUME_LOST -> "ship lost" screen (R/tap drops in again). Disconnected screen shows reason + code. Ship bumps outside a dash: bounce apart (220), 10 damage each, 0.5 s pair grace. Own-ship nose chevron.
-FILES: server/src/{room,index}.ts sim/{protocol,world}.ts src/net/client.ts src/scenes/flight.ts tune.json scripts/test-steroids-alpha-{sim,bank}.mjs BRIEF.md
-SEAM: text frame {type:'resume',token,seconds} after welcome; ws ?resume=<token>; CLOSE.RESUME_LOST 4005; NetStatus 'reconnecting' | 'lost'; net.closeInfo, closeReason(); Player.resume/awayUntil; tune net.reconnectGraceSeconds, ship.bumpDamage, ship.bumpKnockbackSpeed. Protocol 19 unchanged.
-CROSS: none
-FOR codex: nose chevron (flight.ts drawNose), the "Reconnecting… Ns" line and the lost-ship message are placeholders.
