@@ -1,17 +1,19 @@
 ## Current milestone
 
-LOCAL PREVIEW ONLY on codex/steroids-orbit-nexus-preview, based on main472a0ed. Owner requested orbital entry/exit, ship-centred semicircle meters, a larger treasury nexus and rigged twin-cannon towers, with preview before live. Latest UI gallery: outputs/steroids-alpha/semicircle-hud-preview-v2/index.html; orbital/building gallery: outputs/steroids-alpha/orbit-review/index.html. Nothing in this pass has been uploaded to R2, pushed, merged or deployed. Previous approved public release remains151126r0067 (PR500/501).
+LOCAL PREVIEW ONLY on codex/steroids-orbit-nexus-preview, based on main472a0ed. Owner requested orbital entry/exit, ship-centred semicircle meters, a larger treasury nexus and rigged twin-cannon towers, with preview before live. Latest UI gallery: outputs/steroids-alpha/semicircle-hud-preview-v3/index.html; orbital/building gallery: outputs/steroids-alpha/orbit-review/index.html. Nothing in this pass has been uploaded to R2, pushed, merged or deployed. Previous approved public release remains151126r0067 (PR500/501).
 
 ## What was implemented
 
 - OrbitalTransition starts on the first own snapshot: whole globe at34% play zoom,1.8s descent and atmosphere streak, ground light/shadow fade-in and arrival pulse. Input/prediction continue. Entry begins below the fixed Warp chip.
 - On extraction, the server state remains extracted while a cached own ship plays a1.5s visual departure. The usual extracted-result panel follows; ordinary death retains its700ms panel delay. DROP IN and RESPAWN replay entry; resize preserves elapsed time.
-- Latest HUD: left shield semicircle switches to hull at depletion, thin shield-reboot recovery arc, hull/total numbers below. Right uses two full concentric semicircles: inner remaining weapon capacity (1-heat), outer dash charge/active/cooldown. Both are thinner than shield/hull; translucent segmented tracks and base-notch symbols follow the owner GoldenEye reference. Recovery fills and warning pulses remain. Old flat panel, own plates/name, broken-shield glyph and button-duplicate meters removed; nose cue/engaged target meters retained. Bounty labels avoid the instrument region.
+- Latest HUD: left shield semicircle switches to hull at depletion, thin shield-reboot recovery arc, hull/total numbers below. Right uses two full concentric semicircles: inner dash charge/active/cooldown, outer remaining weapon capacity (1-heat). Smooth right arcs touch; outer weapon is slightly shorter, with staggered tip symbols and no right sockets/divisions. Shield/hull divisions track every10maximum capacity; hull numbers sit beside shop/upgrades. Translucency retained. Recovery fills and warning pulses remain. Old flat panel, own plates/name, broken-shield glyph and button-duplicate meters removed; nose cue/engaged target meters retained. Bounty labels avoid the instrument region.
 - Seven new original painted building parts:3-layer treasury nexus and4-part towers with a duplicated barrel. Fixed layers, projected bearing/foreshortening, separate ground shadows, clan palettes and alternating visual barrel recoil/flash. Treasury foundation260world units; no simulation footprint/radius/firing change.
 - Boot/pipeline loads bounded shared runtime textures; procedural building fallback remains. Scene rebuild/shutdown releases owned views. Seven original PNGs, exact generation metadata and ZIP stay in outputs/steroids-alpha/buildings-rig-v01; content-addressed cache supports local builds.
 - Required config regression test had a pre-existing concurrent-publish winner assumption. It now verifies the actual winner, then uses a separate deterministic edited record for later fixtures. Server code unchanged.
 
 ## Latest HUD validation
+
+Joined-ring revision: typecheck/build/rig pass;30 desktop/mobile/small-phone DPR2 captures,2 recovery GIFs,0 browser errors. Instrumented actual Graphics calls confirm50/110/125/250 capacity gives5/11/12/25 left notches and0right notches. Hull counter placement inspected beside desktop shop and below phone upgrades.
 
 Translucent/concentric revision: typecheck/build/rig pass;21 new actual-renderer screenshots across desktop/mobile/small-phone DPR2 and2 recovery GIFs, zero browser errors. Pure drawing change; existing input validation below remains applicable.
 

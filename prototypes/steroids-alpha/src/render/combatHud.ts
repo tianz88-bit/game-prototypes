@@ -31,22 +31,22 @@ export class CombatHud {
       };
       // Light segmented arcs borrow the quiet instrument feel of the original GoldenEye HUD.
       // Each right-hand instrument has its own full semicircle, thinner than the shield/hull.
-      const meter=(radius:number,start:number,end:number,value:number,colour:number,width:number,fromBottom=false)=>{
+      const meter=(radius:number,start:number,end:number,value:number,colour:number,width:number,fromBottom=false,notchCapacity=0)=>{
         const f=clamp(value),a=fromBottom?end-(end-start)*f:start,b=fromBottom?end:start+(end-start)*f;
         arc(radius,start,end,width+2*k,0x071321,.4);
         arc(radius,start,end,width,0x7a929b,.2);
         arc(radius,a,b,width,colour,.68);
         arc(radius-width*.3,a,b,.55*k,0xf3e5c9,.3);
-        for(let i=1;i<9;i++){
-          const angle=start+(end-start)*i/9,c=Math.cos(angle),sn=Math.sin(angle);
+        for(let capacity=10;capacity<=notchCapacity;capacity+=10){
+          const angle=start+(end-start)*capacity/notchCapacity,c=Math.cos(angle),sn=Math.sin(angle);
           g.lineStyle(.85*k,0x081522,.58);g.lineBetween(x+c*(radius-width*.65),y+sn*(radius-width*.65),x+c*(radius+width*.65),y+sn*(radius+width*.65));
         }
       };
-      // A small socket is physically joined to the meter's bottom end; symbols live inside it.
-      const socket=(radius:number,a:number,colour:number,kind:'shield'|'weapon'|'dash')=>{
+      // Shield keeps its base socket. Dash/weapon symbols sit directly at their staggered arc tips.
+      const baseSymbol=(radius:number,a:number,colour:number,kind:'shield'|'weapon'|'dash')=>{
         const cx=x+Math.cos(a)*radius,cy=y+Math.sin(a)*radius;
-        g.fillStyle(0x0c1b29,.55);g.fillPoints([{x:cx-3.8*k,y:cy-4*k},{x:cx+3.8*k,y:cy-4*k},{x:cx+3.2*k,y:cy+3*k},{x:cx,y:cy+4*k},{x:cx-3.2*k,y:cy+3*k}],true);
-        g.lineStyle(.7*k,colour,.5);g.lineBetween(cx-3.8*k,cy-3.5*k,cx+3.8*k,cy-3.5*k);
+        if(kind==='shield'){g.fillStyle(0x0c1b29,.55);g.fillPoints([{x:cx-3.8*k,y:cy-4*k},{x:cx+3.8*k,y:cy-4*k},{x:cx+3.2*k,y:cy+3*k},{x:cx,y:cy+4*k},{x:cx-3.2*k,y:cy+3*k}],true);
+        g.lineStyle(.7*k,colour,.5);g.lineBetween(cx-3.8*k,cy-3.5*k,cx+3.8*k,cy-3.5*k);}
         if(kind==='shield'){
           g.fillStyle(colour,.8);g.fillPoints([{x:cx-2*k,y:cy-2.5*k},{x:cx+2*k,y:cy-2.5*k},{x:cx+1.5*k,y:cy+.5*k},{x:cx,y:cy+2.5*k},{x:cx-1.5*k,y:cy+.5*k}],true);
           if(down){g.lineStyle(.8*k,0x0c1b29,.9);g.lineBetween(cx-2*k,cy+2*k,cx+2*k,cy-2*k);}
@@ -58,27 +58,30 @@ export class CombatHud {
       };
       const leftBase=Math.PI/2+gap,leftStart=leftBase+.15,leftEnd=Math.PI*1.5-gap;
       const shieldColour=down?(critical?0xf17d68:0xf2bc6c):0x61d7ed;
-      meter(r,leftStart,leftEnd,down?hull:shield,shieldColour,4.5*k);
-      socket(r,leftBase+.07,shieldColour,'shield');
+      meter(r,leftStart,leftEnd,down?hull:shield,shieldColour,4.5*k,false,down?p.hullMax:maxShield(p,TUNE));
+      baseSymbol(r,leftBase+.07,shieldColour,'shield');
       if(down && p.shieldCd>0){
         const recovery=clamp(1-p.shieldCd/TUNE.ship.shieldRegenDelaySeconds);
         arc(r-5*k,leftStart,leftEnd,1.1*k,0x173d4e,.45);
         arc(r-5*k,leftStart,leftStart+(leftEnd-leftStart)*recovery,1.1*k,0x82deeb,.45+.15*Math.sin(now/230));
       }
       const rightStart=-Math.PI/2+gap,rightBase=Math.PI/2-gap,rightEnd=rightBase-.15;
-      const weaponRadius=r,dashRadius=r+9*k;
+      const dashRadius=r,weaponRadius=r+2.3*k,weaponEnd=rightEnd-.24;
       const weaponColour=p.overheated?0xf18d73:0xf2bc6c;
-      meter(weaponRadius,rightStart,rightEnd,1-clamp(p.heat),weaponColour,2.3*k,true);
-      socket(weaponRadius,rightBase-.07,weaponColour,'weapon');
+      meter(weaponRadius,rightStart,weaponEnd,1-clamp(p.heat),weaponColour,2.3*k,true);
+      baseSymbol(weaponRadius,weaponEnd+.08,weaponColour,'weapon');
       const charging=p.dashCharge>0,active=p.dashTime>0;
       const dash=charging?1-p.dashCharge/TUNE.ship.dashChargeSeconds:active?1:1-p.dashCd/TUNE.ship.dashCooldown;
       const dashColour=charging?0xffdfaa:active?0xedfff2:0x83d6cf;
       meter(dashRadius,rightStart,rightEnd,dash,dashColour,2.3*k,true);
-      socket(dashRadius,rightBase-.07,dashColour,'dash');
-      if(p.overheated){arc(weaponRadius-3*k,rightStart,rightEnd,.8*k,0xffb183,.3+.2*Math.sin(now/180));}
-      if(charging||active){arc(dashRadius+2*k,rightStart,rightEnd,.8*k,0xf0dfba,.25+.18*Math.sin(now/95));}
-      label(0,x,y+r+17*k,`${Math.round(p.hp)} / ${Math.round(p.hullMax)}`,critical?0xffa28d:0xf0e5cd,touch?10:11);
+      baseSymbol(dashRadius,rightEnd+.08,dashColour,'dash');
+      if(p.overheated){arc(weaponRadius+2*k,rightStart,weaponEnd,.8*k,0xffb183,.3+.2*Math.sin(now/180));}
+      if(charging||active){arc(dashRadius-2*k,rightStart,rightEnd,.8*k,0xf0dfba,.25+.18*Math.sin(now/95));}
+
     }
+    // Hull is secondary information beside buying/upgrades, outside the central combat view.
+    const shop=mobileHeader(w).shop,critical=p.hp/Math.max(1,p.hullMax)<=.35;
+    label(0,touch?shop.x:12,touch?52:22,`HULL ${Math.round(p.hp)} / ${Math.round(p.hullMax)}`,critical?0xffa28d:0xcfc8b7,touch?9:10,touch?.5:0);
     // Cargo stays in a corner, outside the centred flight instruments and phone controls.
     const cargo=TUNE.salvage.cargoMax,full=p.salvage>=cargo-.5,x=12,y=touch?18:h-30;
     panel(g,x,y,132,19,full?0xf39872:UI.uiGold);

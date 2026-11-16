@@ -159,3 +159,7 @@ Owner replaced the flat hull/shield/heat/dash panel with two semicircles around 
 ## HUD refinement — 16 November 2026
 
 Owner clarified that dash and weapon each need a full right semicircle, concentric and thinner than shield/hull. Revised to lighter translucent segmented arcs with each symbol embedded in its own base notch. Original GoldenEye is the visual reference. Latest local review: outputs/steroids-alpha/semicircle-hud-preview-v2/index.html. Recovery behavior remains unchanged; still not deployed.
+
+## HUD refinement 3 — 16 November 2026
+
+Dash is the inner right arc, weapon capacity the outer. They touch, with the outer arc slightly shorter at the base to stagger tip symbols; right arcs have neither sockets nor division notches. Left shield/hull receives a division at each10maximum capacity, including a partial last interval when needed. Hull numbers moved beside buying/upgrades. Local preview: outputs/steroids-alpha/semicircle-hud-preview-v3/index.html. Recovery behavior unchanged; publication still awaits owner approval.

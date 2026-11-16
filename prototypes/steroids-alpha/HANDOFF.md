@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 codex joined-HUD-preview
+DID: owner correction: dash inner, weapon outer; touching smooth arcs, weapon arc shorter at base to stagger symbols; no right sockets or division notches. Shield/hull divisions every10max capacity, partial final interval retained. Hull counter moved beside desktop shop / below mobile upgrades.
+FILES: src/render/combatHud.ts; BUILD_STATUS/GFX_BRIEF.
+SEAM: none; same projected anchor and existing recovery/heat/dash state. Buttons and input zones unchanged.
+CROSS: none. No game values, ship rig, network or source-art changes.
+FOR claude: local preview gate remains. Evidence outputs/steroids-alpha/semicircle-hud-preview-v3/index.html;30 state captures,2 recovery GIFs,0 browser errors. Actual Graphics division counts50/110/125/250 =>5/11/12/25; right cuts0. Typecheck/build/rig pass. No publication.
+
 ## 2026-11-16 codex translucent-HUD-preview
 DID: owner correction: weapon and dash each get a full concentric right semicircle (inner weapon, outer dash), thinner than left shield/hull. Lighter translucent segmented tracks inspired by original GoldenEye. All symbols embedded in each meter's bottom socket/notch; no floating glyphs. Recovery states retained.
 FILES: src/render/combatHud.ts; BUILD_STATUS/GFX_BRIEF.
@@ -97,10 +104,3 @@ FILES: sim/bots.ts server/src/room.ts tune.json scripts/test-steroids-alpha-sim.
 SEAM: BotBrain.bornAt (room sets the drop-in tick); tune bots.warpPower, bots.warpAfterSeconds.
 CROSS: none
 FOR codex: a bot's warp-out uses the player warp visuals; nothing new needed.
-
-## 2026-11-15 claude reconnect-bumps-nose
-DID: reconnect grace: a dropped socket keeps the ship 20 s (idle input), client auto-resumes with a token (same id); unknown token -> close 4005 RESUME_LOST -> "ship lost" screen (R/tap drops in again). Disconnected screen shows reason + code. Ship bumps outside a dash: bounce apart (220), 10 damage each, 0.5 s pair grace. Own-ship nose chevron.
-FILES: server/src/{room,index}.ts sim/{protocol,world}.ts src/net/client.ts src/scenes/flight.ts tune.json scripts/test-steroids-alpha-{sim,bank}.mjs BRIEF.md
-SEAM: text frame {type:'resume',token,seconds} after welcome; ws ?resume=<token>; CLOSE.RESUME_LOST 4005; NetStatus 'reconnecting' | 'lost'; net.closeInfo, closeReason(); Player.resume/awayUntil; tune net.reconnectGraceSeconds, ship.bumpDamage, ship.bumpKnockbackSpeed. Protocol 19 unchanged.
-CROSS: none
-FOR codex: nose chevron (flight.ts drawNose), the "Reconnecting… Ns" line and the lost-ship message are placeholders.
