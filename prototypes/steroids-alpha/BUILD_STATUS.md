@@ -1,5 +1,7 @@
 ## Current milestone
 
+Siege v0 step 1 (16 November, claude): siege rules and siege bots in the shared sim, plus a headless siege simulator; Warzone not playable yet (step 2: room countdown/lockdown, respawns, client UI).
+
 Owner approved motion79027e3 and live publication, with a final landing spark. Release candidate on codex/steroids-hyperspace-arrival, based on main d56a3b8. Owner corrected the warp sequence after live0074: hyperspace first, then heading-driven globe approach, plus observer fade/brake/residuals and protection through completion. Public game remains161126r0074 while the approved matching client/Worker release is being published. Motion gallery: outputs/steroids-alpha/hyperspace-preview/index.html.
 
 ## What was implemented
