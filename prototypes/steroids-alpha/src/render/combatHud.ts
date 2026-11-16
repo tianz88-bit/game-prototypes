@@ -82,7 +82,7 @@ export class CombatHud {
     // Hull is secondary information beside buying/upgrades, outside the central combat view.
     const shop=mobileHeader(w).shop,critical=p.hp/Math.max(1,p.hullMax)<=.35;
     label(0,touch?shop.x:12,touch?52:22,`HULL ${Math.round(p.hp)} / ${Math.round(p.hullMax)}`,critical?0xffa28d:0xcfc8b7,touch?9:10,touch?.5:0);
-    // Cargo stays in a corner, outside the centred flight instruments and phone controls.
+    // Cargo clears the central instruments, PC key hints and phone controls.
     if(hold==='none')return;
     const home=hold==='fuel',held=home?p.fuel:p.salvage;
     const cargo=TUNE.salvage.cargoMax,full=held>=cargo-.5,x=touch?12:w/2-66,y=touch?18:h-30;

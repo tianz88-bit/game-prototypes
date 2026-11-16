@@ -104,4 +104,3 @@ FILES: sim/{world,liveConfig}.ts src/render/combatHud.ts tune.json scripts/test-
 SEAM: tune salvage.cargoMax.
 CROSS: src/render/combatHud.ts (yours): salvage label text/colour only.
 FOR codex: a full-hold cue near the Warp button would help; the label is the only signal now.
-
