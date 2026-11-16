@@ -20,7 +20,8 @@ Crossing a lane is allowed. When you do: keep it minimal, and log it in HANDOFF.
 Change a seam = HANDOFF entry tagged `SEAM:` + message to the other agent. Never silently.
 
 - `ShipPlacement` (`src/render/shipView.ts`): x, y, scale, visible, brightness, shadowX/Y/Alpha. Logic fills it; render draws it.
-- `ShipView.update(at, headingRad, timeMs, speed, boosting, control?)`, `.fire(side)`, `.shieldHit(angle)`, `.destroy()`. FFD control is `{thrust,turn,aim}` for own intent, `'observed'` for remote motion, or absent for level rotation. The old five-argument call stays level.
+  Optional orbitalLift/orbitalGroundAlpha move only the craft above its ground anchor and fade ground cues during orbital entry/exit. Omitted fields preserve ordinary flight and the lab rig.
+- `ShipView.update(at, headingRad, timeMs, speed, boosting, control?, top?)`, `.fire(side)`, `.shieldHit(angle)`, `.destroy()`. FFD control is `{thrust,turn,aim}` for own intent, `'observed'` for remote motion, or absent for level rotation. The old five-argument call stays level.
 - `DrawnShip.update(at, state, timeMs, control?)` (`flight.ts`): own move intent is forwarded without changing the network input; remotes opt into observed FFD. No wire fields added.
 - Fx events (`src/net/client.ts` `drainFx()`): `shot | burst | spark | explosion | heal | shield`. Logic emits; render consumes. New effect = claude adds the event kind, codex draws it.
 - `ShipState` fields (`sim/ship.ts`) are read-only to render.
@@ -33,6 +34,8 @@ Change a seam = HANDOFF entry tagged `SEAM:` + message to the other agent. Never
 - `render.hoverLight*` controls a cached ground-only pool below each ship, separate from its sun shadow. Older live records receive the bundled defaults.
 
 - Combat backlog: pooled painted ordnance/heal bodies and optional seeking cue observe current state; CombatImpact and progression/followId tags are visual-only. ClanBaseArt reads exact layout/tune geometry; damage textures preserve original alpha/coverage. FlightIndicators owns only drawing, never uiZones.
+- BuildingRigs owns shared painted clan textures and per-scene fixed-layer nexus/tower images. Boot queues/prepares art; Flight begins/ends drawing even without a layout and destroys on rebuild/shutdown. ClanBaseArt can return larger treasury label bounds. Projection/aim/firedAt are observed; no extra authoritative shots or building footprint changes.
+- CombatHud.draw accepts an optional CombatHudAnchor (screen x/y/radius/visible). Flight derives silhouette clearance from the projected chassis/power scale; two informational halves read existing shield/hull/heat/dash state. Weapon capacity is 1-heat; no gameplay heat inversion. The trailing hold selector (`salvage | fuel | none`) preserves home/visitor cargo rules. Meters hide during orbital movement and never create input zones. Bounty labels clear their bounds.
 
 ## Workflow per push
 

@@ -7,6 +7,7 @@ import { preparePaintedRocks, queuePaintedRocks } from '../render/rockPainted';
 import { prepareTerrain, queueTerrain } from '../render/planetGround';
 import { fitCamera, text, versionStamp } from './common';
 import { queueCombatArt, prepareCombatArt } from '../render/combatSprites';
+import { queueBuildingArt, prepareBuildingArt } from '../render/buildingRig';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -25,6 +26,7 @@ export class BootScene extends Phaser.Scene {
     queuePaintedRocks(this);
     queueTerrain(this);
     queueCombatArt(this);
+    queueBuildingArt(this);
   }
 
   create(): void {
@@ -32,6 +34,7 @@ export class BootScene extends Phaser.Scene {
     preparePaintedRocks(this);
     prepareTerrain(this);
     prepareCombatArt(this);
+    prepareBuildingArt(this);
     if (isPlanetId(URL_PLANET)) this.scene.start('flight', { planet: URL_PLANET });
     else this.scene.start('menu');
   }

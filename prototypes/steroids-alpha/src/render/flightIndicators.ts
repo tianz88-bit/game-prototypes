@@ -56,24 +56,42 @@ export function drawUnlockEmblem(g:Phaser.GameObjects.Graphics,u:Unlock,x:number
   }
 }
 
-/** Same compact segmented meter material as the pilot's own HUD. Coordinates remain caller-owned. */
-export function drawTargetMeter(g:Phaser.GameObjects.Graphics,x:number,y:number,w:number,h:number,share:number,onShield:boolean,fade:number):void {
-  const k=Math.max(.6,h/5),f=Math.max(0,Math.min(1,share)),c=onShield?0x6fd6ff:0xffb06c;
-  g.fillStyle(0x071323,.9*fade);g.fillRoundedRect(x-2*k,y-2*k,w+4*k,h+4*k,2*k);
-  g.lineStyle(k,0x8798a3,.5*fade);g.strokeRoundedRect(x-2*k,y-2*k,w+4*k,h+4*k,2*k);
-  g.fillStyle(c,.96*fade);if(f>0)g.fillRect(x,y,w*f,h);
-  g.fillStyle(0xfff4d1,.4*fade);if(f>0)g.fillRect(x,y,w*f,Math.max(.7,k));
-  g.lineStyle(k,0x071323,.8*fade);for(let i=1;i<6;i++)g.lineBetween(x+w*i/6,y,x+w*i/6,y+h);
-  g.fillStyle(c,fade);g.fillRect(x-7*k,y-k,3*k,h+2*k);
+/** Quiet identification plates replace the persistent neon circumference; drawn once per ship. */
+export function drawShipMarkerPlates(g:Phaser.GameObjects.Graphics,r:number,mine:boolean,sourceScale:number):void {
+  // Other pilots already have names and an engaged-only target meter. Keep idle silhouettes clean.
+  if(!mine)return;
+  const edge=1/Math.max(.05,sourceScale),w=r*.24,h=r*.085;
+  for(const side of [-1,1])for(const end of [-1,1]){
+    const x=side*r*.78,y=end*r*.66;
+    const points=[{x:x-w/2,y:y-h/2},{x:x+w/2-edge,y:y-h/2},{x:x+w/2,y:y},
+      {x:x+w/2,y:y+h/2},{x:x-w/2+edge,y:y+h/2},{x:x-w/2,y:y}];
+    g.fillStyle(0x112335,.76);g.fillPoints(points,true);
+    g.lineStyle(edge,0x071321,.85);g.strokePoints(points,true);
+    g.lineStyle(edge*.65,0xe9dcc3,.48);g.lineBetween(x-w*.32,y-h*.3,x+w*.3,y-h*.3);
+    g.fillStyle(0x78bdc9,.72);g.fillRect(x-w*.12,y-h*.12,w*.24,h*.3);
+  }
 }
 
-/** A clear solid nose tip with the same dark outline and cream highlight as the ship panels. */
+/** Engaged-only miniature armour plate, sharing the HUD's bevel and restrained material colours. */
+export function drawTargetMeter(g:Phaser.GameObjects.Graphics,x:number,y:number,w:number,h:number,share:number,onShield:boolean,fade:number):void {
+  const k=Math.max(.6,h/5),f=Math.max(0,Math.min(1,share)),c=onShield?0x79becb:0xe3af79,pad=1.5*k;
+  const points=[{x:x-pad,y:y},{x,y:y-pad},{x:x+w,y:y-pad},{x:x+w+pad,y},
+    {x:x+w+pad,y:y+h},{x:x+w,y:y+h+pad},{x,y:y+h+pad},{x:x-pad,y:y+h}];
+  g.fillStyle(0x102234,.9*fade);g.fillPoints(points,true);g.lineStyle(k,0x061321,.9*fade);g.strokePoints(points,true);
+  g.lineStyle(.7*k,0xe8d7b7,.32*fade);g.lineBetween(x+k,y-pad*.45,x+w-k,y-pad*.45);
+  g.fillStyle(0x061422,.9*fade);g.fillRect(x,y,w,h);
+  g.fillStyle(c,.85*fade);if(f>0)g.fillRect(x,y,w*f,h);
+  g.fillStyle(0xfff0d2,.25*fade);if(f>0)g.fillRect(x,y,w*f,Math.max(.5,k*.7));
+  g.lineStyle(.7*k,0x102234,.55*fade);for(let i=1;i<4;i++)g.lineBetween(x+w*i/4,y,x+w*i/4,y+h);
+}
+
+/** A small material chevron, without the extra outline/dots of a screen-space targeting reticle. */
 export function drawNoseMarker(g:Phaser.GameObjects.Graphics,x:number,y:number,dir:number,k:number):void {
   const c=Math.cos(dir),s=Math.sin(dir),p=(u:number,v:number)=>({x:x+(c*u-s*v)*k,y:y+(s*u+c*v)*k});
-  const pts=[p(1,0),p(-8,-6),p(-5,0),p(-8,6)];
-  g.fillStyle(0x081426,.85);g.fillPoints(pts,true);g.lineStyle(3*k,0x081426,.85);g.strokePoints(pts,true);
-  g.lineStyle(1.5*k,0x7edff2,.95);g.strokePoints(pts,true);g.fillStyle(0xffefc8,.95);g.fillTriangle(p(0,0).x,p(0,0).y,p(-5,-3).x,p(-5,-3).y,p(-3,0).x,p(-3,0).y);
-  const a=p(-11,-4),b=p(-11,4);g.fillStyle(0x8ee8ef,.65);g.fillRect(a.x-k,a.y-k,2*k,2*k);g.fillRect(b.x-k,b.y-k,2*k,2*k);
+  const pts=[p(0,0),p(-5,-3.5),p(-3,0),p(-5,3.5)],a=p(-4.4,-2.6),b=p(-.6,0),d=p(-4.4,2.6);
+  g.fillStyle(0x132638,.78);g.fillPoints(pts,true);g.lineStyle(1.4*k,0x071321,.85);g.strokePoints(pts,true);
+  g.lineStyle(.9*k,0xe9dcc3,.7);g.lineBetween(a.x,a.y,b.x,b.y);
+  g.lineStyle(.9*k,0x79bdc9,.75);g.lineBetween(b.x,b.y,d.x,d.y);
 }
 
 /** Ground-only marked boundary. The bright line stays exactly on the server's zone radius. */

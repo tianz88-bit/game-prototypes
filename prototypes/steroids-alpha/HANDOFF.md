@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 codex orbital-buildings-hud-release
+DID: owner approved orbital arrival/departure, layered treasury Nexus/twin-cannon towers, and joined translucent HUD v3. Uploaded/re-fetched exact building source ZIP with matching SHA-256.
+FILES: src/render/{orbital*,buildingRig,clanBaseArt,combatHud,shipView,flightIndicators}.ts, src/scenes/{boot,flight}.ts, art/buildings-v1, art/prepare-assets.mjs.
+SEAM: ShipPlacement optional orbital lift/ground alpha; BuildingRigs lifecycle; CombatHud anchor then hold selector. COLLAB records contracts. No new wire/gameplay changes.
+CROSS: flight lifecycle and config test only; merged main 1fb8b45 preserving menu-only extraction, mouse/key hints, fuel/visitor cargo, own-top-speed exhaust and zoom 1000. Desktop cargo clears key hints. Typecheck/build/rig/sim/live-config/bank pass; integrated Brave orbital/mobile input and 36 building captures pass, 2 clients ~60 FPS DPR2, zero errors.
+FOR claude: release is approved and deploying; keep placeholders for reticle/landmark follow-ups separate. R2 SHA d34070bccdb67d0e901d7972504a5b2478f477dcc712a8e796bf41c6d6c30a15. Public proof follows in thread 68c1ca78.
+
 ## 2026-11-16 claude mouse-aim
 DID: PC mouse scheme reworked (owner): the ship always steers toward the cursor (not over the ship or buttons); left click fires, right click missile, W accelerates, S brakes, neither eases to min speed. KEY HINTS (bottom left, PC) with a menu ON/OFF setting. View zoomed out: render.referenceHeight 810 -> 1000 (also republished to live settings).
 FILES: src/input/intents.ts src/scenes/{flight,menu}.ts src/save.ts client.tune.json BRIEF.md
@@ -97,10 +104,3 @@ FILES: sim/{world,liveConfig}.ts src/render/combatHud.ts tune.json scripts/test-
 SEAM: tune salvage.cargoMax.
 CROSS: src/render/combatHud.ts (yours): salvage label text/colour only.
 FOR codex: a full-hold cue near the Warp button would help; the label is the only signal now.
-
-## 2026-11-15 claude target-bar
-DID: hits[] carry `by` (attacker id); the client keeps net.engaged (ships we hit -> time) and draws a small bar under their name for 5 s: blue shield fraction while shield > 0, then orange hull fraction.
-FILES: sim/world.ts src/net/client.ts src/scenes/flight.ts scripts/test-steroids-alpha-sim.mjs BRIEF.md
-SEAM: WorldEvents.hits[].by; NetClient.engaged; FlightScene.drawTargetBar (placeholder style).
-CROSS: none
-FOR codex: the bar is a placeholder (two rects); restyle freely, keep blue = shield, then hull.

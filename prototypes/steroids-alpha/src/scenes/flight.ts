@@ -2,8 +2,13 @@ import { drawCombatImpact, drawShieldShatter } from '../render/combatEffects';
 import type { CombatImpact } from '../render/combatEffects';
 import {drawEvolve,drawWarpCharge,drawWarpLaunch,drawCapitalEscort,shipTagClearance,EVOLVE_ART_MS,WARP_LAUNCH_ART_MS} from '../render/progressionArt';
 import { CombatHud } from '../render/combatHud';
+import type { CombatHudAnchor } from '../render/combatHud';
 import { drawTargetMeter, drawNoseMarker, drawSalvageZoneRing, drawConnectionBanner } from '../render/flightIndicators';
 import { CombatSprites } from '../render/combatSprites';
+import { BuildingRigs } from '../render/buildingRig';
+import { OrbitalTransition } from '../render/orbitalTransition';
+import type { OrbitalPose } from '../render/orbitalTransition';
+import { drawOrbitalEffects } from '../render/orbitalEffects';
 import { mobileHeader } from '../render/mobileFlightUi';
 import { shipPreview } from '../render/shipPreview';
 import type { FFDControl } from '../render/shipTilt';
@@ -91,7 +96,13 @@ export class FlightScene extends Phaser.Scene {
   private board = new Map<number, BoardChip>();
   private boardTitle!: Phaser.GameObjects.Text;
   private combatHud!: CombatHud;
+  private hudAnchor:CombatHudAnchor={x:0,y:0,radius:40,visible:false};
   private combatSprites!: CombatSprites;
+  private buildingRigs!:BuildingRigs;
+  private orbital=new OrbitalTransition();
+  private orbit:OrbitalPose={phase:'waiting',progress:0,zoom:.34,lift:0,groundAlpha:1,arrivalPulse:-1};
+  private orbitGfx!:Phaser.GameObjects.Graphics;
+  private lastOwn:ShipState|null=null;
   private mobilePanel: 'shop' | 'board' | null = null;
   private mobileButtons: { action: 'shop' | 'board'; x: number; y: number; w: number }[] = [];
   private mobileNavLabels: Phaser.GameObjects.Text[] = [];
@@ -132,6 +143,9 @@ export class FlightScene extends Phaser.Scene {
   private runStartedAt = 0;
 
   create(): void {
+    this.hudAnchor.visible=false;
+    this.orbital.reset();
+    this.lastOwn=null;
     this.runStartedAt = Date.now();
     this.mobilePanel = null;
     this.ships.clear();
@@ -147,6 +161,7 @@ export class FlightScene extends Phaser.Scene {
       this.game.events.off('dpr', this.build, this);
       this.net.close();
       this.combatSprites?.destroy();
+      this.buildingRigs?.destroy();
       intents.dashButton = null;
       intents.schemeButton = null;
       intents.fireButton = null;
@@ -161,6 +176,7 @@ export class FlightScene extends Phaser.Scene {
 
   private build(): void {
     this.combatSprites?.destroy();
+    this.buildingRigs?.destroy();
     this.children.removeAll(true);
     this.ships.clear();
     this.tags.clear();
@@ -173,6 +189,7 @@ export class FlightScene extends Phaser.Scene {
     this.ordnanceCues = this.add.graphics().setDepth(27);
     this.rocks = paintedRocksReady() ? new PaintedRocks(this) : new PixelRocks(this);
     this.turretGfx = this.add.graphics().setDepth(23);
+    this.orbitGfx=this.add.graphics().setDepth(28);
     this.overlay = this.add.graphics().setDepth(900);
     this.hullBorder=this.add.graphics().setDepth(940);
     const { w } = logicalSize();
@@ -199,6 +216,7 @@ export class FlightScene extends Phaser.Scene {
     this.weaponTexts = [0, 1].map(() => text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(952).setVisible(false));
     this.combatHud = new CombatHud(this);
     this.combatSprites = new CombatSprites(this);
+    this.buildingRigs=new BuildingRigs(this);
     this.mobileNavLabels = [0,1].map(() => text(this,0,0,'',11).setOrigin(.5).setDepth(954).setVisible(false));
     this.evolvePreview = shipPreview(this,2,0,0,0,18,16).setDepth(952).setVisible(false);
     this.shopTexts = [...SHOP_ITEMS, 'evolve'].map(() => ({
@@ -242,25 +260,31 @@ export class FlightScene extends Phaser.Scene {
 
     const { w, h } = logicalSize();
     const own = this.net.ownRender();
+    const extracted=!!this.net.extracted || this.net.status==='extracted';
+    if(own && !extracted && !dead)this.lastOwn={...own};
+    this.orbit=this.orbital.update(this.time.now,!!own,extracted,dead);
+    const leaving=extracted && !dead && this.orbit.phase==='exit';
+    const cameraShip=leaving?this.lastOwn:own;
     // After our ship is destroyed the view stays on the wreck.
-    const cx = own?.x ?? this.net.death?.x ?? W / 2;
-    const cy = own?.y ?? this.net.death?.y ?? H / 2;
+    const cx = (extracted?this.lastOwn:cameraShip)?.x ?? this.net.death?.x ?? W / 2;
+    const cy = (extracted?this.lastOwn:cameraShip)?.y ?? this.net.death?.y ?? H / 2;
     // One frame for everything drawn this tick: where the view is on the ball and how the sun falls.
     // The planet's turn comes from the server's clock, so players in the same place see the same light.
     // Travel is measured from the middle of the map, so the drop zone starts in daylight.
     const rotationDeg = DEBUG_ROTATION ?? (this.net.asteroidTick() / TUNE.net.tickHz) * TUNE.planet.rotationDegPerSec;
     this.rotationDeg = rotationDeg;
     this.frame = planetFrame(cx - W / 2, cy - H / 2, rotationDeg, lightingRadius(W), sunState(TUNE.planet.sunAzimuthDeg, TUNE.planet.sunElevationDeg));
-    this.view = { cx, cy, w, h, k: h / clientTune.render.referenceHeight };
+    this.view = { cx, cy, w, h, k: h / clientTune.render.referenceHeight * this.orbit.zoom };
     this.ground.update(w, h, this.view.k, this.frame);
 
     this.turretGfx.clear();
     const alive = new Set<number>();
-    // An extracted ship has left the planet: it is no longer drawn.
+    // Live ships follow snapshots; departure briefly retains only a cached visual after extraction.
     if (own && !this.net.extracted && this.net.status !== 'extracted') {
       alive.add(this.net.myId);
       this.placeShip(this.net.myId, own, true, move);
     }
+    if(leaving && this.lastOwn){alive.add(this.net.myId);this.placeShip(this.net.myId,this.lastOwn,true);}
     for (const r of this.net.remoteRender()) {
       alive.add(r.id);
       this.placeShip(r.id, r.s, false);
@@ -337,13 +361,14 @@ export class FlightScene extends Phaser.Scene {
       else this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.kind === 'burst' ? TUNE.asteroid.radius[f.size] : 9, ms: f.kind === 'burst' ? 420 : 180, colour: 0xffc78a, chips: f.kind === 'burst' ? 10 : 4, combat:f.kind==='burst'?'asteroid':undefined });
     }
     this.drawWorld();
+    drawOrbitalEffects(this.orbitGfx,this.orbit,w,h);
     this.drawTouch(w, h);
     this.drawHullBorder(w,h);
     this.drawStatus(own);
     this.drawBoard(w);
 
-    if (this.net.extracted || this.net.status === 'extracted') {
-      if (this.deathScreen(w, h, true)) return;
+    if ((this.net.extracted || this.net.status === 'extracted') && !dead) {
+      if (this.orbit.phase==='complete' && this.deathScreen(w, h, true)) return;
     } else if (this.net.death || this.net.status === 'destroyed') {
       if (this.deathScreen(w, h)) return;
     } else if (this.net.status === 'lost') {
@@ -404,10 +429,11 @@ export class FlightScene extends Phaser.Scene {
     this.gateText.setVisible(false);
     if (!layout || !p) return;
     const labels=drawClanBase(this.world,{layout,own:p,member:this.net.clan===layout.clan,docked:!!this.net.docked,now,tune:TUNE,
-      project:(x,y)=>this.toScreen(x,y),aim:this.baseAim,firedAt:this.baseFiredAt,impacts:this.effects});
+      project:(x,y)=>this.toScreen(x,y),aim:this.baseAim,firedAt:this.baseFiredAt,impacts:this.effects,
+      rigs:this.buildingRigs,sun:this.frame.sun,daylight:this.frame.daylight,brightness:this.objectLight()});
     if(labels.treasury){
       const at=labels.treasury,total=this.net.treasury?.total??0;
-      const below=at.y+78*at.scale,labelY=!intents.touch&&below>h-138?at.y-84*at.scale:below;
+      const below=at.labelY??at.y+78*at.scale,labelY=!intents.touch&&below>h-138?at.y-220*at.scale:below;
       this.treasuryText.setVisible(true).setText(`${clanName(layout.clan).toUpperCase()} TREASURY\nFUEL ${total.toLocaleString('en-US')}`)
         .setPosition(at.x,labelY).setStroke('#102035',3);
     }
@@ -478,30 +504,33 @@ export class FlightScene extends Phaser.Scene {
     // Power makes ships bigger: drawn at the same growth as their hit radius.
     // (Each ship's art already has its own size; only power growth scales it here.)
     at.scale *= powerGrowth(s.hullMax, TUNE);
+    const orbital=mine && (this.orbit.phase==='entry' || this.orbit.phase==='exit');
+    // The pilot remains readable at orbit zoom; only the world recedes beneath the craft.
+    if(orbital)at.scale/=this.orbit.zoom;
+    if(mine){
+      const size=chassisStats(s.chassis,TUNE).radius/TUNE.ship.radius;
+      this.hudAnchor={x:at.x,y:at.y-4*at.scale,radius:Math.max(intents.touch?32:42,clientTune.render.shipRingRadius*clientTune.render.shipScale*size*at.scale+14*size),visible:at.visible&&!orbital};
+    }
     // The hard shadow lies on the ground, away from the sun.
     const sh = shipShadow(this.frame.sun, clientTune.render.shadowReach);
     sh.x+=CALIBRATION.shadow.x-SHADOW_ANCHOR.x;sh.y+=CALIBRATION.shadow.y-SHADOW_ANCHOR.y;
     const shadow = this.toScreen(s.x + sh.x, s.y + sh.y);
     this.placeTag(id, at, mine, chassisStats(s.chassis, TUNE).radius / TUNE.ship.radius);
+    if(orbital)this.tags.get(id)?.setVisible(false);
     if (!mine) this.drawTargetBar(id, s, at, chassisStats(s.chassis, TUNE).radius / TUNE.ship.radius);
     ship.setLook(this.net.roster.get(id)?.look ?? {});
     // Ships darken 30% on the night side (owner decision); asteroids and pickups only 10%.
     // Docked ships come down onto their pad (owner): eased so landing and take-off read smoothly.
-    const docked = isDocked(this.net.layout, mine ? this.net.clan : this.net.roster.get(id)?.clan ?? 0, s, TUNE);
+    const docked = !orbital && isDocked(this.net.layout, mine ? this.net.clan : this.net.roster.get(id)?.clan ?? 0, s, TUNE);
     const was = this.landedLevel.get(id) ?? 0;
     const landed = was + ((docked ? 1 : 0) - was) * Math.min(1, this.game.loop.delta / 250);
     this.landedLevel.set(id, landed);
-    ship.update({ ...at, brightness: this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0, landed }, s, this.time.now, control);
+    ship.update({ ...at, brightness: this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0, landed,
+      orbitalLift:orbital?this.orbit.lift*this.view.h:0,orbitalGroundAlpha:orbital?this.orbit.groundAlpha:1 }, s, this.time.now, control);
+    if(orbital)return;
     this.drawTurrets(id, s, at);
     if (s.dashCharge > 0) this.drawDashCharge(s, at, mine);
     else if (mine && at.visible) this.drawNose(s, at);
-    if (mine && s.shield <= .001 && at.visible) {
-      const size=chassisStats(s.chassis,TUNE).radius/TUNE.ship.radius;
-      const g=this.turretGfx, x=at.x, y=at.y-Math.max(42,clientTune.render.shipRingRadius*clientTune.render.shipScale*size+12)*at.scale, k=Math.max(.7,at.scale);
-      g.lineStyle(5*k,0x081426,.95);g.beginPath();g.moveTo(x-6*k,y-5*k);g.lineTo(x+6*k,y-5*k);g.lineTo(x+5*k,y+3*k);g.lineTo(x,y+8*k);g.lineTo(x-5*k,y+3*k);g.closePath();g.strokePath();
-      g.lineStyle(2*k,0xffa078,.9);g.beginPath();g.moveTo(x-6*k,y-5*k);g.lineTo(x-5*k,y+3*k);g.lineTo(x,y+8*k);g.lineTo(x+5*k,y+3*k);g.lineTo(x+6*k,y-5*k);g.strokePath();
-      g.lineBetween(x+7*k,y-7*k,x-7*k,y+8*k);
-    }
   }
 
   /**
@@ -736,8 +765,7 @@ export class FlightScene extends Phaser.Scene {
     const pulse = 0.7 + 0.3 * Math.sin(now / 200);
     if (b.id === this.net.myId) {
       const at = this.toScreen(p.x, p.y);
-      const r=46 * at.scale * shipRadius(p.hullMax, TUNE, p.chassis) / TUNE.ship.radius;
-      this.bountyRing(g,at.x,at.y,r,pulse);
+      const r=this.hudAnchor.visible?this.hudAnchor.radius+6:46 * at.scale * shipRadius(p.hullMax, TUNE, p.chassis) / TUNE.ship.radius;
       g.fillStyle(0xffd36d,1);this.drawStar(g,at.x,at.y-r-10,5);
       if(intents.touch)return;
       this.bountyText.setVisible(true).setText('BOUNTY ON YOU').setPosition(w / 2, h * 0.3 + 32);
@@ -790,11 +818,17 @@ export class FlightScene extends Phaser.Scene {
   private bountyPlate(w:number,h:number):void {
     const t=this.bountyText,pad=7,bw=t.width+pad*2,bh=t.height+8;
     let x=Math.max(bw/2+4,Math.min(w-bw/2-4,t.x));
-    const y=Math.max(bh/2+4,Math.min(h-bh/2-4,t.y));
+    let y=Math.max(bh/2+4,Math.min(h-bh/2-4,t.y));
     const boardBottom=Math.max(0,...[...this.board.values()].map(chip=>chip.y+BOARD_CHIP_H/2))+20;
     if(y<260 && x-bw/2<170)x=170+bw/2+5;
     if(y<boardBottom && x+bw/2>w-Math.min(BOARD_CHIP_W,w*.34)-18)x=w-Math.min(BOARD_CHIP_W,w*.34)-23-bw/2;
     if(intents.touch&&y>h*.4)x=Math.max(bw/2+4,Math.min(controlClearRight(w)-bw/2,x));
+    const a=this.hudAnchor;
+    if(a.visible && Math.abs(x-a.x)<a.radius+bw/2+22 && Math.abs(y-a.y)<a.radius+bh/2+26){
+      const left=a.x-a.radius-bw/2-24;
+      if(left>bw/2+4)x=left;
+      else y=Math.max(bh/2+4,a.y-a.radius-bh/2-26);
+    }
     t.setPosition(x,y);
     this.overlay.fillStyle(0x221f2c,.9);this.overlay.fillRoundedRect(x-bw/2,y-bh/2,bw,bh,4);
     this.overlay.lineStyle(1,0xbf9550,.8);this.overlay.strokeRoundedRect(x-bw/2,y-bh/2,bw,bh,4);
@@ -964,7 +998,7 @@ export class FlightScene extends Phaser.Scene {
     g.clear();
     intents.uiZones = [];
     const p = this.net.predicted;
-    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now, !this.net.layout ? 'salvage' : this.net.clan === this.net.layout.clan ? 'fuel' : 'none');
+    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now,this.hudAnchor, !this.net.layout ? 'salvage' : this.net.clan === this.net.layout.clan ? 'fuel' : 'none');
     this.drawMobileNav(p,w);
     this.drawShop(p);
     this.drawWeapons(p, w, h);
@@ -973,7 +1007,9 @@ export class FlightScene extends Phaser.Scene {
     this.drawHotZone(p, w, h);
     this.drawBaseMarkers(p, w, h);
     this.drawKeyHints(p, w, h);
+    this.buildingRigs.begin();
     this.drawBase(p, w, h);
+    this.buildingRigs.end();
     this.schemeLabel.setVisible(false);
     if (!intents.touch && intents.scheme === 'marker' && intents.mouse && p && !this.net.death && !this.net.extracted) {
       // Mouse aim reticle (placeholder look): a ring at the cursor, a faint line from the ship while
@@ -998,12 +1034,7 @@ export class FlightScene extends Phaser.Scene {
     const anchorF = clientTune.touch.fireButtonRadius, fr = anchorF * .74;
     const fb = { x: w - m * 2 - anchorR * 2 - anchorF, y: h - m - anchorF };
     intents.fireButton = { x: fb.x, y: fb.y, hw: fr * 1.2, hh: fr * 1.2 };
-    this.combatHud.heatWarning(fb.x,fb.y+fr*.65);
     controlFace(g,fb.x,fb.y,fr,UI.uiDanger,intents.fire);
-    if (p && p.heat > .6) {
-      g.lineStyle(3,p.overheated?0xff8565:0xf3ba71,.9);g.beginPath();
-      g.arc(fb.x,fb.y,fr-7,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,p.heat));g.strokePath();
-    }
     g.lineStyle(2,UI.uiDanger,.9);g.strokeCircle(fb.x,fb.y,fr*.22);
     for(let i=0;i<4;i++){const a=i*Math.PI/2;g.lineBetween(fb.x+Math.cos(a)*fr*.32,fb.y+Math.sin(a)*fr*.32,fb.x+Math.cos(a)*fr*.48,fb.y+Math.sin(a)*fr*.48);}
     // No steering toggle on phones (owner, 14 November 2026): the stick is always the direction marker.
@@ -1012,12 +1043,6 @@ export class FlightScene extends Phaser.Scene {
     controlFace(g,b.x,b.y,r,UI.uiAccent,ready);
     g.lineStyle(3,UI.uiAccent,ready?.95:.4);
     for(let i=0;i<3;i++){const x=b.x-12+i*10;g.lineBetween(x,b.y-10,x+8,b.y);g.lineBetween(x+8,b.y,x,b.y+10);}
-    if (!ready) {
-      g.lineStyle(4, 0xffd27a, 0.9);
-      g.beginPath();
-      g.arc(b.x, b.y, r - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - cd / TUNE.ship.dashCooldown));
-      g.strokePath();
-    }
     const st = intents.stick;
     if (st) {
       g.lineStyle(2, 0xffffff, 0.35);
@@ -1049,7 +1074,7 @@ export class FlightScene extends Phaser.Scene {
     const colour=tagColour!==undefined?css(tagColour):mine?'#9fefff':bot?'#a9bdcf':'#ffc9a8';
     if(tag.style.color!==colour)tag.setColor(colour);
     const below = (Math.max(clientTune.render.shipRingRadius * clientTune.render.shipScale * size, shipTagClearance(size)) + 10) * at.scale;
-    tag.setStroke('#081426', 3).setPosition(at.x, at.y + below).setVisible(at.visible && !(mine && intents.touch));
+    tag.setStroke('#081426', 3).setPosition(at.x, at.y + below).setVisible(at.visible && !mine);
   }
 
   /**

@@ -1,41 +1,29 @@
 ## Current milestone
 
-Mouse aim (16 November, claude): PC ships follow the cursor, left click fires, right click missile, W thrust; key hints with a menu toggle; view zoomed out (referenceHeight 1000).
-
-Mouse controls (16 November, claude): PC defaults to a hold-left-mouse marker (ship steers toward the cursor); a menu CONTROLS setting switches to keyboard-only. Warping out now ends at the menu (no Drop in).
-
-Visitor cargo (16 November, claude): visitors on another clan's home planet no longer see a cargo readout, since they cannot mine there.
-
-Base markers (15 November, claude): clan home planets point to off-screen landmarks with edge arrows and distances (members: treasury; visitors: gate and enemy treasury).
-
-Clan fuel (15 November, claude): clan home planets drop no salvage; members mine Fuel there (same 400 hold, lost on death) and dock to unload it into the treasury, which will fund building upkeep later. Exhaust plume length now follows each ship's own top speed. Protocol 20.
-
-Owner approved all four art backlog groups for live after the screenshot review. Source pack uploaded to R2 and fetched back with matching hash; PR500 merged398b045; itch run43733278666 uploaded successfully. Public Brave build151126r0067 verified all12textures, painted ordnance/repair sprites, mobile/upright drawer/fire/dash, both clan skins and open planet connections with zero browser errors. Worker health is protocol19 and healthy. The release integrates main3a38092, preserving PR498 smaller shadows/round glow/docked landing and PR499 gun convergence/idle exhaust/engines-off. Review evidence: outputs/steroids-alpha/backlog-review/index.html.
+Owner approved all reviewed orbital, building and HUD updates on 16 November 2026. Release candidate on codex/steroids-orbit-nexus-preview integrates current main 1fb8b45; public deployment and final live verification are the remaining release steps.
 
 ## What was implemented
 
-- P1 combat: three new matching painted missile/mine/repair-pod sources; smoke, arming/search/observed-seeking cues and lock brackets; death, missile/mine/shot-down blasts, asteroid splits, shield shatter, Nova, hull sparks/border hit and dash-ram feedback; heading-only charge cue.
-- P2 clan planets: distinct Crimson/Azure materials, fortified treasury, pads with alignment/docked states, turrets/flash, projected dome with impact/push cues, gate and banners.
-- P3 progression: evolution assembly and shield lock, capital escorts/name clearance, warp aperture and launch; two alpha-preserving fracture stages for all painted rocks.
-- P4 HUD/menus: hangar emblems, target meter, nose marker, cargo cue, connection alerts, salvage ring; alerts clear other informational labels and mobile control space.
+- Orbital entry begins on the first own snapshot: 34% zoom, 1.8s descent, atmosphere streak and ground-cue fade. Prediction/input continue; resize preserves time. Extraction retains the departing craft for 1.5s before results. Current main's MENU-only extraction is preserved; ordinary death keeps its delay and respawn replays arrival.
+- Approved translucent ship instruments: left shield switches to hull on depletion; one division per 10 maximum capacity. Joined right arcs show inner dash and outer remaining weapon capacity (1-heat), with staggered symbols, no right notches, and existing recovery/warning animations. Hull numbers sit beside buying. Desktop cargo is bottom-centre to clear PC key hints.
+- Seven new painted parts form a raised three-layer Nexus and dual-cannon tower rigs, with projected bearing/foreshortening, clan palettes, separate shadows and alternating visual recoil. No collision, placement or firing-count changes.
+- Preserved latest main mouse aim/click fire/W-thrust/S-brake, key hints, member Fuel/visitor-hidden cargo, own-top-speed exhaust and referenceHeight 1000. Existing approved ship positions, per-part control FFD and sprite fallback remain.
+- Corrected only the concurrent-publisher test's winner assumption; no live-config server behavior changes.
 
 ## Key technical decisions
 
-- No sim, gameplay tuning, protocol, authoritative positions/radii, ship rig or input-zone changes. Render observes existing state; seeking cue infers recent mine movement without new wire data.
-- Original source PNGs/ZIP/prompt metadata stay in outputs/steroids-alpha/combat-backlog-v01. Public R2 ZIP fetched back and SHA-256 verified; source files and registration retain their hashes through the asset pipeline. Owner explicitly approved upload/merge/publication. Missing body textures retain procedural fallback.
-- Per-scene sprite reuse and shared textures; code-driven VFX support WebGL and Canvas. Thirty fracture variants preserve body alpha pixel-for-pixel and existing collision coverage.
-- Typecheck/build/396 rig poses +14400FFD points/sim/live-config pass. Actual-renderer desktop1280x720/mobile844x390 DPR2 plus667x375 HUD checks, WebGL/Canvas and error checks pass.
-- Two real connected clients with four bots on alpha: ~56.6/56.8FPS, p95~18.1/18ms on this PC atDPR2; Crimson ~56.8/56.6FPS. Real fire/dash worked, no browser errors. Test browsers close; local preview servers stop after capture.
+Original PNGs, generation records and ZIP remain in outputs/steroids-alpha/buildings-rig-v01. R2 object steroids-alpha_buildings-rig-v1_assets.zip was uploaded and publicly re-fetched: 7,939,933 bytes, SHA-256 d34070bccdb67d0e901d7972504a5b2478f477dcc712a8e796bf41c6d6c30a15. Metadata/hashes only in Git. Boot prepares 14 shared clan textures and removes raw sources. Runtime copies are capped at 384px Nexus/256px tower. Fixed layers and per-scene cleanup retain the existing sprite-rig approach.
+
+Required typecheck/build/rig/sim/live-config/bank checks pass. Rig suite covers 396 poses and 14,400 FFD points. Brave desktop/mobile DPR2 integrated orbital entry/input/resize, extraction/result timing, death/respawn pass with zero errors (4 GIFs, outputs/steroids-alpha/orbit-release-check/report.json). Updated 36 building captures inspected. Pool stays 7 views/40 images across 120 camera updates. Two real connected desktop/mobile clients: alpha +4 bots and Crimson, about 60 FPS / p95 16.8ms, real phone-emulated fire/dash pass, zero errors. Earlier Canvas fallback and 30-state HUD checks remain recorded in the art workspace.
 
 ## Open questions
 
-- Screenshot review and publication approval received. No implementation question is blocking release.
+None blocking this approved release. Claude's placeholder mouse reticle and landmark icons are separate future art follow-ups.
 
 ## Known issues
 
-- Real phone/Safari/Android hardware performance remains unmeasured; browser phone emulation is not hardware evidence.
-- Separate orbital zoom transition and per-chassis hosted calibration remain outside this prioritized art pass.
+Phone emulation on this PC is not physical phone/Safari performance evidence. Extraction/death visual timing uses isolated local scene fixtures; simulation tests cover authoritative rules. Existing unrelated bundle-size/dynamic-import build warnings remain.
 
 ## Next proposed step
 
-Owner playtests the approved art on real phones. Publication is complete and verified; Claude receives the PR/run/build evidence in thread07e15987. Orbital zoom and per-chassis hosted calibration remain separate tasks.
+Merge the approved release, monitor itch deployment to daily-daily-games/steroids-alpha:html5, verify the fresh public version/planet connection/art on desktop and mobile, and send final release proof to Claude in Agent Comms thread 68c1ca78.
