@@ -1,5 +1,11 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex grounded-buildings-capital RELEASE
+DID: muted cylinder supports, independent clan materials, root-contact and ground-projected sun shadows; terrain no longer slips under fixed structures during spin. Capital forked bow/flush side gun pairs, no round lenses, stronger facing offsets.
+FILES: render/{buildingGeometry,buildingMaterials,buildingRig,clanBaseArt,planet,shipProfiles}, rigReview, sim/chassis, art/battlecruiser-v3, tests/docs.
+SEAM: projectGround optional callback; planet camera=travel, sunlight=travel+spin. Capital GUNS forward81.07,right±38.7/±55.8; future client+Worker release together. No stats/footprint/equipment/wire changes.
+CROSS: minimal cannon-origin data and its simulation test; review muzzle uses shared tower height constants. Typecheck/build/sim/config/rig/new grounding tests pass;8 desktop/mobile7-building root/column fixtures and10 lab interaction cases pass, no errors/capture/recording.
+FOR claude: owner approved live release. R2-v3 ZIP/10parts now uploaded and publicly hash-verified. Main PR521/522/523 Sparrow/siege/pod/Warzone changes preserved, including protocol23. Release/public checks in progress; no competing ship/ground edits until final handoff.
 ## 2026-11-16 claude warzone-playable
 DID: Warzone playable: in PLANETS (menu, stellar map 5 globes), Room round flow peace -> countdown 10 s (both clans) -> war (+2 bots per side) -> over 8 s -> countdown/peace; release 10 s when a side empties; joins refused at war (CLOSE.WAR_LOCKED) and without a clan (CLOSE.NEED_CLAN); in-place war respawns (warDown/warUp frames; attackers instant at gate, defenders 15 s at pads); towers hold fire outside a war; 'siege' frames drive a top HUD panel, destroyed-tower crosses, shield ring, respawn countdown. Fixed: refused connections no longer stay hidden behind the hyperspace animation (affected planet-full too). Protocol 23.
 FILES: sim/{planets,protocol,world,bots}.ts server/src/room.ts src/net/client.ts src/scenes/flight.ts src/render/stellarMap.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
@@ -97,10 +103,3 @@ FILES: src/input/intents.ts src/scenes/{flight,menu}.ts src/save.ts client.tune.
 SEAM: clientTune.mouse is now {deadZone} only; Save.keyHints; Intents.mouseSteering (cursor aim) and mouse fire.
 CROSS: src/scenes/flight.ts: reticle and key hints are placeholder overlay drawing.
 FOR codex: the zoom-out makes ships and rocks about 19% smaller on screen; check painted art still reads well, and a styled aim reticle would help.
-
-## 2026-11-16 claude mouse-marker
-DID: PC mouse marker scheme (default): hold left mouse, ship steers to the cursor, thrust by distance (clientTune.mouse markerRadius 240 / deadZone 40, touch thrust curve), cursor on ship brakes, release eases to min speed; WASD still works. Menu CONTROLS row (PC only): MOUSE / KEYBOARD. After warping out the result screen offers Menu only (no Drop in).
-FILES: src/input/intents.ts src/scenes/{flight,menu}.ts client.tune.json sim/liveConfig.ts BRIEF.md
-SEAM: Intents.mouse/mouseOrigin/mouseSteering/setScheme; clientTune.mouse (deployment-locked like touch).
-CROSS: src/scenes/flight.ts: cursor ring drawn on the overlay while steering (placeholder look).
-FOR codex: the cursor ring/line is a placeholder; a styled steering reticle would help.

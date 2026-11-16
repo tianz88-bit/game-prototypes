@@ -1263,11 +1263,16 @@ assert.equal(S.cleanName(null), '');
   assert.equal(f0.daylight, 1);
 
   // Planet rotation and travel move the same position: turning the planet by an angle lights the
-  // view exactly like travelling that far, and the terrain scrolls with it.
+  // view exactly like travelling that far. Surface coordinates co-rotate with fixed objects.
   const byTravel = P.planetFrame(RL * 0.7, 0, 0, RL, sun);
   const byRotation = P.planetFrame(0, 0, (0.7 * 180) / Math.PI, RL, sun);
   for (const k of ['x', 'y', 'z']) near(byTravel.sun[k], byRotation.sun[k], 1e-12, 'rotation equals travel');
-  near(byTravel.camera.x, byRotation.camera.x, 1e-9, 'terrain scroll follows the same position');
+  near(byRotation.camera.x, 0, 1e-9, 'planet rotation does not slide terrain beneath fixed foundations');
+  near(byTravel.camera.x, RL * .7, 1e-9, 'travel still scrolls the surface');
+  for (const angle of [0,45,90,180,270,360,720]) {
+    const f = P.planetFrame(123,45,angle,RL,sun);
+    assert.deepEqual(f.camera,{x:123,y:45},'fixed surface texels survive every rotation');
+  }
   // Stopping both freezes the light; heading is not an input at all.
   assert.deepEqual(P.planetFrame(123, 45, 10, RL, sun), P.planetFrame(123, 45, 10, RL, sun));
   // One lap of the wrapping map, or one full turn, brings the same light back: no jump at the seam.

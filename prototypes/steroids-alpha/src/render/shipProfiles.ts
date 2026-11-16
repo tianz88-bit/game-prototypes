@@ -8,7 +8,7 @@ import { MODULES, checkCalibration } from './shipRig';
 import type { Calibration, RigModule } from './shipRig';
 import starterCalibration from '../../art/human-nomad-v1/calibration-approved.json';
 import interceptorCalibration from '../../art/interceptor-v2/calibration.json';
-import battlecruiserCalibration from '../../art/battlecruiser-v2/calibration.json';
+import battlecruiserCalibration from '../../art/battlecruiser-v3/calibration.json';
 
 export const INTERCEPTOR_MODULES: readonly RigModule[] = [
   { id: 'chassis', asset: 'chassis', x: 0, y: -10, band: 20 },
@@ -34,8 +34,6 @@ export const BATTLECRUISER_MODULES: readonly RigModule[] = [
   { id: 'engineR', asset: 'booster-core', x: 230, y: 280, band: 43, side: 1, parent: 'chassis', motion: 'engine', motionGroup: 'engineR' },
   { id: 'engineCapL', asset: 'booster-cowling', x: -230, y: 220, band: 44, side: -1, parent: 'engineL', motion: 'engine', motionGroup: 'engineL' },
   { id: 'engineCapR', asset: 'booster-cowling', x: 230, y: 220, band: 45, side: 1, parent: 'engineR', motion: 'engine', motionGroup: 'engineR' },
-  { id: 'shieldL', asset: 'shield-emitter', x: -95, y: -50, band: 48, side: -1, parent: 'armour' },
-  { id: 'shieldR', asset: 'shield-emitter', x: 95, y: -50, band: 49, side: 1, parent: 'armour' },
   { id: 'cockpit', asset: 'cockpit-base', x: 0, y: 180, band: 50, parent: 'armour' },
   { id: 'canopy', asset: 'cockpit-canopy', x: 0, y: 180, band: 51, parent: 'cockpit' },
   {"id":"turretPlatform0","asset":"turret-platform","x":-200,"y":50,"band":46,"parent":"armour"},
@@ -47,10 +45,10 @@ export const BATTLECRUISER_MODULES: readonly RigModule[] = [
   {"id":"turretPlatform3","asset":"turret-platform","x":200,"y":-140,"band":46.3,"parent":"armour"},
   {"id":"turretHead3","asset":"turret-head","x":200,"y":-140,"band":49.3,"parent":"turretPlatform3","side":13},
   // Cannons: side -1/1 inner pair, -2/2 outer pair (matches sim/chassis.ts GUNS sides).
-  { id: 'gunL', asset: 'gun', x: -115, y: -350, band: 60, side: -1, parent: 'armour', recoilScale: 2.6 },
-  { id: 'gunR', asset: 'gun', x: 115, y: -350, band: 61, side: 1, parent: 'armour', recoilScale: 2.6 },
-  { id: 'gunOuterL', asset: 'gun', x: -310, y: -280, band: 62, side: -2, parent: 'wingL', recoilScale: 2.6 },
-  { id: 'gunOuterR', asset: 'gun', x: 310, y: -280, band: 63, side: 2, parent: 'wingR', recoilScale: 2.6 },
+  { id: 'gunL', asset: 'gun', x: -215, y: -330, band: 60, side: -1, parent: 'wingL', recoilScale: 2.6 },
+  { id: 'gunR', asset: 'gun', x: 215, y: -330, band: 61, side: 1, parent: 'wingR', recoilScale: 2.6 },
+  { id: 'gunOuterL', asset: 'gun', x: -310, y: -330, band: 62, side: -2, parent: 'wingL', recoilScale: 2.6 },
+  { id: 'gunOuterR', asset: 'gun', x: 310, y: -330, band: 63, side: 2, parent: 'wingR', recoilScale: 2.6 },
 ];
 
 export interface ShipProfile {
@@ -74,6 +72,6 @@ const profile = (shipId: string, modules: readonly RigModule[], cal: unknown): S
 export const SHIP_PROFILES: readonly ShipProfile[] = [
   profile('human-nomad-v1', MODULES, starterCalibration),
   profile('human-nomad-bat-v3', INTERCEPTOR_MODULES, interceptorCalibration),
-  { ...profile('human-nomad-battlecruiser-v2', BATTLECRUISER_MODULES, battlecruiserCalibration), textureScale: 2 },
+  { ...profile('human-nomad-battlecruiser-v3', BATTLECRUISER_MODULES, battlecruiserCalibration), textureScale: 2 },
   profile('human-nomad-sparrow-v1', sparrowModules as readonly RigModule[], sparrowCalibration),
 ];

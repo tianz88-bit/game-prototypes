@@ -20,7 +20,7 @@ const SHIPS = [{ id: 'human-nomad-v1', list: path.join(here, 'human-nomad-v1', '
 const EXTRA_SHIPS = [
   { id: 'human-nomad-sparrow-v1', list: path.join(here, 'sparrow-v1', 'ship-assets.json') },
   { id: 'human-nomad-bat-v3', list: path.join(here, 'bat-v3', 'ship-assets.json') },
-  { id: 'human-nomad-battlecruiser-v2', list: path.join(here, 'battlecruiser-v2', 'ship-assets.json') },
+  { id: 'human-nomad-battlecruiser-v3', list: path.join(here, 'battlecruiser-v3', 'ship-assets.json') },
 ];
 
 async function stageExtraShips(assetsSrcDir) {

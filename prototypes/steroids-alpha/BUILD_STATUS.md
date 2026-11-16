@@ -1,33 +1,32 @@
 ## Current milestone
 
-Warzone playable (16 November, claude): Crimson attacks, Azure defends; countdown, lockdown, in-place respawns, 2 bots per side, siege HUD; protocol 23. Placeholder looks; balance to tune after playtests.
+Owner approved the grounded-building and capital-v3 release on17November. R2 upload and public ZIP/10part hash verification are complete. Integrating mainebb8a2b (PR521/522/523) and running final checks before coordinated client/Worker release. Previous public prototype counter83; final version will be verified after deployment.
 
-Siege values and repair pods (16 November, claude): siege structure HP lowered for the Sparrow starter (110/750/1100); bots collect spills; repair pods drawn larger. Next: Warzone step 2 (playable).
+Main PR523 playable Warzone and protocol23 are also preserved.
 
-Sparrow retune (16 November, claude): single gun 6 shots/s and 90% of Falcon shots before overheat (owner). Warzone step 2 (playable) awaiting owner go; siege structure HP to retune for the Sparrow starter.
-
-Production ship/building rig review is live in the permanent lab and itch game161126r0080. PR519 merged82868368bd6dfe5994db00a802005227cb7466bc; client43892666337 and Pages43892666498 succeeded. Permanent route: https://tianz88-bit.github.io/game-prototypes/prototypes/steroids-alpha-lab/?review=sparrow . Live game: https://daily-daily-games.itch.io/steroids-alpha .
 
 ## What was implemented
 
-Ship / building selector offers Sparrow, Bat, Battlecruiser, Nexus, tower turrets and Falcon using production ShipView/BuildingRigs/CombatSprites. Rotation, cardinal headings, firing, palettes/clans, control-only tilt, capital deck turret count and simulation gun-origin guides support mount review. Hangar has a Rig Review entry. Nexus is the player-facing name for the former Treasury. Capital cannon lower casing now uses cobalt enamel and follows selected palettes; the forward steel barrel and alpha are retained.
+Nexus/tower layers have muted cylinder supports. Independent Crimson/Azure architecture materials replace the ship palette remapper. Contact shadow remains exactly at the foundation; a directional cast extrudes the footprint away from the sun through the same ground projection. Tower head/barrels are lifted60/62 for visible support. Terrain camera is planet-fixed travel; spin still changes sunlight, so fixed objects stay attached to the same texels while travel continues scrolling the ground. No independent sun cycle.
 
-The previous approved fleet release remains: free Sparrow starter, paid Falcon for everyone without a grant, blue Bat with live max315/cruise234/turn5.44, detailed capital with bridge/four forward cannons/four deck platforms. This pass changes no gameplay values, ownership, protocol, building footprints or live settings.
+Battlecruiser-v3 has a transparent forked centre channel, two flush forward gun sprites per side, no forward round glass/lens modules, and stronger calibrated facing offsets. Bridge and four turret platforms remain.22 modules/10 source textures. Fixed Z,3% shading, vibration, recoil and control-only per-part FFD/fallback retained. Main sim origins move to forward81.07/right±38.7/±55.8; other game stats/equipment/shield/footprints are unchanged.
 
 ## Key technical decisions
 
-Review scene is isolated from multiplayer and accounts, reads live settings once and uses shared stepShip/muzzleShot for gun origins/recoil events. It cannot grant/purchase/publish. Lab keeps Falcon draft calibration separate, hides its editor and sleeps its loop during review, reuses one frame across subjects and unmounts it on return. Same-origin parent messages accept only validated subject choices or exit. Internal treasury wire/storage names remain compatible. No new assets/dependencies or Worker deployment were needed; protocol22 remains.
+BuildingRigPose.projectGround projects shadow footprint vertices from a common root. Procedural column textures are shared by clan, and all view-owned columns/cast graphics hide/destroy with the existing lifecycle. Bounded convex hulls avoid multiple overlapping shadow fills. Material ramps preserve alpha/neutral linework. Planet rotation changes sun-relative longitude without injecting a second surface scroll.
 
-Typecheck/build and396-pose/14400-point rig suite pass. Ten public BraveDPR2 desktop/mobile cases verify all five requested subjects, rotation/firing/toggle controls, no gameplay sockets, unchanged draft and clean return; no console/page errors. Local deep-link/Back, neutral rotation without FFD, four equipped capital heads and Canvas fallback pass. Source-pixel material check changes7264 casing pixels, preserves forward barrel/alpha and supports four palette variants. Public itch verifies161126r0080 and all four main cannon recoil sides[-2,-1,1,2]. Evidence outputs/steroids-alpha/rig-review/{local-result.json,public-lab-result.json,live-game.json}.
+Built-in imagegen edits only chassis/armour cells from the approved parts sheet; other retained PNGs are byte-identical copies. Workspace sources/prompt/ZIP are documented in art/battlecruiser-v3/README.md. New ZIP SHA isbc03dc5acab672424b5dffa23918500e3cba72c288e66b03b3085a0fd37af80a. Owner-approved R2 object is uploaded and publicly re-fetched with matching ZIP/10part hashes. Evidence: outputs/steroids-alpha/grounded-capital-review/r2-verification.json.
+
+Typecheck/build/sim/live-config/rig suites pass. New regression covers18 projected sun/root cases, clan materials, flush paired mounts and stronger cardinal depth. Eight headless desktop/mobile flight fixtures cover all7 buildings across four spins: column endpoints and contact shadows stay at the correct roots. Ten lab interaction cases pass with no console/page errors; bow-channel alpha is transparent. Source-alpha occlusion checks confirm each new connector exposes steel. Evidence outputs/steroids-alpha/grounded-capital-review/{flight-grounding.json,result.json}. Fixtures disconnect before staging render state; no altered stats are sent to the server. No screenshots or recordings were taken.
 
 ## Open questions
 
-Owner visual review of the live rigs, gun positions and material correction. No screen captures were taken: the owner explicitly stopped screen grabbing, superseding the repository screenshot gate for this task.
+No unresolved art approval. Owner approved release. Browser-only upload succeeded using the expanded Files choice; native picker input was not needed. No new permission/credential, screenshot or recording.
 
 ## Known issues
 
-DOM/runtime/source-pixel checks do not establish visual approval. Mobile evidence is emulation, not physical phone/Safari testing. Only Falcon retains an editable calibration in this lab; other choices are isolated production reviews. Existing unrelated bundle warnings remain.
+New art public readback is verified; coordinated deployment and public runtime checks are pending. Mobile evidence is emulation; source-alpha/runtime checks are not owner visual approval. Existing unrelated bundle warnings remain.
 
 ## Next proposed step
 
-Owner inspects the live selector and reports any rig/mount adjustments. Use current main. No local publisher, capture/recording, temporary server or QA browser remains running. Claude handoff is in original ship threade31061e9-e8e1-4105-858a-2f847541014a.
+Complete post-integration checks, publish client+Worker, verify public building anchors and capital guns, then send Claude final run/version links. Preserve main Sparrow6shots/s/90%capacity, siege110/750/1100, bot spill collection and larger repair pods. No resident publisher/capture runs.

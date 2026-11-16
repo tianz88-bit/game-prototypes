@@ -822,3 +822,9 @@ Battlecruiser-v2 adds panel seams, service hatches, vents and rivet pairs to exi
 ### Production rig review and Nexus name (owner,16 November2026)
 
 The former Treasury is named Nexus in player-facing text; internal wire/storage names and rules remain unchanged. The permanent lab must select Sparrow, Bat, Battlecruiser, Nexus and dual-cannon tower turrets for rotation/firing and mount review using the production renderers. Falcon draft calibration remains separate from isolated production reviews, which cannot grant equipment, join rooms or publish. Capital cannon enamel casing uses the hull palette, retaining dark exposed steel barrels. The owner stopped screen grabbing; this review uses no screenshots or recordings.
+
+### Grounded buildings and forked capital (owner,17 November2026)
+
+Nexus/tower layers connect with muted cylindrical supports. All building enamel, trim and lights use dedicated clan ramps, independent of pilot palettes. Foundations and terrain share planet-fixed coordinates; remove spin-only texture scrolling beneath static objects, preserving travel scrolling and spin/travel sunlight. Contact shadow stays at the root; directional shadow extends from the root through the common ground projection. Tower head/barrels lift60/62 world units for a visible supported column; no footprint/rule changes.
+
+Battlecruiser: two flush forward guns per side and a transparent open central bow channel, no two forward round glass details, stronger cardinal layer offsets. Four turret platforms and the rear bridge remain. Main cannon origins move with the approved design; weapon stats/shields/equipment stay unchanged. Local interactive review first, no recordings or computer-use visual checks; owner inspects the links manually.
