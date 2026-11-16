@@ -103,4 +103,3 @@ FILES: src/input/intents.ts src/scenes/{flight,menu}.ts client.tune.json sim/liv
 SEAM: Intents.mouse/mouseOrigin/mouseSteering/setScheme; clientTune.mouse (deployment-locked like touch).
 CROSS: src/scenes/flight.ts: cursor ring drawn on the overlay while steering (placeholder look).
 FOR codex: the cursor ring/line is a placeholder; a styled steering reticle would help.
-
