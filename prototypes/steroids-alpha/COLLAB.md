@@ -91,3 +91,5 @@ Use only when the other agent must act or answer before their next session start
 - Both edited the same file: the later pusher merges main, keeps both intents, notes it in HANDOFF.
 - Disagree on a design call: do not flip-flop in code. Ask the owner, record the decision in BRIEF.md.
 - Owner instruction in chat beats this file. This file beats habit.
+
+- Capital rig review: optional DrawnShip/ShipView.setTurrets(count, angles, firedAt) observes earned equipment and authoritative aim. Four fixed platform/head pairs stay inside the parented ship rig, retain independent head rotation/recoil and control-only FFD. The FlightScene keeps the existing procedural escort only when the profile has no painted head assets. Shared capital turret mounts are on the deck at right±36, forward−9/25.2; count, damage, targeting and upgrade rules are unchanged. Capital profile textureScale2 is capped at512px per part; fighters retain the existing resolution.

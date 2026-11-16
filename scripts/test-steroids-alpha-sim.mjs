@@ -1852,6 +1852,14 @@ assert.equal(S.cleanName(null), '');
 // minerals, keeps upgrades, and cannot happen twice. ---
 {
   const ti = tune.interceptor;
+  assert(ti.speedFactor<1,'Bat trades top speed below Falcon for turning');
+  assert(ti.turnFactor>=1.5,'Bat turns substantially faster than Falcon');
+  for(const heading of [0,Math.PI/2,Math.PI,Math.PI*1.5]){
+    const s=falcon(1000,1000,heading,tune.ship.minSpeed);s.chassis=S.BATTLECRUISER;
+    const positions=[0,1,2,3].map(i=>S.turretPosition(s,i,tune));
+    assert.equal(new Set(positions.map(p=>p.x.toFixed(6)+','+p.y.toFixed(6))).size,4,'four distinct capital deck mounts');
+    positions.forEach(p=>assert(Math.hypot(p.x-s.x,p.y-s.y)<50,'capital turrets sit on deck instead of outboard'));
+  }
   const tb = tune.battlecruiser;
   const ship = (chassis) => { const s = falcon(0, 0, 0, tune.ship.cruiseSpeed); s.hp = s.hullMax = tune.ship.maxHp; s.chassis = chassis; return s; };
   const [sc, it, bc] = [0, 1, 2].map(ship);

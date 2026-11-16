@@ -140,7 +140,7 @@ export class HangarScene extends Phaser.Scene {
         }
         else drawUnlockEmblem(g,u,x-cw/2+(cw<175?25:32),y,Math.min(cw<175?36:48,ch-18));
         if (shipTab) {
-          const detail = u.id === 'ship.sparrow' ? 'CENTRE GUN · 80% AMMO' : u.id === 'ship.scrappy' ? 'TWIN GUNS · SIDEGRADE' : 'TWIN ENGINE · AGILE';
+          const detail = u.id === 'ship.sparrow' ? 'CENTRE GUN · 80% AMMO' : u.id === 'ship.scrappy' ? 'TWIN GUNS · SIDEGRADE' : 'LOW SPEED · HIGH TURN';
           text(this,x-cw/2+14,y+ch/2-60,detail,cw<190?8:10,'#a9bfce').setOrigin(0,.5);
         }
         const price = this.priceOf(u);

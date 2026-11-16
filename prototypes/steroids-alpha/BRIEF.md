@@ -462,7 +462,7 @@ Owner correction (16 November 2026): hyperspace arrival replaces the vertical di
   - **Sparrow:** free starter. Same base movement, hull, shield and shot damage as Falcon. One centre gun, 5 shots/s (Falcon 7.5 combined, 3.75 per barrel). Holds 80% of Falcon cold-to-overheat shots, rounded to the nearest whole shot including cooling at each gun tier (base 12 versus 15). Deterministic launch drift up to ±3 degrees after aim assist weakens long-range accuracy. Normal cooling/unlock animations stay unchanged.
   - **Falcon** (formerly Scrappy): twin-gun unlockable sidegrade, existing ship-slot price.
   - **Bat** (formerly Interceptor): a one-time credit unlock (Hangar), then chosen freely in
-    the Hangar before a run. Faster and nimbler, weaker shield and guns.
+    the Hangar before a run. Slower top speed and much quicker turning, weaker shield and guns.
   - **Battlecruiser:** never bought with credits (it is raw power). A fighter
     evolves into it during a run from the shop's EVOLVE card once it has enough
     upgrades and power, paying minerals. Lost at the end of the run (death or
@@ -473,11 +473,10 @@ Owner correction (16 November 2026): hyperspace arrival replaces the vertical di
   matching palette, gold and ice tint owners may claim any one palette free.
 - First values (Claude's educated guess, to be tested; tune.json
   `interceptor`, `battlecruiser`, `unlockPrices`, all live-tunable):
-  Bat and Falcon 1500 credits, radius 24, speed x1.12, acceleration and turn
-  x1.2, shield x0.7, damage x0.85. Battlecruiser: needs 6 upgrades and 300
+  Bat and Falcon cost 1500 credits each. Bat has radius 24, speed x0.9, acceleration x1.2 and turn
+  x1.7, shield x0.7, damage x0.85. Battlecruiser: needs 6 upgrades and 300
   power, costs 120; radius 60, speed x0.72, acceleration x0.6, turn x0.55,
-  shield x2.5, four cannons (damage x1.6, every 5 steps), two escort turret
-  drones. Palettes 400 credits. Gun and turret positions come from the art;
+  shield x2.5, four cannons (damage x1.6, every 5 steps), two mounted turrets, with four deck platforms for upgrades. Palettes 400 credits. Gun and turret positions come from the art;
   hit sizes and stats never from the art size.
 - On evolving: upgrades, missile/mine charges and salvage are kept; hull keeps
   its points under the new maximum; the shield keeps its share of the larger
@@ -768,3 +767,9 @@ Install the approved portal STEROIDS–α title, three blue-white energy shot sp
 ### Starter transition review (owner, 16 November 2026)
 
 Sparrow is chassis3 / ship.sparrow; Falcon retains chassis0 / ship.scrappy and Bat retains chassis1 / ship.interceptor, preserving stable ownership IDs. Protocol22 accepts chassis3 and centre-gun side0. Publish client and Worker together after review. Owner decision (16 November 2026): everyone must unlock Falcon, including existing players. No grandfathered grant or account migration. New Sparrow source has eight distinct top-down parts, 11 rig modules, the established fixed layers/facing offsets/3% shading, twin engine vibration, centre recoil, hover pool/sun shadow and per-part control FFD with sprite fallback.
+
+### Bat and battlecruiser revision (owner, 16 November 2026)
+
+Bat default cowlings have cobalt primary casing with ivory caps instead of an orange main panel; palette remapping follows hull colour. Requested handling is speedFactor0.9 and turnFactor1.7 (base315 top speed versus Falcon350, and70% faster turning); all other Bat values stay unchanged. A later live release must publish these two requested settings into the hosted record while preserving other owner tuning.
+
+Battlecruiser-v2 adds panel seams, service hatches, vents and rivet pairs to existing silhouettes, a framed command bridge, four forward long cannons and four parented octagonal turret platforms. Two turrets are built in; existing upgrades populate up to four platforms. Painted compact turret heads aim and recoil independently within the existing fixed-Z/control-FFD rig, with no ground light/shadow of their own. Shared turret mounts now sit on deck (right±36, rear forward−9/front25.2) instead of the previous outboard escort positions. Main cannon mounts and upgrade/evolve requirements are unchanged. The existing shield emitter modules move inward slightly to make room on deck; shield gameplay is unchanged.

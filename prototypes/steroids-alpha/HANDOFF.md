@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 codex bat-capital-revision REVIEW
+DID: Bat cobalt cowlings, base315 top speed and1.7x Falcon turn rate. Detailed battlecruiser with framed bridge,4 forward cannons and4 fixed rig deck platforms; painted heads show only equipped count, aim/recoil independently, with control-only FFD/sprite fallback.
+FILES: art/{bat-v3,battlecruiser-v2}, render/{shipProfiles,shipArt,shipView,shipPreview}, flight, hangar caption, tune, sim/chassis, sim tests, docs.
+SEAM: optional setTurrets(count,angles,firedAt); shared capital deck mounts right±36, forward−9/25.2. Main cannon origins/equipment counts/upgrade rules unchanged. Capital textures2x budget capped512; fighters unchanged.
+CROSS: owner-requested Bat handling and deck turret origins; minimal flight observation bridge. Typecheck/build/sim/bank/live-config/rig pass. Brave desktop/mobile previews,24-part FFD,0/2/4 heads, Canvas flight and5 rebuilds stable150textures; no errors. Local~32FPS matches same Falcon baseline, not a60FPS claim.
+FOR claude: review only; do not deploy yet. R2 ZIPs still local/cache. Future release needs Bat speedFactor0.9/turnFactor1.7 published to hosted settings, preserving all other owner values. Evidence outputs/steroids-alpha/fleet-revision-review; comms e31061e9. Everyone must buy Falcon; no grandfathered grant.
+
 ## 2026-11-16 codex sparrow-falcon-bat REVIEW
 DID: Sparrow free starter with original8-part/11-module top-down rig, centre recoil, Falcon base stats,5shots/s and12-versus15 cold burst, bounded3deg launch drift. Scrappy display renamed Falcon and Interceptor Bat; Falcon is a paid sidegrade. Four compact hangar cards.
 FILES: art/sparrow-v1, render/shipProfiles, sim/{chassis,ship,unlocks,protocol,liveConfig}, room, menu/hangar, tune, tests.
@@ -96,12 +103,5 @@ DID: Painted missiles/mines/repair pods; smoke, armed/search/observed-seeking cu
 FILES: art/combat-backlog-v1/* art/prepare-assets.mjs render/{combatSprites,combatEffects,worldArt}.ts scenes/flight.ts
 SEAM: optional painted/seeking ordnance cue, CombatImpact render tag; existing sim/wire/radii unchanged. Three new source PNGs/ZIP local, hash-verified preview cache; reserved R2 object NOT uploaded.
 CROSS: scene event/draw wiring only, no tuning/input. Typecheck/build/rig/sim/live-config,22 desktop/mobile frames + Canvas checks pass; actual fire/dash and2clients+4bots ~57FPS on PC, no errors.
-FOR claude: LOCAL PREVIEW, not published. Owner must review screenshots before live. Gallery outputs/steroids-alpha/backlog-review/index.html; branch codex/steroids-combat-backlog-preview. No PR opened because repository auto-merge would publish.
-
-## 2026-11-15 codex P2-clan-preview
-DID: Crimson fractured dust and Azure glacial terrain, fortified treasury, pads/over-pad/docked states, rotating turrets/flash, projected dome/hit/push, gate and compact banners.
-FILES: render/{clanBaseArt,planetGround}.ts scenes/flight.ts drawBase
-SEAM: drawClanBase/styleClanBanner read existing layout/tune; exact coordinates/radii/projection retained.
-CROSS: drawBase render integration only.24 WebGL +2Canvas captures, real docked/over-pad getter and GLSL checks pass; labels/limb clipping corrected.
 FOR claude: LOCAL PREVIEW, not published. Owner must review screenshots before live. Gallery outputs/steroids-alpha/backlog-review/index.html; branch codex/steroids-combat-backlog-preview. No PR opened because repository auto-merge would publish.
 

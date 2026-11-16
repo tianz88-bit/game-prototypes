@@ -74,6 +74,16 @@ export class ShipView {
   /** When each gun last fired (ms), by side: -1 left, 1 right. */
   private firedAt: Record<number, number> = { [-2]: -1e9, [-1]: -1e9, 1: -1e9, 2: -1e9 };
   private now = 0;
+  private activeTurrets = 0;
+  private turretAngles: readonly number[] = [];
+  private turretFiredAt: readonly number[] = [];
+
+  /** Capital deck turrets use authoritative equipment and observed aim, inside the part rig. */
+  setTurrets(count: number, angles: readonly number[], firedAt: readonly number[]): boolean {
+    this.activeTurrets = Math.max(0, Math.min(4, Math.floor(count)));
+    this.turretAngles = angles; this.turretFiredAt = firedAt;
+    return this.profile.modules.some(m => m.asset === 'turret-head');
+  }
   private normalDepth = SHIP_DEPTH;
   private shadow: Phaser.GameObjects.Image;
   private hoverLight: Phaser.GameObjects.Image;
@@ -220,10 +230,20 @@ export class ShipView {
     const hover = cal.hoverLift * (1 - landed); // a landed ship sits on the ground
     this.now = timeMs;
     for (const { m, img, scale, ffd } of this.parts) {
+      const head = m.asset === 'turret-head';
+      const turretIndex = head ? Number(m.id.slice(-1)) : -1;
+      if (head && turretIndex >= this.activeTurrets) { ffd?.show(false); img.setVisible(false); continue; }
+      img.setVisible(true);
       const gun = m.asset === 'gun';
       const k = gun ? recoilPose(timeMs - (this.firedAt[m.side ?? 1] ?? -1e9)) : null;
       const kick = k ? (k.kick * (m.recoilScale ?? 1)) / 7 : 0;
       const p = pose(m, angle, cal, timeMs, 1, turn, kick, mods);
+      if (head) {
+        p.rotation = Number.isFinite(this.turretAngles[turretIndex]) ? this.turretAngles[turretIndex] + Math.PI / 2 : p.rotation;
+        const age = timeMs - (this.turretFiredAt[turretIndex] ?? -1e9), recoil = recoilPose(age).kick * .3;
+        p.x -= Math.cos(p.rotation - Math.PI / 2) * recoil;
+        p.y -= Math.sin(p.rotation - Math.PI / 2) * recoil;
+      }
       img.setPosition(p.x, p.y - hover).setRotation(p.rotation);
       if (k) img.setScale(scale * k.scaleX, scale * k.scaleY);
       ffd?.show(activeFFD);
@@ -231,6 +251,15 @@ export class ShipView {
     }
     this.container.setPosition(x, y).setScale(scale);
     this.updateExhaust(dt / 1000, landed > 0.3 ? { ...demand, throttle: false, left: false, right: false, off: true } : demand, angle, timeMs, at, boosting && landed <= 0.3);
+    // Short square muzzle glints share the existing exhaust Graphics and its transit opacity.
+    for (const {m,img} of this.parts) if (m.asset === 'turret-head' && Number(m.id.slice(-1)) < this.activeTurrets) {
+      const age=timeMs-(this.turretFiredAt[Number(m.id.slice(-1))]??-1e9);
+      if(age>=0 && age<70){const a=img.rotation-Math.PI/2,reach=img.displayHeight*.5;
+        const px=x+(img.x+Math.cos(a)*reach)*scale,py=y+(img.y+Math.sin(a)*reach)*scale;
+        this.exhaustGfx.fillStyle(0xb4f8ff,.8).fillRect(px-3*at.scale,py-3*at.scale,6*at.scale,6*at.scale);
+        this.exhaustGfx.fillStyle(0xffffff,1).fillRect(px-at.scale,py-at.scale,2*at.scale,2*at.scale);
+      }
+    }
     this.drawShield(at, timeMs);
     this.shadow
       .setPosition(at.shadowX + (x - at.shadowX) * landed, at.shadowY + (y - at.shadowY) * landed)

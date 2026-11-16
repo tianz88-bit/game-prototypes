@@ -74,10 +74,10 @@ export const TURRET_MOUNTS_BY_CHASSIS: Record<number, readonly Mount[]> = {
     { forward: 10, right: 32 },
   ],
   [BATTLECRUISER]: [
-    { forward: -10, right: -106.2 },
-    { forward: -10, right: 106.2 },
-    { forward: 35, right: -106.2 },
-    { forward: 35, right: 106.2 },
+    { forward: -9, right: -36 },
+    { forward: -9, right: 36 },
+    { forward: 25.2, right: -36 },
+    { forward: 25.2, right: 36 },
   ],
 };
 

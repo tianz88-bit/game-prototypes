@@ -69,7 +69,7 @@ export function prepareShipArt(scene: Phaser.Scene): ShipArtStatus {
       for (const a of p.assets) {
         const src = scene.textures.get(sourceKey(p.shipId, a)).getSourceImage() as HTMLImageElement;
         const box = alphaBounds(src);
-        const max = clientTune.render.partTextureMax;
+        const max = Math.min(512, clientTune.render.partTextureMax * (p.textureScale ?? 1));
         const k = Math.min(1, max / Math.max(box.w, box.h));
         const canvas = resample(src, box, Math.max(1, Math.round(box.w * k)), Math.max(1, Math.round(box.h * k)));
         base.set(`${p.shipId}:${a}`, canvas);

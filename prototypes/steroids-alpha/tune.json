@@ -251,9 +251,9 @@
   },
   "interceptor": {
     "radius": 24,
-    "speedFactor": 1.12,
+    "speedFactor": 0.9,
     "accelFactor": 1.2,
-    "turnFactor": 1.2,
+    "turnFactor": 1.7,
     "shieldFactor": 0.7,
     "damageFactor": 0.85,
     "fireIntervalSteps": 4,
