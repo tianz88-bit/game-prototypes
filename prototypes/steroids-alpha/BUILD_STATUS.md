@@ -1,8 +1,6 @@
 ## Current milestone
 
-Siege v0 step 1 (16 November, claude): siege rules and siege bots in the shared sim, plus a headless siege simulator; Warzone not playable yet (step 2: room countdown/lockdown, respawns, client UI).
-
-Owner approved motion79027e3 and live publication, with a final landing spark. Release candidate on codex/steroids-hyperspace-arrival, based on main d56a3b8. Owner corrected the warp sequence after live0074: hyperspace first, then heading-driven globe approach, plus observer fade/brake/residuals and protection through completion. Public game remains161126r0074 while the approved matching client/Worker release is being published. Motion gallery: outputs/steroids-alpha/hyperspace-preview/index.html.
+Hyperspace/spark release verified as161126r0075; latest public build is161126r0076 after Claude's siege-rules merge, retaining this release. Live at https://daily-daily-games.itch.io/steroids-alpha. Owner approved the revised hyperspace and final landing spark. PR512 merged39d1b471; client43853040304 and Worker43853040359 both succeeded. Public Worker health is OK/protocol21. Motion preview remains outputs/steroids-alpha/hyperspace-preview/index.html.
 
 ## What was implemented
 
@@ -22,6 +20,10 @@ Typecheck/build/rig/sim/live-config/bank suites pass. New tests cover protected 
 
 Brave DPR2 desktop1280x720 and mobile844x390 real server arrivals reach flight from positive authority time; actual renderer entry/exit captures preserve centred ship and exact final scale. A real two-client observer sees hidden arrival then fade-in.21 deterministic observer frames verify overshoot, settlement, residual cleanup and no effect for an old visitor. WebGL and Canvas held-fire arrival, resize continuity, UI restoration, repeated resize texture stability and return-to-menu cleanup pass. No unexpected page/console errors. Evidence: outputs/steroids-alpha/hyperspace-preview/result.json, observer.json, compatibility.json and5 GIFs. Captured animation timelines use isolated client fixtures after network close; real network checks are recorded separately.
 
+Public Brave verification: all four desktop/mobile map layouts load0075 and complete actual two-tap planet entry with open connections. Desktop/mobile completion sparks trigger at arrival0, remain for1400ms and expire; remote completion triggers once and old visitors do not trigger. A real two-client in-range observer confirms hidden approach then fade-in;21 isolated rendered frames confirm brake/overshoot, residual cleanup and old-visitor suppression. No unexpected page/console errors. Evidence: hyperspace-live-verification/map/result.json, landing-live-verification/result.json and inspected GIF/screenshots, hyperspace-live-verification/observer/observer.json. Observer was flown within the server1400-unit interest range using normal controls; distant ships are correctly omitted from snapshots.
+
+Latest-build recheck after PR513: public161126r0076 passes desktop/mobile own/remote completion trigger,1400ms cleanup and old-visitor suppression, zero errors; health remains protocol21. Evidence outputs/steroids-alpha/landing-live-current/result.json and screenshots. No runtime code was changed by this documentation merge.
+
 ## Open questions
 
 Owner reviewed and approved the motion. No open release decision.
@@ -32,4 +34,4 @@ Phone emulation is not physical phone/Safari evidence. Canvas retains the existi
 
 ## Next proposed step
 
-Publish the approved matching protocol21 client/Worker and verify public arrival/completion sparks, cleanup, Warp map and observer entrance. Send Claude final release proof in thread68c1ca78.
+Owner playtests live0075. Final release proof and protocol/arrival contracts are sent to Claude in thread68c1ca78. No remaining deployment work.
