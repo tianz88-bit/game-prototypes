@@ -9,7 +9,7 @@ import type { Calibration } from './shipRig';
 import { clientTune } from '../clientTune';
 import { SHIP_PROFILES } from './shipProfiles';
 import type { ShipProfile } from './shipProfiles';
-import { remapPixels } from './palette';
+import { matchCapitalCannonCasing, remapPixels } from './palette';
 import calibrationJson from '../../art/human-nomad-v1/calibration-approved.json';
 
 export const SHIP_ID = 'human-nomad-v1';
@@ -72,6 +72,11 @@ export function prepareShipArt(scene: Phaser.Scene): ShipArtStatus {
         const max = Math.min(512, clientTune.render.partTextureMax * (p.textureScale ?? 1));
         const k = Math.min(1, max / Math.max(box.w, box.h));
         const canvas = resample(src, box, Math.max(1, Math.round(box.w * k)), Math.max(1, Math.round(box.h * k)));
+        if (i === 2 && a === 'gun') {
+          const ctx = canvas.getContext('2d')!, pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          matchCapitalCannonCasing(pixels.data, canvas.width, canvas.height);
+          ctx.putImageData(pixels, 0, 0);
+        }
         base.set(`${p.shipId}:${a}`, canvas);
         scene.textures.addCanvas(partKey(a, p.shipId), canvas);
         scene.textures.remove(sourceKey(p.shipId, a)); // free the full-size source

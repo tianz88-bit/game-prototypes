@@ -42,6 +42,7 @@ export class HangarScene extends Phaser.Scene {
   unlocks: string[] = [];
   cards: Card[] = [];
   backButton = { x: 0, y: 0, w: 0, h: 0 };
+  reviewButton = { x: 0, y: 0, w: 108, h: 32 };
   tabs: { index: number; label: string; x: number; y: number; w: number; h: number }[] = [];
   /** The item waiting for its confirming second tap. */
   private armed: string | null = null;
@@ -92,6 +93,9 @@ export class HangarScene extends Phaser.Scene {
     this.backButton = { x: 20 + 50, y: 26, w: 100, h: 32 };
     panel(this.add.graphics(), 20, 10, 100, 32, UI.uiBorder);
     text(this, 70, 26, 'BACK', 13).setOrigin(0.5);
+    this.reviewButton = { x: w - 70, y: 26, w: 108, h: 32 };
+    panel(this.add.graphics(), w - 124, 10, 108, 32, UI.uiAccent);
+    text(this, w - 70, 26, 'RIG REVIEW', 12).setOrigin(.5);
 
     const savedLook = loadSave().look ?? {};
     const look = { ...savedLook, ship: selectedFighter(savedLook, this.unlocks).id };
@@ -243,6 +247,10 @@ export class HangarScene extends Phaser.Scene {
       return;
     }
     for (const t of intents.drainTaps()) {
+      const review = this.reviewButton;
+      if (Math.abs(t.x - review.x) <= review.w / 2 && Math.abs(t.y - review.y) <= review.h / 2) {
+        this.scene.start('rig-review'); return;
+      }
       if (this.showRuns) {
         this.showRuns = false;
         this.layout();

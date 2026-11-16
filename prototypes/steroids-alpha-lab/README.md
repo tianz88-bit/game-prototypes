@@ -4,6 +4,12 @@ Permanent public route: `/game-prototypes/prototypes/steroids-alpha-lab/`, direc
 
 Import settings accepts both Export all settings and Export calibration files. A calibration-only import changes the rig without replacing game stats or the draft's publishing baseline. It preserves authored four-facing offsets and validates the complete rig before applying anything. Invalid imports leave the current draft intact.
 
+## Ship and building review
+
+Use the Ship / building selector above the stage. Falcon draft calibration keeps the existing editor. Sparrow, Bat, Battlecruiser, Nexus and Tower turrets open the production game renderer in an isolated review scene; Falcon live rig is available too. Rotation, cardinal headings, firing, palette/clan, control-driven tilt and capital turret count are available inside the preview. Gold crosses show simulation main-gun origins. Nexus has no weapons. The review reads live settings once and never connects a game room, buys/grants equipment or publishes a draft. Switching back preserves the draft, stops the review frame and wakes the calibration loop. While reviewing, the calibration loop sleeps and its editor is hidden. The frame is reused when changing subjects.
+
+Direct example: append `?review=sparrow` to this lab route. The same review is available from the live game's Hangar → Rig Review. The production route uses `?rigReview=1&asset=sparrow`. Internal treasury wire/storage names are retained; player-facing name is Nexus.
+
 ## Hosted owner publishing
 
 Publish to live opens the existing game Worker at /manage/. Cloudflare Access signs in the owner using email codes. The Worker independently verifies the Access RS256 signature, fixed team issuer, application audience, expiration and exact owner email. Only /manage/ is protected; /config, /health and gameplay sockets remain public. The GitHub OIDC publish workflow remains available unchanged.
