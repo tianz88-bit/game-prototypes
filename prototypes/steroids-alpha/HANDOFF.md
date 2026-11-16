@@ -4,7 +4,7 @@
 DID: Sparrow free starter with original8-part/11-module top-down rig, centre recoil, Falcon base stats,5shots/s and12-versus15 cold burst, bounded3deg launch drift. Scrappy display renamed Falcon and Interceptor Bat; Falcon is a paid sidegrade. Four compact hangar cards.
 FILES: art/sparrow-v1, render/shipProfiles, sim/{chassis,ship,unlocks,protocol,liveConfig}, room, menu/hangar, tune, tests.
 SEAM: protocol22 permits chassis3 and recoil side0 (unchanged byte layout); stable old IDs0/1 preserved. Shared sparrow tunings upgrade into old records. Publish client/Worker together only after review/R2 verification.
-CROSS: minimal requested weapon/default/ownership/menu behavior and tests; existing siege preserved. Legacy Falcon ownership question remains pending; no live account writes or grant migration.
+CROSS: minimal requested weapon/default/ownership/menu behavior and tests; existing siege preserved. Owner confirmed everyone must unlock Falcon, including existing players; no grandfathered grant or migration.
 FOR claude: do not merge/deploy this preview yet; new ZIP only local cache until review/upload. Art source/evidence outputs/steroids-alpha/sparrow-review; details art/sparrow-v1/README.md. Comms e31061e9.
 
 ## 2026-11-16 claude siege-sim

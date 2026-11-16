@@ -6,7 +6,7 @@ Eight original top-down component PNGs are stored outside Git at outputs/steroid
 
 The eleven-module profile uses the existing pose/depth/FFD/exhaust/recoil pipeline. Centre gun has side0, supported by the signed shot-side wire field; protocol22 additionally accepts chassis3. Eight files retain their fixed 384x512 source registration. Runtime alpha-bounds preprocessing is shared with existing ships. No hand-painted source pixels were programmatically changed.
 
-Ship IDs stay stable: Falcon=ship.scrappy/chassis0, Bat=ship.interceptor/chassis1, Sparrow=ship.sparrow/chassis3. Missing/forged/locked saved choices resolve to Sparrow. Existing-account Falcon grants are undecided; no grant SQL is in active server migrations.
+Ship IDs stay stable: Falcon=ship.scrappy/chassis0, Bat=ship.interceptor/chassis1, Sparrow=ship.sparrow/chassis3. Missing/forged/locked saved choices resolve to Sparrow. Owner confirmed everyone must unlock Falcon, including existing accounts. No grandfathered grant or account migration is needed.
 
 Weapon: 6 ticks at30Hz (5 shots/s); Falcon is4 ticks alternating (7.5 combined,3.75 each). Same base movement/defence/damage. Base cold burst12 versus15. Whole-shot ammo rounds to nearest80% including cooling, at each upgrade tier. A1e-10 heat threshold removes exact-cap floating-point bonus rounds; no tuned values changed. +/-3degree deterministic launch drift is applied after assist; centre bore stays aligned.
 

@@ -16,7 +16,7 @@ Typecheck/build, sim, bank, live-config and original rig/FFD suites pass. Added 
 
 ## Open questions
 
-Owner confirmed80% means shots before overheating. Existing-account Falcon grandfathering question remains unanswered: keep Falcon unlocked for existing accounts versus require everyone to unlock. BRIEF.md flags this migration decision; no active grant migration or live account change exists.
+Owner confirmed 80% means shots before overheating and everyone must unlock Falcon, including existing players. BRIEF.md records both decisions. No grandfathered grant or account migration is needed. Art remains in review.
 
 ## Known issues
 
@@ -24,4 +24,4 @@ This is local review, not live. New R2 object not uploaded; cache contains revie
 
 ## Next proposed step
 
-Owner reviews Sparrow design and settles existing-player Falcon ownership. Then finalize the one-time migration if requested, upload/re-fetch new art ZIP, publish client+Worker together and verify public spawn/selection/firing. Claude receives exact contract and review gate in Agent Comms threade31061e9-e8e1-4105-858a-2f847541014a.
+Owner reviews Sparrow design. After art approval, upload/re-fetch the new art ZIP, publish client+Worker together and verify public spawn/selection/firing. Falcon requires the existing ship-slot unlock purchase for all players; no grant migration. Claude receives exact contract and review gate in Agent Comms threade31061e9-e8e1-4105-858a-2f847541014a.
