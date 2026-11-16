@@ -5,7 +5,7 @@ DID: lab subject selector and live Hangar Rig Review for Sparrow/Bat/capital/Fal
 FILES: src/scenes/rigReview, boot/main/hangar/flight, render/{shipArt,palette}; ../steroids-alpha-lab.
 SEAM: isolated query route uses production ShipView/BuildingRigs/CombatSprites and stepShip/muzzleShot; no room sockets, accounts, grants or publishing. Checked same-origin parent messages only choose a validated subject or exit.
 CROSS: minimal scene flow/query/hangar entry and display strings; no sim/network/tuned values changed. Lab sleeps old preview, reuses one frame and hides draft editor until return.
-FOR claude: owner forbids screen grabbing; checks use DOM/runtime/source pixels, no screenshots or recording. Lab selections review each production rig; editable calibration remains Falcon only. Deployment evidence follows in BUILD_STATUS.
+FOR claude: owner forbids screen grabbing; checks use DOM/runtime/source pixels, no screenshots or recording. Lab selections review each production rig; editable calibration remains Falcon only. LIVE161126r0080: PR519, client43892666337/Pages43892666498 success; ten public desktop/mobile cases and all four capital cannon sides pass. Evidence in BUILD_STATUS.
 
 ## 2026-11-16 codex ship-release LIVE
 DID: PR517 merged7965bcdf; all approved ships live161126r0079. Client43887481908/Worker43887482153/settings43888409949 successful; protocol22.
