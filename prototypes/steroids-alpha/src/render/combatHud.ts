@@ -12,8 +12,9 @@ export class CombatHud {
   constructor(scene: Phaser.Scene){
     this.labels=Array.from({length:8},()=>text(scene,0,0,'',11).setDepth(953).setVisible(false));
   }
-  /** home: on one's own clan home planet the hold carries fuel for the treasury, not salvage (owner). */
-  draw(g:Phaser.GameObjects.Graphics,p:ShipState|null,w:number,h:number,touch:boolean,now:number,home=false):void{
+  /** hold: 'fuel' on one's own clan home planet (owner); 'none' on another clan's, where visitors
+   *  can mine nothing, so the cargo readout is hidden. */
+  draw(g:Phaser.GameObjects.Graphics,p:ShipState|null,w:number,h:number,touch:boolean,now:number,hold:'salvage'|'fuel'|'none'='salvage'):void{
     this.labels.forEach(t=>t.setVisible(false));if(!p)return;
     const width=touch?Math.min(240,w*.4):312;
     const right=touch?12+width:w/2+width/2;
@@ -57,6 +58,8 @@ export class CombatHud {
       const heat=this.labels[4];heat.setVisible(p.overheated).setOrigin(.5);
       if(p.overheated){heat.setFontSize(9).setText('HOT');if(heat.style.color!=='#ffb09a')heat.setColor('#ffb09a');}
     }
+    if(hold!=='none'){
+    const home=hold==='fuel';
     const cargo=TUNE.salvage.cargoMax,held=home?p.fuel:p.salvage,full=held>=cargo-.5;
     const sy=touch?y+70:y-23;
     panel(g,right-132,sy,132,19,full?0xf39872:UI.uiGold);
@@ -69,6 +72,7 @@ export class CombatHud {
       g.fillStyle(0x261a23,.92);g.fillRoundedRect(cx-bw/2,cy,bw,15,3);
       g.lineStyle(1,0xf39872,.7);g.lineBetween(cx-bw/2+4,cy+14,cx+bw/2-4,cy+14);
       label(7,cx,cy+1,home?'FULL · DOCK TO UNLOAD':'FULL · WARP OUT',0xffbd91,touch?9:10,.5);
+    }
     }
     // Slow warning beat only; no full-screen pulse while the shield recovers.
     if(down){g.lineStyle(2,0xff9868,.45+.2*Math.sin(now/230));g.lineBetween(x+12,y+21,x+42,y+21);}
