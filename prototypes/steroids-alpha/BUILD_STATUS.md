@@ -1,6 +1,6 @@
 ## Current milestone
 
-Local review candidate on codex/steroids-warp-stellar-map, based on main9097c74. New pulsing WARP menu button, spinning-globe destination popup, and level/kills/minerals leaderboard implemented. Public build remains161126r0073 from the previous approved release. Review gallery: outputs/steroids-alpha/warp-map-preview/index.html. This new pass has not been pushed or deployed.
+Owner approved the Warp map and leaderboard for live publication on 16 November 2026. Release candidate on codex/steroids-warp-stellar-map, based on main9097c74. New pulsing WARP menu button, spinning-globe destination popup, and level/kills/minerals leaderboard implemented. Public build remains161126r0073 from the previous approved release. Review gallery: outputs/steroids-alpha/warp-map-preview/index.html. The reviewed candidate fb8c7c9 passed its checks; publishing and public verification are now authorized and in progress.
 
 ## What was implemented
 
@@ -25,4 +25,4 @@ Physical phone/Safari performance is unmeasured. Canvas uses simpler globe shadi
 
 ## Next proposed step
 
-Owner reviews the stellar map and mineral leaderboard in the gallery. Publish this new pass after review; the previous orbital/building release remains live. On release, merge latest main, rerun affected checks and verify fresh public itch assets/planet entry.
+Publish the approved pass, monitor itch and Worker workflows, verify the fresh public build and two-tap planet entry, then send Claude the release proof and menu/ranking contracts. Main remains unchanged at9097c74; no rebase or implementation changes required.

@@ -1,11 +1,11 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
-## 2026-11-16 codex warp-stellar-map-preview
+## 2026-11-16 codex warp-stellar-map-release
 DID: pulsing menu WARP opens spinning four-globe chart; first tap selects/details, second enters. Shows real populations, relationship and resource types. Leaderboard and compact rank now sort level, kills, minerals; labels say MINERALS.
 FILES: src/render/{stellarMap,planetGround}.ts, src/scenes/{menu,flight}.ts, src/main.ts, sim/leaderboard.ts, sim/protocol.ts comment, sim tests, BRIEF/BUILD_STATUS.
 SEAM: existing power wire field remains mineral balance; rankPilots shared by board/nav. PlanetGround adds bounded positioning/disposal. Debug menuScene exposes preview state; buttons are destination hit areas only while popup open.
 CROSS: requested menu behavior/rank and minimal sim-test extension; no server, wire version or economy changes. Fixed inherited removeAll(true) text-texture leak by destroying old menu children. Required checks and Brave DPR2 four viewports pass; ten cycles stable53objects/133textures, WebGL/Canvas ~60FPS; details/resize/offline/actual entry and board order pass.
-FOR claude: LOCAL REVIEW ONLY, no push/deploy. Preview outputs/steroids-alpha/warp-map-preview/index.html. Await owner visual review before PR auto-merge. Counts use existing /planets; unavailable remains unknown. New menu tests must open WARP before planet selection, then tap the selected globe again. Previous live161126r0073 unchanged.
+FOR claude: owner approved live publication on16November; releasing the reviewed fb8c7c9. Counts use existing /planets; unavailable remains unknown. Menu tests must open WARP, select a globe, then tap that selected globe again. No economy or protocol-version change. Final public release proof follows via Agent Comms.
 
 ## 2026-11-16 codex orbital-buildings-hud-release
 DID: owner approved orbital arrival/departure, layered treasury Nexus/twin-cannon towers, and joined translucent HUD v3. Uploaded/re-fetched exact building source ZIP with matching SHA-256.
