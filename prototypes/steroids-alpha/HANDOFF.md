@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 claude sparrow-gun
+DID: owner retune: Sparrow single gun 6 shots/s (sparrow.fireIntervalSteps 6 -> 5) and 90% of Falcon cold-to-lock shots (ammoRatio 0.8 -> 0.9); measured 14 vs 15 shots base, 25 vs 28 at gun tier 2. Live settings republished. Found while re-running the siege sim: Sparrow as the starter had dropped 2v2 attacker wins to 0%; siege structure HP to be retuned with Warzone step 2 (sim suggests turrets 110, shield 750, treasury 1100).
+FILES: tune.json BRIEF.md
+SEAM: none (values only).
+CROSS: tune.sparrow (your Sparrow work): two values, owner-requested.
+FOR codex: Sparrow is now 96 vs Falcon 120 damage per second.
+
 ## 2026-11-16 codex live-rig-review
 DID: lab subject selector and live Hangar Rig Review for Sparrow/Bat/capital/Falcon/Nexus/tower turrets. Rotation, firing, gun-origin guides, palette/clan, control tilt and deck count. Treasury display renamed Nexus. Capital cannon casing matches cobalt and selected palettes; forward steel/alpha retained.
 FILES: src/scenes/rigReview, boot/main/hangar/flight, render/{shipArt,palette}; ../steroids-alpha-lab.
@@ -27,6 +34,7 @@ FILES: art/sparrow-v1, render/shipProfiles, sim/{chassis,ship,unlocks,protocol,l
 SEAM: protocol22 permits chassis3 and recoil side0 (unchanged byte layout); stable old IDs0/1 preserved. Shared sparrow tunings upgrade into old records. Publish client/Worker together only after review/R2 verification.
 CROSS: minimal requested weapon/default/ownership/menu behavior and tests; existing siege preserved. Owner confirmed everyone must unlock Falcon, including existing players; no grandfathered grant or migration.
 FOR claude: do not merge/deploy this preview yet; new ZIP only local cache until review/upload. Art source/evidence outputs/steroids-alpha/sparrow-review; details art/sparrow-v1/README.md. Comms e31061e9.
+
 ## 2026-11-16 claude ship-stats-rams
 DID: per-ship handling: tune.interceptor/battlecruiser now hold explicit minSpeed/cruiseSpeed/maxSpeed/acceleration/braking/turnRate (old factors removed; same effective values); Falcon (renamed from Scrappy in UI) = tune.ship. Corner speed peaks at each ship's own cruise/top ratio. Rams: target straight to hull; rammer same amount to shield, no overflow, hull only if shield down (dashRamSelfDamage removed). Tutorial RAM step: battered practice Battlecruiser, 3 rams; tutorial drones/chasers' turret drones never fire (World.quiet).
 FILES: sim/{chassis,ship,world,clanBase,liveConfig,unlocks}.ts server/src/room.ts tune.json src/tutorial/guide.ts src/scenes/menu.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
@@ -96,11 +104,3 @@ FILES: src/scenes/flight.ts BRIEF.md
 SEAM: FlightScene.drawBaseMarkers (client only, no protocol change).
 CROSS: none.
 FOR codex: placeholder triangles + text; a landmark icon set (treasury, gate) would fit here.
-
-## 2026-11-15 claude clan-fuel
-DID: no salvage on clan home planets: members mine Fuel (ShipState.fuel, same 400 hold, hot zone x2, lost on death) and docking unloads it to the treasury; non-members mine nothing and do not see the hot zone; no gold drops at home. Exhaust full plume now keys on each ship's own top speed (topSpeed(hullMax, chassis)), not 350.
-FILES: sim/{ship,protocol,world}.ts src/render/{combatHud,shipView}.ts src/scenes/flight.ts scripts/test-steroids-alpha-{sim,bank}.mjs BRIEF.md DESIGN_LONGGAME.md
-SEAM: PROTOCOL_VERSION 20 (ship +f32 fuel at offset 95); CombatHud.draw(..., home); ShipView.update(..., top).
-CROSS: src/render/{combatHud,shipView}.ts (yours): FUEL label/full cue text and the plume threshold only.
-FOR codex: the cargo coin icon also stands for Fuel on home planets; a distinct fuel icon would help (low priority).
-
