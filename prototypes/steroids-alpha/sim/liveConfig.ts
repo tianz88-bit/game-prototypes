@@ -83,6 +83,7 @@ export function validateConfig(input: unknown): ConfigData {
     if (v < 0 || v > 10000) fail(`${group}.${key}: value must be 0–10000`);
   }
   const s = value.tune.ship, w = value.tune.weapon;
+  if (!(s.turnAtMinSpeed > 0 && s.turnAtMinSpeed <= 1) || !(s.turnAtMaxSpeed > 0 && s.turnAtMaxSpeed <= 1) || !(s.dashSteerFactor >= 0 && s.dashSteerFactor <= 1) || !(s.dashRamHullFraction >= 0 && s.dashRamHullFraction <= 1)) fail('Corner speed, dash steering and ram share must be 0–1');
   const warp = value.tune.warp;
   if (warp.arrivalSeconds < 2 || warp.arrivalSeconds > 8 || warp.departureSeconds < .5 || warp.departureSeconds > 8 || warp.remoteArrivalSeconds < .2 || warp.remoteArrivalSeconds > warp.arrivalSeconds) fail('Warp presentation timing out of range');
   if (!(s.minSpeed <= s.cruiseSpeed && s.cruiseSpeed <= s.maxSpeed && s.maxSpeed > 0)) fail('Keep minimum ≤ cruise ≤ maximum speed');

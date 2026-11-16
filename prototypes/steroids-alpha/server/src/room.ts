@@ -11,7 +11,8 @@ import { cleanLook } from '../../sim/unlocks';
 import type { Look } from '../../sim/unlocks';
 import { World } from '../../sim/world';
 import { TURRET_SIDE } from '../../sim/turrets';
-import { BOT_NAMES, botThink, newBrain } from '../../sim/bots';
+import { BOT_NAMES, botThink, newBrain, tutorialBotThink } from '../../sim/bots';
+import type { TutorialBotKind } from '../../sim/bots';
 import type { BotBrain } from '../../sim/bots';
 import { BUY_BYTES, INPUT_BYTES, PING_BYTES, CLOSE, MSG, cleanName, decodeClient, encodeAsteroids, encodeGone, encodePing, encodeShots, encodeSnapshot, encodeWelcome, encodeOrdnance } from '../../sim/protocol';
 import type { OrdnanceView } from '../../sim/protocol';
@@ -163,7 +164,49 @@ export class Room {
     this.botsEnabled = enabled;
   }
 
+  /**
+   * Tutorial planet (owner, 16 November 2026): the room runs in the player's browser and the tutorial
+   * script places bots itself. No automatic bots, no respawns; direct access to the world.
+   */
+  private manualBots = false;
+  get sim(): World {
+    return this.world;
+  }
+  get tutorialBots(): number[] {
+    return [...this.bots.keys()];
+  }
+  setManualBots(on: boolean): void {
+    this.manualBots = on;
+  }
+  /**
+   * Lockstep (tutorial only): the room steps once per input its single pilot sends, instead of by
+   * the wall clock, so the in-page room keeps exact pace with the client on any device speed.
+   */
+  private lockstep = false;
+  setLockstep(on: boolean): void {
+    this.lockstep = on;
+  }
+  addTutorialBot(kind: TutorialBotKind, x: number, y: number, name: string): number {
+    const id = this.allocateId();
+    const ship = this.world.addShipNear(id, x, y, 0);
+    this.world.botIds.add(id);
+    ship.arrival = 0;
+    this.bots.set(id, { id, name, kills: 0, brain: { ...newBrain(Math.random), bornAt: this.tick, tutorial: kind }, ship });
+    this.broadcastRoster();
+    return id;
+  }
+  removeTutorialBot(id: number): void {
+    this.removeBot(id);
+  }
+
   private stepBots(): void {
+    if (this.manualBots) {
+      for (const b of this.bots.values()) {
+        const input = tutorialBotThink(b.id, b.ship, this.world, b.brain, this.tune, Math.random);
+        this.world.stepShip(b.id, input);
+      }
+      return;
+    }
     const present = this.players.size > 0 || this.tick < this.lingerUntil;
     const want = this.botsEnabled && present ? Math.max(0, Math.min(this.tune.bots.count, TUNE.net.maxPlayersPerRoom - this.players.size)) : 0;
     // Too many (players joined, or the last player left): the newest go first.
@@ -381,6 +424,7 @@ export class Room {
     if (msg.input.seq <= newest || msg.input.seq > newest + 512) return;
     player.queue.push(msg.input);
     while(player.queue.length > TUNE.net.maxQueuedInputs) player.queue.shift();
+    if (this.lockstep) this.step();
   }
 
   private leave(id: number, destroyed = false): void {
@@ -400,7 +444,7 @@ export class Room {
   }
 
   private start(): void {
-    if (this.timer) return;
+    if (this.timer || this.lockstep) return;
     this.lastStepAt = Date.now();
     this.timer = setInterval(() => this.pump(), 1000 / TUNE.net.tickHz / 2);
   }
@@ -489,7 +533,7 @@ export class Room {
     for (const id of dead) {
       if (!this.bots.has(id)) continue;
       this.removeBot(id);
-      this.botRespawnAt.push(this.tick + Math.round(this.tune.bots.respawnSeconds * this.tune.net.tickHz));
+      if (!this.manualBots) this.botRespawnAt.push(this.tick + Math.round(this.tune.bots.respawnSeconds * this.tune.net.tickHz));
     }
     // A destroyed ship leaves the planet. (Wrecks and loot come with the stash milestone.)
     for (const id of dead) {

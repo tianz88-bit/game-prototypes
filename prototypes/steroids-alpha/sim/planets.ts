@@ -16,7 +16,13 @@ export const PLANETS = [
 export const WARZONE = { id: 'warzone', label: 'Warzone', colour: 0x6a3a1c, bots: false, clan: 2 } as const;
 export const isWarPlanet = (planet: string): boolean => planet === WARZONE.id;
 
-export type PlanetId = (typeof PLANETS)[number]['id'];
+/**
+ * Tutorial planet (owner, 16 November 2026): single player, runs entirely in the browser (a local
+ * room, src/tutorial). Reached from the menu only; the server never serves it.
+ */
+export const TUTORIAL = 'tutorial';
+
+export type PlanetId = (typeof PLANETS)[number]['id'] | typeof TUTORIAL;
 
 export function isPlanetId(v: string | null | undefined): v is PlanetId {
   return PLANETS.some((p) => p.id === v);

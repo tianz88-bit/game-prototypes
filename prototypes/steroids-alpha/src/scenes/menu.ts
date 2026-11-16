@@ -5,6 +5,8 @@ import { PALETTES } from '../render/palette';
 import Phaser from 'phaser';
 import { CLANS, PLANETS } from '../../sim/planets';
 import type { PlanetId } from '../../sim/planets';
+import { TUTORIAL } from '../../sim/planets';
+import { guide } from '../tutorial/guide';
 import { SHARE_URL, logicalSize, serverOrigin } from '../base';
 import QRCode from 'qrcode';
 import { goImmersive } from '../input/immersive';
@@ -66,6 +68,8 @@ export class MenuScene extends Phaser.Scene {
   stellarMap: StellarMap | null = null;
   private mapOpen = false;
   private selectedPlanet: PlanetId | null = null;
+  /** Tutorial planet (owner, 16 November 2026): single player, from the menu only. */
+  private tutorialButton: { x: number; y: number; w: number; h: number } | null = null;
   private warpPulse!: Phaser.GameObjects.Graphics;
 
   constructor() {
@@ -240,12 +244,16 @@ export class MenuScene extends Phaser.Scene {
       });
       py = hy;
     } else this.hintButtons = [];
-    const wy = Math.min(h - 54, py + 60);
+    const wy = Math.min(h - 94, py + 60);
     this.warpButton = { x: w / 2, y: wy, w: bw, h: 54 };
     panel(this.add.graphics(), w / 2 - bw / 2, wy - 27, bw, 54, UI.uiAccent, true);
     this.warpPulse = this.add.graphics();
     text(this, w / 2, wy - 5, 'WARP', 23, css(UI.uiText)).setOrigin(.5);
     text(this, w / 2, wy + 14, 'OPEN STELLAR MAP', 9, css(UI.uiAccent)).setOrigin(.5);
+    const ty = wy + 50;
+    this.tutorialButton = { x: w / 2, y: ty, w: bw, h: 30 };
+    panel(this.add.graphics(), w / 2 - bw / 2, ty - 15, bw, 30, UI.uiBorder);
+    text(this, w / 2, ty, 'TUTORIAL  ·  learn to fly', 12, '#9fb3d6').setOrigin(0.5);
     this.buttons = [];
     this.drawShare(w, h, bw);
     this.drawAccount(w, h, bw);
@@ -397,6 +405,14 @@ export class MenuScene extends Phaser.Scene {
         this.accountNote = this.codeMode ? 'Type the code in the box, then Enter' : '';
         input.value = this.codeMode ? '' : loadSave().name ?? '';
         this.layout();
+        return;
+      }
+      const tb = this.tutorialButton;
+      if (tb && !this.codeMode && Math.abs(t.x - tb.x) <= tb.w / 2 && Math.abs(t.y - tb.y) <= tb.h / 2) {
+        writeSave({ name });
+        goImmersive(intents.touch);
+        guide.reset();
+        this.scene.start('flight', { planet: TUTORIAL });
         return;
       }
       const b = this.warpButton;

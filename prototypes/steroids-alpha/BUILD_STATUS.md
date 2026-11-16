@@ -1,5 +1,7 @@
 ## Current milestone
 
+Tutorial and combat (16 November, claude): a single-player tutorial planet (menu TUTORIAL; local in-page room; 13 hands-on steps); combat changes: % hull rams, slight dash steering, harder bumps, corner speed, red hull-hit flash. Warzone (siege) on hold.
+
 Hyperspace/spark release verified as161126r0075; latest public build is161126r0076 after Claude's siege-rules merge, retaining this release. Live at https://daily-daily-games.itch.io/steroids-alpha. Owner approved the revised hyperspace and final landing spark. PR512 merged39d1b471; client43853040304 and Worker43853040359 both succeeded. Public Worker health is OK/protocol21. Motion preview remains outputs/steroids-alpha/hyperspace-preview/index.html.
 
 ## What was implemented
