@@ -25,11 +25,15 @@ export * from ${JSON.stringify(path.join(sim, 'protocol.ts'))};
 export * from ${JSON.stringify(path.join(sim, 'leaderboard.ts'))};
 export * as thrusters from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/src/render/thrusters.ts'))};
 export * as liveConfig from ${JSON.stringify(path.join(sim, 'liveConfig.ts'))};
+export * as orbital from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/src/render/orbitalTransition.ts'))};
 export * as planet from ${JSON.stringify(path.join(root, 'prototypes/steroids-alpha/src/render/planet.ts'))};`;
 await build({ stdin: { contents: entry, resolveDir: sim, loader: 'ts' }, bundle: true, format: 'esm', platform: 'node', outfile: path.join(tmp, 'sim.mjs'), logLevel: 'silent' });
 const S = await import(pathToFileURL(path.join(tmp, 'sim.mjs')).href);
 rmSync(tmp, { recursive: true, force: true });
 const tune = JSON.parse(readFileSync(path.join(root, 'prototypes/steroids-alpha/tune.json'), 'utf8'));
+const arrivalTune = structuredClone(tune);
+// Most combat fixtures begin after arrival; dedicated arrival tests below keep the real countdown.
+tune.warp.arrivalSeconds = 0;
 // Shots fly straight in most cases below; the aim assist has its own section.
 const assistTune = structuredClone(tune);
 tune.weapon.assistMaxDeg = 0;
@@ -56,6 +60,38 @@ const near = (a, b, eps, what) => assert(Math.abs(a - b) <= eps, `${what}: ${a} 
   assert.deepEqual(S.rankPilots(rows.values()).map(r => r.id), [4, 5, 1, 2, 9, 8], 'level, kills, minerals, stable id');
   assert.deepEqual(rows.map(r => r.id), original, 'ranking never mutates the source roster');
   assert.equal(S.mineralCount(rows[0]), 999, 'mineral balance uses authoritative existing hull currency');
+}
+
+// --- Server-synchronized arrival: all damage is blocked, attacks suppressed, release is automatic. ---
+{
+  const t=structuredClone(arrivalTune);t.asteroid.targetMass=0;
+  const w=new S.World(t,rng(99)),s=w.addShip(1);Object.assign(s,{x:1000,y:1000,heading:0,missileTier:1,mineTier:1,missileCharges:1,mineCharges:1});
+  const hp=s.hp,shield=s.shield,bearing=s.heading,commands={...idle,turn:1,aim:Math.PI,thrust:-1,fire:true,dash:true,missile:true,mine:true,warp:true};
+  const before=S.copyShip(s),prediction=S.copyShip(s);
+  S.stepShip(prediction,commands,dt,t);w.stepShip(1,commands);w.step();
+  near(s.arrival,prediction.arrival,1e-6,'prediction and server advance arrival exactly once');
+  near(s.x,prediction.x,1e-6,'protected full-speed movement agrees');
+  assert.equal(s.heading,bearing);assert.equal(s.speed,S.topSpeed(s.hullMax,t));
+  assert.equal(s.shots,0);assert.equal(s.missileShots,0);assert.equal(s.mineShots,0);assert.equal(s.dashCd,0);assert.equal(s.warping,false);
+  while(s.arrival>dt*2){
+    w.damageShip(1,s,1e6,2,s.x,s.y);
+    w.bullets.push({owner:2,damage:1e6,x:s.x,y:s.y,vx:0,vy:0,life:2});
+    w.step();assert.equal(s.hp,hp);assert.equal(s.shield,shield);assert.equal(s.shieldCd,0,'protected hits never reset recharge');
+  }
+  const orbit=new S.orbital.OrbitalTransition();assert.equal(orbit.update(0,true,false,false,s.arrival).phase,'entry');
+  while(s.arrival>0)w.step();
+  assert.equal(orbit.update(9999,true,false,false,s.arrival).phase,'flight','animation ends from authority, not a second timer');
+  s.shield=0;w.damageShip(1,s,10,2,s.x,s.y);assert.equal(s.hp,hp-10,'vulnerability starts only after arrival');
+  assert.equal(S.copyShip(before).arrival,t.warp.arrivalSeconds,'prediction copies remaining protection');
+  for(const p of[0,.2,.5,.8]){
+    const entry=new S.orbital.OrbitalTransition().update(0,true,false,false,t.warp.arrivalSeconds*(1-p));
+    const leave=new S.orbital.OrbitalTransition();leave.update(0,true,true,false,0);
+    const exit=leave.update(t.warp.departureSeconds*1000*(1-p),false,true,false);
+    if(p>0){near(entry.zoom,exit.zoom,1e-6,'departure reverses globe zoom');near(entry.spaceAlpha,exit.spaceAlpha,1e-6,'departure reverses hyperspace fade');}
+  }
+  const approach=S.orbital.remoteArrivalPose(t.warp.remoteArrivalSeconds),stop=S.orbital.remoteArrivalPose(0);
+  assert.equal(approach.alpha,0);assert(approach.offset<0);assert.equal(stop.alpha,1);assert.equal(stop.offset,0);
+  const resume=new S.orbital.OrbitalTransition();assert.equal(resume.update(0,true,false,false,0).phase,'flight','old ships/reconnects do not replay a new entrance');
 }
 
 // --- Throttle: accelerate to the maximum, brake to the minimum, never stop. ---
@@ -763,6 +799,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
     assert.equal(roster.players.filter((r) => r.name.startsWith('BOT ')).length, bt.count, 'bots are on the leaderboard');
     // Destroy one bot: it is replaced after respawnSeconds.
     const botId = [...room.bots.keys()][0];
+    room.world.ships.get(botId).arrival = 0; // Destruction fixture starts after the entrance.
     room.world.ships.get(botId).hp = 1;
     room.world.ships.get(botId).shield = 0;
     room.world['damageShip'](botId, room.world.ships.get(botId), 10, 0, 0, 0);
@@ -1014,7 +1051,7 @@ assert.equal(S.cleanName(null), '');
   // The old dash-aim float is still on the wire (reserved): whatever an old client puts there is ignored.
   { const buf = S.encodeInput(input); new DataView(buf).setFloat32(18, 1.5, true); assert(!('dashAim' in S.decodeClient(buf).input), 'dash aim is no longer read'); }
   assert.deepEqual(S.decodeClient(S.encodeBuy(0, 2)), { type: S.MSG.BUY, item: 0, tier: 2 });
-  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5, salvage: 87.5, chassis: 2, shieldCd: 1.5, fuel: 33.5 };
+  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5, salvage: 87.5, chassis: 2, shieldCd: 1.5, fuel: 33.5, arrival: 1.25 };
   assert.deepEqual(S.decodeServer(S.encodeSnapshot(1234, 55, [ship])), { type: S.MSG.SNAPSHOT, tick: 1234, ackSeq: 55, ships: [ship] });
   const rockRec = { id: 3, size: 1, x: 10.5, y: 20.25, vx: -30, vy: 12.5, t0: 900, hp: 30, family: 2 };
   assert.deepEqual(S.decodeServer(S.encodeAsteroids([rockRec])).asteroids, [rockRec]);
@@ -1428,8 +1465,8 @@ assert.equal(S.cleanName(null), '');
     const source = new Sock(), target = new Sock();
     wire.join(source, 'Source'); wire.join(target, 'Target'); wire.stop();
     const [shooter, receiver] = [...wire.players.values()];
-    Object.assign(shooter.ship, { x: 1000, y: 1000, heading: 0, missileTier: 1, missileCharges: 1 });
-    Object.assign(receiver.ship, { x: 1400, y: 1000 });
+    Object.assign(shooter.ship, { arrival: 0, x: 1000, y: 1000, heading: 0, missileTier: 1, missileCharges: 1 });
+    Object.assign(receiver.ship, { arrival: 0, x: 1400, y: 1000 });
     wire.world.stepShip(shooter.id, { ...idle, missile: true });
     for (let i = 0; i < 3; i++) wire.step();
     const ord = target.sent.filter((x) => typeof x !== 'string').map((x) => S.decodeServer(x)).filter((x) => x && x.type === S.MSG.ORDNANCE).pop();
@@ -1557,7 +1594,8 @@ assert.equal(S.cleanName(null), '');
     room.join(new Sock(), 'Lag');
     room.stop();
     const [p] = [...room.players.values()];
-    p.started = true;
+    p.started = true; p.ship.arrival = 0; // Post-arrival gameplay fixture.
+
     p.ship.lockdown = 0;
     p.ship.missileTier = 2;
     p.ship.missileCharges = 2;
@@ -1586,7 +1624,8 @@ assert.equal(S.cleanName(null), '');
     // Keep the watcher well away: two ships spawned on top of each other would bump, and any hit
     // resets a warp run (random spawns made this flaky once ship bumps arrived).
     p2.ship.x = (p1.ship.x + tune.world.width / 2) % tune.world.width;
-    p1.started = true; // as if its client had sent inputs
+    p1.started = true; p1.ship.arrival = 0; // Post-arrival gameplay fixture.
+ // as if its client had sent inputs
     p1.ship.lockdown = 0;
     p1.ship.warping = true;
     p1.ship.warpDist = wt.distance - 1;
@@ -1716,7 +1755,8 @@ assert.equal(S.cleanName(null), '');
     room.join(sock, 'Banker');
     room.stop();
     const [p] = [...room.players.values()];
-    p.started = true;
+    p.started = true; p.ship.arrival = 0; // Post-arrival gameplay fixture.
+
     Object.assign(p.ship, { lockdown: 0, warping: true, warpDist: tune.warp.distance - 1, salvage: 123.7 });
     for (let i = 0; i < 3 && !sock.closed; i++) room.step();
     const res = sock.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).find((m) => m.type === 'extracted');

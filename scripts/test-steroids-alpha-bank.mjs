@@ -104,7 +104,8 @@ function d1() {
   const frames = (s) => s.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m));
   const extract = async (room, sock, salvage) => {
     const [p] = [...room.players.values()];
-    p.started = true;
+    p.started = true; p.ship.arrival = 0; // Post-arrival gameplay fixture.
+
     Object.assign(p.ship, { lockdown: 0, warping: true, warpDist: tune.warp.distance - 1, salvage });
     for (let i = 0; i < 3 && !frames(sock).some((m) => m.type === 'extracted'); i++) room.step();
     for (let i = 0; i < 20 && !sock.closed; i++) await new Promise((r) => setTimeout(r, 5));
@@ -245,7 +246,7 @@ function d1() {
   // Destroy a player inside the next step (after the world steps, before the room reads its events).
   const destroy = (pl) => {
     const step = room.world.step.bind(room.world);
-    room.world.step = () => { step(); pl.ship.shield = 0; room.world.damageShip(pl.id, pl.ship, 1e6, 0, pl.ship.x, pl.ship.y); room.world.step = step; };
+    room.world.step = () => { step(); pl.ship.arrival = 0; pl.ship.shield = 0; room.world.damageShip(pl.id, pl.ship, 1e6, 0, pl.ship.x, pl.ship.y); room.world.step = step; };
     room.step();
   };
   const [p] = [...room.players.values()];
@@ -328,7 +329,8 @@ function d1() {
   assert(frames(ms).some((f) => f.type === 'treasury' && f.total === 100), 'joiners hear the treasury');
   // Dock the member on a pad with salvage aboard.
   Object.assign(m.ship, { x: L.pads[0].x, y: L.pads[0].y, speed: 0, fuel: 42 });
-  m.started = true;
+  m.started = true; m.ship.arrival = 0; // Post-arrival gameplay fixture.
+
   room.step();
   assert.equal(room.treasury, 142, 'docking unloads salvage into the treasury');
   assert.deepEqual(saved, [142], 'and the new total goes to storage');

@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 codex hyperspace-arrival-review
+DID: replaced vertical dive with heading-aligned hyperspace fading before globe zoom/fast terrain roll, level full-speed ship and reverse departure. Observer entrance fades in, brakes/overshoots and leaves square residuals; no false effect for old ships.
+FILES: sim/{ship,world,protocol,liveConfig}.ts, src/net/client.ts, src/render/{orbital*,shipView}.ts, src/scenes/flight.ts, tune.json, affected tests/docs.
+SEAM: protocol21 adds f32 arrival at offset99 (103-byte ship). World countdown and prediction drive visual progress; all damage/contact/combat gated until0, no client-ready immunity. Shared warp timings3.2/2.4/0.7s; old hosted records upgrade. ShipPlacement opacity/warpForeground; resize/scene cleanup releases FFD/UI.
+CROSS: owner explicitly requested arrival vulnerability; minimal sim/wire/net/test changes. Typecheck/build/rig/sim/live-config/bank pass. Actual Brave desktop/mobile entry/exit and real observer checks pass; WebGL/Canvas held fire, resize, UI restoration and resource stability pass, zero errors. Visual timing captures are isolated fixtures, not authoritative extraction proof.
+FOR claude: LOCAL REVIEW ONLY; live0074 untouched. Gallery outputs/steroids-alpha/hyperspace-preview/index.html. Must deploy client+Worker together after owner review. New protected arrivals hold bearing/full speed and cannot fire/dash/warp; phase release comes from authority, not local elapsed time. Thread68c1ca78 carries final preview/evidence.
+
 ## 2026-11-16 codex warp-stellar-map-release
 DID: pulsing menu WARP opens spinning four-globe chart; first tap selects/details, second enters. Shows real populations, relationship and resource types. Leaderboard and compact rank now sort level, kills, minerals; labels say MINERALS.
 FILES: src/render/{stellarMap,planetGround}.ts, src/scenes/{menu,flight}.ts, src/main.ts, sim/leaderboard.ts, sim/protocol.ts comment, sim tests, BRIEF/BUILD_STATUS.
@@ -97,10 +104,3 @@ FILES: render/{flightIndicators,combatHud}.ts scenes/{hangar,flight}.ts
 SEAM: drawing helpers only; preserved compact mobile controls/uiZones, authoritative values and desktop-style own vitals.
 CROSS: scene styling only.27 desktop/mobile/small captures +6connection/2cargo rechecks pass, no errors; alert placement clears combat and upgrade drawer.
 FOR claude: LOCAL PREVIEW, not published. Owner must review screenshots before live. Gallery outputs/steroids-alpha/backlog-review/index.html; branch codex/steroids-combat-backlog-preview. No PR opened because repository auto-merge would publish.
-
-## 2026-11-15 claude clan-planets-v0
-DID: two demo clans (menu pick, save.clan, sent as ?clan=); PLANETS now Lawless A, Satellite B, Crimson Home, Azure Home. Home planets (sim/clanBase.ts): treasury at map centre, 6 pads, 6 base turrets, shield dome, gate at (0,0). Members spawn by the pads and may stop over a pad (stepShip floor 0): docked = safe, repaired, salvage unloaded to the treasury (Room.treasury, DO storage 'treasury'). Non-members spawn at the gate, are fired on by base turrets, pushed out of the dome; their bullets/ordnance stop at it. Arrival warnings and docking banner. Ground tint per clan.
-FILES: sim/{planets,clanBase,ship,world,protocol,liveConfig}.ts server/src/{room,index}.ts src/{net/client,input/intents,scenes/menu,scenes/flight,render/planetGround,save,main,liveConfig}.ts tune.json (base group) scripts/test-steroids-alpha-{sim,bank}.mjs scripts/screenshot-steroids-alpha.mjs BRIEF.md GFX_BRIEF.md DESIGN_LONGGAME.md
-SEAM: stepShip(..., floor); World.setPlanet/layout/clanOf/addShipNear/docked; WorldEvents.deposits; shots side >= BASE_TURRET_SIDE (40), owner BASE_OWNER (0); text frames 'treasury' {clan,total} and 'deposited' {amount}; RosterEntry.clan; PlanetGround(scene, depth, tint); intents.flight(speed, floor); hooks layout()/docked()/treasury().
-CROSS: src/render/planetGround.ts (yours): tint uniform added, default [1,1,1] keeps the old look.
-FOR codex: art brief in Agent Comms (thread 07e15987) and GFX_BRIEF.md "Clan planets v0 art".

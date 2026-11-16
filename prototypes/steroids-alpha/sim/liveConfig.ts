@@ -83,6 +83,8 @@ export function validateConfig(input: unknown): ConfigData {
     if (v < 0 || v > 10000) fail(`${group}.${key}: value must be 0–10000`);
   }
   const s = value.tune.ship, w = value.tune.weapon;
+  const warp = value.tune.warp;
+  if (warp.arrivalSeconds < 2 || warp.arrivalSeconds > 8 || warp.departureSeconds < .5 || warp.departureSeconds > 8 || warp.remoteArrivalSeconds < .2 || warp.remoteArrivalSeconds > warp.arrivalSeconds) fail('Warp presentation timing out of range');
   if (!(s.minSpeed <= s.cruiseSpeed && s.cruiseSpeed <= s.maxSpeed && s.maxSpeed > 0)) fail('Keep minimum ≤ cruise ≤ maximum speed');
   if (!(s.dashSpeedFactor >= 1 && s.dashSpeedFactor <= 4) || !(s.dashChargeSeconds >= 0 && s.dashChargeSeconds <= 2) || !(s.dashDuration > 0 && s.dashDuration <= 8) || !(s.dashCooldown >= s.dashChargeSeconds + s.dashDuration)) fail('Dash: speed 1-4x top speed, charge 0-2 s, boost up to 8 s, cooldown at least charge + boost');
   if (s.acceleration <= 0 || s.braking <= 0 || s.radius <= 0 || s.maxHp <= 0) fail('Acceleration, braking, radius and hull must be positive');

@@ -5,6 +5,9 @@ import {createPublisher,WORKFLOW} from './steroids-lab-server.mjs';
 const result=await build({stdin:{contents:`export * from './prototypes/steroids-alpha/sim/liveConfig.ts';export * from './prototypes/steroids-alpha/server/src/configStore.ts';export * from './prototypes/steroids-alpha/server/src/configAuth.ts';export * from './prototypes/steroids-alpha/server/src/room.ts';export * from './prototypes/steroids-alpha/sim/protocol.ts';export * from './prototypes/steroids-alpha-lab/preview.ts';export * from './prototypes/steroids-alpha/server/src/adminAuth.ts';export * from './prototypes/steroids-alpha/server/src/admin.ts';export {default as worker} from './prototypes/steroids-alpha/server/src/index.ts';export {currentData,importSettings,baseVersion} from './prototypes/steroids-alpha-lab/draft.ts';`,resolveDir:process.cwd(),loader:'ts'},bundle:true,platform:'node',format:'esm',write:false});
 const S=await import('data:text/javascript;base64,'+Buffer.from(result.outputFiles[0].text).toString('base64'));
 const base=S.defaultConfig();assert.deepEqual(S.validateConfig(base),base);
+const preArrival=structuredClone(base);for(const k of ['arrivalSeconds','departureSeconds','remoteArrivalSeconds'])delete preArrival.tune.warp[k];
+assert.deepEqual(S.validateConfig(preArrival).tune.warp,base.tune.warp,'older hosted records inherit the shared arrival timings');
+for(const [key,value]of [['arrivalSeconds',1.9],['arrivalSeconds',9],['departureSeconds',0],['remoteArrivalSeconds',9]]){const d=structuredClone(base);d.tune.warp[key]=value;assert.throws(()=>S.validateConfig(d));}
 const preHover=structuredClone(base);for(const key of Object.keys(preHover.clientTune.render))if(key.startsWith('hoverLight'))delete preHover.clientTune.render[key];
 assert.deepEqual(S.validateConfig(preHover).clientTune.render,base.clientTune.render);
 for(const [key,value]of [['hoverLightOpacity',1.1],['hoverLightWidth',0],['hoverLightY',201]]){const d=structuredClone(base);d.clientTune.render[key]=value;assert.throws(()=>S.validateConfig(d));}
@@ -66,7 +69,7 @@ class Socket extends EventTarget {sent=[];closed=null;send(v){this.sent.push(v);
  const updated=ws.sent.filter(v=>typeof v==='string').map(v=>JSON.parse(v)).filter(v=>v.type==='roster').at(-1).players;
  assert.equal(updated.find(r=>r.id===human.id).level,12,'upgrade-only change refreshes the authoritative roster across all categories');
  ws.close(1000);room.stop();}
-const room=new S.Room(100000),socket=new Socket();room.join(socket);room.stop();const player=[...room.players.values()][0];player.started=true;player.ship.heading=0;player.ship.speed=260;player.ship.x=2000;player.ship.y=2000;
+const room=new S.Room(100000),socket=new Socket();room.join(socket);room.stop();const player=[...room.players.values()][0];player.started=true;player.ship.arrival=0;player.ship.heading=0;player.ship.speed=260;player.ship.x=2000;player.ship.y=2000;
 for(let i=1;i<=70;i++)room.onMessage(player,S.encodeInput({seq:i,turn:0,aim:NaN,thrust:0,dash:false,fire:false}));await player.reading;assert.ok(player.queue.length<=base.tune.net.maxQueuedInputs);const x=player.ship.x;room.stepPlayer(player);assert.ok(Math.abs(player.ship.x-x-260/base.tune.net.tickHz)<1e-6,'Flooded input queue never buys a second movement step');
 room.applyConfig(active);assert.equal(player.queue.length,0);assert.equal(player.started,false);assert.ok(socket.sent.some(x=>typeof x==='string'&&JSON.parse(x).record?.version===active.version));
 for(let i=0;i<60;i++)room.onMessage(player,S.encodePing(S.MSG.PING,1));assert.equal(socket.closed,1008,'Excess packet rate rejected');

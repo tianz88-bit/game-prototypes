@@ -1,41 +1,46 @@
-// Camera/art only. The network and prediction tick normally throughout arrival and departure.
-export const ORBIT_ENTRY_MS = 1800;
-export const ORBIT_EXIT_MS = 1500;
-const clamp = (v:number):number => Math.max(0,Math.min(1,v));
-const smooth = (v:number):number => v*v*(3-2*v);
+import { TUNE } from '../../sim/tune';
+const clamp=(v:number):number=>Math.max(0,Math.min(1,v));
+const smooth=(v:number):number=>{const p=clamp(v);return p*p*(3-2*p);};
 export interface OrbitalPose {
-  phase:'waiting'|'entry'|'flight'|'exit'|'complete';
-  progress:number;
-  zoom:number;
-  /** Height above the normal flight anchor, as a fraction of viewport height. */
-  lift:number;
-  groundAlpha:number;
-  arrivalPulse:number;
+  phase:'waiting'|'entry'|'flight'|'exit'|'complete';progress:number;zoom:number;lift:number;
+  groundAlpha:number;arrivalPulse:number;spaceAlpha:number;speedlines:number;travel:number;
 }
+/** Arrival follows authoritative remaining time, rather than starting a second client immunity clock. */
 export class OrbitalTransition {
   private phase:OrbitalPose['phase']='waiting';
   private started=0;
-  reset():void {this.phase='waiting';this.started=0;}
-  update(now:number,hasShip:boolean,extracted:boolean,dead:boolean):OrbitalPose {
-    if(dead){this.phase='flight';return this.pose(now);}
-    if(this.phase==='waiting' && hasShip){this.phase='entry';this.started=now;}
-    if(extracted && this.phase!=='exit' && this.phase!=='complete'){
-      this.phase='exit';this.started=now;
+  reset():void{this.phase='waiting';this.started=0;}
+  update(now:number,hasShip:boolean,extracted:boolean,dead:boolean,remaining?:number):OrbitalPose {
+    if(dead){this.phase='flight';return this.pose(0);}
+    if(this.phase==='waiting'&&hasShip){this.phase=remaining===0?'flight':'entry';this.started=now;}
+    if(extracted&&this.phase!=='exit'&&this.phase!=='complete'){this.phase='exit';this.started=now;}
+    if(this.phase==='entry'){
+      const p=remaining===undefined?(now-this.started)/(TUNE.warp.arrivalSeconds*1000):1-remaining/TUNE.warp.arrivalSeconds;
+      if(p>=1)this.phase='flight';else return this.pose(clamp(p));
     }
-    if(this.phase==='entry' && now-this.started>=ORBIT_ENTRY_MS)this.phase='flight';
-    if(this.phase==='exit' && now-this.started>=ORBIT_EXIT_MS)this.phase='complete';
-    return this.pose(now);
-  }
-  private pose(now:number):OrbitalPose {
-    const phase=this.phase;
-    const p=clamp((now-this.started)/(phase==='entry'?ORBIT_ENTRY_MS:ORBIT_EXIT_MS));
-    if(phase==='entry'){
-      const approach=1-Math.pow(1-p,3);
-      const descent=smooth(clamp(p/.84));
-      // Start below the fixed header, so the craft never disappears behind the Warp chip.
-      return {phase,progress:p,zoom:.34+.66*approach,lift:.31*(1-descent),groundAlpha:smooth(clamp((p-.5)/.34)),arrivalPulse:p>=.8?(p-.8)/.2:-1};
+    if(this.phase==='exit'){
+      const p=(now-this.started)/(TUNE.warp.departureSeconds*1000);
+      if(p>=1)this.phase='complete';else return this.pose(clamp(p));
     }
-    if(phase==='exit')return {phase,progress:p,zoom:1-.66*smooth(p),lift:.68*p*p,groundAlpha:1-smooth(clamp(p/.4)),arrivalPulse:-1};
-    return {phase,progress:phase==='complete'?1:0,zoom:phase==='waiting'||phase==='complete'?.34:1,lift:0,groundAlpha:phase==='complete'?0:1,arrivalPulse:-1};
+    return this.pose(this.phase==='complete'?1:0);
   }
+  private pose(progress:number):OrbitalPose {
+    const phase=this.phase,active=phase==='entry'||phase==='exit';
+    // Reversing the approach produces the departure: pull away, accelerate, disappear into hyperspace.
+    const p=phase==='exit'?1-progress:progress;
+    const zoom=.2+.8*smooth((p-.4)/.55),spaceAlpha=1-smooth((p-.18)/.22);
+    return{phase,progress,zoom:active?zoom:phase==='waiting'||phase==='complete'?.2:1,lift:0,
+      groundAlpha:active?smooth((p-.72)/.28):phase==='complete'?0:1,arrivalPulse:-1,
+      spaceAlpha:active?spaceAlpha:phase==='waiting'||phase==='complete'?1:0,speedlines:active?1-smooth((p-.18)/.22):phase==='waiting'?1:0,
+      travel:active?(phase==='entry'?-1:1)*2400*Math.pow(1-p,3):0};
+  }
+}
+
+export interface RemoteArrivalPose {alpha:number;offset:number;trail:number;}
+/** The arrival's last fraction is a short fade-in, hard brake and spring-back at the real position. */
+export function remoteArrivalPose(remaining:number):RemoteArrivalPose {
+  const p=clamp(1-remaining/TUNE.warp.remoteArrivalSeconds);
+  const fast=clamp(p/.72);
+  const offset=p<.72?-220*Math.pow(1-fast,2)+14*Math.sin(fast*Math.PI/2):14*(1-smooth((p-.72)/.28));
+  return{alpha:smooth(p/.3),offset,trail:Math.sin(p*Math.PI)*.7+.3};
 }
