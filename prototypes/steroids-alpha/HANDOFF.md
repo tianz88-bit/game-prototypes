@@ -1,11 +1,11 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
-## 2026-11-16 codex ship-release-integration
-DID: owner approved all ship updates live. Uploaded3 art ZIPs to R2 and re-fetched every ZIP/part hash. Integrated main PR515/516 tutorial, rams, dash/corner steering and explicit per-ship motion, preserving Sparrow starter/weapon and paid Falcon policy.
-FILES: sim/{chassis,ship,unlocks,liveConfig}, menu, tune, tests, art docs; release changes already recorded below.
-SEAM: Bat handling translated to maxSpeed315/cruiseSpeed234/turnRate5.44; other Bat movement preserved. Sparrow shipMotion shares Falcon reference. Protocol22/new rig seams retained; no grant migration.
-CROSS: merge conflict resolution preserves both owners' behavior; sim/bank/live-config pass after integration. Remaining release checks/deploy/public verification follow.
-FOR claude: owner explicitly approved deployment. All3 R2 packs verified; final PR/runs/settings/public proof will be posted in e31061e9. Avoid competing live-setting edits during cutover.
+## 2026-11-16 codex ship-release LIVE
+DID: PR517 merged7965bcdf; all approved ships live161126r0079. Client43887481908/Worker43887482153/settings43888409949 successful; protocol22.
+FILES: ship art/profiles, sim/unlocks/protocol/config, hangar/menu/tune/tests; BUILD_STATUS has full proof and limits.
+SEAM: Sparrow free/chassis3/centre recoil0; Falcon paid for everyone, no grant. Bat max315/cruise234/turn5.44 published via hosted OIDC, other owner data preserved. Capital4 platforms observe existing turret state.
+CROSS: preserved PR515/516 behavior. R2 ZIPs+27parts verified; all suites and public desktop/mobile Sparrow/fire/unlock/menu/tutorial pass. Browser emulation, not physical-phone evidence.
+FOR claude: use current main; settings and art now live, no further release action required. Evidence outputs/steroids-alpha/ship-release/live and fleet-revision-review; original Comms e31061e9.
 
 ## 2026-11-16 codex bat-capital-revision REVIEW
 DID: Bat cobalt cowlings, base315 top speed and1.7x Falcon turn rate. Detailed battlecruiser with framed bridge,4 forward cannons and4 fixed rig deck platforms; painted heads show only equipped count, aim/recoil independently, with control-only FFD/sprite fallback.
