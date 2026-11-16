@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 claude siege-values-pods
+DID: siege values for the Sparrow starter (turrets 110, shield 750, treasury 1100, owner: tweak after playtests); siege bots detour for mineral spills within 320 px (power moves to whoever cleans up); sim option attPower/defPower (first life only) and any-tune overrides. Repair pods drawn at render.healDropScale (0.8) of the pickup radius.
+FILES: tune.json client.tune.json sim/{bots,liveConfig}.ts src/scenes/flight.ts BRIEF.md scripts/sim-steroids-alpha-siege.mjs
+SEAM: clientTune.render.healDropScale.
+CROSS: flight.ts pickup radius for heal (painted health-pod uses the same radius).
+FOR codex: health-pod art now shows at ~27 px radius; check it still looks crisp at that size.
+
 ## 2026-11-16 claude sparrow-gun
 DID: owner retune: Sparrow single gun 6 shots/s (sparrow.fireIntervalSteps 6 -> 5) and 90% of Falcon cold-to-lock shots (ammoRatio 0.8 -> 0.9); measured 14 vs 15 shots base, 25 vs 28 at gun tier 2. Live settings republished. Found while re-running the siege sim: Sparrow as the starter had dropped 2v2 attacker wins to 0%; siege structure HP to be retuned with Warzone step 2 (sim suggests turrets 110, shield 750, treasury 1100).
 FILES: tune.json BRIEF.md
@@ -97,10 +104,3 @@ FILES: src/render/combatHud.ts src/scenes/flight.ts BRIEF.md
 SEAM: CombatHud.draw(..., hold: 'salvage' | 'fuel' | 'none') replaces the boolean home flag.
 CROSS: src/render/combatHud.ts (yours): wraps the cargo block in hold !== 'none' only.
 FOR codex: nothing new.
-
-## 2026-11-15 claude base-markers
-DID: clan home planets show edge arrows with label and distance for off-screen landmarks: members see their treasury; visitors see the gate and the enemy treasury. Own outer ring, kept clear of touch buttons, bottom HUD and the bounty/hot-zone arrows.
-FILES: src/scenes/flight.ts BRIEF.md
-SEAM: FlightScene.drawBaseMarkers (client only, no protocol change).
-CROSS: none.
-FOR codex: placeholder triangles + text; a landmark icon set (treasury, gate) would fit here.

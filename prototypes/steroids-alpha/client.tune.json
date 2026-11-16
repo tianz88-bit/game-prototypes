@@ -49,6 +49,7 @@
     "exhaustLifeScale": 0.5,
     "bulletScale": 2,
     "hitSparkScale": 2,
+    "healDropScale": 0.8,
     "heavyShotGunTier": 2,
     "shipRingRadius": 190,
     "partTextureMax": 256,

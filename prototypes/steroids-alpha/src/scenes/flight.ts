@@ -1369,7 +1369,8 @@ export class FlightScene extends Phaser.Scene {
       const at = this.toScreen(item.x, item.y);
       if (!at.visible) continue;
       {
-        const radius=(item.kind==='salvage'?8+Math.sqrt(item.value)*1.6:7+Math.sqrt(item.value)*3)*at.scale;
+        // Repair pods are drawn near their collection size (owner, 16 November 2026: readable).
+        const radius=(item.kind==='salvage'?8+Math.sqrt(item.value)*1.6:item.kind==='heal'?TUNE.asteroid.pickupRadius*clientTune.render.healDropScale:7+Math.sqrt(item.value)*3)*at.scale;
         if(this.combatSprites.pickup(at,radius,item.kind,item.id,now))continue;
       }
       if (item.kind === 'salvage') {
@@ -1385,7 +1386,7 @@ export class FlightScene extends Phaser.Scene {
         continue;
       }
       const mineral = item.kind === 'mineral';
-      const r = (mineral ? 7 + Math.sqrt(item.value) * 3 : TUNE.asteroid.pickupRadius * .6) * at.scale;
+      const r = (mineral ? 7 + Math.sqrt(item.value) * 3 : TUNE.asteroid.pickupRadius * clientTune.render.healDropScale) * at.scale;
       drawPickup(g, at, r, mineral, item.id, now);
     }
     // Ship explosions.

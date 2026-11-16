@@ -239,11 +239,11 @@
     "turretTurnRate": 2.5
   },
   "siege": {
-    "turretHp": 150,
+    "turretHp": 110,
     "turretRadius": 30,
-    "shieldHp": 1000,
+    "shieldHp": 750,
     "shieldRegenPerTurret": 2,
-    "treasuryHp": 1500,
+    "treasuryHp": 1100,
     "treasuryRadius": 70,
     "attackerTickets": 20,
     "defenderRespawnSeconds": 15,

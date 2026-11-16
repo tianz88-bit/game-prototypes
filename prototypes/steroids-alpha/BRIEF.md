@@ -193,8 +193,9 @@ First clan-versus-clan fight. Built in two steps: the rules and a headless bot s
   are still there.
 - **On Warzone:** mining and upgrades as usual (power only: no salvage, no fuel); no warp-out during
   a war. **No rewards** for now.
-- Starting values (to be tuned by the owner after playtests): turrets 150 HP, shield 1,000 HP
-  regenerating 2 HP/s per live turret, treasury 1,500 HP, 20 tickets, defender respawn 15 s. Headless
+- Starting values (to be tuned by the owner after playtests; lowered 16 November for the weaker
+  Sparrow starter): turrets 110 HP, shield 750 HP
+  regenerating 2 HP/s per live turret, treasury 1,100 HP, 20 tickets, defender respawn 15 s. Headless
   results: `scripts/sim-steroids-alpha-siege.mjs`.
 
 ## Lockdown and warp-out
@@ -395,6 +396,8 @@ First clan-versus-clan fight. Built in two steps: the rules and a headless bot s
   faster: 70% of the turn rate at minimum speed (`ship.turnAtMinSpeed`) and 85% at the ship's own
   top speed (`ship.turnAtMaxSpeed`). Slowing right down no longer wins a turn fight, which breaks
   up circling stalemates.
+- Repair pods (owner, 16 November): drawn near their collection size (`render.healDropScale` of
+  the pickup radius) so they read clearly.
 - Hull damage feedback (owner, 16 November): a subtle red flash at the screen edges when your hull
   (not the shield) takes damage; hull readouts flash red below 50%.
 - Nose marker (owner, 15 November): a small chevron just ahead of your own

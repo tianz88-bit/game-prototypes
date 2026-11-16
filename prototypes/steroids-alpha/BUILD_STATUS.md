@@ -1,5 +1,7 @@
 ## Current milestone
 
+Siege values and repair pods (16 November, claude): siege structure HP lowered for the Sparrow starter (110/750/1100); bots collect spills; repair pods drawn larger. Next: Warzone step 2 (playable).
+
 Sparrow retune (16 November, claude): single gun 6 shots/s and 90% of Falcon shots before overheat (owner). Warzone step 2 (playable) awaiting owner go; siege structure HP to retune for the Sparrow starter.
 
 Production ship/building rig review is live in the permanent lab and itch game161126r0080. PR519 merged82868368bd6dfe5994db00a802005227cb7466bc; client43892666337 and Pages43892666498 succeeded. Permanent route: https://tianz88-bit.github.io/game-prototypes/prototypes/steroids-alpha-lab/?review=sparrow . Live game: https://daily-daily-games.itch.io/steroids-alpha .

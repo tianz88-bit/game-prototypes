@@ -180,6 +180,19 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
   }
 
   if (war) {
+    // Minerals spilled nearby (from destroyed ships or rocks) are worth a short detour: power moves to
+    // whoever cleans up after a fight (owner, 16 November 2026).
+    let spill: { dx: number; dy: number; d: number } | null = null;
+    for (const k of world.pickups.values()) {
+      if (k.kind !== 'mineral' || (k.from === id && world.tick < k.lockedUntil)) continue;
+      const r = rel(k.x, k.y);
+      if (r.d < 320 && (!spill || r.d < spill.d)) spill = r;
+    }
+    if (spill) {
+      input.aim = Math.atan2(spill.dy, spill.dx);
+      input.thrust = 1;
+      return { input, buy };
+    }
     const siege = siegeGoal(s, world, war, defending, tune, rel);
     if (siege) {
       const avoid = nearestRock(s, world, tune, rel);
