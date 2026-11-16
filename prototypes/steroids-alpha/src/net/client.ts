@@ -585,6 +585,7 @@ export class NetClient {
           x: wrap(a.s.x + wrapDelta(c.s.x, a.s.x, W) * f, W),
           y: wrap(a.s.y + wrapDelta(c.s.y, a.s.y, H) * f, H),
           heading: a.s.heading + angleDelta(c.s.heading, a.s.heading) * f,
+          arrival: Math.max(0, (a.s.arrival ?? 0) + ((c.s.arrival ?? 0) - (a.s.arrival ?? 0)) * f),
         },
       });
     }

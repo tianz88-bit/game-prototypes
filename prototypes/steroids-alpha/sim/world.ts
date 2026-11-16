@@ -126,7 +126,7 @@ export class World {
   readonly pickups = new Map<number, Pickup & { expires: number; from: number; lockedUntil: number; salvage: number }>();
   /** Ships that are bots: they never earn salvage and drop less (salvage.botDropFactor). Set by the room. */
   readonly botIds = new Set<number>();
-  /** Tick each ship dropped in (its spawn protection is the first 2 s). */
+  /** Tick each ship dropped in, for fresh-spawn kill payout tracking. */
   private spawnedAt = new Map<number, number>();
   /**
    * Share of the kill payout (power gold) a kill earns: the room lowers it for repeat kills of the
@@ -251,6 +251,8 @@ export class World {
     ship.hp = t.ship.maxHp;
     ship.hullMax = t.ship.maxHp;
     ship.shield = t.ship.maxShield;
+    ship.arrival = t.warp.arrivalSeconds;
+    if (ship.arrival > 0) ship.speed = t.ship.maxSpeed;
     this.ships.set(id, ship);
     // A moment of immunity so nobody is destroyed by an asteroid drifting through the drop zone.
     this.grace.set(id, Math.round(2 * t.net.tickHz));
@@ -263,7 +265,7 @@ export class World {
   /** What a ship's aim assist may pick: other living ships, and asteroids where they are now. */
   assistTargets(id: number): AssistTarget[] {
     const out: AssistTarget[] = [];
-    for (const [oid, o] of this.ships) if (oid !== id && o.hp > 0) out.push({ x: o.x, y: o.y, ship: true, vx: Math.cos(o.heading) * o.speed + o.kx, vy: Math.sin(o.heading) * o.speed + o.ky });
+    for (const [oid, o] of this.ships) if (oid !== id && o.hp > 0 && !(o.arrival ?? 0)) out.push({ x: o.x, y: o.y, ship: true, vx: Math.cos(o.heading) * o.speed + o.kx, vy: Math.sin(o.heading) * o.speed + o.ky });
     for (const a of this.asteroids.values()) {
       const p = asteroidPos(a, this.tick, this.tune);
       out.push({ x: p.x, y: p.y, ship: false, vx: a.vx, vy: a.vy });
@@ -302,7 +304,7 @@ export class World {
     const missilesBefore = s.missileShots;
     const minesBefore = s.mineShots;
     this.prev.set(id, { x: s.x, y: s.y });
-    stepShip(s, input, this.dt, this.tune, speedFloor(this.layout, this.clanOf.get(id) ?? 0, s, this.tune));
+    stepShip(s, input, this.dt, this.tune, speedFloor(this.layout, this.clanOf.get(id) ?? 0, s, this.tune), false);
     if (s.missileShots !== missilesBefore) this.launchMissile(id, s);
     if (s.mineShots !== minesBefore) this.dropMine(id, s);
     if (s.shots !== before) {
@@ -319,6 +321,8 @@ export class World {
     const W = t.world.width;
     const H = t.world.height;
     this.tick++;
+    // One authoritative countdown per world tick, even before the pilot's input buffer starts.
+    for (const s of this.ships.values()) s.arrival = Math.max(0, (s.arrival ?? 0) - this.dt);
     const pos = new Map<number, { x: number; y: number }>();
     for (const a of this.asteroids.values()) pos.set(a.id, asteroidPos(a, this.tick, t));
     const hits = (x: number, y: number, ox: number, oy: number, r: number): boolean => {
@@ -369,7 +373,7 @@ export class World {
       }
       if (!spent) {
         for (const [id, s] of this.ships) {
-          if (id === b.owner || s.hp <= 0) continue;
+          if (id === b.owner || s.hp <= 0 || (s.arrival ?? 0) > 0) continue;
           if (base && b.owner === BASE_OWNER && (this.clanOf.get(id) ?? 0) === base.clan) continue;
           if (!hits(b.x, b.y, s.x, s.y, shipRadius(s.hullMax, t, s.chassis) + t.weapon.bulletRadius)) continue;
           this.damageShip(id, s, b.damage, b.owner, b.x, b.y);
@@ -388,10 +392,10 @@ export class World {
         this.rammed.delete(id);
         continue;
       }
-      if (s.hp <= 0 || this.rammed.has(id)) continue;
+      if (s.hp <= 0 || (s.arrival ?? 0) > 0 || this.rammed.has(id)) continue;
       const sr = shipRadius(s.hullMax, t, s.chassis);
       for (const [oid, o] of this.ships) {
-        if (oid === id || o.hp <= 0) continue;
+        if (oid === id || o.hp <= 0 || (o.arrival ?? 0) > 0) continue;
         const or = shipRadius(o.hullMax, t, o.chassis);
         if (!this.sweptHit(id, s, o.x, o.y, sr + or)) continue;
         let dx = wrapDelta(o.x, s.x, W);
@@ -419,11 +423,11 @@ export class World {
       const list = [...this.ships];
       for (let i = 0; i < list.length; i++) {
         const [ida, a] = list[i];
-        if (a.hp <= 0 || a.dashTime > 0) continue;
+        if (a.hp <= 0 || a.dashTime > 0 || (a.arrival ?? 0) > 0) continue;
         const ra = shipRadius(a.hullMax, t, a.chassis);
         for (let j = i + 1; j < list.length; j++) {
           const [idb, b] = list[j];
-          if (b.hp <= 0 || b.dashTime > 0) continue;
+          if (b.hp <= 0 || b.dashTime > 0 || (b.arrival ?? 0) > 0) continue;
           const rb = shipRadius(b.hullMax, t, b.chassis);
           let dx = wrapDelta(b.x, a.x, W);
           let dy = wrapDelta(b.y, a.y, H);
@@ -455,7 +459,7 @@ export class World {
         this.grace.set(id, g - 1);
         continue;
       }
-      if (s.hp <= 0) continue;
+      if (s.hp <= 0 || (s.arrival ?? 0) > 0) continue;
       for (const a of this.asteroids.values()) {
         const p = pos.get(a.id);
         const sr = shipRadius(s.hullMax, t, s.chassis);
@@ -563,7 +567,7 @@ export class World {
     const H = t.world.height;
     for (const [id, s] of this.ships) {
       // No firing in warp mode (brief), turrets included.
-      const n = s.hp > 0 && !s.warping ? turretCount(s, t) : 0;
+      const n = s.hp > 0 && !s.warping && !(s.arrival ?? 0) ? turretCount(s, t) : 0;
       if (!n) {
         this.turrets.delete(id);
         continue;
@@ -623,7 +627,7 @@ export class World {
     const H = t.world.height;
     const member = (id: number): boolean => (this.clanOf.get(id) ?? 0) === base.clan;
     for (const [id, s] of this.ships) {
-      if (s.hp <= 0) continue;
+      if (s.hp <= 0 || (s.arrival ?? 0) > 0) continue;
       if (!member(id)) {
         const dx = wrapDelta(s.x, base.treasury.x, W);
         const dy = wrapDelta(s.y, base.treasury.y, H);
@@ -774,7 +778,7 @@ export class World {
         o.y = wrap(o.y + Math.sin(o.heading) * o.speed * dt, H);
         let hit = false;
         for (const [sid, s] of this.ships) {
-          if (sid === o.owner || s.hp <= 0) continue;
+          if (sid === o.owner || s.hp <= 0 || (s.arrival ?? 0) > 0) continue;
           // Swept: a fast missile cannot skip through a ship between ticks.
           const ex = wrapDelta(o.x, px, W);
           const ey = wrapDelta(o.y, py, H);
@@ -807,7 +811,7 @@ export class World {
       if (this.tick < o.armAt) continue;
       let near: { s: ShipState; dx: number; dy: number; d: number } | null = null;
       for (const [sid, s] of this.ships) {
-        if (sid === o.owner || s.hp <= 0) continue;
+        if (sid === o.owner || s.hp <= 0 || (s.arrival ?? 0) > 0) continue;
         const r = rel(o, s.x, s.y);
         if (r.d <= t.mine.seekRange && (!near || r.d < near.d)) near = { s, ...r };
       }
@@ -816,7 +820,7 @@ export class World {
         this.ordnance.delete(o.id);
         this.events.blasts.push({ x: o.x, y: o.y, r: o.blast, kind: 'mine', shot: false });
         for (const [sid, s] of this.ships) {
-          if (sid === o.owner || s.hp <= 0) continue;
+          if (sid === o.owner || s.hp <= 0 || (s.arrival ?? 0) > 0) continue;
           const d = rel(o, s.x, s.y).d - shipRadius(s.hullMax, t, s.chassis);
           if (d > o.blast) continue;
           this.damageShip(sid, s, o.damage * (1 - 0.5 * Math.max(0, d) / o.blast), o.owner, o.x, o.y);
@@ -867,7 +871,7 @@ export class World {
 
   /** The shield takes damage first; what it cannot hold goes to the hull. */
   private damageShip(id: number, s: ShipState, damage: number, attacker: number, atX: number, atY: number): void {
-    if (s.hp <= 0) return;
+    if (s.hp <= 0 || (s.arrival ?? 0) > 0) return;
     // Docked on its clan's pad: safe (owner, Clan planets v0).
     if (this.docked(id)) return;
     const t = this.tune;

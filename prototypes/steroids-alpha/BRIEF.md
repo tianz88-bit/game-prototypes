@@ -407,19 +407,13 @@ Asteroids replace bots as the non-player targets (owner decision).
 
 ## Orbital zoom transition
 
-Owner decision (13 November 2026): replaces the earlier cloud-layer
-transition. The play view shows the planet as a globe from low orbit, so a
-cloud layer no longer fits.
+Owner correction (16 November 2026): hyperspace arrival replaces the vertical dive/shockwave.
 
-- Entering: the camera starts far out with the whole planet small in space,
-  then dives in to play zoom while the ship streaks down through the
-  atmosphere glow and arrives with a small shockwave (about 1.5-2 s). It plays
-  over the drop-in spawn protection, so nobody can be hit while the camera
-  is still diving.
-- Leaving: after the warp completes, the reverse: the ship streaks up, the
-  camera pulls back and the planet shrinks into space, then the result
-  panel. The server has already removed the ship, so it is visual only.
-- Built by Codex from the spec in GFX_BRIEF.md (visual lane).
+- Arriving pilot: heading-aligned background speedlines, then the hyperspace background fades while the ship holds full normal speed. The planet subsequently zooms to normal play scale, with fast surface travel along the ship bearing. The ship stays level and centred; no vertical drop. HUD returns at completion.
+- Departure reverses the presentation after authoritative extraction: globe pulls away, fast terrain travel increases, hyperspace returns, then the results panel. Existing warp-out eligibility/run and banking rules remain.
+- Authoritative remaining arrival time drives both animation and protection. No incoming damage or contact/ram displacement; no guns, turrets, ordnance, dash or warp initiation during arrival. Full normal speed and fixed bearing until release. Client rendering or a ready message cannot extend immunity.
+- Observers: only genuinely arriving ships fade in, brake sharply with a short overshoot and leave blue-white/orange square residuals. Already-established ships entering view or reconnecting do not replay a spawn entrance.
+- Shared bounded defaults: arrival3.2s, departure2.4s, observed final approach0.7s. Protocol21 appends remaining arrival to each snapshot. Client and Worker must release together after motion review.
 - Stellar map (owner, 16 November): a pulsing WARP button on the main menu opens a canvas popup
   containing all four destinations as spinning globes, using the gameplay terrain materials.
   First tap highlights a globe and shows real player count, hostile/neutral/friendly territory

@@ -43,6 +43,9 @@ export interface ShipPlacement {
   /** Orbital arrival/departure: visual height in screen pixels; ground anchors stay fixed. */
   orbitalLift?: number;
   orbitalGroundAlpha?: number;
+  opacity?: number;
+  /** Keep the pilot above the temporary hyperspace background, below the existing UI. */
+  warpForeground?: boolean;
 }
 
 export class ShipView {
@@ -71,6 +74,7 @@ export class ShipView {
   /** When each gun last fired (ms), by side: -1 left, 1 right. */
   private firedAt: Record<number, number> = { [-2]: -1e9, [-1]: -1e9, 1: -1e9, 2: -1e9 };
   private now = 0;
+  private normalDepth = SHIP_DEPTH;
   private shadow: Phaser.GameObjects.Image;
   private hoverLight: Phaser.GameObjects.Image;
   private ring: Phaser.GameObjects.Graphics;
@@ -99,6 +103,7 @@ export class ShipView {
   }
 
   constructor(private scene: Phaser.Scene, mine: boolean, readonly chassis = 0, readonly palette = 0) {
+    this.normalDepth = mine ? SHIP_DEPTH + 1 : SHIP_DEPTH;
     this.profile = profileFor(chassis);
     const cal = this.profile.calibration;
     const mods = this.profile.modules;
@@ -134,12 +139,14 @@ export class ShipView {
     const groundY=at.y;
     const groundAlpha=at.orbitalGroundAlpha??1;
     if(at.orbitalLift)at={...at,y:at.y-at.orbitalLift};
-    this.exhaustGfx.setVisible(at.visible);
-    this.container.setVisible(at.visible);
-    this.shadow.setVisible(at.visible && at.shadowAlpha > 0.01);
-    this.ring.setVisible(at.visible);
-    this.hoverLight.setVisible(at.visible);
-    if (!at.visible) return;
+    const alpha=at.opacity??1,visible=at.visible&&alpha>.001;
+    this.container.setDepth(at.warpForeground?899.2:this.normalDepth).setAlpha(alpha).setVisible(visible);
+    this.exhaustGfx.setDepth(at.warpForeground?899.1:SHIP_DEPTH-.5).setAlpha(alpha).setVisible(visible);
+    this.shadow.setVisible(visible && at.shadowAlpha > .01);
+    this.ring.setVisible(visible);
+    this.hoverLight.setVisible(visible);
+    this.shieldGfx.setVisible(visible&&!at.warpForeground).setAlpha(alpha);
+    if (!visible) return;
     const x = at.x;
     const y = at.y;
     // In flight the shadow is drawn smaller than the ship (render.shadowScale, owner); a docked ship

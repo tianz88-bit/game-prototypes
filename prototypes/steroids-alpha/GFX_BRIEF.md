@@ -167,3 +167,11 @@ Dash is the inner right arc, weapon capacity the outer. They touch, with the out
 ## Complete publication approval — 16 November 2026
 
 Owner approved going live with every reviewed update, explicitly including orbital transition and buildings. This supersedes the local-preview gates above. The exact seven-source building ZIP is uploaded/re-fetched/hash-verified in R2. Approved HUD is refinement 3; extraction follows newer main's MENU-only behavior. Latest main controls, fuel/visitor rules and zoom are retained. See BUILD_STATUS/HANDOFF for integrated release verification and Agent Comms thread 68c1ca78 for final deployment proof.
+
+## Hyperspace correction — owner, 16 November 2026
+
+Supersedes the earlier vertical orbital dive. Local branch codex/steroids-hyperspace-arrival keeps the pilot level at full speed over heading-aligned hyperspace lines, fades the background, then zooms the globe while surface sampling travels forward quickly. Departure reverses the sequence. Observers get only the final fade/brake/overshoot and650ms residual square particles, not the pilot camera. Authoritative arrival countdown controls immunity and combat release. No client-ready invulnerability grant. Current timing3.2s /2.4s /0.7s; original rig/FFD and fallback remain. Motion gallery: outputs/steroids-alpha/hyperspace-preview/index.html. Local review only, no live deploy.
+
+## Landing completion and release approval — 16 November 2026
+
+Owner approved the revised motion and publication, requesting a lingering blue-white post-hyperspace spark at completion. Added one white ignition glint decaying into blue square ions for1400ms, anchored at the arrival point for both pilot/observer, without extending protection. Bounded32effects with expiry. Prior local-review gate is satisfied.

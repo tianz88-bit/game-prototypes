@@ -5,6 +5,8 @@ import { angleDelta, wrap, wrapDelta } from './wrap';
 import { GUNS, SCRAPPY, chassisStats } from './chassis';
 
 export interface ShipState {
+  /** Server-authoritative arrival time remaining. Absent only in older local visual fixtures. */
+  arrival?: number;
   x: number;
   y: number;
   /** Radians, 0 = facing +x, y grows downward. */
@@ -143,7 +145,7 @@ export function maxShield(s: ShipState, tune: Tune): number {
 }
 
 export function newShip(x: number, y: number, heading: number, speed: number): ShipState {
-  return { x, y, heading, speed, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0, salvage: 0, fuel: 0, chassis: SCRAPPY, shieldCd: 0 };
+  return { x, y, heading, speed, arrival: 0, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0, salvage: 0, fuel: 0, chassis: SCRAPPY, shieldCd: 0 };
 }
 
 /** Warp top speed: warp.topSpeedFactor times this ship's top speed (only slightly faster, so pursuit is possible). */
@@ -152,12 +154,18 @@ export function warpSpeed(hp: number, tune: Tune, chassis = SCRAPPY): number {
 }
 
 export function copyShip(s: ShipState): ShipState {
-  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist, salvage: s.salvage, fuel: s.fuel, chassis: s.chassis, shieldCd: s.shieldCd };
+  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, arrival: s.arrival ?? 0, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist, salvage: s.salvage, fuel: s.fuel, chassis: s.chassis, shieldCd: s.shieldCd };
 }
 
 /** Advance one fixed step. Mutates and returns s. */
 /** floor: the lowest speed allowed this step (0 over one's own clan landing pad, sim/clanBase.ts). */
-export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune, floor = tune.ship.minSpeed): ShipState {
+export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune, floor = tune.ship.minSpeed, advanceArrival = true): ShipState {
+  // Arrival holds its bearing and full normal speed. Protected ships cannot attack or start a dash/warp.
+  if ((s.arrival ?? 0) > 0) {
+    s.speed = topSpeed(s.hullMax, tune, s.chassis);
+    input = { ...input, turn: 0, aim: NaN, thrust: 1, fire: false, dash: false, missile: false, mine: false, warp: false };
+    if (advanceArrival) s.arrival = Math.max(0, (s.arrival ?? 0) - dt);
+  }
   // Lockdown counts down from drop-in; then Warp starts warp mode, and pressing it again cancels.
   s.lockdown = Math.max(0, s.lockdown - dt);
   if (input.warp) {

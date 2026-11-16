@@ -145,6 +145,9 @@
     "warpAfterSeconds": 300
   },
   "warp": {
+    "arrivalSeconds": 3.2,
+    "departureSeconds": 2.4,
+    "remoteArrivalSeconds": 0.7,
     "lockdownSeconds": 180,
     "acceleration": 120,
     "topSpeedFactor": 1.15,

@@ -1,30 +1,33 @@
 ## Current milestone
 
-LIVE as161126r0074 at https://daily-daily-games.itch.io/steroids-alpha. Owner approved after preview; PR510 merged969638bd. itch43829523905 and Worker43829523419 succeeded. Both Warp map and level/kills/minerals leaderboard are public. Local review gallery remains outputs/steroids-alpha/warp-map-preview/index.html.
+Owner approved motion79027e3 and live publication, with a final landing spark. Release candidate on codex/steroids-hyperspace-arrival, based on main d56a3b8. Owner corrected the warp sequence after live0074: hyperspace first, then heading-driven globe approach, plus observer fade/brake/residuals and protection through completion. Public game remains161126r0074 while the approved matching client/Worker release is being published. Motion gallery: outputs/steroids-alpha/hyperspace-preview/index.html.
 
 ## What was implemented
 
-- Main menu WARP opens a stellar chart containing all four planets, using four bounded instances of the existing terrain/globe renderer and shared R2 terrain art. First tap selects/highlights and shows player count, territory relationship and resources; second tap on that same selected globe enters through the existing orbital arrival.
-- Real populations refresh from the existing /planets endpoint. Unreachable counts show Players unavailable. Clan homes are friendly to their members and hostile to other clans; Lawless A is hostile, Satellite B neutral (PvP still possible). Mineral/salvage and member-fuel notes reflect current rules. Close, outside tap or Escape returns to menu; underlying name/share/menu controls are isolated while open. Selection survives resize.
-- One pure rankPilots helper sorts level descending, kills descending, mineral balance descending, then stable id. Desktop board, mobile drawer and compact rank all use it. Display says MINERALS; existing authoritative power wire field remains the hull/shop mineral balance. No economy, protocol-version or server behavior changes.
-- Fixed inherited menu rebuild leakage: DisplayList.removeAll(true) did not destroy old text canvases. Layout now destroys old objects and shared art stays loaded. Ten repeated map open/close cycles stay at53 objects/133 textures with4 globe shaders, or0 shaders in Canvas.
+- Pilot stays level and centred at full normal speed. Distributed blue-white/orange hyperspace streaks run along the ship bearing; the background fades before the planet zooms from20% to play scale. A bounded forward camera/surface travel produces rapid terrain roll in that bearing and returns exactly to the authoritative camera. No vertical drop or shockwave. Full-speed control deformation/exhaust remain per part.
+- Departure reverses globe zoom, surface travel and hyperspace fade after extraction; retained ship is removed at completion, then existing MENU-only results. Normal death/respawn remains separate.
+- New arrivals seen by another client are hidden during initial travel, then fade in for the last0.7s with fast forward approach, a short overshoot and hard brake. Residual square particles last650ms. Only positive server arrival state starts this effect; established ships/reconnects do not fake a new entrance.
+- Authoritative arrival remaining time initializes to3.2s. World advances it once per tick, including before input startup; prediction advances its copy once per input. All damage, contact/ram displacement and combat actions are gated. Bearing stays fixed at full normal speed until release. Client animation follows remaining authority state and cannot extend immunity. Departure is2.4s and remains visual after server extraction.
+- Transit hides UI, then restores original opacities at completion. Foreground ship/exhaust render above hyperspace. Resize/rebuild preserves authority progress and now destroys old ship/FFD/UI resources instead of orphaning them via DisplayList.removeAll(true).
+
+- Completion now emits one world-anchored white glint dissolving into blue-white square ions for1400ms, for both own and remote arrivals. At most32 effects are retained; they expire and do not extend protection. Old visitors do not trigger it.
 
 ## Key technical decisions
 
-No dependencies, generated images, new R2 objects or extra permissions. The popup reuses PlanetGround through bounded positioning/disposal methods. Canvas compatibility keeps rotating projected surface marks and a shaded disc. Shared planet metadata and real counts supply intel; no fabricated resource quantities or player counts. Existing ship art, rig/FFD, mobile controls and orbital flow remain.
+Protocol21 appends f32 arrival at offset99:103-byte ship records. ShipState arrival is optional only for older local fixtures, encoded as0 when omitted. Remote countdown is interpolated. Client and Worker must release together after review. New bounded warp timings upgrade into older hosted settings automatically; minimum arrival2s never undercuts legacy contact grace. No new assets, dependencies or permissions; shared R2 art, fixed-Z ship rig, Canvas and sprite fallback retained. Existing Warp map and level/kills/minerals ranking preserved.
 
-Typecheck/build/rig/sim/live-config pass. New meaningful ranking cases cover level vs kills, kills vs minerals, stable ties, old missing-level rosters and source immutability. Brave DPR2 PC1280x720, mobile844x390, small667x375 and upright390x844: all four selections, real second-tap warp, modal input isolation, hidden/restored name field and rotation pass. Desktop/mobile board ordering and compact rank agree. WebGL and Canvas repeat-open resource counts stay stable; resize preserves selection; stale Escape and simulated count503 fail gracefully. About60 FPS / p9516.8ms for the open four-globe map on this PC. No unexpected page/console errors; intentional503 injection is excluded from the error count. Evidence: outputs/steroids-alpha/warp-map-preview/{result,leaderboard,lifecycle}.json and actual-renderer screenshots/GIF.
+Typecheck/build/rig/sim/live-config/bank suites pass. New tests cover protected health/shield/recharge, blocked attacks/dash/warp, full-speed fixed bearing, one-step prediction parity, automatic vulnerability, copied/wire countdown, reverse camera/fade and old-ship behavior; hosted timing upgrades/bounds pass. Existing combat/room fixtures explicitly start after arrival. Rig396 poses/14400 FFD points remain unchanged.
 
-Public Brave verification: PC1280x720, phone844x390, small667x375 and upright390x844 DPR2 all loaded161126r0074. Real WARP open, all four globe selections/details, rotation, close/reopen and second-tap Satellite B entry pass; every client reaches flight with an open connection. Published desktop/mobile leaderboard order, mineral labels and compact rank pass using isolated client fixtures after network closure. Worker health OK/protocol20, zero unexpected browser errors. Evidence outputs/steroids-alpha/warp-live-verification/{result,leaderboard}.json and inspected screenshots.
+Brave DPR2 desktop1280x720 and mobile844x390 real server arrivals reach flight from positive authority time; actual renderer entry/exit captures preserve centred ship and exact final scale. A real two-client observer sees hidden arrival then fade-in.21 deterministic observer frames verify overshoot, settlement, residual cleanup and no effect for an old visitor. WebGL and Canvas held-fire arrival, resize continuity, UI restoration, repeated resize texture stability and return-to-menu cleanup pass. No unexpected page/console errors. Evidence: outputs/steroids-alpha/hyperspace-preview/result.json, observer.json, compatibility.json and5 GIFs. Captured animation timelines use isolated client fixtures after network close; real network checks are recorded separately.
 
 ## Open questions
 
-None blocking the requested behavior. Latest owner request is recorded in BRIEF.md.
+Owner reviewed and approved the motion. No open release decision.
 
 ## Known issues
 
-Physical phone/Safari performance is unmeasured. Canvas uses simpler globe shading than WebGL. This is a menu destination chart; a free-flight space hub is separate. Existing unrelated build warnings remain.
+Phone emulation is not physical phone/Safari evidence. Canvas retains the existing simpler terrain fallback. Authoritative extraction/bank logic is covered by simulation/bank suites; departure capture stages the extracted presentation locally. Existing unrelated bundle warnings remain.
 
 ## Next proposed step
 
-Owner playtests the live Warp map and mineral leaderboard. Release proof and menu/ranking contracts are sent to Claude in Agent Comms thread b837277b.
+Publish the approved matching protocol21 client/Worker and verify public arrival/completion sparks, cleanup, Warp map and observer entrance. Send Claude final release proof in thread68c1ca78.
