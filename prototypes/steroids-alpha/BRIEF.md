@@ -131,7 +131,7 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
   members **Fuel** (a clan resource, working name) instead of salvage, so safe home planets cannot
   be farmed for credits. Fuel fills the same 400 hold, the hot zone doubles it, it is lost on death,
   and docking unloads it into the treasury. Fuel is what will pay building upkeep once upkeep
-  exists. Non-members mine neither and do not see the hot zone. No gold drops on home planets.
+  exists. Non-members mine neither, do not see the hot zone and have no cargo readout there. No gold drops on home planets.
   A docked ship comes down onto its pad: it shrinks to its shadow's size and sits on it, and its
   hover glow fades and its engines (exhaust) switch off (owner, 15 November).
 - **Anyone can enter a clan planet.** Non-members:

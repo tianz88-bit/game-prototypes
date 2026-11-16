@@ -1,5 +1,7 @@
 ## Current milestone
 
+Visitor cargo (16 November, claude): visitors on another clan's home planet no longer see a cargo readout, since they cannot mine there.
+
 Base markers (15 November, claude): clan home planets point to off-screen landmarks with edge arrows and distances (members: treasury; visitors: gate and enemy treasury).
 
 Clan fuel (15 November, claude): clan home planets drop no salvage; members mine Fuel there (same 400 hold, lost on death) and dock to unload it into the treasury, which will fund building upkeep later. Exhaust plume length now follows each ship's own top speed. Protocol 20.

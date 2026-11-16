@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 claude visitor-cargo
+DID: the cargo readout (SALVAGE/FUEL n/400 and its full cue) is hidden for visitors on another clan's home planet, where they can mine nothing.
+FILES: src/render/combatHud.ts src/scenes/flight.ts BRIEF.md
+SEAM: CombatHud.draw(..., hold: 'salvage' | 'fuel' | 'none') replaces the boolean home flag.
+CROSS: src/render/combatHud.ts (yours): wraps the cargo block in hold !== 'none' only.
+FOR codex: nothing new.
+
 ## 2026-11-15 claude base-markers
 DID: clan home planets show edge arrows with label and distance for off-screen landmarks: members see their treasury; visitors see the gate and the enemy treasury. Own outer ring, kept clear of touch buttons, bottom HUD and the bounty/hot-zone arrows.
 FILES: src/scenes/flight.ts BRIEF.md
@@ -97,10 +104,3 @@ FILES: server/src/{room,index}.ts sim/{protocol,world}.ts src/net/client.ts src/
 SEAM: text frame {type:'resume',token,seconds} after welcome; ws ?resume=<token>; CLOSE.RESUME_LOST 4005; NetStatus 'reconnecting' | 'lost'; net.closeInfo, closeReason(); Player.resume/awayUntil; tune net.reconnectGraceSeconds, ship.bumpDamage, ship.bumpKnockbackSpeed. Protocol 19 unchanged.
 CROSS: none
 FOR codex: nose chevron (flight.ts drawNose), the "Reconnecting… Ns" line and the lost-ship message are placeholders.
-
-## 2026-11-15 claude shot-look
-DID: gun shots no longer alternate looks by side (owner): both guns fire energy-bolt-standard; from GUNS (damage) tier 2 both fire energy-pulse-heavy. Remote shots use the shooter's last snapshot damageTier.
-FILES: src/net/client.ts client.tune.json sim/liveConfig.ts BRIEF.md
-SEAM: clientTune.render.heavyShotGunTier (2); bullet look = damageTier >= it ? 1 : 0 (combatSprites/drawBullet unchanged).
-CROSS: none
-FOR codex: the pulse now marks an upgraded gun; a small muzzle change at tier 2 would sell the upgrade.
