@@ -26,6 +26,6 @@ Connected rooms poll the internal config store every 15 seconds and announce the
 
 Inputs carry intent, never authoritative position, damage, inventory or arbitrary config. The server advances at most one ship step per tick, bounds queues, rejects replay/huge sequence jumps and limits packet size/rate. A forged client cannot publish via the gameplay socket or unauthenticated admin endpoint. These are concrete protections, not a claim of complete anti-cheat: anonymous multi-account abuse, identity/account authentication, aim automation, botting, lag compensation and competitive telemetry still need a later pass.
 
-The legacy reference FFD remains Canvas-based in this tuning stage; the production mesh port is separate unfinished work. Keep the approved calibration intact until a tested draft is deliberately published. Draft/public visitors cannot affect live data just by changing controls.
+The original Falcon draft stage retains its Canvas reference FFD; production review uses the implemented per-part WebGL mesh with the sprite rig as fallback. Keep the approved calibration intact until a tested draft is deliberately published. Draft/public visitors cannot affect live data just by changing controls.
 
 Implementation references: [GitHub workflow OIDC claims](https://docs.github.com/en/actions/reference/security/oidc) and [transactional Durable Object storage](https://developers.cloudflare.com/durable-objects/best-practices/access-durable-objects-storage/).
