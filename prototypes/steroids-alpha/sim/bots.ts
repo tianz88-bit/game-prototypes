@@ -68,7 +68,8 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
   };
   // Siege (owner, 16 November 2026): at war, bots fight the other clan only; attackers go for the
   // base (turrets, then the shield, then the treasury), defenders guard it from outside the shield.
-  const war = world.atWar && world.layout ? world.layout : null;
+  // Sides hold through the short round-over pause too.
+  const war = (world.atWar || world.siege?.phase === 'over') && world.layout ? world.layout : null;
   const myClan = world.clanOf.get(id) ?? 0;
   const defending = !!war && myClan === war.clan;
   brain.aimError = Math.max(-1, Math.min(1, brain.aimError + (rng() - 0.5) * 0.3)) ;

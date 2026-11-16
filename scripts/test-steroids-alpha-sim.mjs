@@ -1139,6 +1139,64 @@ assert.equal(S.cleanName(null), '');
   assert.equal(open.siege, null, 'clan homes have no siege');
 }
 
+// --- Warzone room flow (owner, 16 November 2026): countdown when both clans are present, war with
+// 2 bots per side, newcomers locked out, in-place respawns, release when a side empties. ---
+{
+  class Sock extends EventTarget { sent = []; code = 0; send(v) { this.sent.push(v); } close(code = 1000) { this.code = code; this.dispatchEvent(new Event('close')); } }
+  const hz = tune.net.tickHz, g = tune.siege;
+  const room = new S.Room();
+  room.setPlanet('warzone');
+  room.stop();
+  // Joining starts the room's real-time timer; the test drives every step itself.
+  const steps = (n) => { room.stop(); for (let i = 0; i < n; i++) room.step(); };
+  const noClan = new Sock();
+  room.join(noClan, 'X', null, 0);
+  assert.equal(noClan.code, S.CLOSE.NEED_CLAN, 'Warzone needs a clan');
+  const red = new Sock(), blue = new Sock();
+  room.join(red, 'Red', null, 1);
+  steps(5);
+  assert.equal(room.siegePhase, 'peace', 'one side alone: peace');
+  room.join(blue, 'Blue', null, 2);
+  steps(2);
+  assert.equal(room.siegePhase, 'countdown', 'both clans present: countdown');
+  steps(g.startCountdownSeconds * hz + 2);
+  assert.equal(room.siegePhase, 'war', 'the war begins');
+  assert.equal(room.bots.size, 2 * g.botsPerSide, 'two bots per side');
+  const late = new Sock();
+  room.join(late, 'Late', null, 1);
+  assert.equal(late.code, S.CLOSE.WAR_LOCKED, 'no joining mid-war');
+  // An attacker destroyed at war stays connected and is back at once.
+  const [redId] = [...room.players.values()].filter((p) => p.clan === 1).map((p) => p.id);
+  const ship = room.world.ships.get(redId);
+  ship.arrival = 0;
+  ship.shield = 0;
+  room.world['damageShip'](redId, ship, 99999, 0, ship.x, ship.y);
+  steps(1);
+  assert(room.players.has(redId) && red.code === 0, 'a destroyed pilot stays connected at war');
+  steps(3);
+  assert(room.world.ships.get(redId)?.hp > 0, 'the attacker respawns at once');
+  // The defender takes longer.
+  const [blueId] = [...room.players.values()].filter((p) => p.clan === 2).map((p) => p.id);
+  const b = room.world.ships.get(blueId);
+  b.arrival = 0;
+  b.shield = 0;
+  room.world['damageShip'](blueId, b, 99999, 0, b.x, b.y);
+  steps(hz);
+  assert(!room.world.ships.has(blueId), 'the defender waits to respawn');
+  steps(g.defenderRespawnSeconds * hz);
+  assert(room.world.ships.get(blueId)?.hp > 0, 'then respawns at the pads');
+  // A side leaves: release countdown, then peace (structures restored, bots gone).
+  blue.close();
+  steps(tune.net.reconnectGraceSeconds * hz + 2);
+  assert(room.siegePhase === 'release' || room.siegePhase === 'peace', 'a side gone: release');
+  steps(g.endCountdownSeconds * hz + 2);
+  assert.equal(room.siegePhase, 'peace', 'then peace');
+  assert.equal(room.bots.size, 0, 'war bots leave');
+  assert.equal(room.world.siege.treasury, g.treasuryHp, 'structures restored');
+  red.close();
+  room.stop();
+}
+
 // --- Both guns on the locked target (owner, 15 November 2026): each gun leads the target from its
 // own muzzle, so both streams land; bots get no lock-on assist. ---
 {

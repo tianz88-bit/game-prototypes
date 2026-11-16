@@ -755,7 +755,8 @@ export class World {
     }
     // Base turrets: nearest non-member ship in range, turn toward it, fire when lined up.
     base.turrets.forEach((at, i) => {
-      if (sg && sg.phase === 'war' && sg.turretHp[i] <= 0) return; // destroyed
+      if (sg && sg.phase !== 'war') return; // Warzone outside a war: the towers hold fire
+      if (sg && sg.turretHp[i] <= 0) return; // destroyed
       if (this.baseCd[i] > 0) this.baseCd[i]--;
       let best: { dx: number; dy: number; d: number } | null = null;
       for (const [id, s] of this.ships) {

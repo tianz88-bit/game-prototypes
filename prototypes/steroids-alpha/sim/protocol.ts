@@ -31,7 +31,7 @@ import type { ShipInput, ShipState } from './ship';
 import type { Asteroid } from './asteroids';
 import type { ShotEvent } from './world';
 
-export const PROTOCOL_VERSION = 22;
+export const PROTOCOL_VERSION = 23;
 
 export const MSG = {
   INPUT: 1,
@@ -55,6 +55,10 @@ export const CLOSE = {
   EXTRACTED: 4004,
   /** A resume token the room no longer knows: the ship was lost while away (or the server restarted). */
   RESUME_LOST: 4005,
+  /** Warzone (siege v0): a war is on and the planet is locked to newcomers. */
+  WAR_LOCKED: 4006,
+  /** Warzone: only clan pilots (Crimson or Azure) can join. */
+  NEED_CLAN: 4007,
 } as const;
 
 export interface SnapshotShip extends ShipState {

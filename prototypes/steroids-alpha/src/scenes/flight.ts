@@ -22,6 +22,7 @@ import { TUNE } from '../../sim/tune';
 import { PLANETS } from '../../sim/planets';
 import type { PlanetId } from '../../sim/planets';
 import { TUTORIAL } from '../../sim/planets';
+import { CLOSE } from '../../sim/protocol';
 import { guide } from '../tutorial/guide';
 import { localTransport } from '../tutorial/localServer';
 import { maxShield, shipRadius, powerGrowth, topSpeed } from '../../sim/ship';
@@ -34,7 +35,7 @@ import { DEBUG, DEBUG_ROTATION, logicalSize } from '../base';
 import { clientTune } from '../clientTune';
 import { intents } from '../input/intents';
 import { NetClient, closeReason } from '../net/client';
-import { CLANS, clanName, planetClan } from '../../sim/planets';
+import { CLANS, clanName, planetClan, isWarPlanet } from '../../sim/planets';
 import { isDocked, padUnder } from '../../sim/clanBase';
 import { fitCamera, text, versionStamp } from './common';
 import { ShipView } from '../render/shipView';
@@ -306,7 +307,7 @@ export class FlightScene extends Phaser.Scene {
     this.turretGfx.clear();
     const alive = new Set<number>();
     // Live ships follow snapshots; departure briefly retains only a cached visual after extraction.
-    if (own && !this.net.extracted && this.net.status !== 'extracted') {
+    if (own && !this.net.extracted && this.net.status !== 'extracted' && !this.net.warDown) {
       alive.add(this.net.myId);
       this.placeShip(this.net.myId, own, true, move);
     }
@@ -396,7 +397,9 @@ export class FlightScene extends Phaser.Scene {
     this.drawHullBorder(w,h);
     this.drawStatus(own);
     this.drawBoard(w);
-    this.maskOrbitalUi(this.orbit.phase==='entry'||this.orbit.phase==='exit'||this.orbit.phase==='waiting');
+    // A refused or closed connection (planet full, war lockdown) must show its message, never an endless hyperspace.
+    const refused=this.net.status==='closed'||this.net.status==='full'||this.net.status==='lost';
+    this.maskOrbitalUi(!refused&&(this.orbit.phase==='entry'||this.orbit.phase==='exit'||this.orbit.phase==='waiting'));
 
     if ((this.net.extracted || this.net.status === 'extracted') && !dead) {
       if (this.orbit.phase==='complete' && this.deathScreen(w, h, true)) return;
@@ -450,10 +453,94 @@ export class FlightScene extends Phaser.Scene {
   private baseAim: number[] = [];
   private baseFiredAt: number[] = [];
 
+  /** Warzone HUD texts (siege v0). */
+  private siegeTexts: Phaser.GameObjects.Text[] = [];
+
+  /**
+   * Warzone (owner, 16 November 2026, placeholder look): the round panel at the top (phase,
+   * countdowns, tickets, timer, tower/shield/Nexus health), destroyed towers and the shield's
+   * strength drawn over the base, and the respawn countdown while destroyed at war. Display only.
+   */
+  private drawSiege(w: number, h: number): void {
+    if (!this.siegeTexts.length) this.siegeTexts = [0, 1, 2].map(() => text(this, 0, 0, '', 11, '#ffffff').setOrigin(0.5, 0).setDepth(955).setVisible(false));
+    const [t1, t2, t3] = this.siegeTexts;
+    this.siegeTexts.forEach((t) => t.setVisible(false));
+    const sg = this.net.siege, L = this.net.layout;
+    if (!sg || !L || this.net.status !== 'open' || this.net.extracted) return;
+    const g = this.overlay, tune = TUNE.siege;
+    const crimson = CLANS[0], azure = CLANS[1];
+    const clanCss = (id: number): string => css(CLANS.find((c) => c.id === id)?.colour ?? 0xffffff);
+    const mmss = (s: number): string => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    const pw = Math.min(380, w - 24), px = w / 2, py = intents.touch ? 96 : 76;
+    const atWar = sg.phase === 'war' || sg.phase === 'release';
+    const ph = atWar ? 64 : 42;
+    panel(g, px - pw / 2, py, pw, ph, sg.phase === 'over' ? UI.uiGold : atWar ? UI.uiDanger : UI.uiBorder);
+    const line = (t: Phaser.GameObjects.Text, y: number, s: string, colour = '#ffffff', size = 11): void => {
+      t.setVisible(true).setPosition(px, y).setFontSize(size).setText(s);
+      if (t.style.color !== colour) t.setColor(colour);
+    };
+    if (sg.phase === 'peace') {
+      line(t1, py + 6, 'WARZONE  ·  AZURE DEFENDS, CRIMSON ATTACKS', '#ffd27a');
+      line(t2, py + 23, `Waiting for both clans  ·  Crimson ${sg.crimson}  ·  Azure ${sg.azure}`, '#c9d6f2', 10);
+    } else if (sg.phase === 'countdown') {
+      line(t1, py + 6, `WAR BEGINS IN ${sg.left}`, '#ff9b81', 13);
+      line(t2, py + 24, `Crimson ${sg.crimson}  ·  Azure ${sg.azure}  ·  the planet locks when it starts`, '#c9d6f2', 10);
+    } else if (sg.phase === 'over') {
+      const who = sg.winner === crimson.id ? 'CRIMSON' : 'AZURE';
+      const why = sg.reason === 'treasury' ? 'Nexus destroyed' : sg.reason === 'tickets' ? 'attackers out of tickets' : 'the defence held until time ran out';
+      line(t1, py + 5, `${who} WINS`, clanCss(sg.winner), 14);
+      line(t2, py + 24, `${why}  ·  next round in ${sg.left}`, '#c9d6f2', 10);
+    } else {
+      const left = sg.phase === 'release' ? `  ·  A SIDE LEFT: WAR ENDS IN ${sg.left}` : '';
+      line(t1, py + 5, `TICKETS ${sg.tickets}  ·  ${mmss(sg.phase === 'war' ? sg.left : sg.left)}${left}`, sg.tickets <= 5 ? '#ff9b81' : '#ffffff');
+      // Towers (pips), shield and Nexus bars.
+      const bx = px - pw / 2 + 14, bw = pw - 28, y = py + 26;
+      const pip = Math.min(18, (bw * 0.28) / sg.turrets.length);
+      sg.turrets.forEach((hp, i) => {
+        const f = Math.max(0, hp / tune.turretHp);
+        g.fillStyle(0x0a1424, 1);
+        g.fillRect(bx + i * (pip + 3), y, pip, 8);
+        if (f > 0) { g.fillStyle(0xff9a6a, 1); g.fillRect(bx + i * (pip + 3), y, pip * f, 8); }
+      });
+      const bar = (x: number, wid: number, f: number, colour: number): void => {
+        g.fillStyle(0x0a1424, 1); g.fillRect(x, y, wid, 8);
+        if (f > 0) { g.fillStyle(colour, 1); g.fillRect(x, y, wid * Math.min(1, f), 8); }
+      };
+      const sx = bx + sg.turrets.length * (pip + 3) + 10, rest = bx + bw - sx, half = (rest - 10) / 2;
+      bar(sx, half, sg.shield / tune.shieldHp, sg.broken ? 0x6b6f7a : 0x5ad3ff);
+      bar(sx + half + 10, half, sg.treasury / tune.treasuryHp, 0xffd27a);
+      line(t2, y + 11, `TOWERS ${sg.turrets.filter((v) => v > 0).length}/${sg.turrets.length}        SHIELD ${sg.broken ? 'BROKEN' : Math.round(sg.shield)}        NEXUS ${Math.round(sg.treasury)}`, '#c9d6f2', 9);
+      // Over the base: destroyed towers crossed out, the shield ring by its strength.
+      L.turrets.forEach((at, i) => {
+        if ((sg.turrets[i] ?? 1) > 0) return;
+        const s = this.toScreen(at.x, at.y);
+        if (!s.visible) return;
+        const r = 18 * s.scale;
+        g.fillStyle(0x15161c, 0.75); g.fillCircle(s.x, s.y, r);
+        g.lineStyle(3, 0xff6a5c, 0.9); g.lineBetween(s.x - r * 0.7, s.y - r * 0.7, s.x + r * 0.7, s.y + r * 0.7); g.lineBetween(s.x - r * 0.7, s.y + r * 0.7, s.x + r * 0.7, s.y - r * 0.7);
+      });
+      if (!sg.broken) {
+        const c = this.toScreen(L.treasury.x, L.treasury.y), e = this.toScreen(L.treasury.x + TUNE.base.domeRadius, L.treasury.y);
+        if (c.visible) {
+          const f = Math.max(0, sg.shield / tune.shieldHp);
+          g.lineStyle(3, f > 0.35 ? 0x5ad3ff : 0xff9a6a, 0.25 + 0.5 * f);
+          g.strokeCircle(c.x, c.y, Math.hypot(e.x - c.x, e.y - c.y));
+        }
+      }
+    }
+    // Destroyed at war: back at your side's spawn soon (not a menu: the pilot stays on the planet).
+    if (this.net.warDown) {
+      const s = Math.max(0, Math.ceil((this.net.warDown.until - performance.now()) / 1000));
+      line(t3, h * 0.42, s > 0 ? `DESTROYED  ·  RESPAWNING IN ${s}` : 'RESPAWNING…', '#ffbd91', 16);
+    }
+    void azure;
+  }
+
   /** Arrival warning (owner): what kind of planet this is and what to expect. */
   private arrivalNote(): string {
     const home = planetClan(this.planet);
     if (this.planet === TUTORIAL) return '';
+    if (isWarPlanet(this.planet)) return this.net.clan === home ? 'WARZONE · YOU DEFEND\nKeep the Nexus alive; you cannot fire from inside your shield' : 'WARZONE · YOU ATTACK\nDestroy the towers, break the shield, destroy the Nexus';
     if (this.planet === 'alpha') return 'LAWLESS SPACE\nBots will hunt you down';
     if (!home) return 'SATELLITE\nFarm and fight; no turrets, no shields';
     const owner = clanName(home).toUpperCase();
@@ -1066,7 +1153,7 @@ export class FlightScene extends Phaser.Scene {
     g.clear();
     intents.uiZones = [];
     const p = this.net.predicted;
-    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now,this.hudAnchor, this.planet === TUTORIAL ? 'none' : !this.net.layout ? 'salvage' : this.net.clan === this.net.layout.clan ? 'fuel' : 'none');
+    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now,this.hudAnchor, this.planet === TUTORIAL || isWarPlanet(this.planet) ? 'none' : !this.net.layout ? 'salvage' : this.net.clan === this.net.layout.clan ? 'fuel' : 'none');
     this.drawMobileNav(p,w);
     this.drawShop(p);
     this.drawWeapons(p, w, h);
@@ -1074,6 +1161,7 @@ export class FlightScene extends Phaser.Scene {
     this.drawWarp(p, w, h);
     this.drawHotZone(p, w, h);
     this.drawBaseMarkers(p, w, h);
+    this.drawSiege(w, h);
     if (this.planet === TUTORIAL && (this.net.death || this.net.extracted)) guide.hide();
     else if (this.planet === TUTORIAL) guide.update({ myId: this.net.myId, predicted: this.net.predicted, g: this.overlay, w, h, toScreen: (x, y) => this.toScreen(x, y) });
     this.drawKeyHints(p, w, h);
@@ -1561,7 +1649,7 @@ export class FlightScene extends Phaser.Scene {
       reconnecting: `Connection lost. Reconnecting… ${n.resumeSecondsLeft}s`,
       lost: `Your ship was lost while disconnected\n(${n.closeInfo ? closeReason(n.closeInfo.code, n.closeInfo.reason) : ''})\nTap or press R to drop in again`,
       full: 'Planet is full. Tap to go back',
-      closed: `Disconnected${n.closeInfo ? ` (${closeReason(n.closeInfo.code, n.closeInfo.reason)})` : ''}\nTap to go back`,
+      closed: n.closeInfo?.code === CLOSE.WAR_LOCKED ? 'A war is on in the Warzone.\nTry again when it ends. Tap to go back' : n.closeInfo?.code === CLOSE.NEED_CLAN ? 'Pick Crimson or Azure in the menu to fight here.\nTap to go back' : `Disconnected${n.closeInfo ? ` (${closeReason(n.closeInfo.code, n.closeInfo.reason)})` : ''}\nTap to go back`,
       destroyed: '',
       extracted: '',
     };
