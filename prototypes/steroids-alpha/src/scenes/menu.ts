@@ -152,7 +152,7 @@ export class MenuScene extends Phaser.Scene {
     const look=loadSave().look??{};
     const palette=Number((look.palette??'palette.0').split('.')[1]);
     shipPreview(this,look.ship==='ship.interceptor'?1:0,palette,x+pw*.26,top+37,pw*.38,48);
-    text(this,x,top+242,`${look.ship==='ship.interceptor'?'INTERCEPTOR':'SCRAPPY'} · ${PALETTES[palette]?.name.split(' / ')[0]??'Cobalt'}`,10,'#b5ccdc').setOrigin(.5);
+    text(this,x,top+242,`${look.ship==='ship.interceptor'?'INTERCEPTOR':'FALCON'} · ${PALETTES[palette]?.name.split(' / ')[0]??'Cobalt'}`,10,'#b5ccdc').setOrigin(.5);
     text(this, x, top + 70, 'RECOVERY CODE', 10, '#8fa2c8').setOrigin(0.5);
     text(this, x, top + 88, recovery || '-', 13, '#dfe8ff').setOrigin(0.5);
     text(this, x, top + 104, 'Write it down to keep your credits', 9, '#6d7a96').setOrigin(0.5);

@@ -1,7 +1,9 @@
-// Ship types (owner, 14 November 2026): Scrappy (the starter, free), Interceptor (a one-time credit
-// unlock, chosen in the menu) and the Battlecruiser (only by evolving during a run, with minerals).
-// Stats are factors on the base ship values in tune.json (`interceptor`, `battlecruiser`; Scrappy is
-// the base). Gun and turret positions come from the art (tools/ship-rig/human-nomad-ships-v2
+// Ship types (owner, 14 November 2026): Falcon (the starter, free; called Scrappy in code ids),
+// Interceptor (a one-time credit unlock, chosen in the menu) and the Battlecruiser (only by evolving
+// during a run, with minerals). Each ship has its own speeds, acceleration, braking and turn rate
+// (owner, 16 November 2026: explicit per ship; Falcon's are tune.ship and the reference for tuning);
+// shield, damage and fire rate stay factors on the base values in tune.json (`interceptor`,
+// `battlecruiser`). Gun and turret positions come from the art (tools/ship-rig/human-nomad-ships-v2
 // footprint-proposals.json, game-local world units at the base size); collision radius and every
 // stat are tuned values, never derived from the art size.
 import type { Tune } from './tune';
@@ -15,9 +17,6 @@ export const BATTLECRUISER = 2;
 export interface ChassisStats {
   /** Hit radius before power growth. */
   radius: number;
-  speed: number;
-  accel: number;
-  turn: number;
   shield: number;
   damage: number;
   fireIntervalSteps: number;
@@ -28,9 +27,24 @@ export interface ChassisStats {
 export function chassisStats(chassis: number, tune: Tune): ChassisStats {
   if (chassis === INTERCEPTOR || chassis === BATTLECRUISER) {
     const c = chassis === INTERCEPTOR ? tune.interceptor : tune.battlecruiser;
-    return { radius: c.radius, speed: c.speedFactor, accel: c.accelFactor, turn: c.turnFactor, shield: c.shieldFactor, damage: c.damageFactor, fireIntervalSteps: c.fireIntervalSteps, baseTurrets: c.baseTurrets };
+    return { radius: c.radius, shield: c.shieldFactor, damage: c.damageFactor, fireIntervalSteps: c.fireIntervalSteps, baseTurrets: c.baseTurrets };
   }
-  return { radius: tune.ship.radius, speed: 1, accel: 1, turn: 1, shield: 1, damage: 1, fireIntervalSteps: tune.weapon.fireIntervalSteps, baseTurrets: 0 };
+  return { radius: tune.ship.radius, shield: 1, damage: 1, fireIntervalSteps: tune.weapon.fireIntervalSteps, baseTurrets: 0 };
+}
+
+/** How a ship moves (px/s, px/s², rad/s): its own values per ship type. */
+export interface ShipMotion {
+  minSpeed: number;
+  cruiseSpeed: number;
+  maxSpeed: number;
+  acceleration: number;
+  braking: number;
+  turnRate: number;
+}
+
+export function shipMotion(chassis: number, tune: Tune): ShipMotion {
+  const c = chassis === INTERCEPTOR ? tune.interceptor : chassis === BATTLECRUISER ? tune.battlecruiser : tune.ship;
+  return { minSpeed: c.minSpeed, cruiseSpeed: c.cruiseSpeed, maxSpeed: c.maxSpeed, acceleration: c.acceleration, braking: c.braking, turnRate: c.turnRate };
 }
 
 export interface Mount {

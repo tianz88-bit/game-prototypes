@@ -28,7 +28,7 @@ export interface Unlock {
 }
 
 export const UNLOCKS: readonly Unlock[] = [
-  { id: 'ship.scrappy', slot: 'ship', name: 'Scrappy', index: 0, free: true },
+  { id: 'ship.scrappy', slot: 'ship', name: 'Falcon', index: 0, free: true }, // renamed from Scrappy (owner, 16 November 2026); the id stays for saves
   { id: 'ship.interceptor', slot: 'ship', name: 'Interceptor', index: 1 },
   // Palettes (owner art, tools/ship-rig/human-nomad-ships-v2/palettes.json): repaint hull, trim and glass.
   { id: 'palette.0', slot: 'palette', name: 'Cobalt & orange', index: 0, colour: 0x1f5fd6, free: true },

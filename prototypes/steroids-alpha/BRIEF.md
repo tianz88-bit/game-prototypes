@@ -154,6 +154,7 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
   per pilot input, so the rules are exactly those of online play on any device speed.
 - Step by step, each skill repeated until it is done for real (hints never block play):
   1. Steer through 5 rings. 2. Full speed then minimum speed, 3 times. 3. Dash through 3 gates.
+  3b. Ram a battered practice Battlecruiser (45% hull, never shoots) to death: 3 rams.
   4. Destroy 4 asteroids. 5. Collect minerals (+15 power). 6. Overheat the guns twice.
   7. A training turret breaks your shield and hits your hull; collect a repair pod.
   8. Buy MISSILES and MINES (power topped up first). 9. 3 locked missile launches at a drone.
@@ -379,10 +380,18 @@ First clan-versus-clan fight. Built in two steps: the rules and a headless bot s
 - Dash ram (owner picked): dashing into a ship damages it and throws both apart. Damage is the
   larger of the flat ram (scaled by gun upgrades) and 15% of the target's hull maximum (owner,
   16 November, `ship.dashRamHullFraction`), so any pilot can hurt a big, decked-out ship.
+  Owner, 16 November: the target takes the ram **straight to its hull** (shields skipped); the
+  rammer takes the same amount on its **shield**, with nothing spilling over to its hull, or on its
+  hull only if its shield is already down (recharging).
 - Ship bumps (owner, 15 November; harder on 16 November): ships that touch outside a dash no
   longer pass through each other; both bounce apart (380) and take 20 damage (shield first), at
   most once per pair every 0.5 s (ship.bumpDamage, bumpKnockbackSpeed, contactGraceSeconds).
-- Corner speed (owner, 16 November): ships turn best at cruise speed and worse both slower and
+- Ship handling (owner, 16 November): each ship type has its own minimum, cruise and top speed,
+  acceleration, braking and turn rate (`tune.ship` for the Falcon, the reference for tuning;
+  `tune.interceptor`, `tune.battlecruiser`). Starting values equal the old factors. The starter
+  ship Scrappy is renamed **Falcon**.
+- Corner speed (owner, 16 November): ships turn best at their own cruise speed (as a share of their
+  own top speed, so the slow Battlecruiser turns best around 187) and worse both slower and
   faster: 70% of the turn rate at minimum speed (`ship.turnAtMinSpeed`) and 85% at the ship's own
   top speed (`ship.turnAtMaxSpeed`). Slowing right down no longer wins a turn fight, which breaks
   up circling stalemates.

@@ -7,6 +7,7 @@ import type { Tune } from './tune';
 import type { ShipState } from './ship';
 import { planetClan } from './planets';
 import { wrap, wrapDelta } from './wrap';
+import { shipMotion } from './chassis';
 
 export interface BaseLayout {
   clan: number;
@@ -56,7 +57,7 @@ export function padUnder(layout: BaseLayout, s: { x: number; y: number }, tune: 
  * otherwise the normal minimum (ships never stop anywhere else).
  */
 export function speedFloor(layout: BaseLayout | null, clan: number, s: ShipState, tune: Tune): number {
-  return layout && clan === layout.clan && padUnder(layout, s, tune) >= 0 ? 0 : tune.ship.minSpeed;
+  return layout && clan === layout.clan && padUnder(layout, s, tune) >= 0 ? 0 : shipMotion(s.chassis, tune).minSpeed;
 }
 
 /** Docked: a member stopped (or nearly) over one of its clan's pads. Safe, repairing, unloading. */

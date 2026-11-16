@@ -239,6 +239,35 @@ export class TutorialGuide {
         draw: (v) => this.target && this.drawMark(v, this.target, 95, 0x87d6cf, 'GATE'),
       },
       {
+        title: 'RAM',
+        body: () => `Dash INTO a ship to ram it. Rams skip shields: the target loses at least 15% of its maximum hull, so even a small ship can bring down a big one. You take the same hit on your shield (on your hull only if your shield is already down). This battered Battlecruiser goes down in 3 rams. ${k().dash} when it is right ahead.`,
+        need: 3,
+        update: (_v, s) => {
+          // A practice Battlecruiser at 45% hull that never shoots: three rams finish it.
+          if (!this.alive(this.ids).length && this.count < 3) {
+            if (this.ids.length) this.count = 3; // destroyed: done
+            else {
+              const id = this.spawnBot('drone', ahead(s, 700), 'BATTLECRUISER');
+              const b = this.world.ships.get(id)!;
+              b.chassis = 2;
+              b.hullMax = TUNE.battlecruiser.powerFloor;
+              b.hp = b.hullMax * 0.45;
+              this.ids = [id];
+              this.base = b.hp;
+            }
+          }
+          const b = this.world.ships.get(this.ids[0]);
+          if (b && b.hp < this.base - 10 && s.dashTime > 0) {
+            this.count = Math.min(2, this.count + 1);
+            this.base = b.hp;
+          }
+          if (this.count >= 3) {
+            this.clearBots();
+            this.next();
+          }
+        },
+      },
+      {
         title: 'SHOOT',
         body: () => `${k().fire} to shoot. Your guns aim straight ahead (and help a little on targets). Destroy the asteroids.`,
         need: 4,
