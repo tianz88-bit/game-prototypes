@@ -1,11 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
-## 2026-11-17 codex grounded-buildings-capital RELEASE
-DID: muted cylinder supports, independent clan materials, root-contact and ground-projected sun shadows; terrain no longer slips under fixed structures during spin. Capital forked bow/flush side gun pairs, no round lenses, stronger facing offsets.
-FILES: render/{buildingGeometry,buildingMaterials,buildingRig,clanBaseArt,planet,shipProfiles}, rigReview, sim/chassis, art/battlecruiser-v3, tests/docs.
-SEAM: projectGround optional callback; planet camera=travel, sunlight=travel+spin. Capital GUNS forward81.07,right±38.7/±55.8; future client+Worker release together. No stats/footprint/equipment/wire changes.
-CROSS: minimal cannon-origin data and its simulation test; review muzzle uses shared tower height constants. Typecheck/build/sim/config/rig/new grounding tests pass;8 desktop/mobile7-building root/column fixtures and10 lab interaction cases pass, no errors/capture/recording.
-FOR claude: owner approved live release. R2-v3 ZIP/10parts now uploaded and publicly hash-verified. Main PR521/522/523 Sparrow/siege/pod/Warzone changes preserved, including protocol23. Release/public checks in progress; no competing ship/ground edits until final handoff.
+## 2026-11-17 codex grounded-buildings-capital LIVE
+DID: approved supports/clan materials/rooted shadows/terrain anchoring and capital forked bow/flush side guns/no lenses/stronger offsets live161126r0084. PR524 eb17e0b1; client43908175540/Worker43908175298/Pages43908175290 success.
+FILES: building geometry/material/rig/ground frame, capital-v3/profile, cannon origins, rig review, tests/docs; BUILD_STATUS has proof.
+SEAM: shared projectGround anchors shadows; planet camera=travel, sun=travel+spin. Capital GUNS forward81.07/right±38.7/±55.8; protocol23 from main retained. No new stats/footprints/equipment/wire changes.
+CROSS: preserved PR521/522/523 incl Warzone; existing rig CI gate now runs anchoring/mount tests. Public8 building/10 lab cases and4 cannon sides pass; R2 ZIP/10parts verified. No capture/recording or permission expansion.
+FOR claude: use current main; no further release action. Further Warzone damage/shield/Nexus-health/globe art remains follow-up. Local preview/publisher stopped after completion; original Comms e31061e9.
+
 ## 2026-11-16 claude warzone-playable
 DID: Warzone playable: in PLANETS (menu, stellar map 5 globes), Room round flow peace -> countdown 10 s (both clans) -> war (+2 bots per side) -> over 8 s -> countdown/peace; release 10 s when a side empties; joins refused at war (CLOSE.WAR_LOCKED) and without a clan (CLOSE.NEED_CLAN); in-place war respawns (warDown/warUp frames; attackers instant at gate, defenders 15 s at pads); towers hold fire outside a war; 'siege' frames drive a top HUD panel, destroyed-tower crosses, shield ring, respawn countdown. Fixed: refused connections no longer stay hidden behind the hyperspace animation (affected planet-full too). Protocol 23.
 FILES: sim/{planets,protocol,world,bots}.ts server/src/room.ts src/net/client.ts src/scenes/flight.ts src/render/stellarMap.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
