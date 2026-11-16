@@ -6,6 +6,7 @@ import { BootScene } from './scenes/boot';
 import { MenuScene } from './scenes/menu';
 import { FlightScene } from './scenes/flight';
 import { HangarScene } from './scenes/hangar';
+import { RigReviewScene } from './scenes/rigReview';
 import { mountDebugPanelIfRequested } from './debug/debugPanel';
 import { shipArtStatus } from './render/shipArt';
 import { rockCoverage } from './render/rockPainted';
@@ -26,7 +27,7 @@ const game = new Phaser.Game({
   // Phaser input is off: all input goes through the intent layer.
   input: { mouse: false, touch: false, keyboard: false, gamepad: false },
   render: { antialias: true, roundPixels: false },
-  scene: [BootScene, MenuScene, FlightScene, HangarScene],
+  scene: [BootScene, MenuScene, FlightScene, HangarScene, RigReviewScene],
 });
 
 game.events.once(Phaser.Core.Events.READY, () => {
@@ -78,7 +79,7 @@ function stats(): Record<string, unknown> {
   };
 }
 
-mountDebugPanelIfRequested(stats);
+if (new URLSearchParams(location.search).get('rigReview') !== '1') mountDebugPanelIfRequested(stats);
 
 // Handle for the Playwright check (debug builds only).
 if (DEBUG) {
@@ -113,6 +114,7 @@ if (DEBUG) {
       nameBox: () => (game.scene.getScene('menu') as MenuScene).nameBox,
       /** Debug-only menu handle for map selection, resize and lifecycle checks. */
       menuScene: () => game.scene.isActive('menu') ? game.scene.getScene('menu') as MenuScene : null,
+      reviewScene: () => game.scene.isActive('rig-review') ? game.scene.getScene('rig-review') as RigReviewScene : null,
       menuCredits: () => (game.scene.getScene('menu') as MenuScene).credits,
       hangarButton: () => (game.scene.getScene('menu') as MenuScene).hangarButton,
       hangar: () => { const h = game.scene.getScene('hangar') as HangarScene; return game.scene.isActive('hangar') ? { credits: h.credits, unlocks: h.unlocks, cards: h.cards.map((c) => ({ id: c.u.id, x: c.x, y: c.y })), tabs: h.tabs, back: h.backButton } : null; },

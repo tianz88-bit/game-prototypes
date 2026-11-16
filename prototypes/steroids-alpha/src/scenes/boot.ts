@@ -35,7 +35,8 @@ export class BootScene extends Phaser.Scene {
     prepareTerrain(this);
     prepareCombatArt(this);
     prepareBuildingArt(this);
-    if (isPlanetId(URL_PLANET)) this.scene.start('flight', { planet: URL_PLANET });
+    if (new URLSearchParams(location.search).get('rigReview') === '1') this.scene.start('rig-review');
+    else if (isPlanetId(URL_PLANET)) this.scene.start('flight', { planet: URL_PLANET });
     else this.scene.start('menu');
   }
 }

@@ -6,6 +6,20 @@ import config from '../../art/ships-v2/palettes.json';
 
 export const PALETTES = config.palettes;
 
+/** The capital's gun breech is enamel casing; its forward barrel remains exposed steel.
+ * Normalize only the lower casing's blue-grey pixels before the normal palette remap. */
+export function matchCapitalCannonCasing(px: Uint8ClampedArray, width: number, height: number): void {
+  const [hue, saturation] = hsv(0, 97, 242);
+  for (let y = Math.floor(height * .58); y < height; y++) for (let x = 0; x < width; x++) {
+    const i = (y * width + x) * 4;
+    if (!px[i + 3]) continue;
+    const [h, s, v] = hsv(px[i], px[i + 1], px[i + 2]);
+    if (h < .54 || h > .76 || s < .3 || v < .28) continue;
+    const colour = rgb(hue, Math.max(s, saturation * .92), Math.min(.95, v * 1.45));
+    [px[i], px[i + 1], px[i + 2]] = colour;
+  }
+}
+
 function hsv(r: number, g: number, b: number): [number, number, number] {
   r /= 255;
   g /= 255;

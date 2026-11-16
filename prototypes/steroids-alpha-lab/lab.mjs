@@ -119,4 +119,23 @@ class RotationLab extends P.Scene{
  }
 }
 window.addEventListener('error',e=>{$('#error').textContent=e.message;});
-new P.Game({type:P.AUTO,parent:'game',width:900*DPR,height:540*DPR,backgroundColor:'#121f2b',scale:{mode:P.Scale.FIT,autoCenter:P.Scale.CENTER_BOTH},render:{antialias:true},scene:RotationLab});
+const labGame=new P.Game({type:P.AUTO,parent:'game',width:900*DPR,height:540*DPR,backgroundColor:'#121f2b',scale:{mode:P.Scale.FIT,autoCenter:P.Scale.CENTER_BOTH},render:{antialias:true},scene:RotationLab});
+
+// Production review is isolated from the Falcon draft; unmount its iframe when leaving.
+const reviewSelect=$('#reviewSubject'),reviewFrame=$('#rigReview');
+const selectProduction=()=>reviewFrame.contentWindow?.postMessage({type:'steroids-rig-subject',subject:reviewSelect.value},location.origin);
+reviewFrame.onload=()=>{if(reviewSelect.value!=='calibration')selectProduction();};
+reviewSelect.onchange=()=>{
+ const live=reviewSelect.value!=='calibration';
+ $('#calibrationPreview').hidden=live;$('#reviewNote').hidden=!live;reviewFrame.hidden=!live;
+ $('aside').hidden=live;$('main').style.gridTemplateColumns=live?'1fr':'';
+ heldKeys.clear();heldActions.clear();flightPulses.clear();
+ if(live){labGame.loop.sleep();if(reviewFrame.hasAttribute('src'))selectProduction();else reviewFrame.src='../steroids-alpha/?rigReview=1&embedded=1&debug=1&asset='+encodeURIComponent(reviewSelect.value)+'&server=wss://steroids-alpha-server.tianz-88.workers.dev';}
+ else{reviewFrame.removeAttribute('src');labGame.loop.wake();}
+};
+const requestedReview=new URLSearchParams(location.search).get('review');
+if(requestedReview&&[...reviewSelect.options].some(o=>o.value===requestedReview)){
+ reviewSelect.value=requestedReview;labGame.events.once(P.Core.Events.READY,()=>reviewSelect.onchange());
+}
+
+window.addEventListener('message',event=>{if(event.origin===location.origin&&event.source===reviewFrame.contentWindow&&event.data?.type==='steroids-rig-exit'){reviewSelect.value='calibration';reviewSelect.onchange();}});

@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 codex live-rig-review
+DID: lab subject selector and live Hangar Rig Review for Sparrow/Bat/capital/Falcon/Nexus/tower turrets. Rotation, firing, gun-origin guides, palette/clan, control tilt and deck count. Treasury display renamed Nexus. Capital cannon casing matches cobalt and selected palettes; forward steel/alpha retained.
+FILES: src/scenes/rigReview, boot/main/hangar/flight, render/{shipArt,palette}; ../steroids-alpha-lab.
+SEAM: isolated query route uses production ShipView/BuildingRigs/CombatSprites and stepShip/muzzleShot; no room sockets, accounts, grants or publishing. Checked same-origin parent messages only choose a validated subject or exit.
+CROSS: minimal scene flow/query/hangar entry and display strings; no sim/network/tuned values changed. Lab sleeps old preview, reuses one frame and hides draft editor until return.
+FOR claude: owner forbids screen grabbing; checks use DOM/runtime/source pixels, no screenshots or recording. Lab selections review each production rig; editable calibration remains Falcon only. Deployment evidence follows in BUILD_STATUS.
+
 ## 2026-11-16 codex ship-release LIVE
 DID: PR517 merged7965bcdf; all approved ships live161126r0079. Client43887481908/Worker43887482153/settings43888409949 successful; protocol22.
 FILES: ship art/profiles, sim/unlocks/protocol/config, hangar/menu/tune/tests; BUILD_STATUS has full proof and limits.
@@ -96,11 +103,4 @@ FILES: sim/{ship,protocol,world}.ts src/render/{combatHud,shipView}.ts src/scene
 SEAM: PROTOCOL_VERSION 20 (ship +f32 fuel at offset 95); CombatHud.draw(..., home); ShipView.update(..., top).
 CROSS: src/render/{combatHud,shipView}.ts (yours): FUEL label/full cue text and the plume threshold only.
 FOR codex: the cargo coin icon also stands for Fuel on home planets; a distinct fuel icon would help (low priority).
-
-## 2026-11-15 codex backlog-release
-DID: owner reviewed all4priority boards and explicitly approved publication. Uploaded/re-fetched the3sprite source ZIP with matching SHA-256; integrated newer gun convergence, idle exhaust and72%shadow/60pxglow/docked landing from PR498/499.
-FILES: approved P1–P4 art pass; source manifest/README, GFX_BRIEF, BUILD_STATUS, COLLAB.
-SEAM: prior preview contracts retained; no new gameplay/tuning/protocol/input/rig changes from this art pass. Upstream authoritative changes preserved.
-CROSS: latestmain flight.ts merged cleanly; status-note conflict keeps both agents' work. Typecheck/build/rig/sim/live-config/bank pass; integrated2client+4bot and member-clan tests56–57FPS DPR2, real fire/dash, no errors.
-FOR claude: owner said go live with all and sync; gate satisfied. R2 object steroids-alpha_combat-backlog-v1_assets.zip SHA155c58afbb103592a20075b35f5e2b92ca4a77b9d51fc1c0e966083ccd283218; PR500 merged398b045; itch43733278666 succeeded. Public Brave151126r0067 verified12textures, ordnance/repair, mobile/upright inputs, both clan skins and open planet; no errors. Evidence outputs/steroids-alpha/backlog-live-verification/result.json; thread07e15987.
 

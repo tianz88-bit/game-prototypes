@@ -457,7 +457,7 @@ export class FlightScene extends Phaser.Scene {
     if (this.planet === 'alpha') return 'LAWLESS SPACE\nBots will hunt you down';
     if (!home) return 'SATELLITE\nFarm and fight; no turrets, no shields';
     const owner = clanName(home).toUpperCase();
-    return this.net.clan === home ? `${owner} HOME\nMine fuel for the treasury; stop over a landing pad to dock and unload it` : `${owner} TERRITORY\nTheir turrets fire on sight. Their shield keeps you out`;
+    return this.net.clan === home ? `${owner} HOME\nMine fuel for the Nexus; stop over a landing pad to dock and unload it` : `${owner} TERRITORY\nTheir turrets fire on sight. Their shield keeps you out`;
   }
 
   /**
@@ -473,7 +473,7 @@ export class FlightScene extends Phaser.Scene {
     if (performance.now() - this.arrivedAt < 6000) note = this.arrivalNote();
     if (this.net.docked) {
       const d = this.net.deposited;
-      note = 'DOCKED · REPAIRING' + (d && performance.now() - d.at < 3000 ? `\n+${d.amount} fuel to the ${clanName(this.net.clan)} treasury` : '');
+      note = 'DOCKED · REPAIRING' + (d && performance.now() - d.at < 3000 ? `\n+${d.amount} fuel to the ${clanName(this.net.clan)} Nexus` : '');
     }
     this.banner.setVisible(!!note && this.net.status==='open' && !this.net.death && !this.net.extracted).setText(note).setPosition(w / 2, intents.touch ? 118 : 86);
     styleClanBanner(this.banner,layout?.clan??0,this.net.clan===layout?.clan,!!this.net.docked,w,intents.touch);
@@ -486,7 +486,7 @@ export class FlightScene extends Phaser.Scene {
     if(labels.treasury){
       const at=labels.treasury,total=this.net.treasury?.total??0;
       const below=at.labelY??at.y+78*at.scale,labelY=!intents.touch&&below>h-138?at.y-220*at.scale:below;
-      this.treasuryText.setVisible(true).setText(`${clanName(layout.clan).toUpperCase()} TREASURY\nFUEL ${total.toLocaleString('en-US')}`)
+      this.treasuryText.setVisible(true).setText(`${clanName(layout.clan).toUpperCase()} NEXUS\nFUEL ${total.toLocaleString('en-US')}`)
         .setPosition(at.x,labelY).setStroke('#102035',3);
     }
     if(labels.gate)this.gateText.setVisible(true).setPosition(labels.gate.x,labels.gate.y+145*labels.gate.scale).setStroke('#102035',3);
@@ -744,8 +744,8 @@ export class FlightScene extends Phaser.Scene {
     const member = this.net.clan === L.clan;
     const owner = clanName(L.clan).toUpperCase();
     const marks = member
-      ? [{ at: L.treasury, label: 'TREASURY', colour: 0xffd27a }]
-      : [{ at: L.gate, label: 'GATE', colour: 0x8fe3ff }, { at: L.treasury, label: `${owner} TREASURY`, colour: 0xff8f73 }];
+      ? [{ at: L.treasury, label: 'NEXUS', colour: 0xffd27a }]
+      : [{ at: L.gate, label: 'GATE', colour: 0x8fe3ff }, { at: L.treasury, label: `${owner} NEXUS`, colour: 0xff8f73 }];
     const g = this.overlay;
     const touch = intents.touch;
     marks.forEach((m, i) => {
