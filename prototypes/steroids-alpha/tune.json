@@ -320,5 +320,11 @@
     "mineralChunkValue": 5,
     "mineralChunksMax": 12,
     "pickupsMax": 200
+  },
+  "sparrow": {
+    "fireIntervalSteps": 6,
+    "ammoRatio": 0.8,
+    "driftDeg": 3,
+    "muzzleForward": 38.4
   }
 }

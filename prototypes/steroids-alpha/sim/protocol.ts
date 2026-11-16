@@ -26,12 +26,12 @@ import type { Look } from './unlocks';
 //             New asteroids, or ones whose hp changed. Sent in full to a client when it joins.
 //   GONE      u8 type, u16 count, count x (u16 id, f32 x, f32 y)   asteroids destroyed, and where
 //   SHOTS     u8 type, u32 tick, u16 count, count x (u16 owner, f32 x, f32 y, f32 vx, f32 vy, i8 side)
-//             side: -1/1 main guns, 10+i turret i (sim/turrets.ts)
+//             side: 0 Sparrow centre, -1/1 twin guns, -2/2 capital outer guns, 10+i turret i (sim/turrets.ts)
 import type { ShipInput, ShipState } from './ship';
 import type { Asteroid } from './asteroids';
 import type { ShotEvent } from './world';
 
-export const PROTOCOL_VERSION = 21;
+export const PROTOCOL_VERSION = 22;
 
 export const MSG = {
   INPUT: 1,
@@ -369,7 +369,7 @@ export function decodeServer(buf: ArrayBuffer): ServerMessage | null {
         warping: v.getUint8(o + 81) === 1,
         warpDist: v.getFloat32(o + 82, true),
         salvage: v.getFloat32(o + 86, true),
-        chassis: Math.min(2, v.getUint8(o + 90)),
+        chassis: Math.min(3, v.getUint8(o + 90)),
         shieldCd: v.getFloat32(o + 91, true),
         fuel: v.getFloat32(o + 95, true),
         arrival: v.getFloat32(o + 99, true),

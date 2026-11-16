@@ -2,7 +2,7 @@
 // ship and the server runs it as the authority, so both must call it the same way.
 import type { Tune } from './tune';
 import { angleDelta, wrap, wrapDelta } from './wrap';
-import { GUNS, SCRAPPY, chassisStats } from './chassis';
+import { GUNS, SCRAPPY, SPARROW, chassisStats } from './chassis';
 
 export interface ShipState {
   /** Server-authoritative arrival time remaining. Absent only in older local visual fixtures. */
@@ -145,7 +145,7 @@ export function maxShield(s: ShipState, tune: Tune): number {
 }
 
 export function newShip(x: number, y: number, heading: number, speed: number): ShipState {
-  return { x, y, heading, speed, arrival: 0, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0, salvage: 0, fuel: 0, chassis: SCRAPPY, shieldCd: 0 };
+  return { x, y, heading, speed, arrival: 0, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0, salvage: 0, fuel: 0, chassis: SPARROW, shieldCd: 0 };
 }
 
 /** Warp top speed: warp.topSpeedFactor times this ship's top speed (only slightly faster, so pursuit is possible). */
@@ -260,10 +260,27 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune,
   if (input.fire && s.fireCd === 0 && !s.overheated) {
     s.fireCd = chassisStats(s.chassis, tune).fireIntervalSteps;
     s.shots = (s.shots + 1) & 0xffff;
-    s.heat = Math.min(1, s.heat + w.heatPerShot / heatCapacity(s, tune));
-    if (s.heat >= 1) s.overheated = true;
+    s.heat = Math.min(1, s.heat + shotHeat(s, tune));
+    // Exact-capacity shots must not gain a bonus round from floating-point cooling residue.
+    if (s.heat >= 1 - 1e-10) { s.heat = 1; s.overheated = true; }
   }
   return s;
+}
+
+/** Heat cost matches the requested cold-to-lock shot count despite cooling and a slower cadence.
+ * Integer ammo rounds to the nearest whole shot. Pausing still recovers with the normal animation.
+ * If Falcon's upgraded gun cools faster than it heats, both remain sustainable. */
+export function shotHeat(s: ShipState, tune: Tune): number {
+  const heat = tune.weapon.heatPerShot / heatCapacity(s, tune);
+  if (s.chassis !== SPARROW) return heat;
+  const cool = tune.weapon.coolPerSecond / tune.net.tickHz;
+  const falconCool = cool * tune.weapon.fireIntervalSteps;
+  const sparrowCool = cool * tune.sparrow.fireIntervalSteps;
+  if (heat >= 1) return 1;
+  if (heat <= falconCool) return heat * tune.sparrow.fireIntervalSteps / tune.weapon.fireIntervalSteps;
+  const falconShots = Math.ceil((1 - falconCool) / (heat - falconCool) - 1e-10);
+  const shots = Math.max(1, Math.round(falconShots * tune.sparrow.ammoRatio));
+  return shots === 1 ? 1 : sparrowCool + (1 - sparrowCool) / (shots - .5);
 }
 
 export interface Shot {
@@ -271,7 +288,7 @@ export interface Shot {
   y: number;
   vx: number;
   vy: number;
-  /** 1 right gun, -1 left gun. */
+  /** 0 centre, 1 right, -1 left (capital outer pair: +/-2). */
   side: number;
 }
 
@@ -348,6 +365,17 @@ export function assistDirection(x: number, y: number, dir: number, targets: read
 }
 
 export function muzzleShot(s: ShipState, tune: Tune, targets: readonly AssistTarget[] = []): Shot {
+  if (s.chassis === SPARROW) {
+    const grow = powerGrowth(s.hullMax, tune), f = tune.sparrow.muzzleForward * grow;
+    const x = wrap(s.x + Math.cos(s.heading) * f, tune.world.width);
+    const y = wrap(s.y + Math.sin(s.heading) * f, tune.world.height);
+    const v = tune.weapon.bulletSpeed + s.speed;
+    // Shared deterministic launch drift, applied AFTER assist so distant targets cannot erase it.
+    const wave = Math.sin(s.shots * 2.399963229728653);
+    const dir = convergeOn(x, y, s.heading, v, assistPick(s.x, s.y, s.heading, targets, tune), tune)
+      + wave * tune.sparrow.driftDeg * Math.PI / 180;
+    return { x, y, vx: Math.cos(dir) * v, vy: Math.sin(dir) * v, side: 0 };
+  }
   const guns = GUNS[s.chassis];
   if (guns) {
     // Interceptor and Battlecruiser: the guns fire in turn from their mounts (sim/chassis.ts), each

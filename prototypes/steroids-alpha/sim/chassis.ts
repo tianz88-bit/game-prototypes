@@ -1,16 +1,19 @@
-// Ship types (owner, 14 November 2026): Scrappy (the starter, free), Interceptor (a one-time credit
-// unlock, chosen in the menu) and the Battlecruiser (only by evolving during a run, with minerals).
+// Human Nomad ships: Sparrow starter, Falcon/Bat unlockable sidegrades, and in-run Battlecruiser.
 // Stats are factors on the base ship values in tune.json (`interceptor`, `battlecruiser`; Scrappy is
 // the base). Gun and turret positions come from the art (tools/ship-rig/human-nomad-ships-v2
 // footprint-proposals.json, game-local world units at the base size); collision radius and every
 // stat are tuned values, never derived from the art size.
 import type { Tune } from './tune';
 
-export const CHASSIS = ['scrappy', 'interceptor', 'battlecruiser'] as const;
+export const CHASSIS = ['scrappy', 'interceptor', 'battlecruiser', 'sparrow'] as const;
 export type ChassisId = (typeof CHASSIS)[number];
 export const SCRAPPY = 0;
 export const INTERCEPTOR = 1;
 export const BATTLECRUISER = 2;
+// Keep the original numeric/ownership IDs stable through the Falcon and Bat display renames.
+export const FALCON = SCRAPPY;
+export const BAT = INTERCEPTOR;
+export const SPARROW = 3;
 
 export interface ChassisStats {
   /** Hit radius before power growth. */
@@ -30,7 +33,7 @@ export function chassisStats(chassis: number, tune: Tune): ChassisStats {
     const c = chassis === INTERCEPTOR ? tune.interceptor : tune.battlecruiser;
     return { radius: c.radius, speed: c.speedFactor, accel: c.accelFactor, turn: c.turnFactor, shield: c.shieldFactor, damage: c.damageFactor, fireIntervalSteps: c.fireIntervalSteps, baseTurrets: c.baseTurrets };
   }
-  return { radius: tune.ship.radius, speed: 1, accel: 1, turn: 1, shield: 1, damage: 1, fireIntervalSteps: tune.weapon.fireIntervalSteps, baseTurrets: 0 };
+  return { radius: tune.ship.radius, speed: 1, accel: 1, turn: 1, shield: 1, damage: 1, fireIntervalSteps: chassis === SPARROW ? tune.sparrow.fireIntervalSteps : tune.weapon.fireIntervalSteps, baseTurrets: 0 };
 }
 
 export interface Mount {

@@ -1,5 +1,7 @@
-// The three Human Nomad ships as rig profiles: parts (from each kit's ship-profile.mjs), the
-// calibration and the texture set. Scrappy is the approved starter (shipRig.ts MODULES); the
+import sparrowCalibration from '../../art/sparrow-v1/calibration.json';
+import sparrowModules from '../../art/sparrow-v1/modules.json';
+// The Human Nomad ships as rig profiles: parts (from each kit's ship-profile.mjs), the
+// calibration and the texture set. Falcon is the approved original (shipRig.ts MODULES); the
 // Interceptor and Battlecruiser come from tools/ship-rig/human-nomad-ships-v2 (Codex, owner art,
 // 14 November 2026). Part coordinates are rig pixels at the same art scale as the starter.
 import { MODULES, checkCalibration } from './shipRig';
@@ -58,9 +60,10 @@ const profile = (shipId: string, modules: readonly RigModule[], cal: unknown): S
   calibration: checkCalibration(cal, modules),
 });
 
-/** By chassis (sim/chassis.ts): 0 Scrappy, 1 Interceptor, 2 Battlecruiser. */
+/** By chassis (sim/chassis.ts): 0 Falcon, 1 Bat, 2 Battlecruiser, 3 Sparrow. */
 export const SHIP_PROFILES: readonly ShipProfile[] = [
   profile('human-nomad-v1', MODULES, starterCalibration),
   profile('human-nomad-interceptor-v2', INTERCEPTOR_MODULES, interceptorCalibration),
   profile('human-nomad-battlecruiser-v1', BATTLECRUISER_MODULES, battlecruiserCalibration),
+  profile('human-nomad-sparrow-v1', sparrowModules as readonly RigModule[], sparrowCalibration),
 ];

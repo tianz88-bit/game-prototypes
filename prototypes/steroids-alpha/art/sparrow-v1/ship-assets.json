@@ -1,0 +1,47 @@
+{
+  "r2Object": "steroids-alpha_sparrow-v1_assets.zip",
+  "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_sparrow-v1_assets.zip",
+  "zipSha256": "335ecb6d8cc835151fff480f251f54014785eff6ec52b82b68d6a2104494b913",
+  "assets": [
+    {
+      "asset": "chassis",
+      "deliveryPath": "loose/chassis.png",
+      "sha256": "c393c8e49321868028215eaad3c5b0005ad06556274daf32ff31e32b8017bdfb"
+    },
+    {
+      "asset": "armour",
+      "deliveryPath": "loose/armour.png",
+      "sha256": "a445f351b402e7e53faf8d16a9a753b7295d18ee0cace28a80dd570813938e04"
+    },
+    {
+      "asset": "wing",
+      "deliveryPath": "loose/wing.png",
+      "sha256": "4117e1362ec122b00d6c8a800e5c7cb6f08d598ecf5f908745e43b388b696f74"
+    },
+    {
+      "asset": "gun",
+      "deliveryPath": "loose/gun.png",
+      "sha256": "6e3e21f9d0522ddbaf09e3fb57d803984a71370dc06d7b0aa75ea94a2fd026a7"
+    },
+    {
+      "asset": "booster-core",
+      "deliveryPath": "loose/booster-core.png",
+      "sha256": "9b4b706c781238e0ad4e74ae26fcaae488cd8c751352ca805a5b22a64d767b72"
+    },
+    {
+      "asset": "booster-cowling",
+      "deliveryPath": "loose/booster-cowling.png",
+      "sha256": "7d416e9c7425bbf38241fb70c8da69c1d39f005ddaecbdeb6cb328af204cfc8c"
+    },
+    {
+      "asset": "cockpit-base",
+      "deliveryPath": "loose/cockpit-base.png",
+      "sha256": "03a49bfee49972f71b4a86f3a210ebec90a741af0a4a862c48f0735502ea7e86"
+    },
+    {
+      "asset": "cockpit-canopy",
+      "deliveryPath": "loose/cockpit-canopy.png",
+      "sha256": "57b258955c5b44f2f25e7d2572811f5ace7a92b0d16065c57f7a7c4f3172dfb4"
+    }
+  ]
+}

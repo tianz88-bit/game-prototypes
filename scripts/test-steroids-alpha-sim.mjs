@@ -43,6 +43,8 @@ function rng(seed = 1) {
   let s = seed;
   return () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646;
 }
+// Existing twin-gun regression fixtures stay on Falcon; starter behavior is tested separately below.
+const falcon = (...args) => Object.assign(S.newShip(...args), {chassis:S.FALCON});
 const idle = { seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, missile: false, mine: false, warp: false };
 const near = (a, b, eps, what) => assert(Math.abs(a - b) <= eps, `${what}: ${a} vs ${b}`);
 
@@ -96,7 +98,7 @@ const near = (a, b, eps, what) => assert(Math.abs(a - b) <= eps, `${what}: ${a} 
 
 // --- Throttle: accelerate to the maximum, brake to the minimum, never stop. ---
 {
-  const s = S.newShip(100, 100, 0, tune.ship.cruiseSpeed);
+  const s = falcon(100, 100, 0, tune.ship.cruiseSpeed);
   for (let i = 0; i < 90; i++) S.stepShip(s, { ...idle, thrust: 1 }, dt, tune);
   assert.equal(s.speed, tune.ship.maxSpeed, 'accelerates to max speed');
   for (let i = 0; i < 90; i++) S.stepShip(s, { ...idle, thrust: -1 }, dt, tune);
@@ -108,7 +110,7 @@ const near = (a, b, eps, what) => assert(Math.abs(a - b) <= eps, `${what}: ${a} 
 
 // --- Guns: fire rate in whole steps, alternating sides. ---
 {
-  const s = S.newShip(100, 100, 0, tune.ship.cruiseSpeed);
+  const s = falcon(100, 100, 0, tune.ship.cruiseSpeed);
   const sides = [];
   for (let i = 0; i < tune.weapon.fireIntervalSteps * 4; i++) {
     const before = s.shots;
@@ -131,7 +133,7 @@ function rock(w, size, x, y, vx = 0, vy = 0, hp = tune.asteroid.hp[size]) {
 }
 function placeShip(w, id, x, y, heading) {
   const s = w.addShip(id);
-  Object.assign(s, { x, y, heading });
+  Object.assign(s, { x, y, heading, chassis:S.FALCON });
   // Skip the drop-in immunity.
   for (let i = 0; i < 2 * tune.net.tickHz + 1; i++) w.step();
   w.drain();
@@ -377,7 +379,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   assert.equal(S.maxShield(s, tune), sh.maxShield + 2 * tune.shop.shieldPerTier, 'shield tiers raise the maximum');
   near(S.damageScale(s, tune), 1 + 3 * tune.shop.damagePerTier, 1e-9, 'damage tiers raise damage');
   // A capped ship cannot reach the old top speed.
-  const fast = S.newShip(0, 0, 0, sh.maxSpeed);
+  const fast = falcon(0, 0, 0, sh.maxSpeed);
   fast.hp = fast.hullMax = sh.powerCap;
   // Over the cap it slows at the braking rate (no snap), then holds the cap.
   S.stepShip(fast, { ...idle, thrust: 1 }, 1 / tune.net.tickHz, tune);
@@ -568,7 +570,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
 {
   const dt = 1 / tune.net.tickHz;
   const shotsToLock = (tier) => {
-    const sh = S.newShip(0, 0, 0, tune.ship.cruiseSpeed);
+    const sh = falcon(0, 0, 0, tune.ship.cruiseSpeed);
     sh.hp = sh.hullMax = tune.ship.maxHp;
     sh.damageTier = tier;
     let n = 0;
@@ -587,7 +589,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
 {
   const w0 = tune.weapon;
   const dt = 1 / tune.net.tickHz;
-  const sh = S.newShip(0, 0, 0, tune.ship.cruiseSpeed);
+  const sh = falcon(0, 0, 0, tune.ship.cruiseSpeed);
   sh.hp = sh.hullMax = tune.ship.maxHp;
   let shots = 0;
   let steps = 0;
@@ -610,7 +612,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   assert(sh.shots - lockedAt <= 1, 'no shots while overheated (the step it unlocks may fire)');
   near(lockSteps * dt, (1 - w0.unlockHeat) / w0.coolPerSecond, 2 * dt, 'lock lasts until cooled to unlockHeat');
   // Short bursts never lock.
-  const b = S.newShip(0, 0, 0, tune.ship.cruiseSpeed);
+  const b = falcon(0, 0, 0, tune.ship.cruiseSpeed);
   for (let i = 0; i < 30 * tune.net.tickHz; i++) S.stepShip(b, { ...idle, fire: i % 60 < 20 }, dt, tune);
   assert(!b.overheated, 'bursts with pauses stay cool');
 }
@@ -1099,7 +1101,7 @@ assert.equal(S.cleanName(null), '');
 // own muzzle, so both streams land; bots get no lock-on assist. ---
 {
   for (const dist of [120, 250, 500]) {
-    const s = S.newShip(1000, 1000, 0, tune.ship.minSpeed);
+    const s = falcon(1000, 1000, 0, tune.ship.minSpeed);
     s.hp = s.hullMax = tune.ship.maxHp;
     const target = { x: 1000 + dist, y: 1000 + 10, ship: true, vx: 0, vy: 120 };
     for (const shots of [0, 1]) {
@@ -1114,7 +1116,7 @@ assert.equal(S.cleanName(null), '');
       void v;
     }
   }
-  const s = S.newShip(1000, 1000, 0, tune.ship.minSpeed);
+  const s = falcon(1000, 1000, 0, tune.ship.minSpeed);
   s.hp = s.hullMax = tune.ship.maxHp;
   const plain = S.muzzleShot(s, tune, []);
   const off = S.muzzleShot(s, tune, [{ x: 1000, y: 1400, ship: true }]);
@@ -1263,7 +1265,7 @@ assert.equal(S.cleanName(null), '');
 // boost goes, at dashSpeedFactor x top speed for dashDuration, ignoring the brake; then it eases out. ---
 {
   const dt = 1 / tune.net.tickHz;
-  const sh = S.newShip(0, 0, Math.PI / 2, tune.ship.minSpeed);
+  const sh = falcon(0, 0, Math.PI / 2, tune.ship.minSpeed);
   sh.hp = sh.hullMax = tune.ship.maxHp;
   const boost = S.dashSpeed(sh.hullMax, tune);
   near(boost, tune.ship.maxSpeed * tune.ship.dashSpeedFactor, 1e-9, 'dash speed is a multiple of top speed');
@@ -1302,7 +1304,7 @@ assert.equal(S.cleanName(null), '');
   S.stepShip(sh, { ...idle, turn: 1 }, dt, tune);
   assert(sh.heading > before, 'steering is back after the dash');
   // No direction held: straight on.
-  const b = S.newShip(0, 0, 0.3, tune.ship.cruiseSpeed);
+  const b = falcon(0, 0, 0.3, tune.ship.cruiseSpeed);
   b.hullMax = b.hp = tune.ship.maxHp;
   b.dashCd = 0;
   S.stepShip(b, { ...idle, dash: true }, dt, tune);
@@ -1318,7 +1320,7 @@ assert.equal(S.cleanName(null), '');
   const mn = tune.mine;
   // Shop and charges.
   {
-    const s = S.newShip(0, 0, 0, 0);
+    const s = falcon(0, 0, 0, 0);
     s.hp = s.hullMax = 500;
     assert.equal(s.missileCharges, 0, 'no missiles before buying');
     S.stepShip(s, { ...idle, missile: true }, dt, tune);
@@ -1590,7 +1592,7 @@ assert.equal(S.cleanName(null), '');
   }
   // Warp mode: speed rises to warp speed regardless of throttle; steering is limited; no firing.
   {
-    const s = S.newShip(0, 0, 0, tune.ship.cruiseSpeed);
+    const s = falcon(0, 0, 0, tune.ship.cruiseSpeed);
     s.hp = s.hullMax = tune.ship.maxHp;
     s.missileTier = s.missileCharges = 1;
     S.stepShip(s, { ...idle, warp: true }, dt, tune);
@@ -1851,7 +1853,7 @@ assert.equal(S.cleanName(null), '');
 {
   const ti = tune.interceptor;
   const tb = tune.battlecruiser;
-  const ship = (chassis) => { const s = S.newShip(0, 0, 0, tune.ship.cruiseSpeed); s.hp = s.hullMax = tune.ship.maxHp; s.chassis = chassis; return s; };
+  const ship = (chassis) => { const s = falcon(0, 0, 0, tune.ship.cruiseSpeed); s.hp = s.hullMax = tune.ship.maxHp; s.chassis = chassis; return s; };
   const [sc, it, bc] = [0, 1, 2].map(ship);
   near(S.topSpeed(it.hullMax, tune, 1), S.topSpeed(sc.hullMax, tune, 0) * ti.speedFactor, 1e-9, 'interceptor top speed factor');
   near(S.topSpeed(bc.hullMax, tune, 2), S.topSpeed(sc.hullMax, tune, 0) * tb.speedFactor, 1e-9, 'battlecruiser top speed factor');
@@ -1921,6 +1923,36 @@ assert.equal(S.cleanName(null), '');
   let n = 900;
   const kids = S.splitAsteroid(parent, { x: 100, y: 100 }, 1, 0, 10, 0, () => n++, rng(3), tune);
   assert(kids.length === 2 && kids.every((k) => k.family === 2), 'fragments keep the family');
+}
+
+
+// Sparrow: the starter shares Falcon movement/defence, a centred muzzle and 80% cold burst ammo.
+{
+  const spawn=()=>S.newShip(1000,1000,0,tune.ship.cruiseSpeed);
+  assert.equal(spawn().chassis,S.SPARROW,'new pilots start with Sparrow');
+  const a=S.chassisStats(S.FALCON,tune),b=S.chassisStats(S.SPARROW,tune);
+  for(const key of ['radius','speed','accel','turn','shield','damage','baseTurrets'])assert.equal(a[key],b[key],key);
+  assert(b.fireIntervalSteps>a.fireIntervalSteps && b.fireIntervalSteps<a.fireIntervalSteps*2,'cadence between one Falcon barrel and both');
+  const burst=(chassis,tier)=>{const s=spawn();s.chassis=chassis;s.damageTier=tier;let n=0;
+    for(let i=0;i<20000&&!s.overheated;i++){const old=s.shots;S.stepShip(s,{...idle,fire:true},dt,tune);if(old!==s.shots)n++;}
+    return s.overheated?n:Infinity;
+  };
+  const counts=[];
+  for(let tier=0;tier<=4;tier++){const f=burst(S.FALCON,tier),p=burst(S.SPARROW,tier);counts.push({tier,falcon:f,sparrow:p});
+    assert.equal(p,Number.isFinite(f)?Math.max(1,Math.round(f*tune.sparrow.ammoRatio)):Infinity,'ammo ratio including cooling tier '+tier);
+  }
+  const s=spawn();const dirs=[];
+  for(let n=1;n<=20;n++){s.shots=n;const shot=S.muzzleShot(s,tune,[{x:1600,y:1000,ship:true}]);
+    near(shot.x-s.x,tune.sparrow.muzzleForward,1e-8,'centre muzzle forward');near(shot.y,s.y,1e-8,'centre muzzle sideways');assert.equal(shot.side,0);
+    const wire=S.decodeServer(S.encodeShots(1,[{...shot,owner:99}]));assert.equal(wire.shots[0].side,0,'centre recoil side survives wire');
+    assert.deepEqual(S.muzzleShot(S.copyShip(s),tune,[{x:1600,y:1000,ship:true}]),shot,'prediction agrees with authority');
+    dirs.push(Math.atan2(shot.vy,shot.vx));
+  }
+  assert(Math.max(...dirs)>0 && Math.min(...dirs)<0,'drift goes both ways');
+  assert(Math.max(...dirs.map(Math.abs))<=tune.sparrow.driftDeg*Math.PI/180+1e-8,'bounded drift');
+  assert(Math.tan(Math.max(...dirs))*650>26 && Math.tan(Math.max(...dirs))*150<10,'close aim remains forgiving, distant shots drift outside hull');
+  const snap=S.decodeServer(S.encodeSnapshot(1,0,[{...s,id:99} ]));assert.equal(snap.ships[0].chassis,S.SPARROW,'Sparrow survives snapshot');
+  console.log('Sparrow cold-burst ammo:',JSON.stringify(counts));
 }
 
 console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, bots, ramming, health boosts, kill credit, missiles, mines, bounty, lockdown, warp-out, salvage, hot zone, ship types, evolving and settings upgrade all pass.');

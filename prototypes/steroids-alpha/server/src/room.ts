@@ -5,9 +5,9 @@ import type { ConfigRecord } from '../../sim/liveConfig';
 // Players drop in and out at any time; the tick loop runs only while someone is connected.
 import { TUNE, stepSeconds } from '../../sim/tune';
 import { copyShip, maxShield } from '../../sim/ship';
-import { INTERCEPTOR, SCRAPPY } from '../../sim/chassis';
+import { SPARROW } from '../../sim/chassis';
 import type { ShipInput, ShipState } from '../../sim/ship';
-import { cleanLook } from '../../sim/unlocks';
+import { selectedFighter, cleanLook } from '../../sim/unlocks';
 import type { Look } from '../../sim/unlocks';
 import { World } from '../../sim/world';
 import { TURRET_SIDE } from '../../sim/turrets';
@@ -110,7 +110,7 @@ export class Room {
   applyConfig(record:ConfigRecord):void{
     if(record.version===this.config.version)return;
     this.config=record;
-    for(const group of ['ship','weapon','turret','shop','missile','mine','bots','warp','salvage','hotZone','interceptor','battlecruiser','asteroid','planet','base'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
+    for(const group of ['ship','weapon','turret','shop','missile','mine','bots','warp','salvage','hotZone','sparrow','interceptor','battlecruiser','asteroid','planet','base'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
     for(const p of this.players.values()){
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
       p.ship.hullMax=Math.min(this.tune.ship.powerCap,p.ship.hullMax);p.ship.hp=Math.min(p.ship.hullMax,p.ship.hp);
@@ -324,11 +324,11 @@ export class Room {
               .then((ids) => {
                 if (!this.players.has(player.id)) return;
                 player.look = cleanLook(m.look, ids ?? []);
-                // Ship chosen in the menu (owner design): an owned Interceptor replaces the starter,
+                // Ship chosen in the menu (owner design): an owned fighter replaces the starter,
                 // only right after drop-in so nobody swaps ship mid-run.
                 const s = player.ship;
-                if (player.look.ship === 'ship.interceptor' && s.chassis === SCRAPPY && this.tick - player.joinedAt <= 3 * this.tune.net.tickHz) {
-                  s.chassis = INTERCEPTOR;
+                if (s.chassis === SPARROW && this.tick - player.joinedAt <= 3 * this.tune.net.tickHz) {
+                  s.chassis = selectedFighter(player.look, ids ?? []).index!;
                   s.shield = maxShield(s, this.tune);
                 }
                 this.broadcastRoster();

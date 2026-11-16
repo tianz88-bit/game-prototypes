@@ -11,13 +11,13 @@ import { fitCamera, text, versionStamp } from './common';
 import { loadSave, writeSave } from '../save';
 import { UI, css, panel } from '../render/ui';
 import { TUNE } from '../../sim/tune';
-import { UNLOCKS, effectiveOwned, unclaimedLegacy, unlockPrice } from '../../sim/unlocks';
+import { UNLOCKS, selectedFighter, effectiveOwned, unclaimedLegacy, unlockPrice } from '../../sim/unlocks';
 import type { Unlock } from '../../sim/unlocks';
 import { buyUnlock, ensureAccount } from '../net/account';
 
 /** Categories, one per tab (owner request: the shop by category). */
 const TABS: { label: string; items: string[] }[] = [
-  { label: 'SHIPS', items: ['ship.scrappy', 'ship.interceptor'] },
+  { label: 'SHIPS', items: ['ship.sparrow', 'ship.scrappy', 'ship.interceptor'] },
   { label: 'PALETTES', items: ['palette.0', 'palette.1', 'palette.2', 'palette.3'] },
   { label: 'FLAMES', items: ['flame.green', 'flame.violet', 'flame.white', 'flame.red'] },
   { label: 'SHIELDS', items: ['shield.green', 'shield.gold', 'shield.pink'] },
@@ -83,7 +83,7 @@ export class HangarScene extends Phaser.Scene {
   }
 
   private layout(): void {
-    this.children.removeAll(true);
+    for (const child of this.children.list.slice()) child.destroy();
     fitCamera(this);
     const { w, h } = logicalSize();
     this.add.rectangle(w / 2, h / 2, w, h, 0x07101c);
@@ -93,7 +93,8 @@ export class HangarScene extends Phaser.Scene {
     panel(this.add.graphics(), 20, 10, 100, 32, UI.uiBorder);
     text(this, 70, 26, 'BACK', 13).setOrigin(0.5);
 
-    const look = loadSave().look ?? {};
+    const savedLook = loadSave().look ?? {};
+    const look = { ...savedLook, ship: selectedFighter(savedLook, this.unlocks).id };
     const gap = 8;
     // Tabs: one per category.
     const tw = Math.min(124, (w - 40 - gap * (TABS.length - 1)) / TABS.length);
@@ -110,7 +111,7 @@ export class HangarScene extends Phaser.Scene {
     const items = TABS[openTab].items;
     const shipTab = openTab === 0;
     const visualTab = shipTab || openTab === 1;
-    const cols = shipTab ? 3 : Math.min(4, Math.max(1, items.length));
+    const cols = shipTab ? 4 : Math.min(4, Math.max(1, items.length));
     const cw = Math.min(250, (w - 40 - gap * (cols - 1)) / cols);
     const ch = visualTab ? Math.min(270, h - 158) : Math.min(84, (h - 104 - 50) / 2 - gap);
     const top = 104;
@@ -132,12 +133,16 @@ export class HangarScene extends Phaser.Scene {
         panel(g, x - cw / 2, y - ch / 2, cw, ch, equipped ? UI.uiAccent : armed ? UI.uiGold : owned ? UI.uiBorder : 0x2a3550, equipped || armed);
         // Swatch on the left: colour, flame colours or the badge glyph.
         if (visualTab) {
-          const chassis = shipTab ? (u.index ?? 0) : (look.ship === 'ship.interceptor' ? 1 : 0);
+          const chassis = shipTab ? (u.index ?? 0) : (selectedFighter(look,this.unlocks).index!);
           const palette = shipTab ? Number((look.palette ?? 'palette.0').split('.')[1]) : (u.index ?? 0);
           shipPreview(this, chassis, palette, x, y-ch/2+(ch-60)/2+6, cw-36, ch-76, { spin: true, relative: shipTab });
           if (u.palette) u.palette.forEach((p,i)=>{g.fillStyle(p,1);g.fillRoundedRect(x-26+i*18,y+ch/2-63,14,5,1);});
         }
         else drawUnlockEmblem(g,u,x-cw/2+(cw<175?25:32),y,Math.min(cw<175?36:48,ch-18));
+        if (shipTab) {
+          const detail = u.id === 'ship.sparrow' ? 'CENTRE GUN · 80% AMMO' : u.id === 'ship.scrappy' ? 'TWIN GUNS · SIDEGRADE' : 'TWIN ENGINE · AGILE';
+          text(this,x-cw/2+14,y+ch/2-60,detail,cw<190?8:10,'#a9bfce').setOrigin(0,.5);
+        }
         const price = this.priceOf(u);
         const status = equipped ? (u.slot === 'ship' ? 'FLYING' : 'EQUIPPED') : armed ? 'Tap to confirm' : owned ? (u.slot === 'qol' ? 'OWNED · tap to view' : u.slot === 'ship' ? 'OWNED · tap to fly' : 'OWNED · tap to wear') : price === 0 ? 'FREE (old tint)' : `${price} credits`;
         const small = cw < (visualTab ? 160 : 210);
@@ -148,7 +153,7 @@ export class HangarScene extends Phaser.Scene {
     });
     if (openTab === 0) {
       // The Battlecruiser is not bought here: fighters evolve into it during a run (owner design).
-      const x = left + 2*(cw+gap)+cw/2, y = top+ch/2;
+      const x = left + 3*(cw+gap)+cw/2, y = top+ch/2;
       const g=this.add.graphics();
       panel(g,x-cw/2,y-ch/2,cw,ch,0x937249);
       shipPreview(this,2,Number((look.palette??'palette.0').split('.')[1]),x,y-ch/2+(ch-60)/2+6,cw-36,ch-76,{ spin: true, relative: true });
