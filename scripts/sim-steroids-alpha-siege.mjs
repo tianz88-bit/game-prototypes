@@ -24,9 +24,13 @@ const rounds = Number(nums[0] ?? 40);
 const attackers = Number(nums[1] ?? 2);
 const defenders = Number(nums[2] ?? 2);
 const tune = JSON.parse(readFileSync(path.join(root, 'prototypes/steroids-alpha/tune.json'), 'utf8'));
+// attPower=N / defPower=N: starting power (hull) for that side, as if farmed before the siege;
+// bots spend it on upgrades through their normal shop logic.
+const power = { attPower: 0, defPower: 0 };
 for (const a of args.filter((x) => x.includes('='))) {
   // key=value sets tune.siege[key]; group.key=value sets any other tune value (diagnostics).
   const [k, v] = a.split('=');
+  if (k === 'attPower' || k === 'defPower') { power[k] = Number(v); continue; }
   const [group, key] = k.includes('.') ? k.split('.') : ['siege', k];
   if (!tune[group] || !(key in tune[group])) throw new Error(`unknown tune key ${k}`);
   tune[group][key] = Number(v);
@@ -48,10 +52,15 @@ for (let round = 0; round < rounds; round++) {
   const brains = new Map();
   const respawnAt = new Map();
   const side = new Map();
+  const firstLife = new Set();
   const spawn = (id) => {
     const def = side.get(id) === defClan;
     const at = def ? L.pads[id % L.pads.length] : L.gate;
-    w.addShipNear(id, at.x, at.y, def ? 0 : 120);
+    const ship = w.addShipNear(id, at.x, at.y, def ? 0 : 120);
+    // Farmed power applies to the first life only: a destroyed pilot respawns fresh.
+    const start = firstLife.has(id) ? 0 : def ? power.defPower : power.attPower;
+    firstLife.add(id);
+    if (start > ship.hullMax) { ship.hullMax = ship.hp = start; }
     w.clanOf.set(id, side.get(id));
     w.botIds.add(id);
     const b = S.newBrain(r);
@@ -94,7 +103,7 @@ const pct = (n) => `${Math.round((100 * n) / results.length)}%`;
 const avg = (xs) => (xs.length ? (xs.reduce((a, b) => a + b, 0) / xs.length).toFixed(0) : '-');
 const by = (f) => results.filter(f);
 const attWins = by((x) => x.winner === 'attackers');
-console.log(`Siege sim: ${rounds} rounds, ${attackers} attacker bots vs ${defenders} defender bots, siege ${JSON.stringify(tune.siege)}`);
+console.log(`Siege sim: ${rounds} rounds, ${attackers} attacker bots vs ${defenders} defender bots, start power att ${power.attPower || 'fresh'} / def ${power.defPower || 'fresh'}, siege ${JSON.stringify(tune.siege)}`);
 console.log(`Attackers win ${pct(attWins.length)} (treasury destroyed). Defenders win ${pct(by((x) => x.reason === 'tickets').length)} on tickets, ${pct(by((x) => x.reason === 'time').length)} on time.`);
 console.log(`Round length avg ${avg(results.map((x) => x.secs))} s (attacker wins avg ${avg(attWins.map((x) => x.secs))} s).`);
 console.log(`All turrets down: ${pct(by((x) => x.firsts.turrets !== null).length)} of rounds, avg at ${avg(results.filter((x) => x.firsts.turrets !== null).map((x) => x.firsts.turrets))} s. Shield broken: ${pct(by((x) => x.firsts.shield !== null).length)}, avg at ${avg(results.filter((x) => x.firsts.shield !== null).map((x) => x.firsts.shield))} s.`);
