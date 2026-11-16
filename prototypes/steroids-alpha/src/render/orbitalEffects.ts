@@ -1,6 +1,24 @@
 import type Phaser from 'phaser';
 import type { OrbitalPose } from './orbitalTransition';
 
+export const LANDING_SPARK_MS = 1400;
+
+/** A white ignition glint dissolves into blue square ions, anchored at the completed arrival. */
+export function drawLandingSpark(g:Phaser.GameObjects.Graphics,x:number,y:number,scale:number,age:number,heading:number):void {
+  const p=Math.max(0,Math.min(1,age/LANDING_SPARK_MS)),fade=Math.pow(1-p,1.5),k=Math.max(.7,scale*1.8);
+  if(!fade)return;
+  const core=Math.exp(-p*12),dx=Math.cos(heading),dy=Math.sin(heading);
+  g.fillStyle(0x63cfff,.2*fade);g.fillCircle(x,y,(8+6*p)*k);
+  g.fillStyle(0xebfdff,core);g.fillRect(x-9*k,y-1.5*k,18*k,3*k);g.fillRect(x-1.5*k,y-9*k,3*k,18*k);
+  for(let i=0;i<16;i++){
+    const angle=i*2.39996,reach=(10+(i%5)*5)*(0.4+p)*k;
+    const px=x+Math.cos(angle)*reach-dx*p*38*k,py=y+Math.sin(angle)*reach-dy*p*38*k;
+    const size=(i%3?2:3)*k,twinkle=.55+.45*Math.sin(age*.018+i*4);
+    g.fillStyle(i%3===0?0xf0fdff:i%3===1?0x9deeff:0x4db8ff,fade*twinkle);
+    g.fillRect(px-size/2,py-size/2,size*(i%4===0?2:1),size);
+  }
+}
+
 /** Heading-aligned hyperspace behind the foreground ship. No textures or growing particle pool. */
 export function drawOrbitalEffects(g:Phaser.GameObjects.Graphics,pose:OrbitalPose,w:number,h:number,heading=0,time=0):void {
   g.clear();if(pose.phase==='flight')return;

@@ -9,7 +9,7 @@ import { CombatSprites } from '../render/combatSprites';
 import { BuildingRigs } from '../render/buildingRig';
 import { OrbitalTransition, remoteArrivalPose } from '../render/orbitalTransition';
 import type { OrbitalPose } from '../render/orbitalTransition';
-import { drawOrbitalEffects, drawArrivalTrail } from '../render/orbitalEffects';
+import { drawOrbitalEffects, drawArrivalTrail, drawLandingSpark, LANDING_SPARK_MS } from '../render/orbitalEffects';
 import { mobileHeader } from '../render/mobileFlightUi';
 import { shipPreview } from '../render/shipPreview';
 import type { FFDControl } from '../render/shipTilt';
@@ -105,6 +105,8 @@ export class FlightScene extends Phaser.Scene {
   private remoteArrivals=new Map<number,{settledAt:number}>();
   private orbitalUi=new Map<Phaser.GameObjects.GameObject & {alpha:number;setAlpha(v:number):unknown},number>();
   private orbitGfx!:Phaser.GameObjects.Graphics;
+  private landingGfx!:Phaser.GameObjects.Graphics;
+  private landingSparks:{x:number;y:number;heading:number;at:number}[]=[];
   private lastOwn:ShipState|null=null;
   private mobilePanel: 'shop' | 'board' | null = null;
   private mobileButtons: { action: 'shop' | 'board'; x: number; y: number; w: number }[] = [];
@@ -149,6 +151,7 @@ export class FlightScene extends Phaser.Scene {
     this.hudAnchor.visible=false;
     this.orbital.reset();
     this.remoteArrivals.clear();
+    this.landingSparks=[];
     this.orbitalUi.clear();
     this.lastOwn=null;
     this.runStartedAt = Date.now();
@@ -199,6 +202,7 @@ export class FlightScene extends Phaser.Scene {
     this.rocks = paintedRocksReady() ? new PaintedRocks(this) : new PixelRocks(this);
     this.turretGfx = this.add.graphics().setDepth(23);
     this.orbitGfx=this.add.graphics().setDepth(899);
+    this.landingGfx=this.add.graphics().setDepth(26).setBlendMode(Phaser.BlendModes.ADD);
     this.overlay = this.add.graphics().setDepth(900);
     this.hullBorder=this.add.graphics().setDepth(940);
     const { w } = logicalSize();
@@ -271,7 +275,9 @@ export class FlightScene extends Phaser.Scene {
     const own = this.net.ownRender();
     const extracted=!!this.net.extracted || this.net.status==='extracted';
     if(own && !extracted && !dead)this.lastOwn={...own};
+    const previousOrbit=this.orbit.phase;
     this.orbit=this.orbital.update(this.time.now,!!own,extracted,dead,own?.arrival);
+    if(previousOrbit==='entry'&&this.orbit.phase==='flight'&&own&&!dead&&!extracted)this.landingSpark(own);
     const leaving=extracted && !dead && this.orbit.phase==='exit';
     const cameraShip=leaving?this.lastOwn:own;
     // After our ship is destroyed the view stays on the wreck.
@@ -372,6 +378,9 @@ export class FlightScene extends Phaser.Scene {
       else this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.kind === 'burst' ? TUNE.asteroid.radius[f.size] : 9, ms: f.kind === 'burst' ? 420 : 180, colour: 0xffc78a, chips: f.kind === 'burst' ? 10 : 4, combat:f.kind==='burst'?'asteroid':undefined });
     }
     this.drawWorld();
+    this.landingGfx.clear();
+    this.landingSparks=this.landingSparks.filter(s=>this.time.now-s.at<LANDING_SPARK_MS);
+    for(const spark of this.landingSparks){const at=this.toScreen(spark.x,spark.y);if(at.visible)drawLandingSpark(this.landingGfx,at.x,at.y,at.scale,this.time.now-spark.at,spark.heading);}
     drawOrbitalEffects(this.orbitGfx,this.orbit,w,h,bearing,this.time.now);
     this.drawTouch(w, h);
     this.drawHullBorder(w,h);
@@ -408,6 +417,11 @@ export class FlightScene extends Phaser.Scene {
   private gateText!: Phaser.GameObjects.Text;
   private banner!: Phaser.GameObjects.Text;
   private arrivedAt = 0;
+
+  private landingSpark(s:ShipState):void {
+    this.landingSparks.push({x:s.x,y:s.y,heading:s.heading,at:this.time.now});
+    if(this.landingSparks.length>32)this.landingSparks.shift();
+  }
 
   /** Let the pilot and travel read clearly; restore each UI object's original opacity on release. */
   private maskOrbitalUi(active:boolean):void {
@@ -544,7 +558,7 @@ export class FlightScene extends Phaser.Scene {
         at.x+=Math.cos(angle)*arrival.offset*at.scale;at.y+=Math.sin(angle)*arrival.offset*at.scale;
       }else{
         const arrival=this.remoteArrivals.get(id);
-        if(arrival){if(arrival.settledAt<0)arrival.settledAt=this.time.now;trail=Math.max(0,1-(this.time.now-arrival.settledAt)/650);if(!trail)this.remoteArrivals.delete(id);}
+        if(arrival){if(arrival.settledAt<0){arrival.settledAt=this.time.now;this.landingSpark(s);}trail=Math.max(0,1-(this.time.now-arrival.settledAt)/650);if(!trail)this.remoteArrivals.delete(id);}
       }
       if(trail&&at.visible)drawArrivalTrail(this.turretGfx,at.x,at.y,s.heading,at.scale,trail,this.time.now,id);
     }

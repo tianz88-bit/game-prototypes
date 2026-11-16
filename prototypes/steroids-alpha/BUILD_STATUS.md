@@ -1,6 +1,6 @@
 ## Current milestone
 
-LOCAL MOTION REVIEW on codex/steroids-hyperspace-arrival, based on main d56a3b8. Owner corrected the warp sequence after live0074: hyperspace first, then heading-driven globe approach, plus observer fade/brake/residuals and protection through completion. Public game remains161126r0074; this pass is not pushed or deployed. Motion gallery: outputs/steroids-alpha/hyperspace-preview/index.html.
+Owner approved motion79027e3 and live publication, with a final landing spark. Release candidate on codex/steroids-hyperspace-arrival, based on main d56a3b8. Owner corrected the warp sequence after live0074: hyperspace first, then heading-driven globe approach, plus observer fade/brake/residuals and protection through completion. Public game remains161126r0074 while the approved matching client/Worker release is being published. Motion gallery: outputs/steroids-alpha/hyperspace-preview/index.html.
 
 ## What was implemented
 
@@ -9,6 +9,8 @@ LOCAL MOTION REVIEW on codex/steroids-hyperspace-arrival, based on main d56a3b8.
 - New arrivals seen by another client are hidden during initial travel, then fade in for the last0.7s with fast forward approach, a short overshoot and hard brake. Residual square particles last650ms. Only positive server arrival state starts this effect; established ships/reconnects do not fake a new entrance.
 - Authoritative arrival remaining time initializes to3.2s. World advances it once per tick, including before input startup; prediction advances its copy once per input. All damage, contact/ram displacement and combat actions are gated. Bearing stays fixed at full normal speed until release. Client animation follows remaining authority state and cannot extend immunity. Departure is2.4s and remains visual after server extraction.
 - Transit hides UI, then restores original opacities at completion. Foreground ship/exhaust render above hyperspace. Resize/rebuild preserves authority progress and now destroys old ship/FFD/UI resources instead of orphaning them via DisplayList.removeAll(true).
+
+- Completion now emits one world-anchored white glint dissolving into blue-white square ions for1400ms, for both own and remote arrivals. At most32 effects are retained; they expire and do not extend protection. Old visitors do not trigger it.
 
 ## Key technical decisions
 
@@ -20,7 +22,7 @@ Brave DPR2 desktop1280x720 and mobile844x390 real server arrivals reach flight f
 
 ## Open questions
 
-Owner motion review: timing and intensity of the approach, reverse departure and observer brake. No missing implementation decision blocks review.
+Owner reviewed and approved the motion. No open release decision.
 
 ## Known issues
 
@@ -28,4 +30,4 @@ Phone emulation is not physical phone/Safari evidence. Canvas retains the existi
 
 ## Next proposed step
 
-Owner reviews the5 motion clips. After approval, merge latest main and publish matching protocol21 client/Worker, then verify public two-client arrival/protection and Warp map entry. Claude receives the new authority/render contracts in Agent Comms thread68c1ca78. Current live0074 is unchanged.
+Publish the approved matching protocol21 client/Worker and verify public arrival/completion sparks, cleanup, Warp map and observer entrance. Send Claude final release proof in thread68c1ca78.
