@@ -20,7 +20,7 @@ import Phaser from 'phaser';
 import { TUNE } from '../../sim/tune';
 import { PLANETS } from '../../sim/planets';
 import type { PlanetId } from '../../sim/planets';
-import { maxShield, shipRadius, powerGrowth } from '../../sim/ship';
+import { maxShield, shipRadius, powerGrowth, topSpeed } from '../../sim/ship';
 import { TURRET_MOUNTS, turretCount } from '../../sim/turrets';
 import { BATTLECRUISER, TURRET_MOUNTS_BY_CHASSIS, chassisStats, upgradeTotal } from '../../sim/chassis';
 import { SHOP_ITEMS, canBuy, shopOffer, shopTier, EVOLVE_ITEM, canEvolve } from '../../sim/shop';
@@ -115,6 +115,11 @@ export class FlightScene extends Phaser.Scene {
   private warpText!: Phaser.GameObjects.Text;
   /** Hot zone label: on the zone when in view, else on its edge tracker. */
   private hotZoneText!: Phaser.GameObjects.Text;
+  /** Edge markers for clan base landmarks (treasury, gate). */
+  private baseMarkerTexts: Phaser.GameObjects.Text[] = [];
+  /** PC key hints, bottom left (owner, 16 November 2026; menu setting KEY HINTS). */
+  private keyHints!: Phaser.GameObjects.Text;
+  private keyHintsOn = true;
   private lockedOnMe = false;
   /** Shown to a pilot with a missile locked on them in flight. */
   private lockText!: Phaser.GameObjects.Text;
@@ -202,6 +207,9 @@ export class FlightScene extends Phaser.Scene {
     this.boardTitle = text(this, 0, 0, 'KO · POWER', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
 
     this.hotZoneText = text(this, 0, 0, '', 11, '#7dffc4').setOrigin(0.5).setDepth(953).setVisible(false);
+    this.keyHintsOn = loadSave().keyHints !== false;
+    this.keyHints = text(this, 0, 0, '', 10, '#8fa2c8').setOrigin(0, 1).setDepth(950).setAlpha(0.75).setVisible(false);
+    this.baseMarkerTexts = [0, 1].map(() => text(this, 0, 0, '', 10, '#ffffff').setOrigin(0.5).setDepth(953).setVisible(false));
     this.warpText = text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(953).setVisible(false);
     this.bountyText = text(this, 0, 0, '', 11, '#ffd23a').setOrigin(0.5).setDepth(953).setVisible(false);
     this.lockText = text(this, 0, 0, 'MISSILE LOCK', 13, '#ff5a3a').setOrigin(0.5).setDepth(953).setVisible(false);
@@ -234,6 +242,9 @@ export class FlightScene extends Phaser.Scene {
     }
     if (intents.consume('scheme')) intents.toggleScheme();
     const heading = this.net.predicted?.heading ?? 0;
+    // The mouse marker steers from where our ship is on screen (last frame's projection).
+    const shipAt = this.net.predicted && !over ? this.toScreen(this.net.predicted.x, this.net.predicted.y) : null;
+    intents.mouseOrigin = shipAt && shipAt.visible ? { x: shipAt.x, y: shipAt.y } : null;
     const move = intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed, this.net.speedFloorNow);
     this.net.update({ ...move, dash, fire: intents.fire, missile, mine, warp });
     // Shop: each tap asks the server for the tier on offer now; the server checks power and price.
@@ -394,7 +405,7 @@ export class FlightScene extends Phaser.Scene {
     if (this.planet === 'alpha') return 'LAWLESS SPACE\nBots will hunt you down';
     if (!home) return 'SATELLITE\nFarm and fight; no turrets, no shields';
     const owner = clanName(home).toUpperCase();
-    return this.net.clan === home ? `${owner} HOME\nStop over a landing pad to dock: safe, repair, unload salvage` : `${owner} TERRITORY\nTheir turrets fire on sight. Their shield keeps you out`;
+    return this.net.clan === home ? `${owner} HOME\nMine fuel for the treasury; stop over a landing pad to dock and unload it` : `${owner} TERRITORY\nTheir turrets fire on sight. Their shield keeps you out`;
   }
 
   /**
@@ -410,7 +421,7 @@ export class FlightScene extends Phaser.Scene {
     if (performance.now() - this.arrivedAt < 6000) note = this.arrivalNote();
     if (this.net.docked) {
       const d = this.net.deposited;
-      note = 'DOCKED · REPAIRING' + (d && performance.now() - d.at < 3000 ? `\n+${d.amount} salvage to the ${clanName(this.net.clan)} treasury` : '');
+      note = 'DOCKED · REPAIRING' + (d && performance.now() - d.at < 3000 ? `\n+${d.amount} fuel to the ${clanName(this.net.clan)} treasury` : '');
     }
     this.banner.setVisible(!!note && this.net.status==='open' && !this.net.death && !this.net.extracted).setText(note).setPosition(w / 2, intents.touch ? 118 : 86);
     styleClanBanner(this.banner,layout?.clan??0,this.net.clan===layout?.clan,!!this.net.docked,w,intents.touch);
@@ -423,7 +434,7 @@ export class FlightScene extends Phaser.Scene {
     if(labels.treasury){
       const at=labels.treasury,total=this.net.treasury?.total??0;
       const below=at.labelY??at.y+78*at.scale,labelY=!intents.touch&&below>h-138?at.y-220*at.scale:below;
-      this.treasuryText.setVisible(true).setText(`${clanName(layout.clan).toUpperCase()} TREASURY\n${total.toLocaleString('en-US')}`)
+      this.treasuryText.setVisible(true).setText(`${clanName(layout.clan).toUpperCase()} TREASURY\nFUEL ${total.toLocaleString('en-US')}`)
         .setPosition(at.x,labelY).setStroke('#102035',3);
     }
     if(labels.gate)this.gateText.setVisible(true).setPosition(labels.gate.x,labels.gate.y+145*labels.gate.scale).setStroke('#102035',3);
@@ -592,7 +603,11 @@ export class FlightScene extends Phaser.Scene {
     const g = this.overlay;
     const now = performance.now();
     const left = Math.max(0, (z.movesAt - now) / 1000);
-    const label = `SALVAGE ZONE ×${TUNE.hotZone.salvageMultiplier}  ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`;
+    // On one's own home planet minerals give fuel, not salvage; the zone doubles that instead.
+    // Visitors mine nothing on someone else's home planet, so the zone is not shown to them.
+    if (this.net.layout && this.net.clan !== this.net.layout.clan) return;
+    const zoneOf = this.net.layout ? 'FUEL' : 'SALVAGE';
+    const label = `${zoneOf} ZONE ×${TUNE.hotZone.salvageMultiplier}  ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`;
     const centre = this.toScreen(z.x, z.y);
     const dx = wrapDelta(z.x, p.x, W);
     const dy = wrapDelta(z.y, p.y, H);
@@ -635,6 +650,59 @@ export class FlightScene extends Phaser.Scene {
     g.fillStyle(0x7dffc4, 0.85);
     g.fillTriangle(x + c * 14, y + s * 14, x - c * 6 - s * 10, y - s * 6 + c * 10, x - c * 6 + s * 10, y - s * 6 - c * 10);
     badge(x-c*70,y-s*34,`${label}  ${Math.round(Math.max(0, Math.hypot(dx, dy) - z.r) / 100) * 100}m`);
+  }
+
+  /** Key hints for the PC control scheme in use, bottom left; off in the menu (KEY HINTS). */
+  private drawKeyHints(p: ShipState | null, _w: number, h: number): void {
+    const show = !intents.touch && !!p && !this.net.death && !this.net.extracted && this.keyHintsOn;
+    this.keyHints.setVisible(show);
+    if (!show) return;
+    const lines = intents.scheme === 'marker'
+      ? ['MOUSE  steer', 'LEFT CLICK  fire', 'RIGHT CLICK  missile', 'W  accelerate   S  brake', 'SHIFT  dash   E  mine', 'R  warp   1-6  upgrades']
+      : ['A / D  turn', 'W / S  throttle', 'SPACE  fire   SHIFT  dash', 'Q  missile   E  mine', 'R  warp   1-6  upgrades'];
+    const t = lines.join('\n');
+    if (this.keyHints.text !== t) this.keyHints.setText(t);
+    this.keyHints.setPosition(12, h - 12);
+  }
+
+  /**
+   * Clan base landmarks (owner, 15 November 2026): while off screen, an arrow on the screen edge with
+   * a label and distance. Members always see their treasury; visitors see the gate and the treasury.
+   */
+  private drawBaseMarkers(p: ShipState | null, w: number, h: number): void {
+    this.baseMarkerTexts.forEach((t) => t.setVisible(false));
+    const L = this.net.layout;
+    if (!p || !L || this.net.status !== 'open' || this.net.death || this.net.extracted) return;
+    const member = this.net.clan === L.clan;
+    const owner = clanName(L.clan).toUpperCase();
+    const marks = member
+      ? [{ at: L.treasury, label: 'TREASURY', colour: 0xffd27a }]
+      : [{ at: L.gate, label: 'GATE', colour: 0x8fe3ff }, { at: L.treasury, label: `${owner} TREASURY`, colour: 0xff8f73 }];
+    const g = this.overlay;
+    const touch = intents.touch;
+    marks.forEach((m, i) => {
+      const dx = wrapDelta(m.at.x, p.x, W), dy = wrapDelta(m.at.y, p.y, H);
+      const c0 = this.toScreen(m.at.x, m.at.y);
+      if (c0.visible && c0.x > 30 && c0.x < w - 30 && c0.y > 30 && c0.y < h - 30) return;
+      const a = Math.atan2(dy, dx), c = Math.cos(a), s = Math.sin(a);
+      // An outer ring of its own (the hot-zone and bounty arrows sit further in), kept clear of the
+      // touch buttons, the bottom HUD and the top bar.
+      let x = w / 2 + c * w * 0.45, y = h / 2 + s * h * 0.42;
+      if (touch && y > h * 0.4) x = Math.min(x, controlClearRight(w) - 30);
+      const hudTop = Math.abs(x - w / 2) < (touch ? 0 : 220) ? h - 160 : h - 40;
+      y = Math.max(touch ? 120 : 80, Math.min(hudTop, y));
+      const k = touch ? 0.7 : 1;
+      g.fillStyle(m.colour, 0.9);
+      g.fillTriangle(x + c * 12 * k, y + s * 12 * k, x - c * 5 * k - s * 8 * k, y - s * 5 * k + c * 8 * k, x - c * 5 * k + s * 8 * k, y - s * 5 * k - c * 8 * k);
+      const d = Math.hypot(dx, dy);
+      const t = this.baseMarkerTexts[i];
+      t.setVisible(true).setFontSize(touch ? 9 : 10).setText(`${m.label} ${d >= 1000 ? (d / 1000).toFixed(1) + 'k' : Math.round(d / 100) * 100}`);
+      const css = '#' + m.colour.toString(16).padStart(6, '0');
+      if (t.style.color !== css) t.setColor(css);
+      const tx = Math.max(t.width / 2 + 6, Math.min(w - t.width / 2 - 6, x - c * 22 * k));
+      const ty = Math.max(10, Math.min(h - 10, y - s * 22 * k + (Math.abs(s) < 0.5 ? 14 * k : 0)));
+      t.setPosition(tx, ty);
+    });
   }
 
   /**
@@ -930,17 +998,28 @@ export class FlightScene extends Phaser.Scene {
     g.clear();
     intents.uiZones = [];
     const p = this.net.predicted;
-    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now,this.hudAnchor);
+    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now,this.hudAnchor, !this.net.layout ? 'salvage' : this.net.clan === this.net.layout.clan ? 'fuel' : 'none');
     this.drawMobileNav(p,w);
     this.drawShop(p);
     this.drawWeapons(p, w, h);
     this.drawBounty(p, w, h);
     this.drawWarp(p, w, h);
     this.drawHotZone(p, w, h);
+    this.drawBaseMarkers(p, w, h);
+    this.drawKeyHints(p, w, h);
     this.buildingRigs.begin();
     this.drawBase(p, w, h);
     this.buildingRigs.end();
     this.schemeLabel.setVisible(false);
+    if (!intents.touch && intents.scheme === 'marker' && intents.mouse && p && !this.net.death && !this.net.extracted) {
+      // Mouse aim reticle (placeholder look): a ring at the cursor, a faint line from the ship while
+      // it steers; dim when the cursor rests on the ship or a button (no steering then).
+      const m = intents.mouse, o = intents.mouseOrigin, on = intents.mouseSteering;
+      if (on && o) { g.lineStyle(1, 0xffffff, 0.12); g.lineBetween(o.x, o.y, m.x, m.y); }
+      g.lineStyle(2, UI.uiAccent, on ? 0.8 : 0.3);
+      g.strokeCircle(m.x, m.y, 10);
+      if (intents.fire) { g.fillStyle(UI.uiDanger, 0.6); g.fillCircle(m.x, m.y, 4); }
+    }
     if (!intents.touch) {
       intents.dashButton = null;
       intents.schemeButton = null;
@@ -1150,8 +1229,10 @@ export class FlightScene extends Phaser.Scene {
       this.message.setFontSize(18).setWordWrapWidth(0);
       const bw = 140;
       const bh = 44;
-      this.deathButtons = (['respawn', 'menu'] as const).map((id, i) => {
-        const x = w / 2 + (i === 0 ? -1 : 1) * (bw / 2 + 10);
+      // After warping out there is no drop-in again (owner, 16 November 2026): the menu only.
+      const ids = extracted ? (['menu'] as const) : (['respawn', 'menu'] as const);
+      this.deathButtons = ids.map((id, i) => {
+        const x = ids.length === 1 ? w / 2 : w / 2 + (i === 0 ? -1 : 1) * (bw / 2 + 10);
         const y = h * 0.3 + 56;
         // Keyboard shortcuts shown on the buttons (owner): R respawns, Esc goes to the menu. Not on touch.
         const key = intents.touch ? '' : id === 'respawn' ? ' (R)' : ' (Esc)';
@@ -1183,7 +1264,7 @@ export class FlightScene extends Phaser.Scene {
     // R (the warp key in flight) and Space respawn; Esc goes to the menu. Presses before the buttons
     // show are dropped, so a key hit in the fight that ended does not skip the screen.
     if (!ready) for (const p of ['primary', 'warp', 'pause'] as const) intents.consume(p);
-    if (ready && (intents.consume('primary') || intents.consume('warp'))) choice = 'respawn';
+    if (ready && (intents.consume('primary') || intents.consume('warp'))) choice = extracted ? 'menu' : 'respawn';
     if (ready && intents.consume('pause')) choice = 'menu';
     if (choice === 'respawn') {
       this.scene.restart({ planet: this.planet });
@@ -1474,7 +1555,7 @@ class RigShip implements DrawnShip {
 
   update(at: ShipPlacement, s: ShipState, timeMs: number, control?: FFDControl): void {
     // A dash counts as full throttle for the exhaust.
-    this.view.update(at, s.heading, timeMs, s.speed, s.dashTime > 0, control ?? 'observed');
+    this.view.update(at, s.heading, timeMs, s.speed, s.dashTime > 0, control ?? 'observed', topSpeed(s.hullMax, TUNE, s.chassis));
   }
 
   fire(side: number): void {

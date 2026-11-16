@@ -1,43 +1,29 @@
 ## Current milestone
 
-LOCAL PREVIEW ONLY on codex/steroids-orbit-nexus-preview, based on main472a0ed. Owner requested orbital entry/exit, ship-centred semicircle meters, a larger treasury nexus and rigged twin-cannon towers, with preview before live. Latest UI gallery: outputs/steroids-alpha/semicircle-hud-preview-v3/index.html; orbital/building gallery: outputs/steroids-alpha/orbit-review/index.html. Nothing in this pass has been uploaded to R2, pushed, merged or deployed. Previous approved public release remains151126r0067 (PR500/501).
+Owner approved all reviewed orbital, building and HUD updates on 16 November 2026. Release candidate on codex/steroids-orbit-nexus-preview integrates current main 1fb8b45; public deployment and final live verification are the remaining release steps.
 
 ## What was implemented
 
-- OrbitalTransition starts on the first own snapshot: whole globe at34% play zoom,1.8s descent and atmosphere streak, ground light/shadow fade-in and arrival pulse. Input/prediction continue. Entry begins below the fixed Warp chip.
-- On extraction, the server state remains extracted while a cached own ship plays a1.5s visual departure. The usual extracted-result panel follows; ordinary death retains its700ms panel delay. DROP IN and RESPAWN replay entry; resize preserves elapsed time.
-- Latest HUD: left shield semicircle switches to hull at depletion, thin shield-reboot recovery arc, hull/total numbers below. Right uses two full concentric semicircles: inner dash charge/active/cooldown, outer remaining weapon capacity (1-heat). Smooth right arcs touch; outer weapon is slightly shorter, with staggered tip symbols and no right sockets/divisions. Shield/hull divisions track every10maximum capacity; hull numbers sit beside shop/upgrades. Translucency retained. Recovery fills and warning pulses remain. Old flat panel, own plates/name, broken-shield glyph and button-duplicate meters removed; nose cue/engaged target meters retained. Bounty labels avoid the instrument region.
-- Seven new original painted building parts:3-layer treasury nexus and4-part towers with a duplicated barrel. Fixed layers, projected bearing/foreshortening, separate ground shadows, clan palettes and alternating visual barrel recoil/flash. Treasury foundation260world units; no simulation footprint/radius/firing change.
-- Boot/pipeline loads bounded shared runtime textures; procedural building fallback remains. Scene rebuild/shutdown releases owned views. Seven original PNGs, exact generation metadata and ZIP stay in outputs/steroids-alpha/buildings-rig-v01; content-addressed cache supports local builds.
-- Required config regression test had a pre-existing concurrent-publish winner assumption. It now verifies the actual winner, then uses a separate deterministic edited record for later fixtures. Server code unchanged.
+- Orbital entry begins on the first own snapshot: 34% zoom, 1.8s descent, atmosphere streak and ground-cue fade. Prediction/input continue; resize preserves time. Extraction retains the departing craft for 1.5s before results. Current main's MENU-only extraction is preserved; ordinary death keeps its delay and respawn replays arrival.
+- Approved translucent ship instruments: left shield switches to hull on depletion; one division per 10 maximum capacity. Joined right arcs show inner dash and outer remaining weapon capacity (1-heat), with staggered symbols, no right notches, and existing recovery/warning animations. Hull numbers sit beside buying. Desktop cargo is bottom-centre to clear PC key hints.
+- Seven new painted parts form a raised three-layer Nexus and dual-cannon tower rigs, with projected bearing/foreshortening, clan palettes, separate shadows and alternating visual recoil. No collision, placement or firing-count changes.
+- Preserved latest main mouse aim/click fire/W-thrust/S-brake, key hints, member Fuel/visitor-hidden cargo, own-top-speed exhaust and referenceHeight 1000. Existing approved ship positions, per-part control FFD and sprite fallback remain.
+- Corrected only the concurrent-publisher test's winner assumption; no live-config server behavior changes.
 
-## Latest HUD validation
+## Key technical decisions
 
-Joined-ring revision: typecheck/build/rig pass;30 desktop/mobile/small-phone DPR2 captures,2 recovery GIFs,0 browser errors. Instrumented actual Graphics calls confirm50/110/125/250 capacity gives5/11/12/25 left notches and0right notches. Hull counter placement inspected beside desktop shop and below phone upgrades.
+Original PNGs, generation records and ZIP remain in outputs/steroids-alpha/buildings-rig-v01. R2 object steroids-alpha_buildings-rig-v1_assets.zip was uploaded and publicly re-fetched: 7,939,933 bytes, SHA-256 d34070bccdb67d0e901d7972504a5b2478f477dcc712a8e796bf41c6d6c30a15. Metadata/hashes only in Git. Boot prepares 14 shared clan textures and removes raw sources. Runtime copies are capped at 384px Nexus/256px tower. Fixed layers and per-scene cleanup retain the existing sprite-rig approach.
 
-Translucent/concentric revision: typecheck/build/rig pass;21 new actual-renderer screenshots across desktop/mobile/small-phone DPR2 and2 recovery GIFs, zero browser errors. Pure drawing change; existing input validation below remains applicable.
+Required typecheck/build/rig/sim/live-config/bank checks pass. Rig suite covers 396 poses and 14,400 FFD points. Brave desktop/mobile DPR2 integrated orbital entry/input/resize, extraction/result timing, death/respawn pass with zero errors (4 GIFs, outputs/steroids-alpha/orbit-release-check/report.json). Updated 36 building captures inspected. Pool stays 7 views/40 images across 120 camera updates. Two real connected desktop/mobile clients: alpha +4 bots and Crimson, about 60 FPS / p95 16.8ms, real phone-emulated fire/dash pass, zero errors. Earlier Canvas fallback and 30-state HUD checks remain recorded in the art workspace.
 
-Typecheck/build/rig/sim/live-config pass. Brave desktop1280x720/mobile844x390/small-phone667x375 DPR2:21 actual-renderer state captures plus2 recovery GIFs, no page/console errors. Real mobile fire builds heat, dash activates cooldown, upright390x844 keeps instruments centred and playable; original button zones unchanged. Recovery previews use local fixtures; real phone hardware remains unmeasured.
+## Open questions
 
-## Orbital/building validation
+None blocking this approved release. Claude's placeholder mouse reticle and landmark icons are separate future art follow-ups.
 
-- Typecheck and production build pass (existing repo bundle-size/dynamic-import warnings only).
--396rig poses and14400FFD points pass; sim suite passes; live-config suite passes3consecutive runs after the test-only race correction.
-- Brave desktop1280x720/mobile844x390 DPR2: real entry input/prediction, resize continuity, extraction retention/result timing, real DROP IN/RESPAWN and normal death timing pass, zero browser errors. Four animated renderer captures plus phase screenshots. Entry/departure deterministic frames use local visual fixtures; real input was checked separately.
--36building captures (24scene states plus12camera-orbit frames), both clans and viewports. Alternating barrel recoil verified.14shared clan textures plus1shadow texture; raw source textures released;7views/40images stable across120camera updates.
-- Canvas fallback renders all7buildings with14shared textures and completes arrival; no page errors.
-- Two real connected desktop/mobile clients atDPR2: alpha with4bots56.34/56.28FPS, Crimson56.28/56.30FPS, p95~18.1ms; real fire/dash pass, zero browser errors.
+## Known issues
 
-## Assets and publication gate
-
-Proposed object steroids-alpha_buildings-rig-v1_assets.zip is NOT uploaded. Source ZIP7,939,933bytes; SHA-256 d34070bccdb67d0e901d7972504a5b2478f477dcc712a8e796bf41c6d6c30a15. Metadata: art/buildings-v1/assets.json. No PNG/ZIP is in Git. A clean remote build will need this exact source object uploaded only after owner review approval. No PR is opened because repo auto-merge would publish.
-
-## Known limits
-
-- Phone emulation is not real phone/Safari/Android performance evidence.
-- Departure/death visual timing tests stage local flags rather than performing real extraction/banking; existing simulation tests cover authoritative extraction rules.
-- Per-chassis hosted calibration remains a separate task.
+Phone emulation on this PC is not physical phone/Safari performance evidence. Extraction/death visual timing uses isolated local scene fixtures; simulation tests cover authoritative rules. Existing unrelated bundle-size/dynamic-import build warnings remain.
 
 ## Next proposed step
 
-Owner reviews orbital motion, nexus proportions, tower readability and restrained ship markers in the local gallery. After approval: upload/re-fetch/hash-verify the exact source ZIP, rebase against current main while preserving Claude's changes, run required checks, PR/merge/deploy and verify the public itch build. Current publication approval has not been given for this preview.
+Merge the approved release, monitor itch deployment to daily-daily-games/steroids-alpha:html5, verify the fresh public version/planet connection/art on desktop and mobile, and send final release proof to Claude in Agent Comms thread 68c1ca78.

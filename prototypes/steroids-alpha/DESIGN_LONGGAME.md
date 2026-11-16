@@ -150,6 +150,11 @@ earlier "never raw power" rule for clan play. Fenced in so open public planets s
   no reason to overfarm. Run currencies (power, salvage) stay limited by the 400 cargo hold.
 - **Decided:** **clan buildings have upkeep**: an ongoing cost that keeps clans active and stops
   inactive clans from holding territory forever.
+- **Decided (owner, 15 November 2026):** **no salvage on clan home planets.** Mining there gives
+  members **Fuel**, a clan resource that pays the treasury's building upkeep (built in Clan planets
+  v0 as the treasury's only input; upkeep itself is not built yet).
+- **Future (owner):** a daily salvage gain cap per player is an alternative or addition to the
+  "no salvage at home" rule if other farming exploits appear.
 - **Decided:** several economy levels: basic resources, seasonal resources and clan resources,
   alongside the existing run and personal currencies.
 - **Proposal:** at most four visible layers plus one seasonal currency, each with one clear job,
@@ -161,7 +166,7 @@ earlier "never raw power" rule for clan play. Fenced in so open public planets s
 |---|---|---|---|
 | **Run power** (minerals) | Mining and kills during a run | In-run upgrades, evolve | Yes (spills) |
 | **Salvage, banked as credits** (personal) | Extracting | Hangar: ships, cosmetics, QoL | Carried: yes. Banked: no |
-| **Basic resources** (for example Ore, Alloy, Fuel) | Mining on satellites only, then extracting | Contributed to the clan for buildings and upkeep | Carried: yes |
+| **Basic resources** (for example Ore, Alloy) | Mining on satellites only, then extracting | Contributed to the clan for buildings and upkeep | Carried: yes |
 | **Clan treasury** (for example Influence) | Holding satellites over time, winning sieges | Home-planet buildings, war declarations, new satellites, upkeep | Can be looted in a lost siege (minus the storage vault's protected share) |
 | **Seasonal currency** | Season activities | That season's cosmetics and clan structures | Resets each season |
 

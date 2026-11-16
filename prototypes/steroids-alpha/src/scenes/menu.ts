@@ -56,6 +56,10 @@ export class MenuScene extends Phaser.Scene {
   buttons: MenuButton[] = [];
   nameBox = { x: 0, y: 0, w: 0, h: 0 };
   clanButtons: { id: number; x: number; y: number; w: number; h: number }[] = [];
+  /** PC controls setting (owner, 16 November 2026): mouse marker (default) or keyboard steering. */
+  controlButtons: { id: 'marker' | 'craft'; x: number; y: number; w: number; h: number }[] = [];
+  /** KEY HINTS on/off (PC only). */
+  hintButtons: { on: boolean; x: number; y: number; w: number; h: number }[] = [];
   private nameText!: Phaser.GameObjects.Text;
   private nameFrame!: Phaser.GameObjects.Rectangle;
 
@@ -197,11 +201,38 @@ export class MenuScene extends Phaser.Scene {
       text(this, x, cy, c.name.toUpperCase(), 12, on ? '#ffffff' : '#9fb3d6').setOrigin(0.5);
       return { id: c.id, x, y: cy, w: pw, h: 28 };
     });
-    text(this, w / 2, cy + 30, 'Choose a planet to drop into', 13, '#8fa2c8').setOrigin(0.5);
+    // Controls (PC only; phones always use the touch marker).
+    let py = cy;
+    this.controlButtons = [];
+    if (!intents.touch) {
+      py = cy + 36;
+      text(this, w / 2 - bw / 2, py, 'CONTROLS', 11, '#8fa2c8').setOrigin(0, 0.5);
+      const kw = (bw - 76) / 2;
+      this.controlButtons = (['marker', 'craft'] as const).map((id, i) => {
+        const x = w / 2 - bw / 2 + 70 + kw / 2 + i * (kw + 6);
+        const on = intents.scheme === id;
+        panel(this.add.graphics(), x - kw / 2, py - 14, kw, 28, on ? UI.uiAccent : UI.uiBorder, on);
+        text(this, x, py, id === 'marker' ? 'MOUSE' : 'KEYBOARD', 12, on ? '#ffffff' : '#9fb3d6').setOrigin(0.5);
+        return { id, x, y: py, w: kw, h: 28 };
+      });
+      // Key hints in flight (owner, 16 November 2026): on by default.
+      const hy = py + 34;
+      const hintsOn = loadSave().keyHints !== false;
+      text(this, w / 2 - bw / 2, hy, 'KEY HINTS', 11, '#8fa2c8').setOrigin(0, 0.5);
+      this.hintButtons = [true, false].map((v, i) => {
+        const x = w / 2 - bw / 2 + 70 + kw / 2 + i * (kw + 6);
+        const on = hintsOn === v;
+        panel(this.add.graphics(), x - kw / 2, hy - 14, kw, 28, on ? UI.uiAccent : UI.uiBorder, on);
+        text(this, x, hy, v ? 'ON' : 'OFF', 12, on ? '#ffffff' : '#9fb3d6').setOrigin(0.5);
+        return { on: v, x, y: hy, w: kw, h: 28 };
+      });
+      py = hy;
+    } else this.hintButtons = [];
+    text(this, w / 2, py + 30, 'Choose a planet to drop into', 13, '#8fa2c8').setOrigin(0.5);
     // Four planets in a 2 x 2 grid: the open planets on top, the clan homes below.
     const gap = 10;
     const cw = (bw - gap) / 2;
-    const top = cy + 46;
+    const top = py + 46;
     const bh = Math.min(60, Math.max(42, (h - top - 20) / 2 - gap));
     this.buttons = PLANETS.map((p, i) => {
       const x = w / 2 - bw / 2 + cw / 2 + (i % 2) * (cw + gap);
@@ -320,6 +351,18 @@ export class MenuScene extends Phaser.Scene {
       const cb = this.clanButtons.find((b) => Math.abs(t.x - b.x) <= b.w / 2 && Math.abs(t.y - b.y) <= b.h / 2);
       if (cb && !this.codeMode) {
         writeSave({ clan: cb.id });
+        this.layout();
+        return;
+      }
+      const kb = this.controlButtons.find((b) => Math.abs(t.x - b.x) <= b.w / 2 && Math.abs(t.y - b.y) <= b.h / 2);
+      if (kb && !this.codeMode) {
+        intents.setScheme(kb.id);
+        this.layout();
+        return;
+      }
+      const hb2 = this.hintButtons.find((b) => Math.abs(t.x - b.x) <= b.w / 2 && Math.abs(t.y - b.y) <= b.h / 2);
+      if (hb2 && !this.codeMode) {
+        writeSave({ keyHints: hb2.on });
         this.layout();
         return;
       }

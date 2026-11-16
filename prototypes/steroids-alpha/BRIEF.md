@@ -122,8 +122,16 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
   never stop anywhere else). A docked ship:
   - is safe (takes no damage);
   - is repaired (hull and shield);
-  - unloads its carried salvage into the clan treasury.
+  - unloads its carried fuel into the clan treasury.
   Docking to bank your own credits at home is "maybe later" (owner).
+- **Landmark markers (owner, 15 November):** on a clan home planet, while off screen, an edge arrow
+  with a label and distance points to key spots. Members always see their treasury; visitors see the
+  gate and the enemy treasury. Open planets get none.
+- **No salvage on home planets (owner, 15 November):** minerals mined on a clan home planet give
+  members **Fuel** (a clan resource, working name) instead of salvage, so safe home planets cannot
+  be farmed for credits. Fuel fills the same 400 hold, the hot zone doubles it, it is lost on death,
+  and docking unloads it into the treasury. Fuel is what will pay building upkeep once upkeep
+  exists. Non-members mine neither, do not see the hot zone and have no cargo readout there. No gold drops on home planets.
   A docked ship comes down onto its pad: it shrinks to its shadow's size and sits on it, and its
   hover glow fades and its engines (exhaust) switch off (owner, 15 November).
 - **Anyone can enter a clan planet.** Non-members:
@@ -164,7 +172,8 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
   damage, no knockback and no warp reset (owner, 13 November 2026). Only
   damage from players, bots, turrets, missiles and mines resets the warp.
 - Everyone sees a warping ship (a ring filling with progress) and its
-  warp-out flash. The extracted pilot sees EXTRACTED with Drop in / Menu.
+  warp-out flash. The extracted pilot sees EXTRACTED (with the banking result) and a Menu
+  button only: no drop-in straight after warping out (owner, 16 November 2026).
 
 ## Ship assembly and art direction
 
@@ -260,7 +269,8 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
   and boost (owner, 12 November). Cooldown 8 s,
   shown by a yellow bar next to the gun heat bar. Dash ram damage hits shields
   first, like any damage. Exhaust plume: 2x longer at top speed than
-  before and 3x in a dash (owner, 15 November). Exhaust particles fly 2x
+  before and 3x in a dash (owner, 15 November). "Top speed" is each ship's
+  own top speed (power and chassis lower it), not the fixed 350 (owner, 15 November). Exhaust particles fly 2x
   faster and live half as long; the longer plume comes from particle speed,
   not lifetime (owner, 15 November; clientTune exhaustSpeedScale and
   exhaustLifeScale).
@@ -352,6 +362,19 @@ Both schemes are supported (owner decision), through the intent layer:
 - Keyboard uses craft-relative (A/D rotate, W/S throttle). Phones always use
   the direction marker: the STEER toggle was removed (owner, 14 November
   2026). Fire and warp are buttons on both.
+- **PC mouse aim (owner, 16 November 2026), the default on PC:** the ship always
+  steers toward the cursor (no click needed; not while the cursor rests on the
+  ship, within `mouse.deadZone`, or on an on-screen button). Left click (held)
+  fires, right click launches a missile, W accelerates, S brakes; with neither W
+  nor S held the ship eases back to minimum speed. A/D still turn while pressed.
+  A ring at the cursor shows it. Space/J, Q, E, Shift and R keep working.
+- **Menu settings (PC only):** CONTROLS: MOUSE (default) or KEYBOARD (the
+  keyboard-only craft-relative scheme); KEY HINTS: ON (default) or OFF, a small
+  list of the current scheme's keys in the bottom-left corner during flight.
+  Both remembered per browser.
+- **View (owner, 16 November 2026):** zoomed out so players see further: the
+  screen shows 1000 world pixels top to bottom (`render.referenceHeight`, was
+  810). HUD and labels keep their size.
 - Both schemes share the same turn rate and speed limits, so neither has an
   advantage.
 

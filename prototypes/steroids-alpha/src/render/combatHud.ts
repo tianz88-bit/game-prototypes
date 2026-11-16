@@ -16,7 +16,7 @@ export class CombatHud {
   constructor(scene: Phaser.Scene){
     this.labels=Array.from({length:4},()=>text(scene,0,0,'',11).setDepth(953).setVisible(false));
   }
-  draw(g:Phaser.GameObjects.Graphics,p:ShipState|null,w:number,h:number,touch:boolean,now:number,anchor?:CombatHudAnchor):void{
+  draw(g:Phaser.GameObjects.Graphics,p:ShipState|null,w:number,h:number,touch:boolean,now:number,anchor?:CombatHudAnchor,hold:'salvage'|'fuel'|'none'='salvage'):void{
     this.labels.forEach(t=>t.setVisible(false));if(!p)return;
     const label=(i:number,x:number,y:number,s:string,c=UI.uiText,size=10,origin=.5)=>{
       this.labels[i].setVisible(true).setPosition(x,y).setOrigin(origin,0).setFontSize(size).setText(s).setColor(css(c)).setStroke('#071321',3);
@@ -83,15 +83,17 @@ export class CombatHud {
     const shop=mobileHeader(w).shop,critical=p.hp/Math.max(1,p.hullMax)<=.35;
     label(0,touch?shop.x:12,touch?52:22,`HULL ${Math.round(p.hp)} / ${Math.round(p.hullMax)}`,critical?0xffa28d:0xcfc8b7,touch?9:10,touch?.5:0);
     // Cargo stays in a corner, outside the centred flight instruments and phone controls.
-    const cargo=TUNE.salvage.cargoMax,full=p.salvage>=cargo-.5,x=12,y=touch?18:h-30;
+    if(hold==='none')return;
+    const home=hold==='fuel',held=home?p.fuel:p.salvage;
+    const cargo=TUNE.salvage.cargoMax,full=held>=cargo-.5,x=touch?12:w/2-66,y=touch?18:h-30;
     panel(g,x,y,132,19,full?0xf39872:UI.uiGold);
     g.fillStyle(0xe3a248,1);g.fillPoints([{x:x+11,y:y+4},{x:x+16,y:y+4},{x:x+19,y:y+9},{x:x+16,y:y+14},{x:x+11,y:y+14},{x:x+8,y:y+9}],true);
-    label(2,x+123,y+3,`SALVAGE ${Math.floor(p.salvage)}/${cargo}`,full?0xffb394:0xffdd95,10,1);
+    label(2,x+123,y+3,`${home?'FUEL':'SALVAGE'} ${Math.floor(held)}/${cargo}`,full?0xffb394:0xffdd95,10,1);
     if(full){
       const warp=mobileHeader(w).warp,cx=touch?warp.x:w/2,cy=touch?52:69,bw=touch?warp.w:142;
       g.fillStyle(0x261a23,.92);g.fillRoundedRect(cx-bw/2,cy,bw,15,3);
       g.lineStyle(1,0xf39872,.7);g.lineBetween(cx-bw/2+4,cy+14,cx+bw/2-4,cy+14);
-      label(3,cx,cy+1,'FULL · WARP OUT',0xffbd91,touch?9:10);
+      label(3,cx,cy+1,home?'FULL · DOCK TO UNLOAD':'FULL · WARP OUT',0xffbd91,touch?9:10);
     }
   }
 }

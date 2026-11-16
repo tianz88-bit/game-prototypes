@@ -163,3 +163,7 @@ Owner clarified that dash and weapon each need a full right semicircle, concentr
 ## HUD refinement 3 — 16 November 2026
 
 Dash is the inner right arc, weapon capacity the outer. They touch, with the outer arc slightly shorter at the base to stagger tip symbols; right arcs have neither sockets nor division notches. Left shield/hull receives a division at each10maximum capacity, including a partial last interval when needed. Hull numbers moved beside buying/upgrades. Local preview: outputs/steroids-alpha/semicircle-hud-preview-v3/index.html. Recovery behavior unchanged; publication still awaits owner approval.
+
+## Complete publication approval — 16 November 2026
+
+Owner approved going live with every reviewed update, explicitly including orbital transition and buildings. This supersedes the local-preview gates above. The exact seven-source building ZIP is uploaded/re-fetched/hash-verified in R2. Approved HUD is refinement 3; extraction follows newer main's MENU-only behavior. Latest main controls, fuel/visitor rules and zoom are retained. See BUILD_STATUS/HANDOFF for integrated release verification and Agent Comms thread 68c1ca78 for final deployment proof.

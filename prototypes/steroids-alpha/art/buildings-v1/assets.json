@@ -1,6 +1,6 @@
 {
-  "source": "Original seven-part overhead cel-painted building kit, generated with built-in imagegen 16 November 2026 for owner local review. No R2 upload or publication authorized in this preview.",
-  "status": "local-preview-not-uploaded",
+  "source": "Original seven-part overhead cel-painted building kit, generated with built-in imagegen 16 November 2026. Owner approved publication; exact source ZIP uploaded and publicly re-fetched with matching SHA-256.",
+  "status": "approved-uploaded",
   "r2Object": "steroids-alpha_buildings-rig-v1_assets.zip",
   "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_buildings-rig-v1_assets.zip",
   "zipSha256": "d34070bccdb67d0e901d7972504a5b2478f477dcc712a8e796bf41c6d6c30a15",

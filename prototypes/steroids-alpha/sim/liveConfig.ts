@@ -77,7 +77,7 @@ export function validateConfig(input: unknown): ConfigData {
   }
   if (c.modules.cockpit.order.up <= Math.max(c.modules.engineCapL.order.up,c.modules.engineCapR.order.up) || c.modules.canopy.order.up <= c.modules.cockpit.order.up) fail('Cockpit and canopy must stay above both cowlings');
   for (const group of ['world','net'] as const) if (JSON.stringify(value.tune[group]) !== JSON.stringify(base.tune[group])) fail(`${group} settings require a code deployment`);
-  for (const group of ['net','dpr','touch'] as const) if (JSON.stringify(value.clientTune[group]) !== JSON.stringify(base.clientTune[group])) fail(`Client ${group} settings require a code deployment`);
+  for (const group of ['net','dpr','touch','mouse'] as const) if (JSON.stringify(value.clientTune[group]) !== JSON.stringify(base.clientTune[group])) fail(`Client ${group} settings require a code deployment`);
   if (value.clientTune.render.partTextureMax !== base.clientTune.render.partTextureMax) fail('Texture resolution requires a code deployment');
   for (const group of ['ship','weapon','turret','shop','missile','mine','bots','warp','salvage','hotZone','interceptor','battlecruiser','asteroid','base'] as const) for (const [key, n] of Object.entries(value.tune[group])) for (const v of Array.isArray(n) ? n : [n]) {
     if (v < 0 || v > 10000) fail(`${group}.${key}: value must be 0–10000`);

@@ -1,6 +1,6 @@
-# Layered Nexus and dual-cannon tower preview
+# Layered Nexus and dual-cannon tower kit
 
-Seven original, transparent, overhead cel-painted parts generated with the built-in image tool on 16 November 2026. Original PNGs, exact prompts and the source ZIP are in `outputs/steroids-alpha/buildings-rig-v01` in the art workspace. No PNG/ZIP is committed. `assets.json` records every original source hash, alpha frame and runtime budget. The proposed R2 URL is not uploaded in this review pass.
+Seven original, transparent, overhead cel-painted parts generated with the built-in image tool on 16 November 2026. Original PNGs, exact prompts and the source ZIP are in `outputs/steroids-alpha/buildings-rig-v01` in the art workspace. No PNG/ZIP is committed. `assets.json` records every original source hash, alpha frame and runtime budget. Owner approved release on 16 November 2026. The exact ZIP is uploaded to the public R2 URL in the manifest and was re-fetched with matching SHA-256 before release.
 
 The Nexus has a 260-world-unit foundation, 190-unit reactor body lifted 45 units, and a 180-unit crown lifted 100 units. Its foundation fits inside the existing landing-pad inner edge (175 units from the centre). Three independent images supply fixed Z and pronounced parallax rather than a baked whole-building illustration.
 

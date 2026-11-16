@@ -1,32 +1,46 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
-## 2026-11-16 codex joined-HUD-preview
-DID: owner correction: dash inner, weapon outer; touching smooth arcs, weapon arc shorter at base to stagger symbols; no right sockets or division notches. Shield/hull divisions every10max capacity, partial final interval retained. Hull counter moved beside desktop shop / below mobile upgrades.
-FILES: src/render/combatHud.ts; BUILD_STATUS/GFX_BRIEF.
-SEAM: none; same projected anchor and existing recovery/heat/dash state. Buttons and input zones unchanged.
-CROSS: none. No game values, ship rig, network or source-art changes.
-FOR claude: local preview gate remains. Evidence outputs/steroids-alpha/semicircle-hud-preview-v3/index.html;30 state captures,2 recovery GIFs,0 browser errors. Actual Graphics division counts50/110/125/250 =>5/11/12/25; right cuts0. Typecheck/build/rig pass. No publication.
+## 2026-11-16 codex orbital-buildings-hud-release
+DID: owner approved orbital arrival/departure, layered treasury Nexus/twin-cannon towers, and joined translucent HUD v3. Uploaded/re-fetched exact building source ZIP with matching SHA-256.
+FILES: src/render/{orbital*,buildingRig,clanBaseArt,combatHud,shipView,flightIndicators}.ts, src/scenes/{boot,flight}.ts, art/buildings-v1, art/prepare-assets.mjs.
+SEAM: ShipPlacement optional orbital lift/ground alpha; BuildingRigs lifecycle; CombatHud anchor then hold selector. COLLAB records contracts. No new wire/gameplay changes.
+CROSS: flight lifecycle and config test only; merged main 1fb8b45 preserving menu-only extraction, mouse/key hints, fuel/visitor cargo, own-top-speed exhaust and zoom 1000. Desktop cargo clears key hints. Typecheck/build/rig/sim/live-config/bank pass; integrated Brave orbital/mobile input and 36 building captures pass, 2 clients ~60 FPS DPR2, zero errors.
+FOR claude: release is approved and deploying; keep placeholders for reticle/landmark follow-ups separate. R2 SHA d34070bccdb67d0e901d7972504a5b2478f477dcc712a8e796bf41c6d6c30a15. Public proof follows in thread 68c1ca78.
 
-## 2026-11-16 codex translucent-HUD-preview
-DID: owner correction: weapon and dash each get a full concentric right semicircle (inner weapon, outer dash), thinner than left shield/hull. Lighter translucent segmented tracks inspired by original GoldenEye. All symbols embedded in each meter's bottom socket/notch; no floating glyphs. Recovery states retained.
-FILES: src/render/combatHud.ts; BUILD_STATUS/GFX_BRIEF.
-SEAM: none; same optional projected anchor, existing shield/hull/heat/dash inputs and button positions.
-CROSS: none. No game values, input, ship rig, network or source art changes.
-FOR claude: still local preview, not approved live. Evidence outputs/steroids-alpha/semicircle-hud-preview-v2/index.html;21 desktop/mobile/small-phone state screenshots and2 recovery GIFs,0 browser errors. Typecheck/build/rig pass. Earlier input validation remains applicable because only drawing changed.
+## 2026-11-16 claude mouse-aim
+DID: PC mouse scheme reworked (owner): the ship always steers toward the cursor (not over the ship or buttons); left click fires, right click missile, W accelerates, S brakes, neither eases to min speed. KEY HINTS (bottom left, PC) with a menu ON/OFF setting. View zoomed out: render.referenceHeight 810 -> 1000 (also republished to live settings).
+FILES: src/input/intents.ts src/scenes/{flight,menu}.ts src/save.ts client.tune.json BRIEF.md
+SEAM: clientTune.mouse is now {deadZone} only; Save.keyHints; Intents.mouseSteering (cursor aim) and mouse fire.
+CROSS: src/scenes/flight.ts: reticle and key hints are placeholder overlay drawing.
+FOR codex: the zoom-out makes ships and rocks about 19% smaller on screen; check painted art still reads well, and a styled aim reticle would help.
 
-## 2026-11-16 codex semicircle-HUD-preview
-DID: LOCAL PREVIEW: two ship-centred instrument halves. Left shield becomes hull when depleted, with inner shield-reboot progress; hull/total below. Right weapon capacity counts down as heat rises and refills on cooling, plus dash charge/active/cooldown. Old panel, duplicate button meters, own marker plates/name and broken-shield icon removed.
-FILES: render/{combatHud,shipView}.ts scenes/flight.ts; BUILD_STATUS/COLLAB/GFX_BRIEF.
-SEAM: CombatHud.draw optional CombatHudAnchor {x,y,radius,visible}; Flight supplies projected, chassis/power-scaled clearance and hides meters during orbital transitions. No input zone, simulation, tuning or network change.
-CROSS: flight.ts render anchor and bounty-plate avoidance only; own bounty uses star without another full ring. Phone fire/dash buttons keep their original positions and hit areas.
-FOR claude: preview before live remains the gate. Evidence outputs/steroids-alpha/semicircle-hud-preview/index.html:21 state captures across desktop/mobile/small-phone DPR2,2 recovery GIFs, real mobile fire/dash/upright check; no browser errors. Typecheck/build/rig/sim/config pass. Ship and building art stay on the prior unshipped local branch.
+## 2026-11-16 claude mouse-marker
+DID: PC mouse marker scheme (default): hold left mouse, ship steers to the cursor, thrust by distance (clientTune.mouse markerRadius 240 / deadZone 40, touch thrust curve), cursor on ship brakes, release eases to min speed; WASD still works. Menu CONTROLS row (PC only): MOUSE / KEYBOARD. After warping out the result screen offers Menu only (no Drop in).
+FILES: src/input/intents.ts src/scenes/{flight,menu}.ts client.tune.json sim/liveConfig.ts BRIEF.md
+SEAM: Intents.mouse/mouseOrigin/mouseSteering/setScheme; clientTune.mouse (deployment-locked like touch).
+CROSS: src/scenes/flight.ts: cursor ring drawn on the overlay while steering (placeholder look).
+FOR codex: the cursor ring/line is a placeholder; a styled steering reticle would help.
 
-## 2026-11-16 codex orbital-nexus-preview
-DID: LOCAL REVIEW ONLY: 1.8s globe arrival / 1.5s departure with active controls, ground-anchored light/shadow and arrival pulse; quieter ship plates/nose/engaged meter; larger3-part treasury nexus and twin-cannon tower rigs in both clan palettes.
-FILES: render/{orbitalTransition,orbitalEffects,buildingRig,clanBaseArt,flightIndicators,shipView}.ts; scenes/{flight,boot}.ts; art/{buildings-v1,prepare-assets.mjs}; scripts/test-steroids-live-config.mjs.
-SEAM: optional ShipPlacement.orbitalLift/orbitalGroundAlpha; BuildingRigs queue/prepare/begin/draw/end/destroy and treasury label bounds. Existing sim/protocol/positions/weapon counts/tuned values/input zones/FFD remain intact.
-CROSS: flight.ts camera/cached departure visual + result delay; boot asset hooks. Config test now accepts either concurrent publisher as winner and uses a separate deterministic record for later fixtures; no server behavior changed.
-FOR claude: owner must see/approve preview before any R2 upload, PR merge or deploy. Source ZIP local only (d34070bccdb67d0e901d7972504a5b2478f477dcc712a8e796bf41c6d6c30a15); review outputs/steroids-alpha/orbit-review/index.html. Typecheck/build/rig/sim/config and Brave desktop/mobile lifecycle/Canvas pass;14shared textures,7views/40images stable;2clients+4bots and clan ~56.3FPS DPR2. See Agent Comms68c1ca78.
+## 2026-11-16 claude visitor-cargo
+DID: the cargo readout (SALVAGE/FUEL n/400 and its full cue) is hidden for visitors on another clan's home planet, where they can mine nothing.
+FILES: src/render/combatHud.ts src/scenes/flight.ts BRIEF.md
+SEAM: CombatHud.draw(..., hold: 'salvage' | 'fuel' | 'none') replaces the boolean home flag.
+CROSS: src/render/combatHud.ts (yours): wraps the cargo block in hold !== 'none' only.
+FOR codex: nothing new.
+
+## 2026-11-15 claude base-markers
+DID: clan home planets show edge arrows with label and distance for off-screen landmarks: members see their treasury; visitors see the gate and the enemy treasury. Own outer ring, kept clear of touch buttons, bottom HUD and the bounty/hot-zone arrows.
+FILES: src/scenes/flight.ts BRIEF.md
+SEAM: FlightScene.drawBaseMarkers (client only, no protocol change).
+CROSS: none.
+FOR codex: placeholder triangles + text; a landmark icon set (treasury, gate) would fit here.
+
+## 2026-11-15 claude clan-fuel
+DID: no salvage on clan home planets: members mine Fuel (ShipState.fuel, same 400 hold, hot zone x2, lost on death) and docking unloads it to the treasury; non-members mine nothing and do not see the hot zone; no gold drops at home. Exhaust full plume now keys on each ship's own top speed (topSpeed(hullMax, chassis)), not 350.
+FILES: sim/{ship,protocol,world}.ts src/render/{combatHud,shipView}.ts src/scenes/flight.ts scripts/test-steroids-alpha-{sim,bank}.mjs BRIEF.md DESIGN_LONGGAME.md
+SEAM: PROTOCOL_VERSION 20 (ship +f32 fuel at offset 95); CombatHud.draw(..., home); ShipView.update(..., top).
+CROSS: src/render/{combatHud,shipView}.ts (yours): FUEL label/full cue text and the plume threshold only.
+FOR codex: the cargo coin icon also stands for Fuel on home planets; a distinct fuel icon would help (low priority).
 
 ## 2026-11-15 codex backlog-release
 DID: owner reviewed all4priority boards and explicitly approved publication. Uploaded/re-fetched the3sprite source ZIP with matching SHA-256; integrated newer gun convergence, idle exhaust and72%shadow/60pxglow/docked landing from PR498/499.
@@ -91,16 +105,3 @@ SEAM: tune salvage.cargoMax.
 CROSS: src/render/combatHud.ts (yours): salvage label text/colour only.
 FOR codex: a full-hold cue near the Warp button would help; the label is the only signal now.
 
-## 2026-11-15 claude target-bar
-DID: hits[] carry `by` (attacker id); the client keeps net.engaged (ships we hit -> time) and draws a small bar under their name for 5 s: blue shield fraction while shield > 0, then orange hull fraction.
-FILES: sim/world.ts src/net/client.ts src/scenes/flight.ts scripts/test-steroids-alpha-sim.mjs BRIEF.md
-SEAM: WorldEvents.hits[].by; NetClient.engaged; FlightScene.drawTargetBar (placeholder style).
-CROSS: none
-FOR codex: the bar is a placeholder (two rects); restyle freely, keep blue = shield, then hull.
-
-## 2026-11-15 claude bot-warp-evolve
-DID: bots warp out (owner) at bots.warpPower 350 or after bots.warpAfterSeconds 300 once lockdown ends, broadcast as warpouts, replaced after respawnSeconds; bots buy EVOLVE when canEvolve. Dash charge 0.8 -> 0.4 s (owner).
-FILES: sim/bots.ts server/src/room.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
-SEAM: BotBrain.bornAt (room sets the drop-in tick); tune bots.warpPower, bots.warpAfterSeconds.
-CROSS: none
-FOR codex: a bot's warp-out uses the player warp visuals; nothing new needed.

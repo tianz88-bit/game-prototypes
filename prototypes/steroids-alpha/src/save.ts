@@ -6,6 +6,8 @@ const SAVE_KEY = 'steroids-alpha:save:v1';
 export interface Save {
   steer?: 'marker' | 'craft';
   mobileSteer?: 'marker' | 'craft';
+  /** PC key hints in the bottom-left corner during flight (default on). */
+  keyHints?: boolean;
   name?: string;
   /**
    * Bank account (BRIEF.md Bank and unlocks): the secret the server checks and the recovery code to

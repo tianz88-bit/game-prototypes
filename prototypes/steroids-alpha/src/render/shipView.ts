@@ -129,7 +129,8 @@ export class ShipView {
    * headingRad uses game convention (0 = +x). timeMs drives idle motion. speed (world units a second)
    * and boosting (dash) drive the thrusters: accelerating fires both engines, turning fires the outside one.
    */
-  update(at: ShipPlacement, headingRad: number, timeMs: number, speed: number, boosting: boolean, control?: FFDControl | 'observed'): void {
+  /** top: this ship's own top speed (power and chassis lower it); the plume is longest near it. */
+  update(at: ShipPlacement, headingRad: number, timeMs: number, speed: number, boosting: boolean, control?: FFDControl | 'observed', top = TUNE.ship.maxSpeed): void {
     const groundY=at.y;
     const groundAlpha=at.orbitalGroundAlpha??1;
     if(at.orbitalLift)at={...at,y:at.y-at.orbitalLift};
@@ -198,9 +199,9 @@ export class ShipView {
     if (boosting || accel > t.thrusterAccel) this.demandUntil.throttle = timeMs + t.thrusterHoldMs;
     if (degPerSec < -t.thrusterTurnDegPerSec) this.demandUntil.left = timeMs + t.thrusterHoldMs;
     if (degPerSec > t.thrusterTurnDegPerSec) this.demandUntil.right = timeMs + t.thrusterHoldMs;
-    // The plume lengthens over the top quarter of the speed range and is longest at max speed or in a dash.
-    const top = TUNE.ship.maxSpeed;
-    const from = top - (top - TUNE.ship.cruiseSpeed) / 2;
+    // The plume lengthens over the top of this ship's own speed range (owner: heavier ships are slower,
+    // so a fixed 350 never showed the full plume) and is longest at its top speed or in a dash.
+    const from = top * (1 - (1 - TUNE.ship.cruiseSpeed / TUNE.ship.maxSpeed) / 2);
     const speedTrail = boosting ? 1 : Math.max(0, Math.min(1, (speed - from) / Math.max(1, top - 1 - from)));
     const demand: ThrusterInput = { throttle: timeMs < this.demandUntil.throttle, left: timeMs < this.demandUntil.left, right: timeMs < this.demandUntil.right, speedTrail, dashing: boosting };
     this.lastSpeed = speed;
