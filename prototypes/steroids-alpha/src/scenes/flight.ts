@@ -21,6 +21,9 @@ import Phaser from 'phaser';
 import { TUNE } from '../../sim/tune';
 import { PLANETS } from '../../sim/planets';
 import type { PlanetId } from '../../sim/planets';
+import { TUTORIAL } from '../../sim/planets';
+import { guide } from '../tutorial/guide';
+import { localTransport } from '../tutorial/localServer';
 import { maxShield, shipRadius, powerGrowth, topSpeed } from '../../sim/ship';
 import { TURRET_MOUNTS, turretCount } from '../../sim/turrets';
 import { BATTLECRUISER, TURRET_MOUNTS_BY_CHASSIS, chassisStats, upgradeTotal } from '../../sim/chassis';
@@ -157,7 +160,8 @@ export class FlightScene extends Phaser.Scene {
     this.runStartedAt = Date.now();
     this.mobilePanel = null;
     this.ships.clear();
-    this.net = new NetClient(this.planet, loadSave().name ?? '', loadSave().clan ?? 0);
+    // The tutorial planet plays against a room running in this page (src/tutorial).
+    this.net = this.planet === TUTORIAL ? new NetClient(this.planet, loadSave().name ?? '', 0, localTransport) : new NetClient(this.planet, loadSave().name ?? '', loadSave().clan ?? 0);
     this.explosions = [];
     this.effects = [];
     this.hullHitAt=-1e9;
@@ -204,6 +208,7 @@ export class FlightScene extends Phaser.Scene {
     this.orbitGfx=this.add.graphics().setDepth(899);
     this.landingGfx=this.add.graphics().setDepth(26).setBlendMode(Phaser.BlendModes.ADD);
     this.overlay = this.add.graphics().setDepth(900);
+    if (this.planet === TUTORIAL) guide.attach(this);
     this.hullBorder=this.add.graphics().setDepth(940);
     const { w } = logicalSize();
     this.status = text(this, w / 2, 6, '', 12, '#b8c6e6').setOrigin(0.5, 0).setDepth(950);
@@ -251,7 +256,12 @@ export class FlightScene extends Phaser.Scene {
     const warp = !over && intents.consume('warp');
     if (!over) {
       intents.consume('primary');
-      intents.consume('pause'); // No menu exit mid-run: leave by warping out (lockdown, then Warp).
+      // No menu exit mid-run: leave by warping out (lockdown, then Warp). The tutorial lets Esc leave.
+      if (intents.consume('pause') && this.planet === TUTORIAL) {
+        this.net.close();
+        this.scene.start('menu');
+        return;
+      }
     }
     if (intents.consume('scheme')) intents.toggleScheme();
     const heading = this.net.predicted?.heading ?? 0;
@@ -443,6 +453,7 @@ export class FlightScene extends Phaser.Scene {
   /** Arrival warning (owner): what kind of planet this is and what to expect. */
   private arrivalNote(): string {
     const home = planetClan(this.planet);
+    if (this.planet === TUTORIAL) return '';
     if (this.planet === 'alpha') return 'LAWLESS SPACE\nBots will hunt you down';
     if (!home) return 'SATELLITE\nFarm and fight; no turrets, no shields';
     const owner = clanName(home).toUpperCase();
@@ -656,7 +667,7 @@ export class FlightScene extends Phaser.Scene {
   private drawHotZone(p: ShipState | null, w: number, h: number): void {
     const z = this.net.hotZone;
     this.hotZoneText.setVisible(false);
-    if (!p || !z || z.r <= 0 || this.net.status!=='open' || this.net.death || this.net.extracted) return;
+    if (!p || !z || z.r <= 0 || this.net.status!=='open' || this.net.death || this.net.extracted || this.planet === TUTORIAL) return;
     const g = this.overlay;
     const now = performance.now();
     const left = Math.max(0, (z.movesAt - now) / 1000);
@@ -1055,7 +1066,7 @@ export class FlightScene extends Phaser.Scene {
     g.clear();
     intents.uiZones = [];
     const p = this.net.predicted;
-    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now,this.hudAnchor, !this.net.layout ? 'salvage' : this.net.clan === this.net.layout.clan ? 'fuel' : 'none');
+    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now,this.hudAnchor, this.planet === TUTORIAL ? 'none' : !this.net.layout ? 'salvage' : this.net.clan === this.net.layout.clan ? 'fuel' : 'none');
     this.drawMobileNav(p,w);
     this.drawShop(p);
     this.drawWeapons(p, w, h);
@@ -1063,6 +1074,8 @@ export class FlightScene extends Phaser.Scene {
     this.drawWarp(p, w, h);
     this.drawHotZone(p, w, h);
     this.drawBaseMarkers(p, w, h);
+    if (this.planet === TUTORIAL && (this.net.death || this.net.extracted)) guide.hide();
+    else if (this.planet === TUTORIAL) guide.update({ myId: this.net.myId, predicted: this.net.predicted, g: this.overlay, w, h, toScreen: (x, y) => this.toScreen(x, y) });
     this.drawKeyHints(p, w, h);
     this.buildingRigs.begin();
     this.drawBase(p, w, h);
@@ -1283,7 +1296,7 @@ export class FlightScene extends Phaser.Scene {
       const by = this.net.death?.killer ? `Destroyed by ${this.net.death.killerName || 'another pilot'}` : 'Your ship was destroyed';
       const x = this.net.extracted;
       // Extracted: the run's result. Banking the haul as currency comes with the bank milestone.
-      this.message.setAlign('center').setText(extracted ? `EXTRACTED\nSalvage ${x?.salvage ?? 0}  ·  Power ${x?.power ?? 0}  ·  ${x?.kills ?? 0} KO` : by);
+      this.message.setAlign('center').setText(extracted && this.planet === TUTORIAL ? 'TUTORIAL COMPLETE\nPick a planet from the menu' : extracted ? `EXTRACTED\nSalvage ${x?.salvage ?? 0}  ·  Power ${x?.power ?? 0}  ·  ${x?.kills ?? 0} KO` : by);
       this.message.setFontSize(18).setWordWrapWidth(0);
       const bw = 140;
       const bh = 44;
@@ -1297,8 +1310,8 @@ export class FlightScene extends Phaser.Scene {
         return { id, x, y, w: bw, h: bh, label: text(this, x, y, (id === 'respawn' ? (extracted ? 'DROP IN' : 'RESPAWN') : 'MENU') + key, 16).setOrigin(0.5).setDepth(961) };
       });
     }
-    // Extracted: the bank's answer arrives a moment later.
-    if (extracted) {
+    // Extracted: the bank's answer arrives a moment later (not in the tutorial, which banks nothing).
+    if (extracted && this.planet !== TUTORIAL) {
       const x = this.net.extracted;
       const b = this.net.banked;
       const line = !b ? `Salvage ${x?.salvage ?? 0}  ·  banking…` : b.error ? `Salvage ${x?.salvage ?? 0} not banked (${b.error})` : `Banked +${b.amount}  ·  Credits ${b.balance}`;
@@ -1524,19 +1537,20 @@ export class FlightScene extends Phaser.Scene {
 
   }
 
-  /** Local hull damage only: seven fading border bands, never a centre-screen overlay. */
+  /** Local hull damage only (owner, 16 November 2026: a subtle red flash): fading red border bands,
+   *  never a centre-screen overlay and never blocking input. */
   private drawHullBorder(w:number,h:number):void {
     const g=this.hullBorder;g.clear();
-    const age=this.time.now-this.hullHitAt;
-    if(age<0 || age>=140)return;
-    const fade=(1-age/140)**2;
-    g.lineStyle(3,0xffb279,.18*fade);for(const x of [8,w-8])for(const y of [8,h-8]){const dx=x<w/2?1:-1,dy=y<h/2?1:-1;g.lineBetween(x,y,x+dx*28,y);g.lineBetween(x,y,x,y+dy*28);}
-    for(let i=0;i<7;i++){const inset=i*4+2;
-      g.lineStyle(4,0xffa67d,.075*fade*(1-i/7)**2);g.strokeRect(inset,inset,w-inset*2,h-inset*2);}
+    const age=this.time.now-this.hullHitAt,ms=280;
+    if(age<0 || age>=ms)return;
+    const fade=(1-age/ms)**2;
+    g.lineStyle(3,0xff6a5c,.22*fade);for(const x of [8,w-8])for(const y of [8,h-8]){const dx=x<w/2?1:-1,dy=y<h/2?1:-1;g.lineBetween(x,y,x+dx*28,y);g.lineBetween(x,y,x,y+dy*28);}
+    for(let i=0;i<9;i++){const inset=i*5+2;
+      g.lineStyle(5,0xff4a3d,.11*fade*(1-i/9)**2);g.strokeRect(inset,inset,w-inset*2,h-inset*2);}
   }
 
   private drawStatus(own: ShipState | null): void {
-    const planet = PLANETS.find((p) => p.id === this.planet)?.label ?? this.planet;
+    const planet = this.planet === TUTORIAL ? 'Tutorial' : PLANETS.find((p) => p.id === this.planet)?.label ?? this.planet;
     const n = this.net;
     const ships = (own ? 1 : 0) + n.remoteCount;
     this.status.setVisible(!intents.touch).setText(`${planet}  ·  ${ships} nearby  ·  SPEED ${Math.round(own?.speed ?? 0)}${DEBUG?`  ·  ${Math.round(n.rttMs)} ms`:n.rttMs>250?'  ·  POOR SIGNAL':''}`);

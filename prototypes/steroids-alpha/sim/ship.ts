@@ -2,7 +2,7 @@
 // ship and the server runs it as the authority, so both must call it the same way.
 import type { Tune } from './tune';
 import { angleDelta, wrap, wrapDelta } from './wrap';
-import { GUNS, SCRAPPY, SPARROW, chassisStats } from './chassis';
+import { GUNS, SCRAPPY, SPARROW, chassisStats, shipMotion } from './chassis';
 
 export interface ShipState {
   /** Server-authoritative arrival time remaining. Absent only in older local visual fixtures. */
@@ -111,7 +111,8 @@ export function powerLevel(hp: number, tune: Tune): number {
 
 /** Top speed after the power penalty. Never below the minimum speed. Takes hullMax (power). */
 export function topSpeed(hp: number, tune: Tune, chassis = SCRAPPY): number {
-  return Math.max(tune.ship.minSpeed, tune.ship.maxSpeed * chassisStats(chassis, tune).speed * (1 - tune.ship.speedPenaltyAtCap * powerLevel(hp, tune)));
+  const m = shipMotion(chassis, tune);
+  return Math.max(m.minSpeed, m.maxSpeed * (1 - tune.ship.speedPenaltyAtCap * powerLevel(hp, tune)));
 }
 
 /** Dash boost speed: dashSpeedFactor times this ship's top speed. */
@@ -157,9 +158,29 @@ export function copyShip(s: ShipState): ShipState {
   return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, arrival: s.arrival ?? 0, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist, salvage: s.salvage, fuel: s.fuel, chassis: s.chassis, shieldCd: s.shieldCd };
 }
 
+/**
+ * Corner speed (owner, 16 November 2026): a ship turns best at cruise speed; slower or faster it
+ * turns worse, down to ship.turnAtMinSpeed at minimum speed and ship.turnAtMaxSpeed at its own top
+ * speed. Pilots who slow right down no longer win turn fights, which breaks up circling stalemates.
+ */
+export function cornerFactor(s: ShipState, tune: Tune): number {
+  // The best-turning point is a share of this ship's own top speed (owner, 16 November 2026): its
+  // cruise/top ratio, applied to its current top speed (power lowers it).
+  const t = tune.ship, m = shipMotion(s.chassis, tune), top = topSpeed(s.hullMax, tune, s.chassis), v = s.speed;
+  const cruise = Math.max(m.minSpeed, top * (m.cruiseSpeed / m.maxSpeed));
+  if (v <= cruise) {
+    const span = Math.max(1, cruise - m.minSpeed);
+    return t.turnAtMinSpeed + (1 - t.turnAtMinSpeed) * Math.max(0, Math.min(1, (v - m.minSpeed) / span));
+  }
+  const span = Math.max(1, top - cruise);
+  return 1 - (1 - t.turnAtMaxSpeed) * Math.min(1, (v - cruise) / span);
+}
+
 /** Advance one fixed step. Mutates and returns s. */
 /** floor: the lowest speed allowed this step (0 over one's own clan landing pad, sim/clanBase.ts). */
-export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune, floor = tune.ship.minSpeed, advanceArrival = true): ShipState {
+export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune, floorIn?: number, advanceArrival = true): ShipState {
+  const motion = shipMotion(s.chassis, tune);
+  const floor = floorIn ?? motion.minSpeed;
   // Arrival holds its bearing and full normal speed. Protected ships cannot attack or start a dash/warp.
   if ((s.arrival ?? 0) > 0) {
     s.speed = topSpeed(s.hullMax, tune, s.chassis);
@@ -178,10 +199,11 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune,
     }
   }
   if (s.warping) input = { ...input, dash: false, fire: false, missile: false, mine: false };
-  // No steering for the whole dash, charge and boost (owner design): the ship holds course while
-  // the player picks the boost direction, then commits to it. Steering returns when the boost ends.
+  // Slight steering through the whole dash, charge and boost (owner, 16 November 2026:
+  // ship.dashSteerFactor of the turn rate), so rams can be aimed and dashes used to evade.
   // In warp the heading is locked apart from slight steering (warp.steerFactor of the turn rate).
-  const maxTurn = s.dashCharge > 0 || s.dashTime > 0 ? 0 : tune.ship.turnRate * chassisStats(s.chassis, tune).turn * dt * (s.warping ? tune.warp.steerFactor : 1);
+  const dashing = s.dashCharge > 0 || s.dashTime > 0;
+  const maxTurn = motion.turnRate * dt * (dashing ? tune.ship.dashSteerFactor : cornerFactor(s, tune)) * (s.warping ? tune.warp.steerFactor : 1);
   if (Number.isFinite(input.aim)) {
     const diff = angleDelta(input.aim, s.heading);
     s.heading += Math.max(-maxTurn, Math.min(maxTurn, diff));
@@ -211,11 +233,11 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune,
   else if (s.warping) {
     // Warp ignores the throttle: it accelerates to warp speed and holds it.
     const ws = warpSpeed(s.hullMax, tune, s.chassis);
-    s.speed = s.speed < ws ? Math.min(ws, s.speed + tune.warp.acceleration * dt) : Math.max(ws, s.speed - tune.ship.braking * dt);
+    s.speed = s.speed < ws ? Math.min(ws, s.speed + tune.warp.acceleration * dt) : Math.max(ws, s.speed - motion.braking * dt);
   } else {
     const thrust = Math.max(-1, Math.min(1, input.thrust));
-    if (s.speed > top) s.speed = Math.max(top, s.speed - tune.ship.braking * dt + Math.min(0, thrust) * tune.ship.braking * dt);
-    else s.speed = Math.max(floor, Math.min(top, s.speed + thrust * (thrust > 0 ? tune.ship.acceleration * chassisStats(s.chassis, tune).accel : tune.ship.braking) * dt));
+    if (s.speed > top) s.speed = Math.max(top, s.speed - motion.braking * dt + Math.min(0, thrust) * motion.braking * dt);
+    else s.speed = Math.max(floor, Math.min(top, s.speed + thrust * (thrust > 0 ? motion.acceleration : motion.braking) * dt));
   }
   const speed = s.speed;
   if (s.warping) s.warpDist += speed * dt;

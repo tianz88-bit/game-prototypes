@@ -171,6 +171,8 @@ export class NetClient {
     private readonly name = '',
     /** Our demo clan (0: none). Sent on joining; the room trusts it in Clan planets v0. */
     readonly clan = 0,
+    /** How to open the connection (the tutorial planet uses a local in-page room). */
+    private readonly transport: (url: string) => WebSocket = (url) => new WebSocket(url),
   ) {
     this.layout = baseLayout(planet, TUNE);
   }
@@ -191,7 +193,7 @@ export class NetClient {
 
   connect(resume = false): void {
     const url = `${serverOrigin()}/ws/${this.planet}?v=${PROTOCOL_VERSION}${this.name ? `&name=${encodeURIComponent(this.name)}` : ''}${resume && this.resumeToken ? `&resume=${encodeURIComponent(this.resumeToken)}` : ''}${this.clan ? `&clan=${this.clan}` : ''}`;
-    const ws = new WebSocket(url);
+    const ws = this.transport(url);
     ws.binaryType = 'arraybuffer';
     this.ws = ws;
     ws.addEventListener('open', () => {

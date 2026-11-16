@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 codex ship-release-integration
+DID: owner approved all ship updates live. Uploaded3 art ZIPs to R2 and re-fetched every ZIP/part hash. Integrated main PR515/516 tutorial, rams, dash/corner steering and explicit per-ship motion, preserving Sparrow starter/weapon and paid Falcon policy.
+FILES: sim/{chassis,ship,unlocks,liveConfig}, menu, tune, tests, art docs; release changes already recorded below.
+SEAM: Bat handling translated to maxSpeed315/cruiseSpeed234/turnRate5.44; other Bat movement preserved. Sparrow shipMotion shares Falcon reference. Protocol22/new rig seams retained; no grant migration.
+CROSS: merge conflict resolution preserves both owners' behavior; sim/bank/live-config pass after integration. Remaining release checks/deploy/public verification follow.
+FOR claude: owner explicitly approved deployment. All3 R2 packs verified; final PR/runs/settings/public proof will be posted in e31061e9. Avoid competing live-setting edits during cutover.
+
 ## 2026-11-16 codex bat-capital-revision REVIEW
 DID: Bat cobalt cowlings, base315 top speed and1.7x Falcon turn rate. Detailed battlecruiser with framed bridge,4 forward cannons and4 fixed rig deck platforms; painted heads show only equipped count, aim/recoil independently, with control-only FFD/sprite fallback.
 FILES: art/{bat-v3,battlecruiser-v2}, render/{shipProfiles,shipArt,shipView,shipPreview}, flight, hangar caption, tune, sim/chassis, sim tests, docs.
@@ -13,6 +20,19 @@ FILES: art/sparrow-v1, render/shipProfiles, sim/{chassis,ship,unlocks,protocol,l
 SEAM: protocol22 permits chassis3 and recoil side0 (unchanged byte layout); stable old IDs0/1 preserved. Shared sparrow tunings upgrade into old records. Publish client/Worker together only after review/R2 verification.
 CROSS: minimal requested weapon/default/ownership/menu behavior and tests; existing siege preserved. Owner confirmed everyone must unlock Falcon, including existing players; no grandfathered grant or migration.
 FOR claude: do not merge/deploy this preview yet; new ZIP only local cache until review/upload. Art source/evidence outputs/steroids-alpha/sparrow-review; details art/sparrow-v1/README.md. Comms e31061e9.
+## 2026-11-16 claude ship-stats-rams
+DID: per-ship handling: tune.interceptor/battlecruiser now hold explicit minSpeed/cruiseSpeed/maxSpeed/acceleration/braking/turnRate (old factors removed; same effective values); Falcon (renamed from Scrappy in UI) = tune.ship. Corner speed peaks at each ship's own cruise/top ratio. Rams: target straight to hull; rammer same amount to shield, no overflow, hull only if shield down (dashRamSelfDamage removed). Tutorial RAM step: battered practice Battlecruiser, 3 rams; tutorial drones/chasers' turret drones never fire (World.quiet).
+FILES: sim/{chassis,ship,world,clanBase,liveConfig,unlocks}.ts server/src/room.ts tune.json src/tutorial/guide.ts src/scenes/menu.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
+SEAM: shipMotion(chassis, tune); damageShip mode 'hull' | 'shield'; World.quiet.
+CROSS: none in your files (unlock display name only).
+FOR codex: the ship formerly named Scrappy is now Falcon in UI copy.
+
+## 2026-11-16 claude tutorial-combat
+DID: combat: ram = max(flat, 15% target hull max), slight dash steering (25%), bumps 20 dmg / 380 knockback, corner speed (turn best at cruise; 70% at min, 85% at top), red hull-hit edge flash, hull readouts flash below 50%. Tutorial planet: menu TUTORIAL, the real Room runs in the page in lockstep via an in-memory socket pair, 13 scripted steps with repetition and noob/drone/chaser bots, free play then warp out to finish.
+FILES: sim/{ship,world,bots,planets,liveConfig}.ts server/src/room.ts tune.json src/tutorial/{guide,localServer}.ts src/net/client.ts src/scenes/{flight,menu}.ts src/render/combatHud.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
+SEAM: cornerFactor(); tune.ship.{dashRamHullFraction,turnAtMinSpeed,turnAtMaxSpeed,dashSteerFactor}; Room.sim/setManualBots/setLockstep/addTutorialBot; World.spawnAsteroid/spawnPickup/spawnBullet; NetClient transport arg; PlanetId includes 'tutorial'; window.__tutorial with ?debug=1.
+CROSS: src/render/combatHud.ts and flight drawHullBorder (yours): colour/threshold only; tutorial panel is placeholder overlay.
+FOR codex: tutorial rings/gates/training turret are placeholder shapes; the instruction panel could use your panel style.
 
 ## 2026-11-16 claude siege-sim
 DID: Siege v0 step 1: rules in the shared sim (World.siege on the Warzone planet: turret/shield/treasury HP, shield regen per live turret until broken, tickets, round timer, defenders cannot attack inside a standing shield, no dock safety at war, no warp at war) and siege bots (attack turrets -> shield -> treasury; defenders guard outside the dome). Headless harness scripts/sim-steroids-alpha-siege.mjs. Warzone is NOT in the menu yet.
@@ -83,25 +103,4 @@ FILES: approved P1–P4 art pass; source manifest/README, GFX_BRIEF, BUILD_STATU
 SEAM: prior preview contracts retained; no new gameplay/tuning/protocol/input/rig changes from this art pass. Upstream authoritative changes preserved.
 CROSS: latestmain flight.ts merged cleanly; status-note conflict keeps both agents' work. Typecheck/build/rig/sim/live-config/bank pass; integrated2client+4bot and member-clan tests56–57FPS DPR2, real fire/dash, no errors.
 FOR claude: owner said go live with all and sync; gate satisfied. R2 object steroids-alpha_combat-backlog-v1_assets.zip SHA155c58afbb103592a20075b35f5e2b92ca4a77b9d51fc1c0e966083ccd283218; PR500 merged398b045; itch43733278666 succeeded. Public Brave151126r0067 verified12textures, ordnance/repair, mobile/upright inputs, both clan skins and open planet; no errors. Evidence outputs/steroids-alpha/backlog-live-verification/result.json; thread07e15987.
-
-## 2026-11-15 claude converge-exhaust
-DID: aim assist locks a target from the ship centre (cone/range, ships first) and each gun leads it from its own muzzle (cap weapon.assistConvergeMaxDeg 20) so both streams land; bots get no assist. Exhaust speed/life scales now ramp with the plume stretch (idle plume back to the original look); landed ships emit no exhaust (ThrusterInput.off).
-FILES: sim/{ship,world,liveConfig}.ts src/{net/client,render/thrusters,render/shipView}.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
-SEAM: AssistTarget.vx/vy; assistPick(); muzzleShot converges on the pick; ThrusterInput.off.
-CROSS: src/render/{thrusters,shipView}.ts (yours): scale ramp and engines-off only.
-FOR codex: nothing new.
-
-## 2026-11-15 claude ship-ground-cues
-DID: shadows drawn at render.shadowScale (0.72) of the ship in flight; hover glow 60 x 60 (round, smaller; was 112 x 38); docked ships ease (250 ms) down to the shadow's size, onto their shadow, hover lift to 0 and glow faded.
-FILES: src/render/shipView.ts src/scenes/flight.ts client.tune.json sim/liveConfig.ts BRIEF.md
-SEAM: ShipPlacement.landed (0..1); clientTune.render.shadowScale.
-CROSS: src/render/shipView.ts (yours): shadow scale, landed shrink/hover/glow fade only.
-FOR codex: docked ships sit wherever they stopped on the pad; a snap/settle effect to the pad centre would help.
-
-## 2026-11-15 codex P1-combat-preview
-DID: Painted missiles/mines/repair pods; smoke, armed/search/observed-seeking cues and lock brackets; differentiated death/missile/mine/split/Nova/ram/hit/shield-shatter effects; heading-only dash charge and subtle hull-border accents.
-FILES: art/combat-backlog-v1/* art/prepare-assets.mjs render/{combatSprites,combatEffects,worldArt}.ts scenes/flight.ts
-SEAM: optional painted/seeking ordnance cue, CombatImpact render tag; existing sim/wire/radii unchanged. Three new source PNGs/ZIP local, hash-verified preview cache; reserved R2 object NOT uploaded.
-CROSS: scene event/draw wiring only, no tuning/input. Typecheck/build/rig/sim/live-config,22 desktop/mobile frames + Canvas checks pass; actual fire/dash and2clients+4bots ~57FPS on PC, no errors.
-FOR claude: LOCAL PREVIEW, not published. Owner must review screenshots before live. Gallery outputs/steroids-alpha/backlog-review/index.html; branch codex/steroids-combat-backlog-preview. No PR opened because repository auto-merge would publish.
 

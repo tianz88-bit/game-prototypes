@@ -24,7 +24,8 @@ export class CombatHud {
     if(anchor?.visible){
       const {x,y,radius:r}=anchor,k=touch?1:1.1,gap=.24;
       const shield=clamp(p.shield/Math.max(1,maxShield(p,TUNE))),hull=clamp(p.hp/Math.max(1,p.hullMax));
-      const down=p.shield<=.001,critical=hull<=.35;
+      // Owner, 16 November 2026: hull below 50% flashes red.
+      const down=p.shield<=.001,critical=hull<=.5,flash=critical&&Math.sin(now/140)>0;
       const arc=(radius:number,start:number,end:number,width:number,colour:number,alpha=1)=>{
         if(end-start<=.001)return;
         g.lineStyle(width,colour,alpha);g.beginPath();g.arc(x,y,radius,start,end,false);g.strokePath();
@@ -57,7 +58,7 @@ export class CombatHud {
         }
       };
       const leftBase=Math.PI/2+gap,leftStart=leftBase+.15,leftEnd=Math.PI*1.5-gap;
-      const shieldColour=down?(critical?0xf17d68:0xf2bc6c):0x61d7ed;
+      const shieldColour=down?(critical?(flash?0xff4a3d:0xf17d68):0xf2bc6c):0x61d7ed;
       meter(r,leftStart,leftEnd,down?hull:shield,shieldColour,4.5*k,false,down?p.hullMax:maxShield(p,TUNE));
       baseSymbol(r,leftBase+.07,shieldColour,'shield');
       if(down && p.shieldCd>0){
@@ -80,8 +81,8 @@ export class CombatHud {
 
     }
     // Hull is secondary information beside buying/upgrades, outside the central combat view.
-    const shop=mobileHeader(w).shop,critical=p.hp/Math.max(1,p.hullMax)<=.35;
-    label(0,touch?shop.x:12,touch?52:22,`HULL ${Math.round(p.hp)} / ${Math.round(p.hullMax)}`,critical?0xffa28d:0xcfc8b7,touch?9:10,touch?.5:0);
+    const shop=mobileHeader(w).shop,critical=p.hp/Math.max(1,p.hullMax)<=.5;
+    label(0,touch?shop.x:12,touch?52:22,`HULL ${Math.round(p.hp)} / ${Math.round(p.hullMax)}`,critical?(Math.sin(now/140)>0?0xff4a3d:0xffa28d):0xcfc8b7,touch?9:10,touch?.5:0);
     // Cargo clears the central instruments, PC key hints and phone controls.
     if(hold==='none')return;
     const home=hold==='fuel',held=home?p.fuel:p.salvage;

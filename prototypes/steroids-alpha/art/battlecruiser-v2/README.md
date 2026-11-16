@@ -1,6 +1,6 @@
 # Battlecruiser v2 review
 
-Built-in imagegen edits of the existing nine-part capital kit, with the established fighters as style reference. Added one separate empty turret-platform and one painted turret-head asset. Eleven source textures /24 rig modules. Source sheet, individual PNGs, review captures and ZIP live in outputs/steroids-alpha/fleet-revision-review; no PNG/ZIP in Git. ship-assets.json verifies every file and ZIP hash. New R2 object is not uploaded; local hash cache supports review builds.
+Built-in imagegen edits of the existing nine-part capital kit, with the established fighters as style reference. Added one separate empty turret-platform and one painted turret-head asset. Eleven source textures /24 rig modules. Source sheet, individual PNGs, review captures and ZIP live in outputs/steroids-alpha/fleet-revision-review; no PNG/ZIP in Git. ship-assets.json verifies every file and ZIP hash. Owner approved release; new R2 ZIP is uploaded and re-fetched with every hash verified.
 
 Keep strict top-down silhouettes and visible bevel edges. Four long front cannons retain original mounts and exaggerated recoil. Command bridge uses separate housing/glass. Four parented deck sockets exist even when empty; only earned/built-in turret heads show. Original two base turrets and up-to-four upgrade count stay unchanged. Heads aim from existing observations, kick on fire, and have small square muzzle glints. No independent drone bob, ground shadows or hover lights. Existing whole-ship hover pool/sun shadow remain.
 

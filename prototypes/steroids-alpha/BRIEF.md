@@ -147,6 +147,23 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
 - Not in this slice: wars, guest passes, clan techs, buildings, satellites owned by clans,
   prestige points.
 
+## Tutorial planet (owner, 16 November 2026)
+
+- Single player, from the menu (TUTORIAL under WARP). No forced onboarding, no rewards.
+- Runs entirely in the browser: the real game room runs in the page (src/tutorial), stepping once
+  per pilot input, so the rules are exactly those of online play on any device speed.
+- Step by step, each skill repeated until it is done for real (hints never block play):
+  1. Steer through 5 rings. 2. Full speed then minimum speed, 3 times. 3. Dash through 3 gates.
+  3b. Ram a battered practice Battlecruiser (45% hull, never shoots) to death: 3 rams.
+  4. Destroy 4 asteroids. 5. Collect minerals (+15 power). 6. Overheat the guns twice.
+  7. A training turret breaks your shield and hits your hull; collect a repair pod.
+  8. Buy MISSILES and MINES (power topped up first). 9. 3 locked missile launches at a drone.
+  10. 2 mine hits on a chaser. 11. Destroy 3 practice pilots (very weak: slow, inaccurate, rare
+  bursts, no dash, missiles or mines). 12. The Battlecruiser evolution explained (GOT IT).
+  13. Free play against helpless drones; warp out any time to finish.
+- Instructions match the control scheme (mouse, keyboard, touch). Esc leaves to the menu; a
+  destroyed pilot respawns and carries on from the same step.
+
 ## Siege v0: Warzone (owner, 16 November 2026)
 
 First clan-versus-clan fight. Built in two steps: the rules and a headless bot simulation first
@@ -298,8 +315,9 @@ First clan-versus-clan fight. Built in two steps: the rules and a headless bot s
   start a 0.4 s charge (owner, 15 November: was 0.8 s) during which the ship cannot steer;
   when it completes the ship boosts straight ahead (owner, 15 November: no
   direction picking) at 1.8x the ship's top speed for 0.8 s (1.6 s
-  total, about 500 px for a fresh ship), ignoring braking. Steering is locked for the whole dash, charge
-  and boost (owner, 12 November). Cooldown 8 s,
+  total, about 500 px for a fresh ship), ignoring braking. Only slight steering through the whole dash, charge and boost
+  (owner, 16 November: 25% of the turn rate, `ship.dashSteerFactor`, so rams can be aimed and
+  dashes used to evade; was fully locked). Cooldown 8 s,
   shown by a yellow bar next to the gun heat bar. Dash ram damage hits shields
   first, like any damage. Exhaust plume: 2x longer at top speed than
   before and 3x in a dash (owner, 15 November). "Top speed" is each ship's
@@ -359,12 +377,26 @@ First clan-versus-clan fight. Built in two steps: the rules and a headless bot s
   recharge cooldown runs out.
 - Shield hit effect: a glowing sphere tiled with hexagons around the craft
   (owner reference image); some hexagons on the hit side flash (owner).
-- Dash ram (owner picked): dashing into a ship damages it, scaled by gun
-  upgrades, and throws both apart.
-- Ship bumps (owner, 15 November): ships that touch outside a dash no longer
-  pass through each other; both bounce apart and take 10 damage (shield
-  first), at most once per pair every 0.5 s (ship.bumpDamage,
-  bumpKnockbackSpeed, contactGraceSeconds).
+- Dash ram (owner picked): dashing into a ship damages it and throws both apart. Damage is the
+  larger of the flat ram (scaled by gun upgrades) and 15% of the target's hull maximum (owner,
+  16 November, `ship.dashRamHullFraction`), so any pilot can hurt a big, decked-out ship.
+  Owner, 16 November: the target takes the ram **straight to its hull** (shields skipped); the
+  rammer takes the same amount on its **shield**, with nothing spilling over to its hull, or on its
+  hull only if its shield is already down (recharging).
+- Ship bumps (owner, 15 November; harder on 16 November): ships that touch outside a dash no
+  longer pass through each other; both bounce apart (380) and take 20 damage (shield first), at
+  most once per pair every 0.5 s (ship.bumpDamage, bumpKnockbackSpeed, contactGraceSeconds).
+- Ship handling (owner, 16 November): each ship type has its own minimum, cruise and top speed,
+  acceleration, braking and turn rate (`tune.ship` for the Falcon, the reference for tuning;
+  `tune.interceptor`, `tune.battlecruiser`). Starting values equal the old factors. The starter
+  ship Scrappy is renamed **Falcon**.
+- Corner speed (owner, 16 November): ships turn best at their own cruise speed (as a share of their
+  own top speed, so the slow Battlecruiser turns best around 187) and worse both slower and
+  faster: 70% of the turn rate at minimum speed (`ship.turnAtMinSpeed`) and 85% at the ship's own
+  top speed (`ship.turnAtMaxSpeed`). Slowing right down no longer wins a turn fight, which breaks
+  up circling stalemates.
+- Hull damage feedback (owner, 16 November): a subtle red flash at the screen edges when your hull
+  (not the shield) takes damage; hull readouts flash red below 50%.
 - Nose marker (owner, 15 November): a small chevron just ahead of your own
   ship shows where the guns point.
 - Target health bar (owner, 15 November): after you hit a ship, a small bar
@@ -770,6 +802,6 @@ Sparrow is chassis3 / ship.sparrow; Falcon retains chassis0 / ship.scrappy and B
 
 ### Bat and battlecruiser revision (owner, 16 November 2026)
 
-Bat default cowlings have cobalt primary casing with ivory caps instead of an orange main panel; palette remapping follows hull colour. Requested handling is speedFactor0.9 and turnFactor1.7 (base315 top speed versus Falcon350, and70% faster turning); all other Bat values stay unchanged. A later live release must publish these two requested settings into the hosted record while preserving other owner tuning.
+Bat default cowlings have cobalt primary casing with ivory caps instead of an orange main panel; palette remapping follows hull colour. Requested handling is315 top speed versus Falcon350, and70% faster peak turning. With the newer explicit per-ship schema this is maxSpeed315, cruiseSpeed234 and turnRate5.44; minSpeed140, acceleration528 and braking600 are preserved. Sparrow shares Falcon movement, including the new corner-speed/dash steering rules. A later live release must publish these requested settings into the hosted record while preserving other owner tuning.
 
 Battlecruiser-v2 adds panel seams, service hatches, vents and rivet pairs to existing silhouettes, a framed command bridge, four forward long cannons and four parented octagonal turret platforms. Two turrets are built in; existing upgrades populate up to four platforms. Painted compact turret heads aim and recoil independently within the existing fixed-Z/control-FFD rig, with no ground light/shadow of their own. Shared turret mounts now sit on deck (right±36, rear forward−9/front25.2) instead of the previous outboard escort positions. Main cannon mounts and upgrade/evolve requirements are unchanged. The existing shield emitter modules move inward slightly to make room on deck; shield gameplay is unchanged.

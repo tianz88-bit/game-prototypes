@@ -1,8 +1,8 @@
 # Sparrow review kit
 
-New Human Nomad starter, 16 November 2026. Preview only; no live asset upload or account migration yet.
+New Human Nomad starter, 16 November 2026. Owner approved release. Art ZIP uploaded to R2 and every file hash re-fetched/verified; no account migration needed.
 
-Eight original top-down component PNGs are stored outside Git at outputs/steroids-alpha/sparrow-review/assets. The source sheet and ZIP are beside them. ship-assets.json records SHA-256 for every extracted cell and the ZIP; the local .cache contains the matching ZIP so pack-assets/build can be reviewed before R2 upload. Do not merge the R2 manifest until that exact ZIP is uploaded and re-fetched/verified. No PNG/ZIP belongs in Git.
+Eight original top-down component PNGs are stored outside Git at outputs/steroids-alpha/sparrow-review/assets. The source sheet and ZIP are beside them. ship-assets.json records SHA-256 for every extracted cell and the ZIP; the local .cache contains the matching ZIP so pack-assets/build can be reviewed before R2 upload. The exact ZIP has now been uploaded and re-fetched/verified for release. No PNG/ZIP belongs in Git.
 
 The eleven-module profile uses the existing pose/depth/FFD/exhaust/recoil pipeline. Centre gun has side0, supported by the signed shot-side wire field; protocol22 additionally accepts chassis3. Eight files retain their fixed 384x512 source registration. Runtime alpha-bounds preprocessing is shared with existing ships. No hand-painted source pixels were programmatically changed.
 
