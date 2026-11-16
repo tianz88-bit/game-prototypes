@@ -1,4 +1,4 @@
-import { isClanId } from '../../sim/planets';
+import { isClanId, isWarPlanet } from '../../sim/planets';
 import { bundledRecord } from '../../sim/liveConfig';
 import type { ConfigRecord } from '../../sim/liveConfig';
 // One running planet room: the authority for every ship on that planet.
@@ -77,7 +77,12 @@ interface Player {
    * on idle input, until this tick; the pilot can resume it before then. -1 while connected.
    */
   awayUntil: number;
+  /** Warzone: destroyed at war and waiting to respawn in place until this tick (-1: flying). */
+  down: number;
 }
+
+/** Warzone round flow (owner, 16 November 2026). */
+export type SiegePhase = 'peace' | 'countdown' | 'war' | 'release' | 'over';
 
 /**
  * Banks an extraction (server/src/bank.ts creditExtraction, through D1): returns the new balance,
@@ -157,6 +162,151 @@ export class Room {
     if (this.planetSet) return;
     this.planetSet = true;
     this.world.setPlanet(planet);
+    if (isWarPlanet(planet) && this.world.siege) {
+      this.war = true;
+      this.manualBots = true;
+    }
+  }
+
+  // --- Warzone (siege v0, owner 16 November 2026) ---
+  /** This room serves the Warzone. */
+  private war = false;
+  siegePhase: SiegePhase = 'peace';
+  /** Tick the current countdown (start, release, round over) ends. */
+  private phaseUntil = 0;
+  private siegeKey = '';
+  /** War bots waiting to come back: their clan and the tick. */
+  private warBotRespawns: { clan: number; at: number }[] = [];
+
+  private humans(clan: number): number {
+    let n = 0;
+    for (const p of this.players.values()) if (p.clan === clan && p.awayUntil < 0) n++;
+    return n;
+  }
+
+  private setPhase(phase: SiegePhase, seconds = 0): void {
+    this.siegePhase = phase;
+    this.phaseUntil = this.tick + Math.round(seconds * this.tune.net.tickHz);
+  }
+
+  /** Where a pilot of this clan (re)enters the Warzone: defenders by the pads, attackers at the gate. */
+  private warSpawn(id: number, clan: number): ShipState {
+    const base = this.world.layout!;
+    if (clan === base.clan) {
+      const pad = base.pads[Math.floor(Math.random() * base.pads.length)];
+      return this.world.addShipNear(id, pad.x, pad.y, 20);
+    }
+    return this.world.addShipNear(id, base.gate.x, base.gate.y, 120);
+  }
+
+  private addWarBot(clan: number): void {
+    const id = this.allocateId();
+    const used = new Set([...this.bots.values()].map((b) => b.name));
+    const name = `BOT ${BOT_NAMES.find((n) => !used.has(`BOT ${n}`)) ?? id}`;
+    const ship = this.warSpawn(id, clan);
+    this.world.botIds.add(id);
+    this.world.clanOf.set(id, clan);
+    this.bots.set(id, { id, name, kills: 0, brain: { ...newBrain(Math.random), bornAt: this.tick }, ship });
+    this.broadcastRoster();
+  }
+
+  /** Everyone back to their side's spawn, fresh structures, fresh war bots. */
+  private beginWar(): void {
+    const sg = this.tune.siege;
+    this.world.startWar();
+    for (const b of [...this.bots.keys()]) this.removeBot(b);
+    this.warBotRespawns = [];
+    for (const p of this.players.values()) {
+      if (p.down >= 0) this.respawnInWar(p);
+      else {
+        const at = this.warSpawn(p.id, p.clan);
+        p.ship.x = at.x;
+        p.ship.y = at.y;
+        this.world.ships.set(p.id, p.ship);
+        this.world.clanOf.set(p.id, p.clan);
+      }
+    }
+    for (const clan of [1, 2]) for (let i = 0; i < sg.botsPerSide; i++) this.addWarBot(clan);
+    this.setPhase('war');
+  }
+
+  /** Back to peace: structures restored, war bots gone, the planet open again. */
+  private endWar(): void {
+    this.world.endPeace();
+    for (const b of [...this.bots.keys()]) this.removeBot(b);
+    this.warBotRespawns = [];
+    for (const p of this.players.values()) if (p.down >= 0) this.respawnInWar(p);
+    this.setPhase('peace');
+  }
+
+  /** A pilot destroyed at war stays connected and comes back at its side's spawn. */
+  private downInWar(p: Player): void {
+    const defender = p.clan === this.world.layout!.clan;
+    const seconds = defender ? this.tune.siege.defenderRespawnSeconds : 0;
+    this.world.removeShip(p.id);
+    p.down = this.tick + Math.max(1, Math.round(seconds * this.tune.net.tickHz));
+    this.send(p, JSON.stringify({ type: 'warDown', seconds }));
+  }
+
+  private respawnInWar(p: Player): void {
+    p.ship = this.warSpawn(p.id, p.clan);
+    this.world.clanOf.set(p.id, p.clan);
+    p.down = -1;
+    p.queue = [];
+    this.send(p, JSON.stringify({ type: 'warUp' }));
+  }
+
+  private stepSiege(): void {
+    if (!this.war) return;
+    const sg = this.world.siege!;
+    const both = this.humans(1) > 0 && this.humans(2) > 0;
+    const t = this.tune.siege;
+    for (const p of this.players.values()) if (p.down >= 0 && this.tick >= p.down) this.respawnInWar(p);
+    if (this.siegePhase === 'peace' || this.siegePhase === 'countdown') this.warBotRespawns = [];
+    else
+      this.warBotRespawns = this.warBotRespawns.filter((r) => {
+        if (this.tick < r.at) return true;
+        this.addWarBot(r.clan);
+        return false;
+      });
+    switch (this.siegePhase) {
+      case 'peace':
+        if (both) this.setPhase('countdown', t.startCountdownSeconds);
+        break;
+      case 'countdown':
+        if (!both) this.setPhase('peace');
+        else if (this.tick >= this.phaseUntil) this.beginWar();
+        break;
+      case 'war':
+        if (sg.phase === 'over') this.setPhase('over', 8);
+        else if (!both) this.setPhase('release', t.endCountdownSeconds);
+        break;
+      case 'release':
+        if (sg.phase === 'over') this.setPhase('over', 8);
+        else if (both) this.siegePhase = 'war';
+        else if (this.tick >= this.phaseUntil) this.endWar();
+        break;
+      case 'over':
+        if (this.tick >= this.phaseUntil) {
+          this.endWar();
+          if (both) this.setPhase('countdown', t.startCountdownSeconds);
+        }
+        break;
+    }
+    // Siege state for the HUD: on any change, and a few times a second while it runs.
+    const frame = this.siegeFrame();
+    const key = JSON.stringify(frame);
+    if (key !== this.siegeKey && (this.tick % 8 === 0 || frame.phase !== JSON.parse(this.siegeKey || '{}').phase)) {
+      this.siegeKey = key;
+      this.broadcast(key);
+    }
+  }
+
+  private siegeFrame(): { type: 'siege'; phase: SiegePhase; left: number; tickets: number; turrets: number[]; shield: number; broken: boolean; treasury: number; winner: number; reason: string; crimson: number; azure: number } {
+    const sg = this.world.siege!;
+    const hz = this.tune.net.tickHz;
+    const until = this.siegePhase === 'war' ? sg.endsAt : this.phaseUntil;
+    return { type: 'siege', phase: this.siegePhase, left: Math.max(0, Math.ceil((until - this.tick) / hz)), tickets: sg.tickets, turrets: sg.turretHp.map((v) => Math.round(v)), shield: Math.round(sg.shield), broken: sg.shieldBroken, treasury: Math.round(sg.treasury), winner: sg.winner, reason: sg.reason, crimson: this.humans(1), azure: this.humans(2) };
   }
   private planetSet = false;
 
@@ -202,8 +352,15 @@ export class Room {
 
   private stepBots(): void {
     if (this.manualBots) {
+      const brains = [...this.bots.values()].map((x) => x.brain);
       for (const b of this.bots.values()) {
-        const input = tutorialBotThink(b.id, b.ship, this.world, b.brain, this.tune, Math.random);
+        if (b.brain.tutorial) {
+          this.world.stepShip(b.id, tutorialBotThink(b.id, b.ship, this.world, b.brain, this.tune, Math.random));
+          continue;
+        }
+        // Warzone bots: the ordinary bot brain, which fights the other clan at war (sim/bots.ts).
+        const { input, buy } = botThink(b.id, b.ship, this.world, b.brain, this.tune, Math.random, brains);
+        if (buy) this.world.buy(b.id, buy.item, buy.tier);
         this.world.stepShip(b.id, input);
       }
       return;
@@ -258,13 +415,24 @@ export class Room {
       ws.close(CLOSE.ROOM_FULL, 'room full');
       return false;
     }
-    const id = this.allocateId();
     const clan = isClanId(Number(requestedClan)) ? Number(requestedClan) : 0;
+    // Warzone: clan pilots only, and nobody new once the war has begun (owner: lockdown).
+    if (this.war) {
+      if (!clan) {
+        ws.close(CLOSE.NEED_CLAN, 'pick a clan to fight in the Warzone');
+        return false;
+      }
+      if (this.siegePhase === 'war' || this.siegePhase === 'release' || this.siegePhase === 'over') {
+        ws.close(CLOSE.WAR_LOCKED, 'a war is on: try again when it ends');
+        return false;
+      }
+    }
+    const id = this.allocateId();
     // Clan home planets (owner): members drop in by the landing pads, everyone else at the gate.
     const base = this.world.layout;
     const spawn = !base ? this.world.addShip(id) : clan === base.clan ? this.world.addShipNear(id, base.treasury.x, base.treasury.y, this.tune.base.padRing) : this.world.addShipNear(id, base.gate.x, base.gate.y, 120);
     this.world.clanOf.set(id, clan);
-    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null, look: {}, joinedAt: this.tick, resume: crypto.randomUUID(), awayUntil: -1, clan };
+    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null, look: {}, joinedAt: this.tick, resume: crypto.randomUUID(), awayUntil: -1, clan, down: -1 };
     this.players.set(id, player);
     this.lingerUntil = -1;
     this.attach(player, ws);
@@ -474,7 +642,8 @@ export class Room {
     for (const b of this.buys.splice(0)) if (this.players.has(b.id)) this.world.buy(b.id, b.item, b.tier);
     // Pilots away longer than the grace period lose their ship.
     for (const p of [...this.players.values()]) if (p.awayUntil >= 0 && this.tick >= p.awayUntil) this.leave(p.id);
-    for (const p of this.players.values()) this.stepPlayer(p);
+    this.stepSiege();
+    for (const p of this.players.values()) if (p.down < 0) this.stepPlayer(p);
     this.stepBots();
     if (this.players.size === 0) {
       // Only a lingering planet ticks with nobody on it; it empties when the linger runs out.
@@ -533,13 +702,19 @@ export class Room {
     // A destroyed bot leaves too and a new one comes after respawnSeconds.
     for (const id of dead) {
       if (!this.bots.has(id)) continue;
+      const warClan = this.war ? this.world.clanOf.get(id) ?? 0 : 0;
       this.removeBot(id);
+      if (warClan) this.warBotRespawns.push({ clan: warClan, at: this.tick + Math.max(1, Math.round((warClan === this.world.layout!.clan ? this.tune.siege.defenderRespawnSeconds : 0) * this.tune.net.tickHz)) });
       if (!this.manualBots) this.botRespawnAt.push(this.tick + Math.round(this.tune.bots.respawnSeconds * this.tune.net.tickHz));
     }
     // A destroyed ship leaves the planet. (Wrecks and loot come with the stash milestone.)
     for (const id of dead) {
       const p = this.players.get(id);
       if (!p) continue;
+      if (this.war && (this.siegePhase === 'war' || this.siegePhase === 'release')) {
+        this.downInWar(p);
+        continue;
+      }
       this.leave(id, true);
       try {
         p.ws.close(CLOSE.DESTROYED, 'destroyed');
@@ -670,7 +845,7 @@ export class Room {
     const r2 = TUNE.net.interestRadius * TUNE.net.interestRadius;
     const ships: SnapshotShip[] = [{ id: p.id, ...copyShip(p.ship) }];
     for (const o of [...this.players.values(), ...this.bots.values()]) {
-      if (o.id === p.id) continue;
+      if (o.id === p.id || ((o as Partial<Player>).down ?? -1) >= 0) continue;
       if (wrapDist2(o.ship.x, o.ship.y, p.ship.x, p.ship.y, TUNE.world.width, TUNE.world.height) > r2) continue;
       ships.push({ id: o.id, ...copyShip(o.ship) });
     }

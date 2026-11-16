@@ -1,5 +1,7 @@
 ## Current milestone
 
+Warzone playable (16 November, claude): Crimson attacks, Azure defends; countdown, lockdown, in-place respawns, 2 bots per side, siege HUD; protocol 23. Placeholder looks; balance to tune after playtests.
+
 Siege values and repair pods (16 November, claude): siege structure HP lowered for the Sparrow starter (110/750/1100); bots collect spills; repair pods drawn larger. Next: Warzone step 2 (playable).
 
 Sparrow retune (16 November, claude): single gun 6 shots/s and 90% of Falcon shots before overheat (owner). Warzone step 2 (playable) awaiting owner go; siege structure HP to retune for the Sparrow starter.
