@@ -190,6 +190,7 @@ export class Room {
     const id = this.allocateId();
     const ship = this.world.addShipNear(id, x, y, 0);
     this.world.botIds.add(id);
+    if (kind !== 'noob') this.world.quiet.add(id);
     ship.arrival = 0;
     this.bots.set(id, { id, name, kills: 0, brain: { ...newBrain(Math.random), bornAt: this.tick, tutorial: kind }, ship });
     this.broadcastRoster();

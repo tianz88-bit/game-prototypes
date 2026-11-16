@@ -636,9 +636,27 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   }
   assert.equal(rams.length, 1, 'one ram per dash');
   assert.deepEqual([rams[0].id, rams[0].target], [1, 2]);
-  near(bFull - (b.hp + b.shield), tune.ship.dashRamDamage, 1e-6, 'ram damage to the target');
-  near(aFull - (a.hp + a.shield), tune.ship.dashRamSelfDamage, 1e-6, 'a bump to the rammer');
-  assert.equal(b.hp, tune.ship.maxHp, 'ram damage is taken by the shield first');
+  // Owner, 16 November 2026: the target takes the ram straight to its hull (its shield untouched);
+  // the rammer takes the same on its shield with no overflow (its hull untouched). The rammer may
+  // pick up the minerals the target spills, so its own totals are not compared exactly.
+  near(tune.ship.maxHp - b.hp, tune.ship.dashRamDamage, 1e-6, 'ram damage goes straight to the target hull');
+  near(b.shield, tune.ship.maxShield, 1e-6, 'the target shield is skipped');
+  assert(a.hp >= tune.ship.maxHp && a.shield < tune.ship.maxShield, 'the rammer takes it on its shield only');
+  void bFull; void aFull;
+  {
+    // A rammer whose shield is down takes it on the hull; a partial shield takes what it can, no overflow.
+    const w2 = emptyWorld();
+    const r = placeShip(w2, 1, 500, 500, 0);
+    r.arrival = 0;
+    r.shield = 0;
+    w2['damageShip'](1, r, 20, 2, r.x, r.y, 'shield');
+    near(r.hp, tune.ship.maxHp - 20, 1e-6, 'shield down: the rammer hull takes it');
+    const q = placeShip(w2, 3, 900, 900, 0);
+    q.arrival = 0;
+    q.shield = 5;
+    w2['damageShip'](3, q, 40, 2, q.x, q.y, 'shield');
+    assert(q.shield === 0 && q.hp === tune.ship.maxHp, 'a partial shield takes what it can, nothing spills to the hull');
+  }
   assert(push.b > 0 && push.a <= 0, 'pushed apart');
   // Gun upgrades make rams hit harder too.
   near(S.damageScale({ ...a, damageTier: 2 }, tune), 1 + 2 * tune.shop.damagePerTier, 1e-9);
@@ -1879,8 +1897,8 @@ assert.equal(S.cleanName(null), '');
   const tb = tune.battlecruiser;
   const ship = (chassis) => { const s = S.newShip(0, 0, 0, tune.ship.cruiseSpeed); s.hp = s.hullMax = tune.ship.maxHp; s.chassis = chassis; return s; };
   const [sc, it, bc] = [0, 1, 2].map(ship);
-  near(S.topSpeed(it.hullMax, tune, 1), S.topSpeed(sc.hullMax, tune, 0) * ti.speedFactor, 1e-9, 'interceptor top speed factor');
-  near(S.topSpeed(bc.hullMax, tune, 2), S.topSpeed(sc.hullMax, tune, 0) * tb.speedFactor, 1e-9, 'battlecruiser top speed factor');
+  near(S.topSpeed(it.hullMax, tune, 1), ti.maxSpeed, 1e-9, 'interceptor has its own top speed');
+  near(S.topSpeed(bc.hullMax, tune, 2), tb.maxSpeed, 1e-9, 'battlecruiser has its own top speed');
   assert.deepEqual([0, 1, 2].map((c) => S.shipRadius(50, tune, c)), [tune.ship.radius, ti.radius, tb.radius], 'radius per ship');
   near(S.maxShield(it, tune), tune.ship.maxShield * ti.shieldFactor, 1e-9, 'interceptor shield');
   near(S.maxShield(bc, tune), tune.ship.maxShield * tb.shieldFactor, 1e-9, 'battlecruiser shield');
@@ -1889,8 +1907,11 @@ assert.equal(S.cleanName(null), '');
   // Corner speed is the same rule for all; take it out to compare the chassis turn factors.
   const corner = [sc, it, bc].map((s) => S.cornerFactor(s, tune));
   for (const s of [sc, it, bc]) S.stepShip(s, { ...idle, turn: 1 }, dt, tune);
-  near(it.heading / corner[1] / (sc.heading / corner[0]), ti.turnFactor, 1e-9, 'interceptor turns faster');
-  near(bc.heading / corner[2] / (sc.heading / corner[0]), tb.turnFactor, 1e-9, 'battlecruiser turns slower');
+  near(it.heading / corner[1] / (sc.heading / corner[0]), ti.turnRate / tune.ship.turnRate, 1e-9, 'interceptor turns at its own rate');
+  near(bc.heading / corner[2] / (sc.heading / corner[0]), tb.turnRate / tune.ship.turnRate, 1e-9, 'battlecruiser turns at its own rate');
+  // Corner speed is a share of each ship's own top speed: a Battlecruiser at its own cruise turns at full rate.
+  const bcAtCruise = ship(2); bcAtCruise.speed = tb.cruiseSpeed;
+  near(S.cornerFactor(bcAtCruise, tune), 1, 1e-9, 'battlecruiser turns best at its own cruise speed');
   // Guns: the battlecruiser's four cannons fire in turn from their mounts, every fireIntervalSteps.
   const g = ship(2);
   const sides = [];

@@ -153,6 +153,8 @@ export class World {
   readonly pickups = new Map<number, Pickup & { expires: number; from: number; lockedUntil: number; salvage: number }>();
   /** Ships that are bots: they never earn salvage and drop less (salvage.botDropFactor). Set by the room. */
   readonly botIds = new Set<number>();
+  /** Tutorial practice ships whose turret drones never fire (a drone or chaser that must not shoot). */
+  readonly quiet = new Set<number>();
   /** Tick each ship dropped in, for fresh-spawn kill payout tracking. */
   private spawnedAt = new Map<number, number>();
   /**
@@ -353,6 +355,7 @@ export class World {
     this.grace.delete(id);
     this.spawnedAt.delete(id);
     this.botIds.delete(id);
+    this.quiet.delete(id);
     this.lastHit.delete(id);
     this.graceUntil.delete(id);
     this.graceSpent.delete(id);
@@ -486,8 +489,11 @@ export class World {
         s.ky = -dy * k * 0.5 * Math.min(2, or / sr);
         // Ram (owner, 16 November 2026): the larger of the flat ram (scaled by the rammer's power) and
         // ship.dashRamHullFraction of the target's hull maximum, so any pilot can hurt a big ship.
-        this.damageShip(oid, o, Math.max(t.ship.dashRamDamage * damageScale(s, t), t.ship.dashRamHullFraction * o.hullMax), id, wrap(o.x - dx * or, W), wrap(o.y - dy * or, H));
-        this.damageShip(id, s, t.ship.dashRamSelfDamage, oid, wrap(s.x + dx * sr, W), wrap(s.y + dy * sr, H));
+        // The target takes it straight to the hull; the rammer takes the same amount on its shield
+        // (no overflow), or on its hull only if its shield is already down (owner, 16 November 2026).
+        const ram = Math.max(t.ship.dashRamDamage * damageScale(s, t), t.ship.dashRamHullFraction * o.hullMax);
+        this.damageShip(oid, o, ram, id, wrap(o.x - dx * or, W), wrap(o.y - dy * or, H), 'hull');
+        this.damageShip(id, s, ram, oid, wrap(s.x + dx * sr, W), wrap(s.y + dy * sr, H), 'shield');
         this.events.rams.push({ id, target: oid, x: wrap(s.x + dx * sr, W), y: wrap(s.y + dy * sr, H) });
         break;
       }
@@ -646,7 +652,7 @@ export class World {
     const H = t.world.height;
     for (const [id, s] of this.ships) {
       // No firing in warp mode (brief), turrets included.
-      const n = s.hp > 0 && !s.warping && !(s.arrival ?? 0) ? turretCount(s, t) : 0;
+      const n = s.hp > 0 && !s.warping && !(s.arrival ?? 0) && !this.quiet.has(id) ? turretCount(s, t) : 0;
       if (!n) {
         this.turrets.delete(id);
         continue;
@@ -1015,7 +1021,12 @@ export class World {
   }
 
   /** The shield takes damage first; what it cannot hold goes to the hull. */
-  private damageShip(id: number, s: ShipState, damage: number, attacker: number, atX: number, atY: number): void {
+  /**
+   * mode (owner, 16 November 2026, dash rams): 'hull' goes straight to the hull past the shield (the
+   * rammed ship); 'shield' is taken by the shield with nothing spilling over to the hull, or by the
+   * hull only when the shield is already down and recharging (the rammer).
+   */
+  private damageShip(id: number, s: ShipState, damage: number, attacker: number, atX: number, atY: number, mode: 'normal' | 'hull' | 'shield' = 'normal'): void {
     if (s.hp <= 0 || (s.arrival ?? 0) > 0) return;
     // Docked on its clan's pad: safe (owner, Clan planets v0).
     if (this.docked(id)) return;
@@ -1029,10 +1040,10 @@ export class World {
     // pilot a moment to get away. Once per recharge cycle: it is ready again only after the shield
     // recharges past shieldGraceRechargeFraction of its maximum.
     const inGrace = this.tick < (this.graceUntil.get(id) ?? -1);
-    const saves = s.shield > 0 && !this.graceSpent.has(id);
+    const saves = mode === 'normal' && s.shield > 0 && !this.graceSpent.has(id);
     const breaks = saves && damage >= s.shield;
-    const absorbed = saves ? damage : Math.min(s.shield, damage);
-    const toHull = inGrace ? 0 : damage - absorbed;
+    const absorbed = mode === 'hull' ? 0 : saves ? damage : Math.min(s.shield, damage);
+    const toHull = mode === 'hull' ? damage : mode === 'shield' ? (s.shield > 0 ? 0 : damage) : inGrace ? 0 : damage - absorbed;
     this.events.hits.push({ id, x: atX, y: atY, shielded: s.shield > 0 || inGrace, hull: !this.invulnerable && toHull > 0, broke: breaks, by: attacker });
     if (this.invulnerable) return;
     s.shield = Math.max(0, s.shield - absorbed);
