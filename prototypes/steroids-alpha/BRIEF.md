@@ -172,7 +172,8 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
   damage, no knockback and no warp reset (owner, 13 November 2026). Only
   damage from players, bots, turrets, missiles and mines resets the warp.
 - Everyone sees a warping ship (a ring filling with progress) and its
-  warp-out flash. The extracted pilot sees EXTRACTED with Drop in / Menu.
+  warp-out flash. The extracted pilot sees EXTRACTED (with the banking result) and a Menu
+  button only: no drop-in straight after warping out (owner, 16 November 2026).
 
 ## Ship assembly and art direction
 
@@ -361,6 +362,15 @@ Both schemes are supported (owner decision), through the intent layer:
 - Keyboard uses craft-relative (A/D rotate, W/S throttle). Phones always use
   the direction marker: the STEER toggle was removed (owner, 14 November
   2026). Fire and warp are buttons on both.
+- **PC mouse marker (owner, 16 November 2026), the default on PC:** hold the left
+  mouse button and the ship steers toward the cursor; the further the cursor is
+  from the ship, the harder it accelerates (`mouse.markerRadius` for full thrust,
+  same thrust curve as touch); the cursor on the ship (`mouse.deadZone`) brakes;
+  releasing eases back to minimum speed. A ring at the cursor shows it. WASD and
+  arrow keys keep working and win while pressed (after flying with keys the ship
+  holds its speed as in the keyboard scheme). Fire stays on Space/J.
+- **Menu setting CONTROLS (PC only): MOUSE (default) or KEYBOARD** (the
+  keyboard-only craft-relative scheme). Remembered per browser.
 - Both schemes share the same turn rate and speed limits, so neither has an
   advantage.
 

@@ -20,6 +20,10 @@
     "dashButtonMargin": 34,
     "fireButtonRadius": 46
   },
+  "mouse": {
+    "markerRadius": 240,
+    "deadZone": 40
+  },
   "render": {
     "gridSpacing": 200,
     "sectorSpacing": 1000,

@@ -219,6 +219,9 @@ export class FlightScene extends Phaser.Scene {
     }
     if (intents.consume('scheme')) intents.toggleScheme();
     const heading = this.net.predicted?.heading ?? 0;
+    // The mouse marker steers from where our ship is on screen (last frame's projection).
+    const shipAt = this.net.predicted && !over ? this.toScreen(this.net.predicted.x, this.net.predicted.y) : null;
+    intents.mouseOrigin = shipAt && shipAt.visible ? { x: shipAt.x, y: shipAt.y } : null;
     const move = intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed, this.net.speedFloorNow);
     this.net.update({ ...move, dash, fire: intents.fire, missile, mine, warp });
     // Shop: each tap asks the server for the tier on offer now; the server checks power and price.
@@ -953,6 +956,19 @@ export class FlightScene extends Phaser.Scene {
     this.drawBaseMarkers(p, w, h);
     this.drawBase(p, w, h);
     this.schemeLabel.setVisible(false);
+    if (intents.mouseSteering) {
+      // Mouse marker: a ring at the cursor and a faint line from the ship; the ring fills as the
+      // cursor moves out toward full thrust, and turns into a brake mark over the ship.
+      const m = intents.mouse!, o = intents.mouseOrigin!;
+      const d = Math.hypot(m.x - o.x, m.y - o.y);
+      const { markerRadius, deadZone } = clientTune.mouse;
+      const push = Math.max(0, Math.min(1, (d - deadZone) / Math.max(1, markerRadius - deadZone)));
+      g.lineStyle(1, 0xffffff, 0.18);
+      if (d >= deadZone) g.lineBetween(o.x, o.y, m.x, m.y);
+      g.lineStyle(2, d < deadZone ? UI.uiDanger : UI.uiAccent, 0.75);
+      g.strokeCircle(m.x, m.y, 12);
+      if (push > 0) { g.fillStyle(UI.uiAccent, 0.15 + 0.35 * push); g.fillCircle(m.x, m.y, 4 + 7 * push); }
+    }
     if (!intents.touch) {
       intents.dashButton = null;
       intents.schemeButton = null;
@@ -1173,8 +1189,10 @@ export class FlightScene extends Phaser.Scene {
       this.message.setFontSize(18).setWordWrapWidth(0);
       const bw = 140;
       const bh = 44;
-      this.deathButtons = (['respawn', 'menu'] as const).map((id, i) => {
-        const x = w / 2 + (i === 0 ? -1 : 1) * (bw / 2 + 10);
+      // After warping out there is no drop-in again (owner, 16 November 2026): the menu only.
+      const ids = extracted ? (['menu'] as const) : (['respawn', 'menu'] as const);
+      this.deathButtons = ids.map((id, i) => {
+        const x = ids.length === 1 ? w / 2 : w / 2 + (i === 0 ? -1 : 1) * (bw / 2 + 10);
         const y = h * 0.3 + 56;
         // Keyboard shortcuts shown on the buttons (owner): R respawns, Esc goes to the menu. Not on touch.
         const key = intents.touch ? '' : id === 'respawn' ? ' (R)' : ' (Esc)';
@@ -1206,7 +1224,7 @@ export class FlightScene extends Phaser.Scene {
     // R (the warp key in flight) and Space respawn; Esc goes to the menu. Presses before the buttons
     // show are dropped, so a key hit in the fight that ended does not skip the screen.
     if (!ready) for (const p of ['primary', 'warp', 'pause'] as const) intents.consume(p);
-    if (ready && (intents.consume('primary') || intents.consume('warp'))) choice = 'respawn';
+    if (ready && (intents.consume('primary') || intents.consume('warp'))) choice = extracted ? 'menu' : 'respawn';
     if (ready && intents.consume('pause')) choice = 'menu';
     if (choice === 'respawn') {
       this.scene.restart({ planet: this.planet });
