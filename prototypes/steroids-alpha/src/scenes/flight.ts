@@ -629,7 +629,7 @@ export class FlightScene extends Phaser.Scene {
   }
 
   /**
-   * Placeholder turrets: a small dome with a barrel on each earned mount. A turret points where it last
+   * Earned turrets: capital heads use their deck rig; fighters retain carrier-coloured drones. Each points where it last
    * fired and, after a quiet second, swings back to face forward. A short flash marks each shot.
    */
   private drawTurrets(id: number, s: ShipState, at: { x: number; y: number; scale: number; visible: boolean }): void {
@@ -639,6 +639,7 @@ export class FlightScene extends Phaser.Scene {
     let aim = this.turretAim.get(id);
     if (!aim) this.turretAim.set(id, (aim = { angle: [], firedAt: [] }));
     const now = this.time.now;
+    const mounted = s.chassis === BATTLECRUISER && !!this.ships.get(id)?.setTurrets?.(n, aim.angle, aim.firedAt);
     const g = this.turretGfx;
     const light = this.objectLight(clientTune.render.nightShipDim);
     const c = Math.cos(s.heading);
@@ -655,7 +656,7 @@ export class FlightScene extends Phaser.Scene {
       const d = ((want - prev + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
       const a = prev + d * 0.15;
       aim.angle[i] = a;
-      (s.chassis===BATTLECRUISER?drawCapitalEscort:drawDrone)(g,x,y,k,a,now,id+i,light,now-(aim.firedAt[i]??-1e9)<70,unlockById(this.net.roster.get(id)?.look?.palette)?.index??0);
+      if (!mounted) (s.chassis===BATTLECRUISER?drawCapitalEscort:drawDrone)(g,x,y,k,a,now,id+i,light,now-(aim.firedAt[i]??-1e9)<70,unlockById(this.net.roster.get(id)?.look?.palette)?.index??0);
     }
   }
 
@@ -1607,6 +1608,7 @@ interface DrawnShip {
   setLook(look: Look): void;
   fire(side: number): void;
   shieldHit(angle: number): void;
+  setTurrets?(count: number, angles: readonly number[], firedAt: readonly number[]): boolean;
   update(at: ShipPlacement, s: ShipState, timeMs: number, control?: FFDControl): void;
   destroy(): void;
 }
@@ -1614,6 +1616,9 @@ interface DrawnShip {
 /** The approved Human Nomad rig with its thruster exhaust. */
 class RigShip implements DrawnShip {
   private view: ShipView;
+  setTurrets(count: number, angles: readonly number[], firedAt: readonly number[]): boolean {
+    return this.view.setTurrets(count, angles, firedAt);
+  }
 
   constructor(scene: Phaser.Scene, mine: boolean, readonly chassis = 0, readonly palette = 0) {
     this.view = new ShipView(scene, mine, chassis, palette);

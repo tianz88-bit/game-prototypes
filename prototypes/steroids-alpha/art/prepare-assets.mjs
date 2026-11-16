@@ -18,8 +18,9 @@ const SHIPS = [{ id: 'human-nomad-v1', list: path.join(here, 'human-nomad-v1', '
 // committed manifest (art/<ship>/ship-assets.json), then staged as loose/<ship>-<asset>.png.
 // Downloads are cached by content hash in .cache/, never by name.
 const EXTRA_SHIPS = [
-  { id: 'human-nomad-interceptor-v2', list: path.join(here, 'interceptor-v2', 'ship-assets.json') },
-  { id: 'human-nomad-battlecruiser-v1', list: path.join(here, 'battlecruiser-v1', 'ship-assets.json') },
+  { id: 'human-nomad-sparrow-v1', list: path.join(here, 'sparrow-v1', 'ship-assets.json') },
+  { id: 'human-nomad-bat-v3', list: path.join(here, 'bat-v3', 'ship-assets.json') },
+  { id: 'human-nomad-battlecruiser-v2', list: path.join(here, 'battlecruiser-v2', 'ship-assets.json') },
 ];
 
 async function stageExtraShips(assetsSrcDir) {

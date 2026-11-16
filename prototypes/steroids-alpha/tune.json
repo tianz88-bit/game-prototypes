@@ -255,11 +255,11 @@
   "interceptor": {
     "radius": 24,
     "minSpeed": 140,
-    "cruiseSpeed": 291,
-    "maxSpeed": 392,
+    "cruiseSpeed": 234,
+    "maxSpeed": 315,
     "acceleration": 528,
     "braking": 600,
-    "turnRate": 3.84,
+    "turnRate": 5.44,
     "shieldFactor": 0.7,
     "damageFactor": 0.85,
     "fireIntervalSteps": 4,
@@ -329,5 +329,11 @@
     "mineralChunkValue": 5,
     "mineralChunksMax": 12,
     "pickupsMax": 200
+  },
+  "sparrow": {
+    "fireIntervalSteps": 6,
+    "ammoRatio": 0.8,
+    "driftDeg": 3,
+    "muzzleForward": 38.4
   }
 }

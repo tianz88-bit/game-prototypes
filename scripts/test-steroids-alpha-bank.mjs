@@ -181,7 +181,7 @@ function d1() {
   assert.equal((await B.buyUnlock(db, a.secret, 'ship.interceptor', quoteFor('ship.interceptor'))).balance, 2500 - pal - tune.unlockPrices.ship, 'interceptor bought');
   assert.equal((await B.buyUnlock(db, a.secret, 'tint.gold', quoteFor('tint.gold'))).error, 'not for sale', 'tints no longer sold');
   assert.equal((await B.buyUnlock(db, a.secret, 'palette.0', quoteFor('palette.0'))).error, 'owned', 'default palette is free and owned');
-  assert.equal((await B.buyUnlock(db, a.secret, 'ship.scrappy', quoteFor('ship.scrappy'))).error, 'owned', 'starter ship is owned');
+  assert.equal((await B.buyUnlock(db, a.secret, 'ship.sparrow', quoteFor('ship.sparrow'))).error, 'owned', 'starter ship is owned');
   const poor = await B.createAccount(db);
   assert.equal((await B.buyUnlock(db, poor.secret, 'palette.2', quoteFor('palette.2'))).error, 'not enough credits', 'needs the credits');
   assert.equal((await B.buyUnlock(db, B.newSecret(), 'palette.2', quoteFor('palette.2'))).error, 'unknown account');
@@ -202,7 +202,7 @@ function d1() {
 
   // cleanLook keeps owned, slot-matching items only.
   assert.deepEqual(B.cleanLook({ ship: 'ship.interceptor', palette: 'palette.1', flame: 'flame.red', badge: 'palette.1', qol: 'runlog' }, ['palette.1', 'runlog']), { palette: 'palette.1' }, 'unowned interceptor and flame dropped');
-  assert.deepEqual(B.cleanLook({ ship: 'ship.scrappy', palette: 'palette.0' }, []), { ship: 'ship.scrappy', palette: 'palette.0' }, 'free items always allowed');
+  assert.deepEqual(B.cleanLook({ ship: 'ship.sparrow', palette: 'palette.0' }, []), { ship: 'ship.sparrow', palette: 'palette.0' }, 'free items always allowed');
   assert.deepEqual(B.cleanLook('nonsense', ['palette.1']), {});
 
   // The room shows a pilot's look once the bank confirms ownership, and an owned Interceptor
@@ -229,7 +229,19 @@ function d1() {
   const [p2] = [...room2.players.values()];
   room2.onMessage(p2, JSON.stringify({ type: 'auth', secret: poor.secret, look: { ship: 'ship.interceptor' } }));
   await new Promise((r) => setTimeout(r, 30));
-  assert.equal(p2.ship.chassis, 0, 'no interceptor without the unlock');
+  assert.equal(p2.ship.chassis, 3, 'no interceptor without the unlock');
+  const room3=new B.Room(1,()=>{},undefined,owned);room3.setBots(false);room3.join(new Sock(),'LockedFalcon');room3.stop();
+  const [p3]=room3.players.values();room3.onMessage(p3,JSON.stringify({type:'auth',secret:poor.secret,look:{ship:'ship.scrappy'}}));
+  await new Promise(r=>setTimeout(r,30));assert.equal(p3.ship.chassis,3,'forged locked Falcon stays Sparrow');
+  await B.creditExtraction(db,a.secret,2500,'falcon-fixture-funds');
+  const before=await B.balanceOf(db,await B.accountFor(db,a.secret));
+  const bought=await B.buyUnlock(db,a.secret,'ship.scrappy',quoteFor('ship.scrappy'));assert.equal(bought.ok,true);assert.equal(bought.balance,before-tune.unlockPrices.ship,'Falcon sidegrade charges existing ship price');
+  assert.equal((await B.buyUnlock(db,a.secret,'ship.scrappy',quoteFor('ship.scrappy'))).error,'owned','Falcon cannot be purchased twice');
+  const room4=new B.Room(1,()=>{},undefined,owned);room4.setBots(false);room4.join(new Sock(),'Falcon');room4.stop();
+  const [p4]=room4.players.values();room4.onMessage(p4,JSON.stringify({type:'auth',secret:a.secret,look:{ship:'ship.scrappy'}}));
+  for(let i=0;i<30&&p4.ship.chassis===3;i++)await new Promise(r=>setTimeout(r,5));assert.equal(p4.ship.chassis,0,'owned stable Falcon ID selects original chassis');
+  assert.equal(B.selectedFighter({ship:'ship.scrappy'},[]).id,'ship.sparrow','stale or unowned saved ship resolves to starter');
+
 }
 
 // Room bots (owner, 15 November 2026): they stay when the only player is destroyed, so a respawn finds

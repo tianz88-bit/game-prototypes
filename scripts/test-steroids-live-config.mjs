@@ -119,3 +119,7 @@ console.log('PASS: config validation, atomic stale-write rejection/history, real
  }finally{globalThis.fetch=realFetch;}
  console.log('PASS: hosted Access signature, owner/audience/issuer/expiry restrictions, fail-closed setup, CSRF guards, bounded validation, atomic publish and unchanged public routes');
 }
+
+// Sparrow settings upgrade and bounded ownership-independent weapon tuning.
+{const old=structuredClone(base);delete old.tune.sparrow;assert.deepEqual(S.validateConfig(old).tune.sparrow,base.tune.sparrow);}
+for(const [key,val]of [['ammoRatio',0],['ammoRatio',1.1],['driftDeg',9],['fireIntervalSteps',base.tune.weapon.fireIntervalSteps],['fireIntervalSteps',base.tune.weapon.fireIntervalSteps*2],['muzzleForward',0]]){const d=structuredClone(base);d.tune.sparrow[key]=val;assert.throws(()=>S.validateConfig(d));}

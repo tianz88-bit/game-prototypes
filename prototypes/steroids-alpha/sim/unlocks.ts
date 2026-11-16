@@ -28,8 +28,9 @@ export interface Unlock {
 }
 
 export const UNLOCKS: readonly Unlock[] = [
-  { id: 'ship.scrappy', slot: 'ship', name: 'Falcon', index: 0, free: true }, // renamed from Scrappy (owner, 16 November 2026); the id stays for saves
-  { id: 'ship.interceptor', slot: 'ship', name: 'Interceptor', index: 1 },
+  { id: 'ship.sparrow', slot: 'ship', name: 'Sparrow', index: 3, free: true },
+  { id: 'ship.scrappy', slot: 'ship', name: 'Falcon', index: 0 },
+  { id: 'ship.interceptor', slot: 'ship', name: 'Bat', index: 1 },
   // Palettes (owner art, tools/ship-rig/human-nomad-ships-v2/palettes.json): repaint hull, trim and glass.
   { id: 'palette.0', slot: 'palette', name: 'Cobalt & orange', index: 0, colour: 0x1f5fd6, free: true },
   { id: 'palette.1', slot: 'palette', name: 'Teal & gold', index: 1, colour: 0x1f8a6e },
@@ -102,4 +103,11 @@ export function cleanLook(look: unknown, owned: Iterable<string>): Look {
     if (u && u.slot === slot && u.slot !== 'qol' && u.slot !== 'tint' && have.has(u.id)) out[u.slot] = u.id;
   }
   return out;
+}
+
+/** Resolve only an owned menu fighter; absent, stale or forged choices use the free starter. */
+export function selectedFighter(look: unknown, owned: readonly string[]): Unlock {
+  const safe = cleanLook(look, owned);
+  return UNLOCKS.find(u => u.slot === 'ship' && u.id === safe.ship)
+    ?? UNLOCKS.find(u => u.id === 'ship.sparrow')!;
 }

@@ -79,10 +79,13 @@ export function validateConfig(input: unknown): ConfigData {
   for (const group of ['world','net'] as const) if (JSON.stringify(value.tune[group]) !== JSON.stringify(base.tune[group])) fail(`${group} settings require a code deployment`);
   for (const group of ['net','dpr','touch','mouse'] as const) if (JSON.stringify(value.clientTune[group]) !== JSON.stringify(base.clientTune[group])) fail(`Client ${group} settings require a code deployment`);
   if (value.clientTune.render.partTextureMax !== base.clientTune.render.partTextureMax) fail('Texture resolution requires a code deployment');
-  for (const group of ['ship','weapon','turret','shop','missile','mine','bots','warp','salvage','hotZone','interceptor','battlecruiser','asteroid','base','siege'] as const) for (const [key, n] of Object.entries(value.tune[group])) for (const v of Array.isArray(n) ? n : [n]) {
+  for (const group of ['ship','weapon','turret','shop','missile','mine','bots','warp','salvage','hotZone','sparrow','interceptor','battlecruiser','asteroid','base','siege'] as const) for (const [key, n] of Object.entries(value.tune[group])) for (const v of Array.isArray(n) ? n : [n]) {
     if (v < 0 || v > 10000) fail(`${group}.${key}: value must be 0–10000`);
   }
   const s = value.tune.ship, w = value.tune.weapon;
+  { const p=value.tune.sparrow;
+    if (!Number.isInteger(p.fireIntervalSteps) || p.fireIntervalSteps <= w.fireIntervalSteps || p.fireIntervalSteps >= w.fireIntervalSteps * 2 || p.fireIntervalSteps > 255 || w.coolPerSecond * p.fireIntervalSteps / value.tune.net.tickHz >= 1 || !(p.ammoRatio > 0 && p.ammoRatio <= 1) || p.driftDeg > 8 || p.muzzleForward < 1 || p.muzzleForward > 80) fail('Sparrow: cadence between one Falcon gun and both, ammo ratio 0..1, drift 0..8 degrees, muzzle 1..80');
+  }
   if (!(s.turnAtMinSpeed > 0 && s.turnAtMinSpeed <= 1) || !(s.turnAtMaxSpeed > 0 && s.turnAtMaxSpeed <= 1) || !(s.dashSteerFactor >= 0 && s.dashSteerFactor <= 1) || !(s.dashRamHullFraction >= 0 && s.dashRamHullFraction <= 1)) fail('Corner speed, dash steering and ram share must be 0–1');
   const warp = value.tune.warp;
   if (warp.arrivalSeconds < 2 || warp.arrivalSeconds > 8 || warp.departureSeconds < .5 || warp.departureSeconds > 8 || warp.remoteArrivalSeconds < .2 || warp.remoteArrivalSeconds > warp.arrivalSeconds) fail('Warp presentation timing out of range');

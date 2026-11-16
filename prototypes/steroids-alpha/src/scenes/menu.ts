@@ -1,3 +1,4 @@
+import { selectedFighter } from '../../sim/unlocks';
 import { combatKey } from '../render/combatSprites';
 import { shipPreview } from '../render/shipPreview';
 import { PALETTES } from '../render/palette';
@@ -151,8 +152,8 @@ export class MenuScene extends Phaser.Scene {
     text(this, x-30, top + 40, credits, 24, '#ffd23a').setOrigin(0.5);
     const look=loadSave().look??{};
     const palette=Number((look.palette??'palette.0').split('.')[1]);
-    shipPreview(this,look.ship==='ship.interceptor'?1:0,palette,x+pw*.26,top+37,pw*.38,48);
-    text(this,x,top+242,`${look.ship==='ship.interceptor'?'INTERCEPTOR':'FALCON'} · ${PALETTES[palette]?.name.split(' / ')[0]??'Cobalt'}`,10,'#b5ccdc').setOrigin(.5);
+    shipPreview(this,selectedFighter(look,this.unlocks).index!,palette,x+pw*.26,top+37,pw*.38,48);
+    text(this,x,top+242,`${selectedFighter(look,this.unlocks).name.toUpperCase()} · ${PALETTES[palette]?.name.split(' / ')[0]??'Cobalt'}`,10,'#b5ccdc').setOrigin(.5);
     text(this, x, top + 70, 'RECOVERY CODE', 10, '#8fa2c8').setOrigin(0.5);
     text(this, x, top + 88, recovery || '-', 13, '#dfe8ff').setOrigin(0.5);
     text(this, x, top + 104, 'Write it down to keep your credits', 9, '#6d7a96').setOrigin(0.5);

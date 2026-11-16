@@ -1,0 +1,62 @@
+{
+  "r2Object": "steroids-alpha_battlecruiser-v2_assets.zip",
+  "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_battlecruiser-v2_assets.zip",
+  "zipSha256": "740376005397599597e08edcf667fa0ade23e8a8bf0330afdf990f43b8e70867",
+  "assets": [
+    {
+      "asset": "chassis",
+      "deliveryPath": "loose/chassis.png",
+      "sha256": "45c186817039d5105c91ffb5881f16779a8cd8897d81102b60497f589c2501ea"
+    },
+    {
+      "asset": "armour",
+      "deliveryPath": "loose/armour.png",
+      "sha256": "874498c75a797ec30909f35b09286c5ee8656ae5abcc23da96c59a00acddf73c"
+    },
+    {
+      "asset": "wing",
+      "deliveryPath": "loose/wing.png",
+      "sha256": "31a3c876b0518a2702f58ce60c96d1e321748b28db39db8fc671c0ebe614d016"
+    },
+    {
+      "asset": "gun",
+      "deliveryPath": "loose/gun.png",
+      "sha256": "329cd9e4243e22471015ac5ff119b89e5bb7497fd278fde8bdcc25096480682b"
+    },
+    {
+      "asset": "booster-core",
+      "deliveryPath": "loose/booster-core.png",
+      "sha256": "2af6558dbdaa5d5264ab8092ba6ee3d6b996bca50fd6eb7999a0a6db67657984"
+    },
+    {
+      "asset": "booster-cowling",
+      "deliveryPath": "loose/booster-cowling.png",
+      "sha256": "c84951b1ea6c08f97fc0657457efa722f3565a2c1cabb49fe96268c41aa31da4"
+    },
+    {
+      "asset": "cockpit-base",
+      "deliveryPath": "loose/cockpit-base.png",
+      "sha256": "37826712f8ff469d07923521c83de9293e77ec9b4db10130a12f80859110688d"
+    },
+    {
+      "asset": "cockpit-canopy",
+      "deliveryPath": "loose/cockpit-canopy.png",
+      "sha256": "f95ec882ad7979c0160a5113a6f8112480b9c547869a6c2432c37c5ef15eec10"
+    },
+    {
+      "asset": "shield-emitter",
+      "deliveryPath": "loose/shield-emitter.png",
+      "sha256": "cf0c3c91852187b1ca9c0a01016b9566085c7677280cf1c5dd4fbd17f6de72a5"
+    },
+    {
+      "asset": "turret-platform",
+      "deliveryPath": "loose/turret-platform.png",
+      "sha256": "c094c4106d30b195c2afa9ee20305d10163dcbf60f31fd2eda941ea4e3d115a0"
+    },
+    {
+      "asset": "turret-head",
+      "deliveryPath": "loose/turret-head.png",
+      "sha256": "5b36a22a49ef36c24f354d0f2326954f5c1fa9e044ae0a3f768813b5a4d79a5a"
+    }
+  ]
+}

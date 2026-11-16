@@ -1,18 +1,19 @@
-// Ship types (owner, 14 November 2026): Falcon (the starter, free; called Scrappy in code ids),
-// Interceptor (a one-time credit unlock, chosen in the menu) and the Battlecruiser (only by evolving
-// during a run, with minerals). Each ship has its own speeds, acceleration, braking and turn rate
-// (owner, 16 November 2026: explicit per ship; Falcon's are tune.ship and the reference for tuning);
-// shield, damage and fire rate stay factors on the base values in tune.json (`interceptor`,
-// `battlecruiser`). Gun and turret positions come from the art (tools/ship-rig/human-nomad-ships-v2
+// Human Nomad: Sparrow starter, Falcon/Bat unlockable sidegrades, in-run Battlecruiser.
+// Each chassis has explicit movement values; Sparrow shares Falcon's tune.ship reference values.
+// Shield/damage/fire are from the existing chassis groups. Gun positions come from the art kit
 // footprint-proposals.json, game-local world units at the base size); collision radius and every
 // stat are tuned values, never derived from the art size.
 import type { Tune } from './tune';
 
-export const CHASSIS = ['scrappy', 'interceptor', 'battlecruiser'] as const;
+export const CHASSIS = ['scrappy', 'interceptor', 'battlecruiser', 'sparrow'] as const;
 export type ChassisId = (typeof CHASSIS)[number];
 export const SCRAPPY = 0;
 export const INTERCEPTOR = 1;
 export const BATTLECRUISER = 2;
+// Keep the original numeric/ownership IDs stable through the Falcon and Bat display renames.
+export const FALCON = SCRAPPY;
+export const BAT = INTERCEPTOR;
+export const SPARROW = 3;
 
 export interface ChassisStats {
   /** Hit radius before power growth. */
@@ -29,7 +30,7 @@ export function chassisStats(chassis: number, tune: Tune): ChassisStats {
     const c = chassis === INTERCEPTOR ? tune.interceptor : tune.battlecruiser;
     return { radius: c.radius, shield: c.shieldFactor, damage: c.damageFactor, fireIntervalSteps: c.fireIntervalSteps, baseTurrets: c.baseTurrets };
   }
-  return { radius: tune.ship.radius, shield: 1, damage: 1, fireIntervalSteps: tune.weapon.fireIntervalSteps, baseTurrets: 0 };
+  return { radius: tune.ship.radius, shield: 1, damage: 1, fireIntervalSteps: chassis === SPARROW ? tune.sparrow.fireIntervalSteps : tune.weapon.fireIntervalSteps, baseTurrets: 0 };
 }
 
 /** How a ship moves (px/s, px/s², rad/s): its own values per ship type. */
@@ -85,10 +86,10 @@ export const TURRET_MOUNTS_BY_CHASSIS: Record<number, readonly Mount[]> = {
     { forward: 10, right: 32 },
   ],
   [BATTLECRUISER]: [
-    { forward: -10, right: -106.2 },
-    { forward: -10, right: 106.2 },
-    { forward: 35, right: -106.2 },
-    { forward: 35, right: 106.2 },
+    { forward: -9, right: -36 },
+    { forward: -9, right: 36 },
+    { forward: 25.2, right: -36 },
+    { forward: 25.2, right: 36 },
   ],
 };
 

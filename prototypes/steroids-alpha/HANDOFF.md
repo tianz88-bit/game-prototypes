@@ -1,5 +1,25 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 codex ship-release-integration
+DID: owner approved all ship updates live. Uploaded3 art ZIPs to R2 and re-fetched every ZIP/part hash. Integrated main PR515/516 tutorial, rams, dash/corner steering and explicit per-ship motion, preserving Sparrow starter/weapon and paid Falcon policy.
+FILES: sim/{chassis,ship,unlocks,liveConfig}, menu, tune, tests, art docs; release changes already recorded below.
+SEAM: Bat handling translated to maxSpeed315/cruiseSpeed234/turnRate5.44; other Bat movement preserved. Sparrow shipMotion shares Falcon reference. Protocol22/new rig seams retained; no grant migration.
+CROSS: merge conflict resolution preserves both owners' behavior; sim/bank/live-config pass after integration. Remaining release checks/deploy/public verification follow.
+FOR claude: owner explicitly approved deployment. All3 R2 packs verified; final PR/runs/settings/public proof will be posted in e31061e9. Avoid competing live-setting edits during cutover.
+
+## 2026-11-16 codex bat-capital-revision REVIEW
+DID: Bat cobalt cowlings, base315 top speed and1.7x Falcon turn rate. Detailed battlecruiser with framed bridge,4 forward cannons and4 fixed rig deck platforms; painted heads show only equipped count, aim/recoil independently, with control-only FFD/sprite fallback.
+FILES: art/{bat-v3,battlecruiser-v2}, render/{shipProfiles,shipArt,shipView,shipPreview}, flight, hangar caption, tune, sim/chassis, sim tests, docs.
+SEAM: optional setTurrets(count,angles,firedAt); shared capital deck mounts right±36, forward−9/25.2. Main cannon origins/equipment counts/upgrade rules unchanged. Capital textures2x budget capped512; fighters unchanged.
+CROSS: owner-requested Bat handling and deck turret origins; minimal flight observation bridge. Typecheck/build/sim/bank/live-config/rig pass. Brave desktop/mobile previews,24-part FFD,0/2/4 heads, Canvas flight and5 rebuilds stable150textures; no errors. Local~32FPS matches same Falcon baseline, not a60FPS claim.
+FOR claude: review only; do not deploy yet. R2 ZIPs still local/cache. Future release needs Bat speedFactor0.9/turnFactor1.7 published to hosted settings, preserving all other owner values. Evidence outputs/steroids-alpha/fleet-revision-review; comms e31061e9. Everyone must buy Falcon; no grandfathered grant.
+
+## 2026-11-16 codex sparrow-falcon-bat REVIEW
+DID: Sparrow free starter with original8-part/11-module top-down rig, centre recoil, Falcon base stats,5shots/s and12-versus15 cold burst, bounded3deg launch drift. Scrappy display renamed Falcon and Interceptor Bat; Falcon is a paid sidegrade. Four compact hangar cards.
+FILES: art/sparrow-v1, render/shipProfiles, sim/{chassis,ship,unlocks,protocol,liveConfig}, room, menu/hangar, tune, tests.
+SEAM: protocol22 permits chassis3 and recoil side0 (unchanged byte layout); stable old IDs0/1 preserved. Shared sparrow tunings upgrade into old records. Publish client/Worker together only after review/R2 verification.
+CROSS: minimal requested weapon/default/ownership/menu behavior and tests; existing siege preserved. Owner confirmed everyone must unlock Falcon, including existing players; no grandfathered grant or migration.
+FOR claude: do not merge/deploy this preview yet; new ZIP only local cache until review/upload. Art source/evidence outputs/steroids-alpha/sparrow-review; details art/sparrow-v1/README.md. Comms e31061e9.
 ## 2026-11-16 claude ship-stats-rams
 DID: per-ship handling: tune.interceptor/battlecruiser now hold explicit minSpeed/cruiseSpeed/maxSpeed/acceleration/braking/turnRate (old factors removed; same effective values); Falcon (renamed from Scrappy in UI) = tune.ship. Corner speed peaks at each ship's own cruise/top ratio. Rams: target straight to hull; rammer same amount to shield, no overflow, hull only if shield down (dashRamSelfDamage removed). Tutorial RAM step: battered practice Battlecruiser, 3 rams; tutorial drones/chasers' turret drones never fire (World.quiet).
 FILES: sim/{chassis,ship,world,clanBase,liveConfig,unlocks}.ts server/src/room.ts tune.json src/tutorial/guide.ts src/scenes/menu.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
@@ -84,23 +104,3 @@ SEAM: prior preview contracts retained; no new gameplay/tuning/protocol/input/ri
 CROSS: latestmain flight.ts merged cleanly; status-note conflict keeps both agents' work. Typecheck/build/rig/sim/live-config/bank pass; integrated2client+4bot and member-clan tests56–57FPS DPR2, real fire/dash, no errors.
 FOR claude: owner said go live with all and sync; gate satisfied. R2 object steroids-alpha_combat-backlog-v1_assets.zip SHA155c58afbb103592a20075b35f5e2b92ca4a77b9d51fc1c0e966083ccd283218; PR500 merged398b045; itch43733278666 succeeded. Public Brave151126r0067 verified12textures, ordnance/repair, mobile/upright inputs, both clan skins and open planet; no errors. Evidence outputs/steroids-alpha/backlog-live-verification/result.json; thread07e15987.
 
-## 2026-11-15 claude converge-exhaust
-DID: aim assist locks a target from the ship centre (cone/range, ships first) and each gun leads it from its own muzzle (cap weapon.assistConvergeMaxDeg 20) so both streams land; bots get no assist. Exhaust speed/life scales now ramp with the plume stretch (idle plume back to the original look); landed ships emit no exhaust (ThrusterInput.off).
-FILES: sim/{ship,world,liveConfig}.ts src/{net/client,render/thrusters,render/shipView}.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
-SEAM: AssistTarget.vx/vy; assistPick(); muzzleShot converges on the pick; ThrusterInput.off.
-CROSS: src/render/{thrusters,shipView}.ts (yours): scale ramp and engines-off only.
-FOR codex: nothing new.
-
-## 2026-11-15 claude ship-ground-cues
-DID: shadows drawn at render.shadowScale (0.72) of the ship in flight; hover glow 60 x 60 (round, smaller; was 112 x 38); docked ships ease (250 ms) down to the shadow's size, onto their shadow, hover lift to 0 and glow faded.
-FILES: src/render/shipView.ts src/scenes/flight.ts client.tune.json sim/liveConfig.ts BRIEF.md
-SEAM: ShipPlacement.landed (0..1); clientTune.render.shadowScale.
-CROSS: src/render/shipView.ts (yours): shadow scale, landed shrink/hover/glow fade only.
-FOR codex: docked ships sit wherever they stopped on the pad; a snap/settle effect to the pad centre would help.
-
-## 2026-11-15 codex P1-combat-preview
-DID: Painted missiles/mines/repair pods; smoke, armed/search/observed-seeking cues and lock brackets; differentiated death/missile/mine/split/Nova/ram/hit/shield-shatter effects; heading-only dash charge and subtle hull-border accents.
-FILES: art/combat-backlog-v1/* art/prepare-assets.mjs render/{combatSprites,combatEffects,worldArt}.ts scenes/flight.ts
-SEAM: optional painted/seeking ordnance cue, CombatImpact render tag; existing sim/wire/radii unchanged. Three new source PNGs/ZIP local, hash-verified preview cache; reserved R2 object NOT uploaded.
-CROSS: scene event/draw wiring only, no tuning/input. Typecheck/build/rig/sim/live-config,22 desktop/mobile frames + Canvas checks pass; actual fire/dash and2clients+4bots ~57FPS on PC, no errors.
-FOR claude: LOCAL PREVIEW, not published. Owner must review screenshots before live. Gallery outputs/steroids-alpha/backlog-review/index.html; branch codex/steroids-combat-backlog-preview. No PR opened because repository auto-merge would publish.

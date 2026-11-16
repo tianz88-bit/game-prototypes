@@ -24,6 +24,7 @@ export function shipPreview(scene: Phaser.Scene, chassis: number, palette: numbe
   const parts: { m: (typeof p.modules)[number]; img: Phaser.GameObjects.Image }[] = [];
   let left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;
   for(const m of [...p.modules].sort((a,b)=>depth(a,cal,p.modules)-depth(b,cal,p.modules))){
+    if(m.asset==='turret-head' && Number(m.id.slice(-1))>=chassisStats(chassis,TUNE).baseTurrets)continue;
     const key=paletteTexture(scene,p,m.asset,palette);
     if(!scene.textures.exists(key))continue;
     const at=pose(m,0,cal,0,0,0,0,p.modules);

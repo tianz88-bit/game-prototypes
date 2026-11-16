@@ -1,0 +1,105 @@
+[
+  {
+    "id": "chassis",
+    "asset": "chassis",
+    "x": 0,
+    "y": 0,
+    "band": 20
+  },
+  {
+    "id": "wingL",
+    "asset": "wing",
+    "x": -115.19999999999999,
+    "y": 24,
+    "band": 10,
+    "parent": "chassis",
+    "side": -1
+  },
+  {
+    "id": "wingR",
+    "asset": "wing",
+    "x": 115.19999999999999,
+    "y": 24,
+    "band": 11,
+    "parent": "chassis",
+    "side": 1,
+    "mirror": true
+  },
+  {
+    "id": "armour",
+    "asset": "armour",
+    "x": 0,
+    "y": 0,
+    "band": 30,
+    "parent": "chassis"
+  },
+  {
+    "id": "engineL",
+    "asset": "booster-core",
+    "x": -74.39999999999999,
+    "y": 112.8,
+    "band": 42,
+    "parent": "chassis",
+    "side": -1,
+    "motion": "engine",
+    "motionGroup": "engineL"
+  },
+  {
+    "id": "engineR",
+    "asset": "booster-core",
+    "x": 74.39999999999999,
+    "y": 112.8,
+    "band": 43,
+    "parent": "chassis",
+    "side": 1,
+    "motion": "engine",
+    "motionGroup": "engineR"
+  },
+  {
+    "id": "engineCapL",
+    "asset": "booster-cowling",
+    "x": -74.39999999999999,
+    "y": 91.2,
+    "band": 44,
+    "parent": "engineL",
+    "side": -1,
+    "motion": "engine",
+    "motionGroup": "engineL"
+  },
+  {
+    "id": "engineCapR",
+    "asset": "booster-cowling",
+    "x": 74.39999999999999,
+    "y": 91.2,
+    "band": 45,
+    "parent": "engineR",
+    "side": 1,
+    "motion": "engine",
+    "motionGroup": "engineR"
+  },
+  {
+    "id": "cockpit",
+    "asset": "cockpit-base",
+    "x": 0,
+    "y": -21.599999999999998,
+    "band": 50,
+    "parent": "armour"
+  },
+  {
+    "id": "canopy",
+    "asset": "cockpit-canopy",
+    "x": 0,
+    "y": -24,
+    "band": 51,
+    "parent": "cockpit"
+  },
+  {
+    "id": "gunCentre",
+    "asset": "gun",
+    "x": 0,
+    "y": -141.6,
+    "band": 60,
+    "parent": "armour",
+    "side": 0
+  }
+]
