@@ -1,5 +1,7 @@
 ## Current milestone
 
+Siege v0 step 1 (16 November, claude): siege rules and siege bots in the shared sim, plus a headless siege simulator; Warzone not playable yet (step 2: room countdown/lockdown, respawns, client UI).
+
 LIVE as161126r0074 at https://daily-daily-games.itch.io/steroids-alpha. Owner approved after preview; PR510 merged969638bd. itch43829523905 and Worker43829523419 succeeded. Both Warp map and level/kills/minerals leaderboard are public. Local review gallery remains outputs/steroids-alpha/warp-map-preview/index.html.
 
 ## What was implemented

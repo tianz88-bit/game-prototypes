@@ -979,6 +979,85 @@ assert.equal(S.cleanName(null), '');
   assert.equal(open.layout, null, 'open planets have no base');
 }
 
+// --- Siege v0 (owner, 16 November 2026): Warzone base at war. Turrets, shield and treasury take
+// attackers' bullets; live turrets regenerate the shield until it is fully broken; tickets and the
+// round timer; defenders cannot attack from inside a standing shield; pads give no safety at war. ---
+{
+  const w = emptyWorld();
+  w.setPlanet('warzone');
+  const L = w.layout, g = tune.siege;
+  assert(L && w.siege && w.siege.phase === 'peace' && L.clan === 2 && w.attackerClan === 1, 'warzone: Azure base, Crimson attacks, at peace');
+  w.startWar();
+  assert(w.atWar && w.siege.tickets === g.attackerTickets && w.siege.shield === g.shieldHp, 'war starts with full shield and tickets');
+  const shoot = (owner, x, y, damage = 50) => { w['bullets'].push({ owner, damage, x, y, vx: 0, vy: 0, life: 5 }); w.step(); };
+  const att = w.addShipNear(10, 100, 100, 0);
+  w.clanOf.set(10, 1);
+  // A turret takes the hit.
+  const t0 = L.turrets[0];
+  shoot(10, t0.x, t0.y);
+  assert.equal(w.siege.turretHp[0], g.turretHp - 50, 'a turret takes an attacker bullet');
+  // The shield takes hits inside the dome while up, and regenerates by live turrets.
+  shoot(10, L.treasury.x + 100, L.treasury.y);
+  const after = w.siege.shield;
+  assert(after < g.shieldHp - 49 + 1, 'the shield takes an attacker bullet');
+  w.step();
+  near(w.siege.shield - after, g.shieldRegenPerTurret * L.turrets.length / tune.net.tickHz, 1e-6, 'live turrets regenerate the shield');
+  // The treasury is out of reach while the shield stands.
+  shoot(10, L.treasury.x, L.treasury.y);
+  assert.equal(w.siege.treasury, g.treasuryHp, 'the treasury is safe behind the shield');
+  // Turrets destroyed stop regenerating it; once broken it stays down.
+  w.siege.turretHp = w.siege.turretHp.map(() => 0);
+  const flat = w.siege.shield;
+  w.step();
+  assert.equal(w.siege.shield, flat, 'no live turrets: no regeneration');
+  w.siege.turretHp[0] = 100;
+  shoot(10, L.treasury.x + 100, L.treasury.y, 99999);
+  assert(w.siege.shield === 0 && w.siege.shieldBroken, 'the shield breaks');
+  for (let i = 0; i < 30; i++) w.step();
+  assert.equal(w.siege.shield, 0, 'a broken shield does not regenerate, even with a live turret');
+  // A defender inside the dome could fire while the shield stood; now (shield down) it can.
+  // The treasury now takes hits, and destroying it ends the round for the attackers.
+  shoot(10, L.treasury.x, L.treasury.y, g.treasuryHp);
+  assert(w.siege.phase === 'over' && w.siege.winner === 1 && w.siege.reason === 'treasury', 'treasury destroyed: attackers win');
+  assert.deepEqual(w.drain().siegeOver, { winner: 1, reason: 'treasury' }, 'the round end is reported as an event');
+  void att;
+}
+{
+  const w = emptyWorld();
+  w.setPlanet('warzone');
+  const L = w.layout;
+  w.startWar();
+  // Defenders cannot fire from inside a standing shield.
+  const d = w.addShipNear(20, L.pads[0].x, L.pads[0].y, 0);
+  w.clanOf.set(20, 2);
+  const shots = d.shots;
+  for (let i = 0; i < 10; i++) { w.stepShip(20, { ...idle, fire: true }); w.step(); }
+  assert.equal(d.shots, shots, 'a defender inside the standing shield cannot fire');
+  // Pads give no safety at war.
+  Object.assign(d, { speed: 0 });
+  assert.equal(w.docked(20), false, 'no docking safety at war');
+  // Tickets: each attacker death costs one; none left and the defenders win.
+  w.siege.tickets = 2;
+  for (const id of [30, 31]) {
+    const a = w.addShipNear(id, 200, 200 + id * 50, 0);
+    w.clanOf.set(id, 1);
+    a.shield = 0;
+    w['damageShip'](id, a, 99999, 20, a.x, a.y);
+  }
+  assert(w.siege.tickets === 0 && w.siege.phase === 'over' && w.siege.winner === 2 && w.siege.reason === 'tickets', 'no tickets left: defenders win');
+  // Time: the round timer runs out and the defenders win.
+  const t = emptyWorld();
+  t.setPlanet('warzone');
+  t.startWar();
+  t.siege.endsAt = t.tick + 2;
+  for (let i = 0; i < 3; i++) t.step();
+  assert(t.siege.phase === 'over' && t.siege.reason === 'time' && t.siege.winner === 2, 'time up: defenders win');
+  // Open planets and peacetime homes have no siege.
+  const open = emptyWorld();
+  open.setPlanet('crimson');
+  assert.equal(open.siege, null, 'clan homes have no siege');
+}
+
 // --- Both guns on the locked target (owner, 15 November 2026): each gun leads the target from its
 // own muzzle, so both streams land; bots get no lock-on assist. ---
 {

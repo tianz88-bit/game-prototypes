@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 claude siege-sim
+DID: Siege v0 step 1: rules in the shared sim (World.siege on the Warzone planet: turret/shield/treasury HP, shield regen per live turret until broken, tickets, round timer, defenders cannot attack inside a standing shield, no dock safety at war, no warp at war) and siege bots (attack turrets -> shield -> treasury; defenders guard outside the dome). Headless harness scripts/sim-steroids-alpha-siege.mjs. Warzone is NOT in the menu yet.
+FILES: sim/{world,bots,planets,liveConfig}.ts tune.json scripts/{sim-steroids-alpha-siege,test-steroids-alpha-sim}.mjs BRIEF.md
+SEAM: tune.siege; World.siege/atWar/attackerClan/startWar/endPeace; events.siegeOver/structureHits; WARZONE/isWarPlanet.
+CROSS: none (no client or protocol changes yet).
+FOR codex: step 2 (playable Warzone) will need art for damaged/destroyed turrets, a shield health look and a treasury health look; not yet.
+
 ## 2026-11-16 codex warp-stellar-map-release
 DID: pulsing menu WARP opens spinning four-globe chart; first tap selects/details, second enters. Shows real populations, relationship and resource types. Leaderboard and compact rank now sort level, kills, minerals; labels say MINERALS.
 FILES: src/render/{stellarMap,planetGround}.ts, src/scenes/{menu,flight}.ts, src/main.ts, sim/leaderboard.ts, sim/protocol.ts comment, sim tests, BRIEF/BUILD_STATUS.
@@ -97,10 +104,3 @@ FILES: render/{flightIndicators,combatHud}.ts scenes/{hangar,flight}.ts
 SEAM: drawing helpers only; preserved compact mobile controls/uiZones, authoritative values and desktop-style own vitals.
 CROSS: scene styling only.27 desktop/mobile/small captures +6connection/2cargo rechecks pass, no errors; alert placement clears combat and upgrade drawer.
 FOR claude: LOCAL PREVIEW, not published. Owner must review screenshots before live. Gallery outputs/steroids-alpha/backlog-review/index.html; branch codex/steroids-combat-backlog-preview. No PR opened because repository auto-merge would publish.
-
-## 2026-11-15 claude clan-planets-v0
-DID: two demo clans (menu pick, save.clan, sent as ?clan=); PLANETS now Lawless A, Satellite B, Crimson Home, Azure Home. Home planets (sim/clanBase.ts): treasury at map centre, 6 pads, 6 base turrets, shield dome, gate at (0,0). Members spawn by the pads and may stop over a pad (stepShip floor 0): docked = safe, repaired, salvage unloaded to the treasury (Room.treasury, DO storage 'treasury'). Non-members spawn at the gate, are fired on by base turrets, pushed out of the dome; their bullets/ordnance stop at it. Arrival warnings and docking banner. Ground tint per clan.
-FILES: sim/{planets,clanBase,ship,world,protocol,liveConfig}.ts server/src/{room,index}.ts src/{net/client,input/intents,scenes/menu,scenes/flight,render/planetGround,save,main,liveConfig}.ts tune.json (base group) scripts/test-steroids-alpha-{sim,bank}.mjs scripts/screenshot-steroids-alpha.mjs BRIEF.md GFX_BRIEF.md DESIGN_LONGGAME.md
-SEAM: stepShip(..., floor); World.setPlanet/layout/clanOf/addShipNear/docked; WorldEvents.deposits; shots side >= BASE_TURRET_SIDE (40), owner BASE_OWNER (0); text frames 'treasury' {clan,total} and 'deposited' {amount}; RosterEntry.clan; PlanetGround(scene, depth, tint); intents.flight(speed, floor); hooks layout()/docked()/treasury().
-CROSS: src/render/planetGround.ts (yours): tint uniform added, default [1,1,1] keeps the old look.
-FOR codex: art brief in Agent Comms (thread 07e15987) and GFX_BRIEF.md "Clan planets v0 art".

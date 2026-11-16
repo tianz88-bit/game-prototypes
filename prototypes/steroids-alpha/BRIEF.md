@@ -147,6 +147,39 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
 - Not in this slice: wars, guest passes, clan techs, buildings, satellites owned by clans,
   prestige points.
 
+## Siege v0: Warzone (owner, 16 November 2026)
+
+First clan-versus-clan fight. Built in two steps: the rules and a headless bot simulation first
+(done), then the playable planet.
+
+- **Warzone planet:** a clan base (treasury, shield dome, 6 turrets, pads, gate) defended by
+  **Azure**; **Crimson** attacks. Separate from the clan home planets, which stay peaceful.
+- **War start:** when at least 1 Crimson and 1 Azure player (bots do not count) are on Warzone, a
+  10 s countdown starts, then the war begins and **no one else can join**.
+- **Lockdown release:** when a side has no players left, a 10 s countdown, then Warzone opens again.
+- **Bots:** 2 per side.
+- **Objective (attackers):** destroy the turrets, break the shield, destroy the treasury, in a
+  natural order: everything is attackable at any time, but bullets stop at the shield while it stands,
+  and each live turret regenerates it.
+- **Shield:** regenerates passively at `siege.shieldRegenPerTurret` per live turret a second. Once
+  fully depleted it stops regenerating for the rest of the round. While it stands, attackers cannot
+  enter it; once down they can.
+- **Treasury:** its health never recovers during the siege.
+- **Defenders:** cannot attack (guns, missiles, mines) from inside a standing shield. At war the pads
+  are only spawn points: no docking safety, no repair. Defenders respawn at the pads after
+  `siege.defenderRespawnSeconds`.
+- **Attackers:** respawn instantly at the gate. Shared ticket pool (`siege.attackerTickets`); each
+  attacker death costs one.
+- **Win:** attackers by destroying the treasury. Defenders when attacker tickets reach 0 or the
+  round timer (`siege.roundSeconds`, 5:00) runs out.
+- **After a round:** the base, tickets and timer reset, and a new 10 s countdown starts if both sides
+  are still there.
+- **On Warzone:** mining and upgrades as usual (power only: no salvage, no fuel); no warp-out during
+  a war. **No rewards** for now.
+- Starting values (to be tuned by the owner after playtests): turrets 150 HP, shield 1,000 HP
+  regenerating 2 HP/s per live turret, treasury 1,500 HP, 20 tickets, defender respawn 15 s. Headless
+  results: `scripts/sim-steroids-alpha-siege.mjs`.
+
 ## Lockdown and warp-out
 
 - **Lockdown:** 3 minutes from drop-in. The Warp button is visible but offline,
