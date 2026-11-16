@@ -26,6 +26,9 @@
     "acceleration": 440,
     "braking": 600,
     "turnRate": 3.2,
+    "turnAtMinSpeed": 0.7,
+    "turnAtMaxSpeed": 0.85,
+    "dashSteerFactor": 0.25,
     "dashSpeedFactor": 1.8,
     "dashChargeSeconds": 0.4,
     "dashDuration": 0.8,
@@ -48,8 +51,9 @@
     "spillLockSeconds": 3,
     "dashRamDamage": 30,
     "dashRamSelfDamage": 8,
-    "bumpDamage": 10,
-    "bumpKnockbackSpeed": 220
+    "dashRamHullFraction": 0.15,
+    "bumpDamage": 20,
+    "bumpKnockbackSpeed": 380
   },
   "weapon": {
     "fireIntervalSteps": 4,

@@ -1016,6 +1016,30 @@ assert.equal(S.cleanName(null), '');
   assert.equal(open.layout, null, 'open planets have no base');
 }
 
+// --- Combat changes (owner, 16 November 2026): corner speed, dash ram share of hull, harder bumps. ---
+{
+  const at = (speed, hull = tune.ship.maxHp) => { const s = S.newShip(0, 0, 0, speed); s.hp = s.hullMax = hull; return S.cornerFactor(s, tune); };
+  near(at(tune.ship.cruiseSpeed), 1, 1e-9, 'best turning at cruise speed');
+  near(at(tune.ship.minSpeed), tune.ship.turnAtMinSpeed, 1e-9, 'slower turning at minimum speed');
+  near(at(tune.ship.maxSpeed), tune.ship.turnAtMaxSpeed, 1e-9, 'slower turning at top speed');
+  assert(at(200) > tune.ship.turnAtMinSpeed && at(200) < 1, 'in between, in between');
+  // A dash ram on a big ship takes the hull share when it beats the flat ram.
+  const w = emptyWorld();
+  const r = placeShip(w, 1, 1000, 1000, 0);
+  const big = placeShip(w, 2, 1000 + 200, 1000, Math.PI);
+  big.hp = big.hullMax = 400;
+  big.shield = 0;
+  r.arrival = big.arrival = 0;
+  big.shieldCd = 99;
+  big.speed = tune.ship.minSpeed;
+  r.dashTime = tune.ship.dashDuration;
+  r.speed = S.dashSpeed(r.hullMax, tune);
+  const hp0 = big.hp;
+  for (let i = 0; i < 20 && big.hp === hp0; i++) { w.stepShip(1, idle); w.stepShip(2, idle); w.step(); }
+  const flat = tune.ship.dashRamDamage * S.damageScale(r, tune);
+  near(hp0 - big.hp, Math.max(flat, tune.ship.dashRamHullFraction * 400), 1e-6, 'ram deals the larger of flat and hull share');
+}
+
 // --- Siege v0 (owner, 16 November 2026): Warzone base at war. Turrets, shield and treasury take
 // attackers' bullets; live turrets regenerate the shield until it is fully broken; tickets and the
 // round timer; defenders cannot attack from inside a standing shield; pads give no safety at war. ---
@@ -1272,22 +1296,23 @@ assert.equal(S.cleanName(null), '');
   const chargeHeading = sh.heading;
   let charge = 1;
   while (sh.dashCharge > 0) {
-    // Steering (turn or a marker aim) is locked during the charge, and the boost goes straight ahead.
+    // Slight steering only during the charge (owner, 16 November 2026: ship.dashSteerFactor).
     const before = sh.heading;
-    S.stepShip(sh, { ...idle, thrust: -1, turn: 1, aim: 0.3 }, dt, tune);
-    if (sh.dashCharge > 0) near(sh.heading, before, 1e-12, 'no steering while charging');
+    S.stepShip(sh, { ...idle, thrust: -1, turn: 1 }, dt, tune);
+    const slight = tune.ship.turnRate * tune.ship.dashSteerFactor * dt;
+    if (sh.dashCharge > 0) assert(sh.heading > before && sh.heading - before <= slight + 1e-9, 'only slight steering while charging');
     charge++;
   }
   assert(Math.abs(charge * dt - tune.ship.dashChargeSeconds) <= dt, `charge lasts dashChargeSeconds (${charge} steps)`);
-  near(sh.heading, chargeHeading, 1e-9, 'boosts straight ahead (no direction picking)');
+  assert(sh.heading - chargeHeading <= charge * tune.ship.turnRate * tune.ship.dashSteerFactor * dt + 1e-9, 'the charge steers only slightly');
+  sh.heading = Math.PI / 2;
   let n = 0;
   let y0 = sh.y;
   const startY = sh.y;
   while (sh.dashTime > 0) {
     y0 = sh.y;
-    S.stepShip(sh, { ...idle, thrust: -1, turn: 1 }, dt, tune);
+    S.stepShip(sh, { ...idle, thrust: -1 }, dt, tune);
     near((sh.y - y0) / dt, boost, 1e-6, 'boost speed holds while braking');
-    near(sh.heading, Math.PI / 2, 1e-9, 'no steering during the boost either');
     n++;
   }
   near(sh.y - startY, boost * tune.ship.dashDuration, boost * 2 * dt, 'boost distance = dash speed x duration');
@@ -1600,8 +1625,9 @@ assert.equal(S.cleanName(null), '');
     assert(ws > S.topSpeed(s.hullMax, tune) && ws <= S.topSpeed(s.hullMax, tune) * 1.5, 'warp only slightly faster than top speed');
     assert.deepEqual([s.shots, s.missileShots, s.dashCharge, s.dashTime], [0, 0, 0, 0], 'no guns, missiles or dash in warp');
     const h0 = s.heading;
+    const corner = S.cornerFactor(s, tune);
     S.stepShip(s, { ...idle, turn: 1 }, dt, tune);
-    near(s.heading - h0, tune.ship.turnRate * dt * wt.steerFactor, 1e-9, 'slight steering only');
+    near(s.heading - h0, tune.ship.turnRate * dt * wt.steerFactor * corner, 1e-9, 'slight steering only');
     const d0 = s.warpDist;
     S.stepShip(s, idle, dt, tune);
     near(s.warpDist - d0, ws * dt, 1e-6, 'warp distance grows with distance flown');
@@ -1860,9 +1886,11 @@ assert.equal(S.cleanName(null), '');
   near(S.maxShield(bc, tune), tune.ship.maxShield * tb.shieldFactor, 1e-9, 'battlecruiser shield');
   near(S.damageScale(bc, tune), tb.damageFactor, 1e-9, 'battlecruiser damage');
   // Turning: one step of full turn input.
+  // Corner speed is the same rule for all; take it out to compare the chassis turn factors.
+  const corner = [sc, it, bc].map((s) => S.cornerFactor(s, tune));
   for (const s of [sc, it, bc]) S.stepShip(s, { ...idle, turn: 1 }, dt, tune);
-  near(it.heading / sc.heading, ti.turnFactor, 1e-9, 'interceptor turns faster');
-  near(bc.heading / sc.heading, tb.turnFactor, 1e-9, 'battlecruiser turns slower');
+  near(it.heading / corner[1] / (sc.heading / corner[0]), ti.turnFactor, 1e-9, 'interceptor turns faster');
+  near(bc.heading / corner[2] / (sc.heading / corner[0]), tb.turnFactor, 1e-9, 'battlecruiser turns slower');
   // Guns: the battlecruiser's four cannons fire in turn from their mounts, every fireIntervalSteps.
   const g = ship(2);
   const sides = [];

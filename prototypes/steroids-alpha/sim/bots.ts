@@ -38,7 +38,16 @@ export interface BotBrain {
   seen: { x: number; y: number; vx: number; vy: number; at: number } | null;
   /** World tick it dropped in (the room sets it): bots warp out after bots.warpAfterSeconds. */
   bornAt: number;
+  /** Tutorial planet only: a scripted practice pilot (sim/bots.ts tutorialBotThink). */
+  tutorial?: TutorialBotKind;
 }
+
+/**
+ * Tutorial practice pilots (owner, 16 November 2026: "really really noob"). drone: drifts slowly and
+ * never shoots. chaser: follows the nearest player at a distance and never shoots (mine practice).
+ * noob: fights back badly: slow, wide aim error, rare short bursts, no dash, missiles or mines.
+ */
+export type TutorialBotKind = 'drone' | 'chaser' | 'noob';
 
 export function newBrain(rng: () => number): BotBrain {
   return { aimError: 0, cooling: false, wander: rng() * Math.PI * 2, nextBuy: Math.floor(rng() * 3), target: 0, reactAt: 0, engagedSince: 0, distractedUntil: 0, seen: null, bornAt: 0 };
@@ -275,4 +284,46 @@ function siegeGoal(s: ShipState, world: World, base: BaseLayout, defending: bool
   const a = threat ? Math.atan2(wrapDelta(threat.y, base.treasury.y, H), wrapDelta(threat.x, base.treasury.x, W)) : world.tick / (tune.net.tickHz * 20);
   const post = rel(base.treasury.x + Math.cos(a) * b.turretRing, base.treasury.y + Math.sin(a) * b.turretRing);
   return { ...post, standoff: 0, shoot: false };
+}
+
+/** One tick for a tutorial practice pilot. */
+export function tutorialBotThink(id: number, s: ShipState, world: World, brain: BotBrain, tune: Tune, rng: () => number): ShipInput {
+  const input = idleInput();
+  const W = tune.world.width, H = tune.world.height;
+  const rel = (x: number, y: number): { dx: number; dy: number; d: number } => {
+    const dx = wrapDelta(x, s.x, W), dy = wrapDelta(y, s.y, H);
+    return { dx, dy, d: Math.hypot(dx, dy) };
+  };
+  // Keep clear of rocks, like everyone.
+  const rock = nearestRock(s, world, tune, rel);
+  if (rock && rock.d - rock.r < 120) {
+    input.aim = Math.atan2(rock.dy, rock.dx) + Math.PI * 0.6;
+    input.thrust = 0.3;
+    return input;
+  }
+  let player: { dx: number; dy: number; d: number } | null = null;
+  for (const [oid, o] of world.ships) {
+    if (oid === id || o.hp <= 0 || world.botIds.has(oid)) continue;
+    const r = rel(o.x, o.y);
+    if (!player || r.d < player.d) player = r;
+  }
+  if (brain.tutorial === 'chaser' && player) {
+    input.aim = Math.atan2(player.dy, player.dx);
+    input.thrust = player.d > 260 ? 1 : -1;
+    return input;
+  }
+  if (brain.tutorial === 'noob' && player && player.d < 700) {
+    // Turns toward the player with a wide drifting error; fires rare, short bursts.
+    brain.aimError = Math.max(-1, Math.min(1, brain.aimError + (rng() - 0.5) * 0.4));
+    const aim = Math.atan2(player.dy, player.dx) + brain.aimError * 0.45;
+    input.aim = aim;
+    input.thrust = player.d > 380 ? 0.3 : -1;
+    input.fire = Math.abs(angleDelta(aim, s.heading)) < 0.2 && rng() < 0.12 && s.heat < 0.4;
+    return input;
+  }
+  // Drones (and idle noobs) drift around slowly.
+  brain.wander += (rng() - 0.5) * 0.06;
+  input.aim = brain.wander;
+  input.thrust = -1;
+  return input;
 }

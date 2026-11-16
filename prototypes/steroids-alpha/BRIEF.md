@@ -147,6 +147,22 @@ First playable slice of the long game (DESIGN_LONGGAME.md). Scope is this sectio
 - Not in this slice: wars, guest passes, clan techs, buildings, satellites owned by clans,
   prestige points.
 
+## Tutorial planet (owner, 16 November 2026)
+
+- Single player, from the menu (TUTORIAL under WARP). No forced onboarding, no rewards.
+- Runs entirely in the browser: the real game room runs in the page (src/tutorial), stepping once
+  per pilot input, so the rules are exactly those of online play on any device speed.
+- Step by step, each skill repeated until it is done for real (hints never block play):
+  1. Steer through 5 rings. 2. Full speed then minimum speed, 3 times. 3. Dash through 3 gates.
+  4. Destroy 4 asteroids. 5. Collect minerals (+15 power). 6. Overheat the guns twice.
+  7. A training turret breaks your shield and hits your hull; collect a repair pod.
+  8. Buy MISSILES and MINES (power topped up first). 9. 3 locked missile launches at a drone.
+  10. 2 mine hits on a chaser. 11. Destroy 3 practice pilots (very weak: slow, inaccurate, rare
+  bursts, no dash, missiles or mines). 12. The Battlecruiser evolution explained (GOT IT).
+  13. Free play against helpless drones; warp out any time to finish.
+- Instructions match the control scheme (mouse, keyboard, touch). Esc leaves to the menu; a
+  destroyed pilot respawns and carries on from the same step.
+
 ## Siege v0: Warzone (owner, 16 November 2026)
 
 First clan-versus-clan fight. Built in two steps: the rules and a headless bot simulation first
@@ -298,8 +314,9 @@ First clan-versus-clan fight. Built in two steps: the rules and a headless bot s
   start a 0.4 s charge (owner, 15 November: was 0.8 s) during which the ship cannot steer;
   when it completes the ship boosts straight ahead (owner, 15 November: no
   direction picking) at 1.8x the ship's top speed for 0.8 s (1.6 s
-  total, about 500 px for a fresh ship), ignoring braking. Steering is locked for the whole dash, charge
-  and boost (owner, 12 November). Cooldown 8 s,
+  total, about 500 px for a fresh ship), ignoring braking. Only slight steering through the whole dash, charge and boost
+  (owner, 16 November: 25% of the turn rate, `ship.dashSteerFactor`, so rams can be aimed and
+  dashes used to evade; was fully locked). Cooldown 8 s,
   shown by a yellow bar next to the gun heat bar. Dash ram damage hits shields
   first, like any damage. Exhaust plume: 2x longer at top speed than
   before and 3x in a dash (owner, 15 November). "Top speed" is each ship's
@@ -359,12 +376,18 @@ First clan-versus-clan fight. Built in two steps: the rules and a headless bot s
   recharge cooldown runs out.
 - Shield hit effect: a glowing sphere tiled with hexagons around the craft
   (owner reference image); some hexagons on the hit side flash (owner).
-- Dash ram (owner picked): dashing into a ship damages it, scaled by gun
-  upgrades, and throws both apart.
-- Ship bumps (owner, 15 November): ships that touch outside a dash no longer
-  pass through each other; both bounce apart and take 10 damage (shield
-  first), at most once per pair every 0.5 s (ship.bumpDamage,
-  bumpKnockbackSpeed, contactGraceSeconds).
+- Dash ram (owner picked): dashing into a ship damages it and throws both apart. Damage is the
+  larger of the flat ram (scaled by gun upgrades) and 15% of the target's hull maximum (owner,
+  16 November, `ship.dashRamHullFraction`), so any pilot can hurt a big, decked-out ship.
+- Ship bumps (owner, 15 November; harder on 16 November): ships that touch outside a dash no
+  longer pass through each other; both bounce apart (380) and take 20 damage (shield first), at
+  most once per pair every 0.5 s (ship.bumpDamage, bumpKnockbackSpeed, contactGraceSeconds).
+- Corner speed (owner, 16 November): ships turn best at cruise speed and worse both slower and
+  faster: 70% of the turn rate at minimum speed (`ship.turnAtMinSpeed`) and 85% at the ship's own
+  top speed (`ship.turnAtMaxSpeed`). Slowing right down no longer wins a turn fight, which breaks
+  up circling stalemates.
+- Hull damage feedback (owner, 16 November): a subtle red flash at the screen edges when your hull
+  (not the shield) takes damage; hull readouts flash red below 50%.
 - Nose marker (owner, 15 November): a small chevron just ahead of your own
   ship shows where the guns point.
 - Target health bar (owner, 15 November): after you hit a ship, a small bar

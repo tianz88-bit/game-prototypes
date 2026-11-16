@@ -484,7 +484,9 @@ export class World {
         o.ky = dy * k * Math.min(2, sr / or);
         s.kx = -dx * k * 0.5 * Math.min(2, or / sr);
         s.ky = -dy * k * 0.5 * Math.min(2, or / sr);
-        this.damageShip(oid, o, t.ship.dashRamDamage * damageScale(s, t), id, wrap(o.x - dx * or, W), wrap(o.y - dy * or, H));
+        // Ram (owner, 16 November 2026): the larger of the flat ram (scaled by the rammer's power) and
+        // ship.dashRamHullFraction of the target's hull maximum, so any pilot can hurt a big ship.
+        this.damageShip(oid, o, Math.max(t.ship.dashRamDamage * damageScale(s, t), t.ship.dashRamHullFraction * o.hullMax), id, wrap(o.x - dx * or, W), wrap(o.y - dy * or, H));
         this.damageShip(id, s, t.ship.dashRamSelfDamage, oid, wrap(s.x + dx * sr, W), wrap(s.y + dy * sr, H));
         this.events.rams.push({ id, target: oid, x: wrap(s.x + dx * sr, W), y: wrap(s.y + dy * sr, H) });
         break;
@@ -944,6 +946,29 @@ export class World {
   }
 
   /** Ids travel as 16 bits: wrap around, skipping any still in use. */
+  /** Tutorial planet: a scripted rock at (x, y), at rest. Returns its id. */
+  spawnAsteroid(size: number, x: number, y: number): number {
+    const a: Asteroid = { id: this.newAsteroidId(), size, x, y, vx: 0, vy: 0, t0: this.tick, hp: this.tune.asteroid.hp[size], family: 1 };
+    this.asteroids.set(a.id, a);
+    this.events.asteroids.push(a);
+    return a.id;
+  }
+
+  /** Tutorial planet: a scripted pickup (minerals or a repair pod). Returns its id. */
+  spawnPickup(kind: 'heal' | 'mineral', x: number, y: number, value: number): number {
+    const id = this.nextPickupId;
+    this.addPickup(x, y, kind, value);
+    const k = this.pickups.get(id);
+    if (k) k.lockedUntil = this.tick;
+    return id;
+  }
+
+  /** Tutorial planet: a training shot from a fixed point (no ship fired it). */
+  spawnBullet(x: number, y: number, vx: number, vy: number, damage: number, life: number): void {
+    this.bullets.push({ owner: BASE_OWNER, damage, x, y, vx, vy, life });
+    this.events.shots.push({ owner: BASE_OWNER, x, y, vx, vy, side: 0 });
+  }
+
   private newAsteroidId(): number {
     for (;;) {
       const id = this.nextAsteroidId;

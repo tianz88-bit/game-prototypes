@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 claude tutorial-combat
+DID: combat: ram = max(flat, 15% target hull max), slight dash steering (25%), bumps 20 dmg / 380 knockback, corner speed (turn best at cruise; 70% at min, 85% at top), red hull-hit edge flash, hull readouts flash below 50%. Tutorial planet: menu TUTORIAL, the real Room runs in the page in lockstep via an in-memory socket pair, 13 scripted steps with repetition and noob/drone/chaser bots, free play then warp out to finish.
+FILES: sim/{ship,world,bots,planets,liveConfig}.ts server/src/room.ts tune.json src/tutorial/{guide,localServer}.ts src/net/client.ts src/scenes/{flight,menu}.ts src/render/combatHud.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
+SEAM: cornerFactor(); tune.ship.{dashRamHullFraction,turnAtMinSpeed,turnAtMaxSpeed,dashSteerFactor}; Room.sim/setManualBots/setLockstep/addTutorialBot; World.spawnAsteroid/spawnPickup/spawnBullet; NetClient transport arg; PlanetId includes 'tutorial'; window.__tutorial with ?debug=1.
+CROSS: src/render/combatHud.ts and flight drawHullBorder (yours): colour/threshold only; tutorial panel is placeholder overlay.
+FOR codex: tutorial rings/gates/training turret are placeholder shapes; the instruction panel could use your panel style.
+
 ## 2026-11-16 claude siege-sim
 DID: Siege v0 step 1: rules in the shared sim (World.siege on the Warzone planet: turret/shield/treasury HP, shield regen per live turret until broken, tickets, round timer, defenders cannot attack inside a standing shield, no dock safety at war, no warp at war) and siege bots (attack turrets -> shield -> treasury; defenders guard outside the dome). Headless harness scripts/sim-steroids-alpha-siege.mjs. Warzone is NOT in the menu yet.
 FILES: sim/{world,bots,planets,liveConfig}.ts tune.json scripts/{sim-steroids-alpha-siege,test-steroids-alpha-sim}.mjs BRIEF.md
@@ -96,11 +103,4 @@ DID: Crimson fractured dust and Azure glacial terrain, fortified treasury, pads/
 FILES: render/{clanBaseArt,planetGround}.ts scenes/flight.ts drawBase
 SEAM: drawClanBase/styleClanBanner read existing layout/tune; exact coordinates/radii/projection retained.
 CROSS: drawBase render integration only.24 WebGL +2Canvas captures, real docked/over-pad getter and GLSL checks pass; labels/limb clipping corrected.
-FOR claude: LOCAL PREVIEW, not published. Owner must review screenshots before live. Gallery outputs/steroids-alpha/backlog-review/index.html; branch codex/steroids-combat-backlog-preview. No PR opened because repository auto-merge would publish.
-
-## 2026-11-15 codex P3-progression-preview
-DID: Evolution assembly/shield lock, capital escorts/name clearance, warp aperture/launch and two painted asteroid fracture stages.
-FILES: render/{progressionArt,rockPainted}.ts scenes/flight.ts
-SEAM: progression/followId visual effect tags; chassis observed from server, no control lock/gameplay changes. Damage textures share original alpha/registration/coverage.
-CROSS: placeShip/event drawing only.14 desktop/mobile frames; all30 damage variants preserve alpha exactly and change RGB; no browser errors.
 FOR claude: LOCAL PREVIEW, not published. Owner must review screenshots before live. Gallery outputs/steroids-alpha/backlog-review/index.html; branch codex/steroids-combat-backlog-preview. No PR opened because repository auto-merge would publish.

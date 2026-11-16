@@ -157,6 +157,22 @@ export function copyShip(s: ShipState): ShipState {
   return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, arrival: s.arrival ?? 0, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist, salvage: s.salvage, fuel: s.fuel, chassis: s.chassis, shieldCd: s.shieldCd };
 }
 
+/**
+ * Corner speed (owner, 16 November 2026): a ship turns best at cruise speed; slower or faster it
+ * turns worse, down to ship.turnAtMinSpeed at minimum speed and ship.turnAtMaxSpeed at its own top
+ * speed. Pilots who slow right down no longer win turn fights, which breaks up circling stalemates.
+ */
+export function cornerFactor(s: ShipState, tune: Tune): number {
+  const t = tune.ship, top = topSpeed(s.hullMax, tune, s.chassis), v = s.speed;
+  const cruise = Math.min(t.cruiseSpeed, top);
+  if (v <= cruise) {
+    const span = Math.max(1, cruise - t.minSpeed);
+    return t.turnAtMinSpeed + (1 - t.turnAtMinSpeed) * Math.max(0, Math.min(1, (v - t.minSpeed) / span));
+  }
+  const span = Math.max(1, top - cruise);
+  return 1 - (1 - t.turnAtMaxSpeed) * Math.min(1, (v - cruise) / span);
+}
+
 /** Advance one fixed step. Mutates and returns s. */
 /** floor: the lowest speed allowed this step (0 over one's own clan landing pad, sim/clanBase.ts). */
 export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune, floor = tune.ship.minSpeed, advanceArrival = true): ShipState {
@@ -178,10 +194,11 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune,
     }
   }
   if (s.warping) input = { ...input, dash: false, fire: false, missile: false, mine: false };
-  // No steering for the whole dash, charge and boost (owner design): the ship holds course while
-  // the player picks the boost direction, then commits to it. Steering returns when the boost ends.
+  // Slight steering through the whole dash, charge and boost (owner, 16 November 2026:
+  // ship.dashSteerFactor of the turn rate), so rams can be aimed and dashes used to evade.
   // In warp the heading is locked apart from slight steering (warp.steerFactor of the turn rate).
-  const maxTurn = s.dashCharge > 0 || s.dashTime > 0 ? 0 : tune.ship.turnRate * chassisStats(s.chassis, tune).turn * dt * (s.warping ? tune.warp.steerFactor : 1);
+  const dashing = s.dashCharge > 0 || s.dashTime > 0;
+  const maxTurn = tune.ship.turnRate * chassisStats(s.chassis, tune).turn * dt * (dashing ? tune.ship.dashSteerFactor : cornerFactor(s, tune)) * (s.warping ? tune.warp.steerFactor : 1);
   if (Number.isFinite(input.aim)) {
     const diff = angleDelta(input.aim, s.heading);
     s.heading += Math.max(-maxTurn, Math.min(maxTurn, diff));
