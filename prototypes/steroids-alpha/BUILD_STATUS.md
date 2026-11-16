@@ -1,17 +1,21 @@
 ## Current milestone
 
-LOCAL PREVIEW ONLY on codex/steroids-orbit-nexus-preview, based on main472a0ed. Owner requested orbital entry/exit, quieter ship UI, a larger treasury nexus and rigged twin-cannon towers, with preview before live. Review gallery: outputs/steroids-alpha/orbit-review/index.html. Nothing in this pass has been uploaded to R2, pushed, merged or deployed. Previous approved public release remains151126r0067 (PR500/501).
+LOCAL PREVIEW ONLY on codex/steroids-orbit-nexus-preview, based on main472a0ed. Owner requested orbital entry/exit, ship-centred semicircle meters, a larger treasury nexus and rigged twin-cannon towers, with preview before live. Latest UI gallery: outputs/steroids-alpha/semicircle-hud-preview/index.html; orbital/building gallery: outputs/steroids-alpha/orbit-review/index.html. Nothing in this pass has been uploaded to R2, pushed, merged or deployed. Previous approved public release remains151126r0067 (PR500/501).
 
 ## What was implemented
 
 - OrbitalTransition starts on the first own snapshot: whole globe at34% play zoom,1.8s descent and atmosphere streak, ground light/shadow fade-in and arrival pulse. Input/prediction continue. Entry begins below the fixed Warp chip.
 - On extraction, the server state remains extracted while a cached own ship plays a1.5s visual departure. The usual extracted-result panel follows; ordinary death retains its700ms panel delay. DROP IN and RESPAWN replay entry; resize preserves elapsed time.
-- Persistent neon selection circumference replaced by small navy/cream/cyan plates. Nose cue is smaller; engaged target meters share the panel material language.
+- Latest HUD: left shield semicircle switches to hull at depletion, thin shield-reboot recovery arc, hull/total numbers below. Right half splits remaining weapon capacity (1-heat) and dash charge/active/cooldown. Recovery fills and warning pulses remain. Old flat panel, own plates/name, broken-shield glyph and button-duplicate meters removed; nose cue/engaged target meters retained. Bounty labels avoid the instrument region.
 - Seven new original painted building parts:3-layer treasury nexus and4-part towers with a duplicated barrel. Fixed layers, projected bearing/foreshortening, separate ground shadows, clan palettes and alternating visual barrel recoil/flash. Treasury foundation260world units; no simulation footprint/radius/firing change.
 - Boot/pipeline loads bounded shared runtime textures; procedural building fallback remains. Scene rebuild/shutdown releases owned views. Seven original PNGs, exact generation metadata and ZIP stay in outputs/steroids-alpha/buildings-rig-v01; content-addressed cache supports local builds.
 - Required config regression test had a pre-existing concurrent-publish winner assumption. It now verifies the actual winner, then uses a separate deterministic edited record for later fixtures. Server code unchanged.
 
-## Validation
+## Latest HUD validation
+
+Typecheck/build/rig/sim/live-config pass. Brave desktop1280x720/mobile844x390/small-phone667x375 DPR2:21 actual-renderer state captures plus2 recovery GIFs, no page/console errors. Real mobile fire builds heat, dash activates cooldown, upright390x844 keeps instruments centred and playable; original button zones unchanged. Recovery previews use local fixtures; real phone hardware remains unmeasured.
+
+## Orbital/building validation
 
 - Typecheck and production build pass (existing repo bundle-size/dynamic-import warnings only).
 -396rig poses and14400FFD points pass; sim suite passes; live-config suite passes3consecutive runs after the test-only race correction.

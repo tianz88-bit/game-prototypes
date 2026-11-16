@@ -35,6 +35,7 @@ Change a seam = HANDOFF entry tagged `SEAM:` + message to the other agent. Never
 
 - Combat backlog: pooled painted ordnance/heal bodies and optional seeking cue observe current state; CombatImpact and progression/followId tags are visual-only. ClanBaseArt reads exact layout/tune geometry; damage textures preserve original alpha/coverage. FlightIndicators owns only drawing, never uiZones.
 - BuildingRigs owns shared painted clan textures and per-scene fixed-layer nexus/tower images. Boot queues/prepares art; Flight begins/ends drawing even without a layout and destroys on rebuild/shutdown. ClanBaseArt can return larger treasury label bounds. Projection/aim/firedAt are observed; no extra authoritative shots or building footprint changes.
+- CombatHud.draw accepts an optional CombatHudAnchor (screen x/y/radius/visible). Flight derives silhouette clearance from the projected chassis/power scale; two informational halves read existing shield/hull/heat/dash state. Weapon capacity is 1-heat; no gameplay heat inversion. Meters hide during orbital movement and never create input zones. Bounty labels clear their bounds.
 
 ## Workflow per push
 

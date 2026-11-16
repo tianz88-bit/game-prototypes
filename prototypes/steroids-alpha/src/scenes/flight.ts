@@ -2,6 +2,7 @@ import { drawCombatImpact, drawShieldShatter } from '../render/combatEffects';
 import type { CombatImpact } from '../render/combatEffects';
 import {drawEvolve,drawWarpCharge,drawWarpLaunch,drawCapitalEscort,shipTagClearance,EVOLVE_ART_MS,WARP_LAUNCH_ART_MS} from '../render/progressionArt';
 import { CombatHud } from '../render/combatHud';
+import type { CombatHudAnchor } from '../render/combatHud';
 import { drawTargetMeter, drawNoseMarker, drawSalvageZoneRing, drawConnectionBanner } from '../render/flightIndicators';
 import { CombatSprites } from '../render/combatSprites';
 import { BuildingRigs } from '../render/buildingRig';
@@ -95,6 +96,7 @@ export class FlightScene extends Phaser.Scene {
   private board = new Map<number, BoardChip>();
   private boardTitle!: Phaser.GameObjects.Text;
   private combatHud!: CombatHud;
+  private hudAnchor:CombatHudAnchor={x:0,y:0,radius:40,visible:false};
   private combatSprites!: CombatSprites;
   private buildingRigs!:BuildingRigs;
   private orbital=new OrbitalTransition();
@@ -136,6 +138,7 @@ export class FlightScene extends Phaser.Scene {
   private runStartedAt = 0;
 
   create(): void {
+    this.hudAnchor.visible=false;
     this.orbital.reset();
     this.lastOwn=null;
     this.runStartedAt = Date.now();
@@ -493,6 +496,10 @@ export class FlightScene extends Phaser.Scene {
     const orbital=mine && (this.orbit.phase==='entry' || this.orbit.phase==='exit');
     // The pilot remains readable at orbit zoom; only the world recedes beneath the craft.
     if(orbital)at.scale/=this.orbit.zoom;
+    if(mine){
+      const size=chassisStats(s.chassis,TUNE).radius/TUNE.ship.radius;
+      this.hudAnchor={x:at.x,y:at.y-4*at.scale,radius:Math.max(intents.touch?32:42,clientTune.render.shipRingRadius*clientTune.render.shipScale*size*at.scale+14*size),visible:at.visible&&!orbital};
+    }
     // The hard shadow lies on the ground, away from the sun.
     const sh = shipShadow(this.frame.sun, clientTune.render.shadowReach);
     sh.x+=CALIBRATION.shadow.x-SHADOW_ANCHOR.x;sh.y+=CALIBRATION.shadow.y-SHADOW_ANCHOR.y;
@@ -513,13 +520,6 @@ export class FlightScene extends Phaser.Scene {
     this.drawTurrets(id, s, at);
     if (s.dashCharge > 0) this.drawDashCharge(s, at, mine);
     else if (mine && at.visible) this.drawNose(s, at);
-    if (mine && s.shield <= .001 && at.visible) {
-      const size=chassisStats(s.chassis,TUNE).radius/TUNE.ship.radius;
-      const g=this.turretGfx, x=at.x, y=at.y-Math.max(42,clientTune.render.shipRingRadius*clientTune.render.shipScale*size+12)*at.scale, k=Math.max(.7,at.scale);
-      g.lineStyle(5*k,0x081426,.95);g.beginPath();g.moveTo(x-6*k,y-5*k);g.lineTo(x+6*k,y-5*k);g.lineTo(x+5*k,y+3*k);g.lineTo(x,y+8*k);g.lineTo(x-5*k,y+3*k);g.closePath();g.strokePath();
-      g.lineStyle(2*k,0xffa078,.9);g.beginPath();g.moveTo(x-6*k,y-5*k);g.lineTo(x-5*k,y+3*k);g.lineTo(x,y+8*k);g.lineTo(x+5*k,y+3*k);g.lineTo(x+6*k,y-5*k);g.strokePath();
-      g.lineBetween(x+7*k,y-7*k,x-7*k,y+8*k);
-    }
   }
 
   /**
@@ -697,8 +697,7 @@ export class FlightScene extends Phaser.Scene {
     const pulse = 0.7 + 0.3 * Math.sin(now / 200);
     if (b.id === this.net.myId) {
       const at = this.toScreen(p.x, p.y);
-      const r=46 * at.scale * shipRadius(p.hullMax, TUNE, p.chassis) / TUNE.ship.radius;
-      this.bountyRing(g,at.x,at.y,r,pulse);
+      const r=this.hudAnchor.visible?this.hudAnchor.radius+6:46 * at.scale * shipRadius(p.hullMax, TUNE, p.chassis) / TUNE.ship.radius;
       g.fillStyle(0xffd36d,1);this.drawStar(g,at.x,at.y-r-10,5);
       if(intents.touch)return;
       this.bountyText.setVisible(true).setText('BOUNTY ON YOU').setPosition(w / 2, h * 0.3 + 32);
@@ -751,11 +750,17 @@ export class FlightScene extends Phaser.Scene {
   private bountyPlate(w:number,h:number):void {
     const t=this.bountyText,pad=7,bw=t.width+pad*2,bh=t.height+8;
     let x=Math.max(bw/2+4,Math.min(w-bw/2-4,t.x));
-    const y=Math.max(bh/2+4,Math.min(h-bh/2-4,t.y));
+    let y=Math.max(bh/2+4,Math.min(h-bh/2-4,t.y));
     const boardBottom=Math.max(0,...[...this.board.values()].map(chip=>chip.y+BOARD_CHIP_H/2))+20;
     if(y<260 && x-bw/2<170)x=170+bw/2+5;
     if(y<boardBottom && x+bw/2>w-Math.min(BOARD_CHIP_W,w*.34)-18)x=w-Math.min(BOARD_CHIP_W,w*.34)-23-bw/2;
     if(intents.touch&&y>h*.4)x=Math.max(bw/2+4,Math.min(controlClearRight(w)-bw/2,x));
+    const a=this.hudAnchor;
+    if(a.visible && Math.abs(x-a.x)<a.radius+bw/2+22 && Math.abs(y-a.y)<a.radius+bh/2+26){
+      const left=a.x-a.radius-bw/2-24;
+      if(left>bw/2+4)x=left;
+      else y=Math.max(bh/2+4,a.y-a.radius-bh/2-26);
+    }
     t.setPosition(x,y);
     this.overlay.fillStyle(0x221f2c,.9);this.overlay.fillRoundedRect(x-bw/2,y-bh/2,bw,bh,4);
     this.overlay.lineStyle(1,0xbf9550,.8);this.overlay.strokeRoundedRect(x-bw/2,y-bh/2,bw,bh,4);
@@ -925,7 +930,7 @@ export class FlightScene extends Phaser.Scene {
     g.clear();
     intents.uiZones = [];
     const p = this.net.predicted;
-    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now);
+    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now,this.hudAnchor);
     this.drawMobileNav(p,w);
     this.drawShop(p);
     this.drawWeapons(p, w, h);
@@ -950,12 +955,7 @@ export class FlightScene extends Phaser.Scene {
     const anchorF = clientTune.touch.fireButtonRadius, fr = anchorF * .74;
     const fb = { x: w - m * 2 - anchorR * 2 - anchorF, y: h - m - anchorF };
     intents.fireButton = { x: fb.x, y: fb.y, hw: fr * 1.2, hh: fr * 1.2 };
-    this.combatHud.heatWarning(fb.x,fb.y+fr*.65);
     controlFace(g,fb.x,fb.y,fr,UI.uiDanger,intents.fire);
-    if (p && p.heat > .6) {
-      g.lineStyle(3,p.overheated?0xff8565:0xf3ba71,.9);g.beginPath();
-      g.arc(fb.x,fb.y,fr-7,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,p.heat));g.strokePath();
-    }
     g.lineStyle(2,UI.uiDanger,.9);g.strokeCircle(fb.x,fb.y,fr*.22);
     for(let i=0;i<4;i++){const a=i*Math.PI/2;g.lineBetween(fb.x+Math.cos(a)*fr*.32,fb.y+Math.sin(a)*fr*.32,fb.x+Math.cos(a)*fr*.48,fb.y+Math.sin(a)*fr*.48);}
     // No steering toggle on phones (owner, 14 November 2026): the stick is always the direction marker.
@@ -964,12 +964,6 @@ export class FlightScene extends Phaser.Scene {
     controlFace(g,b.x,b.y,r,UI.uiAccent,ready);
     g.lineStyle(3,UI.uiAccent,ready?.95:.4);
     for(let i=0;i<3;i++){const x=b.x-12+i*10;g.lineBetween(x,b.y-10,x+8,b.y);g.lineBetween(x+8,b.y,x,b.y+10);}
-    if (!ready) {
-      g.lineStyle(4, 0xffd27a, 0.9);
-      g.beginPath();
-      g.arc(b.x, b.y, r - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - cd / TUNE.ship.dashCooldown));
-      g.strokePath();
-    }
     const st = intents.stick;
     if (st) {
       g.lineStyle(2, 0xffffff, 0.35);
@@ -1001,7 +995,7 @@ export class FlightScene extends Phaser.Scene {
     const colour=tagColour!==undefined?css(tagColour):mine?'#9fefff':bot?'#a9bdcf':'#ffc9a8';
     if(tag.style.color!==colour)tag.setColor(colour);
     const below = (Math.max(clientTune.render.shipRingRadius * clientTune.render.shipScale * size, shipTagClearance(size)) + 10) * at.scale;
-    tag.setStroke('#081426', 3).setPosition(at.x, at.y + below).setVisible(at.visible && !(mine && intents.touch));
+    tag.setStroke('#081426', 3).setPosition(at.x, at.y + below).setVisible(at.visible && !mine);
   }
 
   /**

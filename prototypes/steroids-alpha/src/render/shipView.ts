@@ -1,6 +1,6 @@
 // One ship on screen, drawn with the approved Human Nomad rig: twelve parts in fixed Z order with
 // the kit's 3% per-layer shading, parent-accumulated facing offsets, engine rattle, canopy lean on turns,
-// hover lift and a hard ground shadow cast away from the planet's sun. Quiet ground plates identify your ship.
+// hover lift and a hard ground shadow cast away from the planet's sun. CombatHud draws the pilot's instruments.
 // Guns kick with the kit's recoil curve when they fire. Thruster exhaust comes from the nozzles.
 // Per-part control FFD uses the lab relief mesh; the original Images remain the fallback.
 import Phaser from 'phaser';
@@ -16,7 +16,6 @@ import { clientTune } from '../clientTune';
 import { TUNE } from '../../sim/tune';
 import { PALETTES } from './palette';
 import { hoverLightTexture } from './hoverLight';
-import { drawShipMarkerPlates } from './flightIndicators';
 import { ThrusterVFX } from './thrusters';
 import type { NozzleOrigin, ThrusterInput } from './thrusters';
 
@@ -106,8 +105,7 @@ export class ShipView {
     this.ring = scene.add.graphics().setDepth(SHIP_DEPTH - 2);
     // Bigger ships (sim/chassis.ts radius) get a bigger ring and shield bubble.
     this.sizeRatio = chassisStats(chassis, TUNE).radius / TUNE.ship.radius;
-    const r = clientTune.render.shipRingRadius * this.sizeRatio;
-    drawShipMarkerPlates(this.ring,r,mine,clientTune.render.shipScale);
+    // The pilot's two instrument halves are drawn by CombatHud, outside the ship silhouette.
     const colour = Number.parseInt((PALETTES[palette] ?? PALETTES[0]).glow.slice(1),16);
     // Ground-only self-light is separate from the sun-driven silhouette and selection ring.
     this.hoverLight = scene.add.image(0,0,hoverLightTexture(scene,colour)).setDepth(13).setBlendMode(Phaser.BlendModes.ADD);

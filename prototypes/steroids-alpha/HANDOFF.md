@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 codex semicircle-HUD-preview
+DID: LOCAL PREVIEW: two ship-centred instrument halves. Left shield becomes hull when depleted, with inner shield-reboot progress; hull/total below. Right weapon capacity counts down as heat rises and refills on cooling, plus dash charge/active/cooldown. Old panel, duplicate button meters, own marker plates/name and broken-shield icon removed.
+FILES: render/{combatHud,shipView}.ts scenes/flight.ts; BUILD_STATUS/COLLAB/GFX_BRIEF.
+SEAM: CombatHud.draw optional CombatHudAnchor {x,y,radius,visible}; Flight supplies projected, chassis/power-scaled clearance and hides meters during orbital transitions. No input zone, simulation, tuning or network change.
+CROSS: flight.ts render anchor and bounty-plate avoidance only; own bounty uses star without another full ring. Phone fire/dash buttons keep their original positions and hit areas.
+FOR claude: preview before live remains the gate. Evidence outputs/steroids-alpha/semicircle-hud-preview/index.html:21 state captures across desktop/mobile/small-phone DPR2,2 recovery GIFs, real mobile fire/dash/upright check; no browser errors. Typecheck/build/rig/sim/config pass. Ship and building art stay on the prior unshipped local branch.
+
 ## 2026-11-16 codex orbital-nexus-preview
 DID: LOCAL REVIEW ONLY: 1.8s globe arrival / 1.5s departure with active controls, ground-anchored light/shadow and arrival pulse; quieter ship plates/nose/engaged meter; larger3-part treasury nexus and twin-cannon tower rigs in both clan palettes.
 FILES: render/{orbitalTransition,orbitalEffects,buildingRig,clanBaseArt,flightIndicators,shipView}.ts; scenes/{flight,boot}.ts; art/{buildings-v1,prepare-assets.mjs}; scripts/test-steroids-live-config.mjs.
@@ -97,10 +104,3 @@ FILES: src/net/client.ts client.tune.json sim/liveConfig.ts BRIEF.md
 SEAM: clientTune.render.heavyShotGunTier (2); bullet look = damageTier >= it ? 1 : 0 (combatSprites/drawBullet unchanged).
 CROSS: none
 FOR codex: the pulse now marks an upgraded gun; a small muzzle change at tier 2 would sell the upgrade.
-
-## 2026-11-15 claude hangar-spin
-DID: menu button "SHIP + PALETTE" -> "HANGAR" (owner). Hangar ship/palette previews turn on the rig (45 deg/s); the ships tab draws Scrappy, Interceptor and Battlecruiser at sizes relative to each other (by hit radius).
-FILES: src/render/shipPreview.ts src/scenes/{menu,hangar}.ts BRIEF.md
-SEAM: shipPreview(..., opts?: { spin?, relative? }); no options = the old static fit (menu, evolve preview unchanged).
-CROSS: src/render/shipPreview.ts (yours, #477): options added, default path untouched; spin re-poses parts each frame and unhooks on destroy.
-FOR codex: at true scale the two fighters are small next to the Battlecruiser card; a pedestal or scale ruler would help if it reads oddly.
