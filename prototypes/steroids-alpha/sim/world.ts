@@ -12,6 +12,7 @@ import { SHOP_ITEMS, buy, EVOLVE_ITEM, evolve } from './shop';
 import { missileLock } from './ordnance';
 import { BASE_OWNER, BASE_TURRET_SIDE, baseLayout, insideDome, isDocked, speedFloor } from './clanBase';
 import type { BaseLayout } from './clanBase';
+import { isWarPlanet } from './planets';
 
 interface Bullet {
   owner: number;
@@ -86,6 +87,28 @@ export interface DeathEvent {
   killer: number;
 }
 
+/**
+ * Siege v0 (owner, 16 November 2026), on the Warzone planet. Attackers (the other clan) destroy the
+ * base turrets, break the shield and destroy the treasury, in any order the rules allow: bullets stop
+ * at the shield while it holds, and each live turret regenerates it (siege.shieldRegenPerTurret a
+ * second); once fully depleted it stays down for the round. The treasury never recovers. Each attacker
+ * death costs a ticket. Defenders win at 0 tickets or when the round timer runs out.
+ */
+export interface SiegeState {
+  phase: 'peace' | 'war' | 'over';
+  turretHp: number[];
+  shield: number;
+  /** The shield was fully depleted this round: it no longer regenerates. */
+  shieldBroken: boolean;
+  treasury: number;
+  tickets: number;
+  /** Tick the round timer runs out. */
+  endsAt: number;
+  /** Winning clan once over (0 before). */
+  winner: number;
+  reason: '' | 'treasury' | 'tickets' | 'time';
+}
+
 export interface WorldEvents {
   /** New asteroids and asteroids whose hp changed. */
   asteroids: Asteroid[];
@@ -110,9 +133,13 @@ export interface WorldEvents {
   hotZone: HotZone | null;
   /** Clan home planets: fuel unloaded by docked members into the clan treasury. */
   deposits: { id: number; amount: number }[];
+  /** Siege: a round ended this tick. */
+  siegeOver: { winner: number; reason: 'treasury' | 'tickets' | 'time' } | null;
+  /** Siege: structures hit (turret index, or 'shield' / 'treasury'), for effects. */
+  structureHits: { what: number | 'shield' | 'treasury'; x: number; y: number; destroyed: boolean }[];
 }
 
-const noEvents = (): WorldEvents => ({ asteroids: [], gone: [], shots: [], deaths: [], hits: [], pickups: [], pickupsGone: [], rams: [], blasts: [], extracted: [], hotZone: null, deposits: [] });
+const noEvents = (): WorldEvents => ({ asteroids: [], gone: [], shots: [], deaths: [], hits: [], pickups: [], pickupsGone: [], rams: [], blasts: [], extracted: [], hotZone: null, deposits: [], siegeOver: null, structureHits: [] });
 
 export class World {
   tick = 0;
@@ -161,12 +188,50 @@ export class World {
   readonly clanOf = new Map<number, number>();
   private baseAim: number[] = [];
   private baseCd: number[] = [];
+  /** Siege state on the Warzone planet (null elsewhere). */
+  siege: SiegeState | null = null;
+
+  /** At war right now (siege rules apply). */
+  get atWar(): boolean {
+    return this.siege?.phase === 'war';
+  }
+
+  /** The attacking clan on a war planet (the other demo clan). */
+  get attackerClan(): number {
+    return this.layout ? (this.layout.clan === 1 ? 2 : 1) : 0;
+  }
+
+  /** Start a siege round: full turrets, shield and treasury, fresh tickets and timer. */
+  startWar(): void {
+    const s = this.siege;
+    if (!s || !this.layout) return;
+    const g = this.tune.siege;
+    Object.assign(s, { phase: 'war', turretHp: this.layout.turrets.map(() => g.turretHp), shield: g.shieldHp, shieldBroken: false, treasury: g.treasuryHp, tickets: g.attackerTickets, endsAt: this.tick + Math.round(g.roundSeconds * this.tune.net.tickHz), winner: 0, reason: '' });
+  }
+
+  /** Back to peace (lockdown released): structures full again, nothing at stake. */
+  endPeace(): void {
+    if (!this.siege) return;
+    this.startWar();
+    this.siege.phase = 'peace';
+  }
+
+  private finishWar(winner: number, reason: 'treasury' | 'tickets' | 'time'): void {
+    const s = this.siege;
+    if (!s || s.phase !== 'war') return;
+    s.phase = 'over';
+    s.winner = winner;
+    s.reason = reason;
+    this.events.siegeOver = { winner, reason };
+  }
 
   /** Make this world a clan home planet (or not), from the planet id. */
   setPlanet(planet: string): void {
     this.layout = baseLayout(planet, this.tune);
     this.baseAim = (this.layout?.turrets ?? []).map(() => -Math.PI / 2);
     this.baseCd = (this.layout?.turrets ?? []).map(() => 0);
+    this.siege = this.layout && isWarPlanet(planet) ? { phase: 'peace', turretHp: [], shield: 0, shieldBroken: false, treasury: 0, tickets: 0, endsAt: 0, winner: 0, reason: '' } : null;
+    this.endPeace();
   }
 
   /** A ship dropping in at a given point (clan home planets: members by the pads, others at the gate). */
@@ -179,7 +244,8 @@ export class World {
   /** Docked on a pad of its own clan's home planet (safe, repairing, unloading). */
   docked(id: number): boolean {
     const s = this.ships.get(id);
-    return !!s && isDocked(this.layout, this.clanOf.get(id) ?? 0, s, this.tune);
+    // At war the pads are only spawn points (owner): no safety, no repair.
+    return !!s && !this.atWar && isDocked(this.layout, this.clanOf.get(id) ?? 0, s, this.tune);
   }
 
   constructor(
@@ -304,6 +370,12 @@ export class World {
     const missilesBefore = s.missileShots;
     const minesBefore = s.mineShots;
     this.prev.set(id, { x: s.x, y: s.y });
+    if (this.atWar && this.layout) {
+      // No warping out during a war; defenders cannot attack from inside a standing shield (owner).
+      input = { ...input, warp: false };
+      const sg = this.siege!;
+      if ((this.clanOf.get(id) ?? 0) === this.layout.clan && sg.shield > 0 && insideDome(this.layout, s.x, s.y, this.tune)) input = { ...input, fire: false, missile: false, mine: false };
+    }
     stepShip(s, input, this.dt, this.tune, speedFloor(this.layout, this.clanOf.get(id) ?? 0, s, this.tune), false);
     if (s.missileShots !== missilesBefore) this.launchMissile(id, s);
     if (s.mineShots !== minesBefore) this.dropMine(id, s);
@@ -365,9 +437,12 @@ export class World {
           break;
         }
       }
-      // The clan base shield stops bullets from anyone but the clan's members.
+      // The clan base shield stops bullets from anyone but the clan's members. At war, attackers'
+      // bullets damage live turrets, the shield while it stands, and the treasury once it is down.
       const base = this.layout;
-      if (!spent && base && b.owner !== BASE_OWNER && (this.clanOf.get(b.owner) ?? 0) !== base.clan && insideDome(base, b.x, b.y, t)) {
+      const hostile = !!base && b.owner !== BASE_OWNER && (this.clanOf.get(b.owner) ?? 0) !== base.clan;
+      if (!spent && hostile && this.atWar) spent = this.hitStructure(b);
+      if (!spent && base && hostile && (!this.atWar || this.siege!.shield > 0) && insideDome(base, b.x, b.y, t)) {
         spent = true;
         this.events.blasts.push({ x: b.x, y: b.y, r: 14, kind: 'missile', shot: true });
       }
@@ -522,7 +597,9 @@ export class World {
             // Mined minerals also add salvage (bots never earn it); minerals spilled by ships do not.
             // Clan home planets (owner, 15 November 2026): no salvage; members mine fuel for the
             // clan treasury instead (visitors get neither).
-            if (this.layout) {
+            if (this.siege) {
+              // Warzone (siege v0): power only, no salvage or fuel (no rewards yet).
+            } else if (this.layout) {
               if ((this.clanOf.get(id) ?? 0) === this.layout.clan) s.fuel = Math.min(t.salvage.cargoMax, s.fuel + k.salvage);
             } else if (!this.botIds.has(id)) s.salvage = Math.min(t.salvage.cargoMax, s.salvage + k.salvage);
           }
@@ -629,6 +706,7 @@ export class World {
     for (const [id, s] of this.ships) {
       if (s.hp <= 0 || (s.arrival ?? 0) > 0) continue;
       if (!member(id)) {
+        if (this.atWar && this.siege!.shield <= 0) continue; // the shield is down: the way in is open
         const dx = wrapDelta(s.x, base.treasury.x, W);
         const dy = wrapDelta(s.y, base.treasury.y, H);
         const d = Math.hypot(dx, dy);
@@ -642,7 +720,7 @@ export class World {
         }
         continue;
       }
-      if (!isDocked(base, base.clan, s, t)) continue;
+      if (this.siege || !isDocked(base, base.clan, s, t)) continue;
       s.hp = Math.min(s.hullMax, s.hp + s.hullMax * b.dockRepairPerSecond * this.dt);
       s.shield = Math.min(maxShield(s, t), s.shield + maxShield(s, t) * b.dockRepairPerSecond * this.dt);
       if (s.fuel >= 1) {
@@ -651,13 +729,25 @@ export class World {
         this.events.deposits.push({ id, amount });
       }
     }
+    const sg = this.siege;
+    if (sg && sg.phase === 'war') {
+      // Live turrets regenerate the shield until it has been fully broken once.
+      const alive = sg.turretHp.filter((v) => v > 0).length;
+      if (!sg.shieldBroken) sg.shield = Math.min(t.siege.shieldHp, sg.shield + t.siege.shieldRegenPerTurret * alive * this.dt);
+      if (this.tick >= sg.endsAt) this.finishWar(base.clan, 'time');
+    }
     for (const o of [...this.ordnance.values()]) {
       if (member(o.owner) || !insideDome(base, o.x, o.y, t)) continue;
+      if (sg && sg.phase === 'war') {
+        if (sg.shield <= 0) continue; // nothing to stop it
+        this.damageShield(o.damage, o.x, o.y);
+      }
       this.ordnance.delete(o.id);
       this.events.blasts.push({ x: o.x, y: o.y, r: (o.kind === 'missile' ? t.missile.radius : t.mine.radius) * 2, kind: o.kind, shot: true });
     }
     // Base turrets: nearest non-member ship in range, turn toward it, fire when lined up.
     base.turrets.forEach((at, i) => {
+      if (sg && sg.phase === 'war' && sg.turretHp[i] <= 0) return; // destroyed
       if (this.baseCd[i] > 0) this.baseCd[i]--;
       let best: { dx: number; dy: number; d: number } | null = null;
       for (const [id, s] of this.ships) {
@@ -863,6 +953,36 @@ export class World {
   }
 
   /** Events since the last call. */
+  /** An attacker's bullet against the base at war: a live turret, the standing shield, or the treasury. */
+  private hitStructure(b: Bullet): boolean {
+    const base = this.layout!, sg = this.siege!, t = this.tune, g = t.siege;
+    const near = (x: number, y: number, r: number): boolean => Math.hypot(wrapDelta(b.x, x, t.world.width), wrapDelta(b.y, y, t.world.height)) <= r + t.weapon.bulletRadius;
+    for (let i = 0; i < base.turrets.length; i++) {
+      const at = base.turrets[i];
+      if (sg.turretHp[i] <= 0 || !near(at.x, at.y, g.turretRadius)) continue;
+      sg.turretHp[i] = Math.max(0, sg.turretHp[i] - b.damage);
+      this.events.structureHits.push({ what: i, x: b.x, y: b.y, destroyed: sg.turretHp[i] <= 0 });
+      return true;
+    }
+    if (sg.shield > 0) {
+      if (!insideDome(base, b.x, b.y, t)) return false;
+      this.damageShield(b.damage, b.x, b.y);
+      return true;
+    }
+    if (!near(base.treasury.x, base.treasury.y, g.treasuryRadius)) return false;
+    sg.treasury = Math.max(0, sg.treasury - b.damage);
+    this.events.structureHits.push({ what: 'treasury', x: b.x, y: b.y, destroyed: sg.treasury <= 0 });
+    if (sg.treasury <= 0) this.finishWar(this.attackerClan, 'treasury');
+    return true;
+  }
+
+  private damageShield(damage: number, x: number, y: number): void {
+    const sg = this.siege!;
+    sg.shield = Math.max(0, sg.shield - damage);
+    if (sg.shield <= 0) sg.shieldBroken = true;
+    this.events.structureHits.push({ what: 'shield', x, y, destroyed: sg.shield <= 0 });
+  }
+
   drain(): WorldEvents {
     const e = this.events;
     this.events = noEvents();
@@ -915,6 +1035,12 @@ export class World {
       s.fuel = 0;
       s.salvage = 0;
       this.events.deaths.push({ id, x: s.x, y: s.y, killer: attacker });
+      // Siege: every attacker death costs a ticket; none left and the defenders win.
+      const sg = this.siege;
+      if (sg && sg.phase === 'war' && (this.clanOf.get(id) ?? 0) !== this.layout!.clan) {
+        sg.tickets = Math.max(0, sg.tickets - 1);
+        if (sg.tickets <= 0) this.finishWar(this.layout!.clan, 'tickets');
+      }
     }
   }
 

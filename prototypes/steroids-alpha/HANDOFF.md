@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 claude siege-sim
+DID: Siege v0 step 1: rules in the shared sim (World.siege on the Warzone planet: turret/shield/treasury HP, shield regen per live turret until broken, tickets, round timer, defenders cannot attack inside a standing shield, no dock safety at war, no warp at war) and siege bots (attack turrets -> shield -> treasury; defenders guard outside the dome). Headless harness scripts/sim-steroids-alpha-siege.mjs. Warzone is NOT in the menu yet.
+FILES: sim/{world,bots,planets,liveConfig}.ts tune.json scripts/{sim-steroids-alpha-siege,test-steroids-alpha-sim}.mjs BRIEF.md
+SEAM: tune.siege; World.siege/atWar/attackerClan/startWar/endPeace; events.siegeOver/structureHits; WARZONE/isWarPlanet.
+CROSS: none (no client or protocol changes yet).
+FOR codex: step 2 (playable Warzone) will need art for damaged/destroyed turrets, a shield health look and a treasury health look; not yet.
+
 ## 2026-11-16 codex hyperspace-arrival-release
 DID: owner approved motion and live release; added a1400ms world-anchored blue-white completion glint/ion spark, bounded32effects. Replaced vertical dive with heading-aligned hyperspace fading before globe zoom/fast terrain roll, level full-speed ship and reverse departure. Observer entrance fades in, brakes/overshoots and leaves square residuals; no false effect for old ships.
 FILES: sim/{ship,world,protocol,liveConfig}.ts, src/net/client.ts, src/render/{orbital*,shipView}.ts, src/scenes/flight.ts, tune.json, affected tests/docs.
@@ -96,11 +103,4 @@ DID: Evolution assembly/shield lock, capital escorts/name clearance, warp apertu
 FILES: render/{progressionArt,rockPainted}.ts scenes/flight.ts
 SEAM: progression/followId visual effect tags; chassis observed from server, no control lock/gameplay changes. Damage textures share original alpha/registration/coverage.
 CROSS: placeShip/event drawing only.14 desktop/mobile frames; all30 damage variants preserve alpha exactly and change RGB; no browser errors.
-FOR claude: LOCAL PREVIEW, not published. Owner must review screenshots before live. Gallery outputs/steroids-alpha/backlog-review/index.html; branch codex/steroids-combat-backlog-preview. No PR opened because repository auto-merge would publish.
-
-## 2026-11-15 codex P4-HUD-preview
-DID: Authored hangar emblems, segmented target health, nose chevron, full cargo cue, reconnect/lost banners and projected salvage ring. Connection alerts take precedence over informational labels.
-FILES: render/{flightIndicators,combatHud}.ts scenes/{hangar,flight}.ts
-SEAM: drawing helpers only; preserved compact mobile controls/uiZones, authoritative values and desktop-style own vitals.
-CROSS: scene styling only.27 desktop/mobile/small captures +6connection/2cargo rechecks pass, no errors; alert placement clears combat and upgrade drawer.
 FOR claude: LOCAL PREVIEW, not published. Owner must review screenshots before live. Gallery outputs/steroids-alpha/backlog-review/index.html; branch codex/steroids-combat-backlog-preview. No PR opened because repository auto-merge would publish.
