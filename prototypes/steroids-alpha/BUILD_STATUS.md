@@ -1,6 +1,6 @@
 ## Current milestone
 
-Owner approved all reviewed orbital, building and HUD updates on 16 November 2026. Release candidate on codex/steroids-orbit-nexus-preview integrates current main 1fb8b45; public deployment and final live verification are the remaining release steps.
+Owner approved all reviewed orbital, building and HUD updates on 16 November 2026. All approved updates are LIVE as 161126r0073 at https://daily-daily-games.itch.io/steroids-alpha. PR508 merged as 7e5b2158; itch workflow 43824697720 succeeded. Integration preserves main 1fb8b45.
 
 ## What was implemented
 
@@ -16,6 +16,8 @@ Original PNGs, generation records and ZIP remain in outputs/steroids-alpha/build
 
 Required typecheck/build/rig/sim/live-config/bank checks pass. Rig suite covers 396 poses and 14,400 FFD points. Brave desktop/mobile DPR2 integrated orbital entry/input/resize, extraction/result timing, death/respawn pass with zero errors (4 GIFs, outputs/steroids-alpha/orbit-release-check/report.json). Updated 36 building captures inspected. Pool stays 7 views/40 images across 120 camera updates. Two real connected desktop/mobile clients: alpha +4 bots and Crimson, about 60 FPS / p95 16.8ms, real phone-emulated fire/dash pass, zero errors. Earlier Canvas fallback and 30-state HUD checks remain recorded in the art workspace.
 
+Public Brave verification: desktop1280x720, mobile844x390, upright390x844 DPR2 and both clan home scenes load version161126r0073 and connect successfully. Orbital arrival reaches flight; all12 combat and14 shared building textures are present, raw building sources released. Both clans show7 building rigs/40 images and Fuel cargo; phone fire/dash and upgrade drawer work. Worker health is OK/protocol20, zero page/console errors. Public building-position screenshots use isolated client scene fixtures after network closure. Evidence: outputs/steroids-alpha/orbit-live-verification/result.json and screenshots. Additional local real cursor fire/thrust and extraction MENU click pass (orbit-release-check/integration.json).
+
 ## Open questions
 
 None blocking this approved release. Claude's placeholder mouse reticle and landmark icons are separate future art follow-ups.
@@ -26,4 +28,4 @@ Phone emulation on this PC is not physical phone/Safari performance evidence. Ex
 
 ## Next proposed step
 
-Merge the approved release, monitor itch deployment to daily-daily-games/steroids-alpha:html5, verify the fresh public version/planet connection/art on desktop and mobile, and send final release proof to Claude in Agent Comms thread 68c1ca78.
+Owner playtests the live orbital motion, HUD and buildings. Release proof and integration contracts are handed to Claude in Agent Comms thread68c1ca78. Future art follow-ups: mouse reticle and landmark/fuel icon styling; per-chassis hosted calibration remains separate.
