@@ -13,6 +13,8 @@ export type MapAction = { kind: 'close' } | { kind: 'select' | 'warp'; planet: P
 /** Territory rules are the existing game rules; no generated populations or resource estimates. */
 export function planetIntel(id: PlanetId, clan: number): { relation: string; colour: number; resources: string; note: string } {
   const p = PLANETS.find(p => p.id === id)!;
+  if (p.id === 'warzone') return { relation: 'WAR ZONE', colour: 0xff9a6a, resources: 'MINERALS (POWER ONLY)  /  NO REWARDS YET',
+    note: 'Crimson attacks, Azure defends the Nexus. The war starts when both clans are here; then the planet locks.' };
   if (p.clan) {
     const own = p.clan === clan;
     return { relation: own ? 'FRIENDLY' : 'HOSTILE', colour: own ? 0x8bd9ba : UI.uiDanger,
@@ -60,13 +62,14 @@ export class StellarMap {
     const compact = height < 420, narrow = width < 560;
     const detailHeight = narrow ? 142 : compact ? 100 : 118;
     const bodyTop = top + 56, bodyHeight = height - 56 - detailHeight;
-    const radius = Math.max(14, Math.min(compact ? 36 : 58, bodyHeight / (narrow ? 5.4 : 3.1), width / 12));
+    const radius = Math.max(14, Math.min(compact ? 36 : 52, bodyHeight / (narrow ? 7.2 : 3.1), width / 13));
     this.orbit.lineStyle(1, UI.uiBorder, .5);
     this.orbit.strokeEllipse(w / 2, bodyTop + bodyHeight * .48, width * .85, bodyHeight * .55);
     PLANETS.forEach((p, i) => {
-      const x = narrow ? left + width * (i % 2 ? .73 : .27) : left + width * [.14, .38, .63, .86][i];
-      const y = narrow ? bodyTop + bodyHeight * (i < 2 ? .23 : .66) : bodyTop + bodyHeight * [.48, .29, .56, .36][i];
-      const tint: [number, number, number] = p.clan === 1 ? [1.35, .72, .74] : p.clan === 2 ? [.55, .82, 1.55] : p.id === 'alpha' ? [.8, .95, 1.08] : [1, .84, 1];
+      // Five destinations (Warzone added 16 November 2026): a row of five, or a 2-2-1 grid when narrow.
+      const x = narrow ? left + width * (i === 4 ? .5 : i % 2 ? .73 : .27) : left + width * [.11, .3, .5, .7, .89][i];
+      const y = narrow ? bodyTop + bodyHeight * [.17, .17, .5, .5, .83][i] : bodyTop + bodyHeight * [.48, .29, .56, .36, .5][i];
+      const tint: [number, number, number] = p.id === 'warzone' ? [1.4, .78, .5] : p.clan === 1 ? [1.35, .72, .74] : p.clan === 2 ? [.55, .82, 1.55] : p.id === 'alpha' ? [.8, .95, 1.08] : [1, .84, 1];
       const ground = new PlanetGround(scene, 202, tint);
       const globe = { id: p.id, x, y, w: radius * 2 + 22, h: radius * 2 + 42, radius, ground };
       this.planets.push(globe);
