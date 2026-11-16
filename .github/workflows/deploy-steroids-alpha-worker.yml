@@ -10,6 +10,8 @@ on:
       - "prototypes/steroids-alpha/server/**"
       - "prototypes/steroids-alpha/sim/**"
       - "prototypes/steroids-alpha/tune.json"
+      # The Worker bundles client.tune.json as the live-config defaults it validates against.
+      - "prototypes/steroids-alpha/client.tune.json"
       - "scripts/test-steroids-alpha-sim.mjs"
       - "scripts/test-steroids-alpha-bank.mjs"
       - "package.json"
