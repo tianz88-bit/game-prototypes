@@ -491,7 +491,7 @@ Owner correction (16 November 2026): hyperspace arrival replaces the vertical di
 
 - Four Human Nomad ships (owner art via Codex, R2 packs interceptor-v2 and
   battlecruiser-v1, rig kit tools/ship-rig/human-nomad-ships-v2):
-  - **Sparrow:** free starter. Same base movement, hull, shield and shot damage as Falcon. One centre gun, 5 shots/s (Falcon 7.5 combined, 3.75 per barrel). Holds 80% of Falcon cold-to-overheat shots, rounded to the nearest whole shot including cooling at each gun tier (base 12 versus 15). Deterministic launch drift up to ±3 degrees after aim assist weakens long-range accuracy. Normal cooling/unlock animations stay unchanged.
+  - **Sparrow:** free starter. Same base movement, hull, shield and shot damage as Falcon. One centre gun, 6 shots/s (owner, 16 November 2026; was 5. Falcon 7.5 combined, 3.75 per barrel), so 80% of Falcon's damage per second. Holds 90% of Falcon cold-to-overheat shots (owner, 16 November 2026; was 80%), rounded to the nearest whole shot including cooling at each gun tier. Deterministic launch drift up to ±3 degrees after aim assist weakens long-range accuracy. Normal cooling/unlock animations stay unchanged.
   - **Falcon** (formerly Scrappy): twin-gun unlockable sidegrade, existing ship-slot price.
   - **Bat** (formerly Interceptor): a one-time credit unlock (Hangar), then chosen freely in
     the Hangar before a run. Slower top speed and much quicker turning, weaker shield and guns.

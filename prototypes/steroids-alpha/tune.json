@@ -331,8 +331,8 @@
     "pickupsMax": 200
   },
   "sparrow": {
-    "fireIntervalSteps": 6,
-    "ammoRatio": 0.8,
+    "fireIntervalSteps": 5,
+    "ammoRatio": 0.9,
     "driftDeg": 3,
     "muzzleForward": 38.4
   }

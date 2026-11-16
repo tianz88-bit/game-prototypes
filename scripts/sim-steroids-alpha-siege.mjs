@@ -25,9 +25,11 @@ const attackers = Number(nums[1] ?? 2);
 const defenders = Number(nums[2] ?? 2);
 const tune = JSON.parse(readFileSync(path.join(root, 'prototypes/steroids-alpha/tune.json'), 'utf8'));
 for (const a of args.filter((x) => x.includes('='))) {
+  // key=value sets tune.siege[key]; group.key=value sets any other tune value (diagnostics).
   const [k, v] = a.split('=');
-  if (!(k in tune.siege)) throw new Error(`unknown siege key ${k}`);
-  tune.siege[k] = Number(v);
+  const [group, key] = k.includes('.') ? k.split('.') : ['siege', k];
+  if (!tune[group] || !(key in tune[group])) throw new Error(`unknown tune key ${k}`);
+  tune[group][key] = Number(v);
 }
 
 function rng(seed) {
