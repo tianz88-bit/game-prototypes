@@ -1,5 +1,7 @@
 ## Current milestone
 
+Mouse aim (16 November, claude): PC ships follow the cursor, left click fires, right click missile, W thrust; key hints with a menu toggle; view zoomed out (referenceHeight 1000).
+
 Mouse controls (16 November, claude): PC defaults to a hold-left-mouse marker (ship steers toward the cursor); a menu CONTROLS setting switches to keyboard-only. Warping out now ends at the menu (no Drop in).
 
 Visitor cargo (16 November, claude): visitors on another clan's home planet no longer see a cargo readout, since they cannot mine there.

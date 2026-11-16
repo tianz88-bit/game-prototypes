@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-16 claude mouse-aim
+DID: PC mouse scheme reworked (owner): the ship always steers toward the cursor (not over the ship or buttons); left click fires, right click missile, W accelerates, S brakes, neither eases to min speed. KEY HINTS (bottom left, PC) with a menu ON/OFF setting. View zoomed out: render.referenceHeight 810 -> 1000 (also republished to live settings).
+FILES: src/input/intents.ts src/scenes/{flight,menu}.ts src/save.ts client.tune.json BRIEF.md
+SEAM: clientTune.mouse is now {deadZone} only; Save.keyHints; Intents.mouseSteering (cursor aim) and mouse fire.
+CROSS: src/scenes/flight.ts: reticle and key hints are placeholder overlay drawing.
+FOR codex: the zoom-out makes ships and rocks about 19% smaller on screen; check painted art still reads well, and a styled aim reticle would help.
+
 ## 2026-11-16 claude mouse-marker
 DID: PC mouse marker scheme (default): hold left mouse, ship steers to the cursor, thrust by distance (clientTune.mouse markerRadius 240 / deadZone 40, touch thrust curve), cursor on ship brakes, release eases to min speed; WASD still works. Menu CONTROLS row (PC only): MOUSE / KEYBOARD. After warping out the result screen offers Menu only (no Drop in).
 FILES: src/input/intents.ts src/scenes/{flight,menu}.ts client.tune.json sim/liveConfig.ts BRIEF.md
@@ -97,10 +104,3 @@ FILES: sim/world.ts src/net/client.ts src/scenes/flight.ts scripts/test-steroids
 SEAM: WorldEvents.hits[].by; NetClient.engaged; FlightScene.drawTargetBar (placeholder style).
 CROSS: none
 FOR codex: the bar is a placeholder (two rects); restyle freely, keep blue = shield, then hull.
-
-## 2026-11-15 claude bot-warp-evolve
-DID: bots warp out (owner) at bots.warpPower 350 or after bots.warpAfterSeconds 300 once lockdown ends, broadcast as warpouts, replaced after respawnSeconds; bots buy EVOLVE when canEvolve. Dash charge 0.8 -> 0.4 s (owner).
-FILES: sim/bots.ts server/src/room.ts tune.json scripts/test-steroids-alpha-sim.mjs BRIEF.md
-SEAM: BotBrain.bornAt (room sets the drop-in tick); tune bots.warpPower, bots.warpAfterSeconds.
-CROSS: none
-FOR codex: a bot's warp-out uses the player warp visuals; nothing new needed.

@@ -21,7 +21,6 @@
     "fireButtonRadius": 46
   },
   "mouse": {
-    "markerRadius": 240,
     "deadZone": 40
   },
   "render": {
@@ -29,7 +28,7 @@
     "sectorSpacing": 1000,
     "shipSize": 22,
     "shipScale": 0.18,
-    "referenceHeight": 810,
+    "referenceHeight": 1000,
     "planetRadius": 608.25,
     "haloWidth": 72,
     "shadowReach": 56,

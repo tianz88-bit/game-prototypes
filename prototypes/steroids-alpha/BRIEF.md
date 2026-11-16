@@ -362,15 +362,19 @@ Both schemes are supported (owner decision), through the intent layer:
 - Keyboard uses craft-relative (A/D rotate, W/S throttle). Phones always use
   the direction marker: the STEER toggle was removed (owner, 14 November
   2026). Fire and warp are buttons on both.
-- **PC mouse marker (owner, 16 November 2026), the default on PC:** hold the left
-  mouse button and the ship steers toward the cursor; the further the cursor is
-  from the ship, the harder it accelerates (`mouse.markerRadius` for full thrust,
-  same thrust curve as touch); the cursor on the ship (`mouse.deadZone`) brakes;
-  releasing eases back to minimum speed. A ring at the cursor shows it. WASD and
-  arrow keys keep working and win while pressed (after flying with keys the ship
-  holds its speed as in the keyboard scheme). Fire stays on Space/J.
-- **Menu setting CONTROLS (PC only): MOUSE (default) or KEYBOARD** (the
-  keyboard-only craft-relative scheme). Remembered per browser.
+- **PC mouse aim (owner, 16 November 2026), the default on PC:** the ship always
+  steers toward the cursor (no click needed; not while the cursor rests on the
+  ship, within `mouse.deadZone`, or on an on-screen button). Left click (held)
+  fires, right click launches a missile, W accelerates, S brakes; with neither W
+  nor S held the ship eases back to minimum speed. A/D still turn while pressed.
+  A ring at the cursor shows it. Space/J, Q, E, Shift and R keep working.
+- **Menu settings (PC only):** CONTROLS: MOUSE (default) or KEYBOARD (the
+  keyboard-only craft-relative scheme); KEY HINTS: ON (default) or OFF, a small
+  list of the current scheme's keys in the bottom-left corner during flight.
+  Both remembered per browser.
+- **View (owner, 16 November 2026):** zoomed out so players see further: the
+  screen shows 1000 world pixels top to bottom (`render.referenceHeight`, was
+  810). HUD and labels keep their size.
 - Both schemes share the same turn rate and speed limits, so neither has an
   advantage.
 
