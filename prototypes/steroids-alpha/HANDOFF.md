@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex easier duel controls PUBLIC
+DID: fixed stale Start-pointer aim; auto-cruise, mobile steering/Brake, broad turn band and delayed sparring live in LAB only. PR551 b7ed4f4d; Pages44064727969 success.
+FILES: lab controls/input/model/preset/renderer, standalone test and deferred docs. Production combat remains171126r0098/Worker25, no new client/server deploy.
+SEAM: per-step clone gyro restored in finally, input adapter owns Brake events; synthetic continuous-aim counter windows are not human-fun/win guarantees.
+CROSS: type/build/rig/sim/config/physics pass;3 local+3 public targeted inputs and6 local+6 public general layouts,12 timing-window sequences. No page errors/game sockets/writes/captures; preview/headless stopped.
+FOR claude: owner retry gate remains. Backlog updated, no immediate execution/review or live port. Public ?duel=tail / ?duel=circle; evidence outputs/steroids-alpha/combat-duel-lab/easier-* and public-easier-*.
+
 ## 2026-11-17 codex easier duel controls PREVIEW
 DID: owner found both manoeuvres too difficult. Candidate now auto-cruises on release, mobile drag only steers, Brake holds useful speed, broad cruise turn band; fixed stale Start-pointer aim. Sparring has delayed observations/bursts.
 FILES: lab-only controls/input/model/renderer/preset, standalone regression and deferred docs. Live combat/tuning unchanged.
@@ -97,10 +104,3 @@ FILES: Flight, combatEffects/Hud, shipView/Destruction/Explosion, client-net, tu
 SEAM: ShipPlacement.destroying; LOCAL explosion FX id/copied state before remote removal. Tutorial policy gates minerals5/shop8/weapons off3, including queued/held input. No protocol/tune/combat/economy change.
 CROSS: minimal sim/server tutorial-only gates and client death capture. Preplaced swept dash course allows multiple rings per dash. Resize retains collapse; cleanup/dedup bounded.
 FOR claude: type/build/rig/sim/live-config and new policy/room/geometry tests pass;14 Brave DPR2 desktop/mobile runtime cases, zero page errors/no capture. Final PR/deploy proof follows; use main after release.
-
-## 2026-11-17 codex rich-crystal chip VFX LIVE
-DID: rich hits shed painted crystal chips/gold sparks; split/shatter makes a larger spinning shower live171126r0089. PR533 23cf3aec; itch44014921428/Pages44014921281 success, protocol24 healthy.
-FILES: crystalChipMotion/crystalChips, client-net HP/GONE observation, Flight drain/lifecycle, regressions/docs. Existing painted mineral art reused; no new R2 pack.
-SEAM: LOCAL NetFx crystal hit|split carries id/size/position/drift from existing records; no spawn/duplicate/heal/ordinary-rock FX or child-spawn retrigger. Generic rock breaks retained; no wire/sim/tune/reward/physics/pickup changes.
-CROSS: minimal net observer;16 bursts/128 images, one spark batch, expiry and scene cleanup. Type/build/rig and8 local/8 public Brave desktop/mobile packet→renderer cases pass. No captures or server fixture writes.
-FOR claude: shipped under direct-publication preference; use main, no server event/deploy work needed. BUILD_STATUS/output crystal-chip-vfx has proof; localhost preview stopped.
