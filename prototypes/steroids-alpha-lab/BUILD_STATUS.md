@@ -1,23 +1,23 @@
 ## Current milestone
 
-Owner approved Warzone art/final-hit effects for publication; release in progress.
+Warzone art/health/destruction review is LIVE. PR527 merged46db3f81; Pages43997031451 succeeded. Open https://tianz88-bit.github.io/game-prototypes/prototypes/steroids-alpha-lab/?review=warzone . Itch client171126r0086 also includes the same review and production art.
 
 ## What was implemented
 
-Ship / building selector adds Warzone siege-art preview through the production review scene. Mixed intact/damaged/critical/wreck towers, shield coverage and Nexus health can be cycled independently. Clan colours and moving ground/lighting inspect the same rooted building rigs. Standalone Nexus/tower tabs allow larger damage review and have FINAL HIT / REPAIR buttons. Warzone offers DETONATE TOWERS / DETONATE NEXUS / REPAIR ALL. Final-hit blasts throw painted neutral debris; both destroyed buildings become neutral rubble only.
+Selector includes Warzone siege-art review: mixed intact/damaged/critical/wreck towers, independent tower/shield/Nexus health presets, clan colours and surface/lighting travel. Neutral rubble replaces destroyed towers AND Nexus. FINAL HIT/REPAIR on standalone building tabs and DETONATE TOWERS/DETONATE NEXUS/REPAIR ALL on Warzone replay pooled flying debris/blasts.
 
 ## Key technical decisions
 
-Reuse the existing isolated iframe and same-origin allowlist. Calibration loop sleeps during review; return preserves the browser draft and unmounts the frame. No gameplay socket, grant, account write or publishing action. Seven source assets uploaded and publicly hash-verified in R2.
+Reuse the isolated production-renderer iframe and same-origin subject allowlist. Calibration loop sleeps during review, one frame is reused across subjects, return unmounts the review and preserves the draft. No game-room socket, grants or publishing action from review controls. Seven-source R2 pack verified publicly; no art binaries in Git.
 
 ## Open questions
 
-Owner approved; no open design question for this release.
+None for this approved release.
 
 ## Known issues
 
-Public deployment verification in progress. Desktop/mobile DPR2 Brave state/lifecycle and4 destruction cases pass, including one-shot triggering, grounded neutral wrecks, expiration, repair and bounded sprite-pool reuse; no screenshots, recordings or physical-phone visual test. Hosted publishing was not exercised.
+Public headless Brave desktop/mobile DPR2 state/lifecycle and destruction checks pass; no physical-phone/Safari or captured visual test. Owner manually approved the local art; no screenshots or recordings. Initial one-off503 did not recur on the complete rerun. Hosted publishing was not exercised.
 
 ## Next proposed step
 
-Verify the public Warzone lab after deployment and synchronize release proof with Claude.
+Use the public Warzone and standalone building tabs for future visual feedback. Existing Falcon draft editor/publishing remains unchanged. Temporary localhost preview stopped after release; no resident publisher/capture service.

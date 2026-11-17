@@ -1,27 +1,31 @@
 ## Current milestone
 
-Owner approved all Warzone art and explosion updates for release on17 November2026. R2 upload complete; public verification and deployment in progress. Preserved main PR526 mineral-rich asteroids (protocol24).
+All approved Warzone art and final-hit explosion updates are LIVE in171126r0086. PR527 merged46db3f815632866252591947286fffdc5da79634. Itch43997031396 and Pages43997031451 succeeded. Public Worker reports protocol24 (existing PR526 server). Game: https://daily-daily-games.itch.io/steroids-alpha . Lab: https://tianz88-bit.github.io/game-prototypes/prototypes/steroids-alpha-lab/?review=warzone .
 
 ## What was implemented
 
-Three painted damage skins from the approved overhead building kit: tower head, Nexus reactor and crown. Destroyed towers and Nexus now reduce to neutral ground-only debris bases, shared across all clan palettes. Two neutral painted steel plate/tube textures supply flying fragments. Existing clan-colour rigs now read optional normalized health, preserve foundations/supports/root shadows and restore intact parts after repair. Zero-health towers and Nexus hide all raised parts/supports; towers suppress firing flashes. Final visible positive-health → zero changes trigger one explosion with painted fragments, rectangular sparks, projected shock front/shadows and secondary Nexus blasts.16 tower/36 Nexus chunks arc from the raised body and land before fading. Initial ruins/repeated zero snapshots do not detonate; repair cancels effects. Small durability strips and bounded square embers show damage. Shield strength changes projected panel coverage; broken removes the field. Flight observes current SiegeView without changing rules or values and replaces old ground crosses/ring. Nexus label reads existing health during siege.
+Painted tower-head and Nexus reactor/crown damage skins, neutral ground-only wreck bases for towers AND Nexus, and shared neutral plate/tube fragments. Existing clan-colour rigs preserve connecting supports and root-anchored contact/cast shadows; zero durability hides all raised layers and tower firing effects. Living buildings have compact durability cues/embers. Shield strength controls24 projected panels; broken removes the field. Flight reads existing authoritative SiegeView/tune and replaces the old ground X/ring; Nexus label shows siege health.
 
-Warzone has distinct periodic charcoal basalt, ochre ash channels, sparse cooling fissures and warm atmospheric rim in the same production terrain shader, Canvas fallback and Stellar Map globe. Lab selector adds Warzone siege-art preview: mixed tower states, 100/55/20/0% controls, repeatable final-hit/repair controls, clan colours, camera travel/rotation-linked light and rooted shadows. Standalone tower/Nexus previews also offer health controls.
+Final visible positive-health→zero triggers once:16 tower/36 Nexus chunks launch from the raised body, spin, arc, land and fade with rectangular sparks, projected ground shock fronts and fragment shadows. Nexus adds staged secondary blast cores. Initial ruins/repeated zero snapshots never replay; repair cancels; scene shutdown destroys resources. Lab adds mixed damage states, independent health controls, clan/orbit controls, FINAL HIT/REPAIR and Warzone detonation buttons.
+
+Warzone uses distinct charcoal basalt/ochre ash/cooling ember materials and warm rim in flight, the spinning Stellar Map globe and lab, with Canvas palette fallback. Preserved PR526 mineral-rich asteroid rules/rendering and protocol24; no new sim/tune/wire changes from this art release.
 
 ## Key technical decisions
 
-Optional BuildingRigPose.health / ClanBaseArtOptions.siege are visual-only normalized state; no network, tune, collision or simulation changes. New damage textures use existing registration and runtime clan remapping. One bounded Graphics pass supplies status/embers; no permanent emitter or publisher. PlanetGround fourth argument selects warzone material. Review remains isolated from multiplayer and preserves the Falcon draft on return.
+BuildingRigPose.health and ClanBaseArtOptions.siege are optional normalized visual observations. Neutral wreck/debris texture keys are shared across clans and skip material remapping. Existing fixed Z/support/root projection remains. Pure buildingFragment handles ballistics; BuildingDestruction caps at8 bursts and reuses sprite images. No local publisher, recurring monitor or capture service.
 
-Seven PNG masters/ZIP remain outside Git and are now published in R2; manifest/source hashes are in art/warzone-v1. Local ZIP cache hash638189c64011a03ed3c05a5c6e2fc8fd5a87f14201e66c20e3693b79eb3f5caf. Public R2 ZIP and all7 source hashes verified; manifest status approved-uploaded. Asset staging verifies all seven sources. Typecheck/build and 396-pose/14400-FFD-point/18-building-case regression suite pass, with new durability/coverage/one-shot/ballistic landing tests. Headless Brave desktop/mobile DPR2 lab state/collapse/repair/clan/return checks pass with zero browser errors/game sockets. Destruction checks add4 desktop/mobile tower/Nexus cases, repeated bursts, pool reuse, expiration, repair and simultaneous6-tower/Nexus stress. Evidence: outputs/steroids-alpha/warzone-art-review/{lab-check,destruction-check}.json. No screenshots or recording.
+Seven registered PNG masters stay outside Git; approved R2 pack steroids-alpha_warzone-v2_assets.zip is10,963,528bytes, SHA638189c64011a03ed3c05a5c6e2fc8fd5a87f14201e66c20e3693b79eb3f5caf. Exact ZIP and each source hash verified publicly. Manifest approved-uploaded/public URL; CI can fetch by content hash. No workflow scopes/files changed.
+
+Typecheck/build, verified staging,396 rig poses,14400 FFD points,18 building/root cases and durability/coverage/final-hit/ballistic regressions pass; sim/live-config suites pass after merging PR526. Public itch confirms171126r0086, all damage art and terrain skin3; Worker protocol24. Public headless Brave DPR2 checks:4 tower/Nexus destruction cases,2 full lab state/lifecycle cases,2 planet-connection/Flight siege-render fixtures. They verify neutral wreck roots, hidden columns/raised layers,16/36 chunks, one-shot triggers, expiry, repair and pool reuse including6-tower/Nexus stress. Flight fixtures close sockets before local-only state edits. Final checks have zero console/page errors. Evidence: outputs/steroids-alpha/warzone-art-review/{r2-verification,live-game,public-destruction-check,public-lab-check,public-flight-check}.json. No screenshots/recording; owner manually approved art.
 
 ## Open questions
 
-Owner approved all Warzone art and explosion updates. No open design question for this release.
+None for the approved Warzone release. Rich-asteroid vein/gold art requested in main's HANDOFF is separate future work.
 
 ## Known issues
 
-Publication and public runtime checks in progress. Headless checks verify state/geometry/lifecycle, not visual appearance; no physical-phone/Safari check. Existing unrelated bundle warnings remain.
+Mobile checks use Brave emulation, not physical-phone/Safari verification. A first public-lab run saw one503; a fresh fully instrumented run passed with no repeated HTTP/browser errors. Existing unrelated bundle warnings remain.
 
 ## Next proposed step
 
-Deploy approved release, verify public game/lab and synchronize results with Claude. No resident private publisher or capture session runs.
+Collect live playtest feedback before tuning or additional art. Claude receives PR/run/public proof in Agent Comms threade31061e9-e8e1-4105-858a-2f847541014a. Temporary localhost preview is stopped after release; permanent lab supports further review.
