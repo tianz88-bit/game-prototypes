@@ -1,6 +1,6 @@
 ## Current milestone
 
-Desktop/mobile UI correction verified locally and ready for release. Large PC title layout now has bounded columns and larger typography. Clickable PC Upgrades/Scoreboard controls restored. Existing live client171126r0098/Worker25 pending UI-only release; Speed Grip remains LAB ONLY.
+Desktop/mobile UI correction LIVE VERIFIED: PR557 mergeec5ef477ec2fd465ce8125413f1e5f31e2bedd99, itch run44119747544 succeeded, version171126r0099. Large PC title layout now has bounded columns and larger typography. Clickable PC Upgrades/Scoreboard controls restored. Live client171126r0099/Worker25; Speed Grip remains LAB ONLY.
 
 ## What was implemented
 
@@ -8,7 +8,7 @@ Desktop menu at1000x560 or larger with fine input uses a centred1120x800 maximum
 
 ## Key technical decisions
 
-Only canvas layout/render and existing drawer navigation changed. No new dependencies, sim/gameplay tuning, account schema, Worker/protocol or live-config writes. Speed Grip remains in the isolated lab awaiting owner playtest. Typecheck/build/rig/sim/config pass. Geometry regression covers22 size/input combinations. Headless Brave DPR2:12 menu interaction/lifecycle layouts,8 HUD click/keyboard layouts,7 final typography/bounds/resize cases, zero page errors. No screenshots, recording or desktop capture per owner instruction. Evidence outputs/steroids-alpha/desktop-layout/.
+Only canvas layout/render and existing drawer navigation changed. No new dependencies, sim/gameplay tuning, account schema, Worker/protocol or live-config writes. Speed Grip remains in the isolated lab awaiting owner playtest. Typecheck/build/rig/sim/config pass. Geometry regression covers22 size/input combinations. Headless Brave DPR2:12 menu interaction/lifecycle layouts,8 HUD click/keyboard layouts,7 final typography/bounds/resize cases, plus7 public title/bounds/resize and8 public HUD interaction layouts, zero page errors. No screenshots, recording or desktop capture per owner instruction. Evidence outputs/steroids-alpha/desktop-layout/.
 
 ## Open questions
 
@@ -16,8 +16,8 @@ Owner clarified PC upgrade menu/scoreboard could not be seen; BRIEF now records 
 
 ## Known issues
 
-Headless geometry and interactions do not replace human visual review or physical-phone/Safari checks. Existing unrelated build warnings remain. Lab grip requires shared authoritative/predicted movement integration before any separately approved live release.
+Headless geometry and interactions do not replace human visual review or physical-phone/Safari checks. Existing unrelated build warnings remain. Companion Pages run44119747530 built/deployed successfully but failed its unrelated Operation C counter-persistence step on a concurrent main push; Steroids itch release succeeded. Lab grip requires shared authoritative/predicted movement integration before any separately approved live release.
 
 ## Next proposed step
 
-Release the verified UI-only fix through the existing itch workflow, then verify public title/HUD interactions and record version/deploy proof. Keep Claude backlog deferred; stop temporary preview/headless sessions after verification.
+Owner checks the corrected PC title and Upgrades[B]/Scoreboard[Tab] on the public itch page. Keep Claude backlog deferred. Temporary preview4187 and all task headless browsers are stopped. Speed Grip playtest/live port remains separately gated.

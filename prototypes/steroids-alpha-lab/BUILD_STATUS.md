@@ -1,6 +1,6 @@
 ## Current milestone
 
-Speed-dependent grip PUBLIC LAB preview ready. PR554 mergecc1fc0b7e3f97a2dfa5c442ae4af93bd049980a3; Pages44074248828 succeeded. Six local plus6 public headless Brave DPR2 layouts pass, including tall/portrait, held Thrust/Brake recovery, profiles, all4 ships, firing/dash and reset disposal. Direct No Drift link works. Zero page errors/game sockets/writes/captures; temporary preview/headless stopped. Owner approved lab testing only. Existing live client171126r0098 / Worker25 stays unchanged.
+Speed-dependent grip PUBLIC LAB preview ready. PR554 mergecc1fc0b7e3f97a2dfa5c442ae4af93bd049980a3; Pages44074248828 succeeded. Six local plus6 public headless Brave DPR2 layouts pass, including tall/portrait, held Thrust/Brake recovery, profiles, all4 ships, firing/dash and reset disposal. Direct No Drift link works. Zero page errors/game sockets/writes/captures; temporary preview/headless stopped. Owner approved lab testing only. Live client171126r0099 now includes the separate UI-only correctionPR557; Worker25 and live handling stay unchanged.
 
 ## What was implemented
 

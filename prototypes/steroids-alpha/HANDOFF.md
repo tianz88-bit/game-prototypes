@@ -1,11 +1,11 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
 ## 2026-11-17 codex desktop/mobile UI correction
-DID: dedicated bounded desktop title composition; restored clickable PC Upgrades[B]/Scoreboard[Tab], aligned Warp/header. Compact mobile layout and1–6 buys retained.
+DID: LIVE171126r0099 via PR557 ec5ef477; itch44119747544 success. Bounded desktop title; clickable PC Upgrades[B]/Scoreboard[Tab], aligned Warp/header.
 FILES: render/landingLayout,hudLayout; scenes/menu,flight; landing layout regression and deferred docs.
 SEAM: optional touch argument/desktop credit anchors; flight header shares PC nav/Warp geometry; existing drawer/input intents unchanged.
 CROSS: menu/input behaviour minimally touched to repair missing PC controls; no simulation/tune/Worker/config or live Speed Grip port.
-FOR claude: deferred backlog records the fix; owner visual review remains manual/no capture. Release proof follows verification.
+FOR claude: backlog ready, no immediate action.12 local menus/8 HUD/7 final menu and7 public menus/8 HUD pass without page errors/capture. Pages post-deploy Operation C counter push race logged.
 
 ## 2026-11-17 codex speed-dependent grip PUBLIC LAB
 DID: Speed Grip / No Drift / Live Baseline, held Thrust/Brake and bounded speed-dependent travel drift public via PR554 cc1fc0b7; Pages44074248828 success.
