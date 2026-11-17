@@ -65,6 +65,7 @@ for (let lv = 0; lv < total; lv++) {
   }
   const phase = await page.evaluate(() => window.__densha.phase());
   results.push({ level: lv + 1, par, taps, phase });
+  console.log(`level ${lv + 1} par ${par} taps ${taps} ${phase}`);
   if (lv === 0 || lv === 9) await shot(`level${lv + 1}-end`);
 }
 console.table(results);
