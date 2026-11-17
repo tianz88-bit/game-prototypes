@@ -1394,6 +1394,17 @@ assert.equal(S.cleanName(null), '');
   const parked = new ThrusterVFX(() => 0.5);
   for (let i = 0; i < 30; i++) parked.update(1 / 60, { ...idleIn, throttle: i % 2 === 0, off: true }, origins, 0);
   assert.equal(parked.particles.length, 0, 'landed: engines off, no exhaust');
+  const streams=[];
+  for(const speedBand of ['slow','cruise','fast']){
+    const fx=new ThrusterVFX(()=>.5);
+    for(let i=0;i<10;i++)fx.update(1/60,{...idleIn,speedBand},origins);
+    streams.push(fx);
+  }
+  assert.equal(new Set(streams.map(f=>f.particles[0].colour)).size,3,'slow/cruise/fast streams have distinct colours');
+  assert(streams.every(f=>f.particles.length===streams[0].particles.length),'speed colours add no particles');
+  assert.equal(S.thrusters.exhaustSpeedBand(tune.ship.minSpeed,tune.ship.cruiseSpeed,tune.ship.maxSpeed),'slow');
+  assert.equal(S.thrusters.exhaustSpeedBand(tune.ship.cruiseSpeed,tune.ship.cruiseSpeed,tune.ship.maxSpeed),'cruise');
+  assert.equal(S.thrusters.exhaustSpeedBand(tune.ship.maxSpeed,tune.ship.cruiseSpeed,tune.ship.maxSpeed),'fast');
 }
 
 // --- Dash: press = dashChargeSeconds wind-up; the direction held when it completes is where the

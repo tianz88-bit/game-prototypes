@@ -11,12 +11,12 @@ import { advanceTilt, projectTiltPoint, tiltBasis } from './shipTilt';
 import type { FFDControl, TiltBasis } from './shipTilt';
 import { paletteTexture, profileFor, shadowKey } from './shipArt';
 import type { ShipProfile } from './shipProfiles';
-import { chassisStats } from '../../sim/chassis';
+import { chassisStats,shipMotion } from '../../sim/chassis';
 import { clientTune } from '../clientTune';
 import { TUNE } from '../../sim/tune';
 import { PALETTES } from './palette';
 import { hoverLightTexture } from './hoverLight';
-import { ThrusterVFX } from './thrusters';
+import { ThrusterVFX,exhaustSpeedBand } from './thrusters';
 import type { NozzleOrigin, ThrusterInput } from './thrusters';
 
 const SHIP_DEPTH = 20;
@@ -221,7 +221,8 @@ export class ShipView {
     // so a fixed 350 never showed the full plume) and is longest at its top speed or in a dash.
     const from = top * (1 - (1 - TUNE.ship.cruiseSpeed / TUNE.ship.maxSpeed) / 2);
     const speedTrail = boosting ? 1 : Math.max(0, Math.min(1, (speed - from) / Math.max(1, top - 1 - from)));
-    const demand: ThrusterInput = { throttle: timeMs < this.demandUntil.throttle, left: timeMs < this.demandUntil.left, right: timeMs < this.demandUntil.right, speedTrail, dashing: boosting };
+    const motion=shipMotion(this.chassis,TUNE),cruise=top*motion.cruiseSpeed/motion.maxSpeed;
+    const demand: ThrusterInput = { throttle: timeMs < this.demandUntil.throttle, left: timeMs < this.demandUntil.left, right: timeMs < this.demandUntil.right, speedTrail, speedBand:exhaustSpeedBand(speed,cruise,top),dashing: boosting };
     this.lastSpeed = speed;
     this.lastAngle = angle;
     this.lastTime = timeMs;

@@ -1060,7 +1060,7 @@ export class FlightScene extends Phaser.Scene {
 
   /**
    * Missile and mine buttons, shown once bought: a symbol, the charges held, and a ring refilling the
-   * next charge. Touch: above the fire and dash buttons. Keyboard: small badges (Q, E) by the bars.
+   * next charge. Touch: above fire/dash. PC: readable badges above the bottom-left key hints.
    */
   private drawWeapons(p: ShipState | null, w: number, h: number): void {
     const g = this.overlay;
@@ -1079,9 +1079,9 @@ export class FlightScene extends Phaser.Scene {
     ];
     slots.forEach((sl, i) => {
       if (sl.tier <= 0) return;
-      const r = touch ? 30 : 15;
-      const x = touch ? (i === 0 ? w - m * 2 - dr * 2 - fr : w - m - dr) : w / 2 + Math.min(220, w * 0.5) / 2 + 74 + i * 64;
-      const y = touch ? h - m - (i === 0 ? fr * 2 : dr * 2) - 14 - r : h - 30;
+      const r = touch ? 30 : 24;
+      const x = touch ? (i === 0 ? w - m * 2 - dr * 2 - fr : w - m - dr) : 42+i*140;
+      const y = touch ? h - m - (i === 0 ? fr * 2 : dr * 2) - 14 - r : h-(this.keyHints.visible?this.keyHints.displayHeight+52:46);
       const ready = sl.charges > 0;
       controlFace(g,x,y,r,sl.kind==='missile'?UI.uiAccent:UI.uiGold,ready);
       if (sl.charges < sl.tier && sl.cd > 0) {
@@ -1107,7 +1107,7 @@ export class FlightScene extends Phaser.Scene {
       }
       this.weaponTexts[i]
         .setVisible(true)
-        .setFontSize(touch ? 18 : 12)
+        .setFontSize(touch ? 18 : 22)
         .setOrigin(0, 0.5)
         .setPosition(x + r + 4, y)
         .setText(touch ? `${sl.charges}` : `${sl.charges} [${sl.key}]`)
@@ -1208,6 +1208,7 @@ export class FlightScene extends Phaser.Scene {
     this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now,this.hudAnchor, this.planet === TUTORIAL || isWarPlanet(this.planet) ? 'none' : !this.net.layout ? 'salvage' : this.net.clan === this.net.layout.clan ? 'fuel' : 'none');
     this.drawMobileNav(p,w);
     this.drawShop(p);
+    this.drawKeyHints(p, w, h);
     this.drawWeapons(p, w, h);
     this.drawBounty(p, w, h);
     this.drawWarp(p, w, h);
@@ -1216,7 +1217,6 @@ export class FlightScene extends Phaser.Scene {
     this.drawSiege(w, h);
     if (this.planet === TUTORIAL && (this.net.death || this.net.extracted)) guide.hide();
     else if (this.planet === TUTORIAL) guide.update({ myId: this.net.myId, predicted: this.net.predicted, g: this.overlay, w, h, toScreen: (x, y) => this.toScreen(x, y) });
-    this.drawKeyHints(p, w, h);
     this.buildingRigs.begin();
     this.drawBase(p, w, h);
     this.buildingRigs.end();
@@ -1704,10 +1704,9 @@ export class FlightScene extends Phaser.Scene {
   }
 
   private drawStatus(own: ShipState | null): void {
-    const planet = this.planet === TUTORIAL ? 'Tutorial' : PLANETS.find((p) => p.id === this.planet)?.label ?? this.planet;
     const n = this.net;
-    const ships = (own ? 1 : 0) + n.remoteCount;
-    this.status.setVisible(!intents.touch).setText(`${planet}  ·  ${ships} nearby  ·  SPEED ${Math.round(own?.speed ?? 0)}${DEBUG?`  ·  ${Math.round(n.rttMs)} ms`:n.rttMs>250?'  ·  POOR SIGNAL':''}`);
+    this.status.setVisible(false);
+    this.coords.setVisible(false);
     const msg: Record<string, string> = {
       connecting: 'Connecting…',
       open: '',

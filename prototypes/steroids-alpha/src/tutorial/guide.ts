@@ -219,7 +219,7 @@ export class TutorialGuide {
       },
       {
         title: 'SPEED',
-        body: () => `Speed up to full (${k().fast}), then slow right down (${k().slow}). Your ship never stops, but it can go slow. Watch SPEED at the top.`,
+        body: () => `Speed up to full (${k().fast}), then slow right down (${k().slow}). Your ship never stops, but it can go slow. Watch the engine trail change colour.`,
         need: 3,
         update: (_v, s) => {
           const top = topSpeed(s.hullMax, TUNE, s.chassis);
