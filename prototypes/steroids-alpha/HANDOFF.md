@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex four-step tutorial LIVE
+DID: Fly/Fight/Dash-Ram/Escape +6 brief saved contextual tips live171126r0095. PR542 7b90e92a; itch44032662726/Pages44032662575/Worker44032662716 success; protocol25 healthy, Warzone retained.
+FILES: guide/policy/contextTips/tipState, Flight/save, local Room/manual stationary target, CI regressions and CLAUDE_BACKLOG.md.
+SEAM: four-stage/Fight-phase policy, optional warp, auto-turret quiet gate, Save.tipsSeen; tutorial only. No new wire/live tuning/economy changes; real extraction completes practice, no bank credit.
+CROSS: type/build/rig/sim/config pass;3 local+3 public real-route and18 local+18 public tip cases pass across desktop/mobile landscape/portrait, zero page errors/captures/public-room fixture writes.
+FOR claude: owner says sync later. Durable backlog has release details and obsolete-index warning; no immediate execution/review needed. Temporary Vite4187 stopped; evidence four-step-tutorial.
+
 ## 2026-11-17 codex four-step tutorial RELEASE
 DID: Fly(two rings), Fight(one rock/bundle/upgrade), Dash/Ram(one stationary target), Escape(real extraction); short prompts, no modal/repeat grind.6 contextual first-use tips with persistent seen IDs.
 FILES: guide/policy/contextTips/tipState, Flight/save, local Room/manual target kind, sim CI regressions and docs/CLAUDE_BACKLOG.
@@ -97,10 +104,3 @@ FILES: art/warzone-v1 manifest now approved-uploaded/public URL; preserved main 
 SEAM: existing SiegeView/tune health observations; shared neutral wreck/debris keys, one-shot transitions, bounded effects. No new gameplay/wire values from this pass.
 CROSS: source/regression merge checked before push. No screenshots/recording; owner manually approved the local lab.
 FOR claude: go-live authorized directly by owner; source ZIP638189c64011a03ed3c05a5c6e2fc8fd5a87f14201e66c20e3693b79eb3f5caf. Await PR/run/public proof in this entry's successor.
-
-## 2026-11-17 codex warzone-final-hit LOCAL REVIEW ONLY
-DID: owner refinement replaces destroyed tower AND Nexus with neutral rubble bases. Final hit throws16/36 painted neutral plate/tube fragments, rectangular sparks, projected shock front/shadows and secondary Nexus cores. Lab has repeatable final-hit/repair controls.
-FILES: warzone-v1 manifest now local v2 ZIP/seven parts, buildingBlast/buildingDestruction/buildingRig, rigReview, building regression; README/BUILD_STATUS give evidence/hash.
-SEAM: health transition observed once only when recently visible; no initial/repeated ruin detonation. Shared building-*-0 neutral textures skip clan remapping. Repair/scene shutdown clears effects; max8 bursts and bounded reused image pool.
-CROSS: renderer-only, no sim/tune/wire changes. Typecheck/assets/rig/build and Brave desktop/mobile state +4 destruction cases pass; no capture/recording. Live remains unchanged.
-FOR claude: owner checks local ?review=warzone or standalone turret/nexus FINAL HIT. Still NO R2 upload/push/merge/deploy before approval. Local v2 ZIP SHA 638189c64011a03ed3c05a5c6e2fc8fd5a87f14201e66c20e3693b79eb3f5caf.
