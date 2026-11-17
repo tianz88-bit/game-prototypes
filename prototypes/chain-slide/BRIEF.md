@@ -44,9 +44,12 @@ every level can be solved with the visible information.
   leave the board there (an exit). Where a track ends in a buffer stop, the train
   stops there. Tracks can cross; a crossing cell can hold a train for another
   track to be blocked by it. That is the unblock part of the puzzle.
-- **Trains:** 1 to 3 cells long, one color each (the liveries are for looks and
-  for telling trains apart; they do not change the rules). A train sits on one
-  track.
+- **Trains:** different lengths, from 1 to 5 cells (a single railcar up to a long
+  express), one color each (the liveries are for looks and for telling trains apart;
+  they do not change the rules). A train sits on one track. Length is part of the
+  puzzle: long trains need long free runs and block more of the yard. Early levels
+  use short trains (1 to 2 cells) and longer ones come in with difficulty. The
+  maximum length per level range is in tune.json.
 - **Moving:** tapping a train that has free cells along its track makes it run
   all the way along the track in one direction until it leaves the board through
   an exit or stops (blocked by concrete, decor, a buffer stop, or another train).
@@ -134,8 +137,8 @@ Trains get personality from one short beat at every hit, built to stay snappy:
 1. **Horn.** When a running train stops against another train, it brakes with a
    small squash and blows its horn: a short "toot" sound and an animated burst
    (a few rounded sound rings and puffs from the front). About 120 ms.
-2. **Spook.** The train that was hit is startled. It skews and stretches
-   sideways and up, with a little shake and a "!" pop above it, as anticipation
+2. **Spook.** The train that was hit is startled. Its whole length skews and
+   stretches (a long train ripples car by car), sideways and up, with a little shake and a "!" pop above it, as anticipation
    before it takes off. About 120 ms, then it springs forward with a quick
    stretch that settles to normal as it speeds up.
 3. **Go.** The spooked train runs, and the same beat repeats at the next hit.
