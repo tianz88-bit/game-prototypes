@@ -193,6 +193,18 @@ then the playable planet (both done, 16 November 2026).
   are still there.
 - **On Warzone:** mining and upgrades as usual (power only: no salvage, no fuel); no warp-out during
   a war. **No rewards** for now.
+- **Session flow (owner, 17 November 2026):** the start countdown is 20 s and pilots can still join
+  during it; then the planet locks. When a round ends the result shows for a moment (8 s), then
+  **every pilot is sent back to the menu** with the result, and the Warzone stays closed for a **20 s
+  reset** (`siege.cooldownSeconds`). If a side has no connected pilots during a war, the session ends
+  after 10 s the same way (no winner). A defender waiting to respawn still counts as present.
+- **Stellar map:** Warzone shows OPEN / STARTING (join now) / WAR IN PROGRESS with time left /
+  RESETTING. Pilots with no clan get JOIN AS CRIMSON / JOIN AS AZURE right there. While it is
+  closed, NOTIFY ME warps the pilot in as soon as it opens (while the map stays open). Joining while
+  closed still gives a clear message (war on, or resetting with seconds left).
+- **Never stuck in hyperspace:** if no ship has arrived after 10 s, the screen says what it is
+  waiting for, with RETRY and BACK TO MENU.
+- On Warzone the hot zone is labelled MINERAL ZONE for both sides (power only, rich rocks).
 - **Playable (step 2):** Warzone is in the menu and on the stellar map. Only clan pilots can join
   (others are told to pick a clan); during a war (and its round-over pause) newcomers are refused
   with a "war is on" message. A pilot destroyed at war stays on the planet and respawns in place

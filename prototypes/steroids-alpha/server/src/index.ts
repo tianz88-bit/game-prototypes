@@ -104,17 +104,21 @@ export default {
     // Pilots on each planet, for the planet select screen.
     if (url.pathname === '/planets' && request.method === 'GET') {
       const counts: Record<string, number> = {};
+      // Warzone round state for the stellar map (owner, 17 November 2026).
+      const status: Record<string, { phase: string; left: number }> = {};
       await Promise.all(
         PLANETS.map(async (p) => {
           try {
-            const r = await env.PLANET_ROOMS.get(env.PLANET_ROOMS.idFromName(`${p.id}:1`)).fetch(new Request('https://internal/count'));
-            counts[p.id] = ((await r.json()) as { players: number }).players;
+            const r = await env.PLANET_ROOMS.get(env.PLANET_ROOMS.idFromName(`${p.id}:1`)).fetch(new Request(`https://internal/count?planet=${p.id}`));
+            const j = (await r.json()) as { players: number; siege?: { phase: string; left: number } | null };
+            counts[p.id] = j.players;
+            if (j.siege) status[p.id] = j.siege;
           } catch {
             counts[p.id] = -1;
           }
         }),
       );
-      return Response.json({ planets: counts }, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
+      return Response.json({ planets: counts, status }, { headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' } });
     }
     if (url.pathname === '/account' || url.pathname === '/account/recover' || url.pathname === '/account/buy') return accountRoute(request, env, url.pathname);
     if (url.pathname === '/health') {
@@ -154,7 +158,13 @@ export class PlanetRoom {
   async fetch(request: Request): Promise<Response> {
     await this.refreshConfig();
     if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {
-      return Response.json({ players: this.room.playerCount });
+      // The planet list asks every room; a room that has not served a pilot yet learns its planet here.
+      const asked = PLANETS.find((p) => p.id === new URL(request.url).searchParams.get('planet'));
+      if (asked) {
+        this.room.setBots(asked.bots);
+        this.room.setPlanet(asked.id);
+      }
+      return Response.json({ players: this.room.playerCount, siege: this.room.siegeStatus() });
     }
     const pair = new WebSocketPair();
     const client = pair[0];

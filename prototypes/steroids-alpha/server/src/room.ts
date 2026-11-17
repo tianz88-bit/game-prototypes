@@ -82,7 +82,7 @@ interface Player {
 }
 
 /** Warzone round flow (owner, 16 November 2026). */
-export type SiegePhase = 'peace' | 'countdown' | 'war' | 'release' | 'over';
+export type SiegePhase = 'peace' | 'countdown' | 'war' | 'release' | 'over' | 'cooldown';
 
 /**
  * Banks an extraction (server/src/bank.ts creditExtraction, through D1): returns the new balance,
@@ -176,6 +176,39 @@ export class Room {
   /** Tick the current countdown (start, release, round over) ends. */
   private phaseUntil = 0;
   private siegeKey = '';
+  /** Wall-clock end of the post-round cooldown (Date.now ms). */
+  private cooldownUntilMs = 0;
+
+  /** Phase and seconds left, for the planet list (stellar map): works while the room is idle too. */
+  siegeStatus(): { phase: SiegePhase; left: number } | null {
+    if (!this.war) return null;
+    if (this.siegePhase === 'cooldown') {
+      const left = Math.ceil((this.cooldownUntilMs - Date.now()) / 1000);
+      return left > 0 ? { phase: 'cooldown', left } : { phase: 'peace', left: 0 };
+    }
+    const f = this.siegeFrame();
+    return { phase: f.phase, left: f.left };
+  }
+
+  /**
+   * End of a session (owner, 17 November 2026): every pilot goes back to the menu with the result,
+   * the base resets, and the Warzone stays closed for siege.cooldownSeconds.
+   */
+  private closeSession(result: string): void {
+    for (const p of [...this.players.values()]) {
+      this.send(p, JSON.stringify({ type: 'roundEnd', result }));
+      const ws = p.ws;
+      this.leave(p.id);
+      try {
+        ws.close(CLOSE.ROUND_OVER, result);
+      } catch {
+        // Already closed.
+      }
+    }
+    this.endWar();
+    this.cooldownUntilMs = Date.now() + this.tune.siege.cooldownSeconds * 1000;
+    this.setPhase('cooldown');
+  }
   /** War bots waiting to come back: their clan and the tick. */
   private warBotRespawns: { clan: number; at: number }[] = [];
 
@@ -279,19 +312,23 @@ export class Room {
         else if (this.tick >= this.phaseUntil) this.beginWar();
         break;
       case 'war':
-        if (sg.phase === 'over') this.setPhase('over', 8);
+        if (sg.phase === 'over') this.setPhase('over', t.overSeconds);
         else if (!both) this.setPhase('release', t.endCountdownSeconds);
         break;
       case 'release':
-        if (sg.phase === 'over') this.setPhase('over', 8);
+        // A side with no pilots left: the session ends after the release countdown (owner).
+        if (sg.phase === 'over') this.setPhase('over', t.overSeconds);
         else if (both) this.siegePhase = 'war';
-        else if (this.tick >= this.phaseUntil) this.endWar();
+        else if (this.tick >= this.phaseUntil) this.closeSession('A side left the war: no winner');
         break;
       case 'over':
         if (this.tick >= this.phaseUntil) {
-          this.endWar();
-          if (both) this.setPhase('countdown', t.startCountdownSeconds);
+          const who = sg.winner === 1 ? 'Crimson' : 'Azure';
+          const why = sg.reason === 'treasury' ? 'Nexus destroyed' : sg.reason === 'tickets' ? 'attackers out of tickets' : 'the defence held until time ran out';
+          this.closeSession(`${who} wins: ${why}`);
         }
+        break;
+      case 'cooldown':
         break;
     }
     // Siege state for the HUD: on any change, and a few times a second while it runs.
@@ -306,7 +343,7 @@ export class Room {
   private siegeFrame(): { type: 'siege'; phase: SiegePhase; left: number; tickets: number; turrets: number[]; shield: number; broken: boolean; treasury: number; winner: number; reason: string; crimson: number; azure: number } {
     const sg = this.world.siege!;
     const hz = this.tune.net.tickHz;
-    const until = this.siegePhase === 'war' ? sg.endsAt : this.phaseUntil;
+    const until = this.siegePhase === 'war' || this.siegePhase === 'release' ? sg.endsAt : this.phaseUntil;
     return { type: 'siege', phase: this.siegePhase, left: Math.max(0, Math.ceil((until - this.tick) / hz)), tickets: sg.tickets, turrets: sg.turretHp.map((v) => Math.round(v)), shield: Math.round(sg.shield), broken: sg.shieldBroken, treasury: Math.round(sg.treasury), winner: sg.winner, reason: sg.reason, crimson: this.humans(1), azure: this.humans(2) };
   }
   private planetSet = false;
@@ -439,6 +476,15 @@ export class Room {
       if (!clan) {
         ws.close(CLOSE.NEED_CLAN, 'pick a clan to fight in the Warzone');
         return false;
+      }
+      // After a round the Warzone resets for siege.cooldownSeconds (wall clock: the room may be idle).
+      if (this.siegePhase === 'cooldown') {
+        const left = Math.ceil((this.cooldownUntilMs - Date.now()) / 1000);
+        if (left > 0) {
+          ws.close(CLOSE.WAR_RESETTING, String(left));
+          return false;
+        }
+        this.setPhase('peace');
       }
       if (this.siegePhase === 'war' || this.siegePhase === 'release' || this.siegePhase === 'over') {
         ws.close(CLOSE.WAR_LOCKED, 'a war is on: try again when it ends');

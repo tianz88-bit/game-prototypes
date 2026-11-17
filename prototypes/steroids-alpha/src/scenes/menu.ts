@@ -18,7 +18,8 @@ import { loadSave, writeSave } from '../save';
 import { clientTune } from '../clientTune';
 import { UI, css, panel } from '../render/ui';
 import { ensureAccount, recoverAccount } from '../net/account';
-import { StellarMap } from '../render/stellarMap';
+import { StellarMap, warLabel } from '../render/stellarMap';
+import type { WarStatus } from '../render/stellarMap';
 
 export interface MenuButton {
   id: PlanetId;
@@ -262,7 +263,7 @@ export class MenuScene extends Phaser.Scene {
     this.showCounts();
     if (this.mapOpen) {
       f.blur(); f.style.display = 'none'; intents.textBox = null; intents.copyZone = null;
-      this.stellarMap = new StellarMap(this, w, h, myClan, this.selectedPlanet, this.counts);
+      this.stellarMap = new StellarMap(this, w, h, myClan, this.selectedPlanet, this.counts, this.war, this.notifyWar);
       this.buttons = this.stellarMap.planets.map(({ id, x, y, w, h }) => ({ id, x, y, w, h }));
     }
   }
@@ -303,16 +304,28 @@ export class MenuScene extends Phaser.Scene {
 
   /** Pilots on each planet, from the server; refreshed every few seconds while the menu is open. */
   private counts: Record<string, number> | null = null;
+  /** Warzone round state from the planet list, and the NOTIFY ME request (owner, 17 November 2026). */
+  private war: WarStatus | null = null;
+  private notifyWar = false;
   private countsAt = -1e9;
   private async pollCounts(): Promise<void> {
     try {
       const url = serverOrigin().replace(/^ws/, 'http') + '/planets';
       const r = await fetch(url, { cache: 'no-store' });
-      this.counts = r.ok ? ((await r.json()) as { planets: Record<string, number> }).planets : null;
+      const j = r.ok ? ((await r.json()) as { planets: Record<string, number>; status?: Record<string, WarStatus> }) : null;
+      this.counts = j?.planets ?? null;
+      this.war = j?.status?.warzone ?? null;
     } catch {
       this.counts = null;
     }
-    if (this.scene.isActive()) this.showCounts();
+    if (!this.scene.isActive()) return;
+    this.showCounts();
+    // NOTIFY ME: warp in as soon as the Warzone opens (the map stays open meanwhile).
+    if (this.notifyWar && this.stellarMap && warLabel(this.war).open && (loadSave().clan ?? 0)) {
+      this.notifyWar = false;
+      goImmersive(intents.touch);
+      this.scene.start('flight', { planet: 'warzone' });
+    }
   }
 
   /** The real player counts shown under the globes (test hook). */
@@ -324,7 +337,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private showCounts(): void {
-    this.stellarMap?.setCounts(this.counts);
+    this.stellarMap?.setCounts(this.counts, this.war);
   }
 
   update(time: number): void {
@@ -366,6 +379,15 @@ export class MenuScene extends Phaser.Scene {
         const action = this.stellarMap.tap(t.x, t.y);
         if (action?.kind === 'close') { this.mapOpen = false; this.layout(); return; }
         if (action?.kind === 'select') this.selectedPlanet = action.planet;
+        if (action?.kind === 'joinAs') {
+          writeSave({ name, clan: action.clan }); goImmersive(intents.touch);
+          this.scene.start('flight', { planet: 'warzone' }); return;
+        }
+        if (action?.kind === 'notify') {
+          this.notifyWar = !this.notifyWar;
+          this.layout();
+          return;
+        }
         if (action?.kind === 'warp') {
           writeSave({ name }); goImmersive(intents.touch);
           this.scene.start('flight', { planet: action.planet }); return;

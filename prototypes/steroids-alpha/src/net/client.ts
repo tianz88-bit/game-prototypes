@@ -53,6 +53,8 @@ export function closeReason(code: number, reason: string): string {
     [CLOSE.RESUME_LOST]: 'away too long, or the server was updated',
     [CLOSE.WAR_LOCKED]: 'a war is on in the Warzone: try again when it ends',
     [CLOSE.NEED_CLAN]: 'pick Crimson or Azure in the menu to fight in the Warzone',
+    [CLOSE.ROUND_OVER]: 'the Warzone round is over',
+    [CLOSE.WAR_RESETTING]: 'the Warzone is resetting',
   };
   const words = known[code] ?? 'unknown';
   return `${words} · code ${code}${reason && !words.includes(reason) && reason !== 'ship lost' ? ` · ${reason}` : ''}`;
@@ -255,7 +257,7 @@ export class NetClient {
       if (this.pingTimer) clearInterval(this.pingTimer);
       this.pingTimer = null;
       this.closeInfo = { code: e.code, reason: e.reason };
-      const final: Partial<Record<number, NetStatus>> = { [CLOSE.ROOM_FULL]: 'full', [CLOSE.DESTROYED]: 'destroyed', [CLOSE.EXTRACTED]: 'extracted', [CLOSE.RESUME_LOST]: 'lost', [CLOSE.BAD_PROTOCOL]: 'closed', 1008: 'closed' , [CLOSE.WAR_LOCKED]: 'closed', [CLOSE.NEED_CLAN]: 'closed' };
+      const final: Partial<Record<number, NetStatus>> = { [CLOSE.ROOM_FULL]: 'full', [CLOSE.DESTROYED]: 'destroyed', [CLOSE.EXTRACTED]: 'extracted', [CLOSE.RESUME_LOST]: 'lost', [CLOSE.BAD_PROTOCOL]: 'closed', 1008: 'closed' , [CLOSE.WAR_LOCKED]: 'closed', [CLOSE.NEED_CLAN]: 'closed', [CLOSE.ROUND_OVER]: 'closed', [CLOSE.WAR_RESETTING]: 'closed' };
       const now = performance.now();
       if (final[e.code] || this.leaving || !this.resumeToken) {
         this.status = final[e.code] ?? 'closed';

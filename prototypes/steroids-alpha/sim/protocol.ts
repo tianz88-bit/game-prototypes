@@ -31,7 +31,7 @@ import type { ShipInput, ShipState } from './ship';
 import type { Asteroid } from './asteroids';
 import type { ShotEvent } from './world';
 
-export const PROTOCOL_VERSION = 24;
+export const PROTOCOL_VERSION = 25;
 
 export const MSG = {
   INPUT: 1,
@@ -59,6 +59,10 @@ export const CLOSE = {
   WAR_LOCKED: 4006,
   /** Warzone: only clan pilots (Crimson or Azure) can join. */
   NEED_CLAN: 4007,
+  /** Warzone: the round ended (or a side left); everyone goes back to the menu. Reason: the result. */
+  ROUND_OVER: 4008,
+  /** Warzone: resetting after a round; reason: seconds until it opens. */
+  WAR_RESETTING: 4009,
 } as const;
 
 export interface SnapshotShip extends ShipState {
