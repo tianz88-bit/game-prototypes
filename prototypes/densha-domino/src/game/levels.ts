@@ -51,15 +51,16 @@ export const LEVEL_SOURCES: LevelSource[] = [
   { name: 'First Departure', rows: ['.....', '.....', 'bAA..', '.....', '.....'] },
   // 2. Tap the back train: it bumps the front one, which takes off, and follows it out.
   { name: 'Follow the Leader', rows: ['.....', '.....', 'bA.B.', '.....', '.....'], axis: { A: 'h', B: 'h' } },
-  // 3 to 10 were found by a search and proved solvable by the solver (see scripts/check-densha-levels.mjs).
-  { name: 'Shibuya Siding', rows: ['m.k..', 'B....', 'B....', '...s.', 'ACC..'], axis: { A: 'v' } },
-  { name: 'Ueno Yard', rows: ['..A..', '.#A..', '.kA..', 'BB.C.', 't.Dm.'], axis: { C: 'h', D: 'v' } },
-  { name: 'Kyoto Crossing', rows: ['......', '...C.t', '.b....', '...BDs', 'AAAB.E', 'm..k..'], axis: { C: 'v', D: 'h', E: 'h' } },
-  { name: 'Nagoya Junction', rows: ['ACCCE.', 'A...BB', 'A...D.', 'k....#', '..m#F.', '..s.F.'], axis: { D: 'v', E: 'v' } },
-  { name: 'Sapporo Sidings', rows: ['.FF.B.', '......', '....s.', '.E.Cm.', '.EAAA.', '.#.Dm.', '.s.D.b'], axis: { B: 'h', C: 'v' } },
-  { name: 'Osaka Loop', rows: ['D....E.', 'D.BB...', '....s..', '.A.FFFF', 'GA..m.k', '.A.kbb.', 'CA....#'], axis: { C: 'v', E: 'h', G: 'v' } },
-  { name: 'Hakata Depot', rows: ['..s#F..', '.H.DD..', '.b.b..G', 'CCC.B.G', '..#.AEG', '..t.AEG', '...bA#.'], axis: { B: 'h', F: 'v', H: 'h' } },
-  { name: 'Tokyo Terminal', rows: ['FFFFF..', 'B.DDDD.', 'mE.#.m.', '.E..G..', '.s.t...', '.b.kHs.', '.AAAAA.', '...CI..'], axis: { B: 'h', C: 'h', G: 'v', H: 'v', I: 'v' } },
+  // 3 to 10 were found by a search under the current rules (side bumps chain too) and
+  // proved solvable by the solver; see scripts/check-densha-levels.mjs.
+  { name: 'Shibuya Siding', rows: ['#.CAA', '..#..', '.B..#', '.B...', '.....'], axis: { C: 'h' } },
+  { name: 'Ueno Yard', rows: ['k..C.', 's.BBB', 't....', '....D', 'mA..D'], axis: { A: 'h', C: 'v' } },
+  { name: 'Kyoto Crossing', rows: ['.t....', '.D#...', '...m..', '..#B.E', '#..BAE', 'CCCB.E'], axis: { A: 'h', D: 'v' } },
+  { name: 'Nagoya Junction', rows: ['b.bFFF', '......', '.B....', 'CCC#.A', '#..EEA', '...sD.'], axis: { B: 'v', D: 'v' } },
+  { name: 'Sapporo Sidings', rows: ['.mDGC.', '#.DG..', 't.DGEE', '.BDs..', '.B#...', 'mB.AAA', '.FF...'], axis: { C: 'h' } },
+  { name: 'Osaka Loop', rows: ['HbEb...', 'H.EDA#.', 'H.E.A..', '..E.G..', '.F.#GCC', '.F..Gk.', 'BBBm.#.'], axis: { D: 'h' } },
+  { name: 'Hakata Depot', rows: ['..EDDm.', '.FEHHHH', '.FE#..t', '#FGBBBB', '.FG...b', '....t.#', 'm...CCA'], axis: { A: 'v' } },
+  { name: 'Tokyo Terminal', rows: ['.B.FFFG', '.B#.k.E', '.BI.##E', 'DBI...E', 'DBIC.mE', 'D#I#..E', 'D.I...s', 'DHAAAAA'], axis: { C: 'h', G: 'h', H: 'v' } },
 ];
 
 export const LEVELS: Level[] = LEVEL_SOURCES.map((s) => parseLevel(s.name, s.rows, s.axis));

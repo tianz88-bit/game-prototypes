@@ -40,8 +40,8 @@ export interface Move {
 export type TapEvent =
   /** A train moves from `from` to `to` (start cells along its axis). `exited` means it leaves the board. */
   | { type: 'run'; train: number; from: number; to: number; exited: boolean; dir: Dir; link: number; resume: boolean }
-  /** A running train stops against another and blows its horn. `spooked` means the other train takes off. */
-  | { type: 'hit'; runner: number; target: number; dir: Dir; spooked: boolean; sameLine: boolean; link: number };
+  /** A running train stops against another (end or side) and blows its horn. `spooked` means the other train takes off, running in `targetDir`. */
+  | { type: 'hit'; runner: number; target: number; dir: Dir; targetDir: Dir; spooked: boolean; sameLine: boolean; link: number };
 
 export interface TapResult {
   state: State;

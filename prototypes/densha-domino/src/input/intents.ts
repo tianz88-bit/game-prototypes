@@ -34,8 +34,10 @@ export function bindKeyboard(scene: Phaser.Scene, bus: IntentBus<Intent>): void 
  */
 export function bindPointer(scene: Phaser.Scene, bus: IntentBus<Intent>, threshold: () => number): void {
   let down: { x: number; y: number } | null = null;
-  scene.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
-    down = scene.cameras.main.getWorldPoint(p.x, p.y);
+  scene.input.on('pointerdown', (p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
+    // A press that lands on a button belongs to the button, not to the board: without
+    // this, tapping "Next level" would also tap whatever train sits under the button.
+    down = over.length > 0 ? null : scene.cameras.main.getWorldPoint(p.x, p.y);
   });
   scene.input.on('pointerup', (p: Phaser.Input.Pointer) => {
     if (!down) return;

@@ -14,8 +14,8 @@ generator (step 2), economy, ads and retention are not built.
 - Rules (`src/game/rules.ts`): a train runs along its track either way until it
   leaves the board or stops. Convoy rule: if it stops head to tail against a
   train on the same line that can move the same way, that train takes off first
-  and the tapped train follows. Crossing-track trains are never set off. Par is
-  the fewest taps; stars: 3 at par, 2 within par + 2, else 1; limit par + 4.
+  and the tapped train follows. A bump on a train's side sets it off too, running
+  along its own track away from the bump. Par is the fewest taps; stars: 3 at par, 2 within par + 2, else 1; limit par + 4.
 - Input: tap a train (runs if one way is open, two arrow buttons if both are),
   or swipe along its track. Keyboard: arrows move a cursor or pick a direction,
   Space taps, R restarts. Holding a finger down during a chain speeds it up.
@@ -51,12 +51,21 @@ generator (step 2), economy, ads and retention are not built.
 
 ## Open questions
 
-- Is the convoy rule what the user wants? Is "no chain through a crossing train"
-  right? Is the tap-or-swipe input clear?
-- Level 3 to 10 are search-found and may need hand polish for teaching order.
+- Is the convoy rule what the user wants? Is the tap-or-swipe input clear?
+- Level 3 to 10 are search-found under the current rules and may need hand polish for
+  teaching order. They were re-searched after side bumps started to chain, because
+  the stronger cascades had made the earlier set too easy (par fell to about a third
+  of the train count).
+- Is the side-bump direction rule (away from the bump) readable?
 - BRIEF.md was drafted from a discussion and may need updating after playtest.
 
 ## Known issues
+
+- Fixed in this session: trains moving by themselves at the start of a round. Cause: the
+  press on the "Next level" button also counted as a tap on the board and ran the
+  train under it; presses on buttons are now ignored by the board. Scheduled animation
+  from the previous round is also cancelled when a level starts. Checked with Next
+  after a win and with Restart in the middle of a chain.
 
 - Frame rate was not measured on a phone, only in a software-rendered test browser.
 - No undo, hints, coins, ads, daily reward or flow director yet (later steps).

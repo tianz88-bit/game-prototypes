@@ -48,6 +48,47 @@ export function look(level: Level, state: State, train: number, dir: Dir): Ahead
   return other >= 0 ? { kind: 'train', train: other } : { kind: 'free' };
 }
 
+/** The cell just beyond a train's end in `dir`, as [col, row]. */
+export function aheadCell(level: Level, state: State, train: number, dir: Dir): [number, number] {
+  const t = level.trains[train];
+  const p = state[train];
+  const next = dir > 0 ? p + t.len : p - 1;
+  return t.axis === 'h' ? [next, t.line] : [t.line, next];
+}
+
+/** How many free cells (or the way off the board) lie ahead of a train in `dir`. */
+function freeRun(level: Level, state: State, train: number, dir: Dir): number {
+  const s = state.slice();
+  let n = 0;
+  for (;;) {
+    const a = look(level, s, train, dir);
+    if (a.kind === 'exit') return n + 1000;
+    if (a.kind !== 'free') return n;
+    s[train] += dir;
+    n++;
+  }
+}
+
+/**
+ * Which way a train hit on its side runs. It runs away from the bump: a hit near
+ * its low end sends it toward the high end and the other way round. If only one way
+ * is open it takes that. A hit dead centre goes whichever way has more room (the
+ * way off the board counts most), then the positive way.
+ */
+function sideBumpDir(level: Level, state: State, target: number, cell: [number, number]): Dir | null {
+  const o = level.trains[target];
+  const open = ([-1, 1] as Dir[]).filter((d) => canRun(level, state, target, d));
+  if (open.length === 0) return null;
+  if (open.length === 1) return open[0];
+  const idx = (o.axis === 'h' ? cell[0] : cell[1]) - state[target];
+  const centre = (o.len - 1) / 2;
+  if (idx < centre) return 1;
+  if (idx > centre) return -1;
+  const a = freeRun(level, state, target, -1);
+  const b = freeRun(level, state, target, 1);
+  return a > b ? -1 : 1;
+}
+
 /** A train can run in `dir` if the cell beyond its end is free or is the way off the board. */
 export function canRun(level: Level, state: State, train: number, dir: Dir): boolean {
   if (state[train] === GONE) return false;
@@ -63,11 +104,10 @@ export function legalMoves(level: Level, state: State): Move[] {
 }
 
 /**
- * Taps a train. It runs until it leaves the board or stops. If it stops head to
- * tail against another train on the same line that can move the same way, that
- * train takes off first (chain reaction), and when it has gone the tapped train
- * follows it, so one tap can send a whole convoy out. A train on a crossing track
- * is never set off. Returns the new state and the events in order.
+ * Taps a train. It runs until it leaves the board or stops. If it stops against
+ * another train, head to tail or against its side, that train takes off first
+ * (chain reaction), and when it has gone the tapped train follows it, so one tap
+ * can send a whole convoy out. Returns the new state and the events in order.
  */
 export function applyTap(level: Level, state: State, move: Move): TapResult {
   const next = state.slice();
@@ -104,11 +144,14 @@ export function applyTap(level: Level, state: State, move: Move): TapResult {
       const target = a.train;
       const o = level.trains[target];
       const sameLine = o.axis === t.axis && o.line === t.line;
-      const spooked = sameLine && canRun(level, next, target, dir) && !ran.has(target);
+      // Head to tail the hit train runs on in the same direction. A bump on its side
+      // sets it off along its own track, away from the bump.
+      const targetDir = sameLine ? dir : sideBumpDir(level, next, target, aheadCell(level, next, train, dir));
+      const spooked = targetDir !== null && canRun(level, next, target, targetDir) && !ran.has(target);
       flush(false);
-      events.push({ type: 'hit', runner: train, target, dir, spooked, sameLine, link });
-      if (!spooked) return false;
-      run(target, dir, link + 1, false);
+      events.push({ type: 'hit', runner: train, target, dir, targetDir: targetDir ?? dir, spooked, sameLine, link });
+      if (!spooked || targetDir === null) return false;
+      run(target, targetDir, link + 1, false);
       segStart = next[train];
       // The hit train has gone: carry on behind it.
       resume = true;

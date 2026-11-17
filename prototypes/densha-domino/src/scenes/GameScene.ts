@@ -56,6 +56,8 @@ export class GameScene extends Phaser.Scene {
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
   private restartBtn!: Button;
   private hold = false;
+  private timers: Phaser.Time.TimerEvent[] = [];
+  private playToken = 0;
   private testSlow = 1;
 
   constructor() {
@@ -172,6 +174,10 @@ export class GameScene extends Phaser.Scene {
   private startLevel(index: number): void {
     this.levelIndex = Phaser.Math.Clamp(index, 0, LEVELS.length - 1);
     this.level = LEVELS[this.levelIndex];
+    // Drop anything still scheduled from the previous round so it cannot move the new trains.
+    this.playToken++;
+    this.timers.forEach((t) => t.remove(false));
+    this.timers = [];
     for (const v of this.views.values()) v.destroy();
     this.views.clear();
     this.clearOverlay();
@@ -367,7 +373,10 @@ export class GameScene extends Phaser.Scene {
     let lastRunStart = 0;
     let lastRunDur = 0;
     let exits = 0;
-    const at = (ms: number, fn: () => void) => this.time.delayedCall(Math.max(1, ms), fn);
+    const token = this.playToken;
+    const at = (ms: number, fn: () => void) => {
+      this.timers.push(this.time.delayedCall(Math.max(1, ms), () => token === this.playToken && fn()));
+    };
     // Pixel position of each train as of the end of its last scheduled run.
     const pos = new Map<number, number>();
     for (const [id] of this.views) pos.set(id, this.level.trains[id].start);
@@ -425,7 +434,7 @@ export class GameScene extends Phaser.Scene {
         at(cursor, () => {
           this.horn(runner, rt.axis, e.dir, step, e.sameLine);
           if (e.spooked) this.spook(target, beat);
-          else if (!e.sameLine) this.bonk(target);
+          else this.bonk(target);
         });
         cursor += beat;
         lastRunDur = 0;
