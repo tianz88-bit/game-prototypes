@@ -874,3 +874,7 @@ Tutorial discussion ONLY: proposed required flow is Fly (two rings), Fight (one 
 ## Short tutorial approved (owner,17 November2026)
 
 Replace the14-lesson tutorial with the discussed four tasks: Fly(two rings), Fight(one rock, minerals, one upgrade), Dash/Ram(one short course/target, shield-bypass fact), Escape(successful warp extraction). Short action-specific copy, no GOT IT pages/repeat grind. Teach overheat, shield/hull recovery, missiles/mines and evolution through contextual first-use tips. Owner explicitly authorizes go-live after completion; defer Claude coordination to a durable backlog for her later sync. This supersedes the preceding discussion-only status.
+
+## HUD space, ram force and objective arrows (owner,17 November2026)
+
+Approved the HUD audit proposal: PC shop collapsed by default with1–6 quick buys retained, B/click opens; compact PC rankings pin the owner and Tab expands; H reveals key help. Surface spendable minerals/level and distinct bankable salvage or home fuel. Mobile secondary panels collapse, counts sit inside ordnance buttons, Fire/Dash sizes remain unchanged. Give Warzone role/objective a fixed header and urgent warnings a separate priority slot, including overheat and friendly-shield firing restrictions. Preserve ship arcs and speed VFX. Replace the ram's UI-like chevron with forceful orange-white pressure/fire fragments. Tutorial arrows must point to every active world or UI objective, including upgrade choices and Warp. Go live after checks and keep Claude's deferred backlog.

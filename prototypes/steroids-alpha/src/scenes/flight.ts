@@ -13,6 +13,7 @@ import { OrbitalTransition, remoteArrivalPose } from '../render/orbitalTransitio
 import type { OrbitalPose } from '../render/orbitalTransition';
 import { drawOrbitalEffects, drawArrivalTrail, drawLandingSpark, LANDING_SPARK_MS } from '../render/orbitalEffects';
 import { mobileHeader } from '../render/mobileFlightUi';
+import {flightHeader,flightControls,objectiveBox,combatNotice,hintBox} from '../render/hudLayout';
 import { shipPreview } from '../render/shipPreview';
 import type { FFDControl } from '../render/shipTilt';
 import {configVersion} from '../liveConfig';
@@ -40,7 +41,7 @@ import { intents } from '../input/intents';
 import { NetClient, closeReason } from '../net/client';
 import type { NetFx } from '../net/client';
 import { CLANS, clanName, planetClan, isWarPlanet } from '../../sim/planets';
-import { isDocked, padUnder } from '../../sim/clanBase';
+import { isDocked, padUnder, insideDome } from '../../sim/clanBase';
 import { fitCamera, text, versionStamp } from './common';
 import { ShipView } from '../render/shipView';
 import { shipArtStatus,buildShadow,CALIBRATION,SHADOW_ANCHOR } from '../render/shipArt';
@@ -138,6 +139,10 @@ export class FlightScene extends Phaser.Scene {
   /** PC key hints, bottom left (owner, 16 November 2026; menu setting KEY HINTS). */
   private keyHints!: Phaser.GameObjects.Text;
   private keyHintsOn = true;
+  private shopHeader!:Phaser.GameObjects.Text;
+  private combatState!:Phaser.GameObjects.Text;
+  private urgentMessage=false;
+  private tipActive=false;
   private lockedOnMe = false;
   /** Shown to a pilot with a missile locked on them in flight. */
   private lockText!: Phaser.GameObjects.Text;
@@ -213,6 +218,7 @@ export class FlightScene extends Phaser.Scene {
     for(const d of this.dyingShips.values())d.ship.destroy();this.dyingShips.clear();
     for(const ship of this.ships.values())ship.destroy();
     this.children.getAll().forEach(child=>child.destroy());
+    this.siegeTexts=[];
     this.orbitalUi.clear();
     this.ships.clear();
     this.tags.clear();
@@ -250,8 +256,10 @@ export class FlightScene extends Phaser.Scene {
     this.baseMarkerTexts = [0, 1].map(() => text(this, 0, 0, '', 10, '#ffffff').setOrigin(0.5).setDepth(953).setVisible(false));
     this.warpText = text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(953).setVisible(false);
     this.bountyText = text(this, 0, 0, '', 11, '#ffd23a').setOrigin(0.5).setDepth(953).setVisible(false);
-    this.lockText = text(this, 0, 0, 'MISSILE LOCK', 13, '#ff5a3a').setOrigin(0.5).setDepth(953).setVisible(false);
+    this.lockText = text(this, 0, 0, 'INCOMING MISSILE', 12, '#ff5a3a').setOrigin(0.5).setDepth(953).setVisible(false);
     this.weaponTexts = [0, 1].map(() => text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(952).setVisible(false));
+    this.shopHeader=text(this,0,0,'',11,'#dfe8ff').setDepth(954).setVisible(false);
+    this.combatState=text(this,0,0,'',11,'#ffb28c').setOrigin(.5).setDepth(956).setVisible(false);
     this.combatHud = new CombatHud(this);
     this.contextTips=new ContextTips(this,this.contextTips?.model);
     this.combatSprites = new CombatSprites(this);
@@ -293,12 +301,14 @@ export class FlightScene extends Phaser.Scene {
       }
     }
     if (intents.consume('scheme')) intents.toggleScheme();
+    if(intents.consume('shop')&&(this.planet!==TUTORIAL||guide.policy.shop))this.mobilePanel=this.mobilePanel==='shop'?null:'shop';
+    if(intents.consume('board'))this.mobilePanel=this.mobilePanel==='board'?null:'board';
     const heading = this.net.predicted?.heading ?? 0;
     // The mouse marker steers from where our ship is on screen (last frame's projection).
     const shipAt = this.net.predicted && !over ? this.toScreen(this.net.predicted.x, this.net.predicted.y) : null;
     intents.mouseOrigin = shipAt && shipAt.visible ? { x: shipAt.x, y: shipAt.y } : null;
     const move = intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed, this.net.speedFloorNow);
-    const lessonFire=this.planet!==TUTORIAL||guide.policy.fire;
+    const lessonFire=(this.planet!==TUTORIAL||guide.policy.fire)&&!this.shieldBlocksFire(this.net.predicted);
     this.net.update({ ...move, dash, fire: lessonFire&&intents.fire, missile:lessonFire&&missile, mine:lessonFire&&mine, warp });
     // Shop: each tap asks the server for the tier on offer now; the server checks power and price.
     for (const item of intents.consumeBuys()) {
@@ -416,7 +426,7 @@ export class FlightScene extends Phaser.Scene {
         }
       } else if (f.kind === 'ram') {
         this.ramCount++;
-        this.effects.push({ x:f.x,y:f.y,at:this.time.now,r:70,ms:380,colour:0xffa04a,combat:'ram' });
+        this.effects.push({ x:f.x,y:f.y,at:this.time.now,r:100,ms:440,colour:0xffa04a,combat:'ram' });
       } else if (f.kind === 'mineral') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 24, ms: 420, colour: 0xffc14a, chips: 8 });
       else if (f.kind === 'heal') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: TUNE.asteroid.pickupRadius, ms: 500, colour: 0x7dff9a, heal: true });
       else this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.kind === 'burst' ? TUNE.asteroid.radius[f.size] : 9, ms: f.kind === 'burst' ? 420 : 180, colour: 0xffc78a, chips: f.kind === 'burst' ? 10 : 4, combat:f.kind==='burst'?'asteroid':undefined });
@@ -522,63 +532,24 @@ export class FlightScene extends Phaser.Scene {
    * countdowns, tickets, timer, tower/shield/Nexus health), destroyed towers and the shield's
    * strength drawn over the base, and the respawn countdown while destroyed at war. Display only.
    */
-  private drawSiege(w: number, h: number): void {
-    if (!this.siegeTexts.length) this.siegeTexts = [0, 1, 2].map(() => text(this, 0, 0, '', 11, '#ffffff').setOrigin(0.5, 0).setDepth(955).setVisible(false));
-    const [t1, t2, t3] = this.siegeTexts;
-    this.siegeTexts.forEach((t) => t.setVisible(false));
-    const sg = this.net.siege, L = this.net.layout;
-    if (!sg || !L || this.net.status !== 'open' || this.net.extracted) return;
-    const g = this.overlay, tune = TUNE.siege;
-    const crimson = CLANS[0], azure = CLANS[1];
-    const clanCss = (id: number): string => css(CLANS.find((c) => c.id === id)?.colour ?? 0xffffff);
-    const mmss = (s: number): string => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-    const pw = Math.min(380, w - 24), px = w / 2, py = intents.touch ? 96 : 76;
-    const atWar = sg.phase === 'war' || sg.phase === 'release';
-    const ph = atWar ? 64 : 42;
-    panel(g, px - pw / 2, py, pw, ph, sg.phase === 'over' ? UI.uiGold : atWar ? UI.uiDanger : UI.uiBorder);
-    const line = (t: Phaser.GameObjects.Text, y: number, s: string, colour = '#ffffff', size = 11): void => {
-      t.setVisible(true).setPosition(px, y).setFontSize(size).setText(s);
-      if (t.style.color !== colour) t.setColor(colour);
-    };
-    if (sg.phase === 'peace') {
-      line(t1, py + 6, 'WARZONE  ·  AZURE DEFENDS, CRIMSON ATTACKS', '#ffd27a');
-      line(t2, py + 23, `Waiting for both clans  ·  Crimson ${sg.crimson}  ·  Azure ${sg.azure}`, '#c9d6f2', 10);
-    } else if (sg.phase === 'countdown') {
-      line(t1, py + 6, `WAR BEGINS IN ${sg.left}`, '#ff9b81', 13);
-      line(t2, py + 24, `Crimson ${sg.crimson}  ·  Azure ${sg.azure}  ·  the planet locks when it starts`, '#c9d6f2', 10);
-    } else if (sg.phase === 'over') {
-      const who = sg.winner === crimson.id ? 'CRIMSON' : 'AZURE';
-      const why = sg.reason === 'treasury' ? 'Nexus destroyed' : sg.reason === 'tickets' ? 'attackers out of tickets' : 'the defence held until time ran out';
-      line(t1, py + 5, `${who} WINS`, clanCss(sg.winner), 14);
-      line(t2, py + 24, `${why}  ·  next round in ${sg.left}`, '#c9d6f2', 10);
-    } else {
-      const left = sg.phase === 'release' ? `  ·  A SIDE LEFT: WAR ENDS IN ${sg.left}` : '';
-      line(t1, py + 5, `TICKETS ${sg.tickets}  ·  ${mmss(sg.phase === 'war' ? sg.left : sg.left)}${left}`, sg.tickets <= 5 ? '#ff9b81' : '#ffffff');
-      // Towers (pips), shield and Nexus bars.
-      const bx = px - pw / 2 + 14, bw = pw - 28, y = py + 26;
-      const pip = Math.min(18, (bw * 0.28) / sg.turrets.length);
-      sg.turrets.forEach((hp, i) => {
-        const f = Math.max(0, hp / tune.turretHp);
-        g.fillStyle(0x0a1424, 1);
-        g.fillRect(bx + i * (pip + 3), y, pip, 8);
-        if (f > 0) { g.fillStyle(0xff9a6a, 1); g.fillRect(bx + i * (pip + 3), y, pip * f, 8); }
-      });
-      const bar = (x: number, wid: number, f: number, colour: number): void => {
-        g.fillStyle(0x0a1424, 1); g.fillRect(x, y, wid, 8);
-        if (f > 0) { g.fillStyle(colour, 1); g.fillRect(x, y, wid * Math.min(1, f), 8); }
-      };
-      const sx = bx + sg.turrets.length * (pip + 3) + 10, rest = bx + bw - sx, half = (rest - 10) / 2;
-      bar(sx, half, sg.shield / tune.shieldHp, sg.broken ? 0x6b6f7a : 0x5ad3ff);
-      bar(sx + half + 10, half, sg.treasury / tune.treasuryHp, 0xffd27a);
-      line(t2, y + 11, `TOWERS ${sg.turrets.filter((v) => v > 0).length}/${sg.turrets.length}        SHIELD ${sg.broken ? 'BROKEN' : Math.round(sg.shield)}        NEXUS ${Math.round(sg.treasury)}`, '#c9d6f2', 9);
-
-    }
-    // Destroyed at war: back at your side's spawn soon (not a menu: the pilot stays on the planet).
-    if (this.net.warDown) {
-      const s = Math.max(0, Math.ceil((this.net.warDown.until - performance.now()) / 1000));
-      line(t3, h * 0.42, s > 0 ? `DESTROYED  ·  RESPAWNING IN ${s}` : 'RESPAWNING…', '#ffbd91', 16);
-    }
-    void azure;
+  private drawSiege(w:number,h:number):void{
+    if(!this.siegeTexts.length)this.siegeTexts=[0,1,2].map(()=>text(this,0,0,'',11,'#ffffff').setOrigin(.5,0).setDepth(955).setVisible(false));
+    this.siegeTexts.forEach(t=>t.setVisible(false));
+    const sg=this.net.siege,L=this.net.layout;if(!sg||!L||this.net.status!=='open'||this.net.extracted)return;
+    const [t1,t2,t3]=this.siegeTexts,box=objectiveBox(w,intents.touch,this.mobilePanel),g=this.overlay;
+    const active=sg.phase==='war'||sg.phase==='release',role=this.net.clan===L.clan?'DEFEND NEXUS':'ATTACK NEXUS';
+    const time=`${Math.floor(sg.left/60)}:${String(sg.left%60).padStart(2,'0')}`,ph=box.compact?38:48;
+    panel(g,box.x-box.w/2,box.y,box.w,ph,active?UI.uiDanger:UI.uiBorder);
+    const line=(t:Phaser.GameObjects.Text,y:number,message:string,size=11)=>t.setVisible(true).setPosition(box.x,y).setFontSize(size).setText(message).setColor('#dfe8ff');
+    const phase=sg.phase==='peace'?'WAITING FOR BOTH SIDES':sg.phase==='countdown'?`STARTS IN ${sg.left}s`:sg.phase==='over'?`${clanName(sg.winner).toUpperCase()} WINS`:`${time} · ${sg.tickets} TICKETS`;
+    line(t1,box.y+4,`${role} · ${phase}`,box.compact?10:11);
+    if(active){
+      const pct=(v:number,max:number)=>Math.round(100*Math.max(0,v)/Math.max(1,max));
+      const detail=`TOWERS ${sg.turrets.filter(v=>v>0).length}/${sg.turrets.length} · SH ${sg.broken?'DOWN':pct(sg.shield,TUNE.siege.shieldHp)+'%'} · NEXUS ${pct(sg.treasury,TUNE.siege.treasuryHp)}%`;
+      line(t2,box.y+(box.compact?21:32),detail,box.compact?10:10);
+      if(!box.compact){const x=box.x-box.w/2+12,y=box.y+22,n=sg.turrets.length+2,bw=(box.w-24-(n-1)*5)/n;[...sg.turrets.map(hp=>hp/TUNE.siege.turretHp),sg.shield/TUNE.siege.shieldHp,sg.treasury/TUNE.siege.treasuryHp].forEach((f,i)=>{g.fillStyle(0x0a1424,1).fillRect(x+i*(bw+5),y,bw,5);g.fillStyle(i<n-2?0xff9a6a:i===n-2?0x5ad3ff:0xffd27a,.9).fillRect(x+i*(bw+5),y,bw*Math.max(0,Math.min(1,f)),5);});}
+    }else line(t2,box.y+21,`Crimson ${sg.crimson} · Azure ${sg.azure}`,10);
+    if(this.net.warDown){const secs=Math.max(0,Math.ceil((this.net.warDown.until-performance.now())/1000));line(t3,h*.42,secs?`RESPAWNING IN ${secs}`:'RESPAWNING…',16);}
   }
 
   /** Arrival warning (owner): what kind of planet this is and what to expect. */
@@ -607,8 +578,9 @@ export class FlightScene extends Phaser.Scene {
       const d = this.net.deposited;
       note = 'DOCKED · REPAIRING' + (d && performance.now() - d.at < 3000 ? `\n+${d.amount} fuel to the ${clanName(this.net.clan)} Nexus` : '');
     }
-    this.banner.setVisible(!!note && this.net.status==='open' && !this.net.death && !this.net.extracted).setText(note).setPosition(w / 2, intents.touch ? 118 : 86);
+    this.banner.setVisible(!this.urgentMessage&&!this.tipActive&&!intents.helpHeld&&!isWarPlanet(this.planet)&&!!note && this.net.status==='open' && !this.net.death && !this.net.extracted).setText(note).setPosition(hintBox(w,h,intents.touch).x,h-54);
     styleClanBanner(this.banner,layout?.clan??0,this.net.clan===layout?.clan,!!this.net.docked,w,intents.touch);
+    this.banner.setWordWrapWidth(hintBox(w,h,intents.touch).w-20,true);
     this.treasuryText.setVisible(false);
     this.gateText.setVisible(false);
     if (!layout || !p) return;
@@ -860,7 +832,7 @@ export class FlightScene extends Phaser.Scene {
       const colour=inside?'#c9f4c9':'#a8dcca';
       if(this.hotZoneText.style.color!==colour)this.hotZoneText.setColor(colour);
       const bw=this.hotZoneText.width+20;
-      const right=intents.touch&&y>h*.4?controlClearRight(w):w-10;
+      const right=intents.touch&&y>h*.4?controlClearRight(w,h):w-10;
       x=Math.max(bw/2+10,Math.min(right-bw/2,x));
       const shopBottom=Math.max(0,...intents.shopZones.map(z=>z.zone.y+z.zone.hh));
       const top=intents.touch?Math.max(112,shopBottom+64):112;
@@ -896,17 +868,11 @@ export class FlightScene extends Phaser.Scene {
   }
 
   /** Key hints for the PC control scheme in use, bottom left; off in the menu (KEY HINTS). */
-  private drawKeyHints(p: ShipState | null, _w: number, h: number): void {
-    const show = this.planet!==TUTORIAL && !intents.touch && !!p && !this.net.death && !this.net.extracted && this.keyHintsOn;
-    this.keyHints.setVisible(show);
-    if (!show) return;
-    const lines = intents.scheme === 'marker'
-      ? ['MOUSE  steer', 'LEFT CLICK  fire', 'RIGHT CLICK  missile', 'W  accelerate   S  brake', 'SHIFT  dash   E  mine', 'R  warp   1-6  upgrades']
-      : ['A / D  turn', 'W / S  throttle', 'SPACE  fire   SHIFT  dash', 'Q  missile   E  mine', 'R  warp   1-6  upgrades'];
-    const hints=this.planet===TUTORIAL&&!guide.policy.shop?lines.map(line=>line.replace('   1-6  upgrades','')):lines;
-    const t = hints.join('\n');
-    if (this.keyHints.text !== t) this.keyHints.setText(t);
-    this.keyHints.setPosition(12, h - 12);
+  private drawKeyHints(p:ShipState|null,_w:number,h:number):void{
+    const full=intents.helpHeld,show=!intents.touch&&!!p&&!this.net.death&&!this.net.extracted&&(full||(this.keyHintsOn&&this.planet!==TUTORIAL));
+    this.keyHints.setVisible(show);if(!show)return;
+    const lines=intents.scheme==='marker'?['MOUSE steer · W faster · S brake','LEFT CLICK fire · RIGHT CLICK / Q missile','SHIFT dash · E mine · R warp','1–6 quick buy · B upgrades · TAB pilots']:['A/D steer · W/S throttle','SPACE fire · SHIFT dash','Q missile · E mine · R warp','1–6 quick buy · B upgrades · TAB pilots'];
+    this.keyHints.setText(full?lines.join('\n'):'B upgrades · TAB pilots · H controls').setPosition(12,h-12);
   }
 
   /**
@@ -932,7 +898,7 @@ export class FlightScene extends Phaser.Scene {
       // An outer ring of its own (the hot-zone and bounty arrows sit further in), kept clear of the
       // touch buttons, the bottom HUD and the top bar.
       let x = w / 2 + c * w * 0.45, y = h / 2 + s * h * 0.42;
-      if (touch && y > h * 0.4) x = Math.min(x, controlClearRight(w) - 30);
+      if (touch && y > h * 0.4) x = Math.min(x, controlClearRight(w,h) - 30);
       const hudTop = Math.abs(x - w / 2) < (touch ? 0 : 220) ? h - 160 : h - 40;
       y = Math.max(touch ? 120 : 80, Math.min(hudTop, y));
       const k = touch ? 0.7 : 1;
@@ -965,7 +931,8 @@ export class FlightScene extends Phaser.Scene {
     const x = intents.touch ? header.warp.x : w / 2;
     const y = intents.touch ? header.warp.y : 50;
     if(this.planet===TUTORIAL&&!guide.policy.warp){this.warpText.setVisible(false);return;}
-    const locked = p.lockdown > 0;
+    const warLocked=this.net.siege?.phase==='war'||this.net.siege?.phase==='release';
+    const locked = p.lockdown > 0||warLocked;
     const accent = p.warping ? 0x7fe9ff : locked ? UI.uiBorder : UI.uiAccent;
     panel(g, x - bw / 2, y - bh / 2, bw, bh, accent, !locked);
     if (p.warping) {
@@ -977,11 +944,11 @@ export class FlightScene extends Phaser.Scene {
     const m = Math.floor(p.lockdown / 60);
     const sec = Math.ceil(p.lockdown % 60);
     const label = p.warping
-      ? `WARP ${Math.floor((100 * p.warpDist) / TUNE.warp.distance)}%  CANCEL${key}`
-      : locked
-        ? `WARP OFFLINE ${sec === 60 ? m + 1 : m}:${String(sec === 60 ? 0 : sec).padStart(2, '0')}`
+      ? `${Math.floor((100 * p.warpDist) / TUNE.warp.distance)}% · CANCEL${key}`
+      : warLocked?'WAR LOCK': locked
+        ? `LOCKED ${sec === 60 ? m + 1 : m}:${String(sec === 60 ? 0 : sec).padStart(2, '0')}`
         : `WARP${key}`;
-    this.warpText.setFontSize(intents.touch ? (header.tight ? 9 : 11) : 12).setText(intents.touch ? label.replace(" OFFLINE", "").replace("  CANCEL", " ×") : label).setPosition(x, y).setColor(locked && !p.warping ? '#8fa2c8' : '#ffffff');
+    this.warpText.setFontSize(intents.touch ? (header.tight ? 9 : 11) : 12).setText(intents.touch ? label.replace('LOCKED','WARP').replace(' · CANCEL',' ×') : label).setPosition(x, y).setColor(locked && !p.warping ? '#8fa2c8' : '#ffffff');
     if (!locked || p.warping) intents.warpButton = { x, y, hw: bw / 2, hh: intents.touch ? 22 : bh / 2 };
   }
 
@@ -1000,10 +967,9 @@ export class FlightScene extends Phaser.Scene {
   private drawBounty(p: ShipState | null, w: number, h: number): void {
     const g = this.overlay;
     const now = this.time.now;
-    const warning=!!p && this.lockedOnMe && this.net.status==='open' && !this.net.death;
-    this.lockText.setVisible(warning).setAlpha(.8+.2*Math.sin(now/120)).setPosition(w / 2, h * 0.3);
-    if(warning){g.fillStyle(0x26151e,.92);g.fillRoundedRect(w/2-76,h*.3-12,152,24,5);
-      g.lineStyle(1.5,0xff8664,.85);g.strokeRoundedRect(w/2-76,h*.3-12,152,24,5);}
+    const warning=!!p && !this.net.warDown && this.lockedOnMe && this.net.status==='open' && !this.net.death;
+    this.lockText.setVisible(warning).setAlpha(.8+.2*Math.sin(now/120)).setPosition(combatNotice(w,h,intents.touch,this.hudAnchor,controlClearRight(w,h)).x,combatNotice(w,h,intents.touch,this.hudAnchor,controlClearRight(w,h)).y);
+    if(warning){const pos=combatNotice(w,h,intents.touch,this.hudAnchor,controlClearRight(w,h));g.fillStyle(0x26151e,.92).fillRoundedRect(pos.x-76,pos.y-12,152,24,5);}
     const b = this.net.bounty;
     this.bountyText.setVisible(false);
     if (!p || !b || this.net.status!=='open' || this.net.death || this.net.extracted) return;
@@ -1067,7 +1033,7 @@ export class FlightScene extends Phaser.Scene {
     const boardBottom=Math.max(0,...[...this.board.values()].map(chip=>chip.y+BOARD_CHIP_H/2))+20;
     if(y<260 && x-bw/2<170)x=170+bw/2+5;
     if(y<boardBottom && x+bw/2>w-Math.min(BOARD_CHIP_W,w*.34)-18)x=w-Math.min(BOARD_CHIP_W,w*.34)-23-bw/2;
-    if(intents.touch&&y>h*.4)x=Math.max(bw/2+4,Math.min(controlClearRight(w)-bw/2,x));
+    if(intents.touch&&y>h*.4)x=Math.max(bw/2+4,Math.min(controlClearRight(w,h)-bw/2,x));
     const a=this.hudAnchor;
     if(a.visible && Math.abs(x-a.x)<a.radius+bw/2+22 && Math.abs(y-a.y)<a.radius+bh/2+26){
       const left=a.x-a.radius-bw/2-24;
@@ -1118,8 +1084,9 @@ export class FlightScene extends Phaser.Scene {
     slots.forEach((sl, i) => {
       if (sl.tier <= 0) return;
       const r = touch ? 30 : 24;
-      const x = touch ? (i === 0 ? w - m * 2 - dr * 2 - fr : w - m - dr) : 42+i*140;
-      const y = touch ? h - m - (i === 0 ? fr * 2 : dr * 2) - 14 - r : h-(this.keyHints.visible?this.keyHints.displayHeight+52:46);
+      const c=flightControls(w,h,m,dr,fr)[sl.kind];
+      const x = touch ? c.x : 42+i*140;
+      const y = touch ? c.y : h-(this.keyHints.visible?this.keyHints.displayHeight+52:46);
       const ready = sl.charges > 0;
       controlFace(g,x,y,r,sl.kind==='missile'?UI.uiAccent:UI.uiGold,ready);
       if (sl.charges < sl.tier && sl.cd > 0) {
@@ -1143,6 +1110,7 @@ export class FlightScene extends Phaser.Scene {
           g.fillCircle(x + Math.cos(a) * 11 * k, y - 2 * k + Math.sin(a) * 11 * k, 2.4 * k);
         }
       }
+      if(touch){g.fillStyle(0x071425,.95).fillCircle(x+r*.63,y+r*.62,11);}
       this.weaponTexts[i]
         .setVisible(true)
         .setFontSize(touch ? 18 : 22)
@@ -1164,8 +1132,8 @@ export class FlightScene extends Phaser.Scene {
    */
   private drawShop(p: ShipState | null): void {
     const g = this.overlay;
-    const show = !!p && !this.net.death && !this.net.extracted && (this.planet!==TUTORIAL||guide.policy.shop) && (!intents.touch || this.mobilePanel === 'shop');
-    this.evolvePreview.setVisible(false);
+    const show = !!p && !this.net.death && !this.net.extracted && (this.planet!==TUTORIAL||guide.policy.shop) && this.mobilePanel === 'shop';
+    this.evolvePreview.setVisible(false);this.shopHeader.setVisible(show);
     for (const t of this.shopTexts) {
       t.title.setVisible(show);
       t.sub.setVisible(show);
@@ -1173,22 +1141,24 @@ export class FlightScene extends Phaser.Scene {
     intents.shopZones = [];
     if (!p || !show) return;
     const labels: Record<string, string> = { turret: 'TURRET', shield: 'SHIELD', damage: 'GUNS', missile: 'MISSILE', mine: 'MINES' };
-    const mobile = intents.touch, drawer = mobileHeader(logicalSize().w).drawer;
-    const x = mobile ? drawer.x : 10, cols = mobile ? 3 : 1;
-    const bw = mobile ? (drawer.w-12)/3 : 124, bh = mobile ? 44 : 30;
-    if (mobile) intents.uiZones.push({x:x+drawer.w/2,y:drawer.y+47,hw:drawer.w/2,hh:47});
+    const mobile=intents.touch,drawer=flightHeader(logicalSize().w,mobile).drawer;
+    const width=mobile?Math.min(330,logicalSize().w*.5-32):drawer.w;
+    const x=mobile?12:drawer.x,cols=3,bw=(width-12)/3,bh=42;
+    panel(g,x,drawer.y-22,width,118,UI.uiBorder);
+    this.shopHeader.setPosition(x+8,drawer.y-17).setText(`SPEND MINERALS · HULL ${Math.round(p.hp)}/${Math.round(p.hullMax)}`);
+    intents.uiZones.push({x:x+width/2,y:drawer.y+37,hw:width/2,hh:59});
     SHOP_ITEMS.forEach((item, i) => {
-      const bx = x + (i % cols) * (bw + (mobile ? 6 : 4));
-      const y = (mobile ? drawer.y : 38) + Math.floor(i / cols) * (bh + (mobile ? 6 : 4));
+      const bx = x + (i % cols) * (bw + 6);
+      const y = drawer.y + Math.floor(i / cols) * (bh + 6);
       const offer = shopOffer(p, item, TUNE);
       const can = canBuy(p, item, TUNE);
       panel(g,bx,y,bw,bh,can?UI.uiAccent:UI.uiBorder,can);
       const key = intents.touch ? '' : `[${i + 1}] `;
       const t = this.shopTexts[i];
-      t.title.setFontSize(mobile ? 10 : 11).setPosition(bx + 5, y + (mobile ? 13 : 9)).setText(`${key}${labels[item]} ${shopTier(p, item)}/4`).setColor(css(can?UI.uiText:0x91a5bb));
+      t.title.setFontSize(mobile ? 10 : 11).setPosition(bx + 5, y + 12).setText(`${key}${labels[item]} ${shopTier(p, item)}/4`).setColor(css(can?UI.uiText:0x91a5bb));
       t.sub
         .setFontSize(mobile ? 9 : 9)
-        .setPosition(bx + 5, y + (mobile ? 31 : 22))
+        .setPosition(bx + 5, y + 29)
         .setText(offer ? `${offer.cost} MIN · ${offer.floor}PWR` : 'MAXED')
         .setColor(can ? '#c7f1dd' : '#a1afbf');
       intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
@@ -1202,17 +1172,17 @@ export class FlightScene extends Phaser.Scene {
       return;
     }
     const i = EVOLVE_ITEM;
-    const bx = x + (i % cols) * (bw + (mobile ? 6 : 4));
-    const y = (mobile ? drawer.y : 38) + Math.floor(i / cols) * (bh + (mobile ? 6 : 4));
+    const bx = x + (i % cols) * (bw + 6);
+    const y = drawer.y + Math.floor(i / cols) * (bh + 6);
     const b = TUNE.battlecruiser;
     const can = canEvolve(p, TUNE);
     const ups = upgradeTotal(p);
     panel(g, bx, y, bw, bh, can ? UI.uiGold : 0x80664b, can);
     this.evolvePreview.setPosition(bx+bw-15,y+10).setAlpha(can?1:.5).setVisible(true);
-    t.title.setFontSize(mobile ? 10 : 11).setPosition(bx + 5, y + (mobile ? 13 : 9)).setText(`${intents.touch ? '' : '[6] '}EVOLVE`).setColor(can ? '#ffd23a' : css(0x91a5bb));
+    t.title.setFontSize(mobile ? 10 : 11).setPosition(bx + 5, y + 12).setText(`${intents.touch ? '' : '[6] '}EVOLVE`).setColor(can ? '#ffd23a' : css(0x91a5bb));
     t.sub
       .setFontSize(9)
-      .setPosition(bx + 5, y + (mobile ? 31 : 22))
+      .setPosition(bx + 5, y + 29)
       .setText(can ? `${b.cost} MIN` : ups < b.minUpgrades ? `upgrades ${ups}/${b.minUpgrades}` : p.hullMax < b.powerFloor ? `NEED ${b.powerFloor} PWR` : `NEED ${b.cost} MIN`)
       .setColor(can ? '#ffe9a8' : '#b5a48f');
     intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
@@ -1226,16 +1196,30 @@ export class FlightScene extends Phaser.Scene {
     const rank=ranked.findIndex(r=>r.id===this.net.myId)+1;
     const offers=SHOP_ITEMS.filter(item=>canBuy(p,item,TUNE)).length+(canEvolve(p,TUNE)?1:0);
     const entries = [
-      {action:'shop' as const,rect:header.shop,label:`${header.tight?'UPG':'UPGRADES'}${offers?' +'+offers:''}`},
-      {action:'board' as const,rect:header.board,label:`${header.tight?'':'RANK '}#${rank||'–'}`},
+      {action:'shop' as const,rect:header.shop,label:`${intents.touch?'UPG':'UPG [B]'}${offers?' +'+offers:''}`},
+      {action:'board' as const,rect:header.board,label:intents.touch?'STATS':'TAB'},
     ].filter(e=>e.action!=='shop'||this.planet!==TUTORIAL||guide.policy.shop);
     entries.forEach(({action,rect,label},i)=>{
       const open=this.mobilePanel===action;
       panel(this.overlay,rect.x-rect.w/2,rect.y-18,rect.w,36,open?UI.uiAccent:UI.uiBorder,open);
-      this.mobileNavLabels[i].setVisible(true).setPosition(rect.x,rect.y).setFontSize(header.tight?10:11).setText(open?(header.tight?'×':'CLOSE ×'):label);
+      this.mobileNavLabels[i].setVisible(true).setPosition(rect.x,rect.y).setFontSize(header.tight?10:11).setText(open?'CLOSE':label);
       this.mobileButtons.push({action,x:rect.x,y:rect.y,w:rect.w});
       intents.uiZones.push({x:rect.x,y:rect.y,hw:rect.w/2,hh:22});
     });
+  }
+
+  private shieldBlocksFire(p:ShipState|null):boolean{
+    return !!p&&!!this.net.layout&&this.net.clan===this.net.layout.clan&&(this.net.siege?.phase==='war'||this.net.siege?.phase==='release')&&(this.net.siege?.shield??0)>0&&insideDome(this.net.layout,p.x,p.y,TUNE);
+  }
+  private drawCombatState(p:ShipState|null,w:number,h:number):void{
+    this.combatState.setVisible(false);this.urgentMessage=this.lockText.visible;
+    if(!p||p.hp<=0||this.net.death||this.net.extracted||this.net.warDown)return;
+    const shieldBlocked=this.shieldBlocksFire(p);
+    const message=this.urgentMessage?'':p.hp<p.hullMax*.25?'HULL CRITICAL':p.overheated?'OVERHEATED':intents.fire&&shieldBlocked?'SHIELD BLOCKING FIRE':'';
+    if(!message)return;this.urgentMessage=true;
+    const pos=combatNotice(w,h,intents.touch,this.hudAnchor,controlClearRight(w,h));
+    this.combatState.setVisible(true).setText(message).setPosition(pos.x,pos.y);
+    this.overlay.fillStyle(0x26151e,.88).fillRoundedRect(pos.x-this.combatState.width/2-8,pos.y-11,this.combatState.width+16,22,4);
   }
 
   private drawTouch(w: number, h: number): void {
@@ -1249,13 +1233,20 @@ export class FlightScene extends Phaser.Scene {
     this.drawKeyHints(p, w, h);
     this.drawWeapons(p, w, h);
     this.drawBounty(p, w, h);
+    this.drawCombatState(p,w,h);
     this.drawWarp(p, w, h);
     this.drawHotZone(p, w, h);
     this.drawBaseMarkers(p, w, h);
     this.drawSiege(w, h);
-    const tip=this.contextTips?.update(g,p,w,h,this.time.now,!!p&&!p.warping&&!this.net.warDown&&!this.net.death&&!this.net.extracted&&this.net.status==='open'&&!(p.arrival??0)&&(this.planet!==TUTORIAL||guide.tipsAllowed),this.planet===TUTORIAL);
+    const tip=this.contextTips?.update(g,p,w,h,this.time.now,!!p&&!intents.helpHeld&&!this.urgentMessage&&!p.warping&&!this.net.warDown&&!this.net.death&&!this.net.extracted&&this.net.status==='open'&&!(p.arrival??0)&&(this.planet!==TUTORIAL||guide.tipsAllowed),this.planet===TUTORIAL);
+    this.tipActive=!!tip;
     if (this.planet === TUTORIAL && (this.net.death || this.net.extracted)) guide.hide();
-    else if (this.planet === TUTORIAL) guide.update({ myId: this.net.myId, predicted: this.net.predicted, g: this.overlay, w, h, tip,toScreen: (x, y) => this.toScreen(x, y) });
+    else if(this.planet===TUTORIAL){
+      const offers=intents.shopZones.filter(z=>z.item<SHOP_ITEMS.length&&!!p&&canBuy(p,SHOP_ITEMS[z.item],TUNE));
+      const first=intents.touch?offers.sort((a,b)=>b.item%3-a.item%3)[0]:offers[0];
+      const header=flightHeader(w,intents.touch);
+      guide.update({myId:this.net.myId,predicted:this.net.predicted,g:this.overlay,w,h,tip,toScreen:(x,y)=>this.toScreen(x,y),targets:{shop:guide.policy.shop?header.shop:null,upgrade:this.mobilePanel==='shop'&&first?{x:first.zone.x+(intents.touch?first.zone.hw+8:-first.zone.hw-8),y:first.zone.y,dir:intents.touch?'left':'right'}:null,warp:intents.warpButton}});
+    }
     this.buildingRigs.begin();
     this.drawBase(p, w, h);
     this.buildingRigs.end();
@@ -1276,13 +1267,10 @@ export class FlightScene extends Phaser.Scene {
       return;
     }
     // Dash button in the bottom-right corner; the fire button, held to shoot, sits to its left.
-    const anchorR = clientTune.touch.dashButtonRadius, r = anchorR * .74;
-    const m = clientTune.touch.dashButtonMargin;
-    const b = { x: w - m - anchorR, y: h - m - anchorR, r };
-    intents.dashButton = { x: b.x, y: b.y, hw: r * 1.3, hh: r * 1.3 };
-    const anchorF = clientTune.touch.fireButtonRadius, fr = anchorF * .74;
-    const fb = { x: w - m * 2 - anchorR * 2 - anchorF, y: h - m - anchorF };
-    intents.fireButton = { x: fb.x, y: fb.y, hw: fr * 1.2, hh: fr * 1.2 };
+    const t=clientTune.touch,controls=flightControls(w,h,t.dashButtonMargin,t.dashButtonRadius,t.fireButtonRadius);
+    const b=controls.dash,fb=controls.fire,r=b.r,fr=fb.r;
+    intents.dashButton={x:b.x,y:b.y,hw:b.hw,hh:b.hh};
+    intents.fireButton={x:fb.x,y:fb.y,hw:fb.hw,hh:fb.hh};
     controlFace(g,fb.x,fb.y,fr,UI.uiDanger,intents.fire);
     g.lineStyle(2,UI.uiDanger,.9);g.strokeCircle(fb.x,fb.y,fr*.22);
     for(let i=0;i<4;i++){const a=i*Math.PI/2;g.lineBetween(fb.x+Math.cos(a)*fr*.32,fb.y+Math.sin(a)*fr*.32,fb.x+Math.cos(a)*fr*.48,fb.y+Math.sin(a)*fr*.48);}
@@ -1356,19 +1344,22 @@ export class FlightScene extends Phaser.Scene {
    * kill, and one that climbed gets a brief glow while it moves.
    */
   private drawBoard(w: number): void {
-    if (intents.touch && (this.mobilePanel !== 'board' || this.net.death || this.net.extracted)) {
+    if ((intents.touch&&this.mobilePanel!=='board')||this.mobilePanel==='shop'||this.net.death||this.net.extracted) {
       this.boardTitle.setVisible(false);for(const chip of this.board.values())chip.box.setVisible(false);return;
     }
     const ranked = rankPilots(this.net.roster.values());
-    const rows = ranked.slice(0,intents.touch?4:8);
+    const expanded=this.mobilePanel==='board';
+    const viewport=logicalSize(),ct=clientTune.touch,ctrl=flightControls(w,viewport.h,ct.dashButtonMargin,ct.dashButtonRadius,ct.fireButtonRadius),boardTop=flightHeader(w,intents.touch).drawer.y-22;
+    const cap=intents.touch?Math.max(1,Math.min(4,Math.floor((Math.min(ctrl.mine.y-ctrl.mine.hh,ctrl.missile.y-ctrl.missile.hh)-8-boardTop-15)/19))):expanded?9:4;
+    const rows=ranked.slice(0,intents.touch?cap-1:expanded?8:3);
     const own = ranked.find(r=>r.id===this.net.myId);
-    if(intents.touch && own && !rows.includes(own))rows.push(own);
+    if(own&&!rows.includes(own))rows.push(own);
     const cw = Math.min(BOARD_CHIP_W, w * 0.34);
     const right = w - 10;
-    const top = intents.touch ? 62 : 30;
+    const top = !intents.touch&&this.net.siege&&w<1100?110:boardTop;
     const ch=intents.touch?17:BOARD_CHIP_H;
     const now = this.time.now;
-    this.boardTitle.setPosition(right, top).setVisible(rows.length > 0);
+    this.boardTitle.setPosition(right, top).setText(expanded?'LEVEL · KO · MINERALS':'TOP PILOTS · YOU PINNED').setVisible(rows.length > 0);
     const keep = new Set(rows.map((r) => r.id));
     for (const [id, chip] of this.board) {
       if (!keep.has(id)) {

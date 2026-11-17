@@ -47,9 +47,10 @@ export interface Stick {
   dy: number;
 }
 
-type Press = 'primary' | 'secondary' | 'pause' | 'scheme' | 'copied' | 'copyFailed' | 'missile' | 'mine' | 'warp';
+type Press = 'primary' | 'secondary' | 'pause' | 'scheme' | 'copied' | 'copyFailed' | 'missile' | 'mine' | 'warp' | 'shop' | 'board';
 
 export class Intents {
+  get helpHeld():boolean{return this.held.has('h');}
   /** Keyboard steering, -1 .. 1. */
   turn = 0;
   /** Keyboard throttle, -1 .. 1. */
@@ -175,10 +176,12 @@ export class Intents {
       if (k === 'q') this.presses.add('missile');
       if (k === 'e') this.presses.add('mine');
       if (k === 'r') this.presses.add('warp');
+      if (k === 'b') this.presses.add('shop');
+      if (k === 'tab') this.presses.add('board');
     }
     if (down) this.held.add(k);
     else this.held.delete(k);
-    if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', 'a', 'd', 'w', 's', ' '].includes(k)) e.preventDefault();
+    if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', 'a', 'd', 'w', 's', ' ', 'tab'].includes(k)) e.preventDefault();
     this.refreshTurn();
   }
 

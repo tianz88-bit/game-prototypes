@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex HUD/ram/objective arrows RELEASE
+DID: collapsed PC shop (B/click,1–6 retained), Tab rankings/own pin, H help; MIN/Lv + distinct cargo; embedded mobile counts/current Fire-Dash sizes; Warzone role and priority warnings. Ram pressure bow/fragments replace chevron; tutorial arrows cover all world/UI goals.
+FILES: hudLayout/mobileFlightUi, Flight/CombatHud/UI/input, combatEffects, guide/contextTips, CI regressions/docs/backlog.
+SEAM: mobilePanel reused on PC, GuideView.targets/objectiveArrows, geometry/priority slots. Client fire gate mirrors existing shield authority; no wire/gameplay tune/economy changes.
+CROSS: type/build/rig/sim/config +7 Brave UI layouts and3 actual tutorial arrow/ram/extraction routes pass, zero page errors/no captures/public-room fixture writes. Hit targets and urgent/objective separation checked.
+FOR claude: owner says sync later; CLAUDE_BACKLOG.md has durable seams and evidence, no immediate action needed. Public proof follows; use main after release.
+
 ## 2026-11-17 codex four-step tutorial LIVE
 DID: Fly/Fight/Dash-Ram/Escape +6 brief saved contextual tips live171126r0095. PR542 7b90e92a; itch44032662726/Pages44032662575/Worker44032662716 success; protocol25 healthy, Warzone retained.
 FILES: guide/policy/contextTips/tipState, Flight/save, local Room/manual stationary target, CI regressions and CLAUDE_BACKLOG.md.
@@ -97,10 +104,3 @@ FILES: render/buildingCondition/buildingBlast/buildingDestruction/buildingRig/cl
 SEAM: optional normalized health/siege observations, shared neutral keys, one-shot visible health→zero,16/36 painted ballistic chunks,8-burst pool. Existing support/root shadows and repair restore retained. No new sim/tune/wire values.
 CROSS: preserved main PR526 rich-asteroid/protocol24 work; public R2 exactZIP/all7 parts verified. Type/build/assets/rig/sim/live-config pass; public4 destruction/2 lab/2 disconnected Flight cases pass; no capture/recording.
 FOR claude: release complete; use main and public lab ?review=warzone. Proof in BUILD_STATUS/outputs warzone-art-review. Rich-asteroid veins/gold remain separate art follow-up. No further deploy needed; localhost preview stopped.
-
-## 2026-11-17 codex warzone RELEASE APPROVED
-DID: owner approved all Warzone terrain, damage/shield/Nexus-health art, neutral tower/Nexus rubble and final-hit explosion/debris updates. R2 exact ZIP/all7 parts verified; release pending deploy checks.
-FILES: art/warzone-v1 manifest now approved-uploaded/public URL; preserved main PR526 mineral-rich asteroid/protocol24 changes during merge (docs-only conflicts).
-SEAM: existing SiegeView/tune health observations; shared neutral wreck/debris keys, one-shot transitions, bounded effects. No new gameplay/wire values from this pass.
-CROSS: source/regression merge checked before push. No screenshots/recording; owner manually approved the local lab.
-FOR claude: go-live authorized directly by owner; source ZIP638189c64011a03ed3c05a5c6e2fc8fd5a87f14201e66c20e3693b79eb3f5caf. Await PR/run/public proof in this entry's successor.

@@ -2,6 +2,17 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Ready for later sync: HUD space, ram force and objective arrows
+
+Status: implemented by Codex for the owner-approved live release; BUILD_STATUS.md/HANDOFF.md carry deployment proof. No immediate Claude execution/review is requested.
+
+- PC and mobile share hudLayout header/control/objective/hint/notice geometry. PC B/click toggles the collapsed shop,1–6 still quick-buy, Tab expands rankings, H peeks key help. Existing mobilePanel state is reused on PC. MIN/Lv are persistent; bankable salvage and home fuel stay distinct; hull numbers live in the shop.
+- Mobile counts moved inside their ordnance buttons. Fire/Dash sizes/hit factors are retained; compact/tall layout and row budgets keep secondary panels out of combat hitboxes. PC top3 plus pinned own row; mobile Stats stays in a drawer.
+- Warzone role/objectives are separate from priority warnings. Incoming missile > critical hull > overheat > friendly-shield fire block; hints yield. Client manual-fire prediction now matches the existing server shield restriction. No gameplay rule, wire or tuning change.
+- Ram chevron replaced by curved pressure/fire ribbons and swept fragments; larger impact crash, no extra emitter/timer. GuideView.targets passes UI anchors; TutorialGuide.objectiveArrows exposes active world/UI arrows. All four tutorial stages remain unchanged.
+- Evidence: seven UI layouts plus three full arrow/ram/extraction routes in outputs/steroids-alpha/hud-space-ram-objectives/. Type/build/rig/sim/config and new CI geometry/VFX checks pass. No captures or public-room fixture writes. Public proof follows.
+
+Later sync: consult these seams before changing Flight/header/control positions. No duplicate implementation is needed; review or tuning should follow owner feedback only.
 ## Ready for later sync: four-step tutorial and contextual tips
 
 Status: LIVE171126r0095 by Codex. PR542 merge7b90e92a7a53546888c8df96f94fe307290e7446. Itch44032662726, Pages44032662575 and Worker44032662716 succeeded; health protocol25. Existing Warzone changes retained. No duplicate implementation is needed.

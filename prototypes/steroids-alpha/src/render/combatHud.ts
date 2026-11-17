@@ -4,7 +4,7 @@ import { maxShield } from '../../sim/ship';
 import { TUNE } from '../../sim/tune';
 import { text } from '../scenes/common';
 import { panel, css, UI } from './ui';
-import { mobileHeader } from './mobileFlightUi';
+import { upgradeTotal } from '../../sim/chassis';
 
 /** Screen-space silhouette clearance, supplied by the existing projected ship rig. */
 export interface CombatHudAnchor {x:number;y:number;radius:number;visible:boolean;}
@@ -82,21 +82,12 @@ export class CombatHud {
       if(charging||active){arc(dashRadius-2*k,rightStart,rightEnd,.8*k,0xf0dfba,.25+.18*Math.sin(now/95));}
 
     }
-    // Hull is secondary information beside buying/upgrades, outside the central combat view.
-    const shop=mobileHeader(w).shop,critical=p.hp/Math.max(1,p.hullMax)<=.5;
-    label(0,touch?shop.x:12,touch?52:22,`HULL ${Math.round(p.hp)} / ${Math.round(p.hullMax)}`,critical?(Math.sin(now/140)>0?0xff4a3d:0xffa28d):0xcfc8b7,touch?9:10,touch?.5:0);
-    // Cargo clears the central instruments, PC key hints and phone controls.
-    if(hold==='none')return;
-    const home=hold==='fuel',held=home?p.fuel:p.salvage;
-    const cargo=TUNE.salvage.cargoMax,full=held>=cargo-.5,x=touch?12:w/2-66,y=touch?18:h-30;
-    panel(g,x,y,132,19,full?0xf39872:UI.uiGold);
-    g.fillStyle(0xe3a248,1);g.fillPoints([{x:x+11,y:y+4},{x:x+16,y:y+4},{x:x+19,y:y+9},{x:x+16,y:y+14},{x:x+11,y:y+14},{x:x+8,y:y+9}],true);
-    label(2,x+123,y+3,`${home?'FUEL':'SALVAGE'} ${Math.floor(held)}/${cargo}`,full?0xffb394:0xffdd95,10,1);
-    if(full){
-      const warp=mobileHeader(w).warp,cx=touch?warp.x:w/2,cy=touch?52:69,bw=touch?warp.w:142;
-      g.fillStyle(0x261a23,.92);g.fillRoundedRect(cx-bw/2,cy,bw,15,3);
-      g.lineStyle(1,0xf39872,.7);g.lineBetween(cx-bw/2+4,cy+14,cx+bw/2-4,cy+14);
-      label(3,cx,cy+1,home?'FULL · DOCK TO UNLOAD':'FULL · WARP OUT',0xffbd91,touch?9:10);
-    }
+    // Minerals are spendable; salvage/fuel is a separate carry-out balance.
+    const home=hold==='fuel',held=home?p.fuel:p.salvage,cargo=TUNE.salvage.cargoMax,full=held>=cargo-.5;
+    panel(g,12,12,196,36,UI.uiBorder);
+    label(0,22,16,`MIN ${Math.floor(p.hullMax)}`,UI.uiGold,touch?13:14,0);
+    label(1,198,18,`Lv.${upgradeTotal(p)}`,UI.uiText,11,1);
+    if(hold!=='none')label(2,22,34,`${home?'FUEL':'SALVAGE'} ${Math.floor(held)}/${cargo} · ${home?'UNLOAD AT HOME':'BANK ON WARP'}`,full?0xffb394:0xcfc8b7,9,0);
+    if(full&&hold!=='none')label(3,22,52,home?'FULL · DOCK TO UNLOAD':'FULL · WARP TO BANK',0xffbd91,10,0);
   }
 }
