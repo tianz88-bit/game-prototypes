@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex desktop/mobile UI correction
+DID: dedicated bounded desktop title composition; restored clickable PC Upgrades[B]/Scoreboard[Tab], aligned Warp/header. Compact mobile layout and1–6 buys retained.
+FILES: render/landingLayout,hudLayout; scenes/menu,flight; landing layout regression and deferred docs.
+SEAM: optional touch argument/desktop credit anchors; flight header shares PC nav/Warp geometry; existing drawer/input intents unchanged.
+CROSS: menu/input behaviour minimally touched to repair missing PC controls; no simulation/tune/Worker/config or live Speed Grip port.
+FOR claude: deferred backlog records the fix; owner visual review remains manual/no capture. Release proof follows verification.
+
 ## 2026-11-17 codex speed-dependent grip PUBLIC LAB
 DID: Speed Grip / No Drift / Live Baseline, held Thrust/Brake and bounded speed-dependent travel drift public via PR554 cc1fc0b7; Pages44074248828 success.
 FILES: lab-only grip/model/layout/input/UI/preset and standalone tests/comparison scripts; deferred docs. Live combat171126r0098/Worker25 unchanged; no client/server deploy.
@@ -97,10 +104,3 @@ FILES: server/src/{room,index}.ts sim/protocol.ts tune.json src/net/client.ts sr
 SEAM: Room.siegeStatus/closeSession; SiegePhase 'cooldown'; tune.siege.{overSeconds,cooldownSeconds}; MapAction joinAs/notify; WarStatus/warLabel.
 CROSS: src/render/stellarMap.ts (yours): Warzone status line, buttons under the details; flight maskOrbitalUi also skips when stuck.
 FOR codex: map buttons and the stuck-in-hyperspace panel are plain panels; style as you like.
-
-## 2026-11-17 codex desktop ordnance/speed UI LIVE
-DID: larger PC bottom-left missile/mine badges/counts and violet slow/teal cruise streams live171126r0093. Routine top telemetry removed; mobile/warnings/actions retained. PR539 7b3c11fe.
-FILES: Flight, ShipView/Thrusters, stale SPEED wording, existing sim regression and docs.
-SEAM: optional speedBand from actual chassis-relative speed; legacy/custom fast flames and emission budgets retained. No wire/tune/gameplay changes.
-CROSS: type/build/rig/fullsim and3 local+3 public Brave DPR2 desktop/compact/mobile runtime cases pass, zero page errors/capture. itch44028038724/Pages44028038740/Worker44028038814 success; protocol24 healthy.
-FOR claude: tutorial reduction remains discussion ONLY. Proposed one-minute Fly/Fight+upgrade/Dash+Ram/Warp with contextual first-use tips; do not implement before owner response. Evidence ordnance-speed-ui; temporary preview stopped.

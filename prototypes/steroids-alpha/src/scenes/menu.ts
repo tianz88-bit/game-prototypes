@@ -163,7 +163,7 @@ export class MenuScene extends Phaser.Scene {
   private layout():void{
     this.stellarMap?.destroy();this.stellarMap=null;
     this.children.getAll().forEach(child=>child.destroy());fitCamera(this);
-    const {w,h}=logicalSize(),l=landingLayout(w,h),g=this.add.graphics();
+    const {w,h}=logicalSize(),l=landingLayout(w,h,intents.touch),g=this.add.graphics();
     this.buttons=[];this.clanButtons=[];this.controlButtons=[];this.hintButtons=[];this.settingsTabs=[];this.panelClose=null;this.restoreButton=null;this.shareBox=null;this.accountButton=null;this.hangarButton=null;this.heroPreview=null;
     intents.copyZone=null;intents.textBox=null;
     if(document.activeElement!==nameField()||this.mapOpen||this.utility==='settings'||this.utility==='share')nameField().style.display='none';
@@ -171,25 +171,25 @@ export class MenuScene extends Phaser.Scene {
     g.lineStyle(1,UI.uiBorder,.14);for(let i=0;i<12;i++)g.lineBetween(i*w/8-h*.3,0,i*w/8+h*.3,h);
     if(this.textures.exists(combatKey('title-portals')))this.add.image(l.logo.x,l.logo.y,combatKey('title-portals')).setDisplaySize(l.logo.w,l.logo.h);
     else text(this,16,12,'STEROIDS–α',Math.min(30,w/13),css(UI.uiText));
-    if(!l.compact)text(this,16,l.pitchY,'Mine. Upgrade. Fight. Warp out with salvage.',11,'#9fb5c7');
-    text(this,w-16,12,'BANKED CREDITS',10,'#9fb5c7').setOrigin(1,0);
-    text(this,w-16,28,this.credits===null?'—':String(this.credits),18,'#ffd27a').setOrigin(1,0);
+    if(!l.compact)text(this,l.desktop?l.logo.x-l.logo.w/2:16,l.pitchY,'Mine. Upgrade. Fight. Warp out with salvage.',l.desktop?14:11,'#9fb5c7');
+    text(this,l.creditX,l.creditY,'BANKED CREDITS',l.desktop?12:10,'#9fb5c7').setOrigin(1,0);
+    text(this,l.creditX,l.creditY+18,this.credits===null?'—':String(this.credits),l.desktop?24:18,'#ffd27a').setOrigin(1,0);
     g.lineStyle(1,UI.uiAccent,.18);g.strokeEllipse(l.hero.x,l.hero.y+12,l.hero.w*.78,Math.max(24,l.hero.h*.55));
     const look=loadSave().look??{},ship=selectedFighter(look,this.unlocks),palette=Number((look.palette??'palette.0').split('.')[1]);
     this.heroPreview=shipPreview(this,ship.index!,palette,l.hero.x,l.hero.y,l.hero.w*.9,l.hero.h,{spin:true});
-    text(this,l.hero.x,l.shipY,ship.name.toUpperCase(),l.compact?12:18,css(UI.uiText)).setOrigin(.5);
-    if(!l.compact)text(this,l.hero.x,l.paletteY,PALETTES[palette]?.name.split(' / ')[0]??'Cobalt',11,'#b5ccdc').setOrigin(.5);
+    text(this,l.hero.x,l.shipY,ship.name.toUpperCase(),l.desktop?22:l.compact?12:18,css(UI.uiText)).setOrigin(.5);
+    if(!l.compact)text(this,l.hero.x,l.paletteY,PALETTES[palette]?.name.split(' / ')[0]??'Cobalt',l.desktop?13:11,'#b5ccdc').setOrigin(.5);
     this.hangarButton=l.hangar;panel(g,l.hangar.x-l.hangar.w/2,l.hangar.y-22,l.hangar.w,44,UI.uiGold);
-    text(this,l.hangar.x,l.hangar.y,'HANGAR · ship & colour',l.hero.w<180?10:12,'#e7c587').setOrigin(.5);
+    text(this,l.hangar.x,l.hangar.y,'HANGAR · ship & colour',l.desktop?14:l.hero.w<180?10:12,'#e7c587').setOrigin(.5);
     // A compact layout may move the editable pilot field into Account; it never removes access.
     this.nameBox={x:-1000,y:-1000,w:0,h:0};
     this.nameFrame=this.add.rectangle(-1000,-1000,1,1,0,0);this.nameText=text(this,-1000,-1000,'',16).setVisible(false);
     if(l.name)this.drawName(l.name.x,l.name.y,l.name.w,'PILOT');
-    this.warpButton=l.warp;panel(g,l.warp.x-l.warp.w/2,l.warp.y-27,l.warp.w,54,UI.uiAccent,true);
-    this.warpPulse=this.add.graphics();text(this,l.warp.x,l.warp.y-6,'WARP',24,css(UI.uiText)).setOrigin(.5);text(this,l.warp.x,l.warp.y+15,'Choose a planet',11,css(UI.uiAccent)).setOrigin(.5);
-    this.tutorialButton=l.tutorial;panel(g,l.tutorial.x-l.tutorial.w/2,l.tutorial.y-22,l.tutorial.w,44,UI.uiBorder);text(this,l.tutorial.x,l.tutorial.y,'Learn to fly',13,'#b5ccdc').setOrigin(.5);
+    this.warpButton=l.warp;panel(g,l.warp.x-l.warp.w/2,l.warp.y-l.warp.h/2,l.warp.w,l.warp.h,UI.uiAccent,true);
+    this.warpPulse=this.add.graphics();text(this,l.warp.x,l.warp.y-7,'WARP',l.desktop?32:24,css(UI.uiText)).setOrigin(.5);text(this,l.warp.x,l.warp.y+(l.desktop?21:15),'Choose a planet',l.desktop?13:11,css(UI.uiAccent)).setOrigin(.5);
+    this.tutorialButton=l.tutorial;panel(g,l.tutorial.x-l.tutorial.w/2,l.tutorial.y-22,l.tutorial.w,44,UI.uiBorder);text(this,l.tutorial.x,l.tutorial.y,'Learn to fly',l.desktop?16:13,'#b5ccdc').setOrigin(.5);
     this.utilityButtons=l.utilities;
-    for(const b of l.utilities){panel(g,b.x-b.w/2,b.y-b.h/2,b.w,b.h,UI.uiBorder);text(this,b.x,b.y,b.id.toUpperCase(),11,'#9fb5c7').setOrigin(.5);if(b.id==='account')this.accountButton=b;}
+    for(const b of l.utilities){panel(g,b.x-b.w/2,b.y-b.h/2,b.w,b.h,UI.uiBorder);text(this,b.x,b.y,b.id.toUpperCase(),l.desktop?13:11,'#9fb5c7').setOrigin(.5);if(b.id==='account')this.accountButton=b;}
     versionStamp(this);this.showCounts();
     if(this.utility)this.drawUtility(w,h);
     if(this.mapOpen){nameField().blur();nameField().style.display='none';intents.textBox=null;intents.copyZone=null;this.stellarMap=new StellarMap(this,w,h,loadSave().clan??0,this.selectedPlanet,this.counts,this.war,this.notifyWar);this.buttons=this.stellarMap.planets.map(({id,x,y,w,h})=>({id,x,y,w,h}));}

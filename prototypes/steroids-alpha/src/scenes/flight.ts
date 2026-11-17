@@ -12,7 +12,6 @@ import { BuildingRigs } from '../render/buildingRig';
 import { OrbitalTransition, remoteArrivalPose } from '../render/orbitalTransition';
 import type { OrbitalPose } from '../render/orbitalTransition';
 import { drawOrbitalEffects, drawArrivalTrail, drawLandingSpark, LANDING_SPARK_MS } from '../render/orbitalEffects';
-import { mobileHeader } from '../render/mobileFlightUi';
 import {flightHeader,flightControls,objectiveBox,combatNotice,hintBox} from '../render/hudLayout';
 import { shipPreview } from '../render/shipPreview';
 import type { FFDControl } from '../render/shipTilt';
@@ -930,11 +929,11 @@ export class FlightScene extends Phaser.Scene {
     const alive = !!p && !this.net.death && !this.net.extracted && this.net.status === 'open';
     this.warpText.setVisible(alive);
     if (!p || !alive) return;
-    const header = mobileHeader(w);
-    const bw = intents.touch ? header.warp.w : 156;
-    const bh = intents.touch ? 36 : 28;
-    const x = intents.touch ? header.warp.x : w / 2;
-    const y = intents.touch ? header.warp.y : 50;
+    const header = flightHeader(w,intents.touch);
+    const bw = header.warp.w;
+    const bh = header.warp.h;
+    const x = header.warp.x;
+    const y = header.warp.y;
     if(this.planet===TUTORIAL&&!guide.policy.warp){this.warpText.setVisible(false);return;}
     const warLocked=this.net.siege?.phase==='war'||this.net.siege?.phase==='release';
     const locked = p.lockdown > 0||warLocked;
@@ -1193,16 +1192,15 @@ export class FlightScene extends Phaser.Scene {
     intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
   }
 
-  /** Secondary mobile information stays behind a single shallow drawer. */
+  /** Both devices can open the compact upgrade and scoreboard drawers. */
   private drawMobileNav(p: ShipState | null,w:number):void {
     this.mobileButtons=[];this.mobileNavLabels.forEach(t=>t.setVisible(false));
-    if(!intents.touch || !p || this.net.death || this.net.extracted)return;
-    const header=mobileHeader(w),ranked=rankPilots(this.net.roster.values());
-    const rank=ranked.findIndex(r=>r.id===this.net.myId)+1;
+    if(!p || this.net.death || this.net.extracted)return;
+    const header=flightHeader(w,intents.touch);
     const offers=SHOP_ITEMS.filter(item=>canBuy(p,item,TUNE)).length+(canEvolve(p,TUNE)?1:0);
     const entries = [
-      {action:'shop' as const,rect:header.shop,label:`${intents.touch?'UPG':'UPG [B]'}${offers?' +'+offers:''}`},
-      {action:'board' as const,rect:header.board,label:intents.touch?'STATS':'TAB'},
+      {action:'shop' as const,rect:header.shop,label:`${intents.touch?'UPG':header.tight?'UPG [B]':'UPGRADES [B]'}${offers?' +'+offers:''}`},
+      {action:'board' as const,rect:header.board,label:intents.touch?'STATS':header.tight?'TAB':'SCOREBOARD [TAB]'},
     ].filter(e=>e.action!=='shop'||this.planet!==TUTORIAL||guide.policy.shop);
     entries.forEach(({action,rect,label},i)=>{
       const open=this.mobilePanel===action;

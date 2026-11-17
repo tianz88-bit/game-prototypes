@@ -1,6 +1,6 @@
 /** Shared screen-space HUD geometry; independent of world projection and input. */
 export function flightHeader(w:number,touch:boolean){
- const gap=8,right=w-12,warpW=touch?90:124,shopW=touch?88:108,boardW=44,y=w<520?66:30;
+ const compact=touch||w<700,gap=8,right=w-12,warpW=compact?90:124,shopW=compact?88:148,boardW=compact?44:148,y=w<520?66:30;
  return{tight:w<700,warp:{x:right-warpW/2,y,w:warpW,h:36},shop:{x:right-warpW-gap-shopW/2,y,w:shopW,h:36},board:{x:right-warpW-gap-shopW-gap-boardW/2,y,w:boardW,h:36},drawer:{x:w-12-Math.min(330,w-24),y:y+46,w:Math.min(330,w-24)}};
 }
 export function objectiveBox(w:number,touch:boolean,open:'shop'|'board'|null){

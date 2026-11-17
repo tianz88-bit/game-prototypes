@@ -2,6 +2,10 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Desktop/mobile UI correction
+
+Owner clarified PC upgrade menu/scoreboard were missing. Root cause: touch-only early return suppressed clickable drawer navigation on PC, while the shop was collapsed. Both devices now get buttons through the existing intents/uiZones; PC keeps B/Tab/1–6 shortcuts, compact pinned-self ranking and collapsed shop. Header Warp and nav share geometry. Large PC title layouts are bounded and centred with a larger logo/ship/action panel; touch/short/narrow retain compact arrangement. No new dependencies, account schema, gameplay tuning or protocol change. Speed Grip remains lab-only awaiting approval. Headless no-capture interaction and responsive geometry evidence: outputs/steroids-alpha/desktop-layout/. No immediate Claude action.
+
 ## Awaiting owner playtest: speed-dependent grip
 
 Owner approved this next LAB candidate after the drift research. PUBLIC LAB PREVIEW VERIFIED. PR554 mergecc1fc0b7e3f97a2dfa5c442ae4af93bd049980a3; Pages44074248828 succeeded. Six local plus6 public headless Brave DPR2 layouts pass, including tall/portrait, held Thrust/Brake recovery, profiles, all4 ships, firing/dash and reset disposal. Direct No Drift link works. Zero page errors/game sockets/writes/captures; temporary preview/headless stopped. Live combat remains171126r0098/protocol25. No immediate Claude execution/review or live port is requested.
