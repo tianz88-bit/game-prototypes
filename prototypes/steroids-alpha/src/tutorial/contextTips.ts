@@ -6,6 +6,7 @@ import {intents} from '../input/intents';
 import {loadSave,writeSave} from '../save';
 import {text} from '../scenes/common';
 import {panel,UI} from '../render/ui';
+import {hintBox} from '../render/hudLayout';
 import {TipState,TIP_IDS} from './tipState';
 import type {TipId} from './tipState';
 /** Seen hints persist across runs in the existing save blob; layout rebuilds share the model. */
@@ -23,9 +24,9 @@ export class ContextTips {
   const missile=intents.touch?'MISSILE':intents.scheme==='marker'?'RIGHT CLICK / Q':'Q',mine=intents.touch?'MINE':'E';
   const messages:Record<TipId,string>={hull:'Hull damaged: collect a green repair pod.',overheat:'Guns overheated: release fire to cool.',shield:'Avoid hits to recharge shields; the thin arc is hull.',missile:`${missile}: face a target until it locks, then launch.`,mine:`${mine}: drop a mine for enemies on your tail.`,evolve:'Battlecruiser ready: evolve in UPGRADES.'};
   const message=messages[id];if(inline)return message;
-  const touch=intents.touch,pw=touch?Math.min(300,w*.42):Math.min(460,w-40);
+  const touch=intents.touch,box=hintBox(w,h,touch),pw=box.w;
   this.label.setFontSize(touch?10:12).setWordWrapWidth(pw-20).setText(message).setVisible(true);
-  const ph=this.label.height+16,px=touch?8+pw/2:w/2,py=touch?h-ph-8:84;
+  const ph=this.label.height+16,px=box.x,py=box.bottom-ph;
   this.label.setPosition(px,py+8);panel(g,px-pw/2,py,pw,ph,UI.uiAccent);return message;
  }
 }

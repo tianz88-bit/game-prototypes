@@ -1,14 +1,16 @@
 import type Phaser from 'phaser';
 import { clientTune } from '../clientTune';
+import {flightControls} from './hudLayout';
 
 /** One canvas material language for the menu, cards, HUD and touch controls. */
 export const UI = clientTune.render;
 export const css = (colour:number):string => '#'+colour.toString(16).padStart(6,'0');
 
 /** Left edge of the fire button's enlarged hit area, with a small visual gutter. */
-export function controlClearRight(w:number):number {
+export function controlClearRight(w:number,h=0):number {
   const t=clientTune.touch;
-  return w-t.dashButtonMargin*2-t.dashButtonRadius*2-t.fireButtonRadius-t.fireButtonRadius*1.2-14;
+  const c=flightControls(w,h,t.dashButtonMargin,t.dashButtonRadius,t.fireButtonRadius);
+  return Math.min(...Object.values(c).map(c=>c.x-c.hw))-14;
 }
 
 export function panel(g:Phaser.GameObjects.Graphics,x:number,y:number,w:number,h:number,

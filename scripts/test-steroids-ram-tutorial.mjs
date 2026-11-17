@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import {build} from 'esbuild';
-const files={policy:'src/tutorial/policy',tips:'src/tutorial/tipState',death:'src/render/shipDestruction',effects:'src/render/combatEffects',room:'server/src/room',world:'sim/world',protocol:'sim/protocol'};
+const files={layout:'src/render/hudLayout',policy:'src/tutorial/policy',tips:'src/tutorial/tipState',death:'src/render/shipDestruction',effects:'src/render/combatEffects',room:'server/src/room',world:'sim/world',protocol:'sim/protocol'};
 const contents=Object.entries(files).map(([name,file])=>`export * as ${name} from ${JSON.stringify(path.resolve('prototypes/steroids-alpha',file+'.ts'))};`).join('\n');
 const out=await build({stdin:{contents,resolveDir:process.cwd(),loader:'ts'},bundle:true,platform:'node',format:'esm',write:false});
 const S=await import('data:text/javascript;base64,'+Buffer.from(out.outputFiles[0].text).toString('base64'));
@@ -37,6 +37,11 @@ assert.equal(model.update({...state,missileTier:1},10000,false),'missile');
 const restored=new S.tips.TipState([...model.seen]);assert.equal(restored.update({...state,overheated:true,missileTier:1},0,false),null,'seen hints stay quiet across runs');
 const calls=[],g=new Proxy({},{get:(_,name)=>(...args)=>{calls.push({name,args});return g}});
 S.effects.drawRamAttack(g,{x:0,y:0,scale:1},0,100,25,0);
-assert(calls.some(c=>c.name==='lineStyle'&&c.args[1]===0xff913d));
-assert(calls.filter(c=>c.name==='lineBetween').every(c=>c.args[0]>90&&c.args[2]>90),'attack envelope is ahead of the bow');
+assert(calls.filter(c=>c.name==='fillPoints').length>=20,'thick pressure ribbons and swept fragments');
+assert(!calls.some(c=>c.name==='fillTriangle'||c.name==='lineBetween'),'ram VFX has no HUD arrow or chevron');
+for(const [w,h] of [[844,390],[640,360],[568,320],[480,600]]){
+ const controls=S.layout.flightControls(w,h,34,46,46),boxes=Object.values(controls);
+ for(const b of boxes){assert(b.hw*2>=44&&b.hh*2>=44);assert(b.x-b.hw>=0&&b.x+b.hw<=w&&b.y-b.hh>=0&&b.y+b.hh<=h);}
+ for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++){const a=boxes[i],b=boxes[j];assert(Math.abs(a.x-b.x)>=a.hw+b.hw||Math.abs(a.y-b.y)>=a.hh+b.hh,'independent combat hit areas');}
+}
 console.log('PASS: tutorial stage gates, room-held weapon suppression, online isolation, staged mineral drops, swept multi-ring/wrapped crossing, orange bow cue and 800ms collapse');

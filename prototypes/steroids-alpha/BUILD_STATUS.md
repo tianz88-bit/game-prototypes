@@ -1,22 +1,24 @@
 ## Current milestone
 
-Four-step tutorial and one-time contextual tips are LIVE in171126r0095. PR542 merged7b90e92a7a53546888c8df96f94fe307290e7446; itch44032662726, Pages44032662575 and Worker44032662716 succeeded. Public game: https://daily-daily-games.itch.io/steroids-alpha . Worker protocol25 is healthy; existing Warzone changes retained. Owner approved Fly -> Fight -> Dash/Ram -> Escape and immediate deployment after checks. Claude's later sync is tracked in CLAUDE_BACKLOG.md; no execution/review is required from her now.
+HUD space/readability, stronger ram attack VFX and tutorial objective arrows are implemented for release. Owner approved go-live and a deferred Claude backlog.
 
 ## What was implemented
 
-Fly uses two steering rings with one short control prompt. Fight requires one marked rock, collection of one marked mineral bundle and one upgrade; the bundle funds a tier-one choice without a grind. Dash/Ram uses two aligned gates and one stationary weakened target, with guns/manual ordnance/automatic turrets disabled. Escape appears after the dash finishes and completes only on real warp extraction. Early shop/warp controls are hidden and gated; all GOT IT screens, repeated drills and mandatory dogfights/ordnance/evolution lectures are removed.
+PC upgrades are collapsed by default: B/click opens,1–6 still quick-buy. Tab expands compact rankings with your own row pinned; hold H for controls. The shared header exposes MIN and level, separates SALVAGE bank-on-warp from home FUEL, and retains exact hull values inside the shop. Mobile counts sit inside ordnance badges, while Fire/Dash radii and hit factors remain unchanged. Combat controls pack more tightly on narrow screens and stack on tall foldable layouts. Secondary panels clear their hitboxes; mobile stats limit rows to available space.
 
-Six short contextual tips cover overheat, shields, hull repair, missiles, mines and available evolution. One at a time for5.5s with a3.5s gap; seen IDs persist across runs in the existing save. During Fight, a relevant tip temporarily replaces the task sentence instead of adding another panel. Tips create no input zones and never stop play. PC control-key wall is hidden in the tutorial; normal flight retains its setting.
+Warzone keeps ATTACK/DEFEND, timer/tickets and objective health in a dedicated header. Incoming missile, critical hull, overheat and friendly-shield fire-block notices share a priority slot; contextual/arrival hints yield and use a bottom slot. War-locked Warp now says so. Manual-fire prediction respects the existing server shield rule.
+
+Active rams show thick curved orange-white pressure ribbons and swept hot fragments, replacing the UI chevron. Ram impacts have a larger crash burst. Tutorial arrows mark visible and offscreen rings, rocks, minerals, gates and ram targets, plus the shop button, an affordable upgrade card and Warp. Warp action arrow disappears once travel starts.
 
 ## Key technical decisions
 
-Four semantic stages replace old14-step indices. Fight phase gates buying until minerals actually fund an upgrade. Adaptive ram-course reach uses the current chassis/power-adjusted dash range. Room.setTutorialRules gates tutorial-only queued/held weapons, buys, automatic turret quiet state and warp; online rooms ignore it. Manual tutorial target bots stay stationary. No protocol, live combat/movement/economy tuning, new assets or dependencies changed. Practice still banks nothing.
+hudLayout is pure shared geometry. Flight uses the existing mobilePanel on PC too; no new gameplay mode, wire/event schema, movement/combat/economy tuning, asset pack or particle emitter. Existing ship meters, speed VFX, recovery animations and four-step tutorial logic remain. Client shield suppression mirrors existing authority. Warzone text objects reset on rebuild.
 
-Typecheck/build/rig/building/sim/live-config and updated tutorial/tip regressions pass; tutorial regressions now run through the CI sim suite. Three local plus three public Brave DPR2 desktop/mobile-landscape/mobile-portrait full-route cases use real sim bullet damage, collection, purchase, a real dash ram and real extraction.18 local plus18 public additional tip cases verify all six tips, normal-flight integration, save persistence and layout-rebuild continuity. Zero page errors; no screenshots/recording or public-room fixture writes. Evidence outputs/steroids-alpha/four-step-tutorial/.
+Type/build/rig/building/sim/config checks pass. New CI geometry tests enforce control hit targets and separation and verify ram ribbons/fragments have no pointer/chevron. Seven Brave DPR2 PC/compact/mobile/tall/portrait UI cases pass: closed quick buys, B/Tab/H, minerals/cargo/level, pinned own row, embedded counts, shop clearance, role/warp lock, shield suppression and alert priority. All seven objective/urgent slots are separated. Three full tutorial routes pass with every objective-arrow kind and actual ram/extraction. Zero page errors; no captures/recording/public-room fixture writes. Evidence outputs/steroids-alpha/hud-space-ram-objectives/.
 
 ## Open questions
 
-None for release. The roughly one-minute duration is a design target awaiting human play feedback, not a measured human completion time.
+None for release; owner should judge the ram's visual force in play.
 
 ## Known issues
 
@@ -24,4 +26,4 @@ Physical-phone/Safari visuals not inspected. Existing unrelated build warnings r
 
 ## Next proposed step
 
-Collect owner feedback on the first run. CLAUDE_BACKLOG.md contains the deferred sync with release proof; no immediate Claude work is needed. Temporary Vite4187 stopped; no resident publisher or capture service.
+Publish and verify the public UI/tutorial cases, then stop Vite4187. Keep CLAUDE_BACKLOG.md ready for later sync; no immediate Claude execution/review or resident publisher/capture service.

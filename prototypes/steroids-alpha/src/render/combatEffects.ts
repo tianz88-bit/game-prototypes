@@ -59,7 +59,7 @@ export function drawCombatImpact(g:Phaser.GameObjects.Graphics,at:At,t:number,ki
     const size=r*(.18+.8*travel);
     if(t<.5){cloud(g,x,y,r*(.18+travel*.38),0xb44d32,(1-t*2)*.85,t*3,.6);cloud(g,x-2*k,y-2*k,r*(.12+travel*.28),0xffa249,(1-t*2)*.95,t*3,.6);}
     g.lineStyle(Math.max(1,4*k*(1-t)),0xffa04d,fade);g.strokeEllipse(x,y,size*2,size*.7);
-    for(let i=0;i<12;i++){const a=i*2.399,d=size*(.5+travel*.5),px=x+Math.cos(a)*d,py=y+Math.sin(a)*d,w=(2+i%3)*k;
+    for(let i=0;i<20;i++){const a=i*2.399,d=size*(.5+travel*.5),px=x+Math.cos(a)*d,py=y+Math.sin(a)*d,w=(2+i%3)*k;
       g.fillStyle(i%3===0?0xfff0b9:i%2?0xffc16a:0xe46a36,fade);g.fillRect(px,py,w,w*(i%2?3:1));}
     for(const side of [-1,1]){const d=size*.7;g.lineStyle(Math.max(1,5*k),0xffb25d,fade);g.lineBetween(x+side*d,y-d*.35,x+side*d*.65,y);g.lineBetween(x+side*d*.65,y,x+side*d,y+d*.35);}
     if(t<.2){g.fillStyle(0xfff7d8,1-t/.2);g.fillRect(x-r*.32,y-2*k,r*.64,4*k);}return;
@@ -107,12 +107,18 @@ export function drawOrdnanceCue(g:Phaser.GameObjects.Graphics,o:OrdnanceView,at:
   if(o.hp<1){g.fillStyle(0x071425,.9);g.fillRect(x-12*k,y-23*k,24*k,4*k);g.fillStyle(signal,.9);g.fillRect(x-12*k,y-23*k,24*k*Math.max(0,o.hp),4*k);}
 }
 
-/** Leading orange attack envelope, present only during active dash frames. */
-export function drawRamAttack(g:Phaser.GameObjects.Graphics,at:At,angle:number,reach:number,width:number,now:number):void {
+/** Turbulent pressure bow and swept hot debris: active ram attack frames, not a HUD pointer. */
+export function drawRamAttack(g:Phaser.GameObjects.Graphics,at:At,angle:number,reach:number,width:number,now:number):void{
  const k=at.scale,c=Math.cos(angle),s=Math.sin(angle),nose={x:at.x+c*reach*k,y:at.y+s*reach*k};
  const point=(f:number,l:number)=>({x:nose.x+(c*f-s*l)*k,y:nose.y+(s*f+c*l)*k});
- g.fillStyle(0xed6a32,.23);g.fillPoints([point(-7,-width),point(12,0),point(-7,width),point(0,0)],true);
- for(const side of [-1,1]){const a=point(-3,side*width*.92),b=point(10,0),p=point(-1,side*width*.6),q=point(7,0);
- g.lineStyle(Math.max(1,3*k),0xff913d,.7+.15*Math.sin(now/65));g.lineBetween(a.x,a.y,b.x,b.y);
- g.lineStyle(Math.max(.7,k),0xffe0a3,.85);g.lineBetween(p.x,p.y,q.x,q.y);}
+ const ribbon=(size:number,thick:number,colour:number,alpha:number)=>{
+  const outer=[],inner=[];
+  for(let i=0;i<=18;i++){const a=-Math.PI/2+i*Math.PI/18,jitter=1.5*Math.sin(i*2.3+now/24);outer.push(point(Math.cos(a)*(22+size+jitter)-12,Math.sin(a)*(width+size)));inner.unshift(point(Math.cos(a)*(22+size-thick)-12,Math.sin(a)*Math.max(4,width+size-thick*.5)));}
+  g.fillStyle(colour,alpha).fillPoints([...outer,...inner],true);
+ };
+ ribbon(13,16,0xff702b,.18);ribbon(5,12,0xf97830,.65);ribbon(0,6,0xffb65f,.95);ribbon(-2,2,0xfff2c9,.95);
+ for(let i=0;i<18;i++){
+  const t=(now/(110+i*9)+i*.37)%1,f=5-t*(50+width),l=Math.sin(i*7.1)*width*(.7+t*.6),length=(5+i%4*3)*(1-t*.5),half=(1+i%3*.5);
+  g.fillStyle(i%3===0?0xfff5d2:i%2?0xffbd6b:0xef7136,(1-t)*.85).fillPoints([point(f,l-half),point(f-length,l-half),point(f-length,l+half),point(f,l+half)],true);
+ }
 }
