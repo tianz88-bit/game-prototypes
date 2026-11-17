@@ -1,11 +1,11 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
 ## 2026-11-18 codex live speed grip and ship balance
-DID: approved live grip port, responsive nose; actual-stat Hangar bars,2 turret/Guns4 evolution and25/s shield recovery ceiling.
+DID: LIVE171126r0100/protocol26 via PR5591eccd9e0; itch44129275449 + Worker44129275517 + Pages44129275338 success. Responsive grip, stat Hangar,2T/Guns4 and25/s regen cap.
 FILES: shared sim/protocol/tune/config, client replay/lead, Hangar/shop UI, lab isolation/stat fields, regressions and both release gates.
 SEAM: Protocol26,107-byte ships with travelHeading103; shared movement precedes gun mounts, no lab bridge. Client+Worker must deploy together. Other lab handling stays gated.
 CROSS: sim/server/net/menu/test/CI changed within owner's explicit live request. Unit/config/rig/bank and no-capture PC/mobile/two-client proof recorded in BUILD_STATUS.
-FOR claude: deferred backlog only; no immediate execution/review. Release/public verification follows.
+FOR claude: deferred backlog only.7 public Hangar/5 evolution layouts, live beta drift/brake72 snapshots and lab three modes pass, no page errors/capture. Evidence outputs/steroids-alpha/live-speed-grip/.
 
 ## 2026-11-17 codex desktop/mobile UI correction
 DID: LIVE171126r0099 via PR557 ec5ef477; itch44119747544 success. Bounded desktop title; clickable PC Upgrades[B]/Scoreboard[Tab], aligned Warp/header.

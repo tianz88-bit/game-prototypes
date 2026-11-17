@@ -1,6 +1,6 @@
 ## Current milestone
 
-Owner approved live Speed Grip, responsive aiming, stat-bar Hangar,2 turret/Guns4 evolution and capped shield regen on18 November2026. Implementation verified locally; coordinated client/Worker protocol26 release pending. Previous live171126r0099/25.
+LIVE VERIFIED171126r0100 / protocol26. PR559 merge1eccd9e0e6626cc717504a87868314dfbb6518a5; itch44129275449 and Worker44129275517 succeeded. Pages44129275338 succeeded. Owner approved grip/stat Hangar/evolution/regen release18 November2026.
 
 ## What was implemented
 
@@ -10,7 +10,7 @@ Shared movement integrates speed-dependent travel bearing before weapons. Nose r
 
 Protocol26 appends travelHeading at103,107-byte ship snapshots. No production lab imports/private bullet repair; client+Worker release together. New config fields upgrade old hosted records and validate bounds; both Room/client apply grip group. Candidate lab disables shared grip to avoid double application; Live Baseline uses production. Other lab turn-band/auto-cruise/pushback experiments stay gated. New regression runs in both deployment workflows.
 
-Type/build, shared sim/new live grip, lab grip/duels, config/rig/bank/layout regressions pass. Eight chassis/power cases show equal nose/speed, exact lab travel parity, brake slip below4° within.2s, snapshot replay/muzzle/lead/knockback/arrival/warp/dock integrity. Seven Brave DPR2 Hangar layouts pass for20 stat rows, text bounds/equip/listener disposal. Two independent local Brave clients (PC and mobile-sized,120ms RTT) share actual Worker snapshots, regain grip/fire, see each other and maintain bounded prediction. No screenshots/recording/capture. Evidence outputs/steroids-alpha/live-speed-grip/.
+Type/build, shared sim/new live grip, lab grip/duels, config/rig/bank/layout regressions pass. Eight chassis/power cases show equal nose/speed, exact lab travel parity, brake slip below4° within.2s, snapshot replay/muzzle/lead/knockback/arrival/warp/dock integrity. Seven Brave DPR2 Hangar layouts pass for20 stat rows, text bounds/equip/listener disposal. Two independent local Brave clients (PC and mobile-sized,120ms RTT) share actual Worker snapshots, regain grip/fire, see each other and maintain bounded prediction. Public seven Hangar layouts and five evolution-UI layouts pass, including blocked/ready1–6 purchase requests in isolated fixtures. Actual live beta connection received72 new-format snapshots, ~24° fast slip and.57° braking slip, zero page errors, healthy hull. Public hosted config resolves grip enabled/cap25/min turrets2/guns4; lab eight Grip fields and all three profiles pass. No screenshots/recording/capture. Evidence outputs/steroids-alpha/live-speed-grip/.
 
 ## Open questions
 
@@ -22,4 +22,4 @@ Headless checks do not replace physical-phone/Safari or human feel review. Exist
 
 ## Next proposed step
 
-Release client+Worker together, verify public version/protocol/config/Hangar and network grip. Keep Claude backlog deferred. Local preview4187/Worker8788 and headless browsers are stopped.
+Owner plays the updated public game (refresh cached clients for protocol26). Keep Claude backlog deferred and tune further only on owner feedback. All public checks completed; local preview4187/Worker8788 and task headless browsers are stopped.
