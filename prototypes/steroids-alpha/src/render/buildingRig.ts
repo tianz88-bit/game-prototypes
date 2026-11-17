@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import manifest from '../../art/buildings-v1/assets.json';
 import damageManifest from '../../art/warzone-v1/assets.json';
 import { damageStage, durability } from './buildingCondition';
+import { isBuildingFinalHit } from './buildingBlast';
+import { BuildingDestruction } from './buildingDestruction';
 import { clanArtColours, colourCss, remapBuildingPixels } from './buildingMaterials';
 import { buildingPoint, buildingShadowPolygon, TOWER_BARREL_LIFT, TOWER_HEAD_LIFT } from './buildingGeometry';
 import type { BuildingRigPose } from './buildingGeometry';
@@ -9,7 +11,8 @@ export type { BuildingAt, BuildingRigPose } from './buildingGeometry';
 
 const sourceKey=(name:string)=>`building-src-${name}`;
 const assets=[...manifest.assets,...damageManifest.assets];
-export const buildingKey=(name:string,clan:number)=>`building-${name}-${clan===1?1:2}`;
+const neutral=(name:string)=>name.endsWith('-wreck')||name.startsWith('debris-');
+export const buildingKey=(name:string,clan:number)=>`building-${name}-${neutral(name)?0:clan===1?1:2}`;
 export function queueBuildingArt(scene:Phaser.Scene):void {
   for(const a of assets)scene.load.image(sourceKey(a.name),`assets/loose/building-${a.name}.png`);
 }
@@ -18,11 +21,11 @@ export function prepareBuildingArt(scene:Phaser.Scene):void {
   for(const a of assets){
     if(!scene.textures.exists(sourceKey(a.name)))continue;
     const src=scene.textures.get(sourceKey(a.name)).getSourceImage() as HTMLImageElement;
-    for(const clan of [1,2]){
+    for(const clan of neutral(a.name)?[0]:[1,2]){
       const key=buildingKey(a.name,clan);if(scene.textures.exists(key))continue;
       const canvas=document.createElement('canvas');canvas.width=src.width;canvas.height=src.height;
       const ctx=canvas.getContext('2d')!;ctx.drawImage(src,0,0);
-      const image=ctx.getImageData(0,0,canvas.width,canvas.height);remapBuildingPixels(image.data,clan);ctx.putImageData(image,0,0);
+      if(clan){const image=ctx.getImageData(0,0,canvas.width,canvas.height);remapBuildingPixels(image.data,clan);ctx.putImageData(image,0,0);}
       const texture=scene.textures.addCanvas(key,canvas);if(!texture)continue;
       const t=a.trimFrame,sx=canvas.width/a.sourceSize[0],sy=canvas.height/a.sourceSize[1],x=Math.floor(t.x*sx),y=Math.floor(t.y*sy);
       texture.add('body',0,x,y,Math.min(canvas.width-x,Math.ceil((t.x+t.w)*sx)-x),Math.min(canvas.height-y,Math.ceil((t.y+t.h)*sy)-y));
@@ -36,7 +39,7 @@ export interface BuildingRigBounds {top:number;bottom:number;left:number;right:n
 interface BuildingView {
   kind:'nexus'|'turret';clan:number;parts:Phaser.GameObjects.Image[];shadow:Phaser.GameObjects.Image;
   columns:Phaser.GameObjects.Image[];cast:Phaser.GameObjects.Graphics;
-  used:boolean;lastShot:number;barrel:number;
+  used:boolean;lastShot:number;barrel:number;health?:number;lastSeen:number;
 }
 const NEXUS=['nexus-plinth','nexus-reactor','nexus-crown'];
 const TOWER=['tower-foundation','tower-shaft','tower-head','tower-barrel','tower-barrel'];
@@ -71,7 +74,10 @@ function columnTexture(scene:Phaser.Scene,clan:number):string {
 export class BuildingRigs {
   private views=new Map<string,BuildingView>();
   private flashes:Phaser.GameObjects.Graphics;
-  constructor(private scene:Phaser.Scene){this.flashes=scene.add.graphics().setDepth(19.8);}
+  private destruction:BuildingDestruction;
+  constructor(private scene:Phaser.Scene){this.flashes=scene.add.graphics().setDepth(19.8);this.destruction=new BuildingDestruction(scene,name=>buildingKey(name,0));}
+  destructionSnapshot():ReturnType<BuildingDestruction['snapshot']> {return this.destruction.snapshot();}
+  clearDestruction():void {this.destruction.clear();}
   begin():void {for(const view of this.views.values())view.used=false;this.flashes.clear();}
   private view(p:BuildingRigPose,kind:'nexus'|'turret'):BuildingView|null {
     const names=kind==='nexus'?NEXUS:TOWER;
@@ -81,9 +87,13 @@ export class BuildingRigs {
     if(!view){
       const parts=names.map((name,i)=>this.scene.add.image(0,0,buildingKey(name,p.clan),'body').setDepth(16+i*.65));
       const columns=[0,1].map(i=>this.scene.add.image(0,0,columnTexture(this.scene,p.clan)).setDepth(16.3+i*.65));
-      view={kind,clan:p.clan,parts,columns,cast:this.scene.add.graphics().setDepth(12.5),shadow:this.scene.add.image(0,0,shadowTexture(this.scene)).setDepth(12.6),used:true,lastShot:-1e9,barrel:0};
+      view={kind,clan:p.clan,parts,columns,cast:this.scene.add.graphics().setDepth(12.5),shadow:this.scene.add.image(0,0,shadowTexture(this.scene)).setDepth(12.6),used:true,lastShot:-1e9,barrel:0,lastSeen:-1e9};
       this.views.set(p.id,view);
     }
+    const health=durability(p.health);
+    if(isBuildingFinalHit(view.health,health,p.now-view.lastSeen))this.destruction.trigger(p,kind);
+    if(view.health===0&&health>0)this.destruction.cancel(p.id);
+    view.health=health;view.lastSeen=p.now;this.destruction.follow(p);
     view.used=true;view.shadow.setVisible(true);view.cast.setVisible(true);view.parts.forEach(part=>part.setVisible(true));view.columns.forEach(part=>part.setVisible(true));return view;
   }
   private point(p:BuildingRigPose,lift:number,forward=0,lateral=0,angle=p.basisAngle??0):{x:number;y:number} {
@@ -113,7 +123,7 @@ export class BuildingRigs {
     if(this.scene.textures.exists(key)&&image.texture.key!==key)image.setTexture(key,'body');
   }
   private condition(p:BuildingRigPose,width:number,lift:number):void {
-    if(p.health===undefined)return;
+    if(p.health===undefined||durability(p.health)<=0)return;
     const h=durability(p.health),stage=damageStage(h),k=p.at.scale,g=this.flashes;
     const q=this.point(p,0),y=q.y+width*.64*k,step=width*k/10;
     g.fillStyle(0x091420,.82);g.fillRoundedRect(q.x-width*k/2-3*k,y-3*k,width*k+6*k,7*k,2*k);
@@ -134,6 +144,12 @@ export class BuildingRigs {
   drawTreasury(p:BuildingRigPose):BuildingRigBounds|null {
     const view=this.view(p,'nexus');if(!view)return null;
     const stage=damageStage(p.health),damaged=stage!=='healthy';
+    this.skin(view.parts[0],stage==='destroyed'?'nexus-wreck':'nexus-plinth',p);
+    if(stage==='destroyed'){
+      this.shadow(view,p,265,190,8);this.part(view.parts[0],p,260,0,.88);
+      view.parts.slice(1).forEach(part=>part.setVisible(false));view.columns.forEach(part=>part.setVisible(false));
+      const k=p.at.scale;return{top:p.at.y-130*k,bottom:p.at.y+130*k,left:p.at.x-130*k,right:p.at.x+130*k,labelY:p.at.y+150*k};
+    }
     this.skin(view.parts[1],damaged?'nexus-reactor-damaged':'nexus-reactor',p);
     this.skin(view.parts[2],damaged?'nexus-crown-damaged':'nexus-crown',p);
     this.shadow(view,p,265,190,100);
@@ -141,7 +157,6 @@ export class BuildingRigs {
     this.part(view.parts[0],p,260,0,.91);
     this.part(view.parts[1],p,190,45,.97);
     this.part(view.parts[2],p,180,100,1);
-    if(stage==='destroyed'){view.parts[1].setTint(shade(.38*(p.brightness??1)));view.parts[2].setTint(shade(.32*(p.brightness??1)));}
     this.condition(p,140,100);
     const k=p.at.scale;return{top:p.at.y-205*k,bottom:p.at.y+140*k,left:p.at.x-130*k,right:p.at.x+130*k,labelY:p.at.y+158*k};
   }
@@ -178,7 +193,11 @@ export class BuildingRigs {
     }
     this.condition(p,46,TOWER_HEAD_LIFT);return true;
   }
-  end():void {for(const view of this.views.values())if(!view.used){view.shadow.setVisible(false);view.cast.setVisible(false);view.parts.forEach(part=>part.setVisible(false));view.columns.forEach(part=>part.setVisible(false));}}
+  end():void {
+    const visible=new Set<string>();
+    for(const [id,view] of this.views)if(view.used)visible.add(id);else{view.shadow.setVisible(false);view.cast.setVisible(false);view.parts.forEach(part=>part.setVisible(false));view.columns.forEach(part=>part.setVisible(false));}
+    this.destruction.draw(this.scene.time.now,visible);
+  }
   private dispose(view:BuildingView):void {view.shadow.destroy();view.cast.destroy();view.parts.forEach(part=>part.destroy());view.columns.forEach(part=>part.destroy());}
-  destroy():void {for(const view of this.views.values())this.dispose(view);this.views.clear();this.flashes.destroy();}
+  destroy():void {for(const view of this.views.values())this.dispose(view);this.views.clear();this.flashes.destroy();this.destruction.destroy();}
 }

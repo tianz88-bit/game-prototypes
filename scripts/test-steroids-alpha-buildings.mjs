@@ -9,6 +9,22 @@ async function load(file) {
 const G=await load('prototypes/steroids-alpha/src/render/buildingGeometry.ts');
 const M=await load('prototypes/steroids-alpha/src/render/buildingMaterials.ts');
 const D=await load('prototypes/steroids-alpha/src/render/buildingCondition.ts');
+const Blast=await load('prototypes/steroids-alpha/src/render/buildingBlast.ts');
+assert(Blast.isBuildingFinalHit(.1,0,16),'final visible hit detonates');
+assert(!Blast.isBuildingFinalHit(undefined,0,16),'joining a ruin does not replay its destruction');
+assert(!Blast.isBuildingFinalHit(0,0,16),'zero-health snapshots do not repeat explosions');
+assert(!Blast.isBuildingFinalHit(.1,0,800),'offscreen historical destruction does not replay');
+assert(!Blast.isBuildingFinalHit(0,1,16),'repair does not detonate');
+for(const kind of ['turret','nexus'])for(let i=0;i<36;i++){
+  const launch=Blast.buildingFragment(i,0,kind),air=Blast.buildingFragment(i,250,kind),ground=Blast.buildingFragment(i,2300,kind);
+  assert(launch.lift>0&&air.lift>0,'chunks start at raised building height');
+  assert(Math.hypot(air.dx,air.dy)>0,'chunks fly radially outward');
+  nearNumber(ground.lift,0);
+  const later=Blast.buildingFragment(i,2350,kind);
+  nearNumber(ground.dx,later.dx);nearNumber(ground.dy,later.dy);
+  assert.equal(Blast.buildingFragment(i,Blast.BLAST_LIFE[kind],kind).alpha,0,'effects expire');
+}
+function nearNumber(a,b){assert(Math.abs(a-b)<1e-7,'landed debris stays grounded');}
 assert.equal(D.damageStage(undefined),'healthy');
 assert.equal(D.damageStage(.65),'healthy');assert.equal(D.damageStage(.649),'damaged');
 assert.equal(D.damageStage(.3),'damaged');assert.equal(D.damageStage(.299),'critical');

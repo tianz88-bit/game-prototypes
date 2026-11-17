@@ -33,3 +33,5 @@ Implementation references: [GitHub workflow OIDC claims](https://docs.github.com
 ## Warzone art preview (local branch, pending approval)
 
 `?review=warzone` selects the new siege-art view on codex/steroids-warzone-art-review. It is currently local only. Cycle Towers (including mixed), Shield and Nexus through intact/damaged/critical/destroyed values; use clan/orbit controls to inspect ground anchoring and sunlight. Standalone Nexus/Tower views also expose health states. These controls never publish or send simulation data. Return to Falcon draft preserves calibration.
+
+Destroyed towers and Nexus now use neutral rubble independent of clan colour. FINAL HIT / REPAIR in standalone views (or DETONATE TOWERS / DETONATE NEXUS / REPAIR ALL in Warzone) replay the final-hit blast and flying painted plate/tube debris. Effects fire once, expire, and reuse pooled images; they are preview-only state changes.

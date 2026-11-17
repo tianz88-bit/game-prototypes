@@ -49,6 +49,7 @@ export class RigReviewScene extends Phaser.Scene {
   towerHealth = -1;
   shieldHealth = .55;
   nexusHealth = .55;
+  private finalHit:{kind:'turret'|'nexus';at:number}|null=null;
   private warGround:PlanetGround|null=null;
   private baseArt!:Phaser.GameObjects.Graphics;
   private ship: ShipView | null = null;
@@ -100,6 +101,7 @@ export class RigReviewScene extends Phaser.Scene {
 
   private select(id: string): void {
     this.subject = id; this.ship?.destroy(); this.ship = null;
+    this.finalHit=null;this.buildings.clearDestruction();
     this.warGround?.destroy();this.warGround=id==='warzone'?new PlanetGround(this,-8,[1,1,1],'warzone'):null;
     this.state = newShip(TUNE.world.width / 2, TUNE.world.height / 2, this.heading, 140);
     this.state.chassis = SUBJECTS.find(s => s.id === id)!.chassis;
@@ -148,7 +150,11 @@ export class RigReviewScene extends Phaser.Scene {
     ];
     const cw = Math.min(142, (w - 24) / controls.length);
     controls.forEach(([id, label], i) => button(id, label, w / 2 + (i - 2.5) * cw, h - 66, cw - 5));
-    ['Up', 'Right', 'Down', 'Left'].forEach((s, i) => button(`angle${i}`, s, w / 2 + (i - 1.5) * 65, h - 28, 60));
+    if(building){
+      const actions=this.subject==='warzone'?[['destroy-turret','DETONATE TOWERS'],['destroy-nexus','DETONATE NEXUS'],['repair','REPAIR ALL']]:[[`destroy-${this.subject==='nexus'?'nexus':'turret'}`,'FINAL HIT'],['repair','REPAIR']];
+      const aw=Math.min(155,(w-24)/actions.length);
+      actions.forEach(([id,label],i)=>button(id,label,w/2+(i-(actions.length-1)/2)*aw,h-28,aw-6));
+    }else ['Up', 'Right', 'Down', 'Left'].forEach((s, i) => button(`angle${i}`, s, w / 2 + (i - 1.5) * 65, h - 28, 60));
     this.caption.setPosition(w / 2, h - 104);
     versionStamp(this);
     this.frame = this.children.list.filter(c => !before.has(c));
@@ -172,6 +178,12 @@ export class RigReviewScene extends Phaser.Scene {
     if(id==='tower-health')this.towerHealth=next(this.towerHealth,[-1,1,.55,.2,0]);
     if(id==='shield-health')this.shieldHealth=next(this.shieldHealth,[1,.55,.2,0]);
     if(id==='nexus-health')this.nexusHealth=next(this.nexusHealth,[1,.55,.2,0]);
+    if(id==='repair'){this.towerHealth=this.shieldHealth=this.nexusHealth=1;this.finalHit=null;}
+    if(id==='destroy-turret'||id==='destroy-nexus'){
+      const kind=id==='destroy-nexus'?'nexus':'turret';
+      if(kind==='nexus')this.nexusHealth=.2;else this.towerHealth=.2;
+      this.finalHit={kind,at:this.time.now+180};
+    }
     if (id.startsWith('angle')) { this.heading = (Number(id.slice(5)) - 1) * Math.PI / 2; this.rotating = false; }
     this.layout();
   }
@@ -187,6 +199,7 @@ export class RigReviewScene extends Phaser.Scene {
       buildingsReady: this.textures.exists(buildingKey('nexus-crown', 2)) && this.textures.exists(buildingKey('tower-barrel', 2)),
       warzone:this.subject==='warzone'?{terrain:'scorched-basalt',towerHealth:this.towerHealth<0?[1,.55,.2,0,1,.55]:Array(6).fill(this.towerHealth),shield:this.shieldHealth,nexus:this.nexusHealth,broken:this.shieldHealth===0}:undefined,
       damageArtReady:['tower-head-damaged','tower-wreck','nexus-reactor-damaged','nexus-crown-damaged'].every(name=>this.textures.exists(buildingKey(name,2))),
+      destruction:this.buildings.destructionSnapshot(),
       buttons: this.buttons, network: 'isolated review' };
   }
 
@@ -198,6 +211,7 @@ export class RigReviewScene extends Phaser.Scene {
     }
     if (intents.consume('pause')) { this.scene.start('hangar'); return; }
     const dt = Math.min(.05, delta / 1000), { w, h } = logicalSize();
+    if(this.finalHit&&now>=this.finalHit.at){if(this.finalHit.kind==='nexus')this.nexusHealth=0;else this.towerHealth=0;this.finalHit=null;this.layout();}
     if (this.rotating) this.heading += dt * Math.PI / 4;
     const x = w / 2, y = (92 + h - 122) / 2, area = Math.max(60, Math.min(w * .36, (h - 210) / 2));
     const control = this.control === 0 ? undefined : { thrust: this.control === 1 ? 1 : this.control === 2 ? -1 : 0, turn: this.control === 3 ? -1 : this.control === 4 ? 1 : 0, aim: NaN };

@@ -4,7 +4,7 @@ Local Warzone art review added; pending owner visual approval. Public lab unchan
 
 ## What was implemented
 
-Ship / building selector adds Warzone siege-art preview through the production review scene. Mixed intact/damaged/critical/wreck towers, shield coverage and Nexus health can be cycled independently. Clan colours and moving ground/lighting inspect the same rooted building rigs. Standalone Nexus/tower tabs allow larger damage review.
+Ship / building selector adds Warzone siege-art preview through the production review scene. Mixed intact/damaged/critical/wreck towers, shield coverage and Nexus health can be cycled independently. Clan colours and moving ground/lighting inspect the same rooted building rigs. Standalone Nexus/tower tabs allow larger damage review and have FINAL HIT / REPAIR buttons. Warzone offers DETONATE TOWERS / DETONATE NEXUS / REPAIR ALL. Final-hit blasts throw painted neutral debris; both destroyed buildings become neutral rubble only.
 
 ## Key technical decisions
 
@@ -16,7 +16,7 @@ Owner visual approval of the Warzone art.
 
 ## Known issues
 
-Only the local port4187 preview includes this addition. Desktop/mobile DPR2 Brave state/lifecycle checks pass; no screenshots, recordings or physical-phone visual test. Hosted publishing was not exercised.
+Only the local port4187 preview includes this addition. Desktop/mobile DPR2 Brave state/lifecycle and4 destruction cases pass, including one-shot triggering, grounded neutral wrecks, expiration, repair and bounded sprite-pool reuse; no screenshots, recordings or physical-phone visual test. Hosted publishing was not exercised.
 
 ## Next proposed step
 

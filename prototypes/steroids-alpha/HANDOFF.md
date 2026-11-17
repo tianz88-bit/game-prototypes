@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex warzone-final-hit LOCAL REVIEW ONLY
+DID: owner refinement replaces destroyed tower AND Nexus with neutral rubble bases. Final hit throws16/36 painted neutral plate/tube fragments, rectangular sparks, projected shock front/shadows and secondary Nexus cores. Lab has repeatable final-hit/repair controls.
+FILES: warzone-v1 manifest now local v2 ZIP/seven parts, buildingBlast/buildingDestruction/buildingRig, rigReview, building regression; README/BUILD_STATUS give evidence/hash.
+SEAM: health transition observed once only when recently visible; no initial/repeated ruin detonation. Shared building-*-0 neutral textures skip clan remapping. Repair/scene shutdown clears effects; max8 bursts and bounded reused image pool.
+CROSS: renderer-only, no sim/tune/wire changes. Typecheck/assets/rig/build and Brave desktop/mobile state +4 destruction cases pass; no capture/recording. Live remains unchanged.
+FOR claude: owner checks local ?review=warzone or standalone turret/nexus FINAL HIT. Still NO R2 upload/push/merge/deploy before approval. Local v2 ZIP SHA 638189c64011a03ed3c05a5c6e2fc8fd5a87f14201e66c20e3693b79eb3f5caf.
+
 ## 2026-11-17 codex warzone-art LOCAL REVIEW ONLY
 DID: painted damaged tower/Nexus parts + grounded wrecks, shield coverage, compact durability cues, charcoal/ochre terrain and isolated lab presets. No upload/push/merge/deploy; owner asked to inspect first.
 FILES: art/warzone-v1, buildingCondition/warzoneShield/buildingRig/clanBaseArt/planetGround/stellarMap, rigReview, lab selector; BUILD_STATUS/README contain source/hash/evidence.
@@ -97,10 +104,3 @@ FILES: src/render/{stellarMap,planetGround}.ts, src/scenes/{menu,flight}.ts, src
 SEAM: existing power wire field remains mineral balance; rankPilots shared by board/nav. PlanetGround adds bounded positioning/disposal. Debug menuScene exposes preview state; buttons are destination hit areas only while popup open.
 CROSS: requested menu behavior/rank and minimal sim-test extension; no server, wire version or economy changes. Fixed inherited removeAll(true) text-texture leak by destroying old menu children. Required checks and Brave DPR2 four viewports pass; ten cycles stable53objects/133textures, WebGL/Canvas ~60FPS; details/resize/offline/actual entry and board order pass.
 FOR claude: LIVE161126r0074. PR510 merged969638bd; itch43829523905 and Worker43829523419 succeeded. Public Brave PC/phone/small/upright: globe selection/details, rotation, actual second-tap entry and open connection pass; desktop/mobile ranking fixtures agree, zero errors. Proof outputs/steroids-alpha/warp-live-verification; thread b837277b. Menu tests open WARP, select, then tap selected globe again. No economy/protocol change.
-
-## 2026-11-16 codex orbital-buildings-hud-release
-DID: owner approved orbital arrival/departure, layered treasury Nexus/twin-cannon towers, and joined translucent HUD v3. Uploaded/re-fetched exact building source ZIP with matching SHA-256.
-FILES: src/render/{orbital*,buildingRig,clanBaseArt,combatHud,shipView,flightIndicators}.ts, src/scenes/{boot,flight}.ts, art/buildings-v1, art/prepare-assets.mjs.
-SEAM: ShipPlacement optional orbital lift/ground alpha; BuildingRigs lifecycle; CombatHud anchor then hold selector. COLLAB records contracts. No new wire/gameplay changes.
-CROSS: flight lifecycle and config test only; merged main 1fb8b45 preserving menu-only extraction, mouse/key hints, fuel/visitor cargo, own-top-speed exhaust and zoom 1000. Desktop cargo clears key hints. Typecheck/build/rig/sim/live-config/bank pass; integrated Brave orbital/mobile input and 36 building captures pass, 2 clients ~60 FPS DPR2, zero errors.
-FOR claude: LIVE 161126r0073. PR508 merged7e5b2158; itch43824697720 succeeded. Public Brave PC/mobile/upright and both clans connect protocol20,12combat+14building textures,7rigs/40images, phone fire/dash/drawer, zero errors. Proof outputs/steroids-alpha/orbit-live-verification/result.json; thread68c1ca78. Reticle/landmark/fuel-icon follow-ups stay separate; R2 SHA d34070bccdb67d0e901d7972504a5b2478f477dcc712a8e796bf41c6d6c30a15.
