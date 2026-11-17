@@ -4,13 +4,13 @@ Owner direction,17 November2026: Codex completes and deploys the approved work. 
 
 ## Ready for later sync: landing menu and planet map
 
-Status: release approved; local validation complete, deployment/public proof pending. No immediate Claude execution/review requested.
+Status: LIVE171126r0098. PR547 mergefde1891ede1393ad994997de6a77eb2fa2927b53; itch44051762536 and Pages44051762420 succeeded. Existing Worker protocol25 healthy. No immediate Claude execution/review requested.
 
 - Menu uses the existing selected ship/palette rig as the hero, primary pulsing Warp/Choose a planet, secondary Learn to fly and Hangar. Banked credits are separate from run minerals. Settings/Account/Share remain reachable on mobile and compact screens; QR/recovery are no longer permanent clutter.
 - landingLayout supplies pure screen geometry. Settings clan/PC controls/hints, Account pilot name/recovery, Share QR/copy retain existing intent/save/account APIs. Account labels use modal depth; pilot name is saved before recovery mode. Focused input survives rebuild; short screens move name editing into Account.
 - StellarMap still renders all5 actual terrain globes and reads live counts/status. Info isolates longer rules; visible intel separates name, risk/player count and resources/rewards. Neutral destinations explicitly mention PvP; visitors cannot mine, Warzone rewards remain temporary.
 - MapAction adds chooseSide for a closed Warzone (choose a clan and stay); existing joinAs enters only when open. Auto-join when open replaces misleading Notify me. It requires a confirmed opening, a clan and selected Warzone. Map close/another destination cancels state and displayed label. Unknown status never auto-joins. Escape dismisses Info first, then map. No server/wire/gameplay tuning change.
-- Type/build/rig/sim/config and8 pure geometry sizes pass.9 local Brave DPR2 desktop/phone landscape/portrait/tall/320x240 cases cover reachable actions, Settings, recovery, Share, all5 intel/Info routes, Warzone waiting/opening/side selection, Hangar/Learn and stable children/preview callbacks. Final compact case adds cancellation-label regression. Zero page errors; no captures or public-room fixture writes. Evidence outputs/steroids-alpha/landing-map-hierarchy/.
+- Type/build/rig/sim/config and8 pure geometry sizes pass.9 local Brave DPR2 desktop/phone landscape/portrait/tall/320x240 cases cover reachable actions, Settings, recovery, Share, all5 intel/Info routes, Warzone waiting/opening/side selection, Hangar/Learn and stable children/preview callbacks. Final local compact case adds cancellation-label regression; all9 public cases also pass that regression. Zero page errors; no captures or public-room fixture writes. Public base confirms11 real ship modules and all5 live count keys. Temporary Vite4187 stopped; no resident publisher or headless test process left. Evidence outputs/steroids-alpha/landing-map-hierarchy/.
 
 Later sync: consult these seams before editing MenuScene/stellar map. No duplicate implementation needed; collect owner feedback.
 

@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex landing menu/map LIVE
+DID: ship/Warp hero, accessible utilities and clearer five-planet map live171126r0098. PR547 fde1891e; itch44051762536/Pages44051762420 success, Worker25 healthy.
+FILES: menu, stellarMap, landingLayout and rig-gate layout test; BRIEF/COLLAB/BUILD_STATUS/CLAUDE_BACKLOG.
+SEAM: chooseSide while closed; Info dismissal; confirmed Warzone auto-join with cancellation state/label. Existing account/save/input APIs; no wire/gameplay/live tuning changes.
+CROSS: type/build/rig/sim/config pass;9 local+9 public Brave DPR2 layouts plus final compact case. Utilities/recovery/all5 intel routes/side selection/auto-join/Hangar/Learn/lifecycle pass, zero page errors/captures/public-room fixture writes.
+FOR claude: deferred backlog ready; no immediate execution/review needed. Vite4187 stopped, no leftover headless test process. Evidence outputs/steroids-alpha/landing-map-hierarchy/.
+
 ## 2026-11-17 codex landing menu/map RELEASE
 DID: selected real ship/palette hero with primary Warp, secondary Learn to fly; utility panels preserve mobile Settings/Account/Share. Map has name/danger/players/resources and optional Info.
 FILES: menu, stellarMap, pure landingLayout and existing rig-gate geometry regression; brief/collaboration/status/backlog.
@@ -97,10 +104,3 @@ FILES: rich-asteroids-v1 manifest now v2 pack/bodyOffset metadata, rockRegistrat
 SEAM: original normal RockBodyFrame anchors padded decorated texture; original body world centre/scale/collision coverage unchanged. Debug coverage separates body vs decorative extents; hash URL queries prevent stale image registration.
 CROSS: no sim/tune/HP/reward/wire changes. Type/build/rig,9 transform/15 preserved-body/protrusion/180 Brave runtime cases pass; no capture/recording or fixture writes to server.
 FOR claude: v2 ZIP4,956,322bytes/hash4df28e3e4f3bbac1db3ac57f5213df74e3f2bfd42f332cd45e18fb63f66f20ab, all15 sources publicly verified. Final live proof follows; no gameplay work required.
-
-## 2026-11-17 codex rich-asteroid art LIVE
-DID:15 gold-veined painted variants,3 families/all3 sizes/sibling shapes live171126r0087. Owner waived preview and authorized direct go-live. PR5290bf0383a; itch44000505243/Pages44000505433 success. Existing protocol24 healthy.
-FILES: art/rich-asteroids-v1, prepare-assets, rockSelection/rockPainted, flight observation wiring, selection regression/docs.
-SEAM: optional rich=false on draw/rockArtFor observes Asteroid.rich; exact original alpha/coverage and family/id-parity retained. Existing pooled projection/damage/lighting; orbit cue only for PixelRocks fallback. No gameplay/tune/wire changes.
-CROSS: R2 exactZIP/all15 hashes verified (4,194,394bytes,4a3daf131dbefe44901fd16253094b04d29820f3b9ac6be247532f2db1045baf). Type/build/assets/rig and15alpha/45size/local180/public180 runtime checks pass; no capture/recording or fixture writes to server.
-FOR claude: your rich-asteroid art follow-up is complete; use main, no additional deploy required. Public game version87; Warzone updates retained. BUILD_STATUS gives evidence; localhost preview stopped.
