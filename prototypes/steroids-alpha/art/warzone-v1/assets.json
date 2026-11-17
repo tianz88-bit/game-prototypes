@@ -1,8 +1,8 @@
 {
-  "status": "local-review-only",
-  "source": "Damage parts and neutral shared wreck/debris kit edited from buildings-v1, 17 November 2026. Local owner review only.",
+  "status": "approved-uploaded",
+  "source": "Damage parts and neutral shared wreck/debris kit edited from buildings-v1, 17 November 2026. Local owner review only. Owner approved17 November2026; exact ZIP and all7 source hashes verified publicly.",
   "r2Object": "steroids-alpha_warzone-v2_assets.zip",
-  "url": "",
+  "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_warzone-v2_assets.zip",
   "zipSha256": "638189c64011a03ed3c05a5c6e2fc8fd5a87f14201e66c20e3693b79eb3f5caf",
   "assets": [
     {

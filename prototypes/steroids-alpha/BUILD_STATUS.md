@@ -12,16 +12,16 @@ Warzone has distinct periodic charcoal basalt, ochre ash channels, sparse coolin
 
 Optional BuildingRigPose.health / ClanBaseArtOptions.siege are visual-only normalized state; no network, tune, collision or simulation changes. New damage textures use existing registration and runtime clan remapping. One bounded Graphics pass supplies status/embers; no permanent emitter or publisher. PlanetGround fourth argument selects warzone material. Review remains isolated from multiplayer and preserves the Falcon draft on return.
 
-Seven PNG masters/ZIP remain local outside Git; manifest/source hashes are in art/warzone-v1. Local ZIP cache hash638189c64011a03ed3c05a5c6e2fc8fd5a87f14201e66c20e3693b79eb3f5caf. Public R2 URL intentionally absent pending owner approval. Asset staging verifies all seven sources. Typecheck/build and 396-pose/14400-FFD-point/18-building-case regression suite pass, with new durability/coverage/one-shot/ballistic landing tests. Headless Brave desktop/mobile DPR2 lab state/collapse/repair/clan/return checks pass with zero browser errors/game sockets. Destruction checks add4 desktop/mobile tower/Nexus cases, repeated bursts, pool reuse, expiration, repair and simultaneous6-tower/Nexus stress. Evidence: outputs/steroids-alpha/warzone-art-review/{lab-check,destruction-check}.json. No screenshots or recording.
+Seven PNG masters/ZIP remain outside Git and are now published in R2; manifest/source hashes are in art/warzone-v1. Local ZIP cache hash638189c64011a03ed3c05a5c6e2fc8fd5a87f14201e66c20e3693b79eb3f5caf. Public R2 ZIP and all7 source hashes verified; manifest status approved-uploaded. Asset staging verifies all seven sources. Typecheck/build and 396-pose/14400-FFD-point/18-building-case regression suite pass, with new durability/coverage/one-shot/ballistic landing tests. Headless Brave desktop/mobile DPR2 lab state/collapse/repair/clan/return checks pass with zero browser errors/game sockets. Destruction checks add4 desktop/mobile tower/Nexus cases, repeated bursts, pool reuse, expiration, repair and simultaneous6-tower/Nexus stress. Evidence: outputs/steroids-alpha/warzone-art-review/{lab-check,destruction-check}.json. No screenshots or recording.
 
 ## Open questions
 
-Owner visual review of neutral rubble, final-hit explosions/flying debris, shield coverage and Warzone palette before live release.
+Owner approved all Warzone art and explosion updates. No open design question for this release.
 
 ## Known issues
 
-Preview is local to this PC; not on the public lab. New art needs approved R2 upload/readback before any deploy from a fresh machine. Headless checks verify state/geometry/lifecycle, not visual appearance; no physical-phone/Safari check. Existing unrelated bundle warnings remain.
+Publication and public runtime checks in progress. Headless checks verify state/geometry/lifecycle, not visual appearance; no physical-phone/Safari check. Existing unrelated bundle warnings remain.
 
 ## Next proposed step
 
-Owner checks http://127.0.0.1:4187/game-prototypes/prototypes/steroids-alpha-lab/?review=warzone and standalone Nexus/Tower tabs. Keep Vite preview running for that review. After approval only: verified R2 upload, manifest URL/status update, release PR/checks and public verification. No resident private publisher or capture session runs.
+Deploy approved release, verify public game/lab and synchronize results with Claude. No resident private publisher or capture session runs.

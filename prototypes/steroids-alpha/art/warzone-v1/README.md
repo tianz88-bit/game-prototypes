@@ -1,10 +1,10 @@
-# Warzone damage kit — local review only
+# Warzone damage kit — approved for release
 
 Owner request, 17 November 2026: damaged/destroyed towers, shield strength, Nexus health and a distinct planet look, in the lab before any live release.
 
 The three damaged raster parts were edited with built-in imagegen from a 2×2 sheet of the approved buildings-v1 tower head/foundation and Nexus reactor/crown. The former coloured tower wreck has been superseded by a second edit sheet containing neutral tower/Nexus debris bases and two flying metal fragments. They preserve the overhead painted projection, blue/cream/amber material IDs, navy outlines and existing rig frames. The tower wreck is a low collapsed silhouette; no smoke, shadows or muzzle flashes are baked into the image. Runtime remapping supplies independent clan colours. Never copy pilot palette values into buildings.
 
-Masters and generated sheet: `outputs/steroids-alpha/warzone-art-review/`. `parts/` holds full 1254-square registered PNGs; `steroids-alpha_warzone-v2_assets.zip` has the seven manifest delivery paths. The ZIP is cached under its content hash in the checkout's `.cache/`. PNG/ZIP files stay outside Git. The preview pack has no public URL and has not been uploaded. A fresh machine needs the local ZIP until approval permits verified R2 delivery.
+Masters and generated sheet: `outputs/steroids-alpha/warzone-art-review/`. `parts/` holds full 1254-square registered PNGs; `steroids-alpha_warzone-v2_assets.zip` has the seven manifest delivery paths. The ZIP is cached under its content hash in the checkout's `.cache/`. PNG/ZIP files stay outside Git. Owner approved publication on17 November2026. The exact ZIP and all seven part hashes were verified by public R2 readback; the manifest contains its public URL. Fresh builds fetch/cache by content hash.
 
 Newly authored variants were registered once to their corresponding original trim rectangles; no approved source PNG was changed. Runtime resampling retains the full registered canvas (256 for tower, 384 for Nexus). `prepare-assets.mjs` verifies ZIP and individual source hashes before staging.
 
@@ -16,7 +16,7 @@ Warzone terrain uses the existing tile/channel sources with a new periodic charc
 
 Review: run Vite on port4187 and open `/game-prototypes/prototypes/steroids-alpha-lab/?review=warzone`. Mixed towers show intact, damaged, critical and wreck together. Health buttons cycle100/55/20/0%; tower additionally offers MIXED. Clan and orbit controls inspect grounding and lighting. Standalone tower/Nexus tabs allow larger inspection. The review reads live settings once and never joins a room or publishes.
 
-Checks: typecheck, build, hash-verified asset staging, rig/building regressions, and headless Brave desktop/mobile lab state/lifecycle checks. No screenshots or recording; owner performs visual review. Evidence: `outputs/steroids-alpha/warzone-art-review/lab-check.json` and `destruction-check.json`. Live deployment is explicitly gated on owner approval.
+Checks: typecheck, build, hash-verified asset staging, rig/building regressions, and headless Brave desktop/mobile lab state/lifecycle checks. No screenshots or recording; owner performs visual review. Evidence: `outputs/steroids-alpha/warzone-art-review/lab-check.json` and `destruction-check.json`. Owner visual approval received; release verification is recorded in BUILD_STATUS.md.
 
 ## Generation prompt
 
