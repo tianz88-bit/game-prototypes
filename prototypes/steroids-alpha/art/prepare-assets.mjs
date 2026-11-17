@@ -53,7 +53,8 @@ async function stageExtraShips(assetsSrcDir) {
 
 /** Painted asteroids (owner art): 3 colour families x parent + 2 medium + 2 small, from the visual pack. */
 async function stageAsteroids(assetsSrcDir) {
-  const m = JSON.parse(readFileSync(path.join(here, 'asteroids-v1', 'asteroid-assets.json'), 'utf8'));
+  for(const list of ['asteroids-v1/asteroid-assets.json','rich-asteroids-v1/assets.json']) {
+  const m = JSON.parse(readFileSync(path.join(here,list), 'utf8'));
   const zip = new AdmZip(await fetchVerified(m));
   for (const a of m.assets) {
     const e = zip.getEntry(a.deliveryPath);
@@ -63,7 +64,8 @@ async function stageAsteroids(assetsSrcDir) {
     if (sha !== a.sha256) throw new Error(`prepare-assets: ${a.deliveryPath} SHA-256 ${sha} does not match ${a.sha256}`);
     writeFileSync(path.join(assetsSrcDir, 'loose', `asteroid-${a.name}.png`), data);
   }
-  console.log(`prepare-assets: asteroids-v1: ${m.assets.length} painted rocks verified and staged`);
+  console.log(`prepare-assets: ${list}: ${m.assets.length} painted rocks verified and staged`);
+  }
 }
 
 /** Download an R2 zip (cached by its SHA-256 in .cache/) and check the hash. */

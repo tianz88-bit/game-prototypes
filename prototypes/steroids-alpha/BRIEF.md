@@ -840,3 +840,7 @@ Battlecruiser: two flush forward guns per side and a transparent open central bo
 Add painted damaged/destroyed towers, shield-strength coverage, Nexus health cues and a distinct charcoal/ochre Warzone planet material. Reuse production clan-colour building rigs, root-anchored shadows and authoritative siege durability. Expose independent health presets and mixed tower states in the permanent lab's isolated review scene. Preview locally for owner inspection before any live release. No simulation/tune/wire changes.
 
 Owner refinement, 17 November2026: destroyed towers and Nexus need only neutral palette-independent damaged debris bases. Prioritize the final-hit explosion with flying physical-looking fragments. Add repeatable final-hit/repair controls to the lab; retain preview-before-release gate.
+
+## Mineral-rich asteroid art (owner,17 November2026)
+
+Add broad gold ore veins to all3 sizes in the current cel-painted ochre/lavender/teal families, keeping different sibling fragment shapes, ordinary rocks and collision coverage. Existing rich state alone selects them. Owner waived the requested lab review gate and explicitly authorized direct go-live. No gameplay/tune changes.

@@ -1,0 +1,234 @@
+{
+  "source": "Gold-vein edit of approved painted asteroids-v1. Owner authorized direct publication17 November2026. Exact original alpha/registration retained.",
+  "status": "approved-uploaded",
+  "r2Object": "steroids-alpha_rich-asteroids-v1_assets.zip",
+  "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_rich-asteroids-v1_assets.zip",
+  "zipSha256": "4a3daf131dbefe44901fd16253094b04d29820f3b9ac6be247532f2db1045baf",
+  "assets": [
+    {
+      "name": "rich-ochre-parent",
+      "family": "ochre",
+      "stage": "parent",
+      "variant": 1,
+      "deliveryPath": "loose/asteroid-rich-ochre-parent.png",
+      "sha256": "b72400a4d0849b5df5bd324e194753ab21ecc379485b3f2af77c1127e7e363b4",
+      "bytes": 430085,
+      "sourceSize": [
+        594,
+        715
+      ],
+      "baseName": "ochre-parent",
+      "baseAlphaSha256": "bcb989bd8d53942bacfbb9f9788e8280af52c0349f397afc960195ceab1347bd"
+    },
+    {
+      "name": "rich-ochre-medium-1",
+      "family": "ochre",
+      "stage": "medium",
+      "variant": 1,
+      "deliveryPath": "loose/asteroid-rich-ochre-medium-1.png",
+      "sha256": "d014798da427bf3b344e78b67e6eb4547f5818302a995e977a4e9f0011c59898",
+      "bytes": 363354,
+      "sourceSize": [
+        580,
+        611
+      ],
+      "baseName": "ochre-medium-1",
+      "baseAlphaSha256": "ef9c21ff27a4fb18779845a2cfe31735073d9464b2a943c73292f5f6a6dea00e"
+    },
+    {
+      "name": "rich-ochre-medium-2",
+      "family": "ochre",
+      "stage": "medium",
+      "variant": 2,
+      "deliveryPath": "loose/asteroid-rich-ochre-medium-2.png",
+      "sha256": "127034bc5699d7f45e57b5f04fcbb67c8cbfdf3762771b02099ff54e0d502dbb",
+      "bytes": 315622,
+      "sourceSize": [
+        533,
+        703
+      ],
+      "baseName": "ochre-medium-2",
+      "baseAlphaSha256": "1b9f54854e926ab23c8def15915c9220339b86956ed26df319c5ac3d3d07a9b1"
+    },
+    {
+      "name": "rich-ochre-small-1",
+      "family": "ochre",
+      "stage": "small",
+      "variant": 1,
+      "deliveryPath": "loose/asteroid-rich-ochre-small-1.png",
+      "sha256": "6ce78565e9d2b4795b290e369c148bc9fa59da0724d3040c25e6d462ee021c5f",
+      "bytes": 158449,
+      "sourceSize": [
+        323,
+        672
+      ],
+      "baseName": "ochre-small-1",
+      "baseAlphaSha256": "0358ffbc317442159da90f018f4dfda8d857337d2f6b376e6102729f4de69bc8"
+    },
+    {
+      "name": "rich-ochre-small-2",
+      "family": "ochre",
+      "stage": "small",
+      "variant": 2,
+      "deliveryPath": "loose/asteroid-rich-ochre-small-2.png",
+      "sha256": "b8b9e499e1b4c43aafa4d90d2d9d1d367df0267d19a436225ba1af20f571f401",
+      "bytes": 185874,
+      "sourceSize": [
+        399,
+        653
+      ],
+      "baseName": "ochre-small-2",
+      "baseAlphaSha256": "9befe989cd3b8200ba503d92ecfde5b005ae74d3f06ee1cf704c7b48de5e2bca"
+    },
+    {
+      "name": "rich-lavender-parent",
+      "family": "lavender",
+      "stage": "parent",
+      "variant": 1,
+      "deliveryPath": "loose/asteroid-rich-lavender-parent.png",
+      "sha256": "25443d817ae1d7f50306686d0a5042279a1a5fdec94f398d7230071c56bccc59",
+      "bytes": 533465,
+      "sourceSize": [
+        678,
+        701
+      ],
+      "baseName": "lavender-parent",
+      "baseAlphaSha256": "792c443ef4be30e268ea086ee10b8f358b713b1c95f16bf551d3f3e0205437d7"
+    },
+    {
+      "name": "rich-lavender-medium-1",
+      "family": "lavender",
+      "stage": "medium",
+      "variant": 1,
+      "deliveryPath": "loose/asteroid-rich-lavender-medium-1.png",
+      "sha256": "45da95ba162fe4e8415f0d3ef3954c1fcb8e6cb3aad68a7e1e32e82f2fac0aa6",
+      "bytes": 322113,
+      "sourceSize": [
+        516,
+        695
+      ],
+      "baseName": "lavender-medium-1",
+      "baseAlphaSha256": "af79b56977e24f449358ed651aab1f5fd4295bffbcbe9f9c75304a0b780bec37"
+    },
+    {
+      "name": "rich-lavender-medium-2",
+      "family": "lavender",
+      "stage": "medium",
+      "variant": 2,
+      "deliveryPath": "loose/asteroid-rich-lavender-medium-2.png",
+      "sha256": "26ca5633a325c563bb86d034c60b1d7e6c37c87c2ac893c4f698fbc67a8ef372",
+      "bytes": 297178,
+      "sourceSize": [
+        484,
+        677
+      ],
+      "baseName": "lavender-medium-2",
+      "baseAlphaSha256": "2b4e743abcb9889759c7931c2cd5359d63c01e8c3df578a729d59b03a48c353c"
+    },
+    {
+      "name": "rich-lavender-small-1",
+      "family": "lavender",
+      "stage": "small",
+      "variant": 1,
+      "deliveryPath": "loose/asteroid-rich-lavender-small-1.png",
+      "sha256": "e2b262fd68634879b546db9b62ad3dd09e58c697e0691932520fb51ec8c79e79",
+      "bytes": 157337,
+      "sourceSize": [
+        313,
+        639
+      ],
+      "baseName": "lavender-small-1",
+      "baseAlphaSha256": "b72caccc49cdb95b1dd25760666a8c8647583cec8046ac968af0cae059a260a9"
+    },
+    {
+      "name": "rich-lavender-small-2",
+      "family": "lavender",
+      "stage": "small",
+      "variant": 2,
+      "deliveryPath": "loose/asteroid-rich-lavender-small-2.png",
+      "sha256": "ed679ab8e20db8582a28197fb27f219ede5daadf6712169d63cec8e1c7f71dfc",
+      "bytes": 154149,
+      "sourceSize": [
+        335,
+        599
+      ],
+      "baseName": "lavender-small-2",
+      "baseAlphaSha256": "674b6d4d5269dd208777655753e24ce13c56f9ac5fd7f33487e8686b9adceac4"
+    },
+    {
+      "name": "rich-teal-parent",
+      "family": "teal",
+      "stage": "parent",
+      "variant": 1,
+      "deliveryPath": "loose/asteroid-rich-teal-parent.png",
+      "sha256": "ad096ee57060f2604fa665661fdc4bc03dc59a87649ce0ed1a078bd2b28f691f",
+      "bytes": 350505,
+      "sourceSize": [
+        511,
+        683
+      ],
+      "baseName": "teal-parent",
+      "baseAlphaSha256": "ecb7378503d8616931809f5550bb377e604810e75bd48fc032d3272b0d0cfe77"
+    },
+    {
+      "name": "rich-teal-medium-1",
+      "family": "teal",
+      "stage": "medium",
+      "variant": 1,
+      "deliveryPath": "loose/asteroid-rich-teal-medium-1.png",
+      "sha256": "b5be47df2fdfbdf36126f38e5964cf9dcbeb487bb5279da3b447a28979d8cab0",
+      "bytes": 312560,
+      "sourceSize": [
+        523,
+        644
+      ],
+      "baseName": "teal-medium-1",
+      "baseAlphaSha256": "6cf91202f113ce576975809ce166c730a2f4ad2f84cad341bff48461391c9bba"
+    },
+    {
+      "name": "rich-teal-medium-2",
+      "family": "teal",
+      "stage": "medium",
+      "variant": 2,
+      "deliveryPath": "loose/asteroid-rich-teal-medium-2.png",
+      "sha256": "6918399e00e338d0ff77dc16a0cf303a96b054d0e4f61d6090133403d434a736",
+      "bytes": 279800,
+      "sourceSize": [
+        464,
+        669
+      ],
+      "baseName": "teal-medium-2",
+      "baseAlphaSha256": "07d9f81ea073c4fb83c725bb03415c5a6667512ad3d55393b0641b7b7f8a944b"
+    },
+    {
+      "name": "rich-teal-small-1",
+      "family": "teal",
+      "stage": "small",
+      "variant": 1,
+      "deliveryPath": "loose/asteroid-rich-teal-small-1.png",
+      "sha256": "1912fccc7e4a44dd01c133d2d17fe0eca42f9a221d4579bbda7d655edda38960",
+      "bytes": 169253,
+      "sourceSize": [
+        361,
+        657
+      ],
+      "baseName": "teal-small-1",
+      "baseAlphaSha256": "485e0ebb44ab6324108c685f4a2bee11b107ac0ac9ae6d7abd0b2fc78de911b0"
+    },
+    {
+      "name": "rich-teal-small-2",
+      "family": "teal",
+      "stage": "small",
+      "variant": 2,
+      "deliveryPath": "loose/asteroid-rich-teal-small-2.png",
+      "sha256": "9c007c4d6e800b58e52330ddadf8ec0be7d60a8c7e8cacb74defce45612a31f7",
+      "bytes": 169144,
+      "sourceSize": [
+        376,
+        647
+      ],
+      "baseName": "teal-small-2",
+      "baseAlphaSha256": "15d2f42ad9f5c90ad84a295cacc3761e64d904c89bd8852a356f2dd113a9f352"
+    }
+  ]
+}

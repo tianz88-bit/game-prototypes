@@ -9,6 +9,16 @@ async function load(file) {
 const G=await load('prototypes/steroids-alpha/src/render/buildingGeometry.ts');
 const M=await load('prototypes/steroids-alpha/src/render/buildingMaterials.ts');
 const D=await load('prototypes/steroids-alpha/src/render/buildingCondition.ts');
+const Rock=await load('prototypes/steroids-alpha/src/render/rockSelection.ts');
+for(const [family,name] of ['ochre','lavender','teal'].entries()){
+  assert.equal(Rock.paintedRockName(9,0,family,true),`rich-${name}-parent`);
+  for(const size of [1,2]){
+    const stage=size===1?'medium':'small';
+    assert.equal(Rock.paintedRockName(10,size,family,true),`rich-${name}-${stage}-1`);
+    assert.equal(Rock.paintedRockName(11,size,family,true),`rich-${name}-${stage}-2`);
+    assert.equal(Rock.paintedRockName(11,size,family),`${name}-${stage}-2`,'ordinary rocks retain existing art');
+  }
+}
 const Blast=await load('prototypes/steroids-alpha/src/render/buildingBlast.ts');
 assert(Blast.isBuildingFinalHit(.1,0,16),'final visible hit detonates');
 assert(!Blast.isBuildingFinalHit(undefined,0,16),'joining a ruin does not replay its destruction');
