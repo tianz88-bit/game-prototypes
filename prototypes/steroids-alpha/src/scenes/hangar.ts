@@ -1,5 +1,6 @@
 import { drawUnlockEmblem } from '../render/flightIndicators';
 import { shipPreview } from '../render/shipPreview';
+import {shipStatBars,shipCardLayout} from '../render/hangarStats';
 // Hangar: spend banked credits on unlocks (sim/unlocks.ts: cosmetics and quality of life, never
 // raw power) and choose what to wear. Buying takes two taps (tap, then tap again to confirm); the
 // server sets the price and checks the balance. Equipping is saved locally and sent on drop-in,
@@ -88,8 +89,8 @@ export class HangarScene extends Phaser.Scene {
     fitCamera(this);
     const { w, h } = logicalSize();
     this.add.rectangle(w / 2, h / 2, w, h, 0x07101c);
-    text(this, w / 2, 26, 'HANGAR', 24, css(UI.uiText)).setOrigin(0.5);
-    text(this, 136, 26, `CREDITS ${this.credits ?? '…'}`, 16, '#ffd23a').setOrigin(0, 0.5);
+    text(this, w / 2, 26, w<900?`HANGAR · ${this.credits??'…'} CR`:'HANGAR', w<900?14:24, css(UI.uiText)).setOrigin(0.5);
+    if(w>=900)text(this, 136, 26, `CREDITS ${this.credits ?? '…'}`, 16, '#ffd23a').setOrigin(0, 0.5);
     this.backButton = { x: 20 + 50, y: 26, w: 100, h: 32 };
     panel(this.add.graphics(), 20, 10, 100, 32, UI.uiBorder);
     text(this, 70, 26, 'BACK', 13).setOrigin(0.5);
@@ -117,7 +118,7 @@ export class HangarScene extends Phaser.Scene {
     const visualTab = shipTab || openTab === 1;
     const cols = shipTab ? 4 : Math.min(4, Math.max(1, items.length));
     const cw = Math.min(250, (w - 40 - gap * (cols - 1)) / cols);
-    const ch = visualTab ? Math.min(270, h - 158) : Math.min(84, (h - 104 - 50) / 2 - gap);
+    const ch = shipTab ? shipCardLayout(w,h).ch : visualTab ? Math.min(270, h - 158) : Math.min(84, (h - 104 - 50) / 2 - gap);
     const top = 104;
     const left = (w - (cw * cols + gap * (cols - 1))) / 2;
     this.cards = [];
@@ -135,6 +136,11 @@ export class HangarScene extends Phaser.Scene {
         const armed = this.armed === u.id;
         const g = this.add.graphics();
         panel(g, x - cw / 2, y - ch / 2, cw, ch, equipped ? UI.uiAccent : armed ? UI.uiGold : owned ? UI.uiBorder : 0x2a3550, equipped || armed);
+        if(shipTab){
+          const price=this.priceOf(u),status=equipped?'FLYING':armed?'Tap to confirm':owned?'Tap to fly':`${price} credits`;
+          this.drawShipStats(u.index??0,u.name,status,x,y,cw,ch,Number((look.palette??'palette.0').split('.')[1]),equipped?UI.uiAccent:UI.uiGold);
+          this.cards.push({u,x,y,w:cw,h:ch});return;
+        }
         // Swatch on the left: colour, flame colours or the badge glyph.
         if (visualTab) {
           const chassis = shipTab ? (u.index ?? 0) : (selectedFighter(look,this.unlocks).index!);
@@ -143,10 +149,6 @@ export class HangarScene extends Phaser.Scene {
           if (u.palette) u.palette.forEach((p,i)=>{g.fillStyle(p,1);g.fillRoundedRect(x-26+i*18,y+ch/2-63,14,5,1);});
         }
         else drawUnlockEmblem(g,u,x-cw/2+(cw<175?25:32),y,Math.min(cw<175?36:48,ch-18));
-        if (shipTab) {
-          const detail = u.id === 'ship.sparrow' ? `CENTRE GUN · ${Math.round(TUNE.sparrow.ammoRatio * 100)}% AMMO` : u.id === 'ship.scrappy' ? 'TWIN GUNS · SIDEGRADE' : 'LOW SPEED · HIGH TURN';
-          text(this,x-cw/2+14,y+ch/2-60,detail,cw<190?8:10,'#a9bfce').setOrigin(0,.5);
-        }
         const price = this.priceOf(u);
         const status = equipped ? (u.slot === 'ship' ? 'FLYING' : 'EQUIPPED') : armed ? 'Tap to confirm' : owned ? (u.slot === 'qol' ? 'OWNED · tap to view' : u.slot === 'ship' ? 'OWNED · tap to fly' : 'OWNED · tap to wear') : price === 0 ? 'FREE (old tint)' : `${price} credits`;
         const small = cw < (visualTab ? 160 : 210);
@@ -160,14 +162,27 @@ export class HangarScene extends Phaser.Scene {
       const x = left + 3*(cw+gap)+cw/2, y = top+ch/2;
       const g=this.add.graphics();
       panel(g,x-cw/2,y-ch/2,cw,ch,0x937249);
-      shipPreview(this,2,Number((look.palette??'palette.0').split('.')[1]),x,y-ch/2+(ch-60)/2+6,cw-36,ch-76,{ spin: true, relative: true });
-      text(this,x-cw/2+14,y+ch/2-38,'Battlecruiser',cw<160?11:15,'#ffdc9b').setOrigin(0,.5);
-      text(this,x-cw/2+14,y+ch/2-17,'EVOLVE IN RUN · 4 CANNONS',cw<190?9:10,'#c9b697').setOrigin(0,.5);
-      text(this,w/2,h-34,'Choose a fighter here. Evolve into the Battlecruiser during a run.',11,'#acbdce').setOrigin(.5);
+      this.drawShipStats(2,'Battlecruiser','EVOLVE IN RUN',x,y,cw,ch,Number((look.palette??'palette.0').split('.')[1]),UI.uiGold);
+      text(this,w/2,h-34,`Base stats · Evolve: ${TUNE.battlecruiser.minTurrets} turret upgrades + Guns ${TUNE.battlecruiser.minGuns}`,w<650?10:12,'#acbdce').setOrigin(.5);
     }
     if (this.note) text(this, w / 2, h - 16, this.note, 12, '#ffd98a').setOrigin(0.5);
     if (this.showRuns) this.drawRuns(w, h);
     versionStamp(this);
+  }
+
+  private drawShipStats(chassis:number,name:string,status:string,x:number,y:number,w:number,h:number,palette:number,colour:number):void{
+    const left=x-w/2+10,top=y-h/2,row=h<240?13:20,statsTop=top+h-30-row*5,g=this.add.graphics(),small=w<160;
+    text(this,x,top+15,name,small?11:16,css(UI.uiText)).setOrigin(.5);
+    const artH=Math.max(20,statsTop-top-40);
+    shipPreview(this,chassis,palette,x,top+28+artH/2,w-24,artH,{spin:true,relative:true});
+    shipStatBars(chassis,TUNE).forEach((stat,i)=>{
+      const sy=statsTop+i*row;
+      text(this,left,sy,stat.label,small?8:10,'#9fb7c8');
+      text(this,x+w/2-10,sy,stat.display,small?8:10,css(UI.uiText)).setOrigin(1,0);
+      g.fillStyle(UI.uiBorder,.55).fillRect(left,sy+row-4,w-20,2);
+      g.fillStyle(colour,.85).fillRect(left,sy+row-4,(w-20)*stat.fill,2);
+    });
+    text(this,x,top+h-14,status,small?9:11,css(colour)).setOrigin(.5);
   }
 
   /** Run history (the Run history unlock): the last ten runs, newest first. */

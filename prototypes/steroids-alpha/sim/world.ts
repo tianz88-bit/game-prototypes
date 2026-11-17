@@ -2,7 +2,7 @@
 // Pure game rules with no networking, so it runs in the Cloudflare room and in Node tests alike.
 // The room steps each ship with its input, then calls step() once per tick and sends out the events.
 import type { Tune } from './tune';
-import { damageScale, maxShield, muzzleShot, newShip, shipRadius, stepShip } from './ship';
+import { damageScale, maxShield, shieldRegen, shipVelocity, muzzleShot, newShip, shipRadius, stepShip } from './ship';
 import type { AssistTarget, ShipInput, ShipState } from './ship';
 import { asteroidMass, asteroidPos, splitAsteroid } from './asteroids';
 import type { Asteroid } from './asteroids';
@@ -343,7 +343,7 @@ export class World {
   /** What a ship's aim assist may pick: other living ships, and asteroids where they are now. */
   assistTargets(id: number): AssistTarget[] {
     const out: AssistTarget[] = [];
-    for (const [oid, o] of this.ships) if (oid !== id && o.hp > 0 && !(o.arrival ?? 0)) out.push({ x: o.x, y: o.y, ship: true, vx: Math.cos(o.heading) * o.speed + o.kx, vy: Math.sin(o.heading) * o.speed + o.ky });
+    for (const [oid, o] of this.ships) if (oid !== id && o.hp > 0 && !(o.arrival ?? 0)) out.push({ x: o.x, y: o.y, ship: true, ...shipVelocity(o) });
     for (const a of this.asteroids.values()) {
       const p = asteroidPos(a, this.tick, this.tune);
       out.push({ x: p.x, y: p.y, ship: false, vx: a.vx, vy: a.vy });
@@ -638,7 +638,7 @@ export class World {
       s.shieldCd = Math.max(0, s.shieldCd - this.dt);
       if (s.shield >= top * t.ship.shieldGraceRechargeFraction) this.graceSpent.delete(id);
       if (s.hp <= 0 || s.shield >= top || s.shieldCd > 0) continue;
-      s.shield = Math.min(top, s.shield + top * t.ship.shieldRegenPerSecond * this.dt);
+      s.shield = Math.min(top, s.shield + shieldRegen(s,t) * this.dt);
       if (s.shield >= top * t.ship.shieldGraceRechargeFraction) this.graceSpent.delete(id);
     }
 

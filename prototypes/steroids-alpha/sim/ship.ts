@@ -11,6 +11,8 @@ export interface ShipState {
   y: number;
   /** Radians, 0 = facing +x, y grows downward. */
   heading: number;
+  /** Authoritative travel bearing, independent of the responsive gun/nose heading. */
+  travelHeading?: number;
   /** Forward speed in px/s, between ship.minSpeed and ship.maxSpeed. A ship never stops. */
   speed: number;
   /** Seconds of dash charge left (the 0.5 s wind-up before the boost); 0 when not charging. */
@@ -145,8 +147,34 @@ export function maxShield(s: ShipState, tune: Tune): number {
   return (tune.ship.maxShield + s.shieldTier * tune.shop.shieldPerTier) * chassisStats(s.chassis ?? SCRAPPY, tune).shield;
 }
 
+/** Capacity-scaled recovery with an absolute ceiling, after the existing quiet delay. */
+export function shieldRegen(s: ShipState, tune: Tune): number {
+  return Math.min(maxShield(s, tune) * tune.ship.shieldRegenPerSecond, tune.ship.shieldRegenCapPerSecond);
+}
+
+/** Shared target velocity: aim assist and bots lead actual travel, including knockback. */
+export function shipVelocity(s: ShipState): {vx:number;vy:number} {
+  const h=s.travelHeading??s.heading;
+  return {vx:Math.cos(h)*s.speed+s.kx,vy:Math.sin(h)*s.speed+s.ky};
+}
+
+/** Speed-dependent grip changes travel only; it never delays the nose/aim response. */
+export function gripHeading(s:ShipState,previousSpeed:number,dt:number,tune:Tune,aligned=false):number{
+  const g=tune.grip;
+  if(!g.enabled||aligned||s.speed<=0)return s.heading;
+  const m=shipMotion(s.chassis,tune),top=topSpeed(s.hullMax,tune,s.chassis),cruise=Math.max(m.minSpeed,top*m.cruiseSpeed/m.maxSpeed);
+  const clamp=(n:number)=>Math.max(0,Math.min(1,n)),mix=(a:number,b:number,f:number)=>a+(b-a)*clamp(f);
+  const fast=clamp((s.speed-cruise)/Math.max(1,top-cruise));
+  let tau=s.speed<=cruise?mix(g.slowTau,g.cruiseTau,(s.speed-m.minSpeed)/Math.max(1,cruise-m.minSpeed)):mix(g.cruiseTau,g.fastTau,fast);
+  if(s.dashTime>0)tau=g.dashTau;
+  else if(s.speed<previousSpeed-g.decelerationEpsilon)tau=Math.min(tau,g.brakeTau);
+  const before=s.travelHeading??s.heading,eased=before+angleDelta(s.heading,before)*(1-Math.exp(-dt/tau));
+  const cap=g.maxSlipDeg*Math.PI/180,slip=Math.max(-cap,Math.min(cap,angleDelta(s.heading,eased)));
+  return angleDelta(s.heading-slip,0);
+}
+
 export function newShip(x: number, y: number, heading: number, speed: number): ShipState {
-  return { x, y, heading, speed, arrival: 0, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0, salvage: 0, fuel: 0, chassis: SPARROW, shieldCd: 0 };
+  return { x, y, heading, travelHeading:heading, speed, arrival: 0, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0, salvage: 0, fuel: 0, chassis: SPARROW, shieldCd: 0 };
 }
 
 /** Warp top speed: warp.topSpeedFactor times this ship's top speed (only slightly faster, so pursuit is possible). */
@@ -155,7 +183,7 @@ export function warpSpeed(hp: number, tune: Tune, chassis = SCRAPPY): number {
 }
 
 export function copyShip(s: ShipState): ShipState {
-  return { x: s.x, y: s.y, heading: s.heading, speed: s.speed, arrival: s.arrival ?? 0, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist, salvage: s.salvage, fuel: s.fuel, chassis: s.chassis, shieldCd: s.shieldCd };
+  return { x: s.x, y: s.y, heading: s.heading, travelHeading:s.travelHeading??s.heading, speed: s.speed, arrival: s.arrival ?? 0, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist, salvage: s.salvage, fuel: s.fuel, chassis: s.chassis, shieldCd: s.shieldCd };
 }
 
 /**
@@ -179,6 +207,9 @@ export function cornerFactor(s: ShipState, tune: Tune): number {
 /** Advance one fixed step. Mutates and returns s. */
 /** floor: the lowest speed allowed this step (0 over one's own clan landing pad, sim/clanBase.ts). */
 export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune, floorIn?: number, advanceArrival = true): ShipState {
+  const previousSpeed=s.speed,arriving=(s.arrival??0)>0;
+  // Older local fixtures begin aligned; snapshots/new ships carry the bearing explicitly.
+  s.travelHeading??=s.heading;
   const motion = shipMotion(s.chassis, tune);
   const floor = floorIn ?? motion.minSpeed;
   // Arrival holds its bearing and full normal speed. Protected ships cannot attack or start a dash/warp.
@@ -244,8 +275,9 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune,
   s.dashTime = Math.max(0, s.dashTime - dt);
   s.dashCd = Math.max(0, s.dashCd - dt);
 
-  s.x = wrap(s.x + (Math.cos(s.heading) * speed + s.kx) * dt, tune.world.width);
-  s.y = wrap(s.y + (Math.sin(s.heading) * speed + s.ky) * dt, tune.world.height);
+  s.travelHeading=gripHeading(s,previousSpeed,dt,tune,arriving||s.warping||floor===0);
+  s.x = wrap(s.x + (Math.cos(s.travelHeading) * speed + s.kx) * dt, tune.world.width);
+  s.y = wrap(s.y + (Math.sin(s.travelHeading) * speed + s.ky) * dt, tune.world.height);
   const k = Math.exp(-tune.ship.knockbackDecayPerSecond * dt);
   s.kx = Math.abs(s.kx * k) < 0.5 ? 0 : s.kx * k;
   s.ky = Math.abs(s.ky * k) < 0.5 ? 0 : s.ky * k;

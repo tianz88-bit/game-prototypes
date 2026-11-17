@@ -1,5 +1,5 @@
 import type { Look } from './unlocks';
-// Protocol v21: binary game frames are little-endian. The server also sends JSON text frames:
+// Protocol v26: binary game frames are little-endian. The server also sends JSON text frames:
 //   {type:'config',record:ConfigRecord}            before welcome/cutover snapshots
 //   {type:'roster',players:[{id,name,kills,power}]} on join/leave, and when anyone's power changes (2 Hz max)
 //   {type:'deaths',deaths:[{id,x,y,killer}]}       ships destroyed (killer 0 = an asteroid)
@@ -18,7 +18,7 @@ import type { Look } from './unlocks';
 //             SHIP = u16 id, f32 x, f32 y, f32 heading, f32 speed, f32 dashTime, f32 dashCd,
 //                    f32 hp, f32 shield, f32 kx, f32 ky, u8 fireCd, u16 shots, f32 heat, u8 overheated, u8 turrets, u8 shieldTier, u8 damageTier, f32 dashCharge, f32 hullMax,
 //                    u8 missileTier, u8 mineTier, u8 missileCharges, u8 mineCharges, f32 missileCd, f32 mineCd,
-//                    u16 missileShots, u16 mineShots, f32 lockdown, u8 warping, f32 warpDist, f32 salvage, u8 chassis, f32 shieldCd, f32 fuel, f32 arrival
+//                    u16 missileShots, u16 mineShots, f32 lockdown, u8 warping, f32 warpDist, f32 salvage, u8 chassis, f32 shieldCd, f32 fuel, f32 arrival, f32 travelHeading
 //   ORDNANCE  u8 type, u16 count, count x (u16 id, u8 kind 0 missile / 1 mine, u16 owner, f32 x, f32 y,
 //             f32 heading, u8 hp percent, u8 armed, u16 target): missiles and mines near you, every snapshot
 //   PONG      u8 type, f64 clientTimeMs
@@ -31,7 +31,7 @@ import type { ShipInput, ShipState } from './ship';
 import type { Asteroid } from './asteroids';
 import type { ShotEvent } from './world';
 
-export const PROTOCOL_VERSION = 25;
+export const PROTOCOL_VERSION = 26;
 
 export const MSG = {
   INPUT: 1,
@@ -140,7 +140,7 @@ export function encodeBuy(item: number, tier: number): ArrayBuffer {
 export const INPUT_BYTES = 22;
 export const PING_BYTES = 9;
 export const BUY_BYTES = 3;
-const SHIP_BYTES = 2 + 4 * 10 + 1 + 2 + 4 + 1 + 3 + 8 + 4 + 8 + 4 + 9 + 4 + 1 + 4 + 4 + 4;
+const SHIP_BYTES = 2 + 4 * 10 + 1 + 2 + 4 + 1 + 3 + 8 + 4 + 8 + 4 + 9 + 4 + 1 + 4 + 4 + 4 + 4;
 const ASTEROID_BYTES = 2 + 1 + 4 * 4 + 4 + 4 + 1;
 const GONE_BYTES = 2 + 4 * 2;
 const SHOT_BYTES = 2 + 4 * 4 + 1;
@@ -221,6 +221,7 @@ export function encodeSnapshot(tick: number, ackSeq: number, ships: SnapshotShip
     v.setFloat32(o + 91, s.shieldCd, true);
     v.setFloat32(o + 95, s.fuel, true);
     v.setFloat32(o + 99, s.arrival ?? 0, true);
+    v.setFloat32(o + 103, s.travelHeading ?? s.heading, true);
     o += SHIP_BYTES;
   }
   return buf;
@@ -381,6 +382,7 @@ export function decodeServer(buf: ArrayBuffer): ServerMessage | null {
         shieldCd: v.getFloat32(o + 91, true),
         fuel: v.getFloat32(o + 95, true),
         arrival: v.getFloat32(o + 99, true),
+        travelHeading: v.getFloat32(o + 103, true),
       });
       o += SHIP_BYTES;
     }

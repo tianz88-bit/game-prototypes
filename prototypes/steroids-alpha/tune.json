@@ -52,7 +52,8 @@
     "dashRamDamage": 30,
     "dashRamHullFraction": 0.15,
     "bumpDamage": 20,
-    "bumpKnockbackSpeed": 380
+    "bumpKnockbackSpeed": 380,
+    "shieldRegenCapPerSecond": 25
   },
   "weapon": {
     "fireIntervalSteps": 4,
@@ -281,7 +282,9 @@
     "baseTurrets": 2,
     "minUpgrades": 6,
     "powerFloor": 300,
-    "cost": 120
+    "cost": 120,
+    "minTurrets": 2,
+    "minGuns": 4
   },
   "unlockPrices": {
     "ship": 1500,
@@ -341,5 +344,15 @@
     "ammoRatio": 0.9,
     "driftDeg": 3,
     "muzzleForward": 38.4
+  },
+  "grip": {
+    "enabled": 1,
+    "slowTau": 0.015,
+    "cruiseTau": 0.035,
+    "fastTau": 0.22,
+    "dashTau": 0.3,
+    "brakeTau": 0.025,
+    "maxSlipDeg": 24,
+    "decelerationEpsilon": 0.1
   }
 }
