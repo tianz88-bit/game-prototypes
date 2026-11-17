@@ -1,5 +1,11 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex ram/tutorial/destruction RELEASE
+DID: orange active-dash bow/crash FX, persistent hull trace, staged800ms darken/shrink with5 small blasts and1 size-aware final explosion; all4 chassis, own/remote/Warzone.
+FILES: Flight, combatEffects/Hud, shipView/Destruction/Explosion, client-net, tutorial policy/guide, local Room/World and regressions/docs.
+SEAM: ShipPlacement.destroying; LOCAL explosion FX id/copied state before remote removal. Tutorial policy gates minerals5/shop8/weapons off3, including queued/held input. No protocol/tune/combat/economy change.
+CROSS: minimal sim/server tutorial-only gates and client death capture. Preplaced swept dash course allows multiple rings per dash. Resize retains collapse; cleanup/dedup bounded.
+FOR claude: type/build/rig/sim/live-config and new policy/room/geometry tests pass;14 Brave DPR2 desktop/mobile runtime cases, zero page errors/no capture. Final PR/deploy proof follows; use main after release.
 ## 2026-11-17 codex rich-crystal chip VFX LIVE
 DID: rich hits shed painted crystal chips/gold sparks; split/shatter makes a larger spinning shower live171126r0089. PR533 23cf3aec; itch44014921428/Pages44014921281 success, protocol24 healthy.
 FILES: crystalChipMotion/crystalChips, client-net HP/GONE observation, Flight drain/lifecycle, regressions/docs. Existing painted mineral art reused; no new R2 pack.
@@ -99,9 +105,4 @@ SEAM: clientTune.render.healDropScale.
 CROSS: flight.ts pickup radius for heal (painted health-pod uses the same radius).
 FOR codex: health-pod art now shows at ~27 px radius; check it still looks crisp at that size.
 
-## 2026-11-16 claude sparrow-gun
-DID: owner retune: Sparrow single gun 6 shots/s (sparrow.fireIntervalSteps 6 -> 5) and 90% of Falcon cold-to-lock shots (ammoRatio 0.8 -> 0.9); measured 14 vs 15 shots base, 25 vs 28 at gun tier 2. Live settings republished. Found while re-running the siege sim: Sparrow as the starter had dropped 2v2 attacker wins to 0%; siege structure HP to be retuned with Warzone step 2 (sim suggests turrets 110, shield 750, treasury 1100).
-FILES: tune.json BRIEF.md
-SEAM: none (values only).
-CROSS: tune.sparrow (your Sparrow work): two values, owner-requested.
-FOR codex: Sparrow is now 96 vs Falcon 120 damage per second.
+

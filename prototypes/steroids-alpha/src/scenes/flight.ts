@@ -1,5 +1,6 @@
 import { rankPilots, mineralCount } from '../../sim/leaderboard';
-import { drawCombatImpact, drawShieldShatter } from '../render/combatEffects';
+import { drawCombatImpact, drawShieldShatter,drawRamAttack } from '../render/combatEffects';
+import { shipDestructionPose,SHIP_SMALL_BLASTS,SHIP_DESTRUCTION_MS } from '../render/shipDestruction';
 import type { CombatImpact } from '../render/combatEffects';
 import {drawEvolve,drawWarpCharge,drawWarpLaunch,drawCapitalEscort,shipTagClearance,EVOLVE_ART_MS,WARP_LAUNCH_ART_MS} from '../render/progressionArt';
 import { CombatHud } from '../render/combatHud';
@@ -28,7 +29,7 @@ import { guide } from '../tutorial/guide';
 import { localTransport } from '../tutorial/localServer';
 import { maxShield, shipRadius, powerGrowth, topSpeed } from '../../sim/ship';
 import { TURRET_MOUNTS, turretCount } from '../../sim/turrets';
-import { BATTLECRUISER, TURRET_MOUNTS_BY_CHASSIS, chassisStats, upgradeTotal } from '../../sim/chassis';
+import { BATTLECRUISER, TURRET_MOUNTS_BY_CHASSIS, chassisStats, upgradeTotal,GUNS } from '../../sim/chassis';
 import { SHOP_ITEMS, canBuy, shopOffer, shopTier, EVOLVE_ITEM, canEvolve } from '../../sim/shop';
 import type { ShipState } from '../../sim/ship';
 import { wrapDelta } from '../../sim/wrap';
@@ -36,6 +37,7 @@ import { DEBUG, DEBUG_ROTATION, logicalSize } from '../base';
 import { clientTune } from '../clientTune';
 import { intents } from '../input/intents';
 import { NetClient, closeReason } from '../net/client';
+import type { NetFx } from '../net/client';
 import { CLANS, clanName, planetClan, isWarPlanet } from '../../sim/planets';
 import { isDocked, padUnder } from '../../sim/clanBase';
 import { fitCamera, text, versionStamp } from './common';
@@ -89,6 +91,9 @@ export class FlightScene extends Phaser.Scene {
   private mineMotion = new Map<number,{x:number;y:number;movedAt:number}>();
   private effects: { x: number; y: number; at: number; r: number; ms: number; colour: number; chips?: number; heal?: boolean; sparkAngle?: number; shatter?: boolean; combat?:CombatImpact; progression?:'evolve'|'warp'; palette?:number; followId?:number }[] = [];
   private explosions: Explosion[] = [];
+  private dyingShips=new Map<number,{ship:DrawnShip;state:ShipState;at:number;blasts:number;killer:number}>();
+  private deathSeen=new Map<number,number>();
+  shipDeathSmall=0;shipDeathFinals=0;ramAttackFrames=0;
   /** Where each ship was last drawn (world), to aim shield hits. */
   private shipAt = new Map<number, { x: number; y: number }>();
   /** Shield hits shown so far (test hook). */
@@ -160,6 +165,7 @@ export class FlightScene extends Phaser.Scene {
     this.landingSparks=[];
     this.orbitalUi.clear();
     this.lastOwn=null;
+    this.deathSeen.clear();
     this.runStartedAt = Date.now();
     this.mobilePanel = null;
     this.ships.clear();
@@ -178,6 +184,7 @@ export class FlightScene extends Phaser.Scene {
       this.combatSprites?.destroy();
       this.crystalChips?.destroy();
       this.buildingRigs?.destroy();
+      for(const d of this.dyingShips.values())d.ship.destroy();this.dyingShips.clear();
       for(const ship of this.ships.values())ship.destroy();
       this.ships.clear();this.orbitalUi.clear();
       intents.dashButton = null;
@@ -193,9 +200,11 @@ export class FlightScene extends Phaser.Scene {
   }
 
   private build(): void {
+    const falling=[...this.dyingShips.entries()];
     this.combatSprites?.destroy();
     this.crystalChips?.destroy();
     this.buildingRigs?.destroy();
+    for(const d of this.dyingShips.values())d.ship.destroy();this.dyingShips.clear();
     for(const ship of this.ships.values())ship.destroy();
     this.children.getAll().forEach(child=>child.destroy());
     this.orbitalUi.clear();
@@ -248,10 +257,16 @@ export class FlightScene extends Phaser.Scene {
       sub: text(this, 0, 0, '', 10, '#c9d6f2').setOrigin(0, 0.5).setDepth(951).setVisible(false),
     }));
     versionStamp(this);
+    for(const [id,d] of falling){
+      const ship=shipArtStatus==='ready'?new RigShip(this,id===this.net.myId,d.state.chassis,d.ship.palette):new PlaceholderShip(this,id===this.net.myId,d.state.chassis,d.ship.palette);
+      ship.setLook(this.net.roster.get(id)?.look??{});
+      this.dyingShips.set(id,{...d,ship});
+    }
   }
 
   private lastConfigVersion='';
   update(): void {
+    if(this.planet===TUTORIAL){guide.syncRules();if(!guide.policy.shop&&this.mobilePanel==='shop')this.mobilePanel=null;}
     if(this.lastConfigVersion!==configVersion){for(const ship of this.ships.values())ship.destroy();this.ships.clear();if(shipArtStatus==='ready')buildShadow(this);this.lastConfigVersion=configVersion;}
     const dead = !!this.net.death || this.net.status === 'destroyed';
     const dash = intents.consume('secondary');
@@ -275,9 +290,11 @@ export class FlightScene extends Phaser.Scene {
     const shipAt = this.net.predicted && !over ? this.toScreen(this.net.predicted.x, this.net.predicted.y) : null;
     intents.mouseOrigin = shipAt && shipAt.visible ? { x: shipAt.x, y: shipAt.y } : null;
     const move = intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed, this.net.speedFloorNow);
-    this.net.update({ ...move, dash, fire: intents.fire, missile, mine, warp });
+    const lessonFire=this.planet!==TUTORIAL||guide.policy.fire;
+    this.net.update({ ...move, dash, fire: lessonFire&&intents.fire, missile:lessonFire&&missile, mine:lessonFire&&mine, warp });
     // Shop: each tap asks the server for the tier on offer now; the server checks power and price.
     for (const item of intents.consumeBuys()) {
+      if(this.planet===TUTORIAL&&!guide.policy.shop)continue;
       const p = this.net.predicted;
       if (p && item === EVOLVE_ITEM) {
         if (canEvolve(p, TUNE)) this.net.buy(EVOLVE_ITEM, 0);
@@ -289,6 +306,7 @@ export class FlightScene extends Phaser.Scene {
 
     const { w, h } = logicalSize();
     const own = this.net.ownRender();
+    if(own&&!dead&&!this.net.warDown&&!this.dyingShips.has(this.net.myId))this.deathSeen.delete(this.net.myId);
     const extracted=!!this.net.extracted || this.net.status==='extracted';
     if(own && !extracted && !dead)this.lastOwn={...own};
     const previousOrbit=this.orbit.phase;
@@ -312,7 +330,7 @@ export class FlightScene extends Phaser.Scene {
     this.turretGfx.clear();
     const alive = new Set<number>();
     // Live ships follow snapshots; departure briefly retains only a cached visual after extraction.
-    if (own && !this.net.extracted && this.net.status !== 'extracted' && !this.net.warDown) {
+    if (own && !dead && !this.net.extracted && this.net.status !== 'extracted' && !this.net.warDown) {
       alive.add(this.net.myId);
       this.placeShip(this.net.myId, own, true, move);
     }
@@ -321,6 +339,9 @@ export class FlightScene extends Phaser.Scene {
       alive.add(r.id);
       this.placeShip(r.id, r.s, false);
     }
+    const fx=this.net.drainFx();
+    for(const f of fx)if(f.kind==='explosion')this.startShipDeath(f);
+    if((dead||this.net.warDown)&&this.lastOwn&&!this.deathSeen.has(this.net.myId))this.startShipDeath({kind:'explosion',id:this.net.myId,ship:this.lastOwn,x:this.lastOwn.x,y:this.lastOwn.y,killer:0});
     for (const [id, ship] of this.ships) {
       if (!alive.has(id)) {
         ship.destroy();
@@ -332,7 +353,7 @@ export class FlightScene extends Phaser.Scene {
       }
     }
 
-    for (const f of this.net.drainFx()) {
+    for (const f of fx) {
       if(f.kind==='crystal'){
         if(this.toScreen(f.x,f.y).visible)this.crystalChips.emit(f,this.time.now,TUNE.asteroid.radius[f.size]);
         continue;
@@ -355,12 +376,7 @@ export class FlightScene extends Phaser.Scene {
         this.effects.push({x:f.x,y:f.y,at:this.time.now,r:30,ms:220,colour:0xffd49c,sparkAngle:angle});
       } else if(f.kind==='spark')this.effects.push({x:f.x,y:f.y,at:this.time.now,r:24,ms:190,colour:0xffdfa3,sparkAngle:f.angle??0});
       else if (f.kind === 'explosion') {
-        this.explosions.push(new Explosion(f.x, f.y));
-        // Nova kill effect (an unlock the killer wears): violet rings over the explosion.
-        const nova = unlockById(this.net.roster.get(f.killer)?.look?.killfx);
-        if (nova) {
-          this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 190, ms: 900, colour: nova.colour ?? 0xb48cff, combat:'nova' });
-        }
+        continue; // Staged collapse owns the small blasts and final explosion.
       }
       else if (f.kind === 'shieldBreak') {
         // Broken shield cells drift outward rather than using the brown debris chips.
@@ -397,6 +413,7 @@ export class FlightScene extends Phaser.Scene {
       else if (f.kind === 'heal') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: TUNE.asteroid.pickupRadius, ms: 500, colour: 0x7dff9a, heal: true });
       else this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.kind === 'burst' ? TUNE.asteroid.radius[f.size] : 9, ms: f.kind === 'burst' ? 420 : 180, colour: 0xffc78a, chips: f.kind === 'burst' ? 10 : 4, combat:f.kind==='burst'?'asteroid':undefined });
     }
+    this.drawShipDeaths();
     this.drawWorld();
     this.landingGfx.clear();
     this.landingSparks=this.landingSparks.filter(s=>this.time.now-s.at<LANDING_SPARK_MS);
@@ -618,6 +635,41 @@ export class FlightScene extends Phaser.Scene {
     return { x: v.w / 2 + p.x * v.k, y: v.h / 2 + p.y * v.k, scale: p.scale * v.k, visible: p.visible };
   }
 
+  private startShipDeath(f:Extract<NetFx,{kind:'explosion'}>):void {
+    const now=this.time.now,last=this.deathSeen.get(f.id);
+    if(last!==undefined&&now-last<3000)return;
+    this.deathSeen.set(f.id,now);
+    if(this.deathSeen.size>128)this.deathSeen.delete(this.deathSeen.keys().next().value!);
+    const state=f.ship??(f.id===this.net.myId?this.lastOwn:null);
+    if(!state){this.explosions.push(new Explosion(f.x,f.y));return;}
+    const palette=unlockById(this.net.roster.get(f.id)?.look?.palette)?.index??0;
+    const ship=this.ships.get(f.id)??(shipArtStatus==='ready'?new RigShip(this,f.id===this.net.myId,state.chassis,palette):new PlaceholderShip(this,f.id===this.net.myId,state.chassis,palette));
+    this.ships.delete(f.id);
+    this.tags.get(f.id)?.destroy();this.tags.delete(f.id);
+    this.turretAim.delete(f.id);this.remoteArrivals.delete(f.id);
+    this.dyingShips.get(f.id)?.ship.destroy();
+    this.dyingShips.set(f.id,{ship,state:{...state,x:f.x,y:f.y,speed:0,dashTime:0,dashCharge:0,shield:0},at:now,blasts:0,killer:f.killer});
+  }
+
+  private drawShipDeaths():void {
+    for(const [id,d] of this.dyingShips){
+      const age=this.time.now-d.at,pose=shipDestructionPose(age),s=d.state;
+      const at=this.toScreen(s.x,s.y),r=shipRadius(s.hullMax,TUNE,s.chassis);
+      at.scale*=powerGrowth(s.hullMax,TUNE)*pose.scale;
+      d.ship.update({...at,brightness:this.objectLight(clientTune.render.nightShipDim)*pose.brightness,shadowX:at.x,shadowY:at.y,shadowAlpha:this.frame.daylight,landed:pose.progress,destroying:true},s,this.time.now,{thrust:0,turn:0,aim:s.heading});
+      while(d.blasts<SHIP_SMALL_BLASTS.length&&age>=SHIP_SMALL_BLASTS[d.blasts]){
+        const n=d.blasts++,angle=n*2.4+id,spread=r*.65*(1-pose.progress*.4);
+        if(age-SHIP_SMALL_BLASTS[n]<200)this.effects.push({x:s.x+Math.cos(angle)*spread,y:s.y+Math.sin(angle)*spread,at:this.time.now,r:Math.max(12,r*.3),ms:300,colour:0xffad65,combat:'missile'});
+        this.shipDeathSmall++;
+      }
+      if(pose.finished){
+        this.explosions.push(new Explosion(s.x,s.y,Math.random,Math.min(3,Math.max(1,Math.sqrt(chassisStats(s.chassis,TUNE).radius/TUNE.ship.radius)*powerGrowth(s.hullMax,TUNE)))));
+        if(this.net.roster.get(d.killer)?.look?.killfx==='nova')this.effects.push({x:s.x,y:s.y,at:this.time.now,r:180,ms:800,colour:0xc68aff});
+        d.ship.destroy();this.dyingShips.delete(id);this.shipDeathFinals++;
+      }
+    }
+  }
+
   private placeShip(id: number, s: ShipState, mine: boolean, control?: FFDControl): void {
     // Ship type from the server (it changes when a ship evolves) and palette from the roster look.
     const palette = unlockById(this.net.roster.get(id)?.look?.palette)?.index ?? 0;
@@ -676,6 +728,11 @@ export class FlightScene extends Phaser.Scene {
     ship.update({ ...at, brightness: orbital?1:this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0, landed,opacity,warpForeground:orbital,
       orbitalLift:0,orbitalGroundAlpha:orbital?this.orbit.groundAlpha:opacity }, orbital?{...s,speed:topSpeed(s.hullMax,TUNE,s.chassis)}:s, this.time.now, orbital?{thrust:1,turn:0,aim:s.heading}:control);
     if(orbital || (s.arrival??0)>0)return;
+    if(s.dashTime>0){
+      const q=this.toScreen(s.x+Math.cos(s.heading)*30,s.y+Math.sin(s.heading)*30),angle=Math.atan2(q.y-at.y,q.x-at.x);
+      const guns=GUNS[s.chassis],reach=guns?Math.max(...guns.map(g=>g.forward)):TUNE.weapon.muzzleForward;
+      drawRamAttack(this.turretGfx,at,angle,reach+12,chassisStats(s.chassis,TUNE).radius*.95,this.time.now);this.ramAttackFrames++;
+    }
     this.drawTurrets(id, s, at);
     if (s.dashCharge > 0) this.drawDashCharge(s, at, mine);
     else if (mine && at.visible) this.drawNose(s, at);
@@ -809,7 +866,8 @@ export class FlightScene extends Phaser.Scene {
     const lines = intents.scheme === 'marker'
       ? ['MOUSE  steer', 'LEFT CLICK  fire', 'RIGHT CLICK  missile', 'W  accelerate   S  brake', 'SHIFT  dash   E  mine', 'R  warp   1-6  upgrades']
       : ['A / D  turn', 'W / S  throttle', 'SPACE  fire   SHIFT  dash', 'Q  missile   E  mine', 'R  warp   1-6  upgrades'];
-    const t = lines.join('\n');
+    const hints=this.planet===TUTORIAL&&!guide.policy.shop?lines.map(line=>line.replace('   1-6  upgrades','')):lines;
+    const t = hints.join('\n');
     if (this.keyHints.text !== t) this.keyHints.setText(t);
     this.keyHints.setPosition(12, h - 12);
   }
@@ -1068,7 +1126,7 @@ export class FlightScene extends Phaser.Scene {
    */
   private drawShop(p: ShipState | null): void {
     const g = this.overlay;
-    const show = !!p && !this.net.death && !this.net.extracted && (!intents.touch || this.mobilePanel === 'shop');
+    const show = !!p && !this.net.death && !this.net.extracted && (this.planet!==TUTORIAL||guide.policy.shop) && (!intents.touch || this.mobilePanel === 'shop');
     this.evolvePreview.setVisible(false);
     for (const t of this.shopTexts) {
       t.title.setVisible(show);
@@ -1132,7 +1190,7 @@ export class FlightScene extends Phaser.Scene {
     const entries = [
       {action:'shop' as const,rect:header.shop,label:`${header.tight?'UPG':'UPGRADES'}${offers?' +'+offers:''}`},
       {action:'board' as const,rect:header.board,label:`${header.tight?'':'RANK '}#${rank||'–'}`},
-    ];
+    ].filter(e=>e.action!=='shop'||this.planet!==TUTORIAL||guide.policy.shop);
     entries.forEach(({action,rect,label},i)=>{
       const open=this.mobilePanel===action;
       panel(this.overlay,rect.x-rect.w/2,rect.y-18,rect.w,36,open?UI.uiAccent:UI.uiBorder,open);
@@ -1364,6 +1422,7 @@ export class FlightScene extends Phaser.Scene {
    * Keyboard: R, Space or J respawns, Esc goes to the menu. Returns true if the scene was left.
    */
   private deathScreen(w: number, h: number, extracted = false): boolean {
+    if(!extracted){const began=this.deathSeen.get(this.net.myId);if(began!==undefined&&this.time.now-began<SHIP_DESTRUCTION_MS+200)return false;}
     if (!this.deathShownAt) {
       this.deathShownAt = this.time.now;
       // Run history (always recorded; shown in the hangar with the Run history unlock).
@@ -1492,7 +1551,7 @@ export class FlightScene extends Phaser.Scene {
       if (!at.visible) continue;
       const t = x.age / Explosion.LIFE;
       g.lineStyle(Math.max(1,1.6*at.scale),0xffd18b,Math.max(0,.45-t));
-      for(let i=0;i<6;i++){g.beginPath();g.arc(at.x,at.y,(20+220*t)*at.scale,i*Math.PI/3,i*Math.PI/3+.5);g.strokePath();}
+      for(let i=0;i<6;i++){g.beginPath();g.arc(at.x,at.y,(20+220*t)*at.scale*x.scale,i*Math.PI/3,i*Math.PI/3+.5);g.strokePath();}
       for (const s of x.sparks) {
         const a = 1 - x.age / s.life;
         if (a <= 0) continue;
@@ -1513,7 +1572,7 @@ export class FlightScene extends Phaser.Scene {
           true,
         );
       }
-      drawExplosionCore(g,at,t);
+      drawExplosionCore(g,{...at,scale:at.scale*x.scale},t);
     }
     this.effects = this.effects.filter((e) => this.time.now - e.at < e.ms);
     for (const e of this.effects) {
@@ -1759,7 +1818,8 @@ class PlaceholderShip implements DrawnShip {
       g.fillStyle(0xffd27a, 0.85);
       g.fillTriangle(-size * 0.5, -size * 0.3, -size * 0.5, size * 0.3, -size * 1.4, 0);
     }
-    g.fillStyle(this.mine ? 0x5fe3ff : 0xff8a4a, 1);
+    const colour=this.mine?0x5fe3ff:0xff8a4a,b=at.brightness;
+    g.fillStyle((Math.round((colour>>16)*b)<<16)|(Math.round(((colour>>8)&255)*b)<<8)|Math.round((colour&255)*b), 1);
     g.fillPoints(
       [
         new Phaser.Math.Vector2(size, 0),

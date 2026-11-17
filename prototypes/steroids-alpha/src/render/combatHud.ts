@@ -60,11 +60,13 @@ export class CombatHud {
       const leftBase=Math.PI/2+gap,leftStart=leftBase+.15,leftEnd=Math.PI*1.5-gap;
       const shieldColour=down?(critical?(flash?0xff4a3d:0xf17d68):0xf2bc6c):0x61d7ed;
       meter(r,leftStart,leftEnd,down?hull:shield,shieldColour,4.5*k,false,down?p.hullMax:maxShield(p,TUNE));
+      const hullColour=critical?(flash?0xff4a3d:0xf17d68):0xf2bc6c;
+      meter(r-4.8*k,leftStart,leftEnd,hull,hullColour,1.15*k);
       baseSymbol(r,leftBase+.07,shieldColour,'shield');
       if(down && p.shieldCd>0){
         const recovery=clamp(1-p.shieldCd/TUNE.ship.shieldRegenDelaySeconds);
-        arc(r-5*k,leftStart,leftEnd,1.1*k,0x173d4e,.45);
-        arc(r-5*k,leftStart,leftStart+(leftEnd-leftStart)*recovery,1.1*k,0x82deeb,.45+.15*Math.sin(now/230));
+        arc(r-8*k,leftStart,leftEnd,1.1*k,0x173d4e,.45);
+        arc(r-8*k,leftStart,leftStart+(leftEnd-leftStart)*recovery,1.1*k,0x82deeb,.45+.15*Math.sin(now/230));
       }
       const rightStart=-Math.PI/2+gap,rightBase=Math.PI/2-gap,rightEnd=rightBase-.15;
       const dashRadius=r,weaponRadius=r+2.3*k,weaponEnd=rightEnd-.24;

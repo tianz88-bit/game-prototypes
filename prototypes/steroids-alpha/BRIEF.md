@@ -848,3 +848,7 @@ Add broad gold ore veins to all3 sizes in the current cel-painted ochre/lavender
 Owner readability refinement17 November2026: add chunky gold mineral crystals protruding from rich asteroids while retaining painted style, veins and all3 sizes. Crystal outcrops are cosmetic; original rock-body collision centre/scale and all gameplay values remain unchanged. Continue direct publication after checks per preceding instruction.
 
 Owner crystal VFX request17 November2026: rich asteroids shed painted crystal chips and gold sparks on hits, then a wider scatter when they split/shatter. Visual effects only; ordinary rocks, actual mineral pickups, collision, HP and rewards unchanged. Continue direct publication after checks.
+
+## Ram readability and tutorial clarity (owner,17 November2026)
+
+Active dashes show an orange bow attack envelope; ram hits have an orange crash. Keep a thin persistent hull trace beside the main shield/hull arc. Tutorial hides/disables purchases until UPGRADES, suppresses mineral drops before MINE MINERALS, permits one dash through multiple preplaced rings and disables weapons during RAM. Every visible destroyed ship darkens and shrinks over0.8s with several small explosions and one final larger blast. Preserve authoritative death timing and combat balance; continue direct publication after checks.

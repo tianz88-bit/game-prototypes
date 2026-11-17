@@ -1,4 +1,4 @@
-import { isClanId, isWarPlanet } from '../../sim/planets';
+import { isClanId, isWarPlanet,TUTORIAL } from '../../sim/planets';
 import { bundledRecord } from '../../sim/liveConfig';
 import type { ConfigRecord } from '../../sim/liveConfig';
 // One running planet room: the authority for every ship on that planet.
@@ -161,6 +161,7 @@ export class Room {
   setPlanet(planet: string): void {
     if (this.planetSet) return;
     this.planetSet = true;
+    this.tutorial=planet===TUTORIAL;
     this.world.setPlanet(planet);
     if (isWarPlanet(planet) && this.world.siege) {
       this.war = true;
@@ -319,6 +320,23 @@ export class Room {
    * script places bots itself. No automatic bots, no respawns; direct access to the world.
    */
   private manualBots = false;
+  private tutorial=false;
+  private tutorialShop=false;
+  private tutorialFire=true;
+  /** Only the in-page tutorial guide can change these; online rooms ignore them. */
+  setTutorialRules(rules:{shop:boolean;fire:boolean;minerals:boolean}):void {
+    if(!this.tutorial)return;
+    this.tutorialShop=rules.shop;this.tutorialFire=rules.fire;
+    this.world.setTutorialMinerals(rules.minerals);
+    if(!rules.shop)this.buys=[];
+    if(!rules.fire){
+      for(const p of this.players.values()){
+        p.last={...p.last,fire:false,missile:false,mine:false};
+        p.queue=p.queue.map(i=>({...i,fire:false,missile:false,mine:false}));
+      }
+      this.world.clearTutorialShots();
+    }
+  }
   get sim(): World {
     return this.world;
   }
@@ -585,13 +603,14 @@ export class Room {
     }
     // Shop purchases wait for the next tick, so they land between whole steps like everything else.
     if (msg.type === MSG.BUY) {
+      if(this.tutorial&&!this.tutorialShop)return;
       if (this.buys.length < 64) this.buys.push({ id: player.id, item: msg.item, tier: msg.tier });
       return;
     }
     // Ignore replays and out-of-order inputs.
     const newest = player.queue.length ? player.queue[player.queue.length - 1].seq : player.last.seq;
     if (msg.input.seq <= newest || msg.input.seq > newest + 512) return;
-    player.queue.push(msg.input);
+    player.queue.push(this.tutorial&&!this.tutorialFire?{...msg.input,fire:false,missile:false,mine:false}:msg.input);
     while(player.queue.length > TUNE.net.maxQueuedInputs) player.queue.shift();
     if (this.lockstep) this.step();
   }
