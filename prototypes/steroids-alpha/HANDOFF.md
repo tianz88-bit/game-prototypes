@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex warzone-art LIVE
+DID: all owner-approved Warzone damage/shield/Nexus-health/terrain art, neutral tower/Nexus rubble and final-hit debris blasts live171126r0086. PR52746db3f81; itch43997031396/Pages43997031451 success. Existing Worker protocol24 healthy.
+FILES: render/buildingCondition/buildingBlast/buildingDestruction/buildingRig/clanBaseArt/planetGround/stellarMap, flight art wiring, rigReview/lab, art/warzone-v1 and regressions/docs.
+SEAM: optional normalized health/siege observations, shared neutral keys, one-shot visible health→zero,16/36 painted ballistic chunks,8-burst pool. Existing support/root shadows and repair restore retained. No new sim/tune/wire values.
+CROSS: preserved main PR526 rich-asteroid/protocol24 work; public R2 exactZIP/all7 parts verified. Type/build/assets/rig/sim/live-config pass; public4 destruction/2 lab/2 disconnected Flight cases pass; no capture/recording.
+FOR claude: release complete; use main and public lab ?review=warzone. Proof in BUILD_STATUS/outputs warzone-art-review. Rich-asteroid veins/gold remain separate art follow-up. No further deploy needed; localhost preview stopped.
+
 ## 2026-11-17 codex warzone RELEASE APPROVED
 DID: owner approved all Warzone terrain, damage/shield/Nexus-health art, neutral tower/Nexus rubble and final-hit explosion/debris updates. R2 exact ZIP/all7 parts verified; release pending deploy checks.
 FILES: art/warzone-v1 manifest now approved-uploaded/public URL; preserved main PR526 mineral-rich asteroid/protocol24 changes during merge (docs-only conflicts).
@@ -98,10 +105,3 @@ FILES: sim/{ship,world,bots,planets,liveConfig}.ts server/src/room.ts tune.json 
 SEAM: cornerFactor(); tune.ship.{dashRamHullFraction,turnAtMinSpeed,turnAtMaxSpeed,dashSteerFactor}; Room.sim/setManualBots/setLockstep/addTutorialBot; World.spawnAsteroid/spawnPickup/spawnBullet; NetClient transport arg; PlanetId includes 'tutorial'; window.__tutorial with ?debug=1.
 CROSS: src/render/combatHud.ts and flight drawHullBorder (yours): colour/threshold only; tutorial panel is placeholder overlay.
 FOR codex: tutorial rings/gates/training turret are placeholder shapes; the instruction panel could use your panel style.
-
-## 2026-11-16 claude siege-sim
-DID: Siege v0 step 1: rules in the shared sim (World.siege on the Warzone planet: turret/shield/treasury HP, shield regen per live turret until broken, tickets, round timer, defenders cannot attack inside a standing shield, no dock safety at war, no warp at war) and siege bots (attack turrets -> shield -> treasury; defenders guard outside the dome). Headless harness scripts/sim-steroids-alpha-siege.mjs. Warzone is NOT in the menu yet.
-FILES: sim/{world,bots,planets,liveConfig}.ts tune.json scripts/{sim-steroids-alpha-siege,test-steroids-alpha-sim}.mjs BRIEF.md
-SEAM: tune.siege; World.siege/atWar/attackerClan/startWar/endPeace; events.siegeOver/structureHits; WARZONE/isWarPlanet.
-CROSS: none (no client or protocol changes yet).
-FOR codex: step 2 (playable Warzone) will need art for damaged/destroyed turrets, a shield health look and a treasury health look; not yet.
