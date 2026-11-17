@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex rich-asteroid art RELEASE
+DID:15 gold-veined painted variants across3 families/all3 sizes and sibling shapes. Owner waived preview gate and authorized go-live. R2 exactZIP/all15 sources verified; publication pending.
+FILES: art/rich-asteroids-v1, prepare-assets, rockSelection/rockPainted, flight observation wiring, selection regression and docs.
+SEAM: optional rich=false on PaintedRocks.draw/rockArtFor observes existing Asteroid.rich; source alpha/registration/coverage equal originals. Existing pooled projection/damage/lighting retained; gold orbit cue only for PixelRocks fallback.
+CROSS: no sim/tune/wire/HP/reward changes. Type/build/assets/rig pass;15 exact alpha +45 source-scale checks;180 Brave desktop/mobile damage/day-night cases pass, no captures or game-fixture writes.
+FOR claude: this implements your rich-asteroid art follow-up. R2 hash4a3daf131dbefe44901fd16253094b04d29820f3b9ac6be247532f2db1045baf,4,194,394bytes. Final PR/live proof follows; no additional gameplay work required.
+
 ## 2026-11-17 codex warzone-art LIVE
 DID: all owner-approved Warzone damage/shield/Nexus-health/terrain art, neutral tower/Nexus rubble and final-hit debris blasts live171126r0086. PR52746db3f81; itch43997031396/Pages43997031451 success. Existing Worker protocol24 healthy.
 FILES: render/buildingCondition/buildingBlast/buildingDestruction/buildingRig/clanBaseArt/planetGround/stellarMap, flight art wiring, rigReview/lab, art/warzone-v1 and regressions/docs.
@@ -98,10 +105,3 @@ FILES: sim/{chassis,ship,world,clanBase,liveConfig,unlocks}.ts server/src/room.t
 SEAM: shipMotion(chassis, tune); damageShip mode 'hull' | 'shield'; World.quiet.
 CROSS: none in your files (unlock display name only).
 FOR codex: the ship formerly named Scrappy is now Falcon in UI copy.
-
-## 2026-11-16 claude tutorial-combat
-DID: combat: ram = max(flat, 15% target hull max), slight dash steering (25%), bumps 20 dmg / 380 knockback, corner speed (turn best at cruise; 70% at min, 85% at top), red hull-hit edge flash, hull readouts flash below 50%. Tutorial planet: menu TUTORIAL, the real Room runs in the page in lockstep via an in-memory socket pair, 13 scripted steps with repetition and noob/drone/chaser bots, free play then warp out to finish.
-FILES: sim/{ship,world,bots,planets,liveConfig}.ts server/src/room.ts tune.json src/tutorial/{guide,localServer}.ts src/net/client.ts src/scenes/{flight,menu}.ts src/render/combatHud.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
-SEAM: cornerFactor(); tune.ship.{dashRamHullFraction,turnAtMinSpeed,turnAtMaxSpeed,dashSteerFactor}; Room.sim/setManualBots/setLockstep/addTutorialBot; World.spawnAsteroid/spawnPickup/spawnBullet; NetClient transport arg; PlanetId includes 'tutorial'; window.__tutorial with ?debug=1.
-CROSS: src/render/combatHud.ts and flight drawHullBorder (yours): colour/threshold only; tutorial panel is placeholder overlay.
-FOR codex: tutorial rings/gates/training turret are placeholder shapes; the instruction panel could use your panel style.

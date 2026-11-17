@@ -1,0 +1,17 @@
+# Mineral-rich painted asteroids
+
+Owner request17 November2026: gold veins readable at all3 asteroid sizes, matching the existing painted rocks. Owner subsequently waived the lab review gate and authorized direct publication.
+
+Fifteen source variants: ochre/lavender/teal × parent +2 medium +2 small shapes. Built-in imagegen edited an exact3×5 contact sheet of approved asteroids-v1 sources. Gold is painted into broad recessed branching seams with dark ochre borders, lemon-gold faces and pale facets; original family colours and broad cel-painted planes remain. Small fragments have a proportionally broader forked seam. No crystal clusters, external particle dots or vector rings baked into artwork.
+
+The generated edit was registered to each original canvas/body box, composited over the original source, then assigned the original alpha channel byte-for-byte. Thus source registration, silhouette, deepest-body anchor, inscribed collision coverage and fragment scale stay exactly equal to ordinary variants. Fifteen alpha checks and all45 source samples at44/84/140px pass; minimum gold coverage at44px is18.56% of solid painted pixels. These are source-art checks, not screenshots of the game.
+
+Full PNG masters, source references, generation sheet and delivery ZIP: outputs/steroids-alpha/rich-asteroid-art/. No binaries committed. R2 object steroids-alpha_rich-asteroids-v1_assets.zip:4,194,394bytes, SHA4a3daf131dbefe44901fd16253094b04d29820f3b9ac6be247532f2db1045baf. Exact public ZIP and all15 source hashes verified; manifest status approved-uploaded. prepare-assets validates and stages loose/asteroid-rich-*.png, cached by content hash.
+
+Existing PaintedRocks now accepts optional rich=false after family. Selection retains family/size/id-parity sibling variants and falls back to the matching ordinary painted part if a rich source is missing. Worn/fractured variants bake once into the same exact alpha; per-rock meshes/images retain their existing pool/projection/lighting. Flight passes authoritative Asteroid.rich. Orbiting gold halo/glints remain only for the missing-art PixelRocks compatibility fallback. No spawning, HP, rewards, collision, tuning or wire changes.
+
+Checks: typecheck/build; existing rig/building suite plus normal/rich selection contract;180 headless Brave desktop/mobile DPR2 cases (15 variants ×3 damage stages ×2 light levels ×2 device layouts), all zero console/page errors. Real beta-room sockets close BEFORE local render fixtures are staged. Evidence: asset-check.json, runtime-check.json and r2-verification.json under the output folder. No screenshots/recording; direct publication authorized.
+
+## Generation prompt
+
+Edit the exact existing asteroid sheet into mineral-rich variants:15 rocks,3 rows×5 columns, same positions/silhouettes and transparent gutters. Preserve broad cel-painted planes, navy outlines, cream bevel highlights and sparse craters. Row1 ochre, row2 lavender, row3 teal. Add thick irregular branching gold ore ribbons embedded in faces, recessed dark brown borders, saturated lemon-gold main faces and sparse pale-yellow facet highlights. Parent has3 connected branches; medium variants have2 broad seams; small variants one very broad forked seam covering about a quarter of the face, readable at44px. Different seam routes, original rock families, especially clear contrast on ochre. No full-gold recolour, realism, noise, intricate cracks, greebles, crystals, floating particles, rings, glow halos, labels, extra rocks or exterior shadows. Strict overhead game assets.
