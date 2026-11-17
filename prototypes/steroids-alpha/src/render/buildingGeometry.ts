@@ -4,6 +4,8 @@ export const TOWER_BARREL_LIFT=62;
 
 export interface BuildingAt {x:number;y:number;scale:number;visible:boolean;}
 export interface BuildingRigPose {
+  /** Normalized authoritative durability; omitted for non-siege buildings. */
+  health?:number;
   id:string;at:BuildingAt;clan:number;now:number;
   basisAngle?:number;foreshorten?:number;
   sun?:{x:number;y:number;z:number};daylight?:number;brightness?:number;

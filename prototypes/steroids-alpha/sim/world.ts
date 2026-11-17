@@ -229,12 +229,22 @@ export class World {
 
   /** Make this world a clan home planet (or not), from the planet id. */
   setPlanet(planet: string): void {
+    this.tutorial=planet==='tutorial';this.tutorialMinerals=!this.tutorial;
     this.layout = baseLayout(planet, this.tune);
     this.baseAim = (this.layout?.turrets ?? []).map(() => -Math.PI / 2);
     this.baseCd = (this.layout?.turrets ?? []).map(() => 0);
     this.siege = this.layout && isWarPlanet(planet) ? { phase: 'peace', turretHp: [], shield: 0, shieldBroken: false, treasury: 0, tickets: 0, endsAt: 0, winner: 0, reason: '' } : null;
     this.endPeace();
   }
+  private tutorial=false;
+  private tutorialMinerals=true;
+  setTutorialMinerals(enabled:boolean):void {
+    if(!this.tutorial)return;this.tutorialMinerals=enabled;
+    if(!enabled)for(const [id,p] of this.pickups)if(p.kind==='mineral'){
+      this.pickups.delete(id);this.events.pickupsGone.push({id,by:0});
+    }
+  }
+  clearTutorialShots():void {if(this.tutorial)this.bullets.length=0;}
 
   /** A ship dropping in at a given point (clan home planets: members by the pads, others at the gate). */
   addShipNear(id: number, x: number, y: number, spread: number): ShipState {
@@ -1122,6 +1132,7 @@ export class World {
 
   /** Drop value points of minerals around (x, y), in a few chunks scattered within reach. */
   private spillMinerals(x: number, y: number, value: number, reach: number, from = 0, salvagePer = 0): void {
+    if(this.tutorial&&!this.tutorialMinerals)return;
     const t = this.tune;
     if (value < 1) return;
     const chunks = Math.min(t.asteroid.mineralChunksMax, Math.ceil(value / t.asteroid.mineralChunkValue));
@@ -1171,7 +1182,7 @@ export class World {
     // Mined minerals carry salvage too: salvage.perMineral each, more inside the hot zone.
     const per = this.tune.salvage.perMineral * (this.inHotZone(at.x, at.y) ? this.tune.hotZone.salvageMultiplier : 1);
     this.spillMinerals(at.x, at.y, this.tune.asteroid.mineralYield[a.size] * (a.rich ? this.tune.asteroid.richMineralFactor : 1), this.tune.asteroid.radius[a.size] * 0.5, 0, per);
-    if (this.rng() < this.tune.asteroid.healthDropChance) this.addPickup(at.x, at.y, 'heal', 0);
+    if ((!this.tutorial||this.tutorialMinerals)&&this.rng() < this.tune.asteroid.healthDropChance) this.addPickup(at.x, at.y, 'heal', 0);
     for (const child of splitAsteroid(a, at, dirX, dirY, damage, this.tick, () => this.newAsteroidId(), this.rng, this.tune)) {
       this.asteroids.set(child.id, child);
       pos.set(child.id, { x: child.x, y: child.y });

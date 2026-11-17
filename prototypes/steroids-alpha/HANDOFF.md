@@ -1,5 +1,89 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex ram/tutorial/destruction LIVE
+DID: all requested ram FX, hull trace, tutorial gates/multi-ring dash and800ms ship collapse are live171126r0091. PR535 909991ff; culling PR536 4efc7680.
+FILES: Flight, combatEffects/Hud, shipView/Destruction/Explosion, client-net, tutorial policy/guide, local Room/World and tests/docs.
+SEAM: optional ShipPlacement.destroying; LOCAL explosion id/state. Tutorial-only minerals5/shop8/weapons off3. No wire/tune/combat/economy changes; online Room ignores tutorial policy.
+CROSS:14 local +14 public Brave DPR2 desktop/mobile cases pass, all4 chassis/own/remote/Warzone deaths, resize/dedup/HUD/tutorial. Type/build/rig/sim/live-config/new policy tests pass; no capture or public-room fixture writes.
+FOR claude: itch44019478944/Pages44019478908/Worker44019138494 succeeded, health protocol24. Use main; no implementation handoff remains. Evidence ram-tutorial-destruction; temporary preview stopped.
+
+## 2026-11-17 codex ram/tutorial/destruction RELEASE
+DID: orange active-dash bow/crash FX, persistent hull trace, staged800ms darken/shrink with5 small blasts and1 size-aware final explosion; all4 chassis, own/remote/Warzone.
+FILES: Flight, combatEffects/Hud, shipView/Destruction/Explosion, client-net, tutorial policy/guide, local Room/World and regressions/docs.
+SEAM: ShipPlacement.destroying; LOCAL explosion FX id/copied state before remote removal. Tutorial policy gates minerals5/shop8/weapons off3, including queued/held input. No protocol/tune/combat/economy change.
+CROSS: minimal sim/server tutorial-only gates and client death capture. Preplaced swept dash course allows multiple rings per dash. Resize retains collapse; cleanup/dedup bounded.
+FOR claude: type/build/rig/sim/live-config and new policy/room/geometry tests pass;14 Brave DPR2 desktop/mobile runtime cases, zero page errors/no capture. Final PR/deploy proof follows; use main after release.
+
+## 2026-11-17 codex rich-crystal chip VFX LIVE
+DID: rich hits shed painted crystal chips/gold sparks; split/shatter makes a larger spinning shower live171126r0089. PR533 23cf3aec; itch44014921428/Pages44014921281 success, protocol24 healthy.
+FILES: crystalChipMotion/crystalChips, client-net HP/GONE observation, Flight drain/lifecycle, regressions/docs. Existing painted mineral art reused; no new R2 pack.
+SEAM: LOCAL NetFx crystal hit|split carries id/size/position/drift from existing records; no spawn/duplicate/heal/ordinary-rock FX or child-spawn retrigger. Generic rock breaks retained; no wire/sim/tune/reward/physics/pickup changes.
+CROSS: minimal net observer;16 bursts/128 images, one spark batch, expiry and scene cleanup. Type/build/rig and8 local/8 public Brave desktop/mobile packet→renderer cases pass. No captures or server fixture writes.
+FOR claude: shipped under direct-publication preference; use main, no server event/deploy work needed. BUILD_STATUS/output crystal-chip-vfx has proof; localhost preview stopped.
+
+## 2026-11-17 codex rich-crystal chip VFX RELEASE
+DID: rich hits shed2–3 painted chips/12 gold sparks; split/shatter scatters6–12 pieces/32–44 sparks with wider arcs/spin/drift. Existing approved art reused, no new R2 pack.
+FILES: crystalChipMotion/crystalChips, NetClient local FX observation, Flight drain/lifecycle, regressions/docs.
+SEAM: new LOCAL NetFx crystal hit|split observes rich HP decrease/GONE; no initial/duplicate/heal/ordinary FX, child spawn suppression. Generic stone breaks retained; no protocol/sim/tune/pickup/reward changes.
+CROSS: minimal client-net observation;16-burst/128-image pool, spark batch, scene cleanup. Type/build/rig and8 Brave desktop/mobile packet→renderer cases pass; no capture/recording or server fixture writes.
+FOR claude: continuing owner's direct-to-live preference; final PR/deploy proof follows. No new server event/wire implementation needed.
+
+## 2026-11-17 codex rich-crystal readability LIVE
+DID: protruding gold crystals on all15 rich painted rocks live171126r0088. PR531586c1295; itch44012011364/Pages44012011412 success; protocol24 healthy. Veins/families/siblings and ordinary rocks retained.
+FILES: v2 rich pack manifest/bodyOffset metadata, rockRegistration/rockPainted, registration regressions/docs.
+SEAM: original normal RockBodyFrame anchors decorated texture, preserving body centre/scale/collision coverage. Debug body vs decorative fields; source-hash URLs prevent stale metadata/image mismatch. Existing pools/damage/lighting unchanged.
+CROSS: no sim/tune/reward/wire changes. R2 exactZIP/all15 hashes verified (4,956,322bytes/hash4df28e3e4f3bbac1db3ac57f5213df74e3f2bfd42f332cd45e18fb63f66f20ab). Type/build/rig/9 math/15 body-protrusion/local180/public180 checks pass; no capture/recording or server fixture writes.
+FOR claude: refinement shipped under owner's prior direct-publication instruction. Use main; no further deploy required. BUILD_STATUS/output rich-crystal-art have proof; temporary localhost stopped.
+
+## 2026-11-17 codex rich-crystal readability RELEASE
+DID: chunky protruding gold crystal clusters on all15 gold-veined painted variants;2 groups on parents,1 clear group on medium/small, proportionally larger small forks. Direct-publication preference retained; R2 upload/readback complete.
+FILES: rich-asteroids-v1 manifest now v2 pack/bodyOffset metadata, rockRegistration/rockPainted, registration regressions/docs.
+SEAM: original normal RockBodyFrame anchors padded decorated texture; original body world centre/scale/collision coverage unchanged. Debug coverage separates body vs decorative extents; hash URL queries prevent stale image registration.
+CROSS: no sim/tune/HP/reward/wire changes. Type/build/rig,9 transform/15 preserved-body/protrusion/180 Brave runtime cases pass; no capture/recording or fixture writes to server.
+FOR claude: v2 ZIP4,956,322bytes/hash4df28e3e4f3bbac1db3ac57f5213df74e3f2bfd42f332cd45e18fb63f66f20ab, all15 sources publicly verified. Final live proof follows; no gameplay work required.
+
+## 2026-11-17 codex rich-asteroid art LIVE
+DID:15 gold-veined painted variants,3 families/all3 sizes/sibling shapes live171126r0087. Owner waived preview and authorized direct go-live. PR5290bf0383a; itch44000505243/Pages44000505433 success. Existing protocol24 healthy.
+FILES: art/rich-asteroids-v1, prepare-assets, rockSelection/rockPainted, flight observation wiring, selection regression/docs.
+SEAM: optional rich=false on draw/rockArtFor observes Asteroid.rich; exact original alpha/coverage and family/id-parity retained. Existing pooled projection/damage/lighting; orbit cue only for PixelRocks fallback. No gameplay/tune/wire changes.
+CROSS: R2 exactZIP/all15 hashes verified (4,194,394bytes,4a3daf131dbefe44901fd16253094b04d29820f3b9ac6be247532f2db1045baf). Type/build/assets/rig and15alpha/45size/local180/public180 runtime checks pass; no capture/recording or fixture writes to server.
+FOR claude: your rich-asteroid art follow-up is complete; use main, no additional deploy required. Public game version87; Warzone updates retained. BUILD_STATUS gives evidence; localhost preview stopped.
+
+## 2026-11-17 codex rich-asteroid art RELEASE
+DID:15 gold-veined painted variants across3 families/all3 sizes and sibling shapes. Owner waived preview gate and authorized go-live. R2 exactZIP/all15 sources verified; publication pending.
+FILES: art/rich-asteroids-v1, prepare-assets, rockSelection/rockPainted, flight observation wiring, selection regression and docs.
+SEAM: optional rich=false on PaintedRocks.draw/rockArtFor observes existing Asteroid.rich; source alpha/registration/coverage equal originals. Existing pooled projection/damage/lighting retained; gold orbit cue only for PixelRocks fallback.
+CROSS: no sim/tune/wire/HP/reward changes. Type/build/assets/rig pass;15 exact alpha +45 source-scale checks;180 Brave desktop/mobile damage/day-night cases pass, no captures or game-fixture writes.
+FOR claude: this implements your rich-asteroid art follow-up. R2 hash4a3daf131dbefe44901fd16253094b04d29820f3b9ac6be247532f2db1045baf,4,194,394bytes. Final PR/live proof follows; no additional gameplay work required.
+
+## 2026-11-17 codex warzone-art LIVE
+DID: all owner-approved Warzone damage/shield/Nexus-health/terrain art, neutral tower/Nexus rubble and final-hit debris blasts live171126r0086. PR52746db3f81; itch43997031396/Pages43997031451 success. Existing Worker protocol24 healthy.
+FILES: render/buildingCondition/buildingBlast/buildingDestruction/buildingRig/clanBaseArt/planetGround/stellarMap, flight art wiring, rigReview/lab, art/warzone-v1 and regressions/docs.
+SEAM: optional normalized health/siege observations, shared neutral keys, one-shot visible health→zero,16/36 painted ballistic chunks,8-burst pool. Existing support/root shadows and repair restore retained. No new sim/tune/wire values.
+CROSS: preserved main PR526 rich-asteroid/protocol24 work; public R2 exactZIP/all7 parts verified. Type/build/assets/rig/sim/live-config pass; public4 destruction/2 lab/2 disconnected Flight cases pass; no capture/recording.
+FOR claude: release complete; use main and public lab ?review=warzone. Proof in BUILD_STATUS/outputs warzone-art-review. Rich-asteroid veins/gold remain separate art follow-up. No further deploy needed; localhost preview stopped.
+
+## 2026-11-17 codex warzone RELEASE APPROVED
+DID: owner approved all Warzone terrain, damage/shield/Nexus-health art, neutral tower/Nexus rubble and final-hit explosion/debris updates. R2 exact ZIP/all7 parts verified; release pending deploy checks.
+FILES: art/warzone-v1 manifest now approved-uploaded/public URL; preserved main PR526 mineral-rich asteroid/protocol24 changes during merge (docs-only conflicts).
+SEAM: existing SiegeView/tune health observations; shared neutral wreck/debris keys, one-shot transitions, bounded effects. No new gameplay/wire values from this pass.
+CROSS: source/regression merge checked before push. No screenshots/recording; owner manually approved the local lab.
+FOR claude: go-live authorized directly by owner; source ZIP638189c64011a03ed3c05a5c6e2fc8fd5a87f14201e66c20e3693b79eb3f5caf. Await PR/run/public proof in this entry's successor.
+
+## 2026-11-17 codex warzone-final-hit LOCAL REVIEW ONLY
+DID: owner refinement replaces destroyed tower AND Nexus with neutral rubble bases. Final hit throws16/36 painted neutral plate/tube fragments, rectangular sparks, projected shock front/shadows and secondary Nexus cores. Lab has repeatable final-hit/repair controls.
+FILES: warzone-v1 manifest now local v2 ZIP/seven parts, buildingBlast/buildingDestruction/buildingRig, rigReview, building regression; README/BUILD_STATUS give evidence/hash.
+SEAM: health transition observed once only when recently visible; no initial/repeated ruin detonation. Shared building-*-0 neutral textures skip clan remapping. Repair/scene shutdown clears effects; max8 bursts and bounded reused image pool.
+CROSS: renderer-only, no sim/tune/wire changes. Typecheck/assets/rig/build and Brave desktop/mobile state +4 destruction cases pass; no capture/recording. Live remains unchanged.
+FOR claude: owner checks local ?review=warzone or standalone turret/nexus FINAL HIT. Still NO R2 upload/push/merge/deploy before approval. Local v2 ZIP SHA 638189c64011a03ed3c05a5c6e2fc8fd5a87f14201e66c20e3693b79eb3f5caf.
+
+## 2026-11-17 codex warzone-art LOCAL REVIEW ONLY
+DID: painted damaged tower/Nexus parts + grounded wrecks, shield coverage, compact durability cues, charcoal/ochre terrain and isolated lab presets. No upload/push/merge/deploy; owner asked to inspect first.
+FILES: art/warzone-v1, buildingCondition/warzoneShield/buildingRig/clanBaseArt/planetGround/stellarMap, rigReview, lab selector; BUILD_STATUS/README contain source/hash/evidence.
+SEAM: optional normalized BuildingRigPose.health/ClanBaseArtOptions.siege; Flight observes current SiegeView/tune. PlanetGround fourth arg 'warzone'. No sim/tune/wire/rules changes.
+CROSS: minimal flight art wiring removes old ground X/ring and uses existing Nexus health; building regression gains durability/coverage tests. Typecheck/build/assets/rig tests + Brave desktop/mobile state checks pass; no capture/recording.
+FOR claude: do not release this local branch before owner art approval and verified R2 delivery. Local lab http://127.0.0.1:4187/game-prototypes/prototypes/steroids-alpha-lab/?review=warzone ; preview server intentionally running.
+
 ## 2026-11-17 claude rich-asteroids
 DID: mineral-rich asteroids: up to asteroid.richMax (2) alive incl. fragments, spawned in/beside the hot zone richRespawnSeconds (20) after a slot opens, richMineralFactor (3) x minerals, richHpFactor (2) x health, fragments stay rich. Wire: family byte top bit (protocol 24). Placeholder golden halo + glints in flight drawWorld.
 FILES: sim/{asteroids,world,protocol,liveConfig}.ts tune.json src/scenes/flight.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
@@ -20,87 +104,3 @@ FILES: sim/{planets,protocol,world,bots}.ts server/src/room.ts src/net/client.ts
 SEAM: Room.siegePhase/stepSiege/siegeFrame; NetClient.siege/warDown; SiegeView; CLOSE.WAR_LOCKED/NEED_CLAN.
 CROSS: src/render/stellarMap.ts (yours): five positions and a Warzone intel/tint; flight maskOrbitalUi skips refused connections.
 FOR codex: Warzone needs art: damaged/destroyed towers, shield strength, Nexus health, a Warzone globe look distinct from Crimson.
-
-## 2026-11-16 claude siege-values-pods
-DID: siege values for the Sparrow starter (turrets 110, shield 750, treasury 1100, owner: tweak after playtests); siege bots detour for mineral spills within 320 px (power moves to whoever cleans up); sim option attPower/defPower (first life only) and any-tune overrides. Repair pods drawn at render.healDropScale (0.8) of the pickup radius.
-FILES: tune.json client.tune.json sim/{bots,liveConfig}.ts src/scenes/flight.ts BRIEF.md scripts/sim-steroids-alpha-siege.mjs
-SEAM: clientTune.render.healDropScale.
-CROSS: flight.ts pickup radius for heal (painted health-pod uses the same radius).
-FOR codex: health-pod art now shows at ~27 px radius; check it still looks crisp at that size.
-
-## 2026-11-16 claude sparrow-gun
-DID: owner retune: Sparrow single gun 6 shots/s (sparrow.fireIntervalSteps 6 -> 5) and 90% of Falcon cold-to-lock shots (ammoRatio 0.8 -> 0.9); measured 14 vs 15 shots base, 25 vs 28 at gun tier 2. Live settings republished. Found while re-running the siege sim: Sparrow as the starter had dropped 2v2 attacker wins to 0%; siege structure HP to be retuned with Warzone step 2 (sim suggests turrets 110, shield 750, treasury 1100).
-FILES: tune.json BRIEF.md
-SEAM: none (values only).
-CROSS: tune.sparrow (your Sparrow work): two values, owner-requested.
-FOR codex: Sparrow is now 96 vs Falcon 120 damage per second.
-
-## 2026-11-16 codex live-rig-review
-DID: lab subject selector and live Hangar Rig Review for Sparrow/Bat/capital/Falcon/Nexus/tower turrets. Rotation, firing, gun-origin guides, palette/clan, control tilt and deck count. Treasury display renamed Nexus. Capital cannon casing matches cobalt and selected palettes; forward steel/alpha retained.
-FILES: src/scenes/rigReview, boot/main/hangar/flight, render/{shipArt,palette}; ../steroids-alpha-lab.
-SEAM: isolated query route uses production ShipView/BuildingRigs/CombatSprites and stepShip/muzzleShot; no room sockets, accounts, grants or publishing. Checked same-origin parent messages only choose a validated subject or exit.
-CROSS: minimal scene flow/query/hangar entry and display strings; no sim/network/tuned values changed. Lab sleeps old preview, reuses one frame and hides draft editor until return.
-FOR claude: owner forbids screen grabbing; checks use DOM/runtime/source pixels, no screenshots or recording. Lab selections review each production rig; editable calibration remains Falcon only. LIVE161126r0080: PR519, client43892666337/Pages43892666498 success; ten public desktop/mobile cases and all four capital cannon sides pass. Evidence in BUILD_STATUS.
-
-## 2026-11-16 codex ship-release LIVE
-DID: PR517 merged7965bcdf; all approved ships live161126r0079. Client43887481908/Worker43887482153/settings43888409949 successful; protocol22.
-FILES: ship art/profiles, sim/unlocks/protocol/config, hangar/menu/tune/tests; BUILD_STATUS has full proof and limits.
-SEAM: Sparrow free/chassis3/centre recoil0; Falcon paid for everyone, no grant. Bat max315/cruise234/turn5.44 published via hosted OIDC, other owner data preserved. Capital4 platforms observe existing turret state.
-CROSS: preserved PR515/516 behavior. R2 ZIPs+27parts verified; all suites and public desktop/mobile Sparrow/fire/unlock/menu/tutorial pass. Browser emulation, not physical-phone evidence.
-FOR claude: use current main; settings and art now live, no further release action required. Evidence outputs/steroids-alpha/ship-release/live and fleet-revision-review; original Comms e31061e9.
-
-## 2026-11-16 codex bat-capital-revision REVIEW
-DID: Bat cobalt cowlings, base315 top speed and1.7x Falcon turn rate. Detailed battlecruiser with framed bridge,4 forward cannons and4 fixed rig deck platforms; painted heads show only equipped count, aim/recoil independently, with control-only FFD/sprite fallback.
-FILES: art/{bat-v3,battlecruiser-v2}, render/{shipProfiles,shipArt,shipView,shipPreview}, flight, hangar caption, tune, sim/chassis, sim tests, docs.
-SEAM: optional setTurrets(count,angles,firedAt); shared capital deck mounts right±36, forward−9/25.2. Main cannon origins/equipment counts/upgrade rules unchanged. Capital textures2x budget capped512; fighters unchanged.
-CROSS: owner-requested Bat handling and deck turret origins; minimal flight observation bridge. Typecheck/build/sim/bank/live-config/rig pass. Brave desktop/mobile previews,24-part FFD,0/2/4 heads, Canvas flight and5 rebuilds stable150textures; no errors. Local~32FPS matches same Falcon baseline, not a60FPS claim.
-FOR claude: review only; do not deploy yet. R2 ZIPs still local/cache. Future release needs Bat speedFactor0.9/turnFactor1.7 published to hosted settings, preserving all other owner values. Evidence outputs/steroids-alpha/fleet-revision-review; comms e31061e9. Everyone must buy Falcon; no grandfathered grant.
-
-## 2026-11-16 codex sparrow-falcon-bat REVIEW
-DID: Sparrow free starter with original8-part/11-module top-down rig, centre recoil, Falcon base stats,5shots/s and12-versus15 cold burst, bounded3deg launch drift. Scrappy display renamed Falcon and Interceptor Bat; Falcon is a paid sidegrade. Four compact hangar cards.
-FILES: art/sparrow-v1, render/shipProfiles, sim/{chassis,ship,unlocks,protocol,liveConfig}, room, menu/hangar, tune, tests.
-SEAM: protocol22 permits chassis3 and recoil side0 (unchanged byte layout); stable old IDs0/1 preserved. Shared sparrow tunings upgrade into old records. Publish client/Worker together only after review/R2 verification.
-CROSS: minimal requested weapon/default/ownership/menu behavior and tests; existing siege preserved. Owner confirmed everyone must unlock Falcon, including existing players; no grandfathered grant or migration.
-FOR claude: do not merge/deploy this preview yet; new ZIP only local cache until review/upload. Art source/evidence outputs/steroids-alpha/sparrow-review; details art/sparrow-v1/README.md. Comms e31061e9.
-
-## 2026-11-16 claude ship-stats-rams
-DID: per-ship handling: tune.interceptor/battlecruiser now hold explicit minSpeed/cruiseSpeed/maxSpeed/acceleration/braking/turnRate (old factors removed; same effective values); Falcon (renamed from Scrappy in UI) = tune.ship. Corner speed peaks at each ship's own cruise/top ratio. Rams: target straight to hull; rammer same amount to shield, no overflow, hull only if shield down (dashRamSelfDamage removed). Tutorial RAM step: battered practice Battlecruiser, 3 rams; tutorial drones/chasers' turret drones never fire (World.quiet).
-FILES: sim/{chassis,ship,world,clanBase,liveConfig,unlocks}.ts server/src/room.ts tune.json src/tutorial/guide.ts src/scenes/menu.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
-SEAM: shipMotion(chassis, tune); damageShip mode 'hull' | 'shield'; World.quiet.
-CROSS: none in your files (unlock display name only).
-FOR codex: the ship formerly named Scrappy is now Falcon in UI copy.
-
-## 2026-11-16 claude tutorial-combat
-DID: combat: ram = max(flat, 15% target hull max), slight dash steering (25%), bumps 20 dmg / 380 knockback, corner speed (turn best at cruise; 70% at min, 85% at top), red hull-hit edge flash, hull readouts flash below 50%. Tutorial planet: menu TUTORIAL, the real Room runs in the page in lockstep via an in-memory socket pair, 13 scripted steps with repetition and noob/drone/chaser bots, free play then warp out to finish.
-FILES: sim/{ship,world,bots,planets,liveConfig}.ts server/src/room.ts tune.json src/tutorial/{guide,localServer}.ts src/net/client.ts src/scenes/{flight,menu}.ts src/render/combatHud.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
-SEAM: cornerFactor(); tune.ship.{dashRamHullFraction,turnAtMinSpeed,turnAtMaxSpeed,dashSteerFactor}; Room.sim/setManualBots/setLockstep/addTutorialBot; World.spawnAsteroid/spawnPickup/spawnBullet; NetClient transport arg; PlanetId includes 'tutorial'; window.__tutorial with ?debug=1.
-CROSS: src/render/combatHud.ts and flight drawHullBorder (yours): colour/threshold only; tutorial panel is placeholder overlay.
-FOR codex: tutorial rings/gates/training turret are placeholder shapes; the instruction panel could use your panel style.
-
-## 2026-11-16 claude siege-sim
-DID: Siege v0 step 1: rules in the shared sim (World.siege on the Warzone planet: turret/shield/treasury HP, shield regen per live turret until broken, tickets, round timer, defenders cannot attack inside a standing shield, no dock safety at war, no warp at war) and siege bots (attack turrets -> shield -> treasury; defenders guard outside the dome). Headless harness scripts/sim-steroids-alpha-siege.mjs. Warzone is NOT in the menu yet.
-FILES: sim/{world,bots,planets,liveConfig}.ts tune.json scripts/{sim-steroids-alpha-siege,test-steroids-alpha-sim}.mjs BRIEF.md
-SEAM: tune.siege; World.siege/atWar/attackerClan/startWar/endPeace; events.siegeOver/structureHits; WARZONE/isWarPlanet.
-CROSS: none (no client or protocol changes yet).
-FOR codex: step 2 (playable Warzone) will need art for damaged/destroyed turrets, a shield health look and a treasury health look; not yet.
-
-## 2026-11-16 codex hyperspace-arrival-release
-DID: owner approved motion and live release; added a1400ms world-anchored blue-white completion glint/ion spark, bounded32effects. Replaced vertical dive with heading-aligned hyperspace fading before globe zoom/fast terrain roll, level full-speed ship and reverse departure. Observer entrance fades in, brakes/overshoots and leaves square residuals; no false effect for old ships.
-FILES: sim/{ship,world,protocol,liveConfig}.ts, src/net/client.ts, src/render/{orbital*,shipView}.ts, src/scenes/flight.ts, tune.json, affected tests/docs.
-SEAM: protocol21 adds f32 arrival at offset99 (103-byte ship). World countdown and prediction drive visual progress; all damage/contact/combat gated until0, no client-ready immunity. Shared warp timings3.2/2.4/0.7s; old hosted records upgrade. ShipPlacement opacity/warpForeground; resize/scene cleanup releases FFD/UI.
-CROSS: owner explicitly requested arrival vulnerability; minimal sim/wire/net/test changes. Typecheck/build/rig/sim/live-config/bank pass. Actual Brave desktop/mobile entry/exit and real observer checks pass; WebGL/Canvas held fire, resize, UI restoration and resource stability pass, zero errors. Visual timing captures are isolated fixtures, not authoritative extraction proof.
-FOR claude: LIVE0075. PR512 merged39d1b471; client43853040304 + Worker43853040359 succeeded, healthyprotocol21. Public map entry4layouts, own/remote landing spark1400ms expiry and real in-range observer checks pass, zero errors. Proof hyperspace-live-verification and landing-live-verification. New protected arrivals hold bearing/full speed and cannot fire/dash/warp; phase release comes from authority, not local elapsed time. Thread68c1ca78 carries final preview/evidence.
-
-## 2026-11-16 codex warp-stellar-map-release
-DID: pulsing menu WARP opens spinning four-globe chart; first tap selects/details, second enters. Shows real populations, relationship and resource types. Leaderboard and compact rank now sort level, kills, minerals; labels say MINERALS.
-FILES: src/render/{stellarMap,planetGround}.ts, src/scenes/{menu,flight}.ts, src/main.ts, sim/leaderboard.ts, sim/protocol.ts comment, sim tests, BRIEF/BUILD_STATUS.
-SEAM: existing power wire field remains mineral balance; rankPilots shared by board/nav. PlanetGround adds bounded positioning/disposal. Debug menuScene exposes preview state; buttons are destination hit areas only while popup open.
-CROSS: requested menu behavior/rank and minimal sim-test extension; no server, wire version or economy changes. Fixed inherited removeAll(true) text-texture leak by destroying old menu children. Required checks and Brave DPR2 four viewports pass; ten cycles stable53objects/133textures, WebGL/Canvas ~60FPS; details/resize/offline/actual entry and board order pass.
-FOR claude: LIVE161126r0074. PR510 merged969638bd; itch43829523905 and Worker43829523419 succeeded. Public Brave PC/phone/small/upright: globe selection/details, rotation, actual second-tap entry and open connection pass; desktop/mobile ranking fixtures agree, zero errors. Proof outputs/steroids-alpha/warp-live-verification; thread b837277b. Menu tests open WARP, select, then tap selected globe again. No economy/protocol change.
-
-## 2026-11-16 codex orbital-buildings-hud-release
-DID: owner approved orbital arrival/departure, layered treasury Nexus/twin-cannon towers, and joined translucent HUD v3. Uploaded/re-fetched exact building source ZIP with matching SHA-256.
-FILES: src/render/{orbital*,buildingRig,clanBaseArt,combatHud,shipView,flightIndicators}.ts, src/scenes/{boot,flight}.ts, art/buildings-v1, art/prepare-assets.mjs.
-SEAM: ShipPlacement optional orbital lift/ground alpha; BuildingRigs lifecycle; CombatHud anchor then hold selector. COLLAB records contracts. No new wire/gameplay changes.
-CROSS: flight lifecycle and config test only; merged main 1fb8b45 preserving menu-only extraction, mouse/key hints, fuel/visitor cargo, own-top-speed exhaust and zoom 1000. Desktop cargo clears key hints. Typecheck/build/rig/sim/live-config/bank pass; integrated Brave orbital/mobile input and 36 building captures pass, 2 clients ~60 FPS DPR2, zero errors.
-FOR claude: LIVE 161126r0073. PR508 merged7e5b2158; itch43824697720 succeeded. Public Brave PC/mobile/upright and both clans connect protocol20,12combat+14building textures,7rigs/40images, phone fire/dash/drawer, zero errors. Proof outputs/steroids-alpha/orbit-live-verification/result.json; thread68c1ca78. Reticle/landmark/fuel-icon follow-ups stay separate; R2 SHA d34070bccdb67d0e901d7972504a5b2478f477dcc712a8e796bf41c6d6c30a15.

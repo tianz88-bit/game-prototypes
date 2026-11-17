@@ -53,7 +53,8 @@ async function stageExtraShips(assetsSrcDir) {
 
 /** Painted asteroids (owner art): 3 colour families x parent + 2 medium + 2 small, from the visual pack. */
 async function stageAsteroids(assetsSrcDir) {
-  const m = JSON.parse(readFileSync(path.join(here, 'asteroids-v1', 'asteroid-assets.json'), 'utf8'));
+  for(const list of ['asteroids-v1/asteroid-assets.json','rich-asteroids-v1/assets.json']) {
+  const m = JSON.parse(readFileSync(path.join(here,list), 'utf8'));
   const zip = new AdmZip(await fetchVerified(m));
   for (const a of m.assets) {
     const e = zip.getEntry(a.deliveryPath);
@@ -63,7 +64,8 @@ async function stageAsteroids(assetsSrcDir) {
     if (sha !== a.sha256) throw new Error(`prepare-assets: ${a.deliveryPath} SHA-256 ${sha} does not match ${a.sha256}`);
     writeFileSync(path.join(assetsSrcDir, 'loose', `asteroid-${a.name}.png`), data);
   }
-  console.log(`prepare-assets: asteroids-v1: ${m.assets.length} painted rocks verified and staged`);
+  console.log(`prepare-assets: ${list}: ${m.assets.length} painted rocks verified and staged`);
+  }
 }
 
 /** Download an R2 zip (cached by its SHA-256 in .cache/) and check the hash. */
@@ -73,6 +75,7 @@ async function fetchVerified(m) {
   const cached = path.join(cache, `${m.zipSha256}.zip`);
   let bytes = existsSync(cached) ? readFileSync(cached) : null;
   if (!bytes || createHash('sha256').update(bytes).digest('hex') !== m.zipSha256) {
+    if(m.status==='local-review-only')throw new Error(`Preview pack ${m.r2Object} needs its local hash-verified ZIP in .cache; owner approval and R2 upload are pending.`);
     const r = await fetch(m.url);
     if (!r.ok) throw new Error(`prepare-assets: ${m.r2Object} HTTP ${r.status}`);
     bytes = Buffer.from(await r.arrayBuffer());
@@ -87,7 +90,7 @@ export default async function prepare({ assetsSrcDir }) {
   await stageExtraShips(assetsSrcDir);
   await stageAsteroids(assetsSrcDir);
   // Preserve original PNGs in the delivery ZIP; only runtime copies are resolution-bounded.
-  for (const pack of ['combat-title-v1','combat-backlog-v1','buildings-v1']) {
+  for (const pack of ['combat-title-v1','combat-backlog-v1','buildings-v1','warzone-v1']) {
   const combat = JSON.parse(readFileSync(path.join(here,pack,'assets.json'),'utf8'));
   const combatZip = new AdmZip(await fetchVerified(combat));
   for (const a of combat.assets) {
@@ -96,7 +99,7 @@ export default async function prepare({ assetsSrcDir }) {
     const source = entry.getData();
     if (createHash('sha256').update(source).digest('hex') !== a.sha256) throw new Error(`prepare-assets: ${a.name} hash mismatch`);
     await sharp(source).resize({width:a.runtimeMax,height:a.runtimeMax,fit:'inside',withoutEnlargement:true}).png()
-      .toFile(path.join(assetsSrcDir,'loose',`${pack==='buildings-v1'?'building':'combat'}-${a.name}.png`));
+      .toFile(path.join(assetsSrcDir,'loose',`${pack==='buildings-v1'||pack==='warzone-v1'?'building':'combat'}-${a.name}.png`));
   }
   console.log(`prepare-assets: ${pack}: ${combat.assets.length} sources verified and runtime copies staged`);
   }

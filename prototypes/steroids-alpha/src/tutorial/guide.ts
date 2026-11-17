@@ -12,6 +12,7 @@ import { text } from '../scenes/common';
 import { panel, UI } from '../render/ui';
 import { tutorialRoom } from './localServer';
 import { DEBUG } from '../base';
+import { tutorialPolicy,crossedTutorialGate } from './policy';
 
 const W = TUNE.world.width, H = TUNE.world.height;
 
@@ -68,6 +69,11 @@ export class TutorialGuide {
   private fireAt = 0;
   private turretAt: Point | null = null;
   private steps: Step[];
+  private dashGates:Point[]=[];
+  private dashPrevious:Point|null=null;
+  private wasDashing=false;
+  get policy():ReturnType<typeof tutorialPolicy>{return tutorialPolicy(this.step);}
+  syncRules():void {this.room.setTutorialRules(this.policy);}
 
   constructor() {
     this.steps = this.build();
@@ -121,6 +127,7 @@ export class TutorialGuide {
   }
 
   update(v: GuideView): void {
+    this.syncRules();
     const ship = this.world.ships.get(v.myId);
     const st = this.steps[this.step];
     this.title.setVisible(false);
@@ -225,18 +232,18 @@ export class TutorialGuide {
       },
       {
         title: 'DASH',
-        body: () => `${k().dash} to dash: a short charge, then a burst of speed (you can steer it a little). Dash through the gates. The dash needs a few seconds to recharge.`,
+        body: () => `${k().dash} to dash: a short charge, then a burst of speed. One dash can pass through multiple gates. Line them up, then dash through.`,
         need: 3,
+        enter:()=>{this.dashGates=[];this.dashPrevious=null;this.wasDashing=false;},
         update: (_v, s) => {
-          if (!this.target) this.target = ahead(s, 650);
-          if (dist(s, this.target) < 95 && s.dashTime > 0) {
-            this.target = null;
-            if (++this.count >= 3) this.next();
+          if(!this.dashGates.length||dist(s,this.dashGates[0])>1400)this.dashGates=Array.from({length:3-this.count},(_,i)=>ahead(s,420+i*150));
+          const previous=this.dashPrevious??s;
+          if(s.dashTime>0||this.wasDashing)while(this.dashGates.length&&crossedTutorialGate(previous,s,this.dashGates[0],W,H)){
+            this.dashGates.shift();if(++this.count>=3){this.next();break;}
           }
-          // A gate missed far behind: put a new one ahead.
-          else if (dist(s, this.target) > 1400) this.target = null;
+          this.dashPrevious={x:s.x,y:s.y};this.wasDashing=s.dashTime>0;
         },
-        draw: (v) => this.target && this.drawMark(v, this.target, 95, 0x87d6cf, 'GATE'),
+        draw: (v) => this.dashGates.forEach(p=>this.drawMark(v,p,95,0x87d6cf,'GATE')),
       },
       {
         title: 'RAM',

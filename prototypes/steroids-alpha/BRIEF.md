@@ -834,3 +834,21 @@ The former Treasury is named Nexus in player-facing text; internal wire/storage 
 Nexus/tower layers connect with muted cylindrical supports. All building enamel, trim and lights use dedicated clan ramps, independent of pilot palettes. Foundations and terrain share planet-fixed coordinates; remove spin-only texture scrolling beneath static objects, preserving travel scrolling and spin/travel sunlight. Contact shadow stays at the root; directional shadow extends from the root through the common ground projection. Tower head/barrels lift60/62 world units for a visible supported column; no footprint/rule changes.
 
 Battlecruiser: two flush forward guns per side and a transparent open central bow channel, no two forward round glass details, stronger cardinal layer offsets. Four turret platforms and the rear bridge remain. Main cannon origins move with the approved design; weapon stats/shields/equipment stay unchanged. Local interactive review first, no recordings or computer-use visual checks; owner inspects the links manually.
+
+## Warzone art review (owner, 17 November 2026)
+
+Add painted damaged/destroyed towers, shield-strength coverage, Nexus health cues and a distinct charcoal/ochre Warzone planet material. Reuse production clan-colour building rigs, root-anchored shadows and authoritative siege durability. Expose independent health presets and mixed tower states in the permanent lab's isolated review scene. Preview locally for owner inspection before any live release. No simulation/tune/wire changes.
+
+Owner refinement, 17 November2026: destroyed towers and Nexus need only neutral palette-independent damaged debris bases. Prioritize the final-hit explosion with flying physical-looking fragments. Add repeatable final-hit/repair controls to the lab; retain preview-before-release gate.
+
+## Mineral-rich asteroid art (owner,17 November2026)
+
+Add broad gold ore veins to all3 sizes in the current cel-painted ochre/lavender/teal families, keeping different sibling fragment shapes, ordinary rocks and collision coverage. Existing rich state alone selects them. Owner waived the requested lab review gate and explicitly authorized direct go-live. No gameplay/tune changes.
+
+Owner readability refinement17 November2026: add chunky gold mineral crystals protruding from rich asteroids while retaining painted style, veins and all3 sizes. Crystal outcrops are cosmetic; original rock-body collision centre/scale and all gameplay values remain unchanged. Continue direct publication after checks per preceding instruction.
+
+Owner crystal VFX request17 November2026: rich asteroids shed painted crystal chips and gold sparks on hits, then a wider scatter when they split/shatter. Visual effects only; ordinary rocks, actual mineral pickups, collision, HP and rewards unchanged. Continue direct publication after checks.
+
+## Ram readability and tutorial clarity (owner,17 November2026)
+
+Active dashes show an orange bow attack envelope; ram hits have an orange crash. Keep a thin persistent hull trace beside the main shield/hull arc. Tutorial hides/disables purchases until UPGRADES, suppresses mineral drops before MINE MINERALS, permits one dash through multiple preplaced rings and disables weapons during RAM. Every visible destroyed ship darkens and shrinks over0.8s with several small explosions and one final larger blast. Preserve authoritative death timing and combat balance; continue direct publication after checks.

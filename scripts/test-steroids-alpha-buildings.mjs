@@ -8,6 +8,71 @@ async function load(file) {
 }
 const G=await load('prototypes/steroids-alpha/src/render/buildingGeometry.ts');
 const M=await load('prototypes/steroids-alpha/src/render/buildingMaterials.ts');
+const D=await load('prototypes/steroids-alpha/src/render/buildingCondition.ts');
+const Rock=await load('prototypes/steroids-alpha/src/render/rockSelection.ts');
+const Chips=await load('prototypes/steroids-alpha/src/render/crystalChipMotion.ts');
+const rock={id:2,size:0,x:0,y:0,vx:0,vy:0,t0:0,hp:60,family:0,rich:true};
+assert(Chips.richCrystalHit(rock,{...rock,hp:50}));
+assert(!Chips.richCrystalHit(undefined,rock),'initial rich spawn is not a hit');
+assert(!Chips.richCrystalHit(rock,{...rock}),'duplicate HP snapshot cannot shed chips');
+assert(!Chips.richCrystalHit(rock,{...rock,hp:70}),'healing does not shed chips');
+assert(!Chips.richCrystalHit({...rock,rich:false},{...rock,rich:false,hp:50}),'ordinary rocks do not emit gold');
+for(const size of [0,1,2]){
+  const hit=Chips.crystalChipProfile('hit',size),split=Chips.crystalChipProfile('split',size);
+  assert(split.chips>hit.chips&&split.sparks>hit.sparks&&split.life>hit.life,'splits have a larger scatter than hits');
+  for(const mode of ['hit','split']){
+    const e={mode,...rock,size},life=Chips.crystalChipProfile(mode,size).life;
+    const airborne=Chips.crystalChipPose(e,22,0,150),end=Chips.crystalChipPose(e,22,0,life);
+    assert(airborne.lift>0,'chips arc above the ground');assert.equal(end.alpha,0,'chips expire');
+    const drifting=Chips.crystalChipPose({...e,vx:100},22,0,150);
+    assert(Math.abs(drifting.dx-airborne.dx-9)<1e-7,'chips inherit asteroid velocity');
+  }
+}
+const Reg=await load('prototypes/steroids-alpha/src/render/rockRegistration.ts');
+for(const offset of [[0,0],[70,140],[400,300]])for(const radius of [22,42,70]){
+  const body={left:20,top:30,width:220,height:180,anchorX:123,anchorY:109,radius:65};
+  const trim={left:10,top:18,width:600,height:550},r=Reg.decoratedRockFrame(body,offset,trim);
+  const scale=radius*1.04/body.radius,width=radius*1.04/r.inR;
+  for(const [x,y] of [[20,30],[123,109],[240,210]]){
+    assert(Math.abs(-r.ax*width+(x+offset[0]-trim.left)/trim.width*width-(x-body.anchorX)*scale)<1e-7,'crystals cannot shift/resize the collision body X');
+    assert(Math.abs(-r.ay*width*trim.height/trim.width+(y+offset[1]-trim.top)/trim.width*width-(y-body.anchorY)*scale)<1e-7,'crystals cannot shift/resize the collision body Y');
+  }
+}
+for(const [family,name] of ['ochre','lavender','teal'].entries()){
+  assert.equal(Rock.paintedRockName(9,0,family,true),`rich-${name}-parent`);
+  for(const size of [1,2]){
+    const stage=size===1?'medium':'small';
+    assert.equal(Rock.paintedRockName(10,size,family,true),`rich-${name}-${stage}-1`);
+    assert.equal(Rock.paintedRockName(11,size,family,true),`rich-${name}-${stage}-2`);
+    assert.equal(Rock.paintedRockName(11,size,family),`${name}-${stage}-2`,'ordinary rocks retain existing art');
+  }
+}
+const Blast=await load('prototypes/steroids-alpha/src/render/buildingBlast.ts');
+assert(Blast.isBuildingFinalHit(.1,0,16),'final visible hit detonates');
+assert(!Blast.isBuildingFinalHit(undefined,0,16),'joining a ruin does not replay its destruction');
+assert(!Blast.isBuildingFinalHit(0,0,16),'zero-health snapshots do not repeat explosions');
+assert(!Blast.isBuildingFinalHit(.1,0,800),'offscreen historical destruction does not replay');
+assert(!Blast.isBuildingFinalHit(0,1,16),'repair does not detonate');
+for(const kind of ['turret','nexus'])for(let i=0;i<36;i++){
+  const launch=Blast.buildingFragment(i,0,kind),air=Blast.buildingFragment(i,250,kind),ground=Blast.buildingFragment(i,2300,kind);
+  assert(launch.lift>0&&air.lift>0,'chunks start at raised building height');
+  assert(Math.hypot(air.dx,air.dy)>0,'chunks fly radially outward');
+  nearNumber(ground.lift,0);
+  const later=Blast.buildingFragment(i,2350,kind);
+  nearNumber(ground.dx,later.dx);nearNumber(ground.dy,later.dy);
+  assert.equal(Blast.buildingFragment(i,Blast.BLAST_LIFE[kind],kind).alpha,0,'effects expire');
+}
+function nearNumber(a,b){assert(Math.abs(a-b)<1e-7,'landed debris stays grounded');}
+assert.equal(D.damageStage(undefined),'healthy');
+assert.equal(D.damageStage(.65),'healthy');assert.equal(D.damageStage(.649),'damaged');
+assert.equal(D.damageStage(.3),'damaged');assert.equal(D.damageStage(.299),'critical');
+assert.equal(D.damageStage(0),'destroyed');assert.equal(D.damageStage(-1),'destroyed');
+assert.equal(D.durability(NaN),0);assert.equal(D.durability(2),1);
+for(const health of [0,.2,.55,1]){
+  const panels=Array.from({length:24},(_,i)=>D.shieldPanel(i,health,false));
+  assert.equal(panels.filter(Boolean).length,Math.ceil(health*24),'shield coverage follows strength');
+  assert(Array.from({length:24},(_,i)=>D.shieldPanel(i,health,true)).every(v=>!v),'broken shield never reappears at positive health');
+}
 const P=await load('prototypes/steroids-alpha/src/render/planet.ts');
 const R=await load('prototypes/steroids-alpha/src/render/shipProfiles.ts');
 const C=await load('prototypes/steroids-alpha/sim/chassis.ts');

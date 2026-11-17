@@ -70,7 +70,7 @@ export class StellarMap {
       const x = narrow ? left + width * (i === 4 ? .5 : i % 2 ? .73 : .27) : left + width * [.11, .3, .5, .7, .89][i];
       const y = narrow ? bodyTop + bodyHeight * [.17, .17, .5, .5, .83][i] : bodyTop + bodyHeight * [.48, .29, .56, .36, .5][i];
       const tint: [number, number, number] = p.id === 'warzone' ? [1.4, .78, .5] : p.clan === 1 ? [1.35, .72, .74] : p.clan === 2 ? [.55, .82, 1.55] : p.id === 'alpha' ? [.8, .95, 1.08] : [1, .84, 1];
-      const ground = new PlanetGround(scene, 202, tint);
+      const ground = new PlanetGround(scene, 202, tint, p.id==='warzone'?'warzone':undefined);
       const globe = { id: p.id, x, y, w: radius * 2 + 22, h: radius * 2 + 42, radius, ground };
       this.planets.push(globe);
       text(scene, x, y + radius + 9, p.label.toUpperCase(), compact ? 10 : 12, css(UI.uiText)).setOrigin(.5, 0).setDepth(204);

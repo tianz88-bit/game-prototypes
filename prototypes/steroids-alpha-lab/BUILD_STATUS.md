@@ -1,23 +1,23 @@
 ## Current milestone
 
-Production ship/building selector is live. Open https://tianz88-bit.github.io/game-prototypes/prototypes/steroids-alpha-lab/?review=sparrow . PR519 merged82868368; Pages43892666498 succeeded.
+Warzone art/health/destruction review is LIVE. PR527 merged46db3f81; Pages43997031451 succeeded. Open https://tianz88-bit.github.io/game-prototypes/prototypes/steroids-alpha-lab/?review=warzone . Itch client171126r0086 also includes the same review and production art.
 
 ## What was implemented
 
-Ship / building dropdown above the preview offers Sparrow, Bat, Battlecruiser, Nexus, tower turrets and Falcon live rigs. Embedded production renderer has rotation, firing, headings, palettes/clans, control tilt and gun-origin markers. The original Falcon draft calibration editor remains available as the first choice. Existing hosted owner publishing is unchanged.
+Selector includes Warzone siege-art review: mixed intact/damaged/critical/wreck towers, independent tower/shield/Nexus health presets, clan colours and surface/lighting travel. Neutral rubble replaces destroyed towers AND Nexus. FINAL HIT/REPAIR on standalone building tabs and DETONATE TOWERS/DETONATE NEXUS/REPAIR ALL on Warzone replay pooled flying debris/blasts.
 
 ## Key technical decisions
 
-Production review reads live settings once and never connects a game room, grants equipment or publishes. Calibration loop sleeps and its editor is hidden during review. One frame is reused across subjects, then unmounted on return; draft values are preserved. Checked same-origin parent messages choose only allowlisted subjects or exit. Direct ?review=<subject> links open the selected model.
+Reuse the isolated production-renderer iframe and same-origin subject allowlist. Calibration loop sleeps during review, one frame is reused across subjects, return unmounts the review and preserves the draft. No game-room socket, grants or publishing action from review controls. Seven-source R2 pack verified publicly; no art binaries in Git.
 
 ## Open questions
 
-Owner visual review. Screen capture and recording were explicitly stopped by the owner; none were used for this task.
+None for this approved release.
 
 ## Known issues
 
-Other ship/building selections are production reviews, not editable per-profile calibration drafts. Public desktop/mobile checks are browser emulation, not physical-phone evidence. Hosted sign-in/publish was not exercised in this task.
+Public headless Brave desktop/mobile DPR2 state/lifecycle and destruction checks pass; no physical-phone/Safari or captured visual test. Owner manually approved the local art; no screenshots or recordings. Initial one-off503 did not recur on the complete rerun. Hosted publishing was not exercised.
 
 ## Next proposed step
 
-Use the selector to inspect production rigs and mount origins, then return to Falcon draft calibration for existing tuning/publishing. Collect owner feedback before further rig changes. No resident local publisher or temporary QA service runs.
+Use the public Warzone and standalone building tabs for future visual feedback. Existing Falcon draft editor/publishing remains unchanged. Temporary localhost preview stopped after release; no resident publisher/capture service.
