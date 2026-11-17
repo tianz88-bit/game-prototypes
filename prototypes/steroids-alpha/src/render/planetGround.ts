@@ -88,7 +88,7 @@ void main() {
     if (t >= 1.) { gl_FragColor = vec4(0.); return; }
     float lit = .18 + .82 * smoothstep(-.35, .65, dot(normalize(d), sun.xy));
     float a = .28 * pow(1. - t, 2.) * lit;
-    vec3 atmosphere = clanSkin > .5 && clanSkin < 1.5 ? vec3(.94, .47, .35) : vec3(.37, .67, .90);
+    vec3 atmosphere = clanSkin > 2.5 ? vec3(.66,.57,.36) : clanSkin > .5 && clanSkin < 1.5 ? vec3(.94, .47, .35) : vec3(.37, .67, .90);
     gl_FragColor = vec4(atmosphere * a, a);
     return;
   }
@@ -138,7 +138,7 @@ void main() {
       float seam = 1. - smoothstep(.012, .042, abs(mineral - .49));
       colour *= 1. - seam * .16 * (1. - s.a);
       colour += vec3(.12, .035, .018) * smoothstep(.70, .90, mineral) * .5;
-    } else {
+    } else if (clanSkin < 2.5) {
       // Azure: slate-blue basins, pale glacial shelves and quiet turquoise mineral seams.
       colour = mix(vec3(.13, .23, .34), vec3(.43, .59, .66), clamp(terrainValue * .65 + continent * .6, 0., 1.));
       float frost = smoothstep(.48, .75, continent) * smoothstep(.34, .66, mineral);
@@ -146,6 +146,14 @@ void main() {
       colour = mix(colour, vec3(.24, .44, .51), s.a * .48);
       float vein = 1. - smoothstep(.015, .04, abs(mineral - .54));
       colour += vec3(.025, .055, .06) * vein * .55;
+    } else {
+      // Warzone: scorched charcoal plates, ash/ochre channels and sparse cooling ember fissures.
+      colour=mix(vec3(.115,.135,.17),vec3(.35,.32,.28),clamp(terrainValue*.55+continent*.55,0.,1.));
+      colour=mix(colour,vec3(.48,.39,.24),s.a*.48);
+      float fracture=1.-smoothstep(.006,.024,abs(mineral-.51));
+      colour*=1.-bowl*.24-fracture*.28;
+      colour+=vec3(.18,.065,.018)*fracture*smoothstep(.59,.82,continent);
+      colour=mix(colour,vec3(.19,.20,.23),lip*.35);
     }
   } else colour *= tint;
   float facing = dot(normal, sun);
@@ -158,7 +166,7 @@ void main() {
   colour = mix(vec3(.39, .35, .48) * lighting, colour, smoothstep(0., .17, depth));
   float rim = 1. - smoothstep(0., .48, depth);
   float lit = .28 + .72 * smoothstep(-.35, .65, dot(normal, sun));
-  vec3 rimColour = clanSkin > .5 && clanSkin < 1.5 ? vec3(.92, .57, .40) : vec3(.40, .72, .86);
+  vec3 rimColour = clanSkin > 2.5 ? vec3(.72,.65,.43) : clanSkin > .5 && clanSkin < 1.5 ? vec3(.92, .57, .40) : vec3(.40, .72, .86);
   colour = mix(colour, softLight(colour, rimColour), rim * .72 * lit);
   // Soften the very edge so the limb is not a hard pixel stair.
   float edge = smoothstep(0., 1.5 / radiusPx, 1. - r);
@@ -179,8 +187,9 @@ export class PlanetGround {
     private scene: Phaser.Scene,
     depth: number,
     private tint: [number, number, number] = [1, 1, 1],
+    style?:'warzone',
   ) {
-    this.clanSkin = tint[0]>1.1 ? 1 : tint[2]>1.1 ? 2 : 0;
+    this.clanSkin = style==='warzone'?3:tint[0]>1.1 ? 1 : tint[2]>1.1 ? 2 : 0;
     if (scene.game.renderer.type === Phaser.WEBGL && scene.textures.exists(GROUND_TILE) && scene.textures.exists(SAND_CHANNEL)) {
       const base = new Phaser.Display.BaseShader('planet-ground', FRAGMENT, undefined, {
         camera: { type: '2f', value: { x: 0, y: 0 } },
@@ -226,7 +235,7 @@ export class PlanetGround {
       const k = Math.round(0x88 * frame.brightness);
       this.disc.clear();
       const [r, gr, b] = this.tint;
-      const base=this.clanSkin===1?[137,70,67]:this.clanSkin===2?[61,94,111]:null;
+      const base=this.clanSkin===3?[65,63,59]:this.clanSkin===1?[137,70,67]:this.clanSkin===2?[61,94,111]:null;
       const colour=base?((Math.round(base[0]*frame.brightness)<<16)|(Math.round(base[1]*frame.brightness)<<8)|Math.round(base[2]*frame.brightness)):
         ((Math.min(255,Math.round(k*r))<<16)|(Math.min(255,Math.round(0x65*frame.brightness*gr))<<8)|Math.min(255,Math.round(0x78*frame.brightness*b)));
       this.disc.fillStyle(colour,1);
@@ -239,9 +248,10 @@ export class PlanetGround {
           const p=projectOffset(wx-frame.camera.x,wy-frame.camera.y,clientTune.render.planetRadius);if(!p.visible||p.scale<.12)continue;
           const x=w/2+p.x*viewScale,y=h/2+p.y*viewScale,k=p.scale*viewScale,r=(26+seed*34)*k;
           if(Math.hypot(x-w/2,y-h/2)+r*1.4>radiusPx)continue;
-          g.fillStyle(crimson?0x4d2937:0x284758,.45);g.fillEllipse(x,y+r*.18,r*2,r*1.4);
-          g.lineStyle(Math.max(.7,k*2),crimson?0xda8b67:0x8abcbf,.4*frame.brightness);g.beginPath();g.arc(x,y,r,-2.8,-.3);g.strokePath();
-          if(seed>.55){g.fillStyle(crimson?0xc27959:0xa2c2c1,.22);g.fillTriangle(x-r*.8,y+r*.4,x+r*.9,y+r*.1,x+r*.4,y+r*.65);}
+          const war=this.clanSkin===3;
+          g.fillStyle(war?0x20232b:crimson?0x4d2937:0x284758,.45);g.fillEllipse(x,y+r*.18,r*2,r*1.4);
+          g.lineStyle(Math.max(.7,k*2),war?0xaf8c50:crimson?0xda8b67:0x8abcbf,.4*frame.brightness);g.beginPath();g.arc(x,y,r,-2.8,-.3);g.strokePath();
+          if(seed>.55){g.fillStyle(war?0xb17c44:crimson?0xc27959:0xa2c2c1,.22);g.fillTriangle(x-r*.8,y+r*.4,x+r*.9,y+r*.1,x+r*.4,y+r*.65);}
         }
       }
     }

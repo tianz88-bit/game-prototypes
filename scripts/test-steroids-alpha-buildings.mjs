@@ -8,6 +8,17 @@ async function load(file) {
 }
 const G=await load('prototypes/steroids-alpha/src/render/buildingGeometry.ts');
 const M=await load('prototypes/steroids-alpha/src/render/buildingMaterials.ts');
+const D=await load('prototypes/steroids-alpha/src/render/buildingCondition.ts');
+assert.equal(D.damageStage(undefined),'healthy');
+assert.equal(D.damageStage(.65),'healthy');assert.equal(D.damageStage(.649),'damaged');
+assert.equal(D.damageStage(.3),'damaged');assert.equal(D.damageStage(.299),'critical');
+assert.equal(D.damageStage(0),'destroyed');assert.equal(D.damageStage(-1),'destroyed');
+assert.equal(D.durability(NaN),0);assert.equal(D.durability(2),1);
+for(const health of [0,.2,.55,1]){
+  const panels=Array.from({length:24},(_,i)=>D.shieldPanel(i,health,false));
+  assert.equal(panels.filter(Boolean).length,Math.ceil(health*24),'shield coverage follows strength');
+  assert(Array.from({length:24},(_,i)=>D.shieldPanel(i,health,true)).every(v=>!v),'broken shield never reappears at positive health');
+}
 const P=await load('prototypes/steroids-alpha/src/render/planet.ts');
 const R=await load('prototypes/steroids-alpha/src/render/shipProfiles.ts');
 const C=await load('prototypes/steroids-alpha/sim/chassis.ts');

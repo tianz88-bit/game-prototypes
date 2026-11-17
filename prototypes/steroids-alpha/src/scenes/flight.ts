@@ -201,7 +201,7 @@ export class FlightScene extends Phaser.Scene {
     this.deathButtons = [];
     fitCamera(this);
     this.cameras.main.setBackgroundColor(SPACE);
-    this.ground = new PlanetGround(this, 1, PLANET_TINT[planetClan(this.planet)] ?? [1, 1, 1]);
+    this.ground = new PlanetGround(this, 1, PLANET_TINT[planetClan(this.planet)] ?? [1, 1, 1], isWarPlanet(this.planet)?'warzone':undefined);
     this.world = this.add.graphics().setDepth(15);
     this.ordnanceCues = this.add.graphics().setDepth(27);
     this.rocks = paintedRocksReady() ? new PaintedRocks(this) : new PixelRocks(this);
@@ -510,23 +510,7 @@ export class FlightScene extends Phaser.Scene {
       bar(sx, half, sg.shield / tune.shieldHp, sg.broken ? 0x6b6f7a : 0x5ad3ff);
       bar(sx + half + 10, half, sg.treasury / tune.treasuryHp, 0xffd27a);
       line(t2, y + 11, `TOWERS ${sg.turrets.filter((v) => v > 0).length}/${sg.turrets.length}        SHIELD ${sg.broken ? 'BROKEN' : Math.round(sg.shield)}        NEXUS ${Math.round(sg.treasury)}`, '#c9d6f2', 9);
-      // Over the base: destroyed towers crossed out, the shield ring by its strength.
-      L.turrets.forEach((at, i) => {
-        if ((sg.turrets[i] ?? 1) > 0) return;
-        const s = this.toScreen(at.x, at.y);
-        if (!s.visible) return;
-        const r = 18 * s.scale;
-        g.fillStyle(0x15161c, 0.75); g.fillCircle(s.x, s.y, r);
-        g.lineStyle(3, 0xff6a5c, 0.9); g.lineBetween(s.x - r * 0.7, s.y - r * 0.7, s.x + r * 0.7, s.y + r * 0.7); g.lineBetween(s.x - r * 0.7, s.y + r * 0.7, s.x + r * 0.7, s.y - r * 0.7);
-      });
-      if (!sg.broken) {
-        const c = this.toScreen(L.treasury.x, L.treasury.y), e = this.toScreen(L.treasury.x + TUNE.base.domeRadius, L.treasury.y);
-        if (c.visible) {
-          const f = Math.max(0, sg.shield / tune.shieldHp);
-          g.lineStyle(3, f > 0.35 ? 0x5ad3ff : 0xff9a6a, 0.25 + 0.5 * f);
-          g.strokeCircle(c.x, c.y, Math.hypot(e.x - c.x, e.y - c.y));
-        }
-      }
+
     }
     // Destroyed at war: back at your side's spawn soon (not a menu: the pilot stays on the planet).
     if (this.net.warDown) {
@@ -569,11 +553,12 @@ export class FlightScene extends Phaser.Scene {
     if (!layout || !p) return;
     const labels=drawClanBase(this.world,{layout,own:p,member:this.net.clan===layout.clan,docked:!!this.net.docked,now,tune:TUNE,
       project:(x,y)=>this.toScreen(x,y),aim:this.baseAim,firedAt:this.baseFiredAt,impacts:this.effects,
-      rigs:this.buildingRigs,sun:this.frame.sun,daylight:this.frame.daylight,brightness:this.objectLight()});
+      rigs:this.buildingRigs,sun:this.frame.sun,daylight:this.frame.daylight,brightness:this.objectLight(),
+      siege:this.net.siege?{towers:this.net.siege.turrets.map(h=>h/TUNE.siege.turretHp),shield:this.net.siege.shield/TUNE.siege.shieldHp,nexus:this.net.siege.treasury/TUNE.siege.treasuryHp,broken:this.net.siege.broken}:undefined});
     if(labels.treasury){
       const at=labels.treasury,total=this.net.treasury?.total??0;
       const below=at.labelY??at.y+78*at.scale,labelY=!intents.touch&&below>h-138?at.y-220*at.scale:below;
-      this.treasuryText.setVisible(true).setText(`${clanName(layout.clan).toUpperCase()} NEXUS\nFUEL ${total.toLocaleString('en-US')}`)
+      this.treasuryText.setVisible(true).setText(`${clanName(layout.clan).toUpperCase()} NEXUS\n${this.net.siege?`HEALTH ${Math.round(this.net.siege.treasury)} / ${TUNE.siege.treasuryHp}`:`FUEL ${total.toLocaleString('en-US')}`}`)
         .setPosition(at.x,labelY).setStroke('#102035',3);
     }
     if(labels.gate)this.gateText.setVisible(true).setPosition(labels.gate.x,labels.gate.y+145*labels.gate.scale).setStroke('#102035',3);

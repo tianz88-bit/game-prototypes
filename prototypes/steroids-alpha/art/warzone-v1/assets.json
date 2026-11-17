@@ -1,0 +1,73 @@
+{
+  "status": "local-review-only",
+  "source": "Damage edit of buildings-v1, 17 November 2026. Not approved for publication.",
+  "r2Object": "steroids-alpha_warzone-v1_assets.zip",
+  "url": "",
+  "zipSha256": "1b3de05ac10cdd5c882eda299dbf3c89ea0f99d641114c6ec36279f808ca10c5",
+  "assets": [
+    {
+      "name": "tower-head-damaged",
+      "deliveryPath": "loose/building-tower-head-damaged.png",
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "trimFrame": {
+        "x": 34,
+        "y": 96,
+        "w": 1185,
+        "h": 1100
+      },
+      "sha256": "5682e6670e5fd19fd03f6813070d1c896e82c13039754e63f6c6c91c31acdb5e",
+      "runtimeMax": 256
+    },
+    {
+      "name": "tower-wreck",
+      "deliveryPath": "loose/building-tower-wreck.png",
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "trimFrame": {
+        "x": 94,
+        "y": 98,
+        "w": 1066,
+        "h": 1075
+      },
+      "sha256": "715cb2817875eccf6f1cefb075c75a08c07ad05b4fc7f2550558fc3ef8ef6bc8",
+      "runtimeMax": 256
+    },
+    {
+      "name": "nexus-reactor-damaged",
+      "deliveryPath": "loose/building-nexus-reactor-damaged.png",
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "trimFrame": {
+        "x": 77,
+        "y": 77,
+        "w": 1099,
+        "h": 1114
+      },
+      "sha256": "2ac5d654f5f5ad027fbdbd7bd1c66d24c5286a6c8c2f7824237f99851c1dbfb9",
+      "runtimeMax": 384
+    },
+    {
+      "name": "nexus-crown-damaged",
+      "deliveryPath": "loose/building-nexus-crown-damaged.png",
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "trimFrame": {
+        "x": 48,
+        "y": 31,
+        "w": 1160,
+        "h": 1194
+      },
+      "sha256": "1a32b07799bf92777071dcab866c1dc51529334bbcbbd3dd1034ea55d4824aa3",
+      "runtimeMax": 384
+    }
+  ]
+}

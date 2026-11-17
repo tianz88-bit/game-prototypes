@@ -16,8 +16,14 @@ import { muzzleShot, newShip, stepShip } from '../../sim/ship';
 import type { ShipState } from '../../sim/ship';
 import { turretPosition } from '../../sim/turrets';
 import { wrapDelta } from '../../sim/wrap';
+import { baseLayout } from '../../sim/clanBase';
+import { drawClanBase } from '../render/clanBaseArt';
+import { PlanetGround } from '../render/planetGround';
+import { projectOffset, planetFrame, lightingRadius, sunState } from '../render/planet';
+import { damageStage } from '../render/buildingCondition';
 
 const SUBJECTS = [
+  { id: 'warzone', label: 'Warzone', chassis: -1 },
   { id: 'sparrow', label: 'Sparrow', chassis: 3 },
   { id: 'bat', label: 'Bat', chassis: 1 },
   { id: 'battlecruiser', label: 'Battlecruiser', chassis: 2 },
@@ -40,6 +46,11 @@ export class RigReviewScene extends Phaser.Scene {
   palette = 0;
   equipped = 4;
   control = 0;
+  towerHealth = -1;
+  shieldHealth = .55;
+  nexusHealth = .55;
+  private warGround:PlanetGround|null=null;
+  private baseArt!:Phaser.GameObjects.Graphics;
   private ship: ShipView | null = null;
   private state!: ShipState;
   private buildings!: BuildingRigs;
@@ -63,6 +74,7 @@ export class RigReviewScene extends Phaser.Scene {
     this.projectiles = []; this.frame = []; this.accumulator = this.shotCount = 0;
     this.buildings = new BuildingRigs(this); this.combat = new CombatSprites(this);
     this.guides = this.add.graphics().setDepth(30);
+    this.baseArt = this.add.graphics().setDepth(10);
     this.caption = text(this, 0, 0, '', 11, '#9ab8c8').setOrigin(.5).setDepth(101);
     this.select(this.subject);
     this.game.events.on('dpr', this.layout, this);
@@ -81,13 +93,14 @@ export class RigReviewScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       window.removeEventListener('message', selectFromLab);
       this.abort.abort(); this.game.events.off('dpr', this.layout, this);
-      this.ship?.destroy(); this.ship = null; this.buildings.destroy(); this.combat.destroy();
+      this.ship?.destroy(); this.ship = null; this.warGround?.destroy();this.warGround=null;this.buildings.destroy(); this.combat.destroy();
       intents.uiZones = []; this.projectiles = [];
     });
   }
 
   private select(id: string): void {
     this.subject = id; this.ship?.destroy(); this.ship = null;
+    this.warGround?.destroy();this.warGround=id==='warzone'?new PlanetGround(this,-8,[1,1,1],'warzone'):null;
     this.state = newShip(TUNE.world.width / 2, TUNE.world.height / 2, this.heading, 140);
     this.state.chassis = SUBJECTS.find(s => s.id === id)!.chassis;
     this.state.hp = this.state.hullMax = TUNE.ship.maxHp;
@@ -106,7 +119,7 @@ export class RigReviewScene extends Phaser.Scene {
     const grid = this.add.graphics().setDepth(-9).lineStyle(1, 0x254052, .35);
     for (let x = 0; x < w; x += 40) grid.lineBetween(x, 90, x, h - 105);
     for (let y = 100; y < h - 100; y += 40) grid.lineBetween(0, y, w, y);
-    text(this, w / 2, 23, 'LIVE RIG REVIEW', 18).setOrigin(.5).setDepth(100);
+    text(this, w / 2, 23, this.subject==='warzone'?'WARZONE · ART PREVIEW':'LIVE RIG REVIEW', 18).setOrigin(.5).setDepth(100);
     const button = (id: string, label: string, x: number, y: number, width: number, active = false): void => {
       panel(this.add.graphics().setDepth(100), x - width / 2, y - 15, width, 30, active ? UI.uiAccent : UI.uiBorder, active);
       text(this, x, y, label, width < 90 ? 10 : 12).setOrigin(.5).setDepth(101);
@@ -114,12 +127,22 @@ export class RigReviewScene extends Phaser.Scene {
     };
     button('back', 'BACK', 43, 24, 70);
     const width = Math.min(150, (w - 28) / SUBJECTS.length);
-    SUBJECTS.forEach((s, i) => button(s.id, s.label, w / 2 + (i - 2.5) * width, 65, width - 5, s.id === this.subject));
-    const controls = [
+    SUBJECTS.forEach((s, i) => button(s.id, s.label, w / 2 + (i - (SUBJECTS.length-1)/2) * width, 65, width - 5, s.id === this.subject));
+    const building=this.subject==='warzone'||this.subject==='nexus'||this.subject==='turret';
+    const controls = this.subject==='warzone'?[
+      ['rotate',this.rotating?'Orbit: ON':'Orbit: PAUSED'],['fire',this.firing?'Firing: ON':'Firing: OFF'],
+      ['tower-health',this.towerHealth<0?'Towers: MIXED':`Towers: ${Math.round(this.towerHealth*100)}%`],
+      ['shield-health',`Shield: ${Math.round(this.shieldHealth*100)}%`],['nexus-health',`Nexus: ${Math.round(this.nexusHealth*100)}%`],
+      ['palette',`Clan: ${this.palette%2?'Crimson':'Azure'}`],
+    ]:building?[
+      ['rotate',this.rotating?'Rotation: ON':'Rotation: PAUSED'],['fire',this.firing?'Firing: ON':'Firing: OFF'],
+      ['tower-health',`Tower: ${Math.round((this.towerHealth<0?1:this.towerHealth)*100)}%`],['nexus-health',`Nexus: ${Math.round(this.nexusHealth*100)}%`],
+      ['palette',`Clan: ${this.palette%2?'Crimson':'Azure'}`],['mounts','Grounded rig'],
+    ]:[
       ['rotate', this.rotating ? 'Rotation: ON' : 'Rotation: PAUSED'],
       ['fire', this.firing ? 'Firing: ON' : 'Firing: OFF'],
       ['mounts', this.mounts ? 'Origins: ON' : 'Origins: OFF'],
-      ['palette', this.subject === 'nexus' || this.subject === 'turret' ? `Clan: ${this.palette % 2 ? 'Crimson' : 'Azure'}` : `Palette: ${this.palette + 1}`],
+      ['palette', `Palette: ${this.palette + 1}`],
       ['control', ['Level', 'Accelerate', 'Brake', 'Yaw left', 'Yaw right'][this.control]],
       ['turrets', `Deck turrets: ${this.equipped}`],
     ];
@@ -145,6 +168,10 @@ export class RigReviewScene extends Phaser.Scene {
     if (id === 'palette') { this.palette = (this.palette + 1) % 4; this.select(this.subject); return; }
     if (id === 'control') this.control = (this.control + 1) % 5;
     if (id === 'turrets') this.equipped = this.equipped === 4 ? 2 : this.equipped === 2 ? 0 : 4;
+    const next=(value:number,values:number[])=>values[(values.indexOf(value)+1)%values.length];
+    if(id==='tower-health')this.towerHealth=next(this.towerHealth,[-1,1,.55,.2,0]);
+    if(id==='shield-health')this.shieldHealth=next(this.shieldHealth,[1,.55,.2,0]);
+    if(id==='nexus-health')this.nexusHealth=next(this.nexusHealth,[1,.55,.2,0]);
     if (id.startsWith('angle')) { this.heading = (Number(id.slice(5)) - 1) * Math.PI / 2; this.rotating = false; }
     this.layout();
   }
@@ -158,6 +185,8 @@ export class RigReviewScene extends Phaser.Scene {
       profile: this.ship?.profile.shipId, modules: this.ship?.profile.modules.length ?? (this.subject === 'nexus' ? 3 : 5),
       shots: this.shotCount, heat: this.state.heat, projectiles: this.projectiles.length, settings: configVersion,
       buildingsReady: this.textures.exists(buildingKey('nexus-crown', 2)) && this.textures.exists(buildingKey('tower-barrel', 2)),
+      warzone:this.subject==='warzone'?{terrain:'scorched-basalt',towerHealth:this.towerHealth<0?[1,.55,.2,0,1,.55]:Array(6).fill(this.towerHealth),shield:this.shieldHealth,nexus:this.nexusHealth,broken:this.shieldHealth===0}:undefined,
+      damageArtReady:['tower-head-damaged','tower-wreck','nexus-reactor-damaged','nexus-crown-damaged'].every(name=>this.textures.exists(buildingKey(name,2))),
       buttons: this.buttons, network: 'isolated review' };
   }
 
@@ -172,7 +201,7 @@ export class RigReviewScene extends Phaser.Scene {
     if (this.rotating) this.heading += dt * Math.PI / 4;
     const x = w / 2, y = (92 + h - 122) / 2, area = Math.max(60, Math.min(w * .36, (h - 210) / 2));
     const control = this.control === 0 ? undefined : { thrust: this.control === 1 ? 1 : this.control === 2 ? -1 : 0, turn: this.control === 3 ? -1 : this.control === 4 ? 1 : 0, aim: NaN };
-    this.guides.clear(); this.buildings.begin(); this.combat.begin();
+    this.guides.clear();this.baseArt.clear(); this.buildings.begin(); this.combat.begin();
     let scale = 1;
     const project = (px: number, py: number): { x: number; y: number; scale: number } => ({ x: x + px * scale, y: y + py * scale, scale });
     if (this.ship) {
@@ -212,14 +241,27 @@ export class RigReviewScene extends Phaser.Scene {
           this.guides.lineBetween(q.x - 7, q.y, q.x + 7, q.y).lineBetween(q.x, q.y - 7, q.x, q.y + 7);
         }
       }
+    } else if(this.subject==='warzone') {
+      const layout=baseLayout('warzone',TUNE)!;layout.clan=this.palette%2?1:2;
+      const dx=Math.sin(this.heading)*95,dy=Math.cos(this.heading)*65;
+      const groundFrame=planetFrame(dx,dy,(this.heading+Math.PI/2)*180/Math.PI,lightingRadius(TUNE.world.width),sunState(TUNE.planet.sunAzimuthDeg,TUNE.planet.sunElevationDeg));
+      scale=Math.max(.04,Math.min((w-30)/(clientTune.render.planetRadius*2.2),(h-215)/(clientTune.render.planetRadius*2.2)));
+      this.warGround!.update(w,h,scale,groundFrame);
+      const projectGround=(wx:number,wy:number)=>{const p=projectOffset(wx-TUNE.world.width/2-dx,wy-TUNE.world.height/2-dy,clientTune.render.planetRadius);return {...p,x:w/2+p.x*scale,y:h/2+p.y*scale,scale:p.scale*scale};};
+      const towers=this.towerHealth<0?[1,.55,.2,0,1,.55]:Array(6).fill(this.towerHealth);
+      const fired=this.firing?Math.floor(now/450)*450:-1e9;
+      drawClanBase(this.baseArt,{layout,own:null,member:true,docked:false,now,tune:TUNE,project:projectGround,
+        aim:layout.turrets.map((_,i)=>this.heading+i*Math.PI/3),firedAt:towers.map(h=>h>0?fired:-1e9),rigs:this.buildings,
+        sun:groundFrame.sun,daylight:groundFrame.daylight,brightness:groundFrame.brightness,
+        siege:{towers,shield:this.shieldHealth,nexus:this.nexusHealth,broken:this.shieldHealth===0}});
     } else {
       scale = area / (this.subject === 'nexus' ? 185 : 82);
       const clan = this.palette % 2 ? 1 : 2, basis = this.heading + Math.PI / 2;
-      const pose = { id: 'review-building', at: { x, y: y + area * .28, scale, visible: true }, clan, now, basisAngle: basis, foreshorten: .8 };
+      const pose = { id: 'review-building', at: { x, y: y + area * .28, scale, visible: true }, clan, now, basisAngle: basis, foreshorten: .8,health:this.subject==='nexus'?this.nexusHealth:this.towerHealth<0?1:this.towerHealth };
       if (this.subject === 'nexus') this.buildings.drawTreasury(pose);
       else {
         const aim = this.heading + Math.sin(now / 2200) * .6;
-        if (this.firing && now - this.lastTurret > TUNE.turret.fireIntervalSteps * 1000 / TUNE.net.tickHz) {
+        if (pose.health>0&&this.firing && now - this.lastTurret > TUNE.turret.fireIntervalSteps * 1000 / TUNE.net.tickHz) {
           this.lastTurret = now; this.towerBarrel = 1 - this.towerBarrel;
           const lateral = this.towerBarrel === 0 ? -8 : 8;
           // The production tower's raised barrel tip, including its initial six-pixel kick.
@@ -237,6 +279,6 @@ export class RigReviewScene extends Phaser.Scene {
       this.combat.bullet(project(b.x, b.y), project(b.x - b.vx * .012, b.y - b.vy * .012), true, b.small, this.state.chassis === 2 ? 1 : 0);
     }
     this.projectiles = alive; this.buildings.end(); this.combat.end();
-    this.caption.setText(`${SUBJECTS.find(s => s.id === this.subject)!.label} · ${Math.round((this.heading * 180 / Math.PI + 450) % 360)}° · ${this.subject === 'nexus' ? 'No weapons' : this.subject === 'turret' ? 'Dual barrels · independent head aim' : 'Gold crosses = simulation gun origins'} · ${configVersion === 'bundled' ? 'Bundled settings' : 'Live settings'}`);
+    this.caption.setText(this.subject==='warzone'?`PREVIEW ONLY · Towers ${this.towerHealth<0?'healthy / damaged / critical / wreck':damageStage(this.towerHealth)} · Shield ${this.shieldHealth===0?'BROKEN':Math.round(this.shieldHealth*100)+'%'} · Nexus ${damageStage(this.nexusHealth)}\nTap health controls to cycle states · Orbit moves across the same anchored ground`:`${SUBJECTS.find(s => s.id === this.subject)!.label} · ${Math.round((this.heading * 180 / Math.PI + 450) % 360)}° · ${this.subject === 'nexus' ? 'No weapons · '+damageStage(this.nexusHealth) : this.subject === 'turret' ? 'Dual barrels · '+damageStage(this.towerHealth<0?1:this.towerHealth) : 'Gold crosses = simulation gun origins'} · ${configVersion === 'bundled' ? 'Bundled settings' : 'Live settings'}`);
   }
 }

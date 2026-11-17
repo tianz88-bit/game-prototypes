@@ -29,3 +29,7 @@ Inputs carry intent, never authoritative position, damage, inventory or arbitrar
 The original Falcon draft stage retains its Canvas reference FFD; production review uses the implemented per-part WebGL mesh with the sprite rig as fallback. Keep the approved calibration intact until a tested draft is deliberately published. Draft/public visitors cannot affect live data just by changing controls.
 
 Implementation references: [GitHub workflow OIDC claims](https://docs.github.com/en/actions/reference/security/oidc) and [transactional Durable Object storage](https://developers.cloudflare.com/durable-objects/best-practices/access-durable-objects-storage/).
+
+## Warzone art preview (local branch, pending approval)
+
+`?review=warzone` selects the new siege-art view on codex/steroids-warzone-art-review. It is currently local only. Cycle Towers (including mixed), Shield and Nexus through intact/damaged/critical/destroyed values; use clan/orbit controls to inspect ground anchoring and sunlight. Standalone Nexus/Tower views also expose health states. These controls never publish or send simulation data. Return to Falcon draft preserves calibration.

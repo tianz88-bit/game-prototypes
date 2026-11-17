@@ -1,29 +1,27 @@
 ## Current milestone
 
-Approved Battlecruiser and grounded-building updates are live. Itch version: 161126r0084. PR524 merged at eb17e0b12ebd6e6b5f66e7eb16332d1df5f06d26. Client43908175540, Worker43908175298 and Pages43908175290 all succeeded. Public Worker health reports protocol23. Game: https://daily-daily-games.itch.io/steroids-alpha . Lab: https://tianz88-bit.github.io/game-prototypes/prototypes/steroids-alpha-lab/?review=battlecruiser .
+Warzone art is ready for LOCAL owner review on codex/steroids-warzone-art-review. Nothing pushed, uploaded, merged or deployed. Existing live release remains PR524 / 161126r0084.
 
 ## What was implemented
 
-Nexus and tower layers connect with muted cylindrical supports and use independent clan material ramps. Foundations share the planet-fixed terrain coordinates. Contact shadows stay exactly at their roots; directional footprint shadows extend away from the sun through the same ground projection. Tower head/barrel lift is60/62. Planet spin still drives sunlight; travel still scrolls the ground. Idle rotation no longer slides terrain under buildings.
+Four painted damage parts from the approved overhead building kit: tower head, low destroyed tower wreck, Nexus reactor and crown. Existing clan-colour rigs now read optional normalized health, preserve foundations/supports/root shadows and restore intact parts after repair. Zero-health towers hide raised parts and firing flashes. Small durability strips and bounded square embers show damage. Shield strength changes projected panel coverage; broken removes the field. Flight observes current SiegeView without changing rules or values and replaces old ground crosses/ring. Nexus label reads existing health during siege.
 
-Battlecruiser-v3 has a transparent forked centre channel, two flush main guns on each side, no forward round glass details and stronger directional layer offsets. Bridge/four turret platforms remain:22 modules and10 source textures. Fixed Z,3% shading, vibration, recoil and control-only per-part FFD/fallback remain. Main cannon origins are forward81.07,right±38.7/±55.8. Other stats, shields, equipment and building footprints are unchanged by this pass.
+Warzone has distinct periodic charcoal basalt, ochre ash channels, sparse cooling fissures and warm atmospheric rim in the same production terrain shader, Canvas fallback and Stellar Map globe. Lab selector adds Warzone siege-art preview: mixed tower states, 100/55/20/0% controls, clan colours, camera travel/rotation-linked light and rooted shadows. Standalone tower/Nexus previews also offer health controls.
 
 ## Key technical decisions
 
-BuildingRigPose.projectGround projects cast-shadow vertices from the shared foundation. Column textures are cached per clan; column/cast objects participate in existing hide/destroy lifecycle. A bounded convex hull avoids overlapping shadow fills. Building colours are independent of pilot palettes. PlanetFrame.camera uses travel only; sun longitude uses travel plus planet rotation.
+Optional BuildingRigPose.health / ClanBaseArtOptions.siege are visual-only normalized state; no network, tune, collision or simulation changes. New damage textures use existing registration and runtime clan remapping. One bounded Graphics pass supplies status/embers; no permanent emitter or publisher. PlanetGround fourth argument selects warzone material. Review remains isolated from multiplayer and preserves the Falcon draft on return.
 
-Exact R2 ZIP and all10 part hashes verified publicly before merge: bc03dc5acab672424b5dffa23918500e3cba72c288e66b03b3085a0fd37af80a. No PNG/ZIP in Git. Existing rig CI entry point runs the new building/mount regression; workflow files and access scopes were not changed. Main PR521/522/523 Sparrow6shots/s/90%capacity, siege/bot/pod changes and playable Warzone/protocol23 were preserved. Sparrow hangar ammo caption now derives from tuning.
-
-Typecheck/build, sim/live-config/rig and building suites pass. New regression covers18 sun/root/material/mount cases. Public headless desktop/mobile flight fixtures check all7 building roots, column endpoints and contact shadows across four spins (8 cases). Public lab checks all five requested models/rotation/firing/return (10 cases). Public itch verifies version84, the22-module v3 profile and all four cannon recoil sides. No console/page errors, screenshots or recordings. Evidence: outputs/steroids-alpha/grounded-capital-review/{r2-verification.json,live-game.json,public-flight-grounding.json,public-lab-result.json}. Render fixtures disconnect before staging state; altered fixture stats never reach a server.
+Four PNG masters/ZIP remain local outside Git; manifest/source hashes are in art/warzone-v1. Local ZIP cache hash1b3de05ac10cdd5c882eda299dbf3c89ea0f99d641114c6ec36279f808ca10c5. Public R2 URL intentionally absent pending owner approval. Asset staging verifies all four sources. Typecheck/build and 396-pose/14400-FFD-point/18-building-case regression suite pass, with new durability/coverage tests. Headless Brave desktop/mobile DPR2 lab state/collapse/repair/clan/return checks pass with zero browser errors/game sockets. Evidence: outputs/steroids-alpha/warzone-art-review/lab-check.json. No screenshots or recording.
 
 ## Open questions
 
-None for this approved release. Claude's further Warzone damage/shield/Nexus-health/globe art request is a follow-up, not part of this release.
+Owner visual review of damage density, shield coverage and Warzone palette before live release.
 
 ## Known issues
 
-Mobile evidence is browser emulation, not a physical phone/Safari test. Data/source-alpha checks do not replace the owner's visual approval; the owner approved the interactive preview. Existing unrelated bundle warnings remain.
+Preview is local to this PC; not on the public lab. New art needs approved R2 upload/readback before any deploy from a fresh machine. Headless checks verify state/geometry/lifecycle, not visual appearance; no physical-phone/Safari check. Existing unrelated bundle warnings remain.
 
 ## Next proposed step
 
-Playtest the public build and collect owner feedback before more tuning. Claude receives final PR/run/public-proof details in Agent Comms threade31061e9-e8e1-4105-858a-2f847541014a. Temporary local preview is stopped after release; no private publisher or capture/recording service runs.
+Owner checks http://127.0.0.1:4187/game-prototypes/prototypes/steroids-alpha-lab/?review=warzone and standalone Nexus/Tower tabs. Keep Vite preview running for that review. After approval only: verified R2 upload, manifest URL/status update, release PR/checks and public verification. No resident private publisher or capture session runs.

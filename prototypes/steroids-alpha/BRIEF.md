@@ -828,3 +828,7 @@ The former Treasury is named Nexus in player-facing text; internal wire/storage 
 Nexus/tower layers connect with muted cylindrical supports. All building enamel, trim and lights use dedicated clan ramps, independent of pilot palettes. Foundations and terrain share planet-fixed coordinates; remove spin-only texture scrolling beneath static objects, preserving travel scrolling and spin/travel sunlight. Contact shadow stays at the root; directional shadow extends from the root through the common ground projection. Tower head/barrels lift60/62 world units for a visible supported column; no footprint/rule changes.
 
 Battlecruiser: two flush forward guns per side and a transparent open central bow channel, no two forward round glass details, stronger cardinal layer offsets. Four turret platforms and the rear bridge remain. Main cannon origins move with the approved design; weapon stats/shields/equipment stay unchanged. Local interactive review first, no recordings or computer-use visual checks; owner inspects the links manually.
+
+## Warzone art review (owner, 17 November 2026)
+
+Add painted damaged/destroyed towers, shield-strength coverage, Nexus health cues and a distinct charcoal/ochre Warzone planet material. Reuse production clan-colour building rigs, root-anchored shadows and authoritative siege durability. Expose independent health presets and mixed tower states in the permanent lab's isolated review scene. Preview locally for owner inspection before any live release. No simulation/tune/wire changes.

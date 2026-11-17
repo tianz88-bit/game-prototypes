@@ -1,23 +1,23 @@
 ## Current milestone
 
-Production ship/building selector is live. Open https://tianz88-bit.github.io/game-prototypes/prototypes/steroids-alpha-lab/?review=sparrow . PR519 merged82868368; Pages43892666498 succeeded.
+Local Warzone art review added; pending owner visual approval. Public lab unchanged.
 
 ## What was implemented
 
-Ship / building dropdown above the preview offers Sparrow, Bat, Battlecruiser, Nexus, tower turrets and Falcon live rigs. Embedded production renderer has rotation, firing, headings, palettes/clans, control tilt and gun-origin markers. The original Falcon draft calibration editor remains available as the first choice. Existing hosted owner publishing is unchanged.
+Ship / building selector adds Warzone siege-art preview through the production review scene. Mixed intact/damaged/critical/wreck towers, shield coverage and Nexus health can be cycled independently. Clan colours and moving ground/lighting inspect the same rooted building rigs. Standalone Nexus/tower tabs allow larger damage review.
 
 ## Key technical decisions
 
-Production review reads live settings once and never connects a game room, grants equipment or publishes. Calibration loop sleeps and its editor is hidden during review. One frame is reused across subjects, then unmounted on return; draft values are preserved. Checked same-origin parent messages choose only allowlisted subjects or exit. Direct ?review=<subject> links open the selected model.
+Reuse the existing isolated iframe and same-origin allowlist. Calibration loop sleeps during review; return preserves the browser draft and unmounts the frame. No gameplay socket, grant, account write or publishing action. Damage assets remain local/hash-verified, with publication withheld.
 
 ## Open questions
 
-Owner visual review. Screen capture and recording were explicitly stopped by the owner; none were used for this task.
+Owner visual approval of the Warzone art.
 
 ## Known issues
 
-Other ship/building selections are production reviews, not editable per-profile calibration drafts. Public desktop/mobile checks are browser emulation, not physical-phone evidence. Hosted sign-in/publish was not exercised in this task.
+Only the local port4187 preview includes this addition. Desktop/mobile DPR2 Brave state/lifecycle checks pass; no screenshots, recordings or physical-phone visual test. Hosted publishing was not exercised.
 
 ## Next proposed step
 
-Use the selector to inspect production rigs and mount origins, then return to Falcon draft calibration for existing tuning/publishing. Collect owner feedback before further rig changes. No resident local publisher or temporary QA service runs.
+Review http://127.0.0.1:4187/game-prototypes/prototypes/steroids-alpha-lab/?review=warzone . Cycle tower/shield/Nexus states and inspect standalone tabs. Approve or request changes before public deployment.

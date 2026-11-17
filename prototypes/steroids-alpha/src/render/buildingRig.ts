@@ -1,18 +1,21 @@
 import Phaser from 'phaser';
 import manifest from '../../art/buildings-v1/assets.json';
+import damageManifest from '../../art/warzone-v1/assets.json';
+import { damageStage, durability } from './buildingCondition';
 import { clanArtColours, colourCss, remapBuildingPixels } from './buildingMaterials';
 import { buildingPoint, buildingShadowPolygon, TOWER_BARREL_LIFT, TOWER_HEAD_LIFT } from './buildingGeometry';
 import type { BuildingRigPose } from './buildingGeometry';
 export type { BuildingAt, BuildingRigPose } from './buildingGeometry';
 
 const sourceKey=(name:string)=>`building-src-${name}`;
+const assets=[...manifest.assets,...damageManifest.assets];
 export const buildingKey=(name:string,clan:number)=>`building-${name}-${clan===1?1:2}`;
 export function queueBuildingArt(scene:Phaser.Scene):void {
-  for(const a of manifest.assets)scene.load.image(sourceKey(a.name),`assets/loose/building-${a.name}.png`);
+  for(const a of assets)scene.load.image(sourceKey(a.name),`assets/loose/building-${a.name}.png`);
 }
 /** One shared texture per part/clan. Full source registration is preserved in the source pack. */
 export function prepareBuildingArt(scene:Phaser.Scene):void {
-  for(const a of manifest.assets){
+  for(const a of assets){
     if(!scene.textures.exists(sourceKey(a.name)))continue;
     const src=scene.textures.get(sourceKey(a.name)).getSourceImage() as HTMLImageElement;
     for(const clan of [1,2]){
@@ -105,17 +108,53 @@ export class BuildingRigs {
     image.setPosition((a.x+b.x)/2,(a.y+b.y)/2).setRotation(Math.atan2(b.y-a.y,b.x-a.x)+Math.PI/2)
       .setScale(width*p.at.scale/90,length/140).setTint(shade(p.brightness??1));
   }
+  private skin(image:Phaser.GameObjects.Image,name:string,p:BuildingRigPose):void {
+    const key=buildingKey(name,p.clan);
+    if(this.scene.textures.exists(key)&&image.texture.key!==key)image.setTexture(key,'body');
+  }
+  private condition(p:BuildingRigPose,width:number,lift:number):void {
+    if(p.health===undefined)return;
+    const h=durability(p.health),stage=damageStage(h),k=p.at.scale,g=this.flashes;
+    const q=this.point(p,0),y=q.y+width*.64*k,step=width*k/10;
+    g.fillStyle(0x091420,.82);g.fillRoundedRect(q.x-width*k/2-3*k,y-3*k,width*k+6*k,7*k,2*k);
+    for(let i=0;i<10;i++){
+      const fill=Math.max(0,Math.min(1,h*10-i));
+      g.fillStyle(0x586374,.4);g.fillRect(q.x-width*k/2+i*step,y,step-k,2*k);
+      if(fill>0){g.fillStyle(h<.3?0xff8872:h<.65?0xffc17a:clanArtColours(p.clan).glow,.9);g.fillRect(q.x-width*k/2+i*step,y,(step-k)*fill,2*k);}
+    }
+    if(stage==='healthy'||stage==='destroyed')return;
+    const root=this.point(p,lift),count=stage==='critical'?5:2;
+    // Bounded, deterministic square embers/soot: no emitters or per-frame game objects.
+    for(let i=0;i<count;i++){
+      const phase=((p.now/1600+i*.237)%1),dx=Math.sin(i*4.7)*width*.19*k;
+      g.fillStyle(i%2?0x222735:0xffb87d,(1-phase)*(stage==='critical'?.55:.3));
+      const size=(i%2?5:2)*k;g.fillRect(root.x+dx+phase*7*k,root.y-phase*24*k,size,size*(i%2?1:2));
+    }
+  }
   drawTreasury(p:BuildingRigPose):BuildingRigBounds|null {
     const view=this.view(p,'nexus');if(!view)return null;
+    const stage=damageStage(p.health),damaged=stage!=='healthy';
+    this.skin(view.parts[1],damaged?'nexus-reactor-damaged':'nexus-reactor',p);
+    this.skin(view.parts[2],damaged?'nexus-crown-damaged':'nexus-crown',p);
     this.shadow(view,p,265,190,100);
     this.column(view.columns[0],p,0,45,160);this.column(view.columns[1],p,45,100,92);
     this.part(view.parts[0],p,260,0,.91);
     this.part(view.parts[1],p,190,45,.97);
     this.part(view.parts[2],p,180,100,1);
+    if(stage==='destroyed'){view.parts[1].setTint(shade(.38*(p.brightness??1)));view.parts[2].setTint(shade(.32*(p.brightness??1)));}
+    this.condition(p,140,100);
     const k=p.at.scale;return{top:p.at.y-205*k,bottom:p.at.y+140*k,left:p.at.x-130*k,right:p.at.x+130*k,labelY:p.at.y+158*k};
   }
   drawTurret(p:TurretRigPose):boolean {
     const view=this.view(p,'turret');if(!view)return false;
+    const stage=damageStage(p.health);
+    this.skin(view.parts[0],stage==='destroyed'?'tower-wreck':'tower-foundation',p);
+    this.skin(view.parts[2],stage==='healthy'?'tower-head':'tower-head-damaged',p);
+    if(stage==='destroyed'){
+      this.shadow(view,p,63,46,8);this.part(view.parts[0],p,55,0,.85);
+      view.parts.slice(1).forEach(part=>part.setVisible(false));view.columns.forEach(part=>part.setVisible(false));
+      view.lastShot=p.firedAt;this.condition(p,46,0);return true;
+    }
     this.shadow(view,p,63,46,TOWER_BARREL_LIFT);
     this.column(view.columns[0],p,0,20,19);this.column(view.columns[1],p,20,TOWER_HEAD_LIFT,20);
     this.part(view.parts[0],p,44,0,.91);
@@ -137,7 +176,7 @@ export class BuildingRigs {
         g.fillStyle(0xf1ffeb,1-age/85);g.fillCircle(q.x+c*3*k,q.y+s*3*k,3*k);
       }
     }
-    return true;
+    this.condition(p,46,TOWER_HEAD_LIFT);return true;
   }
   end():void {for(const view of this.views.values())if(!view.used){view.shadow.setVisible(false);view.cast.setVisible(false);view.parts.forEach(part=>part.setVisible(false));view.columns.forEach(part=>part.setVisible(false));}}
   private dispose(view:BuildingView):void {view.shadow.destroy();view.cast.destroy();view.parts.forEach(part=>part.destroy());view.columns.forEach(part=>part.destroy());}
