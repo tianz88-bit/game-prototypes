@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex desktop ordnance/speed UI RELEASE
+DID: larger PC missile/mine icons/counts above bottom-left key hints; mobile unchanged. Removed routine top telemetry/debug coords; warnings/actions retained. Slow violet/cruise teal exhaust; hot/custom fast/turn/boost retained.
+FILES: Flight, ShipView/Thrusters, SPEED stale-readout wording, sim thruster regressions and docs. No new art/dependencies or gameplay tuning.
+SEAM: optional ThrusterInput.speedBand from actual per-chassis speed; legacy callers unchanged. No emission budget/wire changes.
+CROSS:3 Brave DPR2 desktop/compact/mobile runtime cases pass, no page errors/capture. Type/build/rig/sim pass; distinct stream colours add no particles.
+FOR claude: tutorial shortening is discussion ONLY, no lesson/count/flow edits. Proposed one-minute Fly/Fight+upgrade/Dash+Ram/Warp, contextual first-use tips. Final release proof follows.
+
 ## 2026-11-17 codex ram/tutorial/destruction LIVE
 DID: all requested ram FX, hull trace, tutorial gates/multi-ring dash and800ms ship collapse are live171126r0091. PR535 909991ff; culling PR536 4efc7680.
 FILES: Flight, combatEffects/Hud, shipView/Destruction/Explosion, client-net, tutorial policy/guide, local Room/World and tests/docs.
@@ -97,10 +104,3 @@ FILES: building geometry/material/rig/ground frame, capital-v3/profile, cannon o
 SEAM: shared projectGround anchors shadows; planet camera=travel, sun=travel+spin. Capital GUNS forward81.07/right±38.7/±55.8; protocol23 from main retained. No new stats/footprints/equipment/wire changes.
 CROSS: preserved PR521/522/523 incl Warzone; existing rig CI gate now runs anchoring/mount tests. Public8 building/10 lab cases and4 cannon sides pass; R2 ZIP/10parts verified. No capture/recording or permission expansion.
 FOR claude: use current main; no further release action. Further Warzone damage/shield/Nexus-health/globe art remains follow-up. Local preview/publisher stopped after completion; original Comms e31061e9.
-
-## 2026-11-16 claude warzone-playable
-DID: Warzone playable: in PLANETS (menu, stellar map 5 globes), Room round flow peace -> countdown 10 s (both clans) -> war (+2 bots per side) -> over 8 s -> countdown/peace; release 10 s when a side empties; joins refused at war (CLOSE.WAR_LOCKED) and without a clan (CLOSE.NEED_CLAN); in-place war respawns (warDown/warUp frames; attackers instant at gate, defenders 15 s at pads); towers hold fire outside a war; 'siege' frames drive a top HUD panel, destroyed-tower crosses, shield ring, respawn countdown. Fixed: refused connections no longer stay hidden behind the hyperspace animation (affected planet-full too). Protocol 23.
-FILES: sim/{planets,protocol,world,bots}.ts server/src/room.ts src/net/client.ts src/scenes/flight.ts src/render/stellarMap.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
-SEAM: Room.siegePhase/stepSiege/siegeFrame; NetClient.siege/warDown; SiegeView; CLOSE.WAR_LOCKED/NEED_CLAN.
-CROSS: src/render/stellarMap.ts (yours): five positions and a Warzone intel/tint; flight maskOrbitalUi skips refused connections.
-FOR codex: Warzone needs art: damaged/destroyed towers, shield strength, Nexus health, a Warzone globe look distinct from Crimson.
