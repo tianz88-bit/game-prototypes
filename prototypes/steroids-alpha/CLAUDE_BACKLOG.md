@@ -2,6 +2,18 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Drift research findings — discussion only
+
+Owner asked whether precision causes perfect tailing/circling and requested headless tests. No drift implementation or live/lab change was requested/approved. Existing easier candidate stays intact. See steroids-alpha-lab/drift-findings.json for portable aggregate evidence; full reproducible in-memory build/scenario artifacts are outputs/steroids-alpha/drift-experiment/.
+
+- Tested travel-heading lag tau0/.10/.22/.45s, plus light capped15° with stronger brake/dash grip. Scalar speed, nose aim, weapons and turning band held fixed; both pilots share each profile. Zero variant matches the canonical lab ship states exactly. Corrected assist target velocity to actual travel direction in experimental bundles. Source transformations existed in memory only, never production files.
+- 320 deterministic duel runs:80 base scenarios,192 timing-sensitivity runs and48 bounded runs. Reaction0 and.3s, guns off/on. Falcon combat comparisons, all4 chassis slip checks. Ten headless Brave runtime cases (five profiles at PC1280x720 and mobile568x320 DPR2) use real lab rigs/terrain; zero JS errors/game sockets/writes/captures. No resident browser/server remains.
+- Falcon peak slip after a1s turn:15.45° light,36.96° medium,70.87° heavy; after release, return to within5° takes.13/.47/1.20s. Bat heavy reaches120.49°. Heavy drift therefore makes precise course changes much less direct.
+- Light drift helped the instant-reacting pursuer's circle-break test: mean longest non-aligned interval.64→2.86s over six timings. With the current.3s reaction opponent, the same measure worsened5.30→3.77s. Current-opponent simple-weave nose alignment rose17.6% no-drift→92.0% heavy. These are geometric opportunities, not hit-rate or human-fun claims.
+- Perfect delayed control replay still follows exactly with every tau; mirrored inputs stayed symmetric. Added drift cannot automatically produce a winner. Bounded light drift limited Bat/Falcon slip but did not consistently improve the tested gun-on outcomes.
+
+Conclusion: do not implement blanket floatiness as the solution. A further speed-dependent grip/committed-turn hypothesis may be discussed, keeping nose aiming responsive; this is not an approved next feature. Owner playtest and explicit live approval still required. No immediate Claude action.
+
 ## Awaiting owner playtest: easier duel controls
 
 Owner said BOTH manoeuvres/controls were almost impossible. This supersedes the previous candidate's precise cruise point and throttle coupling. PUBLIC LAB UPDATE VERIFIED. PR551 mergeb7ed4f4d071025e8a62c9937737d629fbaec49d2; Pages44064727969 succeeded.3 local+3 public targeted control cases and6 local+6 public general duel layouts pass. No page errors/game sockets/writes/captures. Live itch/Worker deploys were not triggered; combat stays171126r0098/protocol25. Live combat remains171126r0098 / protocol25; no immediate Claude execution/review.

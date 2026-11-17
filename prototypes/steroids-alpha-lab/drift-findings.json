@@ -1,0 +1,447 @@
+{
+  "date": "2026-11-17",
+  "scope": "Discussion/research only. No lab/live handling change approved or applied.",
+  "method": {
+    "motion": "Scalar speed held at existing commanded value; travel heading exponentially approaches nose heading. Nose/aim/weapon damage/turning band remain unchanged. Aim-assist target velocities use actual travel heading.",
+    "equation": "travel += wrapAngle(nose - travel) * (1 - exp(-dt/tau))",
+    "profilesSeconds": [
+      0,
+      0.1,
+      0.22,
+      0.45
+    ],
+    "bounded": {
+      "tau": 0.1,
+      "maxSlipDeg": 15,
+      "brakeDashTau": 0.03
+    },
+    "comparison": "Same controls/starts, both pilots receive same profile. Opponent reaction 0 or .3 seconds, guns off and on, six Dash/turn timing variants.",
+    "limitations": [
+      "Deterministic scripted controllers, including continuous player aim; not human execution or fun.",
+      "Falcon duel outcomes; all four chassis checked for slip.",
+      "Travel-direction lag only, not angular-velocity inertia or full Newtonian acceleration.",
+      "No online prediction, latency or physical-device testing."
+    ]
+  },
+  "counts": {
+    "coreDuelRuns": 80,
+    "sensitivityDuelRuns": 192,
+    "boundedDuelRuns": 48,
+    "totalDuelRuns": 320,
+    "headlessBraveCases": 10
+  },
+  "metrics": {
+    "enemyConePct": "Percentage of evaluated frames with pursuer nose within 0.18 rad of the evader and range below600. Potential alignment, not hit rate.",
+    "maxClearAvg": "Mean longest consecutive interval outside that cone across six timings, in no-fire runs.",
+    "playerGunWindowAvg": "Mean total player nose-on opportunity across six timings, in no-fire runs.",
+    "survived": "Count among six scripted gun-on runs; descriptive only, not population win-rate evidence."
+  },
+  "falconTurnResponses": [
+    {
+      "tau": 0,
+      "peakSlipDeg": 0,
+      "settleTo5DegSeconds": 0.03333333333333333
+    },
+    {
+      "tau": 0.1,
+      "peakSlipDeg": 15.447624905781238,
+      "settleTo5DegSeconds": 0.13333333333333333
+    },
+    {
+      "tau": 0.22,
+      "peakSlipDeg": 36.96102662916326,
+      "settleTo5DegSeconds": 0.4666666666666667
+    },
+    {
+      "tau": 0.45,
+      "peakSlipDeg": 70.87392644227421,
+      "settleTo5DegSeconds": 1.2
+    }
+  ],
+  "deterministicReplay": [
+    {
+      "tau": 0,
+      "delayedReplayMaxPathError": 0
+    },
+    {
+      "tau": 0.1,
+      "delayedReplayMaxPathError": 0
+    },
+    {
+      "tau": 0.22,
+      "delayedReplayMaxPathError": 0
+    },
+    {
+      "tau": 0.45,
+      "delayedReplayMaxPathError": 0
+    }
+  ],
+  "allChassisSlip": [
+    {
+      "tau": 0,
+      "chassis": 0,
+      "peakSlipDeg": 0
+    },
+    {
+      "tau": 0,
+      "chassis": 1,
+      "peakSlipDeg": 0
+    },
+    {
+      "tau": 0,
+      "chassis": 2,
+      "peakSlipDeg": 0
+    },
+    {
+      "tau": 0,
+      "chassis": 3,
+      "peakSlipDeg": 0
+    },
+    {
+      "tau": 0.1,
+      "chassis": 0,
+      "peakSlipDeg": 15.447624905781238
+    },
+    {
+      "tau": 0.1,
+      "chassis": 1,
+      "peakSlipDeg": 26.260962339828357
+    },
+    {
+      "tau": 0.1,
+      "chassis": 2,
+      "peakSlipDeg": 8.496193698179859
+    },
+    {
+      "tau": 0.1,
+      "chassis": 3,
+      "peakSlipDeg": 15.447624905781238
+    },
+    {
+      "tau": 0.22,
+      "chassis": 0,
+      "peakSlipDeg": 36.96102662916326
+    },
+    {
+      "tau": 0.22,
+      "chassis": 1,
+      "peakSlipDeg": 62.83374526957815
+    },
+    {
+      "tau": 0.22,
+      "chassis": 2,
+      "peakSlipDeg": 20.3285646460402
+    },
+    {
+      "tau": 0.22,
+      "chassis": 3,
+      "peakSlipDeg": 36.96102662916326
+    },
+    {
+      "tau": 0.45,
+      "chassis": 0,
+      "peakSlipDeg": 70.87392644227421
+    },
+    {
+      "tau": 0.45,
+      "chassis": 1,
+      "peakSlipDeg": 120.48567495186708
+    },
+    {
+      "tau": 0.45,
+      "chassis": 2,
+      "peakSlipDeg": 38.98065954325157
+    },
+    {
+      "tau": 0.45,
+      "chassis": 3,
+      "peakSlipDeg": 70.87392644227421
+    }
+  ],
+  "matchedTimingGroups": [
+    {
+      "tau": 0,
+      "reaction": 0,
+      "name": "aim-back-dash",
+      "enemyConePct": 95.73799468395123,
+      "maxClearAvg": 0.13333333333333333,
+      "playerGunWindowAvg": 1.4833333333333345,
+      "survived": 0,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 3.7333333333333303
+    },
+    {
+      "tau": 0,
+      "reaction": 0,
+      "name": "circle-break",
+      "enemyConePct": 92.37918215613382,
+      "maxClearAvg": 0.6388888888888888,
+      "playerGunWindowAvg": 0,
+      "survived": 0,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 6.038888888888877
+    },
+    {
+      "tau": 0,
+      "reaction": 0.3,
+      "name": "aim-back-dash",
+      "enemyConePct": 47.84430467840989,
+      "maxClearAvg": 3.7277777777777743,
+      "playerGunWindowAvg": 3.822222222222219,
+      "survived": 2,
+      "won": 2,
+      "total": 6,
+      "aliveSeconds": 8.049999999999981
+    },
+    {
+      "tau": 0,
+      "reaction": 0.3,
+      "name": "circle-break",
+      "enemyConePct": 33.76703841387856,
+      "maxClearAvg": 5.299999999999991,
+      "playerGunWindowAvg": 0,
+      "survived": 1,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 10.583333333333307
+    },
+    {
+      "tau": 0.1,
+      "reaction": 0,
+      "name": "aim-back-dash",
+      "enemyConePct": 83.3453136386377,
+      "maxClearAvg": 0.5833333333333334,
+      "playerGunWindowAvg": 2.4944444444444436,
+      "survived": 0,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 4.4555555555555495
+    },
+    {
+      "tau": 0.1,
+      "reaction": 0,
+      "name": "circle-break",
+      "enemyConePct": 62.08178438661711,
+      "maxClearAvg": 2.8611111111111076,
+      "playerGunWindowAvg": 0,
+      "survived": 1,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 8.833333333333313
+    },
+    {
+      "tau": 0.1,
+      "reaction": 0.3,
+      "name": "aim-back-dash",
+      "enemyConePct": 44.69948655380441,
+      "maxClearAvg": 2.8166666666666664,
+      "playerGunWindowAvg": 3.9222222222222185,
+      "survived": 1,
+      "won": 1,
+      "total": 6,
+      "aliveSeconds": 7.722222222222204
+    },
+    {
+      "tau": 0.1,
+      "reaction": 0.3,
+      "name": "circle-break",
+      "enemyConePct": 50.185873605947954,
+      "maxClearAvg": 3.7666666666666626,
+      "playerGunWindowAvg": 0,
+      "survived": 1,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 9.483333333333311
+    },
+    {
+      "tau": 0.22,
+      "reaction": 0,
+      "name": "aim-back-dash",
+      "enemyConePct": 83.21744676877806,
+      "maxClearAvg": 1.3611111111111118,
+      "playerGunWindowAvg": 4.272222222222217,
+      "survived": 0,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 6.099999999999988
+    },
+    {
+      "tau": 0.22,
+      "reaction": 0,
+      "name": "circle-break",
+      "enemyConePct": 94.54770755885998,
+      "maxClearAvg": 0.4666666666666666,
+      "playerGunWindowAvg": 0,
+      "survived": 0,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 5.9388888888888784
+    },
+    {
+      "tau": 0.22,
+      "reaction": 0.3,
+      "name": "aim-back-dash",
+      "enemyConePct": 37.79241563461835,
+      "maxClearAvg": 2.8388888888888886,
+      "playerGunWindowAvg": 3.7333333333333303,
+      "survived": 0,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 7.622222222222206
+    },
+    {
+      "tau": 0.22,
+      "reaction": 0.3,
+      "name": "circle-break",
+      "enemyConePct": 83.08550185873605,
+      "maxClearAvg": 0.9111111111111111,
+      "playerGunWindowAvg": 0,
+      "survived": 0,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 7.272222222222207
+    },
+    {
+      "tau": 0.45,
+      "reaction": 0,
+      "name": "aim-back-dash",
+      "enemyConePct": 59.746251441753174,
+      "maxClearAvg": 1.2111111111111115,
+      "playerGunWindowAvg": 2.6277777777777778,
+      "survived": 0,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 5.394444444444435
+    },
+    {
+      "tau": 0.45,
+      "reaction": 0,
+      "name": "circle-break",
+      "enemyConePct": 100,
+      "maxClearAvg": 0,
+      "playerGunWindowAvg": 0,
+      "survived": 0,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 4.327777777777771
+    },
+    {
+      "tau": 0.45,
+      "reaction": 0.3,
+      "name": "aim-back-dash",
+      "enemyConePct": 6.228373702422144,
+      "maxClearAvg": 5.622222222222212,
+      "playerGunWindowAvg": 4.8388888888888815,
+      "survived": 6,
+      "won": 6,
+      "total": 6,
+      "aliveSeconds": 9.938888888888863
+    },
+    {
+      "tau": 0.45,
+      "reaction": 0.3,
+      "name": "circle-break",
+      "enemyConePct": 70.50805452292441,
+      "maxClearAvg": 1.6222222222222238,
+      "playerGunWindowAvg": 0.09999999999999999,
+      "survived": 0,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 7.861111111111094
+    }
+  ],
+  "boundedTimingGroups": [
+    {
+      "tau": 0.1,
+      "reaction": 0,
+      "name": "aim-back-dash",
+      "enemyConePct": 82.80833254291429,
+      "maxClearAvg": 0.6,
+      "playerGunWindowAvg": 2.1111111111111107,
+      "survived": 0,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 4.466666666666661
+    },
+    {
+      "tau": 0.1,
+      "reaction": 0,
+      "name": "circle-break",
+      "enemyConePct": 69.51672862453533,
+      "maxClearAvg": 2.1944444444444433,
+      "playerGunWindowAvg": 0,
+      "survived": 0,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 8.183333333333314
+    },
+    {
+      "tau": 0.1,
+      "reaction": 0.3,
+      "name": "aim-back-dash",
+      "enemyConePct": 43.514788848756865,
+      "maxClearAvg": 3.049999999999999,
+      "playerGunWindowAvg": 3.8888888888888853,
+      "survived": 0,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 7.794444444444427
+    },
+    {
+      "tau": 0.1,
+      "reaction": 0.3,
+      "name": "circle-break",
+      "enemyConePct": 53.0359355638166,
+      "maxClearAvg": 3.5111111111111075,
+      "playerGunWindowAvg": 0,
+      "survived": 0,
+      "won": 0,
+      "total": 6,
+      "aliveSeconds": 9.272222222222199
+    }
+  ],
+  "headless": {
+    "cases": 10,
+    "errors": [],
+    "sockets": [],
+    "writes": [],
+    "capture": false,
+    "layouts": [
+      {
+        "width": 1280,
+        "height": 720,
+        "dpr": 2
+      },
+      {
+        "width": 568,
+        "height": 320,
+        "dpr": 2
+      }
+    ]
+  },
+  "conclusion": "Light drift can disrupt instant-reacting pursuit in some moves, but did not reliably improve current delayed-opponent duels. It smooths the evader as well; heavy drift often makes weaving/circle breaks worse. Symmetric matched circles and exact delayed path replay remain possible. Capped light drift improved predictability but not the tested outcomes consistently. Do not ship blanket floatiness as an escape/counterplay fix.",
+  "boundedChassisSlip": [
+    {
+      "tau": 0.1,
+      "chassis": 0,
+      "peakSlipDeg": 14.999999999999982
+    },
+    {
+      "tau": 0.1,
+      "chassis": 1,
+      "peakSlipDeg": 14.999999999999982
+    },
+    {
+      "tau": 0.1,
+      "chassis": 2,
+      "peakSlipDeg": 8.496193698179859
+    },
+    {
+      "tau": 0.1,
+      "chassis": 3,
+      "peakSlipDeg": 14.999999999999982
+    }
+  ]
+}
