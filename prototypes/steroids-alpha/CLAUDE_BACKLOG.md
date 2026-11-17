@@ -4,13 +4,13 @@ Owner direction,17 November2026: Codex completes and deploys the approved work. 
 
 ## Ready for later sync: HUD space, ram force and objective arrows
 
-Status: implemented by Codex for the owner-approved live release; BUILD_STATUS.md/HANDOFF.md carry deployment proof. No immediate Claude execution/review is requested.
+Status: LIVE171126r0097. PR544 merge864906e6edcd45d06d270c19f417d41f91847aa6; narrow objective-text follow-up PR545 ea2d987536f0db3b1790038d1277c9cfc2fbabe0. Final itch44041634549/Pages44041634523 succeeded; existing Worker protocol25 healthy. No immediate Claude execution/review is requested.
 
 - PC and mobile share hudLayout header/control/objective/hint/notice geometry. PC B/click toggles the collapsed shop,1–6 still quick-buy, Tab expands rankings, H peeks key help. Existing mobilePanel state is reused on PC. MIN/Lv are persistent; bankable salvage and home fuel stay distinct; hull numbers live in the shop.
 - Mobile counts moved inside their ordnance buttons. Fire/Dash sizes/hit factors are retained; compact/tall layout and row budgets keep secondary panels out of combat hitboxes. PC top3 plus pinned own row; mobile Stats stays in a drawer.
 - Warzone role/objectives are separate from priority warnings. Incoming missile > critical hull > overheat > friendly-shield fire block; hints yield. Client manual-fire prediction now matches the existing server shield restriction. No gameplay rule, wire or tuning change.
 - Ram chevron replaced by curved pressure/fire ribbons and swept fragments; larger impact crash, no extra emitter/timer. GuideView.targets passes UI anchors; TutorialGuide.objectiveArrows exposes active world/UI arrows. All four tutorial stages remain unchanged.
-- Evidence: seven UI layouts plus three full arrow/ram/extraction routes in outputs/steroids-alpha/hud-space-ram-objectives/. Type/build/rig/sim/config and new CI geometry/VFX checks pass. No captures or public-room fixture writes. Public proof follows.
+- Evidence: seven local+seven public UI layouts plus three local+three public arrow/ram/extraction routes, and two local+two final-public narrow-panel cases in outputs/steroids-alpha/hud-space-ram-objectives/. Type/build/rig/sim/config and new CI geometry/VFX checks pass. Zero page errors; no captures/public-room fixture writes. Temporary preview stopped. BUILD_STATUS/HANDOFF retain details.
 
 Later sync: consult these seams before changing Flight/header/control positions. No duplicate implementation is needed; review or tuning should follow owner feedback only.
 ## Ready for later sync: four-step tutorial and contextual tips

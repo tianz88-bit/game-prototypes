@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex HUD/ram/objective arrows LIVE
+DID: HUD reorganisation, pressure-bow ram/crash and every tutorial objective arrow live171126r0097. PR544 864906e6; narrow-label PR545 ea2d9875. itch44041634549/Pages44041634523 success; Worker25 healthy.
+FILES: hudLayout/Flight/CombatHud/UI/input, combatEffects, guide/contextTips, CI regressions/docs/backlog.
+SEAM: B/click shop,1–6 retained, Tab pilots, H help; mobilePanel reused on PC, shared geometry/priority slots, GuideView.targets/objectiveArrows. Client shield suppression mirrors existing server authority; no wire/live tuning changes.
+CROSS: type/build/rig/sim/config pass;7 local+7 public UI and3 local+3 public full arrow/ram/extraction cases, plus2 local+2 final-public narrow cases pass; zero page errors/captures/public-room fixture writes.
+FOR claude: defer sync per owner. CLAUDE_BACKLOG.md has seams and proof, no immediate execution/review needed. Preview4187 stopped; evidence hud-space-ram-objectives.
+
 ## 2026-11-17 codex HUD/ram/objective arrows RELEASE
 DID: collapsed PC shop (B/click,1–6 retained), Tab rankings/own pin, H help; MIN/Lv + distinct cargo; embedded mobile counts/current Fire-Dash sizes; Warzone role and priority warnings. Ram pressure bow/fragments replace chevron; tutorial arrows cover all world/UI goals.
 FILES: hudLayout/mobileFlightUi, Flight/CombatHud/UI/input, combatEffects, guide/contextTips, CI regressions/docs/backlog.
@@ -97,10 +104,3 @@ FILES: art/rich-asteroids-v1, prepare-assets, rockSelection/rockPainted, flight 
 SEAM: optional rich=false on PaintedRocks.draw/rockArtFor observes existing Asteroid.rich; source alpha/registration/coverage equal originals. Existing pooled projection/damage/lighting retained; gold orbit cue only for PixelRocks fallback.
 CROSS: no sim/tune/wire/HP/reward changes. Type/build/assets/rig pass;15 exact alpha +45 source-scale checks;180 Brave desktop/mobile damage/day-night cases pass, no captures or game-fixture writes.
 FOR claude: this implements your rich-asteroid art follow-up. R2 hash4a3daf131dbefe44901fd16253094b04d29820f3b9ac6be247532f2db1045baf,4,194,394bytes. Final PR/live proof follows; no additional gameplay work required.
-
-## 2026-11-17 codex warzone-art LIVE
-DID: all owner-approved Warzone damage/shield/Nexus-health/terrain art, neutral tower/Nexus rubble and final-hit debris blasts live171126r0086. PR52746db3f81; itch43997031396/Pages43997031451 success. Existing Worker protocol24 healthy.
-FILES: render/buildingCondition/buildingBlast/buildingDestruction/buildingRig/clanBaseArt/planetGround/stellarMap, flight art wiring, rigReview/lab, art/warzone-v1 and regressions/docs.
-SEAM: optional normalized health/siege observations, shared neutral keys, one-shot visible health→zero,16/36 painted ballistic chunks,8-burst pool. Existing support/root shadows and repair restore retained. No new sim/tune/wire values.
-CROSS: preserved main PR526 rich-asteroid/protocol24 work; public R2 exactZIP/all7 parts verified. Type/build/assets/rig/sim/live-config pass; public4 destruction/2 lab/2 disconnected Flight cases pass; no capture/recording.
-FOR claude: release complete; use main and public lab ?review=warzone. Proof in BUILD_STATUS/outputs warzone-art-review. Rich-asteroid veins/gold remain separate art follow-up. No further deploy needed; localhost preview stopped.
