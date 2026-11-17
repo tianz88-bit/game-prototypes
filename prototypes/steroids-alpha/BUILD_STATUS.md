@@ -1,6 +1,6 @@
 ## Current milestone
 
-Warzone art is ready for LOCAL owner review on codex/steroids-warzone-art-review. Nothing pushed, uploaded, merged or deployed. Existing live release remains PR524 / 161126r0084.
+Owner approved all Warzone art and explosion updates for release on17 November2026. R2 upload complete; public verification and deployment in progress. Preserved main PR526 mineral-rich asteroids (protocol24).
 
 ## What was implemented
 
