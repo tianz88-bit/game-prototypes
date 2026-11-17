@@ -1,27 +1,25 @@
 ## Current milestone
 
-Landing menu and planet map hierarchy LIVE171126r0098. PR547 mergefde1891ede1393ad994997de6a77eb2fa2927b53; itch44051762536 and Pages44051762420 succeeded. Existing Worker protocol25 healthy. Public game: https://daily-daily-games.itch.io/steroids-alpha . Owner approved release; Claude sync remains deferred.
+Combat handling and Tailed/Circling duel preview ready locally; permanent Pages publication pending. Live combat remains171126r0098 / Worker25. Owner playtest approval is required before any live balance release.
 
 ## What was implemented
 
-Selected real ship/palette is the main menu hero with primary pulsing Warp/Choose a planet, secondary Learn to fly and Hangar. Banked credits stay visible. Settings, Account/recovery and Share/QR open as isolated utility panels; all remain accessible on short/mobile/tall layouts. Pilot editing moves into Account on very short screens. Recovery retains the existing API and saves a newly edited name before switching modes.
-
-Five spinning terrain globes show simple name, danger/player count, resources/rewards and optional Info. Warzone uses accurate Auto-join when open wording; closed rounds allow clan selection without entry. Confirmed opening is required for auto-join, and closing/changing destination cancels it. Longer rules do not crowd the chart.
+Candidate opposing mass-weighted ram/bump impulses, ram dash consumption, slower kick decay and cruise-best turning. Permanent lab has two local sparring scenarios with a repeatable opening autopilot, four equal-chassis choices, role/side swap, Candidate/Baseline, pause/reset, PC input and compact mobile controls. Real ship rigs/FFD/exhaust/recoil, painted bullets/impacts, terrain/projection and ship arcs are reused.
 
 ## Key technical decisions
 
-Pure landingLayout geometry; existing shipPreview rig and UI palette/panels, no new assets/dependencies. Utility/map taps stay isolated through existing intents. No account/save/network schema, server/protocol, gameplay or live tuning changes. Existing ship rig/FFD and orbital flow retained.
+All executable changes stay inside steroids-alpha-lab plus a standalone test. Production World handles movement, weapons, damage and grace; a lab-only post-step adapter replaces contact response. duel.tune.json holds preview settings, and candidate clones never mutate production TUNE or drafts. Read-only World.bullets adapter avoids a second projectile simulation. Live config is read once, with labelled bundled fallback; no sockets/accounts/publishing/writes. No live tune, client, Worker or workflow edits.
 
-Type/build/rig/sim/config checks pass.8 CI geometry sizes enforce action bounds/separation/targets.9 local plus9 public Brave DPR2 desktop/compact/mobile/tall/portrait/320x240 cases pass for all utilities/recovery,5 destination Info routes, closed Warzone/side selection/confirmed auto-join, Hangar/Learn and stable rebuild children/callbacks.1 final local compact case adds cancellation label verification, also included in all9 public cases. Public base confirms11 real ship modules, all5 live count keys and client98. Zero page errors; no captures/public-room fixture writes. Evidence outputs/steroids-alpha/landing-map-hierarchy/.
+Pure tests pass for4 chassis cruise radii, identical reset states, opposing/glancing/rear-ram kicks, consumed dash, damage parity/no repeat hit, tangent/swept/wrap/coincident contacts and immutable live tune. Six local Brave DPR2 desktop/landscape/portrait/tall cases pass for controls/held fire/Dash, presets/roles/pause/reset and stable ten-reset object counts. Zero page errors, game sockets, writes or captures. Evidence outputs/steroids-alpha/combat-duel-lab/.
 
 ## Open questions
 
-None for release.
+Owner to judge whether tail escapes/counters and breaking the circle are fun, and whether pushback is too strong. No live release approval yet.
 
 ## Known issues
 
-Physical-phone/Safari visuals not inspected; headless Brave interaction/geometry checks used per owner no-capture instruction. Existing unrelated build warnings remain.
+Single-player sparring policies are deterministic scenario helpers, not human opponents. Headless checks do not establish human combat enjoyment or real network feel. Physical-phone/Safari visuals not inspected; no captures per owner. Existing unrelated build warnings remain.
 
 ## Next proposed step
 
-Collect owner live feedback. CLAUDE_BACKLOG.md contains durable release/seam notes for later sync; no immediate Claude execution/review requested. Temporary Vite4187 stopped; no resident publisher/capture or leftover headless test process.
+Publish only the lab to Pages and verify public routes; then owner playtests both presets/roles. Claude's deferred backlog documents the gate and future authority/prediction port. Stop temporary Vite4187 after checks.

@@ -1,6 +1,6 @@
 # Steroids-Alpha calibration and balance lab
 
-Permanent public route: `/game-prototypes/prototypes/steroids-alpha-lab/`, directly below the live game on the hub. The lab starts from the canonical game calibration, gameplay tune and client tune. Browser drafts persist under `steroids-alpha:calibration-lab:v1`; importing/exporting JSON is supported. Load live settings reads the server's active version; bundled defaults are a fallback. The ship stage uses the approved reference rig/FFD and production movement step. Weapon rates/DPS are calculated; this is not a network/combat practice arena.
+Permanent public route: `/game-prototypes/prototypes/steroids-alpha-lab/`, directly below the live game on the hub. The lab starts from the canonical game calibration, gameplay tune and client tune. Browser drafts persist under `steroids-alpha:calibration-lab:v1`; importing/exporting JSON is supported. Load live settings reads the server's active version; bundled defaults are a fallback. The ship stage uses the approved reference rig/FFD and production movement step. Weapon rates/DPS are calculated; the calibration stage is separate from the local combat duels.
 
 Import settings accepts both Export all settings and Export calibration files. A calibration-only import changes the rig without replacing game stats or the draft's publishing baseline. It preserves authored four-facing offsets and validates the complete rig before applying anything. Invalid imports leave the current draft intact.
 
@@ -35,3 +35,11 @@ Implementation references: [GitHub workflow OIDC claims](https://docs.github.com
 `?review=warzone` selects the new siege-art view on codex/steroids-warzone-art-review. Owner approved publication17 November2026; see BUILD_STATUS for live deployment proof. Cycle Towers (including mixed), Shield and Nexus through intact/damaged/critical/destroyed values; use clan/orbit controls to inspect ground anchoring and sunlight. Standalone Nexus/Tower views also expose health states. These controls never publish or send simulation data. Return to Falcon draft preserves calibration.
 
 Destroyed towers and Nexus now use neutral rubble independent of clan colour. FINAL HIT / REPAIR in standalone views (or DETONATE TOWERS / DETONATE NEXUS / REPAIR ALL in Warzone) replay the final-hit blast and flying painted plate/tube debris. Effects fire once, expire, and reuse pooled images; they are preview-only state changes.
+
+## Combat duel preview
+
+Open ?duel=tail or ?duel=circle (links above the calibration stage). Start Duel, then steer/fire/dash to take over from the opening autopilot. PC uses the current mouse/keyboard scheme with W/S, A/D, Space and Shift; mobile uses left drag and Fire/Dash. Pause, Reset, four ship choices, role/side swap and Candidate/Baseline are available. Both sides start with equal equipment.
+
+These are local sparring scenarios, not online rooms or a second human. Tailed uses pursuit/evading roles; Circling begins a mirrored cruise loop and the opponent pursues once you break away. Guns/dash only and no shop/banking. The candidate consumes ram dash, gives opposing mass-weighted pushes with slower decay, and makes cruise turn radius best. Damage remains the existing World's damage. Compare presets before approving live combat.
+
+Separate entry.mjs selects the duel module before loading the editor. It only reads /config, falls back to labelled bundled defaults, uses a cloned tune and does not touch draft storage/publishing or create sockets. duel.tune.json is preview-only; it is not part of the live configuration schema. New contact logic must be deliberately ported and validated after owner approval.

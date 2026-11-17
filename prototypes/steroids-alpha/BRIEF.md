@@ -882,3 +882,7 @@ Approved the HUD audit proposal: PC shop collapsed by default with1–6 quick bu
 ## Landing menu and planet map hierarchy (owner,17 November2026)
 
 Keep the selected real ship rig and pulsing Warp as the main focus. Pair ship/palette identity with Hangar; make Learn to fly secondary. Expose banked credits clearly and retain pilot identity. Move optional clan/controls, account/recovery and Share/QR into separate accessible utility panels; retain all features on mobile and short screens. Simplify the planet map to name, danger/player count, resources/rewards, with longer rules behind Info. Keep all five actual spinning terrain globes and live server counts. Rename Notify me to Auto-join when open to match its existing action; closed rounds permit side selection without attempting entry. Go live after checks and keep a durable deferred Claude backlog.
+
+## Combat handling preview and duel lab (owner,17 November2026)
+
+Implement stronger opposing pushback for rams and ordinary ship collisions, with ram dash consumed on contact and a longer-lived separation response. Make cruise the best turning point, including a smaller minimum-speed turn multiplier. Keep damage unchanged initially. Provide repeatable Tailed and Circling duels in the permanent lab with PC/mobile controls, before any live combat release. Use headless checks and keep Claude's deferred backlog. Candidate handling is lab-only pending owner playtest approval; no live tuning/config/Worker or itch release is authorized by this task.

@@ -1,23 +1,25 @@
 ## Current milestone
 
-Warzone art/health/destruction review is LIVE. PR527 merged46db3f81; Pages43997031451 succeeded. Open https://tianz88-bit.github.io/game-prototypes/prototypes/steroids-alpha-lab/?review=warzone . Itch client171126r0086 also includes the same review and production art.
+Combat handling and Tailed/Circling duel preview ready locally; permanent Pages publication pending. Live combat remains171126r0098 / Worker25. Owner playtest approval is required before any live balance release.
 
 ## What was implemented
 
-Selector includes Warzone siege-art review: mixed intact/damaged/critical/wreck towers, independent tower/shield/Nexus health presets, clan colours and surface/lighting travel. Neutral rubble replaces destroyed towers AND Nexus. FINAL HIT/REPAIR on standalone building tabs and DETONATE TOWERS/DETONATE NEXUS/REPAIR ALL on Warzone replay pooled flying debris/blasts.
+Candidate opposing mass-weighted ram/bump impulses, ram dash consumption, slower kick decay and cruise-best turning. Permanent lab has two local sparring scenarios with a repeatable opening autopilot, four equal-chassis choices, role/side swap, Candidate/Baseline, pause/reset, PC input and compact mobile controls. Real ship rigs/FFD/exhaust/recoil, painted bullets/impacts, terrain/projection and ship arcs are reused.
 
 ## Key technical decisions
 
-Reuse the isolated production-renderer iframe and same-origin subject allowlist. Calibration loop sleeps during review, one frame is reused across subjects, return unmounts the review and preserves the draft. No game-room socket, grants or publishing action from review controls. Seven-source R2 pack verified publicly; no art binaries in Git.
+All executable changes stay inside steroids-alpha-lab plus a standalone test. Production World handles movement, weapons, damage and grace; a lab-only post-step adapter replaces contact response. duel.tune.json holds preview settings, and candidate clones never mutate production TUNE or drafts. Read-only World.bullets adapter avoids a second projectile simulation. Live config is read once, with labelled bundled fallback; no sockets/accounts/publishing/writes. No live tune, client, Worker or workflow edits.
+
+Pure tests pass for4 chassis cruise radii, identical reset states, opposing/glancing/rear-ram kicks, consumed dash, damage parity/no repeat hit, tangent/swept/wrap/coincident contacts and immutable live tune. Six local Brave DPR2 desktop/landscape/portrait/tall cases pass for controls/held fire/Dash, presets/roles/pause/reset and stable ten-reset object counts. Zero page errors, game sockets, writes or captures. Evidence outputs/steroids-alpha/combat-duel-lab/.
 
 ## Open questions
 
-None for this approved release.
+Owner to judge whether tail escapes/counters and breaking the circle are fun, and whether pushback is too strong. No live release approval yet.
 
 ## Known issues
 
-Public headless Brave desktop/mobile DPR2 state/lifecycle and destruction checks pass; no physical-phone/Safari or captured visual test. Owner manually approved the local art; no screenshots or recordings. Initial one-off503 did not recur on the complete rerun. Hosted publishing was not exercised.
+Single-player sparring policies are deterministic scenario helpers, not human opponents. Headless checks do not establish human combat enjoyment or real network feel. Physical-phone/Safari visuals not inspected; no captures per owner. Existing unrelated build warnings remain.
 
 ## Next proposed step
 
-Use the public Warzone and standalone building tabs for future visual feedback. Existing Falcon draft editor/publishing remains unchanged. Temporary localhost preview stopped after release; no resident publisher/capture service.
+Publish only the lab to Pages and verify public routes; then owner playtests both presets/roles. Claude's deferred backlog documents the gate and future authority/prediction port. Stop temporary Vite4187 after checks.
