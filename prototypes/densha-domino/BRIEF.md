@@ -30,7 +30,10 @@ every level can be solved with the visible information.
 3. Any train it stops against may take off (chain reaction).
 4. Win by sending every train off the screen within the tap limit. Stars come from
    how close the player is to par.
-5. Next level, forever. If the player runs out of taps, retry (or continue with a
+5. A Levels button opens a grid of all levels with the stars earned; tap one to play
+   it. In the prototype every level is open (`rules.unlockAll` in tune.json); set it to
+   0 to unlock levels in order, by clearing the one before.
+6. Next level, forever. If the player runs out of taps, retry (or continue with a
    rewarded ad, see Ads).
 
 ## Rules (deterministic, no randomness)

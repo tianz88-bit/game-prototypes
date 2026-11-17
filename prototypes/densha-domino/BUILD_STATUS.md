@@ -32,6 +32,9 @@ generator (step 2), economy, ads and retention are not built.
   `node scripts/check-densha-levels.mjs` lists all levels with par and longest
   chain. Levels 1 and 2 are hand-made teaching boards; levels 3 to 10 were found
   by a search and verified by the solver.
+- Level selector: a Levels button (or L) opens a grid of all levels with earned stars; tap a
+  level to play it, tap outside or Close to dismiss. All levels are open by default
+  (`rules.unlockAll`); with 0 they unlock in order.
 - Save (`densha-domino:save:v1`): current level and best stars, on every change.
 - Playwright (`scripts/screenshot-densha-domino.mjs`): plays all 10 levels with
   real swipes using optimal moves from the solver, clears each in exactly par

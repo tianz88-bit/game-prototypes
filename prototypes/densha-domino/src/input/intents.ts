@@ -9,6 +9,8 @@ export type Intent =
   | { type: 'run'; train: number; dir: Dir }
   | { type: 'restart' }
   | { type: 'next' }
+  | { type: 'levels' }
+  | { type: 'select'; level: number }
   | { type: 'arrow'; dc: number; dr: number }
   | { type: 'confirm' };
 
@@ -24,6 +26,7 @@ export function bindKeyboard(scene: Phaser.Scene, bus: IntentBus<Intent>): void 
     SPACE: { type: 'confirm' },
     ENTER: { type: 'confirm' },
     R: { type: 'restart' },
+    L: { type: 'levels' },
   });
 }
 

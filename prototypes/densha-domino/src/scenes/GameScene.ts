@@ -24,7 +24,7 @@ const BOARD_TOP = 120;
 const BOARD_BOTTOM = 690;
 const BOARD_W = WIDTH - 40;
 
-type Phase = 'play' | 'animating' | 'won' | 'failed';
+type Phase = 'play' | 'animating' | 'won' | 'failed' | 'menu';
 
 export class GameScene extends Phaser.Scene {
   private bus = new IntentBus<Intent>();
@@ -55,6 +55,8 @@ export class GameScene extends Phaser.Scene {
   private cursorG!: Phaser.GameObjects.Graphics;
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
   private restartBtn!: Button;
+  private levelsBtn!: Button;
+  private menu: Phaser.GameObjects.GameObject[] = [];
   private hold = false;
   private timers: Phaser.Time.TimerEvent[] = [];
   private playToken = 0;
@@ -106,7 +108,8 @@ export class GameScene extends Phaser.Scene {
     this.arrows = this.add.graphics().setDepth(60);
     this.cursorG = this.add.graphics().setDepth(70);
 
-    this.restartBtn = new Button(this, WIDTH / 2, 760, 200, 54, 'Restart', null, { fill: 0x3a4a68, edge: 0x6f9cff }, () => this.bus.emit({ type: 'restart' }), 20);
+    this.restartBtn = new Button(this, 105, 760, 170, 54, 'Restart', null, { fill: 0x3a4a68, edge: 0x6f9cff }, () => this.bus.emit({ type: 'restart' }), 20);
+    this.levelsBtn = new Button(this, 285, 760, 170, 54, 'Levels', null, { fill: 0x5a3f2e, edge: 0xffa05c }, () => this.bus.emit({ type: 'levels' }), 20);
 
     this.bus.on((i) => this.onIntent(i));
     bindKeyboard(this, this.bus);
@@ -134,6 +137,7 @@ export class GameScene extends Phaser.Scene {
           return { x: v.container.x, y: v.container.y, dir: m.dir, axis: this.level.trains[m.train].axis };
         },
         goto: (n: number) => this.startLevel(n),
+        menuOpen: () => this.phase === 'menu',
         slow: (s: number) => (this.testSlow = s),
         levels: () => LEVELS.length,
       };
@@ -181,6 +185,7 @@ export class GameScene extends Phaser.Scene {
     for (const v of this.views.values()) v.destroy();
     this.views.clear();
     this.clearOverlay();
+    this.closeMenu();
     this.pending = null;
     this.arrows.clear();
     this.state = initialState(this.level);
@@ -255,6 +260,8 @@ export class GameScene extends Phaser.Scene {
   private onIntent(intent: Intent): void {
     if (intent.type === 'restart') return this.startLevel(this.levelIndex);
     if (intent.type === 'next') return this.startLevel(this.levelIndex + 1);
+    if (intent.type === 'levels') return this.phase === 'menu' ? this.closeMenu() : this.phase === 'play' ? this.openMenu() : undefined;
+    if (intent.type === 'select') return this.selectLevel(intent.level);
     if (this.phase !== 'play') return;
     if (intent.type === 'tap') {
       if (this.pending) {
@@ -560,6 +567,81 @@ export class GameScene extends Phaser.Scene {
     const b = new Button(this, WIDTH / 2, 480, 220, 60, label, null, { fill: 0x2f9e5b, edge: 0x6dffa8 }, onTap, 22);
     b.container.setDepth(310);
     this.overlay.push(panel, t, g, b.container);
+  }
+
+  // ------------------------------------------------------------ level selector
+
+  private isUnlocked(i: number): boolean {
+    if (tune.rules.unlockAll) return true;
+    const cleared = this.save.stars.reduce((best, st, idx) => (st > 0 ? Math.max(best, idx) : best), -1);
+    return i <= cleared + 1;
+  }
+
+  private selectLevel(i: number): void {
+    if (i < 0 || i >= LEVELS.length) return;
+    if (!this.isUnlocked(i)) {
+      this.sfx.miss();
+      return;
+    }
+    this.sfx.uiTap();
+    this.startLevel(i);
+  }
+
+  private closeMenu(): void {
+    this.menu.forEach((o) => o.destroy());
+    this.menu = [];
+    if (this.phase === 'menu') this.phase = 'play';
+  }
+
+  /** A grid of levels with the stars earned so far. */
+  private openMenu(): void {
+    this.closeMenu();
+    this.phase = 'menu';
+    this.pending = null;
+    this.arrows.clear();
+    this.sfx.uiTap();
+    const cols = 5;
+    const cell = 56;
+    const gap = 8;
+    const rows = Math.ceil(LEVELS.length / cols);
+    const gridW = cols * cell + (cols - 1) * gap;
+    const rowH = cell + 30;
+    const panelW = WIDTH - 50;
+    const panelH = 120 + rows * rowH + 70;
+    const px = (WIDTH - panelW) / 2;
+    const py = Math.round((HEIGHT - panelH) / 2) - 30;
+    const dim = this.add.graphics().setDepth(300);
+    dim.fillStyle(0x1f4f8f, 0.55);
+    dim.fillRect(0, 0, WIDTH, HEIGHT);
+    dim.fillStyle(0x000000, 0.25);
+    dim.fillRoundedRect(px, py + 8, panelW, panelH, 26);
+    dim.fillStyle(0xfff8e6, 1);
+    dim.fillRoundedRect(px, py, panelW, panelH, 26);
+    // Tapping the dimmed area outside the panel closes the menu.
+    const zone = this.add.zone(0, 0, WIDTH, HEIGHT).setOrigin(0).setDepth(299).setInteractive();
+    zone.on('pointerdown', () => this.bus.emit({ type: 'levels' }));
+    const title = this.hudText(WIDTH / 2, py + 40, 28, '#ffffff').setDepth(310);
+    title.setText('Select level');
+    const stars = this.add.graphics().setDepth(311);
+    this.menu.push(zone, dim, title, stars);
+    LEVELS.forEach((lv, i) => {
+      const c = i % cols;
+      const r = Math.floor(i / cols);
+      const x = (WIDTH - gridW) / 2 + c * (cell + gap) + cell / 2;
+      const y = py + 100 + r * rowH + cell / 2;
+      const open = this.isUnlocked(i);
+      const here = i === this.levelIndex;
+      const b = new Button(this, x, y, cell, cell, String(i + 1), null, open ? { fill: here ? 0x2f9e5b : 0x3a4a68, edge: here ? 0x6dffa8 : 0x6f9cff } : { fill: 0x8a8fa0, edge: 0xb7bccb }, () => this.bus.emit({ type: 'select', level: i }), 22);
+      b.container.setDepth(310);
+      if (!open) b.container.setAlpha(0.6);
+      this.menu.push(b.container);
+      const got = this.save.stars[i] ?? 0;
+      for (let k = 0; k < 3; k++) this.drawStar(stars, x + (k - 1) * 17, y + cell / 2 + 14, 7, k < got ? 0xffd04a : 0xc9c2b0);
+      void lv;
+    });
+    const close = new Button(this, WIDTH / 2, py + panelH - 40, 160, 48, 'Close', null, { fill: 0x2f9e5b, edge: 0x6dffa8 }, () => this.bus.emit({ type: 'levels' }), 20);
+    close.container.setDepth(310);
+    this.menu.push(close.container);
   }
 
   // -------------------------------------------------------------------- fx

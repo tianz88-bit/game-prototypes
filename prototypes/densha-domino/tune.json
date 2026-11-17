@@ -1,5 +1,9 @@
 {
-  "rules": { "limitSlack": 4, "starSlack": 2 },
+  "rules": {
+    "limitSlack": 4,
+    "starSlack": 2,
+    "unlockAll": 1
+  },
   "feel": {
     "runBaseMs": 140,
     "runPerCellMs": 55,

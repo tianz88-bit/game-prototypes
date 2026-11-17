@@ -79,6 +79,16 @@ await page.reload();
 await page.waitForTimeout(900);
 console.log('level after reload (1-based):', (await page.evaluate(() => window.__densha.level())) + 1);
 await shot('after-reload');
+// Level selector: open it with the Levels button, pick level 5, check we are on level 5 and nothing moved.
+await page.mouse.click(285, 760);
+await page.waitForTimeout(400);
+console.log('menu open:', await page.evaluate(() => window.__densha.menuOpen()));
+await shot('level-selector');
+await page.mouse.click(323, 339);
+await page.waitForTimeout(800);
+const sel = await page.evaluate(() => ({ lvl: window.__densha.level() + 1, taps: window.__densha.taps(), phase: window.__densha.phase() }));
+console.log('after picking level 5:', sel);
+if (sel.lvl !== 5 || sel.taps !== 0 || sel.phase !== 'play') errors.push('level selector did not open level 5 cleanly');
 await browser.close();
 const bad = results.filter((r) => r.phase !== 'won');
 if (errors.length) {
