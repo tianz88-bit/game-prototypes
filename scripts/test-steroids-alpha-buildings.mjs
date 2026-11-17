@@ -116,3 +116,5 @@ assert(C.GUNS[2].filter(m=>m.right<0).length===2&&C.GUNS[2].filter(m=>m.right>0)
 assert(cal.modules.armour.offsets.up.y<cal.modules.armour.offsets.right.y&&cal.modules.armour.offsets.right.y<cal.modules.armour.offsets.down.y,'cardinal depth compresses toward down view');
 assert(Math.abs(cal.modules.armour.offsets.up.y+cal.modules.cockpit.offsets.up.y+cal.modules.canopy.offsets.up.y)>=90,'bridge depth is exaggerated above the deck');
 console.log(`Building grounding: ${shadows} projected sun/root cases; clan materials, flush capital mounts and stronger depth pass.`);
+
+await import('./test-steroids-landing-layout.mjs');
