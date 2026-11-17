@@ -9,6 +9,8 @@ import type { BaseLayout } from '../../sim/clanBase';
 import { TUNE, stepSeconds } from '../../sim/tune';
 import { copyShip, muzzleShot, stepShip } from '../../sim/ship';
 import { asteroidPos } from '../../sim/asteroids';
+import { richCrystalHit } from '../render/crystalChipMotion';
+import type { CrystalChipEvent } from '../render/crystalChipMotion';
 import type { Asteroid } from '../../sim/asteroids';
 import type { ShipInput, ShipState } from '../../sim/ship';
 import { loadSave } from '../save';
@@ -79,6 +81,7 @@ export type NetFx =
   /** A clan base turret (index in the layout) fired at angle. */
   | { kind: 'baseTurret'; index: number; angle: number }
   | { kind: 'burst'; x: number; y: number; size: number }
+  | ({kind:'crystal'}&CrystalChipEvent)
   | { kind: 'spark'; x: number; y: number; angle?: number }
   | { kind: 'explosion'; x: number; y: number; killer: number }
   | { kind: 'heal'; x: number; y: number }
@@ -378,6 +381,10 @@ export class NetClient {
       for (const a of msg.asteroids) {
         const old = this.asteroids.get(a.id);
         if (old && a.hp < old.hp) this.asteroidHitAt.set(a.id, performance.now());
+        if(richCrystalHit(old,a)){
+          const p=asteroidPos(a,this.asteroidTick(),TUNE);
+          this.fx.push({kind:'crystal',mode:'hit',id:a.id,size:a.size,x:p.x,y:p.y,vx:a.vx,vy:a.vy});
+        }
         this.asteroids.set(a.id, a);
       }
       return;
@@ -389,6 +396,7 @@ export class NetClient {
         this.asteroids.delete(g.id);
         this.asteroidHitAt.delete(g.id);
         this.fx.push({ kind: 'burst', x: g.x, y: g.y, size: a.size });
+        if(a.rich)this.fx.push({kind:'crystal',mode:'split',id:a.id,size:a.size,x:g.x,y:g.y,vx:a.vx,vy:a.vy});
         if (a.size < 2) this.splits++;
       }
       return;

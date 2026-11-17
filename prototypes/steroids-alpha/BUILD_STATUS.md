@@ -1,27 +1,27 @@
 ## Current milestone
 
-Protruding crystal rich-asteroid art is LIVE in171126r0088. PR531 merged586c12958c580f4ef8b5cedbaa9c41bd6c6f836b. Itch44012011364 and Pages44012011412 succeeded. Existing Worker protocol24 healthy. Game: https://daily-daily-games.itch.io/steroids-alpha . Continued owner's direct-publication preference for this readability refinement.
+Crystal hit/split VFX implemented on codex/steroids-crystal-chip-vfx, checked and ready for direct publication. Existing crystal art171126r0088 preserved; no new bitmap/R2 upload needed.
 
 ## What was implemented
 
-Chunky painted gold crystal outcrops on all15 rich asteroid variants, retaining existing gold veins,3 colour families and sibling split shapes. Parents have2 groups; medium/small fragments1 clear cluster, proportionally largest on small fragments. Crystal tips extend beyond rock silhouettes with attached dark roots, broad gold planes and pale facets. Ordinary rocks and prior Warzone updates retained.
+Rich asteroid hits eject2–3 small painted gold chips plus12 short rectangular sparks. Destruction/split scatters6/9/12 painted crystal pieces for small/medium/large rocks, with32/38/44 gold sparks, wider outward trajectories, spin and a height arc. Pieces inherit asteroid drift, then fade within0.7/1.3seconds. Existing stone fracture effects and real collectible minerals remain separate. Reuses approved mineral-shard/cluster textures; no extra asset download.
 
 ## Key technical decisions
 
-Sprites use padded canvases with bodyOffset metadata; all original body opacity remains covered. Added silhouette ranges about4–26% (small15–26%). RockBodyFrame records the original plain-rock body. decoratedRockFrame registers the enlarged texture against that SAME body, so physical centre, world scale and inscribed collision coverage remain unchanged. Existing pooled mesh/Canvas transforms, damage stages and lighting render the crystals. Hash-query asset URLs prevent cached old images being read with the new registration. No sim/tune/HP/reward/spawn/wire changes.
+NetClient observes rich HP decreases and existing GONE records, emitting local NetFx crystal hit/split events. Initial spawns, duplicate/same HP, healing and ordinary rocks do not trigger gold VFX; duplicate GONE is ignored after map deletion. Child spawns are not extra hits. Server wire/protocol24, sim, collision/HP/rewards/mineral collection unchanged. Flight renders once from the existing FX drain and retains generic rock break effects.
 
-R2 steroids-alpha_rich-asteroids-v2_assets.zip:4,956,322bytes, SHA4df28e3e4f3bbac1db3ac57f5213df74e3f2bfd42f332cd45e18fb63f66f20ab. Exact public ZIP/all15 sources verified; binaries outside Git. Manifest/prompt in art/rich-asteroids-v1 identifies active v2. Source pieces, composed sheet and evidence under outputs/steroids-alpha/rich-crystal-art/.
+CrystalChips caps at16 bursts and128 pooled images, prioritizes split showers over old hit bursts and uses one spark Graphics batch. No physics/pickup objects, emitters, timers or permanent particle sources. Scene rebuild/shutdown destroys resources. Pure chip trajectory supplies rotation, inherited drift, projected ground position, fake height and fade. Effects use existing planet projection, keeping wrapped positions consistent.
 
-Typecheck/build/rig and9 registration-transform cases pass;15 preserved-body/protrusion checks and180 local plus180 public Brave DPR2 desktop/mobile cases cover15 variants ×3 damage states ×2 light levels ×2 device layouts. Public original-body anchors/coverage equal normal rocks, new decorative extents can grow, with zero page/console errors. Real beta-room sockets close before local-only fixture edits; no test stats sent. Public client confirms version88, prepared body-registration fields, prior Warzone skin and Worker protocol24. Evidence: {asset-check,r2-verification,runtime-check,live-game,public-runtime-check}.json in the output folder. No screenshots/recordings.
+Typecheck/build/rig regressions and chip trigger/count/expiry/velocity tests pass.8 Brave desktop/mobile DPR2 runtime cases exercise all3 sizes plus stress, canonical NetClient handle→FX drain→Flight renderer, hit/split once only, child spawn suppression, ordinary-rock exclusion, expiry and16/128 budget. Zero page/console errors. Real beta sockets close before local packet fixtures; no test stats sent. Evidence outputs/steroids-alpha/crystal-chip-vfx/runtime-check.json. No screenshots/recording.
 
 ## Open questions
 
-None for this shipped readability refinement.
+None; continuing direct-publication preference.
 
 ## Known issues
 
-Physical-phone/Safari appearance not checked; headless Brave mobile emulation only. Existing unrelated build warnings remain.
+Physical-phone/Safari visuals not checked; Brave mobile emulation only. Existing unrelated build warnings remain.
 
 ## Next proposed step
 
-Collect live feedback before further art/tuning. Claude receives PR/run/asset/public-body-check proof in Agent Comms threade31061e9-e8e1-4105-858a-2f847541014a. Temporary Vite4187 stopped after release; no resident publisher/capture service.
+Publish, verify public version89/packet-to-render behavior, update Claude and stop Vite4187. No resident publisher or capture service.

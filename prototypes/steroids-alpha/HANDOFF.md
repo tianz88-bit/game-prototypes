@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex rich-crystal chip VFX RELEASE
+DID: rich hits shed2–3 painted chips/12 gold sparks; split/shatter scatters6–12 pieces/32–44 sparks with wider arcs/spin/drift. Existing approved art reused, no new R2 pack.
+FILES: crystalChipMotion/crystalChips, NetClient local FX observation, Flight drain/lifecycle, regressions/docs.
+SEAM: new LOCAL NetFx crystal hit|split observes rich HP decrease/GONE; no initial/duplicate/heal/ordinary FX, child spawn suppression. Generic stone breaks retained; no protocol/sim/tune/pickup/reward changes.
+CROSS: minimal client-net observation;16-burst/128-image pool, spark batch, scene cleanup. Type/build/rig and8 Brave desktop/mobile packet→renderer cases pass; no capture/recording or server fixture writes.
+FOR claude: continuing owner's direct-to-live preference; final PR/deploy proof follows. No new server event/wire implementation needed.
+
 ## 2026-11-17 codex rich-crystal readability LIVE
 DID: protruding gold crystals on all15 rich painted rocks live171126r0088. PR531586c1295; itch44012011364/Pages44012011412 success; protocol24 healthy. Veins/families/siblings and ordinary rocks retained.
 FILES: v2 rich pack manifest/bodyOffset metadata, rockRegistration/rockPainted, registration regressions/docs.
@@ -98,10 +105,3 @@ FILES: src/scenes/rigReview, boot/main/hangar/flight, render/{shipArt,palette}; 
 SEAM: isolated query route uses production ShipView/BuildingRigs/CombatSprites and stepShip/muzzleShot; no room sockets, accounts, grants or publishing. Checked same-origin parent messages only choose a validated subject or exit.
 CROSS: minimal scene flow/query/hangar entry and display strings; no sim/network/tuned values changed. Lab sleeps old preview, reuses one frame and hides draft editor until return.
 FOR claude: owner forbids screen grabbing; checks use DOM/runtime/source pixels, no screenshots or recording. Lab selections review each production rig; editable calibration remains Falcon only. LIVE161126r0080: PR519, client43892666337/Pages43892666498 success; ten public desktop/mobile cases and all four capital cannon sides pass. Evidence in BUILD_STATUS.
-
-## 2026-11-16 codex ship-release LIVE
-DID: PR517 merged7965bcdf; all approved ships live161126r0079. Client43887481908/Worker43887482153/settings43888409949 successful; protocol22.
-FILES: ship art/profiles, sim/unlocks/protocol/config, hangar/menu/tune/tests; BUILD_STATUS has full proof and limits.
-SEAM: Sparrow free/chassis3/centre recoil0; Falcon paid for everyone, no grant. Bat max315/cruise234/turn5.44 published via hosted OIDC, other owner data preserved. Capital4 platforms observe existing turret state.
-CROSS: preserved PR515/516 behavior. R2 ZIPs+27parts verified; all suites and public desktop/mobile Sparrow/fire/unlock/menu/tutorial pass. Browser emulation, not physical-phone evidence.
-FOR claude: use current main; settings and art now live, no further release action required. Evidence outputs/steroids-alpha/ship-release/live and fleet-revision-review; original Comms e31061e9.
