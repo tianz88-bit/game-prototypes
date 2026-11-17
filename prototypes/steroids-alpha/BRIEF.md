@@ -870,3 +870,7 @@ Active dashes show an orange bow attack envelope; ram hits have an orange crash.
 Make PC missile/mine counts larger and group them with the bottom-left control hints. Remove routine top speed/planet/population telemetry; use distinct slow/cruise exhaust colours instead. Keep action controls and connection/gameplay warnings. Slow violet, cruise teal, existing fast/boost flames; actual per-chassis speed selects the band. No movement tuning or added particles.
 
 Tutorial discussion ONLY: proposed required flow is Fly (two rings), Fight (one rock, minerals, one upgrade; overheat prompt if needed), Dash/Ram (one course into one weakened target; rams bypass shields), Leave (warp out). Target roughly one minute with one-sentence prompts, no repeat grind or GOT IT pages. Missiles/mines/recovery/evolution become contextual first-use tips. Await owner discussion before changing lesson flow/counts; only the stale top-SPEED reference is corrected in this UI pass.
+
+## Short tutorial approved (owner,17 November2026)
+
+Replace the14-lesson tutorial with the discussed four tasks: Fly(two rings), Fight(one rock, minerals, one upgrade), Dash/Ram(one short course/target, shield-bypass fact), Escape(successful warp extraction). Short action-specific copy, no GOT IT pages/repeat grind. Teach overheat, shield/hull recovery, missiles/mines and evolution through contextual first-use tips. Owner explicitly authorizes go-live after completion; defer Claude coordination to a durable backlog for her later sync. This supersedes the preceding discussion-only status.

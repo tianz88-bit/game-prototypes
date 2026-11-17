@@ -360,10 +360,16 @@ export class Room {
   private tutorial=false;
   private tutorialShop=false;
   private tutorialFire=true;
+  private tutorialWarp=false;
   /** Only the in-page tutorial guide can change these; online rooms ignore them. */
-  setTutorialRules(rules:{shop:boolean;fire:boolean;minerals:boolean}):void {
+  setTutorialRules(rules:{shop:boolean;fire:boolean;minerals:boolean;warp?:boolean}):void {
     if(!this.tutorial)return;
     this.tutorialShop=rules.shop;this.tutorialFire=rules.fire;
+    this.tutorialWarp=rules.warp??true;
+    for(const p of this.players.values()){
+      if(rules.fire)this.world.quiet.delete(p.id);else this.world.quiet.add(p.id);
+      if(!this.tutorialWarp){p.last={...p.last,warp:false};p.queue=p.queue.map(i=>({...i,warp:false}));p.owedWarp=false;}
+    }
     this.world.setTutorialMinerals(rules.minerals);
     if(!rules.shop)this.buys=[];
     if(!rules.fire){
@@ -409,6 +415,7 @@ export class Room {
     if (this.manualBots) {
       const brains = [...this.bots.values()].map((x) => x.brain);
       for (const b of this.bots.values()) {
+        if(b.brain.tutorial==='target'){b.ship.speed=0;continue;}
         if (b.brain.tutorial) {
           this.world.stepShip(b.id, tutorialBotThink(b.id, b.ship, this.world, b.brain, this.tune, Math.random));
           continue;
@@ -656,7 +663,10 @@ export class Room {
     // Ignore replays and out-of-order inputs.
     const newest = player.queue.length ? player.queue[player.queue.length - 1].seq : player.last.seq;
     if (msg.input.seq <= newest || msg.input.seq > newest + 512) return;
-    player.queue.push(this.tutorial&&!this.tutorialFire?{...msg.input,fire:false,missile:false,mine:false}:msg.input);
+    let input=msg.input;
+    if(this.tutorial&&!this.tutorialFire)input={...input,fire:false,missile:false,mine:false};
+    if(this.tutorial&&!this.tutorialWarp)input={...input,warp:false};
+    player.queue.push(input);
     while(player.queue.length > TUNE.net.maxQueuedInputs) player.queue.shift();
     if (this.lockstep) this.step();
   }

@@ -47,7 +47,7 @@ export interface BotBrain {
  * never shoots. chaser: follows the nearest player at a distance and never shoots (mine practice).
  * noob: fights back badly: slow, wide aim error, rare short bursts, no dash, missiles or mines.
  */
-export type TutorialBotKind = 'drone' | 'chaser' | 'noob';
+export type TutorialBotKind = 'drone' | 'chaser' | 'noob' | 'target';
 
 export function newBrain(rng: () => number): BotBrain {
   return { aimError: 0, cooling: false, wander: rng() * Math.PI * 2, nextBuy: Math.floor(rng() * 3), target: 0, reactAt: 0, engagedSince: 0, distractedUntil: 0, seen: null, bornAt: 0 };

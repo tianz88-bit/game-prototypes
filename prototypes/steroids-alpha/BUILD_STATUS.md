@@ -1,24 +1,22 @@
 ## Current milestone
 
-Warzone sessions (17 November, claude): sessions end with everyone back to the menu and a 20 s reset; 20 s joinable countdown; Warzone status, join-as and notify on the stellar map; hyperspace safety net; protocol 25.
-
-Desktop ordnance/speed UI is LIVE in171126r0093. PR539 merged7b3c11fe207cd814e5a0311fe15f4b0446a16a79; itch44028038724, Pages44028038740 and Worker44028038814 succeeded. Public game: https://daily-daily-games.itch.io/steroids-alpha . The tutorial shortening is a discussion proposal only; lesson flow/counts remain unchanged.
+Four-step tutorial and one-time contextual tips are implemented for live release. Owner approved Fly -> Fight -> Dash/Ram -> Escape and immediate deployment after checks. Claude's later sync is tracked in CLAUDE_BACKLOG.md; no execution/review is required from her now.
 
 ## What was implemented
 
-PC missile/mine badges are24px radius with22px counts, grouped above bottom-left key hints, preserving recharge rings. Mobile sizing/positions remain unchanged. Routine top planet/population/speed telemetry and debug coordinates are hidden; connection/gameplay warnings and action controls remain.
+Fly uses two steering rings with one short control prompt. Fight requires one marked rock, collection of one marked mineral bundle and one upgrade; the bundle funds a tier-one choice without a grind. Dash/Ram uses two aligned gates and one stationary weakened target, with guns/manual ordnance/automatic turrets disabled. Escape appears after the dash finishes and completes only on real warp extraction. Early shop/warp controls are hidden and gated; all GOT IT screens, repeated drills and mandatory dogfights/ordnance/evolution lectures are removed.
 
-Steady low-speed exhaust is violet and cruise exhaust teal. Fast/accelerating/turn-driving engine/boost retains the existing hot or custom flame palette. Per-chassis speed ratios preserve Bat/Battlecruiser differences and power scaling. Existing emission rates, bursts and pools are unchanged. Tutorial SPEED wording points to engine trails instead of the removed readout.
+Six short contextual tips cover overheat, shields, hull repair, missiles, mines and available evolution. One at a time for5.5s with a3.5s gap; seen IDs persist across runs in the existing save. During Fight, a relevant tip temporarily replaces the task sentence instead of adding another panel. Tips create no input zones and never stop play. PC control-key wall is hidden in the tutorial; normal flight retains its setting.
 
 ## Key technical decisions
 
-Optional ThrusterInput.speedBand preserves older callers; ShipView derives it from actual speed and shipMotion cruise/top ratio. No wire, movement, combat or economy changes. PC badges follow measured key-hint height, including hints disabled. No extra hit areas on PC.
+Four semantic stages replace old14-step indices. Fight phase gates buying until minerals actually fund an upgrade. Adaptive ram-course reach uses the current chassis/power-adjusted dash range. Room.setTutorialRules gates tutorial-only queued/held weapons, buys, automatic turret quiet state and warp; online rooms ignore it. Manual tutorial target bots stay stationary. No protocol, live combat/movement/economy tuning, new assets or dependencies changed. Practice still banks nothing.
 
-Typecheck, build, rig/building and full simulation tests pass. Three local plus three public headless Brave DPR2 runtime layouts (1280x720,960x540,844x390 touch) verify readable counts, hint/badge separation, unchanged mobile controls, hidden telemetry and actual ShipView slow/cruise/fast colours. Zero page errors; no capture/recording. Existing thruster regressions also verify distinct colours with unchanged particle counts. Public version93 and Worker protocol24 verified. Evidence outputs/steroids-alpha/ordnance-speed-ui/{runtime-check,public-runtime-check,public-base}.json.
+Typecheck/build/rig/building/sim/live-config and updated tutorial/tip regressions pass; tutorial regressions now run through the CI sim suite. Three Brave DPR2 desktop/mobile-landscape/mobile-portrait full-route cases use real sim bullet damage, collection, purchase, a real dash ram and real extraction.18 additional tip cases verify all six tips, normal-flight integration, save persistence and layout-rebuild continuity. Zero page errors; no screenshots/recording or public-room fixture writes. Evidence outputs/steroids-alpha/four-step-tutorial/.
 
 ## Open questions
 
-Tutorial proposal for discussion: roughly one minute, Fly -> Fight/one upgrade -> Dash/Ram -> Warp out. One-sentence contextual prompts; first-use tips for missiles/mines/recovery/evolution. No lesson-flow implementation until discussed with owner.
+None for release. The roughly one-minute duration is a design target awaiting human play feedback, not a measured human completion time.
 
 ## Known issues
 
@@ -26,5 +24,4 @@ Physical-phone/Safari visuals not inspected. Existing unrelated build warnings r
 
 ## Next proposed step
 
-Discuss the shorter tutorial with the owner before changing its flow. Claude receives original-thread release proof. Temporary Vite4187 stopped; no resident publisher/capture service.
-
+Publish and verify public full-route/tip tests, then stop temporary Vite4187. Keep CLAUDE_BACKLOG.md ready for her later sync; no resident publisher or capture service.

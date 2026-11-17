@@ -26,6 +26,7 @@ import type { PlanetId } from '../../sim/planets';
 import { TUTORIAL } from '../../sim/planets';
 import { CLOSE } from '../../sim/protocol';
 import { guide } from '../tutorial/guide';
+import { ContextTips } from '../tutorial/contextTips';
 import { localTransport } from '../tutorial/localServer';
 import { maxShield, shipRadius, powerGrowth, topSpeed } from '../../sim/ship';
 import { TURRET_MOUNTS, turretCount } from '../../sim/turrets';
@@ -107,6 +108,7 @@ export class FlightScene extends Phaser.Scene {
   private board = new Map<number, BoardChip>();
   private boardTitle!: Phaser.GameObjects.Text;
   private combatHud!: CombatHud;
+  private contextTips?:ContextTips;
   private hudAnchor:CombatHudAnchor={x:0,y:0,radius:40,visible:false};
   private combatSprites!: CombatSprites;
   private crystalChips!:CrystalChips;
@@ -168,6 +170,7 @@ export class FlightScene extends Phaser.Scene {
     this.landingSparks=[];
     this.orbitalUi.clear();
     this.lastOwn=null;
+    this.contextTips=undefined;
     this.deathSeen.clear();
     this.runStartedAt = Date.now();
     this.mobilePanel = null;
@@ -250,6 +253,7 @@ export class FlightScene extends Phaser.Scene {
     this.lockText = text(this, 0, 0, 'MISSILE LOCK', 13, '#ff5a3a').setOrigin(0.5).setDepth(953).setVisible(false);
     this.weaponTexts = [0, 1].map(() => text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(952).setVisible(false));
     this.combatHud = new CombatHud(this);
+    this.contextTips=new ContextTips(this,this.contextTips?.model);
     this.combatSprites = new CombatSprites(this);
     this.crystalChips=new CrystalChips(this);
     this.buildingRigs=new BuildingRigs(this);
@@ -277,7 +281,8 @@ export class FlightScene extends Phaser.Scene {
     const mine = intents.consume('mine');
     const over = dead || !!this.net.extracted || this.net.status === 'extracted' || this.net.status === 'lost';
     // R is Warp in flight and Respawn on the death screen, which reads it itself.
-    const warp = !over && intents.consume('warp');
+    const warpPressed=!over&&intents.consume('warp');
+    const warp=warpPressed&&(this.planet!==TUTORIAL||guide.policy.warp);
     if (!over) {
       intents.consume('primary');
       // No menu exit mid-run: leave by warping out (lockdown, then Warp). The tutorial lets Esc leave.
@@ -448,6 +453,7 @@ export class FlightScene extends Phaser.Scene {
     } else this.stuckLabels.forEach((t) => t.setVisible(false));
 
     if ((this.net.extracted || this.net.status === 'extracted') && !dead) {
+      if(this.planet===TUTORIAL)guide.complete();
       if (this.orbit.phase==='complete' && this.deathScreen(w, h, true)) return;
     } else if (this.net.death || this.net.status === 'destroyed') {
       if (this.deathScreen(w, h)) return;
@@ -891,7 +897,7 @@ export class FlightScene extends Phaser.Scene {
 
   /** Key hints for the PC control scheme in use, bottom left; off in the menu (KEY HINTS). */
   private drawKeyHints(p: ShipState | null, _w: number, h: number): void {
-    const show = !intents.touch && !!p && !this.net.death && !this.net.extracted && this.keyHintsOn;
+    const show = this.planet!==TUTORIAL && !intents.touch && !!p && !this.net.death && !this.net.extracted && this.keyHintsOn;
     this.keyHints.setVisible(show);
     if (!show) return;
     const lines = intents.scheme === 'marker'
@@ -958,6 +964,7 @@ export class FlightScene extends Phaser.Scene {
     const bh = intents.touch ? 36 : 28;
     const x = intents.touch ? header.warp.x : w / 2;
     const y = intents.touch ? header.warp.y : 50;
+    if(this.planet===TUTORIAL&&!guide.policy.warp){this.warpText.setVisible(false);return;}
     const locked = p.lockdown > 0;
     const accent = p.warping ? 0x7fe9ff : locked ? UI.uiBorder : UI.uiAccent;
     panel(g, x - bw / 2, y - bh / 2, bw, bh, accent, !locked);
@@ -1246,8 +1253,9 @@ export class FlightScene extends Phaser.Scene {
     this.drawHotZone(p, w, h);
     this.drawBaseMarkers(p, w, h);
     this.drawSiege(w, h);
+    const tip=this.contextTips?.update(g,p,w,h,this.time.now,!!p&&!p.warping&&!this.net.warDown&&!this.net.death&&!this.net.extracted&&this.net.status==='open'&&!(p.arrival??0)&&(this.planet!==TUTORIAL||guide.tipsAllowed),this.planet===TUTORIAL);
     if (this.planet === TUTORIAL && (this.net.death || this.net.extracted)) guide.hide();
-    else if (this.planet === TUTORIAL) guide.update({ myId: this.net.myId, predicted: this.net.predicted, g: this.overlay, w, h, toScreen: (x, y) => this.toScreen(x, y) });
+    else if (this.planet === TUTORIAL) guide.update({ myId: this.net.myId, predicted: this.net.predicted, g: this.overlay, w, h, tip,toScreen: (x, y) => this.toScreen(x, y) });
     this.buildingRigs.begin();
     this.drawBase(p, w, h);
     this.buildingRigs.end();

@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex four-step tutorial RELEASE
+DID: Fly(two rings), Fight(one rock/bundle/upgrade), Dash/Ram(one stationary target), Escape(real extraction); short prompts, no modal/repeat grind.6 contextual first-use tips with persistent seen IDs.
+FILES: guide/policy/contextTips/tipState, Flight/save, local Room/manual target kind, sim CI regressions and docs/CLAUDE_BACKLOG.
+SEAM: tutorial phases replace old indices; optional warp policy gates queued/held input, buys and auto-turret quiet state. Online rooms ignore it. Save.tipsSeen; no wire/live tune/economy changes, no practice bank credit.
+CROSS: type/build/rig/sim/config checks pass;3 Brave full-route and18 tip desktop/mobile orientation cases pass, zero page errors/no captures. RAM waits for dash end before Escape.
+FOR claude: owner approved release and says sync later. CLAUDE_BACKLOG.md is the durable deferred handoff; no immediate execution/review requested. Public proof follows.
+
 ## 2026-11-17 claude warzone-sessions
 DID: Warzone session flow (owner): 20 s start countdown (joinable), sessions end with everyone sent to the menu (CLOSE.ROUND_OVER with the result) after the round-over pause or 10 s after a side empties, then a 20 s wall-clock reset (CLOSE.WAR_RESETTING with seconds). /planets returns status.warzone {phase,left}; stellar map shows it, JOIN AS CRIMSON/AZURE for clanless pilots, NOTIFY ME auto-warps when open. Hyperspace safety net: 10 s without a ship shows the wait reason with RETRY / BACK TO MENU. Warzone hot zone labelled MINERAL ZONE for both sides. Protocol 25. Investigated the reported join freeze: not reproducible locally or live; the safety net covers it either way.
 FILES: server/src/{room,index}.ts sim/protocol.ts tune.json src/net/client.ts src/scenes/{flight,menu}.ts src/render/stellarMap.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
@@ -97,10 +104,3 @@ FILES: warzone-v1 manifest now local v2 ZIP/seven parts, buildingBlast/buildingD
 SEAM: health transition observed once only when recently visible; no initial/repeated ruin detonation. Shared building-*-0 neutral textures skip clan remapping. Repair/scene shutdown clears effects; max8 bursts and bounded reused image pool.
 CROSS: renderer-only, no sim/tune/wire changes. Typecheck/assets/rig/build and Brave desktop/mobile state +4 destruction cases pass; no capture/recording. Live remains unchanged.
 FOR claude: owner checks local ?review=warzone or standalone turret/nexus FINAL HIT. Still NO R2 upload/push/merge/deploy before approval. Local v2 ZIP SHA 638189c64011a03ed3c05a5c6e2fc8fd5a87f14201e66c20e3693b79eb3f5caf.
-
-## 2026-11-17 codex warzone-art LOCAL REVIEW ONLY
-DID: painted damaged tower/Nexus parts + grounded wrecks, shield coverage, compact durability cues, charcoal/ochre terrain and isolated lab presets. No upload/push/merge/deploy; owner asked to inspect first.
-FILES: art/warzone-v1, buildingCondition/warzoneShield/buildingRig/clanBaseArt/planetGround/stellarMap, rigReview, lab selector; BUILD_STATUS/README contain source/hash/evidence.
-SEAM: optional normalized BuildingRigPose.health/ClanBaseArtOptions.siege; Flight observes current SiegeView/tune. PlanetGround fourth arg 'warzone'. No sim/tune/wire/rules changes.
-CROSS: minimal flight art wiring removes old ground X/ring and uses existing Nexus health; building regression gains durability/coverage tests. Typecheck/build/assets/rig tests + Brave desktop/mobile state checks pass; no capture/recording.
-FOR claude: do not release this local branch before owner art approval and verified R2 delivery. Local lab http://127.0.0.1:4187/game-prototypes/prototypes/steroids-alpha-lab/?review=warzone ; preview server intentionally running.

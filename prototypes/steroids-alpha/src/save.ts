@@ -4,6 +4,8 @@ import type { Look } from '../sim/unlocks';
 const SAVE_KEY = 'steroids-alpha:save:v1';
 
 export interface Save {
+  /** One-time contextual gameplay hints already displayed. */
+  tipsSeen?: string[];
   steer?: 'marker' | 'craft';
   mobileSteer?: 'marker' | 'craft';
   /** PC key hints in the bottom-left corner during flight (default on). */
