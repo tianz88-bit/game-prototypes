@@ -1,6 +1,6 @@
 ## Current milestone
 
-Desktop ordnance/speed UI is implemented and verified for release. The tutorial shortening is a discussion proposal only; lesson flow/counts remain unchanged.
+Desktop ordnance/speed UI is LIVE in171126r0093. PR539 merged7b3c11fe207cd814e5a0311fe15f4b0446a16a79; itch44028038724, Pages44028038740 and Worker44028038814 succeeded. Public game: https://daily-daily-games.itch.io/steroids-alpha . The tutorial shortening is a discussion proposal only; lesson flow/counts remain unchanged.
 
 ## What was implemented
 
@@ -12,7 +12,7 @@ Steady low-speed exhaust is violet and cruise exhaust teal. Fast/accelerating/tu
 
 Optional ThrusterInput.speedBand preserves older callers; ShipView derives it from actual speed and shipMotion cruise/top ratio. No wire, movement, combat or economy changes. PC badges follow measured key-hint height, including hints disabled. No extra hit areas on PC.
 
-Typecheck, build, rig/building and full simulation tests pass. Three headless Brave DPR2 runtime layouts (1280x720,960x540,844x390 touch) verify readable counts, hint/badge separation, unchanged mobile controls, hidden telemetry and actual ShipView slow/cruise/fast colours. Zero page errors; no capture/recording. Existing thruster regressions also verify distinct colours with unchanged particle counts. Evidence outputs/steroids-alpha/ordnance-speed-ui/.
+Typecheck, build, rig/building and full simulation tests pass. Three local plus three public headless Brave DPR2 runtime layouts (1280x720,960x540,844x390 touch) verify readable counts, hint/badge separation, unchanged mobile controls, hidden telemetry and actual ShipView slow/cruise/fast colours. Zero page errors; no capture/recording. Existing thruster regressions also verify distinct colours with unchanged particle counts. Public version93 and Worker protocol24 verified. Evidence outputs/steroids-alpha/ordnance-speed-ui/{runtime-check,public-runtime-check,public-base}.json.
 
 ## Open questions
 
@@ -24,4 +24,5 @@ Physical-phone/Safari visuals not inspected. Existing unrelated build warnings r
 
 ## Next proposed step
 
-Publish and verify UI/speed cues under continuing release preference, then discuss the shorter tutorial. Stop temporary Vite4187 after verification; no resident publisher/capture service.
+Discuss the shorter tutorial with the owner before changing its flow. Claude receives original-thread release proof. Temporary Vite4187 stopped; no resident publisher/capture service.
+
