@@ -728,7 +728,7 @@ export class FlightScene extends Phaser.Scene {
     ship.update({ ...at, brightness: orbital?1:this.objectLight(clientTune.render.nightShipDim), shadowX: shadow.x, shadowY: shadow.y, shadowAlpha: shadow.visible ? this.frame.daylight : 0, landed,opacity,warpForeground:orbital,
       orbitalLift:0,orbitalGroundAlpha:orbital?this.orbit.groundAlpha:opacity }, orbital?{...s,speed:topSpeed(s.hullMax,TUNE,s.chassis)}:s, this.time.now, orbital?{thrust:1,turn:0,aim:s.heading}:control);
     if(orbital || (s.arrival??0)>0)return;
-    if(s.dashTime>0){
+    if(s.dashTime>0&&at.visible){
       const q=this.toScreen(s.x+Math.cos(s.heading)*30,s.y+Math.sin(s.heading)*30),angle=Math.atan2(q.y-at.y,q.x-at.x);
       const guns=GUNS[s.chassis],reach=guns?Math.max(...guns.map(g=>g.forward)):TUNE.weapon.muzzleForward;
       drawRamAttack(this.turretGfx,at,angle,reach+12,chassisStats(s.chassis,TUNE).radius*.95,this.time.now);this.ramAttackFrames++;
