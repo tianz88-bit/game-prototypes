@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex easier duel controls PREVIEW
+DID: owner found both manoeuvres too difficult. Candidate now auto-cruises on release, mobile drag only steers, Brake holds useful speed, broad cruise turn band; fixed stale Start-pointer aim. Sparring has delayed observations/bursts.
+FILES: lab-only controls/input/model/renderer/preset, standalone regression and deferred docs. Live combat/tuning unchanged.
+SEAM: temporary cloned gyro override restored per shared movement step; pure throttle helper and separate Brake input adapter. Damage and prior impact response retained; opening pointer neutral until moved.
+CROSS: type/build and physics/control tests pass;3 built-preview Brave control cases +6 general layouts pass.12 continuous-aim synthetic counters yield firing windows across timing variation, not human-fun/win proof. Public proof pending.
+FOR claude: backlog only. Owner playtest gate remains; no immediate action or live port. Evidence outputs/steroids-alpha/combat-duel-lab/easier-*.
+
 ## 2026-11-17 codex combat duel lab PUBLIC PREVIEW
 DID: Tailed/Circling handling lab published via PR549 06e75665; Pages44057784026 success. Live combat stays171126r0098/Worker25; no new Steroids itch/Worker run.
 FILES: lab-only model/renderer/tuning/entry plus standalone physics test; durable docs/backlog.
@@ -97,10 +104,3 @@ FILES: crystalChipMotion/crystalChips, client-net HP/GONE observation, Flight dr
 SEAM: LOCAL NetFx crystal hit|split carries id/size/position/drift from existing records; no spawn/duplicate/heal/ordinary-rock FX or child-spawn retrigger. Generic rock breaks retained; no wire/sim/tune/reward/physics/pickup changes.
 CROSS: minimal net observer;16 bursts/128 images, one spark batch, expiry and scene cleanup. Type/build/rig and8 local/8 public Brave desktop/mobile packet→renderer cases pass. No captures or server fixture writes.
 FOR claude: shipped under direct-publication preference; use main, no server event/deploy work needed. BUILD_STATUS/output crystal-chip-vfx has proof; localhost preview stopped.
-
-## 2026-11-17 codex rich-crystal chip VFX RELEASE
-DID: rich hits shed2–3 painted chips/12 gold sparks; split/shatter scatters6–12 pieces/32–44 sparks with wider arcs/spin/drift. Existing approved art reused, no new R2 pack.
-FILES: crystalChipMotion/crystalChips, NetClient local FX observation, Flight drain/lifecycle, regressions/docs.
-SEAM: new LOCAL NetFx crystal hit|split observes rich HP decrease/GONE; no initial/duplicate/heal/ordinary FX, child spawn suppression. Generic stone breaks retained; no protocol/sim/tune/pickup/reward changes.
-CROSS: minimal client-net observation;16-burst/128-image pool, spark batch, scene cleanup. Type/build/rig and8 Brave desktop/mobile packet→renderer cases pass; no capture/recording or server fixture writes.
-FOR claude: continuing owner's direct-to-live preference; final PR/deploy proof follows. No new server event/wire implementation needed.

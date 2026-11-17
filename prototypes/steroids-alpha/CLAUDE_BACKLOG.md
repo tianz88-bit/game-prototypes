@@ -2,6 +2,19 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Awaiting owner playtest: easier duel controls
+
+Owner said BOTH manoeuvres/controls were almost impossible. This supersedes the previous candidate's precise cruise point and throttle coupling. Lab update locally verified, Pages publication pending. Live combat remains171126r0098 / protocol25; no immediate Claude execution/review.
+
+- Fixed real handoff bug: fire/keyboard takeover could aim toward the old Start-button position because mouse input remained active. Start/Resume click stays neutral until actual pointer movement, in both presets.
+- Candidate neutral throttle converges exactly to power-adjusted cruise. PC W accelerates, S brakes; mobile drag steers at cruise without feathering, with a held BRAKE button. Brake targets max(minimum,65% cruise), release recovers cruise.
+- combatTurnFactor supplies constant turn radius throughout65–115% cruise, smoothly opening outside it. Same helper applies to both pilots. DuelModel.advance temporarily changes the clone's chassis turn rate to feed the existing shared step, restores in finally and leaves damage/weapons/dash steering intact. This is a preview seam, not a production config field.
+- Both sparring presets now use0.3s-old observations sampled every0.15s plus0.35s on/off trigger bursts. This avoids perfect mirroring; weapon stats/damage unchanged. Opponent policy is still a local helper, not actual human PvP.
+- Pure regressions cover all4 cruise bands, neutral speed convergence, useful Brake floor, gyro restoration and existing impacts/damage parity.12 synthetic continuous-aim counters (two starts, Dash delays1.5–2.5s) get1.03–1.87s firing opportunities; several still lose. This demonstrates possible openings, not manual execution, human fun or guaranteed wins.
+- Built-preview headless Brave:3 targeted desktop/mobile/portrait cases verify no pointer snap, auto-cruise, actual held Brake/no accidental fire, independent mobile steer/speed and preserved baseline slowdown.6 general duel layouts cover four ships, firing/dash, roles/presets, pause/reset and disposal. No JS errors, sockets, writes or captures.
+
+Gate: owner retries the public lab. Live combat and live-config publishing remain untouched until explicit approval and a real authority/prediction port.
+
 ## Awaiting owner playtest: combat handling and duel lab
 
 Status: PUBLIC LAB PREVIEW READY. PR549 merge06e756654af1e9a01824d0d2dc48d1813b8a1d5c; Pages44057784026 succeeded. Six local plus6 public headless Brave DPR2 layouts pass, with all4 public ship choices and both direct routes. No page errors/game sockets/writes/captures. Temporary Vite4187 stopped and headless task processes closed. Production combat remains171126r0098 / protocol25. Owner explicitly requires trying the lab BEFORE live release. No immediate Claude execution/review requested.

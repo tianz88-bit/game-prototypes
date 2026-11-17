@@ -43,3 +43,9 @@ Open ?duel=tail or ?duel=circle (links above the calibration stage). Start Duel,
 These are local sparring scenarios, not online rooms or a second human. Tailed uses pursuit/evading roles; Circling begins a mirrored cruise loop and the opponent pursues once you break away. Guns/dash only and no shop/banking. The candidate consumes ram dash, gives opposing mass-weighted pushes with slower decay, and makes cruise turn radius best. Damage remains the existing World's damage. Compare presets before approving live combat.
 
 Separate entry.mjs selects the duel module before loading the editor. It only reads /config, falls back to labelled bundled defaults, uses a cloned tune and does not touch draft storage/publishing or create sockets. duel.tune.json is preview-only; it is not part of the live configuration schema. New contact logic must be deliberately ported and validated after owner approval.
+
+## Easier candidate controls
+
+After owner feedback, releasing the throttle now returns the candidate to cruise. PC W speeds up and S brakes; mobile drag steers at cruise and the held BRAKE button slows you to a useful turning speed. Release Brake to recover cruise automatically. The turning sweet spot is a broad65–115% cruise band. Baseline retains the live slowdown behaviour.
+
+The Start/Resume pointer no longer becomes an unwanted aim target when you first fire or use keys. Sparring uses delayed observations and short trigger bursts. Try turning toward the opponent, then Dash across its path; Brake is optional spacing control. The synthetic tests establish openings with continuous aim, not human ease or guaranteed wins. This remains an isolated preview awaiting owner playtest.
