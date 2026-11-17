@@ -2,13 +2,15 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
-## Live speed grip, Hangar stats and ship balance — approved18 November2026
+## Live speed grip, Hangar stats and ship balance — LIVE171126r0100 / protocol26
+
+PR559 merge1eccd9e0e6626cc717504a87868314dfbb6518a5. itch44129275449, Worker44129275517 and Pages44129275338 succeeded. Public7 Hangar layouts +5 evolution-gate layouts pass; live beta connection receives72 travel snapshots and slips24° fast→.57° braking. Hosted settings upgrade resolves enabled grip/cap25/turrets2/guns4. Public lab fields/three profiles pass; no page errors or captures, temporary processes stopped.
 
 Owner explicitly approved live Speed Grip, superseding the previous grip-only live gate. Other experimental lab turn-band, auto-cruise and pushback remain unported. Protocol26 carries travelHeading at103 (107-byte ships); one shared movement step owns grip before shot emission, including replay/snapshot/interpolation and actual target velocity. No private bullet bridge in production. Lab candidates disable shared grip to retain their independent comparisons; Live Baseline now uses live grip.
 
 Battlecruiser now requires2 bought turret upgrades and Guns4, plus existing total/power/cost; upgrades retained and base2 turrets make4 equipped after minimum evolve. Ship shields use min(35% capacity,25 points/sec), existing delay/hit reset retained. Hangar five bar rows show tune-derived base speed, turn, shield, main DPS and actual cold-to-overheat shots. No ownership/schema changes. New grip regression is in client and Worker release gates.
 
-Evidence: outputs/steroids-alpha/live-speed-grip/. Shared simulation, grip/lab/config/rig/bank/type/build checks and seven headless Hangar layouts pass. Two independent Brave clients including120ms RTT verify binary travel, fast slip/brake recovery, firing, remote interpolation and bounded reconciliation. No captures or immediate Claude work. Release/public proof follows.
+Evidence: outputs/steroids-alpha/live-speed-grip/. Shared simulation, grip/lab/config/rig/bank/type/build checks and seven headless Hangar layouts pass. Two independent Brave clients including120ms RTT verify binary travel, fast slip/brake recovery, firing, remote interpolation and bounded reconciliation. No captures or immediate Claude work. Public proof above; release complete.
 
 ## Desktop/mobile UI correction — live171126r0099
 
