@@ -1,0 +1,42 @@
+{
+  "rules": {
+    "limitSlack": 4,
+    "starSlack": 2,
+    "unlockAll": 1,
+    "followAfterSide": 1
+  },
+  "feel": {
+    "runBaseMs": 140,
+    "runPerCellMs": 55,
+    "exitExtraCells": 0.8,
+    "brakeMs": 90,
+    "brakeSquash": 0.88,
+    "hornMs": 140,
+    "hornRings": 3,
+    "hornRingPx": 46,
+    "hornPuffs": 6,
+    "spookMs": 130,
+    "spookStretch": 0.16,
+    "spookSquash": 0.14,
+    "spookSkewPx": 5,
+    "spookTiltDeg": 5,
+    "spookShakePx": 1.5,
+    "spookReleaseMs": 90,
+    "bangPopMs": 280,
+    "chainCompress": 0.85,
+    "chainFloor": 0.5,
+    "resumeOverlap": 0.55,
+    "holdSpeed": 2.2,
+    "bigChainTrains": 3,
+    "shakeMs": 160,
+    "shakeIntensity": 0.008,
+    "punchZoom": 1.02,
+    "pitchStepPerLink": 0.07,
+    "pitchStepMax": 10,
+    "volume": 0.5,
+    "vibrate": 1,
+    "swipePx": 14,
+    "carLengthFrac": 0.92,
+    "carWidthFrac": 0.7
+  }
+}
