@@ -85,7 +85,7 @@ await page.mouse.click(285, 760);
 await page.waitForTimeout(400);
 console.log('menu open:', await page.evaluate(() => window.__densha.menuOpen()));
 await shot('level-selector');
-await page.mouse.click(323, 339);
+await page.mouse.click(323, 253);
 await page.waitForTimeout(800);
 const sel = await page.evaluate(() => ({ lvl: window.__densha.level() + 1, taps: window.__densha.taps(), phase: window.__densha.phase() }));
 console.log('after picking level 5:', sel);
