@@ -44,6 +44,7 @@ export interface ShipPlacement {
   orbitalLift?: number;
   orbitalGroundAlpha?: number;
   opacity?: number;
+  destroying?:boolean;
   /** Keep the pilot above the temporary hyperspace background, below the existing UI. */
   warpForeground?: boolean;
 }
@@ -153,9 +154,9 @@ export class ShipView {
     this.container.setDepth(at.warpForeground?899.2:this.normalDepth).setAlpha(alpha).setVisible(visible);
     this.exhaustGfx.setDepth(at.warpForeground?899.1:SHIP_DEPTH-.5).setAlpha(alpha).setVisible(visible);
     this.shadow.setVisible(visible && at.shadowAlpha > .01);
-    this.ring.setVisible(visible);
-    this.hoverLight.setVisible(visible);
-    this.shieldGfx.setVisible(visible&&!at.warpForeground).setAlpha(alpha);
+    this.ring.setVisible(visible&&!at.destroying);
+    this.hoverLight.setVisible(visible&&!at.destroying);
+    this.shieldGfx.setVisible(visible&&!at.warpForeground&&!at.destroying).setAlpha(alpha);
     if (!visible) return;
     const x = at.x;
     const y = at.y;
@@ -250,9 +251,9 @@ export class ShipView {
       if (this.tiltProjection) ffd!.draw(p, cal.modules[m.id].width, k?.scaleX ?? 1, k?.scaleY ?? 1, hover, this.tiltProjection);
     }
     this.container.setPosition(x, y).setScale(scale);
-    this.updateExhaust(dt / 1000, landed > 0.3 ? { ...demand, throttle: false, left: false, right: false, off: true } : demand, angle, timeMs, at, boosting && landed <= 0.3);
+    this.updateExhaust(dt / 1000, at.destroying||landed > 0.3 ? { ...demand, throttle: false, left: false, right: false, off: true } : demand, angle, timeMs, at, boosting && landed <= 0.3&&!at.destroying);
     // Short square muzzle glints share the existing exhaust Graphics and its transit opacity.
-    for (const {m,img} of this.parts) if (m.asset === 'turret-head' && Number(m.id.slice(-1)) < this.activeTurrets) {
+    for (const {m,img} of this.parts) if (!at.destroying&&m.asset === 'turret-head' && Number(m.id.slice(-1)) < this.activeTurrets) {
       const age=timeMs-(this.turretFiredAt[Number(m.id.slice(-1))]??-1e9);
       if(age>=0 && age<70){const a=img.rotation-Math.PI/2,reach=img.displayHeight*.5;
         const px=x+(img.x+Math.cos(a)*reach)*scale,py=y+(img.y+Math.sin(a)*reach)*scale;
@@ -360,8 +361,8 @@ export class ShipView {
     g.clear();
     const LIFE = 500;
     this.shieldHits = this.shieldHits.filter((h) => timeMs - h.at < LIFE).slice(-8);
-    g.setVisible(at.visible && this.shieldHits.length > 0);
-    if (!at.visible || !this.shieldHits.length) return;
+    g.setVisible(at.visible && !at.destroying && !at.warpForeground && this.shieldHits.length > 0);
+    if (!at.visible || at.destroying || at.warpForeground || !this.shieldHits.length) return;
     const R = clientTune.render.shipRingRadius * this.sizeRatio * clientTune.render.shipScale * at.scale * 1.2;
     let bubble = 0;
     for (const h of this.shieldHits) bubble = Math.max(bubble, 1 - (timeMs - h.at) / LIFE);

@@ -83,7 +83,7 @@ export type NetFx =
   | { kind: 'burst'; x: number; y: number; size: number }
   | ({kind:'crystal'}&CrystalChipEvent)
   | { kind: 'spark'; x: number; y: number; angle?: number }
-  | { kind: 'explosion'; x: number; y: number; killer: number }
+  | { kind: 'explosion'; id:number;ship?:ShipState;x: number; y: number; killer: number }
   | { kind: 'heal'; x: number; y: number }
   /** A dash ram landed here. */
   | { kind: 'ram'; x: number; y: number }
@@ -337,7 +337,9 @@ export class NetClient {
       this.bounty = msg.id ? { id: msg.id, x: Number(msg.x) || 0, y: Number(msg.y) || 0 } : null;
     } else if (msg.type === 'deaths' && Array.isArray(msg.deaths)) {
       for (const d of msg.deaths) {
-        this.fx.push({ kind: 'explosion', x: d.x, y: d.y, killer: d.killer });
+        const buf=this.remotes.get(d.id)?.buf;
+        const state=d.id===this.myId?this.predicted:buf?.[buf.length-1]?.s;
+        this.fx.push({ kind: 'explosion',id:d.id,ship:state?copyShip(state):undefined, x: d.x, y: d.y, killer: d.killer });
         this.remotes.delete(d.id);
         // At war the pilot stays on the planet and respawns in place (Warzone): no death screen.
         const atWar = this.siege?.phase === 'war' || this.siege?.phase === 'release';

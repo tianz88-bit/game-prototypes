@@ -56,7 +56,11 @@ export function drawCombatImpact(g:Phaser.GameObjects.Graphics,at:At,t:number,ki
     drawImpactSpark(g,at,t,0,19);drawImpactSpark(g,at,t,Math.PI,53);return;
   }
   if(kind==='ram'){
-    const size=r*(.18+.8*travel);g.lineStyle(Math.max(1,4*k*(1-t)),0xd4f8ff,fade);g.strokeEllipse(x,y,size*2,size*.7);
+    const size=r*(.18+.8*travel);
+    if(t<.5){cloud(g,x,y,r*(.18+travel*.38),0xb44d32,(1-t*2)*.85,t*3,.6);cloud(g,x-2*k,y-2*k,r*(.12+travel*.28),0xffa249,(1-t*2)*.95,t*3,.6);}
+    g.lineStyle(Math.max(1,4*k*(1-t)),0xffa04d,fade);g.strokeEllipse(x,y,size*2,size*.7);
+    for(let i=0;i<12;i++){const a=i*2.399,d=size*(.5+travel*.5),px=x+Math.cos(a)*d,py=y+Math.sin(a)*d,w=(2+i%3)*k;
+      g.fillStyle(i%3===0?0xfff0b9:i%2?0xffc16a:0xe46a36,fade);g.fillRect(px,py,w,w*(i%2?3:1));}
     for(const side of [-1,1]){const d=size*.7;g.lineStyle(Math.max(1,5*k),0xffb25d,fade);g.lineBetween(x+side*d,y-d*.35,x+side*d*.65,y);g.lineBetween(x+side*d*.65,y,x+side*d,y+d*.35);}
     if(t<.2){g.fillStyle(0xfff7d8,1-t/.2);g.fillRect(x-r*.32,y-2*k,r*.64,4*k);}return;
   }
@@ -101,4 +105,14 @@ export function drawOrdnanceCue(g:Phaser.GameObjects.Graphics,o:OrdnanceView,at:
     if(seeking){const px=x-c*15*k,py=y-s*15*k;g.fillStyle(0xffe8b7,.9);g.fillTriangle(px-s*2*k,py+c*2*k,px+s*2*k,py-c*2*k,px-c*6*k,py-s*6*k);}
   }
   if(o.hp<1){g.fillStyle(0x071425,.9);g.fillRect(x-12*k,y-23*k,24*k,4*k);g.fillStyle(signal,.9);g.fillRect(x-12*k,y-23*k,24*k*Math.max(0,o.hp),4*k);}
+}
+
+/** Leading orange attack envelope, present only during active dash frames. */
+export function drawRamAttack(g:Phaser.GameObjects.Graphics,at:At,angle:number,reach:number,width:number,now:number):void {
+ const k=at.scale,c=Math.cos(angle),s=Math.sin(angle),nose={x:at.x+c*reach*k,y:at.y+s*reach*k};
+ const point=(f:number,l:number)=>({x:nose.x+(c*f-s*l)*k,y:nose.y+(s*f+c*l)*k});
+ g.fillStyle(0xed6a32,.23);g.fillPoints([point(-7,-width),point(12,0),point(-7,width),point(0,0)],true);
+ for(const side of [-1,1]){const a=point(-3,side*width*.92),b=point(10,0),p=point(-1,side*width*.6),q=point(7,0);
+ g.lineStyle(Math.max(1,3*k),0xff913d,.7+.15*Math.sin(now/65));g.lineBetween(a.x,a.y,b.x,b.y);
+ g.lineStyle(Math.max(.7,k),0xffe0a3,.85);g.lineBetween(p.x,p.y,q.x,q.y);}
 }

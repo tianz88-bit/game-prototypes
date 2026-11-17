@@ -25,6 +25,7 @@ export class Explosion {
     readonly x: number,
     readonly y: number,
     random: () => number = Math.random,
+    readonly scale=1,
   ) {
     for (let i = 0; i < 90; i++) {
       const a = random() * Math.PI * 2;
@@ -43,6 +44,7 @@ export class Explosion {
         life: hot ? 0.5 + random() * 0.6 : 0.9 + random() * 0.5,
         colour: hot ? (q < 0.3 ? 0xfff6d8 : q < 0.7 ? 0xffb347 : 0xff6a2b) : q < 0.5 ? 0x3d3a45 : 0x5a5363,
       });
+      const spark=this.sparks[this.sparks.length-1];spark.x*=scale;spark.y*=scale;spark.vx*=scale;spark.vy*=scale;spark.w*=scale;spark.h*=scale;
     }
   }
 

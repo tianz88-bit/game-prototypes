@@ -1,27 +1,27 @@
 ## Current milestone
 
-Rich-asteroid crystal hit/split VFX are LIVE in171126r0089. PR533 merged23cf3aecddbeaee827a7732cb3c9243884c4afa5. Itch44014921428 and Pages44014921281 succeeded; existing Worker protocol24 healthy. Game: https://daily-daily-games.itch.io/steroids-alpha . Existing crystal art retained, no new bitmap/R2 upload.
+Ram readability, persistent hull trace, tutorial clarity and universal staged ship destruction are implemented for the next live release. Continue the owner's direct-publication preference after verification.
 
 ## What was implemented
 
-Rich asteroid hits eject2–3 small painted gold chips plus12 short rectangular sparks. Destruction/split scatters6/9/12 painted crystal pieces for small/medium/large rocks, with32/38/44 gold sparks, wider outward trajectories, spin and a height arc. Pieces inherit asteroid drift, then fade within0.7/1.3seconds. Existing stone fracture effects and real collectible minerals remain separate. Reuses approved mineral-shard/cluster textures; no extra asset download.
+Orange bow attack envelope on active dash frames and an orange crash impact. Thin inner hull arc remains visible beside the main shield/hull arc, retaining critical-hull flashing and shield recovery. Tutorial suppresses early mineral drops, hides and blocks purchases before UPGRADES, disables weapons during RAM, and places three swept-crossing dash gates so one dash can pass several rings.
+
+All four visible ship chassis retain their rig after authoritative death, darken/shrink over800ms, emit five small blasts, then a size-aware final explosion. Own, remote and Warzone deaths share this path; death menu follows the animation. Layout rebuild preserves its progress and shutdown cleans it up.
 
 ## Key technical decisions
 
-NetClient observes rich HP decreases and existing GONE records, emitting local NetFx crystal hit/split events. Initial spawns, duplicate/same HP, healing and ordinary rocks do not trigger gold VFX; duplicate GONE is ignored after map deletion. Child spawns are not extra hits. Server wire/protocol24, sim, collision/HP/rewards/mineral collection unchanged. Flight renders once from the existing FX drain and retains generic rock break effects.
+Local explosion FX copy ShipState before remote deletion; no protocol change or gameplay death delay. ShipPlacement.destroying suppresses hover/exhaust/shields. Tutorial policy is enforced in the in-page Room, including queued/held weapons and BUY frames; online worlds ignore it. No tuning, damage, economy, new art assets or dependencies changed.
 
-CrystalChips caps at16 bursts and128 pooled images, prioritizes split showers over old hit bursts and uses one spark Graphics batch. No physics/pickup objects, emitters, timers or permanent particle sources. Scene rebuild/shutdown destroys resources. Pure chip trajectory supplies rotation, inherited drift, projected ground position, fake height and fade. Effects use existing planet projection, keeping wrapped positions consistent.
-
-Typecheck/build/rig regressions and chip trigger/count/expiry/velocity tests pass.8 local and8 public Brave desktop/mobile DPR2 runtime cases exercise all3 sizes plus stress, canonical NetClient handle→FX drain→Flight renderer, hit/split once only, child spawn suppression, ordinary-rock exclusion, expiry and16/128 budget. Zero page/console errors. Real beta sockets close before local packet fixtures; no test stats sent. Evidence outputs/steroids-alpha/crystal-chip-vfx/{runtime-check,public-runtime-check,live-game}.json. Public client verifies version89 and existing crystal body registration. No screenshots/recording.
+Typecheck/build, rig/building/crystal regressions, complete simulation and live-config suites pass. New ram/tutorial regression covers policy, buys, held weapons, online isolation, mineral gating, swept/wrapped gates, bow geometry and800ms timing. Brave DPR2 desktop/mobile runtime exercises all4 chassis, own/remote/Warzone death, resize continuity, duplicate suppression, HUD trace and tutorial gates (14 cases, zero page errors). No captures/recording; no fixtures written to public rooms. Evidence: outputs/steroids-alpha/ram-tutorial-destruction/.
 
 ## Open questions
 
-None; continuing direct-publication preference.
+None.
 
 ## Known issues
 
-Physical-phone/Safari visuals not checked; Brave mobile emulation only. Existing unrelated build warnings remain.
+Physical-phone/Safari visuals not inspected. Existing unrelated build warnings remain.
 
 ## Next proposed step
 
-Collect live feedback. Claude receives PR/run/seam/public-check proof in Agent Comms threade31061e9-e8e1-4105-858a-2f847541014a. Temporary Vite4187 stopped after release; no resident publisher or capture service.
+Publish client and Worker, verify public tutorial/runtime and protocol24 health, then send Claude the original-thread seam/release proof. Stop temporary Vite4187 when complete.
