@@ -122,10 +122,37 @@ later idea. No real-money purchases in v1.
 Saturated pastel pillow trains (reuse dig-kit) on a bright station yard with drawn
 tracks, ties, platform edges and little decor. Generic Japanese-style commuter and
 express trains, with no real line branding or logos. Juice: a squash on tap, trains
-accelerate and brake, a bump and puff at each hit, a rising pitch per chain link,
-a station chime on each train that exits, "CHAIN x4" text, screen shake on big
-chains, a level-complete burst. Sounds are synthesised placeholders. Placeholder-
-first: no external art, since you provide the artwork later.
+accelerate and brake, a rising pitch per chain link, a station chime on each train
+that exits, "CHAIN x4" text, screen shake on big chains, a level-complete burst.
+Sounds are synthesised placeholders. Placeholder-first: no external art, since you
+provide the artwork later.
+
+## Character animation (horn and spook)
+
+Trains get personality from one short beat at every hit, built to stay snappy:
+
+1. **Horn.** When a running train stops against another train, it brakes with a
+   small squash and blows its horn: a short "toot" sound and an animated burst
+   (a few rounded sound rings and puffs from the front). About 120 ms.
+2. **Spook.** The train that was hit is startled. It skews and stretches
+   sideways and up, with a little shake and a "!" pop above it, as anticipation
+   before it takes off. About 120 ms, then it springs forward with a quick
+   stretch that settles to normal as it speeds up.
+3. **Go.** The spooked train runs, and the same beat repeats at the next hit.
+
+Not draggy, by rules:
+
+- The beat overlaps: the horn and the spook start together, so one chain link
+  adds about 150 to 200 ms, not 250.
+- Long chains compress. Link k plays faster than link k-1 (for example 85% of the
+  previous beat, down to a floor), so a chain of 8 does not feel 8 times longer.
+- A tap during a chain never waits: input stays live, and extra taps queue or
+  are ignored cleanly. A "skip animation" speed-up is available if the player
+  holds a finger down during a chain.
+- Everything is tunable in tune.json and the `?debug=1` panel: horn time, spook
+  time, skew and stretch amounts, shake, ring count, pitch step, the chain
+  compression factor and its floor. The rules and the solver ignore all of it:
+  the animation is only presentation and never changes the result.
 
 ## Input
 
@@ -136,8 +163,8 @@ undo, hint, pause). Never blocks the player: the layout adapts to any screen sha
 ## Tuning
 
 Feel, pacing and difficulty values live in `tune.json` and the `?debug=1`
-Tweakpane panel with a copy-JSON button: train speed and acceleration, bump and
-chain delay, pitch step, shake, tap slack, difficulty curve, breather and spike
+Tweakpane panel with a copy-JSON button: train speed and acceleration, horn and
+spook timing, skew and stretch, chain compression, pitch step, shake, tap slack, difficulty curve, breather and spike
 spacing, director bounds, ad caps.
 
 ## Scope order
