@@ -201,8 +201,7 @@ then the playable planet (both done, 16 November 2026).
   countdowns, tickets, round timer and tower/shield/Nexus health; destroyed towers are crossed out
   and the shield ring fades with its strength (placeholder looks until art). The round-over pause
   is 8 s, then a new countdown if both clans are still there.
-- Idea for later (owner): more minerals and rare mineral-rich asteroids on Warzone for quick
-  farming.
+- Mineral-rich asteroids now spawn by the hot zone on every planet, Warzone included (see Asteroids).
 - Starting values (to be tuned by the owner after playtests; lowered 16 November for the weaker
   Sparrow starter): turrets 110 HP, shield 750 HP
   regenerating 2 HP/s per live turret, treasury 1,100 HP, 20 tickets, defender respawn 15 s. Headless
@@ -482,6 +481,13 @@ Asteroids replace bots as the non-player targets (owner decision).
   amount and spawns new large ones to maintain it.
 - Run on the server. Because they move in straight lines, the server sends
   only spawn, split and destroy events and clients compute positions.
+
+- **Mineral-rich asteroids (owner, 17 November 2026):** up to 2 alive per planet (fragments
+  included; `asteroid.richMax`), a new one 20 s after a slot opens (`richRespawnSeconds`), spawned
+  in or just beside the hot zone (they do not follow it). They pay 3x the minerals
+  (`richMineralFactor`) and have 2x the health (`richHpFactor`); their fragments stay rich. Inside
+  the hot zone their salvage is doubled as usual (owner: stacking is fine). Placeholder look: a
+  pulsing golden halo with glints until art.
 
 ## Orbital zoom transition
 

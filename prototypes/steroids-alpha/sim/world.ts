@@ -638,7 +638,10 @@ export class World {
     }
 
     if (this.tick >= this.hotZone.until) this.moveHotZone();
-    if (this.tick % t.net.tickHz === 0) this.populate();
+    if (this.tick % t.net.tickHz === 0) {
+      this.populate();
+      this.keepRichRocks();
+    }
   }
 
   /**
@@ -1167,7 +1170,7 @@ export class World {
     // Every destroyed asteroid leaves minerals; sometimes a health boost as well.
     // Mined minerals carry salvage too: salvage.perMineral each, more inside the hot zone.
     const per = this.tune.salvage.perMineral * (this.inHotZone(at.x, at.y) ? this.tune.hotZone.salvageMultiplier : 1);
-    this.spillMinerals(at.x, at.y, this.tune.asteroid.mineralYield[a.size], this.tune.asteroid.radius[a.size] * 0.5, 0, per);
+    this.spillMinerals(at.x, at.y, this.tune.asteroid.mineralYield[a.size] * (a.rich ? this.tune.asteroid.richMineralFactor : 1), this.tune.asteroid.radius[a.size] * 0.5, 0, per);
     if (this.rng() < this.tune.asteroid.healthDropChance) this.addPickup(at.x, at.y, 'heal', 0);
     for (const child of splitAsteroid(a, at, dirX, dirY, damage, this.tick, () => this.newAsteroidId(), this.rng, this.tune)) {
       this.asteroids.set(child.id, child);
@@ -1177,6 +1180,42 @@ export class World {
   }
 
   /** Keep the planet stocked: add large asteroids, away from ships, until the target mass is reached. */
+  /** Tick the next mineral-rich rock may appear (0: none waiting). */
+  private richAt = 0;
+
+  /**
+   * Mineral-rich asteroids (owner, 17 November 2026): up to asteroid.richMax alive (fragments
+   * included), each new one asteroid.richRespawnSeconds after a slot opens, spawned in or just
+   * beside the hot zone (it does not follow the zone afterwards).
+   */
+  private keepRichRocks(): void {
+    const t = this.tune, ta = t.asteroid;
+    let rich = 0;
+    for (const a of this.asteroids.values()) if (a.rich) rich++;
+    if (rich >= ta.richMax || this.hotZone.r <= 0) {
+      this.richAt = 0;
+      return;
+    }
+    if (!this.richAt) this.richAt = this.tick + Math.round(ta.richRespawnSeconds * t.net.tickHz);
+    if (this.tick < this.richAt) return;
+    for (let tries = 0; tries < 12; tries++) {
+      const za = this.rng() * Math.PI * 2;
+      const zd = Math.sqrt(this.rng()) * this.hotZone.r * 1.2;
+      const x = wrap(this.hotZone.x + Math.cos(za) * zd, t.world.width);
+      const y = wrap(this.hotZone.y + Math.sin(za) * zd, t.world.height);
+      let clear = true;
+      for (const s of this.ships.values()) if (Math.hypot(wrapDelta(x, s.x, t.world.width), wrapDelta(y, s.y, t.world.height)) < ta.spawnClearRadius * 0.6) clear = false;
+      if (!clear) continue;
+      const dir = this.rng() * Math.PI * 2;
+      const a: Asteroid = { id: this.newAsteroidId(), size: 0, x, y, vx: Math.cos(dir) * ta.speedMin, vy: Math.sin(dir) * ta.speedMin, t0: this.tick, hp: ta.hp[0] * ta.richHpFactor, family: 0, rich: true };
+      a.family = a.id % 3;
+      this.asteroids.set(a.id, a);
+      this.events.asteroids.push(a);
+      this.richAt = 0;
+      return;
+    }
+  }
+
   private populate(): void {
     const t = this.tune;
     let mass = 0;

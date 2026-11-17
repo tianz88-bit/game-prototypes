@@ -1448,7 +1448,19 @@ export class FlightScene extends Phaser.Scene {
       const r = TUNE.asteroid.radius[a.size];
       if (!this.toScreen(x, y).visible) continue;
       const flash = now - (this.net.asteroidHitAt.get(a.id) ?? -1e9) < 90;
-      this.rocks.draw(a.id,x,y,r,a.hp/TUNE.asteroid.hp[a.size],flash,light,this.frame.sun,(px,py)=>this.toScreen(px,py),a.size,a.family);
+      const full = TUNE.asteroid.hp[a.size] * (a.rich ? TUNE.asteroid.richHpFactor : 1);
+      if (a.rich) {
+        // Mineral-rich rock (owner, 17 November 2026; placeholder look until art): a pulsing golden
+        // halo and glints, readable from across the screen.
+        const s = this.toScreen(x, y), rr = r * s.scale, pulse = 0.5 + 0.5 * Math.sin(now / 260 + a.id);
+        g.fillStyle(0xffc94a, 0.12 + 0.1 * pulse); g.fillCircle(s.x, s.y, rr * 1.6);
+        g.lineStyle(3, 0xffd76a, 0.45 + 0.35 * pulse); g.strokeCircle(s.x, s.y, rr * 1.25);
+        for (let i = 0; i < 4; i++) {
+          const ang = now / 900 + a.id + i * 1.57, gx = s.x + Math.cos(ang) * rr * 1.25, gy = s.y + Math.sin(ang) * rr * 1.25;
+          g.fillStyle(0xfff3c2, 0.8); g.fillCircle(gx, gy, 2.5);
+        }
+      }
+      this.rocks.draw(a.id,x,y,r,Math.min(1,a.hp/full),flash,light,this.frame.sun,(px,py)=>this.toScreen(px,py),a.size,a.family);
     }
     this.rocks.end();
     this.combatSprites.begin();

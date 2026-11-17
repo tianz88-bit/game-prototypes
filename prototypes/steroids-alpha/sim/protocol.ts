@@ -22,7 +22,7 @@ import type { Look } from './unlocks';
 //   ORDNANCE  u8 type, u16 count, count x (u16 id, u8 kind 0 missile / 1 mine, u16 owner, f32 x, f32 y,
 //             f32 heading, u8 hp percent, u8 armed, u16 target): missiles and mines near you, every snapshot
 //   PONG      u8 type, f64 clientTimeMs
-//   ASTEROIDS u8 type, u16 count, count x (u16 id, u8 size, f32 x, f32 y, f32 vx, f32 vy, u32 t0, f32 hp, u8 family)
+//   ASTEROIDS u8 type, u16 count, count x (u16 id, u8 size, f32 x, f32 y, f32 vx, f32 vy, u32 t0, f32 hp, u8 family | 0x80 if mineral-rich)
 //             New asteroids, or ones whose hp changed. Sent in full to a client when it joins.
 //   GONE      u8 type, u16 count, count x (u16 id, f32 x, f32 y)   asteroids destroyed, and where
 //   SHOTS     u8 type, u32 tick, u16 count, count x (u16 owner, f32 x, f32 y, f32 vx, f32 vy, i8 side)
@@ -31,7 +31,7 @@ import type { ShipInput, ShipState } from './ship';
 import type { Asteroid } from './asteroids';
 import type { ShotEvent } from './world';
 
-export const PROTOCOL_VERSION = 23;
+export const PROTOCOL_VERSION = 24;
 
 export const MSG = {
   INPUT: 1,
@@ -237,7 +237,7 @@ export function encodeAsteroids(list: Asteroid[]): ArrayBuffer {
     v.setFloat32(o + 15, a.vy, true);
     v.setUint32(o + 19, a.t0 >>> 0, true);
     v.setFloat32(o + 23, a.hp, true);
-    v.setUint8(o + 27, a.family ?? 0);
+    v.setUint8(o + 27, (a.family ?? 0) | (a.rich ? 0x80 : 0));
     o += ASTEROID_BYTES;
   }
   return buf;
@@ -397,7 +397,8 @@ export function decodeServer(buf: ArrayBuffer): ServerMessage | null {
         vy: v.getFloat32(o + 15, true),
         t0: v.getUint32(o + 19, true),
         hp: v.getFloat32(o + 23, true),
-        family: Math.min(2, v.getUint8(o + 27)),
+        family: Math.min(2, v.getUint8(o + 27) & 0x7f),
+        ...((v.getUint8(o + 27) & 0x80) !== 0 ? { rich: true } : {}),
       });
       o += ASTEROID_BYTES;
     }

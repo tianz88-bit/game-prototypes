@@ -18,6 +18,11 @@ export interface Asteroid {
   hp: number;
   /** Colour family (owner art): 0 ochre, 1 lavender, 2 teal. Fragments keep their parent's. */
   family: number;
+  /**
+   * Mineral-rich (owner, 17 November 2026): spawns by the hot zone, pays asteroid.richMineralFactor
+   * times the minerals and has asteroid.richHpFactor times the health. Fragments stay rich.
+   */
+  rich?: boolean;
 }
 
 export const SMALLEST = 2;
@@ -71,8 +76,9 @@ export function splitAsteroid(
       vx: a.vx + dx * push - dy * side * spread * j,
       vy: a.vy + dy * push + dx * side * spread * j,
       t0: tick,
-      hp: t.hp[size],
+      hp: t.hp[size] * (a.rich ? t.richHpFactor : 1),
       family: a.family ?? 0,
+      rich: a.rich,
     });
   }
   return out;

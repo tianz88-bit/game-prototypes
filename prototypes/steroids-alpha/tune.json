@@ -328,7 +328,11 @@
     ],
     "mineralChunkValue": 5,
     "mineralChunksMax": 12,
-    "pickupsMax": 200
+    "pickupsMax": 200,
+    "richMax": 2,
+    "richMineralFactor": 3,
+    "richHpFactor": 2,
+    "richRespawnSeconds": 20
   },
   "sparrow": {
     "fireIntervalSteps": 5,
