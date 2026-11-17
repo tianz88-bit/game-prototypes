@@ -1,5 +1,7 @@
 ## Current milestone
 
+Mineral-rich asteroids (17 November, claude): rare golden rocks by the hot zone pay 3x minerals, 2x health; protocol 24.
+
 Approved Battlecruiser and grounded-building updates are live. Itch version: 161126r0084. PR524 merged at eb17e0b12ebd6e6b5f66e7eb16332d1df5f06d26. Client43908175540, Worker43908175298 and Pages43908175290 all succeeded. Public Worker health reports protocol23. Game: https://daily-daily-games.itch.io/steroids-alpha . Lab: https://tianz88-bit.github.io/game-prototypes/prototypes/steroids-alpha-lab/?review=battlecruiser .
 
 ## What was implemented

@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 claude rich-asteroids
+DID: mineral-rich asteroids: up to asteroid.richMax (2) alive incl. fragments, spawned in/beside the hot zone richRespawnSeconds (20) after a slot opens, richMineralFactor (3) x minerals, richHpFactor (2) x health, fragments stay rich. Wire: family byte top bit (protocol 24). Placeholder golden halo + glints in flight drawWorld.
+FILES: sim/{asteroids,world,protocol,liveConfig}.ts tune.json src/scenes/flight.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
+SEAM: Asteroid.rich; World.keepRichRocks.
+CROSS: flight drawWorld (rock loop, yours): halo drawn before rocks.draw; rock damage fraction now uses the rich full health.
+FOR codex: rich asteroid art wanted (veins/gold), readable from across the screen at all three sizes.
+
 ## 2026-11-17 codex grounded-buildings-capital LIVE
 DID: approved supports/clan materials/rooted shadows/terrain anchoring and capital forked bow/flush side guns/no lenses/stronger offsets live161126r0084. PR524 eb17e0b1; client43908175540/Worker43908175298/Pages43908175290 success.
 FILES: building geometry/material/rig/ground frame, capital-v3/profile, cannon origins, rig review, tests/docs; BUILD_STATUS has proof.
@@ -97,10 +104,3 @@ FILES: src/render/{orbital*,buildingRig,clanBaseArt,combatHud,shipView,flightInd
 SEAM: ShipPlacement optional orbital lift/ground alpha; BuildingRigs lifecycle; CombatHud anchor then hold selector. COLLAB records contracts. No new wire/gameplay changes.
 CROSS: flight lifecycle and config test only; merged main 1fb8b45 preserving menu-only extraction, mouse/key hints, fuel/visitor cargo, own-top-speed exhaust and zoom 1000. Desktop cargo clears key hints. Typecheck/build/rig/sim/live-config/bank pass; integrated Brave orbital/mobile input and 36 building captures pass, 2 clients ~60 FPS DPR2, zero errors.
 FOR claude: LIVE 161126r0073. PR508 merged7e5b2158; itch43824697720 succeeded. Public Brave PC/mobile/upright and both clans connect protocol20,12combat+14building textures,7rigs/40images, phone fire/dash/drawer, zero errors. Proof outputs/steroids-alpha/orbit-live-verification/result.json; thread68c1ca78. Reticle/landmark/fuel-icon follow-ups stay separate; R2 SHA d34070bccdb67d0e901d7972504a5b2478f477dcc712a8e796bf41c6d6c30a15.
-
-## 2026-11-16 claude mouse-aim
-DID: PC mouse scheme reworked (owner): the ship always steers toward the cursor (not over the ship or buttons); left click fires, right click missile, W accelerates, S brakes, neither eases to min speed. KEY HINTS (bottom left, PC) with a menu ON/OFF setting. View zoomed out: render.referenceHeight 810 -> 1000 (also republished to live settings).
-FILES: src/input/intents.ts src/scenes/{flight,menu}.ts src/save.ts client.tune.json BRIEF.md
-SEAM: clientTune.mouse is now {deadZone} only; Save.keyHints; Intents.mouseSteering (cursor aim) and mouse fire.
-CROSS: src/scenes/flight.ts: reticle and key hints are placeholder overlay drawing.
-FOR codex: the zoom-out makes ships and rocks about 19% smaller on screen; check painted art still reads well, and a styled aim reticle would help.

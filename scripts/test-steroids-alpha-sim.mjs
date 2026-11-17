@@ -1197,6 +1197,36 @@ assert.equal(S.cleanName(null), '');
   room.stop();
 }
 
+// --- Mineral-rich asteroids (owner, 17 November 2026): spawn by the hot zone, at most richMax alive,
+// richMineralFactor x minerals, richHpFactor x health, fragments stay rich. ---
+{
+  const ta = tune.asteroid;
+  const w = emptyWorld();
+  w.hotZone = { x: 2000, y: 2000, r: tune.hotZone.radius, until: 1e9 };
+  for (let i = 0; i < (ta.richRespawnSeconds + 2) * tune.net.tickHz * ta.richMax + 60; i++) w.step();
+  const rich = [...w.asteroids.values()].filter((a) => a.rich);
+  assert.equal(rich.length, ta.richMax, 'up to richMax rich rocks appear');
+  for (const a of rich) {
+    const p = S.asteroidPos(a, w.tick, tune);
+    const d = Math.hypot(S.wrapDelta(a.x, 2000, tune.world.width), S.wrapDelta(a.y, 2000, tune.world.height));
+    assert(d <= tune.hotZone.radius * 1.2 + 1, `spawned in or beside the hot zone (${d.toFixed(0)} px)`);
+    assert.equal(a.hp, ta.hp[0] * ta.richHpFactor, 'rich rocks are tougher');
+    void p;
+  }
+  // Destroying one spills richMineralFactor x the minerals; its fragments are rich too.
+  const a = rich[0];
+  const before = [...w.pickups.values()].filter((k) => k.kind === 'mineral').reduce((n, k) => n + k.value, 0);
+  const at = S.asteroidPos(a, w.tick, tune);
+  w['damageAsteroid'](a, at, 99999, 1, 0, new Map());
+  const after = [...w.pickups.values()].filter((k) => k.kind === 'mineral').reduce((n, k) => n + k.value, 0);
+  near(after - before, ta.mineralYield[0] * ta.richMineralFactor, 1e-6, 'rich rocks pay more minerals');
+  const kids = [...w.asteroids.values()].filter((k) => k.rich && k.size === 1);
+  assert(kids.length === 2 && kids.every((k) => k.hp === ta.hp[1] * ta.richHpFactor), 'fragments stay rich and tough');
+  // Wire: the flag survives encoding.
+  const decoded = S.decodeServer(S.encodeAsteroids([kids[0]]));
+  assert(decoded.asteroids[0].rich === true && decoded.asteroids[0].family === kids[0].family, 'rich flag on the wire');
+}
+
 // --- Both guns on the locked target (owner, 15 November 2026): each gun leads the target from its
 // own muzzle, so both streams land; bots get no lock-on assist. ---
 {
