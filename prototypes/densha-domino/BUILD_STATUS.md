@@ -15,7 +15,8 @@ generator (step 2), economy, ads and retention are not built.
   leaves the board or stops. Convoy rule: if it stops head to tail against a
   train on the same line that can move the same way, that train takes off first
   and the tapped train follows. A bump on a train's side sets it off too, running
-  along its own track away from the bump. Par is the fewest taps; stars: 3 at par, 2 within par + 2, else 1; limit par + 4.
+  along its own track away from the bump; the bumping train stays where it stops
+  (it does not follow). Par is the fewest taps; stars: 3 at par, 2 within par + 2, else 1; limit par + 4.
 - Input: tap a train (runs if one way is open, two arrow buttons if both are),
   or swipe along its track. Keyboard: arrows move a cursor or pick a direction,
   Space taps, R restarts. Holding a finger down during a chain speeds it up.

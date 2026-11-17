@@ -105,9 +105,10 @@ export function legalMoves(level: Level, state: State): Move[] {
 
 /**
  * Taps a train. It runs until it leaves the board or stops. If it stops against
- * another train, head to tail or against its side, that train takes off first
- * (chain reaction), and when it has gone the tapped train follows it, so one tap
- * can send a whole convoy out. Returns the new state and the events in order.
+ * another train, head to tail or against its side, that train takes off (chain
+ * reaction). After a head-to-tail hit, the running train follows the one it hit once
+ * it has gone, so one tap can send a whole convoy out. After a bump on the side the
+ * running train stays put. Returns the new state and the events in order.
  */
 export function applyTap(level: Level, state: State, move: Move): TapResult {
   const next = state.slice();
@@ -152,8 +153,10 @@ export function applyTap(level: Level, state: State, move: Move): TapResult {
       events.push({ type: 'hit', runner: train, target, dir, targetDir: targetDir ?? dir, spooked, sameLine, link });
       if (!spooked || targetDir === null) return false;
       run(target, targetDir, link + 1, false);
+      // A bump on the side sets the other train off but the bumping train stays where it is.
+      if (!sameLine) return false;
       segStart = next[train];
-      // The hit train has gone: carry on behind it.
+      // The hit train has gone: carry on behind it (head-to-tail hits only).
       resume = true;
     }
   };

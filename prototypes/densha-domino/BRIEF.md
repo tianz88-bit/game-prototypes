@@ -57,22 +57,23 @@ every level can be solved with the visible information.
 - **Direction:** a train can run either way along its track. If only one way has
   free cells, a tap runs it that way. If both ways are open, a swipe along the
   track picks the direction (a tap shows two arrows to pick from).
-- **Chain reaction (convoy rule):** when a running train stops against another
-  train, at its end or against its side, the horn blows and that train takes off
-  first. When it has gone, the first train follows behind it and carries on. So one
-  tap can send a whole convoy out: a train hits the next, which hits the next, and
-  the last one clears the exit while the rest follow. A train with no free cell in
-  either direction cannot be tapped.
-  - Hit at its end (same line): the hit train runs on in the same direction.
-  - Hit on its side (crossing track): the hit train runs along its own track,
-    away from the bump. A bump near its low end sends it toward the high end and
-    the other way round. If only one way is open it takes that. A dead-centre bump
-    goes whichever way has more room (the way off the board counts most), then the
-    positive way. If neither way is open it just takes the bump.
-  Why the convoy rule: with "hit train leaves, the first one stays", every solvable
-  level has par equal to the number of trains (checked on thousands of random
-  boards), so par and chains would mean nothing. With the convoy rule a chain
-  saves taps, and par becomes the puzzle.
+- **Chain reaction:** when a running train stops against another train, the horn
+  blows and that train takes off. A train with no free cell in either direction
+  cannot be tapped.
+  - Hit at its end (head to tail, same line): the hit train runs on in the same
+    direction. When it has gone, the first train follows behind it and carries on
+    (convoy rule), so one tap can send a whole line out: the last train clears the
+    exit while the rest follow.
+  - Hit on its side (crossing track): the hit train is set off too and runs along
+    its own track, away from the bump. A bump near its low end sends it toward the
+    high end and the other way round. If only one way is open it takes that. A
+    dead-centre bump goes whichever way has more room (the way off the board counts
+    most), then the positive way. If neither way is open it just takes the bump.
+    The bumping train stops where it is and does not follow.
+  Why the convoy rule for end hits: with "hit train leaves, the first one stays",
+  every solvable level has par equal to the number of trains (checked on thousands
+  of random boards), so par and chains would mean nothing. With the convoy rule a
+  chain saves taps, and par becomes the puzzle.
 - **Winning:** no trains left on the board. Stars: 3 if taps used is at or under
   par (the solver's minimum), 2 if within par + 2, else 1.
 - **Tap limit:** par + slack, with slack shrinking at higher difficulty.
