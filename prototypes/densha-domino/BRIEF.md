@@ -1,7 +1,6 @@
-# Track Jam (working title, DRAFT awaiting approval)
+# Densha Domino
 
-Replaces the earlier slide-and-match idea. The folder is still named
-`chain-slide` and will be renamed once the name is chosen.
+Replaces the earlier slide-and-match idea. Densha is Japanese for an electric train.
 
 A casual, level-based puzzle game for a general audience aged 13 and up. The board
 is a Japanese-style station yard full of colored trains on tracks. Tap a train and
@@ -58,10 +57,17 @@ every level can be solved with the visible information.
 - **Direction:** a train can run either way along its track. If only one way has
   free cells, a tap runs it that way. If both ways are open, a swipe along the
   track picks the direction (a tap shows two arrows to pick from).
-- **Chain reaction:** when a running train stops directly against another train on
-  the same line (head to tail), the train it hit takes off in the same direction
-  if it has free cells ahead. This repeats along the line. Trains on a
-  crossing track are not set off by a hit. (Proposed rule, see Open questions.)
+- **Chain reaction (convoy rule):** when a running train stops head to tail
+  against another train on the same line that has free cells the same way, the
+  horn blows and that train takes off first. When it has gone, the first train
+  follows behind it and carries on. So one tap can send a whole convoy out: a train
+  hits the next, which hits the next, and the last one clears the exit while the
+  rest follow. Trains on a crossing track are not set off by a hit. A train with no
+  free cell in either direction cannot be tapped.
+  Why this rule: with a "hit train leaves, the first one stays" rule, every
+  solvable level has par equal to the number of trains (checked on thousands of
+  random boards), so par and chains would mean nothing. With the convoy rule a
+  chain saves taps, and par becomes the puzzle.
 - **Winning:** no trains left on the board. Stars: 3 if taps used is at or under
   par (the solver's minimum), 2 if within par + 2, else 1.
 - **Tap limit:** par + slack, with slack shrinking at higher difficulty.
@@ -101,7 +107,7 @@ rhythm. Rules that never change:
   collectible), level milestones.
 - Short sessions: levels take about 30 to 90 seconds.
 - Local only: no accounts, no backend. Save to `localStorage` (key
-  `chain-slide:save:v1`), on every state change.
+  `densha-domino:save:v1`), on every state change.
 
 ## Ads (rewarded and opt-in only in v1)
 
@@ -193,11 +199,12 @@ with no text.
 
 ## Open questions
 
-- Chain rule: only head-to-tail trains on the same line chain (proposed). Should a
-  hit train on a crossing track also take off?
+- Convoy rule (the tapped train follows the hit train out) versus the stricter
+  "hit train leaves and the first one stays". Built the convoy rule because the
+  strict one makes par meaningless. Confirm it feels right.
+- Should a hit train on a crossing track also take off? Built as "no".
 - Either-way direction input: tap when one way is open, swipe or two arrows when
-  both are open (proposed). Is that clear enough on a phone?
-- Name. "Track Jam" is a working title; the folder is `chain-slide` for now.
+  both are open. Clear enough on a phone?
 - Hosting for the client (itch.io, GitHub Pages or Cloudflare): the owner picks per
   prototype, decide before the first deploy.
 - Which real ad SDK or wrapper to use later.

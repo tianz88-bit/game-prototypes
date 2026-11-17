@@ -1,0 +1,122 @@
+import { type Dir, GONE, type Level, type Move, type State, type TapEvent, type TapResult } from './types';
+
+/** Level state at the start. */
+export function initialState(level: Level): State {
+  return level.trains.map((t) => t.start);
+}
+
+export function isCleared(state: State): boolean {
+  return state.every((p) => p === GONE);
+}
+
+export function trainsLeft(state: State): number {
+  return state.filter((p) => p !== GONE).length;
+}
+
+/** Cell (col,row) a train occupies at index `i` along its length. */
+function cellOf(level: Level, train: number, pos: number, i: number): [number, number] {
+  const t = level.trains[train];
+  return t.axis === 'h' ? [pos + i, t.line] : [t.line, pos + i];
+}
+
+/** Which train is on a cell, or -1. */
+export function trainAt(level: Level, state: State, col: number, row: number): number {
+  for (let k = 0; k < level.trains.length; k++) {
+    const p = state[k];
+    if (p === GONE) continue;
+    const t = level.trains[k];
+    if (t.axis === 'h') {
+      if (row === t.line && col >= p && col < p + t.len) return k;
+    } else if (col === t.line && row >= p && row < p + t.len) return k;
+  }
+  return -1;
+}
+
+const onBoard = (level: Level, col: number, row: number): boolean => col >= 0 && row >= 0 && col < level.cols && row < level.rows;
+
+/** What lies just beyond the train's end in `dir`. */
+export type Ahead = { kind: 'exit' } | { kind: 'free' } | { kind: 'obstacle' } | { kind: 'train'; train: number };
+
+export function look(level: Level, state: State, train: number, dir: Dir): Ahead {
+  const t = level.trains[train];
+  const p = state[train];
+  const next = dir > 0 ? p + t.len : p - 1;
+  const [col, row] = t.axis === 'h' ? [next, t.line] : [t.line, next];
+  if (!onBoard(level, col, row)) return { kind: 'exit' };
+  if (level.obstacles.has(row * level.cols + col)) return { kind: 'obstacle' };
+  const other = trainAt(level, state, col, row);
+  return other >= 0 ? { kind: 'train', train: other } : { kind: 'free' };
+}
+
+/** A train can run in `dir` if the cell beyond its end is free or is the way off the board. */
+export function canRun(level: Level, state: State, train: number, dir: Dir): boolean {
+  if (state[train] === GONE) return false;
+  const a = look(level, state, train, dir);
+  return a.kind === 'free' || a.kind === 'exit';
+}
+
+export function legalMoves(level: Level, state: State): Move[] {
+  const out: Move[] = [];
+  for (let k = 0; k < level.trains.length; k++)
+    for (const dir of [-1, 1] as Dir[]) if (canRun(level, state, k, dir)) out.push({ train: k, dir });
+  return out;
+}
+
+/**
+ * Taps a train. It runs until it leaves the board or stops. If it stops head to
+ * tail against another train on the same line that can move the same way, that
+ * train takes off first (chain reaction), and when it has gone the tapped train
+ * follows it, so one tap can send a whole convoy out. A train on a crossing track
+ * is never set off. Returns the new state and the events in order.
+ */
+export function applyTap(level: Level, state: State, move: Move): TapResult {
+  const next = state.slice();
+  const events: TapEvent[] = [];
+  const ran = new Set<number>();
+  let exited = 0;
+
+  /** Runs one train; returns true if it left the board. */
+  const run = (train: number, dir: Dir, link: number, resume: boolean): boolean => {
+    ran.add(train);
+    const t = level.trains[train];
+    let segStart = next[train];
+    const flush = (exitedNow: boolean) => {
+      const to = exitedNow ? (dir > 0 ? (t.axis === 'h' ? level.cols : level.rows) : -t.len) : next[train];
+      if (to !== segStart || exitedNow) events.push({ type: 'run', train, from: segStart, to, exited: exitedNow, dir, link, resume: resume || segStart !== state[train] });
+    };
+    for (;;) {
+      const a = look(level, next, train, dir);
+      if (a.kind === 'exit') {
+        flush(true);
+        next[train] = GONE;
+        exited++;
+        return true;
+      }
+      if (a.kind === 'free') {
+        next[train] += dir;
+        continue;
+      }
+      if (a.kind === 'obstacle') {
+        flush(false);
+        return false;
+      }
+      // Stopped against another train.
+      const target = a.train;
+      const o = level.trains[target];
+      const sameLine = o.axis === t.axis && o.line === t.line;
+      const spooked = sameLine && canRun(level, next, target, dir) && !ran.has(target);
+      flush(false);
+      events.push({ type: 'hit', runner: train, target, dir, spooked, sameLine, link });
+      if (!spooked) return false;
+      run(target, dir, link + 1, false);
+      segStart = next[train];
+      // The hit train has gone: carry on behind it.
+      resume = true;
+    }
+  };
+
+  if (canRun(level, next, move.train, move.dir)) run(move.train, move.dir, 1, false);
+  return { state: next, events, links: ran.size, exited };
+}
+
+export const stateKey = (s: State): string => s.join(',');

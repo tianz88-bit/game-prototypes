@@ -1,0 +1,8 @@
+{
+  "name": "densha-domino-prototype",
+  "private": true,
+  "version": "0.0.0",
+  "dependencies": {
+    "dig-kit": "0.1.0"
+  }
+}
