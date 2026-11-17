@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex drift headless RESEARCH
+DID: tested travel-direction lag0/.10/.22/.45s and capped15° light grip. Mixed results: some overshoot openings, evader path changes also weakened. No handling changes applied.
+FILES: portable lab/drift-findings.json, deferred backlog and status. Raw memory-only experiment artifacts outputs/steroids-alpha/drift-experiment/.
+SEAM: none; production/lab code/tune and live config untouched. Motion lag only, nose aiming preserved; same profile for both pilots.
+CROSS:320 scripted duel runs, all4 chassis slip checks, zero-variant canonical parity and exact delayed replay;10 Brave DPR2 runtime cases, zero page errors/sockets/writes/captures, processes stopped.
+FOR claude: research only, no implementation/live approval. Do not assume drift solves tailing/circling; current easier candidate stays. Backlog records metrics and limitations.
+
 ## 2026-11-17 codex easier duel controls PUBLIC
 DID: fixed stale Start-pointer aim; auto-cruise, mobile steering/Brake, broad turn band and delayed sparring live in LAB only. PR551 b7ed4f4d; Pages44064727969 success.
 FILES: lab controls/input/model/preset/renderer, standalone test and deferred docs. Production combat remains171126r0098/Worker25, no new client/server deploy.
@@ -97,10 +104,3 @@ FILES: Flight, combatEffects/Hud, shipView/Destruction/Explosion, client-net, tu
 SEAM: optional ShipPlacement.destroying; LOCAL explosion id/state. Tutorial-only minerals5/shop8/weapons off3. No wire/tune/combat/economy changes; online Room ignores tutorial policy.
 CROSS:14 local +14 public Brave DPR2 desktop/mobile cases pass, all4 chassis/own/remote/Warzone deaths, resize/dedup/HUD/tutorial. Type/build/rig/sim/live-config/new policy tests pass; no capture or public-room fixture writes.
 FOR claude: itch44019478944/Pages44019478908/Worker44019138494 succeeded, health protocol24. Use main; no implementation handoff remains. Evidence ram-tutorial-destruction; temporary preview stopped.
-
-## 2026-11-17 codex ram/tutorial/destruction RELEASE
-DID: orange active-dash bow/crash FX, persistent hull trace, staged800ms darken/shrink with5 small blasts and1 size-aware final explosion; all4 chassis, own/remote/Warzone.
-FILES: Flight, combatEffects/Hud, shipView/Destruction/Explosion, client-net, tutorial policy/guide, local Room/World and regressions/docs.
-SEAM: ShipPlacement.destroying; LOCAL explosion FX id/copied state before remote removal. Tutorial policy gates minerals5/shop8/weapons off3, including queued/held input. No protocol/tune/combat/economy change.
-CROSS: minimal sim/server tutorial-only gates and client death capture. Preplaced swept dash course allows multiple rings per dash. Resize retains collapse; cleanup/dedup bounded.
-FOR claude: type/build/rig/sim/live-config and new policy/room/geometry tests pass;14 Brave DPR2 desktop/mobile runtime cases, zero page errors/no capture. Final PR/deploy proof follows; use main after release.
