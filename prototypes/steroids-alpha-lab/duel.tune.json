@@ -24,5 +24,14 @@
     "perceptionSeconds": 0.15,
     "fireBurstSeconds": 0.35,
     "firePauseSeconds": 0.35
+  },
+  "grip": {
+    "slowTau": 0.015,
+    "cruiseTau": 0.035,
+    "fastTau": 0.22,
+    "dashTau": 0.3,
+    "brakeTau": 0.025,
+    "maxSlipDeg": 24,
+    "decelerationEpsilon": 0.1
   }
 }

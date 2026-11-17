@@ -49,3 +49,11 @@ Separate entry.mjs selects the duel module before loading the editor. It only re
 After owner feedback, releasing the throttle now returns the candidate to cruise. PC W speeds up and S brakes; mobile drag steers at cruise and the held BRAKE button slows you to a useful turning speed. Release Brake to recover cruise automatically. The turning sweet spot is a broad65–115% cruise band. Baseline retains the live slowdown behaviour.
 
 The Start/Resume pointer no longer becomes an unwanted aim target when you first fire or use keys. Sparring uses delayed observations and short trigger bursts. Try turning toward the opponent, then Dash across its path; Brake is optional spacing control. The synthetic tests establish openings with continuous aim, not human ease or guaranteed wins. This remains an isolated preview awaiting owner playtest.
+
+## Speed-dependent grip trial
+
+Speed Grip is now the default duel profile. The profile button cycles Speed Grip → No Drift (previous easier candidate) → Live Baseline. Hold THRUST/W to accelerate and build side-slip; BRAKE/S slows and rapidly restores grip. Release returns to cruise. Mobile drag keeps steering independent from throttle. Nose aiming stays responsive. Slip is bounded24°, with a small status readout; cruise is nearly planted. Both pilots receive the same handling.
+
+Direct routes ?duel=tail&grip=1 and ?duel=circle&grip=1 select Grip. Add grip=0 to compare No Drift, or handling=baseline for original live handling. The lab controls never publish settings. Speed Grip is awaiting owner playtest, not live balance approval.
+
+The lab-only adapter corrects forward displacement before world collisions and repairs the new main-shot origin/lead. Existing damage/shot counts/knockback remain. A production implementation must move this before shared weapon emission and include travel state in authority/prediction; do not deploy the lab bridge as-is.

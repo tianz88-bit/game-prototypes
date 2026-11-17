@@ -1,7 +1,7 @@
 import type {Zone} from '../steroids-alpha/src/input/intents';
 import {toLogical} from '../steroids-alpha/src/base';
 /** Lab-only hold control. Device events remain in an input adapter, never in the scene/model. */
-export class DuelBrakeInput{
+export class DuelHoldInput{
  zone:Zone|null=null;private pointers=new Set<number>();
  get held():boolean{return this.pointers.size>0;}
  clear():void{this.pointers.clear();}
