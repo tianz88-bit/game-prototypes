@@ -1,0 +1,22 @@
+{
+  "candidate": {
+    "turnAtMinSpeed": 0.45,
+    "decay": 3,
+    "ramSeparationSpeed": 900,
+    "bumpSeparationSpeed": 400,
+    "restitution": 0.65,
+    "maxKick": 1000,
+    "gap": 1,
+    "massMin": 0.5,
+    "massMax": 3
+  },
+  "scenario": {
+    "tailGap": 240,
+    "openingFireDelay": 2,
+    "orbitBreakRatio": 2.8,
+    "fireRange": 600,
+    "fireAimRadians": 0.18,
+    "chaseAccelerateDistance": 320,
+    "cruiseDeadband": 4
+  }
+}

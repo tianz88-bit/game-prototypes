@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex combat duel lab PREVIEW
+DID: lab-only stronger mass-weighted opposing impacts, ram consumes dash, longer kick decay and cruise-best turning. Tailed/Circling starts, baseline/candidate, four ships, role swap, reset/pause and existing PC/mobile controls.
+FILES: steroids-alpha-lab entry/duel/duel-model/duel.tune/index/README; standalone physics test and deferred docs. Production runtime/tune/workflows untouched.
+SEAM: production World handles damage/weapons; isolated post-step candidate replaces kicks/separates contacts. Read-only projectile adapter observes private World.bullets. No socket/account/publishing.
+CROSS: pure collision/radius/damage-parity/wrap tests pass,6 Brave DPR2 layouts incl touch steering/held fire/Dash and reset lifecycle; zero page errors/game sockets/writes/captures. Public preview proof follows.
+FOR claude: backlog only, no immediate work. LIVE BALANCE NOT APPROVED: await owner lab playtest before porting to authority/prediction; no online latency or human-fun proof claimed.
+
 ## 2026-11-17 codex landing menu/map LIVE
 DID: ship/Warp hero, accessible utilities and clearer five-planet map live171126r0098. PR547 fde1891e; itch44051762536/Pages44051762420 success, Worker25 healthy.
 FILES: menu, stellarMap, landingLayout and rig-gate layout test; BRIEF/COLLAB/BUILD_STATUS/CLAUDE_BACKLOG.
@@ -97,10 +104,3 @@ FILES: v2 rich pack manifest/bodyOffset metadata, rockRegistration/rockPainted, 
 SEAM: original normal RockBodyFrame anchors decorated texture, preserving body centre/scale/collision coverage. Debug body vs decorative fields; source-hash URLs prevent stale metadata/image mismatch. Existing pools/damage/lighting unchanged.
 CROSS: no sim/tune/reward/wire changes. R2 exactZIP/all15 hashes verified (4,956,322bytes/hash4df28e3e4f3bbac1db3ac57f5213df74e3f2bfd42f332cd45e18fb63f66f20ab). Type/build/rig/9 math/15 body-protrusion/local180/public180 checks pass; no capture/recording or server fixture writes.
 FOR claude: refinement shipped under owner's prior direct-publication instruction. Use main; no further deploy required. BUILD_STATUS/output rich-crystal-art have proof; temporary localhost stopped.
-
-## 2026-11-17 codex rich-crystal readability RELEASE
-DID: chunky protruding gold crystal clusters on all15 gold-veined painted variants;2 groups on parents,1 clear group on medium/small, proportionally larger small forks. Direct-publication preference retained; R2 upload/readback complete.
-FILES: rich-asteroids-v1 manifest now v2 pack/bodyOffset metadata, rockRegistration/rockPainted, registration regressions/docs.
-SEAM: original normal RockBodyFrame anchors padded decorated texture; original body world centre/scale/collision coverage unchanged. Debug coverage separates body vs decorative extents; hash URL queries prevent stale image registration.
-CROSS: no sim/tune/HP/reward/wire changes. Type/build/rig,9 transform/15 preserved-body/protrusion/180 Brave runtime cases pass; no capture/recording or fixture writes to server.
-FOR claude: v2 ZIP4,956,322bytes/hash4df28e3e4f3bbac1db3ac57f5213df74e3f2bfd42f332cd45e18fb63f66f20ab, all15 sources publicly verified. Final live proof follows; no gameplay work required.

@@ -2,6 +2,18 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Awaiting owner playtest: combat handling and duel lab
+
+Status: lab preview implemented and locally checked; Pages publication pending. Production combat remains171126r0098 / protocol25. Owner explicitly requires trying the lab BEFORE live release. No immediate Claude execution/review requested.
+
+- Permanent lab links ?duel=tail and ?duel=circle. Independent entry loads live settings once (labelled bundled fallback), then creates a local production World. No NetClient/Room/account/publisher dependency, sockets, POSTs, purchases or progression writes. Return reloads the editor and preserves its stored draft.
+- Candidate values in lab-only duel.tune.json: minimum-speed turn multiplier.45 (baseline.7), kick decay3/s (baseline5), minimum separating normal speed900 for rams /400 for bumps, restitution.65, bounded radius-squared masses and kicks. High-speed turn factor and damage values unchanged. Ram consumes dash and caps attacker to cruise; tangential velocity retained, earliest swept normal handles crossed/wrapped contacts. Position correction keeps overlap out during existing contact grace. Damage/events remain in production World; impacts do not add a second damage call.
+- Tailed starts equal ships240 apart, facing the same way; swap toggles chasing/evading. Circling starts equal ships opposite on their cruise circle; swap changes sides. Opening autopilot holds the set-up until a steer/throttle/fire/dash input; initial Start click cannot accidentally steer. Opponent is an explicit sparring policy: pursue, weave when evading, or hold the loop then pursue after separation. Fire starts after2s and needs an aim cone. It is not a second human or proof that human PvP is fun. Four chassis, baseline/candidate, pause/reset available. Guns/dash only; no shop/mines/missiles/warp.
+- Reuses real ShipView per-part FFD/rig/exhaust/recoil, painted bullets/impact VFX, terrain/projection, ship arcs and the existing input layer/compact touch Fire-Dash geometry. Read-only adapter to private World.bullets avoids duplicating projectile state; revisit this seam if World internals change.
+- Standalone test: node scripts/test-steroids-duel-lab.mjs. Verifies all4 cruise radii, reproducible A/B state, opposing/glancing kicks, real rear-ram reversal and consumed dash, impact damage parity/no immediate repeat, wrapping/swept/tangent/coincident cases, unchanged production TUNE. Six local Brave DPR2 desktop/mobile/portrait/tall cases cover controls, held fire/Dash, role/preset changes, pause and ten-reset disposal. No page errors/game sockets/writes/captures. Evidence outputs/steroids-alpha/combat-duel-lab/.
+
+Gate: OWNER PLAYTEST FIRST. Publishing a normal calibration draft cannot activate this preview. After approval, port the contact response into shared authority/prediction with parity/network tests and deliberate client+Worker release; do not change damage or add weapons without direction.
+
 ## Ready for later sync: landing menu and planet map
 
 Status: LIVE171126r0098. PR547 mergefde1891ede1393ad994997de6a77eb2fa2927b53; itch44051762536 and Pages44051762420 succeeded. Existing Worker protocol25 healthy. No immediate Claude execution/review requested.
