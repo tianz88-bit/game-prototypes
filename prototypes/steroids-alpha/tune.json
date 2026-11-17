@@ -248,9 +248,11 @@
     "attackerTickets": 20,
     "defenderRespawnSeconds": 15,
     "roundSeconds": 300,
-    "startCountdownSeconds": 10,
+    "startCountdownSeconds": 20,
     "endCountdownSeconds": 10,
-    "botsPerSide": 2
+    "botsPerSide": 2,
+    "overSeconds": 8,
+    "cooldownSeconds": 20
   },
   "interceptor": {
     "radius": 24,

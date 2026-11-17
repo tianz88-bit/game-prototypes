@@ -1185,15 +1185,26 @@ assert.equal(S.cleanName(null), '');
   assert(!room.world.ships.has(blueId), 'the defender waits to respawn');
   steps(g.defenderRespawnSeconds * hz);
   assert(room.world.ships.get(blueId)?.hp > 0, 'then respawns at the pads');
-  // A side leaves: release countdown, then peace (structures restored, bots gone).
+  // A side leaves: release countdown, then the session ends (owner, 17 November 2026): everyone is
+  // sent back to the menu, the base resets and the Warzone stays closed for the cooldown.
   blue.close();
-  steps(tune.net.reconnectGraceSeconds * hz + 2);
-  assert(room.siegePhase === 'release' || room.siegePhase === 'peace', 'a side gone: release');
+  steps(hz);
+  assert.equal(room.siegePhase, 'release', 'a side gone (disconnected): release');
   steps(g.endCountdownSeconds * hz + 2);
-  assert.equal(room.siegePhase, 'peace', 'then peace');
+  assert.equal(room.siegePhase, 'cooldown', 'then the session ends');
+  assert.equal(red.code, S.CLOSE.ROUND_OVER, 'remaining pilots are sent back');
+  assert.equal(room.players.size, 0, 'nobody left on the planet');
   assert.equal(room.bots.size, 0, 'war bots leave');
   assert.equal(room.world.siege.treasury, g.treasuryHp, 'structures restored');
-  red.close();
+  const early = new Sock();
+  room.join(early, 'Early', null, 1);
+  assert.equal(early.code, S.CLOSE.WAR_RESETTING, 'closed while it resets');
+  assert.equal(room.siegeStatus().phase, 'cooldown', 'the planet list sees the reset');
+  room['cooldownUntilMs'] = Date.now() - 1;
+  const again = new Sock();
+  room.join(again, 'Again', null, 1);
+  assert(again.code === 0 && room.siegePhase === 'peace', 'open again after the cooldown');
+  again.close();
   room.stop();
 }
 

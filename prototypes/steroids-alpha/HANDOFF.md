@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 claude warzone-sessions
+DID: Warzone session flow (owner): 20 s start countdown (joinable), sessions end with everyone sent to the menu (CLOSE.ROUND_OVER with the result) after the round-over pause or 10 s after a side empties, then a 20 s wall-clock reset (CLOSE.WAR_RESETTING with seconds). /planets returns status.warzone {phase,left}; stellar map shows it, JOIN AS CRIMSON/AZURE for clanless pilots, NOTIFY ME auto-warps when open. Hyperspace safety net: 10 s without a ship shows the wait reason with RETRY / BACK TO MENU. Warzone hot zone labelled MINERAL ZONE for both sides. Protocol 25. Investigated the reported join freeze: not reproducible locally or live; the safety net covers it either way.
+FILES: server/src/{room,index}.ts sim/protocol.ts tune.json src/net/client.ts src/scenes/{flight,menu}.ts src/render/stellarMap.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
+SEAM: Room.siegeStatus/closeSession; SiegePhase 'cooldown'; tune.siege.{overSeconds,cooldownSeconds}; MapAction joinAs/notify; WarStatus/warLabel.
+CROSS: src/render/stellarMap.ts (yours): Warzone status line, buttons under the details; flight maskOrbitalUi also skips when stuck.
+FOR codex: map buttons and the stuck-in-hyperspace panel are plain panels; style as you like.
+
 ## 2026-11-17 codex desktop ordnance/speed UI LIVE
 DID: larger PC bottom-left missile/mine badges/counts and violet slow/teal cruise streams live171126r0093. Routine top telemetry removed; mobile/warnings/actions retained. PR539 7b3c11fe.
 FILES: Flight, ShipView/Thrusters, stale SPEED wording, existing sim regression and docs.
@@ -97,10 +104,3 @@ FILES: art/warzone-v1, buildingCondition/warzoneShield/buildingRig/clanBaseArt/p
 SEAM: optional normalized BuildingRigPose.health/ClanBaseArtOptions.siege; Flight observes current SiegeView/tune. PlanetGround fourth arg 'warzone'. No sim/tune/wire/rules changes.
 CROSS: minimal flight art wiring removes old ground X/ring and uses existing Nexus health; building regression gains durability/coverage tests. Typecheck/build/assets/rig tests + Brave desktop/mobile state checks pass; no capture/recording.
 FOR claude: do not release this local branch before owner art approval and verified R2 delivery. Local lab http://127.0.0.1:4187/game-prototypes/prototypes/steroids-alpha-lab/?review=warzone ; preview server intentionally running.
-
-## 2026-11-17 claude rich-asteroids
-DID: mineral-rich asteroids: up to asteroid.richMax (2) alive incl. fragments, spawned in/beside the hot zone richRespawnSeconds (20) after a slot opens, richMineralFactor (3) x minerals, richHpFactor (2) x health, fragments stay rich. Wire: family byte top bit (protocol 24). Placeholder golden halo + glints in flight drawWorld.
-FILES: sim/{asteroids,world,protocol,liveConfig}.ts tune.json src/scenes/flight.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
-SEAM: Asteroid.rich; World.keepRichRocks.
-CROSS: flight drawWorld (rock loop, yours): halo drawn before rocks.draw; rock damage fraction now uses the rich full health.
-FOR codex: rich asteroid art wanted (veins/gold), readable from across the screen at all three sizes.

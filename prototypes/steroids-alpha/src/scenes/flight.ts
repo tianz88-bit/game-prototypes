@@ -159,6 +159,9 @@ export class FlightScene extends Phaser.Scene {
   private runStartedAt = 0;
 
   create(): void {
+    this.enteredAt = performance.now();
+    this.stuck = false;
+    this.stuckLabels = [];
     this.hudAnchor.visible=false;
     this.orbital.reset();
     this.remoteArrivals.clear();
@@ -425,7 +428,24 @@ export class FlightScene extends Phaser.Scene {
     this.drawBoard(w);
     // A refused or closed connection (planet full, war lockdown) must show its message, never an endless hyperspace.
     const refused=this.net.status==='closed'||this.net.status==='full'||this.net.status==='lost';
-    this.maskOrbitalUi(!refused&&(this.orbit.phase==='entry'||this.orbit.phase==='exit'||this.orbit.phase==='waiting'));
+    this.maskOrbitalUi(!refused&&!this.stuck&&(this.orbit.phase==='entry'||this.orbit.phase==='exit'||this.orbit.phase==='waiting'));
+    // Safety net (owner, 17 November 2026: never trap a pilot in hyperspace): no ship after 10 s
+    // shows what it waits for, with RETRY and BACK TO MENU.
+    this.stuck = !own && !dead && !extracted && this.orbit.phase === 'waiting' && (this.net.status === 'connecting' || this.net.status === 'open' || this.net.status === 'reconnecting') && performance.now() - this.enteredAt > 10000;
+    if (this.stuck) {
+      const bw = 150, by = h * 0.3 + 70;
+      const btns = [{ id: 'retry', x: w / 2 - bw / 2 - 8, label: 'RETRY' }, { id: 'menu', x: w / 2 + bw / 2 + 8, label: 'BACK TO MENU' }];
+      if (!this.stuckLabels.length) this.stuckLabels = btns.map((b) => text(this, 0, 0, b.label, 14).setOrigin(0.5).setDepth(961));
+      btns.forEach((b, i) => { panel(this.overlay, b.x - bw / 2, by - 20, bw, 40, i ? UI.uiBorder : UI.uiAccent, !i); this.stuckLabels[i].setVisible(true).setPosition(b.x, by); });
+      for (const t of intents.drainTaps()) {
+        const hit = btns.find((b) => Math.abs(t.x - b.x) <= bw / 2 && Math.abs(t.y - by) <= 20);
+        if (!hit) continue;
+        this.net.close();
+        if (hit.id === 'retry') this.scene.restart({ planet: this.planet });
+        else this.scene.start('menu');
+        return;
+      }
+    } else this.stuckLabels.forEach((t) => t.setVisible(false));
 
     if ((this.net.extracted || this.net.status === 'extracted') && !dead) {
       if (this.orbit.phase==='complete' && this.deathScreen(w, h, true)) return;
@@ -478,6 +498,15 @@ export class FlightScene extends Phaser.Scene {
   }
   private baseAim: number[] = [];
   private baseFiredAt: number[] = [];
+
+  /** Hyperspace safety net state. */
+  private stuck = false;
+  private stuckLabels: Phaser.GameObjects.Text[] = [];
+  private enteredAt = 0;
+  private stuckText(): string {
+    const s = this.net.status;
+    return s === 'connecting' ? 'Still connecting to the planet…\nThe server is not answering yet.' : s === 'reconnecting' ? 'Connection lost. Still reconnecting…' : 'Connected, but your ship has not arrived yet.\nThe planet may be busy.';
+  }
 
   /** Warzone HUD texts (siege v0). */
   private siegeTexts: Phaser.GameObjects.Text[] = [];
@@ -811,9 +840,11 @@ export class FlightScene extends Phaser.Scene {
     const left = Math.max(0, (z.movesAt - now) / 1000);
     // On one's own home planet minerals give fuel, not salvage; the zone doubles that instead.
     // Visitors mine nothing on someone else's home planet, so the zone is not shown to them.
-    if (this.net.layout && this.net.clan !== this.net.layout.clan) return;
-    const zoneOf = this.net.layout ? 'FUEL' : 'SALVAGE';
-    const label = `${zoneOf} ZONE ×${TUNE.hotZone.salvageMultiplier}  ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`;
+    // Warzone: power only, so it is the mineral zone where rich rocks spawn, for both sides.
+    const war = isWarPlanet(this.planet);
+    if (!war && this.net.layout && this.net.clan !== this.net.layout.clan) return;
+    const zoneOf = war ? 'MINERAL ZONE' : `${this.net.layout ? 'FUEL' : 'SALVAGE'} ZONE ×${TUNE.hotZone.salvageMultiplier}`;
+    const label = `${zoneOf}  ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`;
     const centre = this.toScreen(z.x, z.y);
     const dx = wrapDelta(z.x, p.x, W);
     const dy = wrapDelta(z.y, p.y, H);
@@ -1713,12 +1744,12 @@ export class FlightScene extends Phaser.Scene {
       reconnecting: `Connection lost. Reconnecting… ${n.resumeSecondsLeft}s`,
       lost: `Your ship was lost while disconnected\n(${n.closeInfo ? closeReason(n.closeInfo.code, n.closeInfo.reason) : ''})\nTap or press R to drop in again`,
       full: 'Planet is full. Tap to go back',
-      closed: n.closeInfo?.code === CLOSE.WAR_LOCKED ? 'A war is on in the Warzone.\nTry again when it ends. Tap to go back' : n.closeInfo?.code === CLOSE.NEED_CLAN ? 'Pick Crimson or Azure in the menu to fight here.\nTap to go back' : `Disconnected${n.closeInfo ? ` (${closeReason(n.closeInfo.code, n.closeInfo.reason)})` : ''}\nTap to go back`,
+      closed: n.closeInfo?.code === CLOSE.ROUND_OVER ? `ROUND OVER\n${n.closeInfo.reason}\nThe Warzone resets for ${TUNE.siege.cooldownSeconds} s. Tap to go back` : n.closeInfo?.code === CLOSE.WAR_RESETTING ? `The Warzone is resetting: it opens in ${n.closeInfo.reason} s.\nTap to go back` : n.closeInfo?.code === CLOSE.WAR_LOCKED ? 'A war is on in the Warzone.\nTry again when it ends. Tap to go back' : n.closeInfo?.code === CLOSE.NEED_CLAN ? 'Pick Crimson or Azure in the menu to fight here.\nTap to go back' : `Disconnected${n.closeInfo ? ` (${closeReason(n.closeInfo.code, n.closeInfo.reason)})` : ''}\nTap to go back`,
       destroyed: '',
       extracted: '',
     };
     if (!n.death && n.status !== 'destroyed' && !n.extracted && n.status !== 'extracted') {
-      this.message.setAlign('center').setText(n.status === 'open' && !own ? 'Dropping in…' : msg[n.status]);
+      this.message.setAlign('center').setText(this.stuck ? this.stuckText() : n.status === 'open' && !own ? 'Dropping in…' : msg[n.status]);
       const {w,h}=logicalSize();
       drawConnectionBanner(this.overlay,this.message,w,h,n.status,intents.touch);
     }

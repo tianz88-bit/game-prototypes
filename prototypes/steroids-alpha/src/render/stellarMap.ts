@@ -8,7 +8,22 @@ import { panel, UI, css } from './ui';
 
 interface Rect { x: number; y: number; w: number; h: number; }
 interface Globe extends Rect { id: PlanetId; radius: number; ground: PlanetGround; }
-export type MapAction = { kind: 'close' } | { kind: 'select' | 'warp'; planet: PlanetId };
+export type MapAction = { kind: 'close' } | { kind: 'select' | 'warp'; planet: PlanetId } | { kind: 'joinAs'; clan: number } | { kind: 'notify' };
+/** Warzone round state from the server's planet list (owner, 17 November 2026). */
+export interface WarStatus { phase: string; left: number }
+
+const mmss = (s: number): string => `${Math.floor(s / 60)}:${String(Math.max(0, s) % 60).padStart(2, '0')}`;
+/** Warzone state in words for the map. */
+export function warLabel(st: WarStatus | null | undefined): { text: string; open: boolean } {
+  if (!st) return { text: 'OPEN', open: true };
+  switch (st.phase) {
+    case 'countdown': return { text: `STARTING  ${st.left} s  ·  JOIN NOW`, open: true };
+    case 'war': case 'release': return { text: `WAR IN PROGRESS  ${mmss(st.left)}`, open: false };
+    case 'over': return { text: 'ROUND ENDING', open: false };
+    case 'cooldown': return { text: `RESETTING  ${st.left} s`, open: false };
+    default: return { text: 'OPEN  ·  WAITING FOR BOTH CLANS', open: true };
+  }
+}
 
 /** Territory rules are the existing game rules; no generated populations or resource estimates. */
 export function planetIntel(id: PlanetId, clan: number): { relation: string; colour: number; resources: string; note: string } {
@@ -40,7 +55,7 @@ export class StellarMap {
   private bounds: Rect;
 
   constructor(private scene: Phaser.Scene, w: number, h: number, private clan: number,
-    public selected: PlanetId | null, private counts: Record<string, number> | null) {
+    public selected: PlanetId | null, private counts: Record<string, number> | null, private war: WarStatus | null = null, public notify = false) {
     const width = Math.min(960, w - 24), height = Math.min(610, h - 24);
     const left = (w - width) / 2, top = (h - height) / 2;
     this.bounds = { x: w / 2, y: h / 2, w: width, h: height };
@@ -85,7 +100,13 @@ export class StellarMap {
     this.showDetails(); this.setCounts(counts); this.update(0);
   }
 
-  setCounts(counts: Record<string, number> | null): void {
+  /** Warzone buttons under the details: JOIN AS CRIMSON / AZURE (no clan yet) or NOTIFY ME (closed). */
+  private buttons: { action: MapAction; x: number; y: number; w: number; h: number }[] = [];
+  private buttonGfx: Phaser.GameObjects.Graphics | null = null;
+  private buttonTexts: Phaser.GameObjects.Text[] = [];
+
+  setCounts(counts: Record<string, number> | null, war: WarStatus | null = this.war): void {
+    this.war = war;
     this.counts = counts;
     for (const [id, t] of this.populations) t.setText(this.population(id));
     this.showDetails();
@@ -93,7 +114,29 @@ export class StellarMap {
 
   private population(id: PlanetId): string {
     const n = this.counts?.[id];
-    return n === undefined || n < 0 ? 'Players unavailable' : `${n} ${n === 1 ? 'player' : 'players'}`;
+    const players = n === undefined || n < 0 ? 'Players unavailable' : `${n} ${n === 1 ? 'player' : 'players'}`;
+    return id === 'warzone' ? `${players}\n${warLabel(this.war).text.split('  ·  ')[0]}` : players;
+  }
+
+  private drawButtons(): void {
+    this.buttonGfx?.destroy();
+    this.buttonTexts.forEach((t) => t.destroy());
+    this.buttonTexts = [];
+    this.buttons = [];
+    if (this.selected !== 'warzone') return;
+    const b = this.bounds, y = b.y + b.h / 2 - 34, g = (this.buttonGfx = this.scene.add.graphics().setDepth(205));
+    const add = (label: string, x: number, w: number, colour: number, action: MapAction, on = false): void => {
+      panel(g, x - w / 2, y - 15, w, 30, colour, on);
+      this.buttonTexts.push(text(this.scene, x, y, label, 12, on ? '#ffffff' : css(colour)).setOrigin(.5).setDepth(206));
+      this.buttons.push({ action, x, y, w, h: 30 });
+    };
+    if (!this.clan) {
+      // No clan yet: pick one right here and go (owner, 17 November 2026).
+      add('JOIN AS CRIMSON', b.x - 95, 170, CLANS[0].colour, { kind: 'joinAs', clan: 1 });
+      add('JOIN AS AZURE', b.x + 95, 170, CLANS[1].colour, { kind: 'joinAs', clan: 2 });
+    } else if (!warLabel(this.war).open) {
+      add(this.notify ? 'NOTIFY ON  ·  WAITING' : 'NOTIFY ME', b.x, 210, UI.uiGold, { kind: 'notify' }, this.notify);
+    }
   }
 
   private showDetails(): void {
@@ -104,15 +147,22 @@ export class StellarMap {
       this.prompt.setText('TAP A PLANET TO SELECT'); return;
     }
     const p = PLANETS.find(p => p.id === this.selected)!, info = planetIntel(p.id, this.clan);
-    this.detail.setText(`${p.label.toUpperCase()}  ·  ${info.relation}  ·  ${this.population(p.id)}`).setColor(css(info.colour));
+    this.detail.setText(`${p.label.toUpperCase()}  ·  ${info.relation}  ·  ${this.population(p.id).split('\n')[0]}`).setColor(css(info.colour));
     this.resource.setText(`RESOURCES   ${info.resources}`);
-    this.note.setText(info.note);
-    this.prompt.setText(`TAP ${p.label.toUpperCase()} AGAIN TO WARP`);
+    const war = p.id === 'warzone' ? warLabel(this.war) : null;
+    // Warzone with buttons (pick a side, or notify): the buttons replace the bottom prompt.
+    const buttons = !!war && (!this.clan || !war.open);
+    const hint = !war ? '' : !this.clan ? '  Pick a side below.' : !war.open ? (this.notify ? '  You will warp in when it opens (keep the map open).' : '  NOTIFY ME warps you in when it opens.') : '';
+    this.note.setText(war ? `${war.text}.  ${info.note}${hint}` : info.note);
+    this.prompt.setText(buttons ? '' : `TAP ${p.label.toUpperCase()} AGAIN TO WARP`);
+    this.drawButtons();
   }
 
   tap(x: number, y: number): MapAction | null {
     const hit = (r: Rect) => Math.abs(x - r.x) <= r.w / 2 && Math.abs(y - r.y) <= r.h / 2;
     if (hit(this.closeButton) || !hit(this.bounds)) return { kind: 'close' };
+    const btn = this.buttons.find((bt) => Math.abs(x - bt.x) <= bt.w / 2 && Math.abs(y - bt.y) <= bt.h / 2);
+    if (btn) return btn.action;
     const p = this.planets.find(hit); if (!p) return null;
     if (this.selected === p.id) return { kind: 'warp', planet: p.id };
     this.selected = p.id; this.showDetails(); return { kind: 'select', planet: p.id };
@@ -148,5 +198,5 @@ export class StellarMap {
     });
   }
 
-  destroy(): void { for (const p of this.planets) p.ground.destroy(); }
+  destroy(): void { for (const p of this.planets) p.ground.destroy(); this.buttonGfx?.destroy(); this.buttonTexts.forEach((t) => t.destroy()); }
 }

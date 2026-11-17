@@ -1,5 +1,7 @@
 ## Current milestone
 
+Warzone sessions (17 November, claude): sessions end with everyone back to the menu and a 20 s reset; 20 s joinable countdown; Warzone status, join-as and notify on the stellar map; hyperspace safety net; protocol 25.
+
 Desktop ordnance/speed UI is LIVE in171126r0093. PR539 merged7b3c11fe207cd814e5a0311fe15f4b0446a16a79; itch44028038724, Pages44028038740 and Worker44028038814 succeeded. Public game: https://daily-daily-games.itch.io/steroids-alpha . The tutorial shortening is a discussion proposal only; lesson flow/counts remain unchanged.
 
 ## What was implemented
