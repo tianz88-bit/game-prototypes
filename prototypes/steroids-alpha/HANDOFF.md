@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex rich-crystal chip VFX LIVE
+DID: rich hits shed painted crystal chips/gold sparks; split/shatter makes a larger spinning shower live171126r0089. PR533 23cf3aec; itch44014921428/Pages44014921281 success, protocol24 healthy.
+FILES: crystalChipMotion/crystalChips, client-net HP/GONE observation, Flight drain/lifecycle, regressions/docs. Existing painted mineral art reused; no new R2 pack.
+SEAM: LOCAL NetFx crystal hit|split carries id/size/position/drift from existing records; no spawn/duplicate/heal/ordinary-rock FX or child-spawn retrigger. Generic rock breaks retained; no wire/sim/tune/reward/physics/pickup changes.
+CROSS: minimal net observer;16 bursts/128 images, one spark batch, expiry and scene cleanup. Type/build/rig and8 local/8 public Brave desktop/mobile packet→renderer cases pass. No captures or server fixture writes.
+FOR claude: shipped under direct-publication preference; use main, no server event/deploy work needed. BUILD_STATUS/output crystal-chip-vfx has proof; localhost preview stopped.
+
 ## 2026-11-17 codex rich-crystal chip VFX RELEASE
 DID: rich hits shed2–3 painted chips/12 gold sparks; split/shatter scatters6–12 pieces/32–44 sparks with wider arcs/spin/drift. Existing approved art reused, no new R2 pack.
 FILES: crystalChipMotion/crystalChips, NetClient local FX observation, Flight drain/lifecycle, regressions/docs.
@@ -98,10 +105,3 @@ FILES: tune.json BRIEF.md
 SEAM: none (values only).
 CROSS: tune.sparrow (your Sparrow work): two values, owner-requested.
 FOR codex: Sparrow is now 96 vs Falcon 120 damage per second.
-
-## 2026-11-16 codex live-rig-review
-DID: lab subject selector and live Hangar Rig Review for Sparrow/Bat/capital/Falcon/Nexus/tower turrets. Rotation, firing, gun-origin guides, palette/clan, control tilt and deck count. Treasury display renamed Nexus. Capital cannon casing matches cobalt and selected palettes; forward steel/alpha retained.
-FILES: src/scenes/rigReview, boot/main/hangar/flight, render/{shipArt,palette}; ../steroids-alpha-lab.
-SEAM: isolated query route uses production ShipView/BuildingRigs/CombatSprites and stepShip/muzzleShot; no room sockets, accounts, grants or publishing. Checked same-origin parent messages only choose a validated subject or exit.
-CROSS: minimal scene flow/query/hangar entry and display strings; no sim/network/tuned values changed. Lab sleeps old preview, reuses one frame and hides draft editor until return.
-FOR claude: owner forbids screen grabbing; checks use DOM/runtime/source pixels, no screenshots or recording. Lab selections review each production rig; editable calibration remains Falcon only. LIVE161126r0080: PR519, client43892666337/Pages43892666498 success; ten public desktop/mobile cases and all four capital cannon sides pass. Evidence in BUILD_STATUS.
