@@ -1,11 +1,19 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex ram/tutorial/destruction LIVE
+DID: all requested ram FX, hull trace, tutorial gates/multi-ring dash and800ms ship collapse are live171126r0091. PR535 909991ff; culling PR536 4efc7680.
+FILES: Flight, combatEffects/Hud, shipView/Destruction/Explosion, client-net, tutorial policy/guide, local Room/World and tests/docs.
+SEAM: optional ShipPlacement.destroying; LOCAL explosion id/state. Tutorial-only minerals5/shop8/weapons off3. No wire/tune/combat/economy changes; online Room ignores tutorial policy.
+CROSS:14 local +14 public Brave DPR2 desktop/mobile cases pass, all4 chassis/own/remote/Warzone deaths, resize/dedup/HUD/tutorial. Type/build/rig/sim/live-config/new policy tests pass; no capture or public-room fixture writes.
+FOR claude: itch44019478944/Pages44019478908/Worker44019138494 succeeded, health protocol24. Use main; no implementation handoff remains. Evidence ram-tutorial-destruction; temporary preview stopped.
+
 ## 2026-11-17 codex ram/tutorial/destruction RELEASE
 DID: orange active-dash bow/crash FX, persistent hull trace, staged800ms darken/shrink with5 small blasts and1 size-aware final explosion; all4 chassis, own/remote/Warzone.
 FILES: Flight, combatEffects/Hud, shipView/Destruction/Explosion, client-net, tutorial policy/guide, local Room/World and regressions/docs.
 SEAM: ShipPlacement.destroying; LOCAL explosion FX id/copied state before remote removal. Tutorial policy gates minerals5/shop8/weapons off3, including queued/held input. No protocol/tune/combat/economy change.
 CROSS: minimal sim/server tutorial-only gates and client death capture. Preplaced swept dash course allows multiple rings per dash. Resize retains collapse; cleanup/dedup bounded.
 FOR claude: type/build/rig/sim/live-config and new policy/room/geometry tests pass;14 Brave DPR2 desktop/mobile runtime cases, zero page errors/no capture. Final PR/deploy proof follows; use main after release.
+
 ## 2026-11-17 codex rich-crystal chip VFX LIVE
 DID: rich hits shed painted crystal chips/gold sparks; split/shatter makes a larger spinning shower live171126r0089. PR533 23cf3aec; itch44014921428/Pages44014921281 success, protocol24 healthy.
 FILES: crystalChipMotion/crystalChips, client-net HP/GONE observation, Flight drain/lifecycle, regressions/docs. Existing painted mineral art reused; no new R2 pack.
@@ -83,7 +91,6 @@ SEAM: Asteroid.rich; World.keepRichRocks.
 CROSS: flight drawWorld (rock loop, yours): halo drawn before rocks.draw; rock damage fraction now uses the rich full health.
 FOR codex: rich asteroid art wanted (veins/gold), readable from across the screen at all three sizes.
 
-
 ## 2026-11-17 codex grounded-buildings-capital LIVE
 DID: approved supports/clan materials/rooted shadows/terrain anchoring and capital forked bow/flush side guns/no lenses/stronger offsets live161126r0084. PR524 eb17e0b1; client43908175540/Worker43908175298/Pages43908175290 success.
 FILES: building geometry/material/rig/ground frame, capital-v3/profile, cannon origins, rig review, tests/docs; BUILD_STATUS has proof.
@@ -97,12 +104,3 @@ FILES: sim/{planets,protocol,world,bots}.ts server/src/room.ts src/net/client.ts
 SEAM: Room.siegePhase/stepSiege/siegeFrame; NetClient.siege/warDown; SiegeView; CLOSE.WAR_LOCKED/NEED_CLAN.
 CROSS: src/render/stellarMap.ts (yours): five positions and a Warzone intel/tint; flight maskOrbitalUi skips refused connections.
 FOR codex: Warzone needs art: damaged/destroyed towers, shield strength, Nexus health, a Warzone globe look distinct from Crimson.
-
-## 2026-11-16 claude siege-values-pods
-DID: siege values for the Sparrow starter (turrets 110, shield 750, treasury 1100, owner: tweak after playtests); siege bots detour for mineral spills within 320 px (power moves to whoever cleans up); sim option attPower/defPower (first life only) and any-tune overrides. Repair pods drawn at render.healDropScale (0.8) of the pickup radius.
-FILES: tune.json client.tune.json sim/{bots,liveConfig}.ts src/scenes/flight.ts BRIEF.md scripts/sim-steroids-alpha-siege.mjs
-SEAM: clientTune.render.healDropScale.
-CROSS: flight.ts pickup radius for heal (painted health-pod uses the same radius).
-FOR codex: health-pod art now shows at ~27 px radius; check it still looks crisp at that size.
-
-
