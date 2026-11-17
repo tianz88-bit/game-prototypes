@@ -1,3 +1,4 @@
+import { PACK } from './pack';
 import type { Axis, Level, ObstacleKind, TrainDef } from './types';
 
 // Liveries (index = train letter order). Generic colours, no real line branding.
@@ -64,4 +65,4 @@ export const LEVEL_SOURCES: LevelSource[] = [
   { name: 'Tokyo Terminal', rows: ['HCCCCJJ', '..bs.tK', '......K', 'BBBB#.K', 'A..##Dk', 'A..k.Ds', 'AGFFFFF', 'A.EIII.'], axis: { E: 'v', G: 'h', H: 'v' } },
 ];
 
-export const LEVELS: Level[] = LEVEL_SOURCES.map((s) => parseLevel(s.name, s.rows, s.axis));
+export const LEVELS: Level[] = [...LEVEL_SOURCES, ...PACK].map((s) => parseLevel(s.name, s.rows, s.axis));

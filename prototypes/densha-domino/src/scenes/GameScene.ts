@@ -263,7 +263,7 @@ export class GameScene extends Phaser.Scene {
   private onIntent(intent: Intent): void {
     if (intent.type === 'restart') return this.startLevel(this.levelIndex);
     if (intent.type === 'next') return this.startLevel(this.levelIndex + 1);
-    if (intent.type === 'levels') return this.phase === 'menu' ? this.closeMenu() : this.phase === 'play' ? this.openMenu() : undefined;
+    if (intent.type === 'levels') return this.phase === 'menu' ? this.closeMenu() : this.phase === 'play' ? ((this.menuPage = -1), this.openMenu()) : undefined;
     if (intent.type === 'select') return this.selectLevel(intent.level);
     if (this.phase !== 'play') return;
     if (intent.type === 'tap') {
@@ -597,6 +597,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** A grid of levels with the stars earned so far. */
+  private menuPage = -1;
+
   private openMenu(): void {
     this.closeMenu();
     this.phase = 'menu';
@@ -606,7 +608,12 @@ export class GameScene extends Phaser.Scene {
     const cols = 5;
     const cell = 56;
     const gap = 8;
-    const rows = Math.ceil(LEVELS.length / cols);
+    const perPage = 20;
+    const pages = Math.ceil(LEVELS.length / perPage);
+    if (this.menuPage < 0) this.menuPage = Math.floor(this.levelIndex / perPage);
+    this.menuPage = Phaser.Math.Clamp(this.menuPage, 0, pages - 1);
+    const first = this.menuPage * perPage;
+    const rows = Math.ceil(Math.min(perPage, LEVELS.length - first) / cols);
     const gridW = cols * cell + (cols - 1) * gap;
     const rowH = cell + 30;
     const panelW = WIDTH - 50;
@@ -624,12 +631,13 @@ export class GameScene extends Phaser.Scene {
     const zone = this.add.zone(0, 0, WIDTH, HEIGHT).setOrigin(0).setDepth(299).setInteractive();
     zone.on('pointerdown', () => this.bus.emit({ type: 'levels' }));
     const title = this.hudText(WIDTH / 2, py + 40, 28, '#ffffff').setDepth(310);
-    title.setText('Select level');
+    title.setText(pages > 1 ? `Select level (${this.menuPage + 1}/${pages})` : 'Select level');
     const stars = this.add.graphics().setDepth(311);
     this.menu.push(zone, dim, title, stars);
-    LEVELS.forEach((lv, i) => {
-      const c = i % cols;
-      const r = Math.floor(i / cols);
+    LEVELS.slice(first, first + perPage).forEach((lv, k0) => {
+      const i = first + k0;
+      const c = k0 % cols;
+      const r = Math.floor(k0 / cols);
       const x = (WIDTH - gridW) / 2 + c * (cell + gap) + cell / 2;
       const y = py + 100 + r * rowH + cell / 2;
       const open = this.isUnlocked(i);
@@ -642,6 +650,17 @@ export class GameScene extends Phaser.Scene {
       for (let k = 0; k < 3; k++) this.drawStar(stars, x + (k - 1) * 17, y + cell / 2 + 14, 7, k < got ? 0xffd04a : 0xc9c2b0);
       void lv;
     });
+    if (pages > 1) {
+      const page = (d: number) => () => {
+        this.menuPage = (this.menuPage + d + pages) % pages;
+        this.openMenu();
+      };
+      for (const [d, label, x] of [[-1, '<', px + 50], [1, '>', px + panelW - 50]] as const) {
+        const pb = new Button(this, x, py + panelH - 40, 56, 48, label, null, { fill: 0x3a4a68, edge: 0x6f9cff }, page(d), 22);
+        pb.container.setDepth(310);
+        this.menu.push(pb.container);
+      }
+    }
     const close = new Button(this, WIDTH / 2, py + panelH - 40, 160, 48, 'Close', null, { fill: 0x2f9e5b, edge: 0x6dffa8 }, () => this.bus.emit({ type: 'levels' }), 20);
     close.container.setDepth(310);
     this.menu.push(close.container);
