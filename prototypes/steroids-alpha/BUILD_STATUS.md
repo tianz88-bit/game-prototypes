@@ -1,6 +1,6 @@
 ## Current milestone
 
-Landing menu and planet map hierarchy implemented and approved for go-live. Deployment/public verification pending. Existing live client171126r0097, Worker protocol25.
+Landing menu and planet map hierarchy LIVE171126r0098. PR547 mergefde1891ede1393ad994997de6a77eb2fa2927b53; itch44051762536 and Pages44051762420 succeeded. Existing Worker protocol25 healthy. Public game: https://daily-daily-games.itch.io/steroids-alpha . Owner approved release; Claude sync remains deferred.
 
 ## What was implemented
 
@@ -12,7 +12,7 @@ Five spinning terrain globes show simple name, danger/player count, resources/re
 
 Pure landingLayout geometry; existing shipPreview rig and UI palette/panels, no new assets/dependencies. Utility/map taps stay isolated through existing intents. No account/save/network schema, server/protocol, gameplay or live tuning changes. Existing ship rig/FFD and orbital flow retained.
 
-Type/build/rig/sim/config checks pass.8 CI geometry sizes enforce action bounds/separation/targets.9 local Brave DPR2 desktop/compact/mobile/tall/portrait/320x240 cases pass for all utilities/recovery,5 destination Info routes, closed Warzone/side selection/confirmed auto-join, Hangar/Learn and stable rebuild children/callbacks.1 final compact case adds cancellation label verification. Zero page errors; no captures/public-room fixture writes. Evidence outputs/steroids-alpha/landing-map-hierarchy/.
+Type/build/rig/sim/config checks pass.8 CI geometry sizes enforce action bounds/separation/targets.9 local plus9 public Brave DPR2 desktop/compact/mobile/tall/portrait/320x240 cases pass for all utilities/recovery,5 destination Info routes, closed Warzone/side selection/confirmed auto-join, Hangar/Learn and stable rebuild children/callbacks.1 final local compact case adds cancellation label verification, also included in all9 public cases. Public base confirms11 real ship modules, all5 live count keys and client98. Zero page errors; no captures/public-room fixture writes. Evidence outputs/steroids-alpha/landing-map-hierarchy/.
 
 ## Open questions
 
@@ -24,4 +24,4 @@ Physical-phone/Safari visuals not inspected; headless Brave interaction/geometry
 
 ## Next proposed step
 
-Publish and verify public game, record final version/runs, then collect owner feedback. CLAUDE_BACKLOG.md contains deferred seams; no immediate Claude execution/review requested. Stop temporary Vite4187 after release.
+Collect owner live feedback. CLAUDE_BACKLOG.md contains durable release/seam notes for later sync; no immediate Claude execution/review requested. Temporary Vite4187 stopped; no resident publisher/capture or leftover headless test process.
