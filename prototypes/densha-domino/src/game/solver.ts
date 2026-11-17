@@ -1,4 +1,4 @@
-import { applyTap, initialState, isCleared, legalMoves, stateKey } from './rules';
+import { DEFAULT_RULES, type RuleOptions, applyTap, initialState, isCleared, legalMoves, stateKey } from './rules';
 import type { Level, Move, State } from './types';
 
 export interface Solution {
@@ -14,7 +14,7 @@ export interface Solution {
 }
 
 /** Breadth-first search for the fewest taps that clear the level from `from`. */
-export function solve(level: Level, from: State = initialState(level), maxNodes = 400000): Solution {
+export function solve(level: Level, from: State = initialState(level), maxNodes = 400000, rules: RuleOptions = DEFAULT_RULES): Solution {
   if (isCleared(from)) return { par: 0, moves: [], explored: 1, truncated: false, optimalFirstMoves: 0 };
   const start = stateKey(from);
   const parent = new Map<string, { prev: string; move: Move }>();
@@ -30,7 +30,7 @@ export function solve(level: Level, from: State = initialState(level), maxNodes 
     for (const s of frontier) {
       const sk = stateKey(s);
       for (const m of legalMoves(level, s)) {
-        const r = applyTap(level, s, m);
+        const r = applyTap(level, s, m, rules);
         const k = stateKey(r.state);
         if (dist.has(k)) continue;
         dist.set(k, dist.get(sk)! + 1);

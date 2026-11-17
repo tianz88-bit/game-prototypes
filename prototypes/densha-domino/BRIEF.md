@@ -61,22 +61,28 @@ every level can be solved with the visible information.
   free cells, a tap runs it that way. If both ways are open, a swipe along the
   track picks the direction (a tap shows two arrows to pick from).
 - **Chain reaction:** when a running train stops against another train, the horn
-  blows and that train takes off. A train with no free cell in either direction
-  cannot be tapped.
+  blows and that train takes off. After a bump, each train tries again: once the
+  train it hit has gone, the bumping train follows if its way is now clear. A train
+  with no free cell in either direction cannot be tapped.
   - Hit at its end (head to tail, same line): the hit train runs on in the same
-    direction. When it has gone, the first train follows behind it and carries on
-    (convoy rule), so one tap can send a whole line out: the last train clears the
-    exit while the rest follow.
+    direction. When it has gone, the first train follows behind it and carries on,
+    so one tap can send a whole line out: the last train clears the exit while the
+    rest follow.
   - Hit on its side (crossing track): the hit train is set off too and runs along
     its own track, away from the bump. A bump near its low end sends it toward the
     high end and the other way round. If only one way is open it takes that. A
     dead-centre bump goes whichever way has more room (the way off the board counts
     most), then the positive way. If neither way is open it just takes the bump.
-    The bumping train stops where it is and does not follow.
-  Why the convoy rule for end hits: with "hit train leaves, the first one stays",
-  every solvable level has par equal to the number of trains (checked on thousands
-  of random boards), so par and chains would mean nothing. With the convoy rule a
-  chain saves taps, and par becomes the puzzle.
+    Then the bumping train tries again: if the hit train has cleared its path it
+    carries on, otherwise it stays where it stopped.
+  - Rule switch: `rules.followAfterSide` in tune.json. 1 (current) lets the bumping
+    train follow after a side bump; 0 makes it stay put. Par is solved under the
+    chosen rule when a level loads. The level set is searched for the current rule,
+    so under the other setting some levels play differently.
+  Why followers at all: with "hit train leaves, the first one stays", every solvable
+  level has par equal to the number of trains (checked on thousands of random
+  boards), so par and chains would mean nothing. With followers a chain saves taps,
+  and par becomes the puzzle.
 - **Winning:** no trains left on the board. Stars: 3 if taps used is at or under
   par (the solver's minimum), 2 if within par + 2, else 1.
 - **Tap limit:** par + slack, with slack shrinking at higher difficulty.

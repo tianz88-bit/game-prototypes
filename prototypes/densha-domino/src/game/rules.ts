@@ -1,5 +1,16 @@
 import { type Dir, GONE, type Level, type Move, type State, type TapEvent, type TapResult } from './types';
 
+export interface RuleOptions {
+  /**
+   * After a bump on a train's side, does the bumping train try again once the way is
+   * cleared (true), or stay where it stopped (false)? After a bump on a train's end it
+   * always follows.
+   */
+  followAfterSide: boolean;
+}
+
+export const DEFAULT_RULES: RuleOptions = { followAfterSide: true };
+
 /** Level state at the start. */
 export function initialState(level: Level): State {
   return level.trains.map((t) => t.start);
@@ -106,11 +117,11 @@ export function legalMoves(level: Level, state: State): Move[] {
 /**
  * Taps a train. It runs until it leaves the board or stops. If it stops against
  * another train, head to tail or against its side, that train takes off (chain
- * reaction). After a head-to-tail hit, the running train follows the one it hit once
- * it has gone, so one tap can send a whole convoy out. After a bump on the side the
- * running train stays put. Returns the new state and the events in order.
+ * reaction). Once the one it hit has gone, the running train tries again and follows if
+ * its way is now clear, so one tap can send a whole convoy out. For a bump on a train's
+ * side that depends on `rules.followAfterSide`. Returns the new state and the events in order.
  */
-export function applyTap(level: Level, state: State, move: Move): TapResult {
+export function applyTap(level: Level, state: State, move: Move, rules: RuleOptions = DEFAULT_RULES): TapResult {
   const next = state.slice();
   const events: TapEvent[] = [];
   const ran = new Set<number>();
@@ -153,8 +164,8 @@ export function applyTap(level: Level, state: State, move: Move): TapResult {
       events.push({ type: 'hit', runner: train, target, dir, targetDir: targetDir ?? dir, spooked, sameLine, link });
       if (!spooked || targetDir === null) return false;
       run(target, targetDir, link + 1, false);
-      // A bump on the side sets the other train off but the bumping train stays where it is.
-      if (!sameLine) return false;
+      // After a bump on the side the bumping train only tries again if the rules say so.
+      if (!sameLine && !rules.followAfterSide) return false;
       segStart = next[train];
       // The hit train has gone: carry on behind it (head-to-tail hits only).
       resume = true;

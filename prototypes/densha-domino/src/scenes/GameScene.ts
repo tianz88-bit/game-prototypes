@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { Button, PIXEL_RATIO, Sfx } from 'dig-kit';
 import { LEVELS } from '../game/levels';
-import { applyTap, canRun, initialState, isCleared, trainAt, trainsLeft } from '../game/rules';
+import { type RuleOptions, applyTap, canRun, initialState, isCleared, trainAt, trainsLeft } from '../game/rules';
 import { solve } from '../game/solver';
 import { type Dir, type Level, type State, type TapEvent } from '../game/types';
 import { type Intent, IntentBus, bindKeyboard, bindPointer } from '../input/intents';
@@ -61,6 +61,7 @@ export class GameScene extends Phaser.Scene {
   private timers: Phaser.Time.TimerEvent[] = [];
   private playToken = 0;
   private testSlow = 1;
+  private rules: RuleOptions = { followAfterSide: true };
 
   constructor() {
     super('game');
@@ -130,7 +131,7 @@ export class GameScene extends Phaser.Scene {
         left: () => trainsLeft(this.state),
         /** Next tap of an optimal solution from the current state, as a pixel position and direction. */
         nextMove: () => {
-          const sol = solve(this.level, this.state);
+          const sol = solve(this.level, this.state, 400000, this.rules);
           const m = sol.moves[0];
           if (!m) return null;
           const v = this.views.get(m.train)!;
@@ -191,7 +192,9 @@ export class GameScene extends Phaser.Scene {
     this.state = initialState(this.level);
     this.taps = 0;
     this.phase = 'play';
-    this.par = solve(this.level).par;
+    // Rules come from tune.json; par is solved under the same rules so stars stay honest.
+    this.rules = { followAfterSide: !!tune.rules.followAfterSide };
+    this.par = solve(this.level, initialState(this.level), 400000, this.rules).par;
     this.limit = this.par + tune.rules.limitSlack;
     this.save.level = this.levelIndex;
     this.persist();
@@ -354,7 +357,7 @@ export class GameScene extends Phaser.Scene {
     if (!canRun(this.level, this.state, train, dir)) return this.tapTrain(train);
     this.pending = null;
     this.arrows.clear();
-    const res = applyTap(this.level, this.state, { train, dir });
+    const res = applyTap(this.level, this.state, { train, dir }, this.rules);
     this.taps++;
     this.state = res.state;
     this.phase = 'animating';

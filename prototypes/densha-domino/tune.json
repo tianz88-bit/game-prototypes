@@ -2,7 +2,8 @@
   "rules": {
     "limitSlack": 4,
     "starSlack": 2,
-    "unlockAll": 1
+    "unlockAll": 1,
+    "followAfterSide": 1
   },
   "feel": {
     "runBaseMs": 140,
