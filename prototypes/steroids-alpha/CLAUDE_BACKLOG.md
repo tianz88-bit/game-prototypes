@@ -2,6 +2,19 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Awaiting owner playtest: speed-dependent grip
+
+Owner approved this next LAB candidate after the drift research. Local implementation/checks complete; Pages/public proof pending. Live combat remains171126r0098/protocol25. No immediate Claude execution/review or live port is requested.
+
+- Speed Grip (default), No Drift (the prior easier candidate) and Live Baseline cycle through the existing profile button. URLs support grip=1/0 and handling=baseline. All four ships and both Tailed/Circling starts remain. New held THRUST exposes high speed on mobile; W/S work on PC, Brake restores grip, release returns cruise in both candidates. Enlarged hold/fire/dash hitboxes clear each other, including tall layouts; controls avoid the pilot.
+- duel.tune.json grip defaults: slowTau.015, cruiseTau.035, fastTau.22, dashTau.30, brakeTau.025, maxSlip24°. Tau grows from power-adjusted cruise to current top speed; genuine deceleration restores fast grip. Dash keeps committed travel until slowing. Both pilots share this physics. No random input or angular/nose lag and no magnitude speed penalty. Falcon cruise slip~3.84° and fast24°; after.2s braking~2.16°. Bat6.53°→24°→3.53°; Battlecruiser2.11°→17.45°→.39°; Sparrow matches Falcon.
+- stepGrip replaces only forward displacement after the shared ship step, preserving knockback and World.prev for swept collisions. Nose heading remains exactly identical to No Drift under matched inputs. The guarded lab bridge recomputes ONLY the just-spawned main bullet/event using corrected mount and actual target travel velocity; damage/life/count unchanged. Turret aiming already uses corrected target positions. Ram response uses travel heading for normal velocity. Old callers default grip off.
+- This is lab-only separate travel state, not a publishable config knob. BEFORE live release, implement inside shared server/client movement before weapons/collisions and serialize/reconcile travel state; delete the private bullet/events bridge rather than copying it into authority. Owner approval is still required.
+- Standalone scripts: test-steroids-speed-grip.mjs (four-chassis direction/speed parity, bounds, brake recovery, guns/lead, ram/knockback/wrap, hold geometry); existing test-steroids-duel-lab remains valid; compare-steroids-speed-grip.mjs reproduces48 scripted Falcon comparisons with optional GRIP_RESULTS_FILE. Type/build/rig/sim/config pass. No weapon damage changes.
+- Scripted outcomes are mixed: fast-tail Brake cuts survived6/6 both profiles. Circle-fast-cut cases survived3/6 without drift vs5/6 with Grip, but potential enemy alignment increased and other metrics conflict. Small deterministic samples/continuous aim are not human win-rate, ease or fun proof. Need owner feel review. Raw artifacts outputs/steroids-alpha/speed-grip-lab/.
+
+Gate: publish lab only, verify public controls, then owner playtests. No itch/Worker/config release until explicit approval and proper shared-physics port.
+
 ## Drift research findings — discussion only
 
 Owner asked whether precision causes perfect tailing/circling and requested headless tests. No drift implementation or live/lab change was requested/approved. Existing easier candidate stays intact. See steroids-alpha-lab/drift-findings.json for portable aggregate evidence; full reproducible in-memory build/scenario artifacts are outputs/steroids-alpha/drift-experiment/.
