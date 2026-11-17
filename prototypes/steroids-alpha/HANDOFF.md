@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex desktop ordnance/speed UI LIVE
+DID: larger PC bottom-left missile/mine badges/counts and violet slow/teal cruise streams live171126r0093. Routine top telemetry removed; mobile/warnings/actions retained. PR539 7b3c11fe.
+FILES: Flight, ShipView/Thrusters, stale SPEED wording, existing sim regression and docs.
+SEAM: optional speedBand from actual chassis-relative speed; legacy/custom fast flames and emission budgets retained. No wire/tune/gameplay changes.
+CROSS: type/build/rig/fullsim and3 local+3 public Brave DPR2 desktop/compact/mobile runtime cases pass, zero page errors/capture. itch44028038724/Pages44028038740/Worker44028038814 success; protocol24 healthy.
+FOR claude: tutorial reduction remains discussion ONLY. Proposed one-minute Fly/Fight+upgrade/Dash+Ram/Warp with contextual first-use tips; do not implement before owner response. Evidence ordnance-speed-ui; temporary preview stopped.
+
 ## 2026-11-17 codex desktop ordnance/speed UI RELEASE
 DID: larger PC missile/mine icons/counts above bottom-left key hints; mobile unchanged. Removed routine top telemetry/debug coords; warnings/actions retained. Slow violet/cruise teal exhaust; hot/custom fast/turn/boost retained.
 FILES: Flight, ShipView/Thrusters, SPEED stale-readout wording, sim thruster regressions and docs. No new art/dependencies or gameplay tuning.
@@ -97,10 +104,3 @@ FILES: sim/{asteroids,world,protocol,liveConfig}.ts tune.json src/scenes/flight.
 SEAM: Asteroid.rich; World.keepRichRocks.
 CROSS: flight drawWorld (rock loop, yours): halo drawn before rocks.draw; rock damage fraction now uses the rich full health.
 FOR codex: rich asteroid art wanted (veins/gold), readable from across the screen at all three sizes.
-
-## 2026-11-17 codex grounded-buildings-capital LIVE
-DID: approved supports/clan materials/rooted shadows/terrain anchoring and capital forked bow/flush side guns/no lenses/stronger offsets live161126r0084. PR524 eb17e0b1; client43908175540/Worker43908175298/Pages43908175290 success.
-FILES: building geometry/material/rig/ground frame, capital-v3/profile, cannon origins, rig review, tests/docs; BUILD_STATUS has proof.
-SEAM: shared projectGround anchors shadows; planet camera=travel, sun=travel+spin. Capital GUNS forward81.07/right±38.7/±55.8; protocol23 from main retained. No new stats/footprints/equipment/wire changes.
-CROSS: preserved PR521/522/523 incl Warzone; existing rig CI gate now runs anchoring/mount tests. Public8 building/10 lab cases and4 cannon sides pass; R2 ZIP/10parts verified. No capture/recording or permission expansion.
-FOR claude: use current main; no further release action. Further Warzone damage/shield/Nexus-health/globe art remains follow-up. Local preview/publisher stopped after completion; original Comms e31061e9.
