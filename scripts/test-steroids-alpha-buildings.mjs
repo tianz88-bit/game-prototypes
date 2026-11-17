@@ -10,6 +10,16 @@ const G=await load('prototypes/steroids-alpha/src/render/buildingGeometry.ts');
 const M=await load('prototypes/steroids-alpha/src/render/buildingMaterials.ts');
 const D=await load('prototypes/steroids-alpha/src/render/buildingCondition.ts');
 const Rock=await load('prototypes/steroids-alpha/src/render/rockSelection.ts');
+const Reg=await load('prototypes/steroids-alpha/src/render/rockRegistration.ts');
+for(const offset of [[0,0],[70,140],[400,300]])for(const radius of [22,42,70]){
+  const body={left:20,top:30,width:220,height:180,anchorX:123,anchorY:109,radius:65};
+  const trim={left:10,top:18,width:600,height:550},r=Reg.decoratedRockFrame(body,offset,trim);
+  const scale=radius*1.04/body.radius,width=radius*1.04/r.inR;
+  for(const [x,y] of [[20,30],[123,109],[240,210]]){
+    assert(Math.abs(-r.ax*width+(x+offset[0]-trim.left)/trim.width*width-(x-body.anchorX)*scale)<1e-7,'crystals cannot shift/resize the collision body X');
+    assert(Math.abs(-r.ay*width*trim.height/trim.width+(y+offset[1]-trim.top)/trim.width*width-(y-body.anchorY)*scale)<1e-7,'crystals cannot shift/resize the collision body Y');
+  }
+}
 for(const [family,name] of ['ochre','lavender','teal'].entries()){
   assert.equal(Rock.paintedRockName(9,0,family,true),`rich-${name}-parent`);
   for(const size of [1,2]){

@@ -11,13 +11,19 @@ import Phaser from 'phaser';
 import manifest from '../../art/asteroids-v1/asteroid-assets.json';
 import richManifest from '../../art/rich-asteroids-v1/assets.json';
 import { paintedRockName } from './rockSelection';
+import { decoratedRockFrame } from './rockRegistration';
+import type { RockBodyFrame } from './rockRegistration';
 
-const assets=[...manifest.assets,...richManifest.assets];
+const assets:(typeof manifest.assets[number]&{bodyOffset?:number[];baseName?:string})[]=[...manifest.assets,...richManifest.assets];
 /** Painted body drawn this much past the hitbox radius (a little margin, never smaller). */
 const COVER = 1.04;
 const TEXTURE_MAX = 256;
 
 interface RockArt {
+  /** Undecorated body registration; mineral outcrops are visual extensions only. */
+  body:RockBodyFrame;
+  bodyAnchor:[number,number];
+  bodyWidthOverHitbox:number;
   key: string;
   /** Shared damage variants preserve the original alpha/body registration exactly. */
   damaged: [string,string];
@@ -64,7 +70,7 @@ function damageTextures(scene:Phaser.Scene,base:HTMLCanvasElement,key:string,nam
 }
 
 export function queuePaintedRocks(scene: Phaser.Scene): void {
-  for (const a of assets) scene.load.image(srcKey(a.name), `assets/loose/asteroid-${a.name}.png`);
+  for (const a of assets) scene.load.image(srcKey(a.name), `assets/loose/asteroid-${a.name}.png?v=${a.sha256.slice(0,12)}`);
 }
 
 /** Call after loading. Returns false (pixel rocks stay) if any painted rock is missing. */
@@ -109,7 +115,7 @@ export function preparePaintedRocks(scene: Phaser.Scene): boolean {
       let best = 0, bx = gw / 2, by = gh / 2;
       for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) if (dist[y * gw + x] > best) { best = dist[y * gw + x]; bx = x; by = y; }
       // A grid cell is w/gw texture pixels; keep half a cell back so the circle stays inside the paint.
-      const inR = Math.max(0.05, (best - 0.5) / gw);
+      let inR = Math.max(0.05, (best - 0.5) / gw);
       // Smooth (linear-filtered) texture, at most TEXTURE_MAX px on its long side.
       const k = Math.min(1, TEXTURE_MAX / Math.max(w, h));
       const c = document.createElement('canvas');
@@ -122,9 +128,17 @@ export function preparePaintedRocks(scene: Phaser.Scene): boolean {
       if (scene.textures.exists(key)) scene.textures.remove(key);
       scene.textures.addCanvas(key, c)!.setFilter(Phaser.Textures.FilterMode.LINEAR);
       scene.textures.remove(srcKey(a.name));
-      const ax=(bx+.5)/gw,ay=(by+.5)/gh;
+      let ax=(bx+.5)/gw,ay=(by+.5)/gh;
+      let body:RockBodyFrame={left:l,top:t,width:w,height:h,anchorX:l+ax*w,anchorY:t+ay*h,radius:inR*w};
+      let bodyAnchor:[number,number]=[body.anchorX/full.width,body.anchorY/full.height],bodyWidthOverHitbox=COVER/(2*inR);
+      if(a.bodyOffset&&a.baseName){
+        const base=art.get(a.baseName);
+        if(!base)throw new Error(`missing body registration ${a.baseName}`);
+        body=base.body;bodyAnchor=base.bodyAnchor;bodyWidthOverHitbox=base.bodyWidthOverHitbox;
+        ({ax,ay,inR}=decoratedRockFrame(body,a.bodyOffset,{left:l,top:t,width:w,height:h}));
+      }
       const damaged=damageTextures(scene,c,key,a.name,ax,ay,inR);
-      art.set(a.name, { key, damaged, ax, ay, inR, aspect: h / w });
+      art.set(a.name, { key, damaged, ax, ay, inR, aspect: h / w,body,bodyAnchor,bodyWidthOverHitbox });
     }
     ready = true;
   } catch (e) {
@@ -220,6 +234,6 @@ export class PaintedRocks {
 }
 
 /** Test hook: each painted rock's drawn width relative to its hitbox diameter (always above 1). */
-export function rockCoverage(): { name: string; widthOverHitbox: number; anchor: [number, number] }[] {
-  return [...art.entries()].map(([name, a]) => ({ name, widthOverHitbox: rockExtent(a, 1).width / 2, anchor: [a.ax, a.ay] }));
+export function rockCoverage(): { name: string; widthOverHitbox: number; anchor: [number, number];bodyWidthOverHitbox:number;bodyAnchor:[number,number] }[] {
+  return [...art.entries()].map(([name, a]) => ({ name, widthOverHitbox: rockExtent(a, 1).width / 2, anchor: [a.ax, a.ay],bodyWidthOverHitbox:a.bodyWidthOverHitbox,bodyAnchor:a.bodyAnchor }));
 }

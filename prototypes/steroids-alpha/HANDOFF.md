@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex rich-crystal readability RELEASE
+DID: chunky protruding gold crystal clusters on all15 gold-veined painted variants;2 groups on parents,1 clear group on medium/small, proportionally larger small forks. Direct-publication preference retained; R2 upload/readback complete.
+FILES: rich-asteroids-v1 manifest now v2 pack/bodyOffset metadata, rockRegistration/rockPainted, registration regressions/docs.
+SEAM: original normal RockBodyFrame anchors padded decorated texture; original body world centre/scale/collision coverage unchanged. Debug coverage separates body vs decorative extents; hash URL queries prevent stale image registration.
+CROSS: no sim/tune/HP/reward/wire changes. Type/build/rig,9 transform/15 preserved-body/protrusion/180 Brave runtime cases pass; no capture/recording or fixture writes to server.
+FOR claude: v2 ZIP4,956,322bytes/hash4df28e3e4f3bbac1db3ac57f5213df74e3f2bfd42f332cd45e18fb63f66f20ab, all15 sources publicly verified. Final live proof follows; no gameplay work required.
+
 ## 2026-11-17 codex rich-asteroid art LIVE
 DID:15 gold-veined painted variants,3 families/all3 sizes/sibling shapes live171126r0087. Owner waived preview and authorized direct go-live. PR5290bf0383a; itch44000505243/Pages44000505433 success. Existing protocol24 healthy.
 FILES: art/rich-asteroids-v1, prepare-assets, rockSelection/rockPainted, flight observation wiring, selection regression/docs.
@@ -98,10 +105,3 @@ FILES: art/{bat-v3,battlecruiser-v2}, render/{shipProfiles,shipArt,shipView,ship
 SEAM: optional setTurrets(count,angles,firedAt); shared capital deck mounts right±36, forward−9/25.2. Main cannon origins/equipment counts/upgrade rules unchanged. Capital textures2x budget capped512; fighters unchanged.
 CROSS: owner-requested Bat handling and deck turret origins; minimal flight observation bridge. Typecheck/build/sim/bank/live-config/rig pass. Brave desktop/mobile previews,24-part FFD,0/2/4 heads, Canvas flight and5 rebuilds stable150textures; no errors. Local~32FPS matches same Falcon baseline, not a60FPS claim.
 FOR claude: review only; do not deploy yet. R2 ZIPs still local/cache. Future release needs Bat speedFactor0.9/turnFactor1.7 published to hosted settings, preserving all other owner values. Evidence outputs/steroids-alpha/fleet-revision-review; comms e31061e9. Everyone must buy Falcon; no grandfathered grant.
-
-## 2026-11-16 codex sparrow-falcon-bat REVIEW
-DID: Sparrow free starter with original8-part/11-module top-down rig, centre recoil, Falcon base stats,5shots/s and12-versus15 cold burst, bounded3deg launch drift. Scrappy display renamed Falcon and Interceptor Bat; Falcon is a paid sidegrade. Four compact hangar cards.
-FILES: art/sparrow-v1, render/shipProfiles, sim/{chassis,ship,unlocks,protocol,liveConfig}, room, menu/hangar, tune, tests.
-SEAM: protocol22 permits chassis3 and recoil side0 (unchanged byte layout); stable old IDs0/1 preserved. Shared sparrow tunings upgrade into old records. Publish client/Worker together only after review/R2 verification.
-CROSS: minimal requested weapon/default/ownership/menu behavior and tests; existing siege preserved. Owner confirmed everyone must unlock Falcon, including existing players; no grandfathered grant or migration.
-FOR claude: do not merge/deploy this preview yet; new ZIP only local cache until review/upload. Art source/evidence outputs/steroids-alpha/sparrow-review; details art/sparrow-v1/README.md. Comms e31061e9.

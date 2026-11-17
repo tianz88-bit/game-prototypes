@@ -844,3 +844,5 @@ Owner refinement, 17 November2026: destroyed towers and Nexus need only neutral 
 ## Mineral-rich asteroid art (owner,17 November2026)
 
 Add broad gold ore veins to all3 sizes in the current cel-painted ochre/lavender/teal families, keeping different sibling fragment shapes, ordinary rocks and collision coverage. Existing rich state alone selects them. Owner waived the requested lab review gate and explicitly authorized direct go-live. No gameplay/tune changes.
+
+Owner readability refinement17 November2026: add chunky gold mineral crystals protruding from rich asteroids while retaining painted style, veins and all3 sizes. Crystal outcrops are cosmetic; original rock-body collision centre/scale and all gameplay values remain unchanged. Continue direct publication after checks per preceding instruction.
