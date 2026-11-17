@@ -549,6 +549,11 @@ export class FlightScene extends Phaser.Scene {
       line(t2,box.y+(box.compact?21:32),detail,box.compact?10:10);
       if(!box.compact){const x=box.x-box.w/2+12,y=box.y+22,n=sg.turrets.length+2,bw=(box.w-24-(n-1)*5)/n;[...sg.turrets.map(hp=>hp/TUNE.siege.turretHp),sg.shield/TUNE.siege.shieldHp,sg.treasury/TUNE.siege.treasuryHp].forEach((f,i)=>{g.fillStyle(0x0a1424,1).fillRect(x+i*(bw+5),y,bw,5);g.fillStyle(i<n-2?0xff9a6a:i===n-2?0x5ad3ff:0xffd27a,.9).fillRect(x+i*(bw+5),y,bw*Math.max(0,Math.min(1,f)),5);});}
     }else line(t2,box.y+21,`Crimson ${sg.crimson} · Azure ${sg.azure}`,10);
+    if(box.w<260){
+      const shortRole=this.net.clan===L.clan?'DEFEND':'ATTACK',shortPhase=active?time:sg.phase==='peace'?'WAITING':sg.phase==='countdown'?`${sg.left}s`:'ROUND END';
+      line(t1,box.y+4,`${shortRole} · ${shortPhase}`,10);
+      line(t2,box.y+21,active?`NX ${Math.round(100*sg.treasury/Math.max(1,TUNE.siege.treasuryHp))}% · ${sg.tickets} TIX`:`C ${sg.crimson} · A ${sg.azure}`,10);
+    }
     if(this.net.warDown){const secs=Math.max(0,Math.ceil((this.net.warDown.until-performance.now())/1000));line(t3,h*.42,secs?`RESPAWNING IN ${secs}`:'RESPAWNING…',16);}
   }
 
