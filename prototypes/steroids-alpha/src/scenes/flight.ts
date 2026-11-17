@@ -6,6 +6,7 @@ import { CombatHud } from '../render/combatHud';
 import type { CombatHudAnchor } from '../render/combatHud';
 import { drawTargetMeter, drawNoseMarker, drawSalvageZoneRing, drawConnectionBanner } from '../render/flightIndicators';
 import { CombatSprites } from '../render/combatSprites';
+import { CrystalChips } from '../render/crystalChips';
 import { BuildingRigs } from '../render/buildingRig';
 import { OrbitalTransition, remoteArrivalPose } from '../render/orbitalTransition';
 import type { OrbitalPose } from '../render/orbitalTransition';
@@ -103,6 +104,7 @@ export class FlightScene extends Phaser.Scene {
   private combatHud!: CombatHud;
   private hudAnchor:CombatHudAnchor={x:0,y:0,radius:40,visible:false};
   private combatSprites!: CombatSprites;
+  private crystalChips!:CrystalChips;
   private buildingRigs!:BuildingRigs;
   private orbital=new OrbitalTransition();
   private orbit:OrbitalPose=this.orbital.update(0,false,false,false);
@@ -174,6 +176,7 @@ export class FlightScene extends Phaser.Scene {
       this.game.events.off('dpr', this.build, this);
       this.net.close();
       this.combatSprites?.destroy();
+      this.crystalChips?.destroy();
       this.buildingRigs?.destroy();
       for(const ship of this.ships.values())ship.destroy();
       this.ships.clear();this.orbitalUi.clear();
@@ -191,6 +194,7 @@ export class FlightScene extends Phaser.Scene {
 
   private build(): void {
     this.combatSprites?.destroy();
+    this.crystalChips?.destroy();
     this.buildingRigs?.destroy();
     for(const ship of this.ships.values())ship.destroy();
     this.children.getAll().forEach(child=>child.destroy());
@@ -235,6 +239,7 @@ export class FlightScene extends Phaser.Scene {
     this.weaponTexts = [0, 1].map(() => text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(952).setVisible(false));
     this.combatHud = new CombatHud(this);
     this.combatSprites = new CombatSprites(this);
+    this.crystalChips=new CrystalChips(this);
     this.buildingRigs=new BuildingRigs(this);
     this.mobileNavLabels = [0,1].map(() => text(this,0,0,'',11).setOrigin(.5).setDepth(954).setVisible(false));
     this.evolvePreview = shipPreview(this,2,0,0,0,18,16).setDepth(952).setVisible(false);
@@ -328,6 +333,10 @@ export class FlightScene extends Phaser.Scene {
     }
 
     for (const f of this.net.drainFx()) {
+      if(f.kind==='crystal'){
+        if(this.toScreen(f.x,f.y).visible)this.crystalChips.emit(f,this.time.now,TUNE.asteroid.radius[f.size]);
+        continue;
+      }
       if (f.kind === 'shot') this.ships.get(f.id)?.fire(f.side);
       else if (f.kind === 'baseTurret') {
         this.baseAim[f.index] = f.angle;
@@ -1447,6 +1456,7 @@ export class FlightScene extends Phaser.Scene {
       this.rocks.draw(a.id,x,y,r,Math.min(1,a.hp/full),flash,light,this.frame.sun,(px,py)=>this.toScreen(px,py),a.size,a.family,a.rich);
     }
     this.rocks.end();
+    this.crystalChips.draw(this.time.now,(x,y)=>this.toScreen(x,y),light);
     this.combatSprites.begin();
     // Cosmetic bob and sparkle never alter the server's pickup position or collection radius.
     for (const item of this.net.pickups.values()) {

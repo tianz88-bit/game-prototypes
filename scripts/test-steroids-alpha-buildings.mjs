@@ -10,6 +10,24 @@ const G=await load('prototypes/steroids-alpha/src/render/buildingGeometry.ts');
 const M=await load('prototypes/steroids-alpha/src/render/buildingMaterials.ts');
 const D=await load('prototypes/steroids-alpha/src/render/buildingCondition.ts');
 const Rock=await load('prototypes/steroids-alpha/src/render/rockSelection.ts');
+const Chips=await load('prototypes/steroids-alpha/src/render/crystalChipMotion.ts');
+const rock={id:2,size:0,x:0,y:0,vx:0,vy:0,t0:0,hp:60,family:0,rich:true};
+assert(Chips.richCrystalHit(rock,{...rock,hp:50}));
+assert(!Chips.richCrystalHit(undefined,rock),'initial rich spawn is not a hit');
+assert(!Chips.richCrystalHit(rock,{...rock}),'duplicate HP snapshot cannot shed chips');
+assert(!Chips.richCrystalHit(rock,{...rock,hp:70}),'healing does not shed chips');
+assert(!Chips.richCrystalHit({...rock,rich:false},{...rock,rich:false,hp:50}),'ordinary rocks do not emit gold');
+for(const size of [0,1,2]){
+  const hit=Chips.crystalChipProfile('hit',size),split=Chips.crystalChipProfile('split',size);
+  assert(split.chips>hit.chips&&split.sparks>hit.sparks&&split.life>hit.life,'splits have a larger scatter than hits');
+  for(const mode of ['hit','split']){
+    const e={mode,...rock,size},life=Chips.crystalChipProfile(mode,size).life;
+    const airborne=Chips.crystalChipPose(e,22,0,150),end=Chips.crystalChipPose(e,22,0,life);
+    assert(airborne.lift>0,'chips arc above the ground');assert.equal(end.alpha,0,'chips expire');
+    const drifting=Chips.crystalChipPose({...e,vx:100},22,0,150);
+    assert(Math.abs(drifting.dx-airborne.dx-9)<1e-7,'chips inherit asteroid velocity');
+  }
+}
 const Reg=await load('prototypes/steroids-alpha/src/render/rockRegistration.ts');
 for(const offset of [[0,0],[70,140],[400,300]])for(const radius of [22,42,70]){
   const body={left:20,top:30,width:220,height:180,anchorX:123,anchorY:109,radius:65};
