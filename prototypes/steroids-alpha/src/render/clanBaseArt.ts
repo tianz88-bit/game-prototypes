@@ -6,12 +6,15 @@ import type { Tune } from '../../sim/tune';
 import { wrapDelta } from '../../sim/wrap';
 import type { BuildingRigs, BuildingRigPose } from './buildingRig';
 import { clanArtColours } from './buildingMaterials';
+import { drawWarzoneShield } from './warzoneShield';
 export { CLAN_ART, clanArtColours } from './buildingMaterials';
 
 /** Broad painted-metal planes, cream bevels and emissive insets follow the Nomad ships. */
 type At={x:number;y:number;scale:number;visible:boolean};
 type Point={x:number;y:number};
 export interface ClanBaseArtOptions {
+  /** Normalized visual siege state. Undefined preserves the home-planet art. */
+  siege?:{towers:readonly number[];shield:number;nexus:number;broken:boolean};
   layout:BaseLayout;
   own:ShipState|null;
   member:boolean;
@@ -66,16 +69,19 @@ export function drawClanBase(g:Phaser.GameObjects.Graphics,o:ClanBaseArtOptions)
       projectGround:(dx,dy)=>project(x+dx,y+dy)};
   };
   // A projected perimeter and two light latitude bands suggest a dome without a solid gameplay veil.
+  if(o.siege)drawWarzoneShield(g,{...layout.treasury,radius:b.domeRadius,strength:o.siege.shield,broken:o.siege.broken,now,colour:c.glow,project});
+  else {
   g.lineStyle(2,c.glow,.42+.06*Math.sin(now/550));ring(g,o,layout.treasury.x,layout.treasury.y,b.domeRadius,72);
   g.lineStyle(1,0xe3f7e9,.24);ring(g,o,layout.treasury.x,layout.treasury.y,b.domeRadius-8,72,true);
   g.lineStyle(1,c.glow,.11);ring(g,o,layout.treasury.x,layout.treasury.y,b.domeRadius*.82,60,true,42);
   g.lineStyle(1,c.glow,.07);ring(g,o,layout.treasury.x,layout.treasury.y,b.domeRadius*.5,48,true,84);
+  }
   // Small emitters indicate the exact ground boundary, not a second boundary.
   for(let i=0;i<12;i++){
     const a=i*Math.PI/6,q=project(layout.treasury.x+Math.cos(a)*b.domeRadius,layout.treasury.y+Math.sin(a)*b.domeRadius);
     if(!q.visible)continue;const k=q.scale;
     poly(g,hex(q.x,q.y,7*k),c.shade,0x101c31,Math.max(.7,k));
-    g.fillStyle(c.glow,.8);g.fillRect(q.x-2*k,q.y-2*k,4*k,4*k);
+    g.fillStyle(c.glow,o.siege?(o.siege.broken?.04:.15+.65*o.siege.shield):.8);g.fillRect(q.x-2*k,q.y-2*k,4*k,4*k);
   }
   const myPad=o.own&&o.member?padUnder(layout,o.own,tune):-1;
   layout.pads.forEach((pad,i)=>{
@@ -100,7 +106,7 @@ export function drawClanBase(g:Phaser.GameObjects.Graphics,o:ClanBaseArtOptions)
     else if(lit){g.lineStyle(Math.max(1,2*k),0xc5ffee,.55+.2*Math.sin(now/230));g.beginPath();g.arc(at.x,at.y-3*k,(r-18)*k,-Math.PI/2+now/1600,-Math.PI/2+now/1600+1.2);g.strokePath();}
   });
   // Optional painted fixed-layer nexus; original code-native vault remains the missing-art fallback.
-  const nexus=o.rigs?.drawTreasury(rigPose(`treasury-${layout.clan}`,layout.treasury.x,layout.treasury.y,centre));
+  const nexus=o.rigs?.drawTreasury({...rigPose(`treasury-${layout.clan}`,layout.treasury.x,layout.treasury.y,centre),health:o.siege?.nexus});
   if(nexus&&labels.treasury)labels.treasury={...labels.treasury,labelY:nexus.labelY,top:nexus.top};
   if(centre.visible&&!nexus){
     const {x,y}=centre,k=centre.scale;
@@ -124,7 +130,7 @@ export function drawClanBase(g:Phaser.GameObjects.Graphics,o:ClanBaseArtOptions)
     const at=project(p.x,p.y);if(!at.visible)return;
     const k=Math.max(.7,at.scale),aim=o.aim[i]??-Math.PI/2,ahead=project(p.x+Math.cos(aim)*30,p.y+Math.sin(aim)*30);
     const a=Math.atan2(ahead.y-at.y,ahead.x-at.x),ca=Math.cos(a),sa=Math.sin(a),flash=now-(o.firedAt[i]??-1e9)<90;
-    if(o.rigs?.drawTurret({...rigPose(`base-turret-${layout.clan}-${i}`,p.x,p.y,at),angle:a,firedAt:o.firedAt[i]??-1e9,groundMuzzle:ahead}))return;
+    if(o.rigs?.drawTurret({...rigPose(`base-turret-${layout.clan}-${i}`,p.x,p.y,at),health:o.siege?.towers[i],angle:a,firedAt:o.firedAt[i]??-1e9,groundMuzzle:ahead}))return;
     const pt=(u:number,v:number)=>({x:at.x+(ca*u-sa*v)*k,y:at.y+(sa*u+ca*v)*k});
     poly(g,hex(at.x,at.y+2*k,18*k),c.shade,0x111c2c,Math.max(1,2*k));
     poly(g,[pt(-8,-11),pt(12,-9),pt(15,0),pt(12,9),pt(-8,11),pt(-13,0)],c.hull,0x101c31,Math.max(1,2*k));
@@ -153,9 +159,9 @@ export function drawClanBase(g:Phaser.GameObjects.Graphics,o:ClanBaseArtOptions)
   for(const impact of o.impacts??[]){
     const age=now-impact.at;if(age<0||age>360)continue;
     const d=Math.hypot(wrapDelta(impact.x,layout.treasury.x,tune.world.width),wrapDelta(impact.y,layout.treasury.y,tune.world.height));
-    if(Math.abs(d-b.domeRadius)<32)shieldContact(g,project(impact.x,impact.y),c.glow,age/360);
+    if(Math.abs(d-b.domeRadius)<32&&!o.siege?.broken)shieldContact(g,project(impact.x,impact.y),c.glow,age/360);
   }
-  if(o.own&&!o.member){
+  if(o.own&&!o.member&&!o.siege?.broken){
     const d=Math.hypot(wrapDelta(o.own.x,layout.treasury.x,tune.world.width),wrapDelta(o.own.y,layout.treasury.y,tune.world.height));
     if(Math.abs(d-b.domeRadius)<12)shieldContact(g,project(o.own.x,o.own.y),c.glow,(now%500)/500,true);
   }

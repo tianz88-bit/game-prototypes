@@ -1,0 +1,121 @@
+{
+  "status": "approved-uploaded",
+  "source": "Damage parts and neutral shared wreck/debris kit edited from buildings-v1, 17 November 2026. Local owner review only. Owner approved17 November2026; exact ZIP and all7 source hashes verified publicly.",
+  "r2Object": "steroids-alpha_warzone-v2_assets.zip",
+  "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_warzone-v2_assets.zip",
+  "zipSha256": "638189c64011a03ed3c05a5c6e2fc8fd5a87f14201e66c20e3693b79eb3f5caf",
+  "assets": [
+    {
+      "name": "tower-head-damaged",
+      "deliveryPath": "loose/building-tower-head-damaged.png",
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "trimFrame": {
+        "x": 34,
+        "y": 96,
+        "w": 1185,
+        "h": 1100
+      },
+      "sha256": "5682e6670e5fd19fd03f6813070d1c896e82c13039754e63f6c6c91c31acdb5e",
+      "runtimeMax": 256
+    },
+    {
+      "name": "nexus-reactor-damaged",
+      "deliveryPath": "loose/building-nexus-reactor-damaged.png",
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "trimFrame": {
+        "x": 77,
+        "y": 77,
+        "w": 1099,
+        "h": 1114
+      },
+      "sha256": "2ac5d654f5f5ad027fbdbd7bd1c66d24c5286a6c8c2f7824237f99851c1dbfb9",
+      "runtimeMax": 384
+    },
+    {
+      "name": "nexus-crown-damaged",
+      "deliveryPath": "loose/building-nexus-crown-damaged.png",
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "trimFrame": {
+        "x": 48,
+        "y": 31,
+        "w": 1160,
+        "h": 1194
+      },
+      "sha256": "1a32b07799bf92777071dcab866c1dc51529334bbcbbd3dd1034ea55d4824aa3",
+      "runtimeMax": 384
+    },
+    {
+      "name": "tower-wreck",
+      "deliveryPath": "loose/building-tower-wreck.png",
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "trimFrame": {
+        "x": 94,
+        "y": 98,
+        "w": 1066,
+        "h": 1075
+      },
+      "sha256": "e24a8c57401c13f70467e53f86d21aeb5c4b43123a6cff2fac900f9c39f31029",
+      "runtimeMax": 256
+    },
+    {
+      "name": "nexus-wreck",
+      "deliveryPath": "loose/building-nexus-wreck.png",
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "trimFrame": {
+        "x": 53,
+        "y": 54,
+        "w": 1147,
+        "h": 1165
+      },
+      "sha256": "ae74d3c79f54cf0bca4d3cad3bd2e3a1d866d27fca882fb04857a875f4e44be6",
+      "runtimeMax": 384
+    },
+    {
+      "name": "debris-plate",
+      "deliveryPath": "loose/building-debris-plate.png",
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "trimFrame": {
+        "x": 77,
+        "y": 224,
+        "w": 1100,
+        "h": 806
+      },
+      "sha256": "7d0d89d94713f52da4297f55de56c9ad49e137a57cc7d11d95f655749b579401",
+      "runtimeMax": 96
+    },
+    {
+      "name": "debris-tube",
+      "deliveryPath": "loose/building-debris-tube.png",
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "trimFrame": {
+        "x": 77,
+        "y": 280,
+        "w": 1100,
+        "h": 693
+      },
+      "sha256": "330918f44eca536b4af86ae8f0294d883b73d7aa0552e79b93cdda29576f3ea0",
+      "runtimeMax": 96
+    }
+  ]
+}
