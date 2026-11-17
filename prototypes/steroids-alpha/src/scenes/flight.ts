@@ -1187,7 +1187,7 @@ export class FlightScene extends Phaser.Scene {
     t.sub
       .setFontSize(9)
       .setPosition(bx + 5, y + 29)
-      .setText(can ? `${b.cost} MIN` : ups < b.minUpgrades ? `upgrades ${ups}/${b.minUpgrades}` : p.hullMax < b.powerFloor ? `NEED ${b.powerFloor} PWR` : `NEED ${b.cost} MIN`)
+      .setText(can ? `${b.cost} MIN` : p.turrets < b.minTurrets ? `TURRETS ${p.turrets}/${b.minTurrets}` : p.damageTier < b.minGuns ? `GUNS ${p.damageTier}/${b.minGuns}` : ups < b.minUpgrades ? `upgrades ${ups}/${b.minUpgrades}` : p.hullMax < b.powerFloor ? `NEED ${b.powerFloor} PWR` : `NEED ${b.cost} MIN`)
       .setColor(can ? '#ffe9a8' : '#b5a48f');
     intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
   }

@@ -9,7 +9,7 @@
 // that respect overheat; a badly hurt bot runs.
 import type { Tune } from './tune';
 import type { ShipInput, ShipState } from './ship';
-import { topSpeed } from './ship';
+import { topSpeed, shipVelocity } from './ship';
 import { asteroidPos } from './asteroids';
 import type { World } from './world';
 import type { BaseLayout } from './clanBase';
@@ -109,7 +109,7 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
   }
   // Reading the target: a few times a second; between reads it aims at the old picture.
   if (enemy && (!brain.seen || tick - brain.seen.at >= t.perceptionSeconds * hz)) {
-    brain.seen = { x: enemy.s.x, y: enemy.s.y, vx: Math.cos(enemy.s.heading) * enemy.s.speed, vy: Math.sin(enemy.s.heading) * enemy.s.speed, at: tick };
+    brain.seen = { x: enemy.s.x, y: enemy.s.y, ...shipVelocity(enemy.s), at: tick };
   }
   const reacting = !!enemy && tick < brain.reactAt;
 

@@ -2,6 +2,14 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Live speed grip, Hangar stats and ship balance — approved18 November2026
+
+Owner explicitly approved live Speed Grip, superseding the previous grip-only live gate. Other experimental lab turn-band, auto-cruise and pushback remain unported. Protocol26 carries travelHeading at103 (107-byte ships); one shared movement step owns grip before shot emission, including replay/snapshot/interpolation and actual target velocity. No private bullet bridge in production. Lab candidates disable shared grip to retain their independent comparisons; Live Baseline now uses live grip.
+
+Battlecruiser now requires2 bought turret upgrades and Guns4, plus existing total/power/cost; upgrades retained and base2 turrets make4 equipped after minimum evolve. Ship shields use min(35% capacity,25 points/sec), existing delay/hit reset retained. Hangar five bar rows show tune-derived base speed, turn, shield, main DPS and actual cold-to-overheat shots. No ownership/schema changes. New grip regression is in client and Worker release gates.
+
+Evidence: outputs/steroids-alpha/live-speed-grip/. Shared simulation, grip/lab/config/rig/bank/type/build checks and seven headless Hangar layouts pass. Two independent Brave clients including120ms RTT verify binary travel, fast slip/brake recovery, firing, remote interpolation and bounded reconciliation. No captures or immediate Claude work. Release/public proof follows.
+
 ## Desktop/mobile UI correction — live171126r0099
 
 PR557 mergeec5ef477; itch44119747544 success. Public seven title/resize and eight HUD layouts pass with zero page errors/no capture; backend healthy protocol25 and five planets. Worker was not redeployed. Companion Pages44119747530 completed build/deploy but failed unrelated Operation C counter persistence after a concurrent main push; future CI housekeeping only, no Steroids block.

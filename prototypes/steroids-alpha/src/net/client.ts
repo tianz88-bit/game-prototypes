@@ -7,7 +7,7 @@ import type { BaseLayout } from '../../sim/clanBase';
 //    visual error smoothed out over a few frames instead of snapping;
 //  - other ships: buffered snapshots, drawn interpDelayMs in the past and interpolated.
 import { TUNE, stepSeconds } from '../../sim/tune';
-import { copyShip, muzzleShot, stepShip } from '../../sim/ship';
+import { copyShip, muzzleShot, stepShip, shipVelocity } from '../../sim/ship';
 import { asteroidPos } from '../../sim/asteroids';
 import { richCrystalHit } from '../render/crystalChipMotion';
 import type { CrystalChipEvent } from '../render/crystalChipMotion';
@@ -529,7 +529,7 @@ export class NetClient {
           // Our own bullet appears at once; the server fires its real one when this input arrives.
           // Same aim assist as the server, against where this client sees the targets.
           const targets = [
-            ...this.remoteRender().map((r) => ({ x: r.s.x, y: r.s.y, ship: true, vx: Math.cos(r.s.heading) * r.s.speed + r.s.kx, vy: Math.sin(r.s.heading) * r.s.speed + r.s.ky })),
+            ...this.remoteRender().map((r) => ({ x: r.s.x, y: r.s.y, ship: true, ...shipVelocity(r.s) })),
             ...this.asteroidRender().map((r) => ({ x: r.x, y: r.y, ship: false, vx: r.a.vx, vy: r.a.vy })),
           ];
           const shot = muzzleShot(this.predicted, TUNE, targets);
@@ -641,6 +641,7 @@ export class NetClient {
           x: wrap(a.s.x + wrapDelta(c.s.x, a.s.x, W) * f, W),
           y: wrap(a.s.y + wrapDelta(c.s.y, a.s.y, H) * f, H),
           heading: a.s.heading + angleDelta(c.s.heading, a.s.heading) * f,
+          travelHeading:(a.s.travelHeading??a.s.heading)+angleDelta(c.s.travelHeading??c.s.heading,a.s.travelHeading??a.s.heading)*f,
           arrival: Math.max(0, (a.s.arrival ?? 0) + ((c.s.arrival ?? 0) - (a.s.arrival ?? 0)) * f),
         },
       });

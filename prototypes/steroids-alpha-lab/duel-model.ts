@@ -18,7 +18,7 @@ export type DuelStart='tail'|'circle';
 export type Handling='candidate'|'baseline';
 export const idle=():ShipInput=>({seq:0,turn:0,aim:NaN,thrust:0,dash:false,fire:false,missile:false,mine:false,warp:false});
 export function duelTune(base:Tune,handling:Handling):Tune{
- const t=structuredClone(base);t.asteroid.targetMass=0;
+ const t=structuredClone(base);t.asteroid.targetMass=0; if(handling==='candidate')t.grip.enabled=0;
  if(handling==='candidate'){t.ship.turnAtMinSpeed=DUEL_CANDIDATE.turnAtMinSpeed;t.ship.knockbackDecayPerSecond=DUEL_CANDIDATE.decay;}
  return t;
 }
@@ -98,7 +98,7 @@ export class DuelModel{
   this.world.asteroids.clear();return e;
  }
  /** The travel state is rebuilt only on a full scenario reset, not every frame. */
- resetGrip():void{this.gripStates=this.pilots.map(newGripState);}
+ resetGrip():void{this.gripStates=this.pilots.map(s=>{s.travelHeading=s.heading;return newGripState(s);});}
  /** Preview gyro multiplier is restored synchronously; production movement/weapons still step once. */
  private advance(id:number,input:ShipInput):void{
   const pilot=this.pilots[id-1],before=copyShip(pilot),i={...input,warp:false,missile:false,mine:false};

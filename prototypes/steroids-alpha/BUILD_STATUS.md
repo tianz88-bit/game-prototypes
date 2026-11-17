@@ -1,23 +1,25 @@
 ## Current milestone
 
-Desktop/mobile UI correction LIVE VERIFIED: PR557 mergeec5ef477ec2fd465ce8125413f1e5f31e2bedd99, itch run44119747544 succeeded, version171126r0099. Large PC title layout now has bounded columns and larger typography. Clickable PC Upgrades/Scoreboard controls restored. Live client171126r0099/Worker25; Speed Grip remains LAB ONLY.
+Owner approved live Speed Grip, responsive aiming, stat-bar Hangar,2 turret/Guns4 evolution and capped shield regen on18 November2026. Implementation verified locally; coordinated client/Worker protocol26 release pending. Previous live171126r0099/25.
 
 ## What was implemented
 
-Desktop menu at1000x560 or larger with fine input uses a centred1120x800 maximum composition, larger logo/ship/Warp and readable labels. Touch/narrow/short layouts retain compact geometry. PC nav uses visible Upgrades[B] and Scoreboard[Tab], compact labels in narrow windows, with Warp aligned in the same header. Shop stays collapsed;1–6 quick buys and compact pinned-self rankings remain.
+Shared movement integrates speed-dependent travel bearing before weapons. Nose response, speed and controls unchanged; high-speed slip capped24°, braking restores grip. Snapshots/replay/interpolation and target leading carry actual travel. Hangar shows base speed/turn/shield/main DPS/real cold-shot ammo bars. Evolution requires2 bought turret upgrades and Guns4 plus existing power/cost, upgrades retained. Shields recover min(35% capacity,25 points/sec) after existing quiet delay.
 
 ## Key technical decisions
 
-Only canvas layout/render and existing drawer navigation changed. No new dependencies, sim/gameplay tuning, account schema, Worker/protocol or live-config writes. Speed Grip remains in the isolated lab awaiting owner playtest. Typecheck/build/rig/sim/config pass. Geometry regression covers22 size/input combinations. Headless Brave DPR2:12 menu interaction/lifecycle layouts,8 HUD click/keyboard layouts,7 final typography/bounds/resize cases, plus7 public title/bounds/resize and8 public HUD interaction layouts, zero page errors. No screenshots, recording or desktop capture per owner instruction. Evidence outputs/steroids-alpha/desktop-layout/.
+Protocol26 appends travelHeading at103,107-byte ship snapshots. No production lab imports/private bullet repair; client+Worker release together. New config fields upgrade old hosted records and validate bounds; both Room/client apply grip group. Candidate lab disables shared grip to avoid double application; Live Baseline uses production. Other lab turn-band/auto-cruise/pushback experiments stay gated. New regression runs in both deployment workflows.
+
+Type/build, shared sim/new live grip, lab grip/duels, config/rig/bank/layout regressions pass. Eight chassis/power cases show equal nose/speed, exact lab travel parity, brake slip below4° within.2s, snapshot replay/muzzle/lead/knockback/arrival/warp/dock integrity. Seven Brave DPR2 Hangar layouts pass for20 stat rows, text bounds/equip/listener disposal. Two independent local Brave clients (PC and mobile-sized,120ms RTT) share actual Worker snapshots, regain grip/fire, see each other and maintain bounded prediction. No screenshots/recording/capture. Evidence outputs/steroids-alpha/live-speed-grip/.
 
 ## Open questions
 
-Owner clarified PC upgrade menu/scoreboard could not be seen; BRIEF now records it. Owner visual feedback after UI release; no live handling approval.
+Owner may refine regen cap after live play. Existing35% rate retained with25/s ceiling; default shield recovers17.5/s. No approval for other lab handling changes.
 
 ## Known issues
 
-Headless geometry and interactions do not replace human visual review or physical-phone/Safari checks. Existing unrelated build warnings remain. Companion Pages run44119747530 built/deployed successfully but failed its unrelated Operation C counter-persistence step on a concurrent main push; Steroids itch release succeeded. Lab grip requires shared authoritative/predicted movement integration before any separately approved live release.
+Headless checks do not replace physical-phone/Safari or human feel review. Existing unrelated build warnings. Cached old clients need refresh for protocol26.
 
 ## Next proposed step
 
-Owner checks the corrected PC title and Upgrades[B]/Scoreboard[Tab] on the public itch page. Keep Claude backlog deferred. Temporary preview4187 and all task headless browsers are stopped. Speed Grip playtest/live port remains separately gated.
+Release client+Worker together, verify public version/protocol/config/Hangar and network grip. Keep Claude backlog deferred. Local preview4187/Worker8788 and headless browsers are stopped.
