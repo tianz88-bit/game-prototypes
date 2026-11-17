@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-17 codex combat duel lab PUBLIC PREVIEW
+DID: Tailed/Circling handling lab published via PR549 06e75665; Pages44057784026 success. Live combat stays171126r0098/Worker25; no new Steroids itch/Worker run.
+FILES: lab-only model/renderer/tuning/entry plus standalone physics test; durable docs/backlog.
+SEAM: existing World damage/weapons/grace, post-step candidate contact response and read-only projectile adapter. No live config writes or production code/tune changes.
+CROSS: type/build/rig/sim/config/physics pass;6 local+6 public DPR2 PC/mobile layouts, all4 public ships/held Fire/Dash/roles/presets/reset disposal. Zero page errors/game sockets/writes/captures; Vite/headless stopped.
+FOR claude: OWNER PLAYTEST GATE remains. Deferred backlog has future authority/prediction port requirements; no immediate execution/review. URLs ?duel=tail and ?duel=circle; evidence outputs/steroids-alpha/combat-duel-lab/.
+
 ## 2026-11-17 codex combat duel lab PREVIEW
 DID: lab-only stronger mass-weighted opposing impacts, ram consumes dash, longer kick decay and cruise-best turning. Tailed/Circling starts, baseline/candidate, four ships, role swap, reset/pause and existing PC/mobile controls.
 FILES: steroids-alpha-lab entry/duel/duel-model/duel.tune/index/README; standalone physics test and deferred docs. Production runtime/tune/workflows untouched.
@@ -97,10 +104,3 @@ FILES: crystalChipMotion/crystalChips, NetClient local FX observation, Flight dr
 SEAM: new LOCAL NetFx crystal hit|split observes rich HP decrease/GONE; no initial/duplicate/heal/ordinary FX, child spawn suppression. Generic stone breaks retained; no protocol/sim/tune/pickup/reward changes.
 CROSS: minimal client-net observation;16-burst/128-image pool, spark batch, scene cleanup. Type/build/rig and8 Brave desktop/mobile packet→renderer cases pass; no capture/recording or server fixture writes.
 FOR claude: continuing owner's direct-to-live preference; final PR/deploy proof follows. No new server event/wire implementation needed.
-
-## 2026-11-17 codex rich-crystal readability LIVE
-DID: protruding gold crystals on all15 rich painted rocks live171126r0088. PR531586c1295; itch44012011364/Pages44012011412 success; protocol24 healthy. Veins/families/siblings and ordinary rocks retained.
-FILES: v2 rich pack manifest/bodyOffset metadata, rockRegistration/rockPainted, registration regressions/docs.
-SEAM: original normal RockBodyFrame anchors decorated texture, preserving body centre/scale/collision coverage. Debug body vs decorative fields; source-hash URLs prevent stale metadata/image mismatch. Existing pools/damage/lighting unchanged.
-CROSS: no sim/tune/reward/wire changes. R2 exactZIP/all15 hashes verified (4,956,322bytes/hash4df28e3e4f3bbac1db3ac57f5213df74e3f2bfd42f332cd45e18fb63f66f20ab). Type/build/rig/9 math/15 body-protrusion/local180/public180 checks pass; no capture/recording or server fixture writes.
-FOR claude: refinement shipped under owner's prior direct-publication instruction. Use main; no further deploy required. BUILD_STATUS/output rich-crystal-art have proof; temporary localhost stopped.
