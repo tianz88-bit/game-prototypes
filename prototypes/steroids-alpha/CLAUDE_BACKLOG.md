@@ -2,7 +2,9 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
-## Desktop/mobile UI correction
+## Desktop/mobile UI correction — live171126r0099
+
+PR557 mergeec5ef477; itch44119747544 success. Public seven title/resize and eight HUD layouts pass with zero page errors/no capture; backend healthy protocol25 and five planets. Worker was not redeployed. Companion Pages44119747530 completed build/deploy but failed unrelated Operation C counter persistence after a concurrent main push; future CI housekeeping only, no Steroids block.
 
 Owner clarified PC upgrade menu/scoreboard were missing. Root cause: touch-only early return suppressed clickable drawer navigation on PC, while the shop was collapsed. Both devices now get buttons through the existing intents/uiZones; PC keeps B/Tab/1–6 shortcuts, compact pinned-self ranking and collapsed shop. Header Warp and nav share geometry. Large PC title layouts are bounded and centred with a larger logo/ship/action panel; touch/short/narrow retain compact arrangement. No new dependencies, account schema, gameplay tuning or protocol change. Speed Grip remains lab-only awaiting approval. Headless no-capture interaction and responsive geometry evidence: outputs/steroids-alpha/desktop-layout/. No immediate Claude action.
 
