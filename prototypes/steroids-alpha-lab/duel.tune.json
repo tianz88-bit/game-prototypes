@@ -8,7 +8,9 @@
     "maxKick": 1000,
     "gap": 1,
     "massMin": 0.5,
-    "massMax": 3
+    "massMax": 3,
+    "turnBandLow": 0.65,
+    "turnBandHigh": 1.15
   },
   "scenario": {
     "tailGap": 240,
@@ -17,6 +19,10 @@
     "fireRange": 600,
     "fireAimRadians": 0.18,
     "chaseAccelerateDistance": 320,
-    "cruiseDeadband": 4
+    "cruiseDeadband": 4,
+    "reactionSeconds": 0.3,
+    "perceptionSeconds": 0.15,
+    "fireBurstSeconds": 0.35,
+    "firePauseSeconds": 0.35
   }
 }

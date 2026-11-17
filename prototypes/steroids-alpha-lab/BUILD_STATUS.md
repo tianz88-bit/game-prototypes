@@ -1,25 +1,25 @@
 ## Current milestone
 
-Combat handling and Tailed/Circling duel preview published at https://tianz88-bit.github.io/game-prototypes/prototypes/steroids-alpha-lab/?duel=tail (or ?duel=circle). PR549 merge06e756654af1e9a01824d0d2dc48d1813b8a1d5c; Pages44057784026 succeeded. Six local plus6 public headless Brave DPR2 layouts pass, with all4 public ship choices and both direct routes. No page errors/game sockets/writes/captures. Temporary Vite4187 stopped and headless task processes closed. Live combat remains171126r0098 / Worker25. Owner playtest approval is required before any live balance release.
+Easier combat duel lab candidate ready locally after owner found both manoeuvres too hard. Pages update/public verification pending. Live combat remains171126r0098 / Worker25 and still requires explicit approval.
 
 ## What was implemented
 
-Candidate opposing mass-weighted ram/bump impulses, ram dash consumption, slower kick decay and cruise-best turning. Permanent lab has two local sparring scenarios with a repeatable opening autopilot, four equal-chassis choices, role/side swap, Candidate/Baseline, pause/reset, PC input and compact mobile controls. Real ship rigs/FFD/exhaust/recoil, painted bullets/impacts, terrain/projection and ship arcs are reused.
+Fixed stale Start/Resume-pointer steering during fire/keyboard takeover. Candidate releases to cruise, mobile drag steers without throttle feathering, held Brake targets a useful turning speed and a65–115% cruise band shares one turn radius. Sparring has delayed observations and short trigger bursts. Existing impacts and weapon damage are retained; baseline still slows on release.
 
 ## Key technical decisions
 
-All executable changes stay inside steroids-alpha-lab plus a standalone test. Production World handles movement, weapons, damage and grace; a lab-only post-step adapter replaces contact response. duel.tune.json holds preview settings, and candidate clones never mutate production TUNE or drafts. Read-only World.bullets adapter avoids a second projectile simulation. Live config is read once, with labelled bundled fallback; no sockets/accounts/publishing/writes. No live tune, client, Worker or workflow edits.
+Lab-only combatThrottle/combatTurnFactor and DuelBrakeInput. A cloned per-chassis gyro rate is adjusted for one shared World movement step then restored in finally, symmetrically for both pilots. These are preview helpers, not publishable live-config settings. No live runtime/tune/server/workflow changes, sockets or publishing.
 
-Pure tests pass for4 chassis cruise radii, identical reset states, opposing/glancing/rear-ram kicks, consumed dash, damage parity/no repeat hit, tangent/swept/wrap/coincident contacts and immutable live tune. Six local plus6 public Brave DPR2 desktop/landscape/portrait/tall cases pass for controls/held fire/Dash, presets/roles/pause/reset and stable ten-reset object counts. Zero page errors, game sockets, writes or captures. Evidence outputs/steroids-alpha/combat-duel-lab/.
+Type/build and expanded physics/control regressions pass.3 built-preview Brave desktop/mobile/portrait input cases verify neutral pointer, cruise convergence, held Brake/no accidental firing, mobile steer/speed separation and original baseline slowdown.6 general duel layouts pass.12 synthetic continuous-aim counter sequences show1.03–1.87s firing opportunities across varied Dash timing, with losses still possible; no human execution/fun claim. Zero page errors/sockets/writes/captures. Evidence outputs/steroids-alpha/combat-duel-lab/easier-*.
 
 ## Open questions
 
-Owner to judge whether tail escapes/counters and breaking the circle are fun, and whether pushback is too strong. No live release approval yet.
+Owner to retry both lab duels and judge control ease/counterplay. Live release is not approved.
 
 ## Known issues
 
-Single-player sparring policies are deterministic scenario helpers, not human opponents. Headless checks do not establish human combat enjoyment or real network feel. Physical-phone/Safari visuals not inspected; no captures per owner. Existing unrelated build warnings remain.
+Synthetic continuous aim is more precise than human aiming; these checks do not prove manual ease, fairness or online feel. Sparring is scripted, not another human. Physical-phone/Safari visuals not inspected. Existing unrelated build warnings remain.
 
 ## Next proposed step
 
-Owner playtests both public presets/roles before approving a live combat port. Claude's deferred backlog documents the gate and future authority/prediction port. Temporary Vite4187 is stopped; no resident preview/publisher/capture or headless task process.
+Publish only the lab update, verify public controls, then owner playtests again. Keep Claude's backlog deferred and the live release gate. Stop temporary preview4187 when checks end.

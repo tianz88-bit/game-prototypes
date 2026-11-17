@@ -1,5 +1,6 @@
 import {World} from '../steroids-alpha/sim/world';
 import type {WorldEvents} from '../steroids-alpha/sim/world';
+import {combatCruise,combatThrottle,combatTurnFactor} from './duel-controls';
 import {TUNE} from '../steroids-alpha/sim/tune';
 import type {Tune} from '../steroids-alpha/sim/tune';
 import {copyShip,shipRadius,cornerFactor,maxShield} from '../steroids-alpha/sim/ship';
@@ -51,7 +52,7 @@ export function pushApart(a:ShipState,b:ShipState,pa:ShipState,pb:ShipState,t:Tu
 }
 
 export class DuelModel{
- readonly tune:Tune;readonly world:World;readonly pilots:ShipState[];elapsed=0;ramHits=0;bumpHits=0;chasing=false;private nextBumpTick=0;
+ readonly tune:Tune;readonly world:World;readonly pilots:ShipState[];elapsed=0;ramHits=0;bumpHits=0;chasing=false;private nextBumpTick=0;private observations:{x:number;y:number;at:number}[]=[];private seen:{x:number;y:number}|null=null;private nextObserve=0;
  constructor(public start:DuelStart,public handling:Handling,public chassis=0,public swap=false,base:Tune=TUNE){
   this.tune=duelTune(base,handling);this.world=new World(this.tune,()=>.37);this.world.asteroids.clear();this.world.drain();
   this.pilots=[this.world.addShip(1),this.world.addShip(2)];
@@ -64,18 +65,21 @@ export class DuelModel{
  /** Visible, deterministic sparring policy: pursue the pilot, or hold a cruise-speed left circle. */
  opponent():ShipInput{
   const s=this.pilots[1],p=this.pilots[0],m=shipMotion(s.chassis,this.tune),i=idle();
-  const dx=wrapDelta(p.x,s.x,this.tune.world.width),dy=wrapDelta(p.y,s.y,this.tune.world.height),d=Math.hypot(dx,dy);
-  const aim=Math.atan2(dy,dx);i.thrust=Math.abs(s.speed-m.cruiseSpeed)<DUEL_SCENARIO.cruiseDeadband?0:s.speed<m.cruiseSpeed?1:-1;
+  this.observations.push({x:p.x,y:p.y,at:this.elapsed});const cutoff=this.elapsed-DUEL_SCENARIO.reactionSeconds;while(this.observations.length>1&&this.observations[1].at<=cutoff)this.observations.shift();
+  if(!this.seen||this.elapsed>=this.nextObserve){this.seen=this.observations[0];this.nextObserve=this.elapsed+DUEL_SCENARIO.perceptionSeconds;}
+  const dx=wrapDelta(this.seen.x,s.x,this.tune.world.width),dy=wrapDelta(this.seen.y,s.y,this.tune.world.height),d=Math.hypot(dx,dy);
+  const aim=Math.atan2(dy,dx);i.thrust=this.handling==='candidate'?combatThrottle(s,this.tune,false,false):Math.abs(s.speed-m.cruiseSpeed)<DUEL_SCENARIO.cruiseDeadband?0:s.speed<m.cruiseSpeed?1:-1;
   const orbit=m.cruiseSpeed/m.turnRate;if(this.start==='circle'&&d>orbit*DUEL_SCENARIO.orbitBreakRatio)this.chasing=true;
   if(this.start==='circle'&&!this.chasing){i.turn=-1;}
   else if(this.swap&&this.start==='tail'){i.turn=Math.sin(this.elapsed*.65)>.45?.75:0;}
   else{i.aim=aim; i.thrust=d>DUEL_SCENARIO.chaseAccelerateDistance?1:i.thrust;}
-  i.fire=this.elapsed>DUEL_SCENARIO.openingFireDelay&&d<DUEL_SCENARIO.fireRange&&Math.abs(angleDelta(aim,s.heading))<DUEL_SCENARIO.fireAimRadians;
+  const burst=(Math.max(0,this.elapsed-DUEL_SCENARIO.openingFireDelay)%(DUEL_SCENARIO.fireBurstSeconds+DUEL_SCENARIO.firePauseSeconds))<DUEL_SCENARIO.fireBurstSeconds;
+  i.fire=burst&&this.elapsed>DUEL_SCENARIO.openingFireDelay&&d<DUEL_SCENARIO.fireRange&&Math.abs(angleDelta(aim,s.heading))<DUEL_SCENARIO.fireAimRadians;
   return i;
  }
  step(input:ShipInput,enemy=this.opponent()):WorldEvents{
   const before=this.pilots.map(copyShip);this.elapsed+=1/this.tune.net.tickHz;
-  this.world.stepShip(1,{...input,warp:false,missile:false,mine:false});this.world.stepShip(2,{...enemy,warp:false,missile:false,mine:false});
+  this.advance(1,input);this.advance(2,enemy);
   const moved=this.pilots.map(copyShip);this.world.step();const e=this.world.drain();
   const a=this.pilots[0],b=this.pilots[1],d=Math.hypot(wrapDelta(b.x,a.x,this.tune.world.width),wrapDelta(b.y,a.y,this.tune.world.height));
   const touching=d<shipRadius(a.hullMax,this.tune,a.chassis)+shipRadius(b.hullMax,this.tune,b.chassis);
@@ -87,6 +91,14 @@ export class DuelModel{
    else if(touching)separate(a,b,contactNormal(a,b,before[0],before[1],this.tune),this.tune);
   }
   this.world.asteroids.clear();return e;
+ }
+ /** Preview gyro multiplier is restored synchronously; production movement/weapons still step once. */
+ private advance(id:number,input:ShipInput):void{
+  const pilot=this.pilots[id-1],i={...input,warp:false,missile:false,mine:false};
+  if(this.handling==='baseline'||pilot.dashTime>0||pilot.dashCharge>0){this.world.stepShip(id,i);return;}
+  const group=pilot.chassis===1?this.tune.interceptor:pilot.chassis===2?this.tune.battlecruiser:this.tune.ship,rate=group.turnRate;
+  group.turnRate=rate*combatTurnFactor(pilot,this.tune)/cornerFactor(pilot,this.tune);
+  try{this.world.stepShip(id,i);}finally{group.turnRate=rate;}
  }
  /** Read-only adapter to the existing authoritative projectile list; no second projectile simulation. */
  bullets():readonly {x:number;y:number;vx:number;vy:number;owner:number}[]{return (this.world as unknown as {bullets:{x:number;y:number;vx:number;vy:number;owner:number}[]}).bullets;}
