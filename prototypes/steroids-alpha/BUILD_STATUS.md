@@ -1,6 +1,6 @@
 ## Current milestone
 
-HUD space/readability, stronger ram attack VFX and tutorial objective arrows are implemented for release. Owner approved go-live and a deferred Claude backlog.
+HUD space/readability, stronger ram VFX and tutorial arrows are LIVE in171126r0097. Main PR544 merged864906e6edcd45d06d270c19f417d41f91847aa6; narrow-header follow-up PR545 mergedea2d987536f0db3b1790038d1277c9cfc2fbabe0. Final itch44041634549 and Pages44041634523 succeeded; existing Worker protocol25 healthy. Public game: https://daily-daily-games.itch.io/steroids-alpha . Owner approved go-live and a deferred Claude backlog.
 
 ## What was implemented
 
@@ -14,7 +14,7 @@ Active rams show thick curved orange-white pressure ribbons and swept hot fragme
 
 hudLayout is pure shared geometry. Flight uses the existing mobilePanel on PC too; no new gameplay mode, wire/event schema, movement/combat/economy tuning, asset pack or particle emitter. Existing ship meters, speed VFX, recovery animations and four-step tutorial logic remain. Client shield suppression mirrors existing authority. Warzone text objects reset on rebuild.
 
-Type/build/rig/building/sim/config checks pass. New CI geometry tests enforce control hit targets and separation and verify ram ribbons/fragments have no pointer/chevron. Seven Brave DPR2 PC/compact/mobile/tall/portrait UI cases pass: closed quick buys, B/Tab/H, minerals/cargo/level, pinned own row, embedded counts, shop clearance, role/warp lock, shield suppression and alert priority. All seven objective/urgent slots are separated. Three full tutorial routes pass with every objective-arrow kind and actual ram/extraction. Zero page errors; no captures/recording/public-room fixture writes. Evidence outputs/steroids-alpha/hud-space-ram-objectives/.
+Type/build/rig/building/sim/config checks pass. New CI geometry tests enforce control hit targets and separation and verify ram ribbons/fragments have no pointer/chevron. Seven local plus seven public Brave DPR2 PC/compact/mobile/tall/portrait UI cases pass: closed quick buys, B/Tab/H, minerals/cargo/level, pinned own row, embedded counts, shop clearance, role/warp lock, shield suppression and alert priority. All seven objective/urgent slots are separated. Three local plus three public full tutorial routes pass with every objective-arrow kind and actual ram/extraction. Two additional local and two final-public narrow desktop/touch cases verify objective text fits beside expanded panels. Main UI/tutorial checks used96; final label-fit/version checks used97. Zero page errors; no captures/recording/public-room fixture writes. Evidence outputs/steroids-alpha/hud-space-ram-objectives/.
 
 ## Open questions
 
@@ -26,4 +26,4 @@ Physical-phone/Safari visuals not inspected. Existing unrelated build warnings r
 
 ## Next proposed step
 
-Publish and verify the public UI/tutorial cases, then stop Vite4187. Keep CLAUDE_BACKLOG.md ready for later sync; no immediate Claude execution/review or resident publisher/capture service.
+Collect owner live feedback, especially the ram effect. CLAUDE_BACKLOG.md contains deferred seams and release proof; no immediate Claude execution/review needed. Vite4187 stopped; no resident publisher/capture service.
