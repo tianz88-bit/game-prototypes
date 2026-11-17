@@ -2129,3 +2129,4 @@ assert.equal(S.cleanName(null), '');
 }
 
 console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, bots, ramming, health boosts, kill credit, missiles, mines, bounty, lockdown, warp-out, salvage, hot zone, ship types, evolving and settings upgrade all pass.');
+await import('./test-steroids-ram-tutorial.mjs');
