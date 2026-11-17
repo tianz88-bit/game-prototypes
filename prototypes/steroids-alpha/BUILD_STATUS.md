@@ -1,6 +1,6 @@
 ## Current milestone
 
-Four-step tutorial and one-time contextual tips are implemented for live release. Owner approved Fly -> Fight -> Dash/Ram -> Escape and immediate deployment after checks. Claude's later sync is tracked in CLAUDE_BACKLOG.md; no execution/review is required from her now.
+Four-step tutorial and one-time contextual tips are LIVE in171126r0095. PR542 merged7b90e92a7a53546888c8df96f94fe307290e7446; itch44032662726, Pages44032662575 and Worker44032662716 succeeded. Public game: https://daily-daily-games.itch.io/steroids-alpha . Worker protocol25 is healthy; existing Warzone changes retained. Owner approved Fly -> Fight -> Dash/Ram -> Escape and immediate deployment after checks. Claude's later sync is tracked in CLAUDE_BACKLOG.md; no execution/review is required from her now.
 
 ## What was implemented
 
@@ -12,7 +12,7 @@ Six short contextual tips cover overheat, shields, hull repair, missiles, mines 
 
 Four semantic stages replace old14-step indices. Fight phase gates buying until minerals actually fund an upgrade. Adaptive ram-course reach uses the current chassis/power-adjusted dash range. Room.setTutorialRules gates tutorial-only queued/held weapons, buys, automatic turret quiet state and warp; online rooms ignore it. Manual tutorial target bots stay stationary. No protocol, live combat/movement/economy tuning, new assets or dependencies changed. Practice still banks nothing.
 
-Typecheck/build/rig/building/sim/live-config and updated tutorial/tip regressions pass; tutorial regressions now run through the CI sim suite. Three Brave DPR2 desktop/mobile-landscape/mobile-portrait full-route cases use real sim bullet damage, collection, purchase, a real dash ram and real extraction.18 additional tip cases verify all six tips, normal-flight integration, save persistence and layout-rebuild continuity. Zero page errors; no screenshots/recording or public-room fixture writes. Evidence outputs/steroids-alpha/four-step-tutorial/.
+Typecheck/build/rig/building/sim/live-config and updated tutorial/tip regressions pass; tutorial regressions now run through the CI sim suite. Three local plus three public Brave DPR2 desktop/mobile-landscape/mobile-portrait full-route cases use real sim bullet damage, collection, purchase, a real dash ram and real extraction.18 local plus18 public additional tip cases verify all six tips, normal-flight integration, save persistence and layout-rebuild continuity. Zero page errors; no screenshots/recording or public-room fixture writes. Evidence outputs/steroids-alpha/four-step-tutorial/.
 
 ## Open questions
 
@@ -24,4 +24,4 @@ Physical-phone/Safari visuals not inspected. Existing unrelated build warnings r
 
 ## Next proposed step
 
-Publish and verify public full-route/tip tests, then stop temporary Vite4187. Keep CLAUDE_BACKLOG.md ready for her later sync; no resident publisher or capture service.
+Collect owner feedback on the first run. CLAUDE_BACKLOG.md contains the deferred sync with release proof; no immediate Claude work is needed. Temporary Vite4187 stopped; no resident publisher or capture service.
