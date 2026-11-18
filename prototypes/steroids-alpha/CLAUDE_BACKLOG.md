@@ -2,7 +2,9 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
-## Main-menu evolution loadout slot
+## Main-menu evolution loadout slot — LIVE181126r0104
+
+PR568983a497d; itch44295327666 and Pages44295327839 succeeded.8 local+2 public headless PC/touch cases passed; proof lab/evolution/menu-slot-proof.json. No capture, real account purchases or immediate Claude action.
 
 Shows the existing owned equipped evolution (or Choose evolution) beside Learn to fly beneath Warp. Tap opens Hangar EVOLVE using an explicit scene option; ordinary Hangar entry retains its remembered tab. Selection reads selectedEvolution with current account unlocks; forged/unowned and legacy numeric choices display empty. Menu rebuild refreshes after equip/unequip. Same44px action row, no extra mobile height. No account, gameplay, protocol or assets changes. Headless Brave validation only, no capture; no immediate Claude action.
 
