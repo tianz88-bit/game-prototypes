@@ -1,25 +1,25 @@
 ## Current milestone
 
-LIVE VERIFIED181126r0103/protocol29. PR566 merge2c0ee7a97268be7d687d43a01884610a4556fa2f; itch44292583012, Worker44292583031 and Pages44292583010 all succeeded. Owned pre-mission evolution loadouts released.
+LIVE VERIFIED181126r0104/protocol29. PR568 merge983a497d2cf6af8f13234f8211b88cd35348de6d; itch44295327666 and Pages44295327839 succeeded. Main-menu evolution loadout shortcut released. Existing Worker29 unchanged.
 
 ## What was implemented
 
-BC/MC each require a permanent1500 bank-credit unlock and a separate equip tap in Hangar → EVOLVE. One evolution slot; buying another keeps current equipment, tapping equipped removes it. The ship-page slot opens EVOLVE. No free default/grandfather grant; legacy numeric preference ignored. Match shop shows both upgrade counters/mineral goal/cost, READY/EVOLVED or NO EVO. In-run requirements remain BC2T/Guns4 or MC4MSL/2MINE plus300 balance/120 cost; combat balance unchanged.
+Main menu shows the owned equipped Battlecruiser/Missile Cruiser, or Choose evolution. Tap opens Hangar directly on EVOLVE, overriding a previously selected tab; ordinary Hangar entry still remembers its tab. Equipment changes refresh on returning to the menu. Shares the44px secondary row with Learn to fly, preserving ship/Warp focus and mobile height.
 
 ## Key technical decisions
 
-Existing atomic bank/catalogue/cleanLook reused; no migration/dependency/art upload. NetClient freezes requested look at construction; initial auth before binary controls/within3s captures equipment, server bank ownership resolves it. Only server-cleaned roster determines client readiness and only matching player BUY5 passes authority. Resume/Warzone lives retain equipment; NPC sim path unchanged. Protocol29 retains layout and refreshes old free-selection clients.
+Reuses selectedEvolution with current account unlocks and saved look; unowned/forged selections and legacy numeric preferences display empty. Explicit scene tab option changes navigation only. No account schema, protocol, Worker, balance, dependencies or assets changes. Existing1500-credit unlock/equip and in-match gates remain.
 
-Type/build/shared sim/config/bank pass. Real SQLite/Room regression covers exact billing/insufficient funds/idempotence, forged/unowned/unequipped/late/silent-late/alternate choices, selected purchase/repeat and resume. Six local PC/touch/portrait plus2 public layouts pass purchase→unlock→explicit equip, one-slot/unequip, old preference ignored, compact progress/minerals/ready/blocked6 and bounds. Public real Worker strips forged MC selection,51 healthy snapshots, NO EVO, version103; no page errors/capture. Proof ../steroids-alpha-lab/evolution/loadout-release-proof.json; raw outputs/steroids-alpha/missile-cruiser-lab/loadout-*.
+Typecheck/build/rig and22 layout combinations pass. Eight local headless Brave desktop/touch/portrait cases plus two actual public itch cases pass owned/empty labels, ownership filtering, action bounds/separation, direct EVOLVE navigation, equip-return refresh and utility isolation. No page errors, screenshots or recording. Proof ../steroids-alpha-lab/evolution/menu-slot-proof.json; raw outputs/steroids-alpha/missile-cruiser-lab/menu-evolution-*.
 
 ## Open questions
 
-Owner can refine1500-credit pricing after play. No immediate Claude work; deferred handoff saved.
+None. Deferred Claude handoff saved; no immediate action requested.
 
 ## Known issues
 
-Browser purchases are intercepted fixtures; no live account credits spent. Positive bank/authority cases use actual SQLite/Room tests, public authority check verifies rejection. Existing random bot-spacing/Pages counter housekeeping remains deferred; this release passed first attempt. No physical Safari review.
+Browser account responses are intercepted fixtures; no live credits spent. No physical Safari or visual screenshot review, per owner's no-capture instruction. Previously recorded randomized bot-spacing/Pages housekeeping remains deferred; this release passed on first attempt.
 
 ## Next proposed step
 
-Refresh for29. Buy then equip an evolution before launch; earn the shown requirements, then explicitly evolve in UPGRADES. Claude backlog saved; temporary preview and headless closed, no resident publisher, no screenshots/recording.
+Refresh the live game for104. Review the equipped evolution beneath Warp and use it to open Hangar EVOLVE before launch. Temporary preview/headless processes closed after checks; no resident publisher.

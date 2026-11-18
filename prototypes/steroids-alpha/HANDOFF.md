@@ -1,10 +1,10 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
-## 2026-11-18 codex main-menu evolution slot
-DID: main menu shows owned equipped evolution, or Choose evolution; tap opens Hangar EVOLVE directly. Shares secondary row with Learn to fly without adding height.
+## 2026-11-18 codex main-menu evolution slot LIVE181126r0104
+DID: PR568983a497d live104; itch44295327666/Pages44295327839 success. Main menu owned evolution or Choose evolution opens Hangar EVOLVE; shares secondary row with Learn to fly.
 FILES: landingLayout, MenuScene, HangarScene explicit tab option, layout bounds gate and brief.
 SEAM: none; existing selectedEvolution ownership check and saved look reused. No account/gameplay/protocol/config changes.
-CROSS: minimal menu scene flow and existing layout test extension; desktop/mobile headless checks, no capture.
+CROSS: minimal menu flow/layout test. Type/build/rig+22 layout gates pass;8 local+2 public PC/touch cases pass labels, ownership, direct tab, refresh, bounds and utility isolation. No capture.
 FOR claude: deferred only; normal Hangar entry retains remembered tab, explicit evolution shortcut overrides it. No immediate action.
 
 ## 2026-11-18 codex evolution loadouts LIVE181126r0103

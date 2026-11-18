@@ -53,5 +53,45 @@
   "pageErrors": [],
   "typecheck": true,
   "build": true,
-  "rigAndLayoutGate": true
+  "rigAndLayoutGate": true,
+  "release": {
+    "version": "181126r0104",
+    "protocol": 29,
+    "pr": 568,
+    "merge": "983a497d2cf6af8f13234f8211b88cd35348de6d",
+    "itchRun": 44295327666,
+    "pagesRun": 44295327839,
+    "conclusion": "success",
+    "public": {
+      "capture": false,
+      "errors": [],
+      "cases": [
+        {
+          "width": 1280,
+          "height": 720,
+          "mobile": false,
+          "ownedAndEmptyLabels": true,
+          "unownedRejected": true,
+          "legacyIgnored": true,
+          "tapOpensEvolve": true,
+          "equipReturnRefresh": true,
+          "bounds": true,
+          "overlayIsolation": true
+        },
+        {
+          "width": 390,
+          "height": 844,
+          "mobile": true,
+          "ownedAndEmptyLabels": true,
+          "unownedRejected": true,
+          "legacyIgnored": true,
+          "tapOpensEvolve": true,
+          "equipReturnRefresh": true,
+          "bounds": true,
+          "overlayIsolation": true
+        }
+      ],
+      "url": "https://html-classic.itch.zone/html/20420865-2426156/prototypes/steroids-alpha/index.html"
+    }
+  }
 }
