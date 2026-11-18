@@ -2,6 +2,16 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Owned pre-mission evolution loadouts — release pending
+
+Owner chose1500 banked credits each for permanent BC/MC unlocks. New evolution slot reuses catalogue/bank atomic purchase/cleanLook. Buying does NOT auto-equip; a subsequent tap equips one owned build, tapping equipped removes it. Ship page evolution-slot shortcut opens EVOLVE. Requirements/prices during match stay BC2T/G4 or MC4MSL/2MINE, floor300/cost120; no free default/grandfather grant. Legacy numeric Save.evolution is ignored.
+
+NetClient snapshots its requested look at construction. Server accepts initial auth equipment before any binary frame and within3s of joining; async ownership resolution may complete later, but the request is fixed. Only owned, slot-matching choice reaches Player.look/roster. Queued player BUY5 must match that exact build; NPCs retain their simulation-only path. Resume/Warzone respawn preserve loadout. Unknown/bank failure stays unequipped; no game-state grants or new database tables. Protocol29 refreshes old free-selection clients, no binary layout change.
+
+Compact shop shows both counters (e.g.MSL3/4 MINE1/2) and mineral goal/cost on two lines; READY enables button/6, EVOLVED remains visible, NO EVO prompts Hangar. Readiness/tips derive from server roster, never editable local preference. Headless fixture confirms changing saved look mid-mission still requests equipped build. Six PC/touch/portrait layouts pass two1500 purchases, explicit equip, one-slot swap/unequip, old preference ignored, progress/ready/blocked input and bounds. No captures or actual live credit spending; browser purchases are intercepted fixtures, authority/bank checks use real SQLite/Room.
+
+Type/build/sim/config/bank pass. Bank regression covers insufficient funds, exact deductions, idempotence, unowned/unequipped/alternate/late/silent-late auth rejection, selected evolution purchase and resume. Temporary preview4187 for QA; evidence outputs/steroids-alpha/missile-cruiser-lab/loadout-*. Existing randomized bot-spacing and Pages counter housekeeping remains deferred.
+
 ## Missile Cruiser artillery correction — LIVE181126r0102/protocol28
 
 PR564 merge74dd2ced9c85c359983d4ffc421b68bfffd83b28. Client44251753113 attempt2 and Worker44251753080 succeeded. Public server supplied min90/base0/cruise170/top225 over49 healthy snapshots; actual Hangar preview has0 MC heads/2 BC heads. Public lab evolves with0 turrets/min90/ammo8. No page errors/capture; headless closed. Portable proof lab/evolution/artillery-release-proof.json. Pages44251753017 deployed successfully, then failed unrelated Operation C counter persistence on push race. Client first attempt failed existing unseeded bot-spacing assertion (848px vs900), retry passed; defer deterministic fixture/CI counter housekeeping to next Claude session.

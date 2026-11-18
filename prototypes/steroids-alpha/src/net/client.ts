@@ -13,6 +13,7 @@ import { richCrystalHit } from '../render/crystalChipMotion';
 import type { CrystalChipEvent } from '../render/crystalChipMotion';
 import type { Asteroid } from '../../sim/asteroids';
 import type { ShipInput, ShipState } from '../../sim/ship';
+import {evolutionBuild} from '../../sim/unlocks';
 import { loadSave } from '../save';
 import { CLOSE, MSG, PROTOCOL_VERSION, decodeServer, encodeBuy, encodeInput, encodePing } from '../../sim/protocol';
 import type { OrdnanceView, RosterEntry, ServerMessage, SnapshotShip } from '../../sim/protocol';
@@ -218,6 +219,9 @@ export class NetClient {
     return speedFloor(this.layout, this.clan, s, TUNE);
   }
 
+  /** Server-cleaned roster freezes the equipped evolution for this run. */
+  get equippedEvolution():0|1|null{return evolutionBuild(this.roster.get(this.myId)?.look);}
+  private readonly runLook=structuredClone(loadSave().look??{});
   connect(resume = false): void {
     const url = `${serverOrigin()}/ws/${this.planet}?v=${PROTOCOL_VERSION}${this.name ? `&name=${encodeURIComponent(this.name)}` : ''}${resume && this.resumeToken ? `&resume=${encodeURIComponent(this.resumeToken)}` : ''}${this.clan ? `&clan=${this.clan}` : ''}`;
     const ws = this.transport(url);
@@ -235,7 +239,7 @@ export class NetClient {
       } else {
         // Name our bank account first, so the room can credit an extraction to it.
         const secret = loadSave().account?.secret;
-        if (secret) ws.send(JSON.stringify({ type: 'auth', secret, look: loadSave().look ?? {} }));
+        if (secret) ws.send(JSON.stringify({ type: 'auth', secret, look: this.runLook }));
       }
       this.ping();
       this.pingTimer = setInterval(() => this.ping(), clientTune.net.pingIntervalMs);

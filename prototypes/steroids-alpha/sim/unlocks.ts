@@ -1,10 +1,10 @@
-// Unlocks bought with banked credits (BRIEF.md "Bank and unlocks"): cosmetics and quality of life,
-// never raw power (owner rule). Shared by the server (purchases, checking what a pilot may wear)
+// Permanent ship/evolution loadouts, cosmetics and quality-of-life unlocks bought with banked credits.
+// Evolutions must still be earned and purchased during a run (owner18 November2026). Shared by the server (purchases, checking what a pilot may wear)
 // and the client (hangar, drawing other pilots' looks). Prices live in tune.json `unlockPrices`.
 import type { Tune } from './tune';
 
 /** Where an unlock is worn. One item per slot can be equipped; 'qol' items just work once owned. */
-export type UnlockSlot = 'ship' | 'palette' | 'tint' | 'flame' | 'shield' | 'killfx' | 'badge' | 'tag' | 'qol';
+export type UnlockSlot = 'ship' | 'palette' | 'tint' | 'flame' | 'shield' | 'killfx' | 'badge' | 'tag' | 'evolution' | 'qol';
 export type LookSlot = Exclude<UnlockSlot, 'qol'>;
 /** What a pilot has equipped: unlock id per slot. */
 export type Look = Partial<Record<LookSlot, string>>;
@@ -31,6 +31,8 @@ export const UNLOCKS: readonly Unlock[] = [
   { id: 'ship.sparrow', slot: 'ship', name: 'Sparrow', index: 3, free: true },
   { id: 'ship.scrappy', slot: 'ship', name: 'Falcon', index: 0 },
   { id: 'ship.interceptor', slot: 'ship', name: 'Bat', index: 1 },
+  {id:'evolution.battlecruiser',slot:'evolution',name:'Battlecruiser',index:0},
+  {id:'evolution.missile-cruiser',slot:'evolution',name:'Missile Cruiser',index:1},
   // Palettes (owner art, tools/ship-rig/human-nomad-ships-v2/palettes.json): repaint hull, trim and glass.
   { id: 'palette.0', slot: 'palette', name: 'Cobalt & orange', index: 0, colour: 0x1f5fd6, free: true },
   { id: 'palette.1', slot: 'palette', name: 'Teal & gold', index: 1, colour: 0x1f8a6e },
@@ -111,3 +113,8 @@ export function selectedFighter(look: unknown, owned: readonly string[]): Unlock
   return UNLOCKS.find(u => u.slot === 'ship' && u.id === safe.ship)
     ?? UNLOCKS.find(u => u.id === 'ship.sparrow')!;
 }
+
+/** A loadout has one evolution slot. This helper expects a server-cleaned look, never a saved numeric preference. */
+export function evolutionBuild(look:unknown):0|1|null{const u=unlockById((look as Look|undefined)?.evolution);return u?.slot==='evolution'&&(u.index===0||u.index===1)?u.index:null;}
+/** Menu selection is useful only when the account owns and equips it. */
+export function selectedEvolution(look:unknown,owned:readonly string[]):Unlock|undefined{return unlockById(cleanLook(look,owned).evolution);}

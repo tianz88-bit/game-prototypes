@@ -4,6 +4,7 @@ import type { Look } from '../sim/unlocks';
 const SAVE_KEY = 'steroids-alpha:save:v1';
 
 export interface Save {
+  /** Legacy local preference, ignored: owned look.evolution is the loadout now. */
   evolution?:0|1;
   /** One-time contextual gameplay hints already displayed. */
   tipsSeen?: string[];

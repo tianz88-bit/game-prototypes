@@ -79,3 +79,7 @@ export function evolve(s: ShipState, tune: Tune, build=0): boolean {
   s.fireCd = 0;
   return true;
 }
+
+export function evolutionProgress(s:ShipState,tune:Tune,build:0|1){const b=build===1?tune.missileCruiser:tune.battlecruiser;
+ const requirements=build===1?[{label:'MSL',have:s.missileTier,need:tune.missileCruiser.minMissiles},{label:'MINE',have:s.mineTier,need:tune.missileCruiser.minMines}]:[{label:'TUR',have:s.turrets,need:b.minTurrets},{label:'GUN',have:s.damageTier,need:b.minGuns}];
+ return{ready:canEvolve(s,tune,build),requirements,missing:requirements.filter(r=>r.have<r.need),upgradeText:requirements.map(r=>r.label+Math.min(r.have,r.need)+'/'+r.need).join(' '),resourceText:canEvolve(s,tune,build)?'READY · '+b.cost+' MIN':(upgradeTotal(s)<b.minUpgrades&&requirements.every(r=>r.have>=r.need)?'LV '+upgradeTotal(s)+'/'+b.minUpgrades+' · ':'')+Math.min(Math.floor(s.hullMax),b.powerFloor)+'/'+b.powerFloor+'MIN ·'+b.cost,price:b.cost,floor:b.powerFloor};}

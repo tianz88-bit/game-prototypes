@@ -295,7 +295,8 @@
     "killfx": 600,
     "badge": 250,
     "tag": 250,
-    "runlog": 500
+    "runlog": 500,
+    "evolution": 1500
   },
   "asteroid": {
     "radius": [
