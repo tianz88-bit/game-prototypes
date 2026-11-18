@@ -1,4 +1,4 @@
-import { selectedFighter } from '../../sim/unlocks';
+import { selectedEvolution, selectedFighter } from '../../sim/unlocks';
 import { combatKey } from '../render/combatSprites';
 import { shipPreview } from '../render/shipPreview';
 import { PALETTES } from '../render/palette';
@@ -147,6 +147,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   accountButton: { x: number; y: number; w: number; h: number } | null = null;
+  evolutionButton: { x: number; y: number; w: number; h: number } | null = null;
   hangarButton: { x: number; y: number; w: number; h: number } | null = null;
   private drawName(x:number,y:number,w:number,label:string,depth=0):void{
     const f=nameField();this.nameBox={x,y,w,h:40};
@@ -164,7 +165,7 @@ export class MenuScene extends Phaser.Scene {
     this.stellarMap?.destroy();this.stellarMap=null;
     this.children.getAll().forEach(child=>child.destroy());fitCamera(this);
     const {w,h}=logicalSize(),l=landingLayout(w,h,intents.touch),g=this.add.graphics();
-    this.buttons=[];this.clanButtons=[];this.controlButtons=[];this.hintButtons=[];this.settingsTabs=[];this.panelClose=null;this.restoreButton=null;this.shareBox=null;this.accountButton=null;this.hangarButton=null;this.heroPreview=null;
+    this.buttons=[];this.clanButtons=[];this.controlButtons=[];this.hintButtons=[];this.settingsTabs=[];this.panelClose=null;this.restoreButton=null;this.shareBox=null;this.accountButton=null;this.hangarButton=null;this.evolutionButton=null;this.heroPreview=null;
     intents.copyZone=null;intents.textBox=null;
     if(document.activeElement!==nameField()||this.mapOpen||this.utility==='settings'||this.utility==='share')nameField().style.display='none';
     this.add.rectangle(w/2,h/2,w,h,0x07101c).setDepth(-1);
@@ -188,6 +189,11 @@ export class MenuScene extends Phaser.Scene {
     this.warpButton=l.warp;panel(g,l.warp.x-l.warp.w/2,l.warp.y-l.warp.h/2,l.warp.w,l.warp.h,UI.uiAccent,true);
     this.warpPulse=this.add.graphics();text(this,l.warp.x,l.warp.y-7,'WARP',l.desktop?32:24,css(UI.uiText)).setOrigin(.5);text(this,l.warp.x,l.warp.y+(l.desktop?21:15),'Choose a planet',l.desktop?13:11,css(UI.uiAccent)).setOrigin(.5);
     this.tutorialButton=l.tutorial;panel(g,l.tutorial.x-l.tutorial.w/2,l.tutorial.y-22,l.tutorial.w,44,UI.uiBorder);text(this,l.tutorial.x,l.tutorial.y,'Learn to fly',l.desktop?16:13,'#b5ccdc').setOrigin(.5);
+    this.evolutionButton=l.evolution;
+    const evo=selectedEvolution(look,this.unlocks),eb=l.evolution;
+    panel(g,eb.x-eb.w/2,eb.y-eb.h/2,eb.w,eb.h,evo?UI.uiGold:UI.uiBorder);
+    text(this,eb.x,eb.y-10,evo?'EQUIPPED EVO':'EVOLUTION',9,'#9fb5c7').setOrigin(.5);
+    text(this,eb.x,eb.y+8,evo?.name??'Choose evolution',Math.min(l.desktop?13:12,(eb.w-12)/9.5),evo?'#e7c587':'#b5ccdc').setOrigin(.5);
     this.utilityButtons=l.utilities;
     for(const b of l.utilities){panel(g,b.x-b.w/2,b.y-b.h/2,b.w,b.h,UI.uiBorder);text(this,b.x,b.y,b.id.toUpperCase(),l.desktop?13:11,'#9fb5c7').setOrigin(.5);if(b.id==='account')this.accountButton=b;}
     versionStamp(this);this.showCounts();
@@ -349,6 +355,11 @@ export class MenuScene extends Phaser.Scene {
       const n = this.nameBox;
       // Taps on the name box belong to the text field over it.
       if (Math.abs(t.x - n.x) <= n.w / 2 && Math.abs(t.y - n.y) <= n.h / 2) continue;
+      if (!this.codeMode && hit(this.evolutionButton)) {
+        writeSave({ name });
+        this.scene.start('hangar', { credits: this.credits, unlocks: this.unlocks, tab: 'evolution' });
+        return;
+      }
       const hb = this.hangarButton;
       if (hb && !this.codeMode && Math.abs(t.x - hb.x) <= hb.w / 2 && Math.abs(t.y - hb.y) <= hb.h / 2) {
         writeSave({ name });
