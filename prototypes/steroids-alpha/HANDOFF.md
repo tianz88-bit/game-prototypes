@@ -1,11 +1,11 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
-## 2026-11-18 codex capital release candidate — R2 upload pending
-DID: owner approved live release; thinner painted CIWS tracers, selectable Hangar evolutions, production Missile Cruiser, common capital bursts and heavy tower doublets prepared. NOT DEPLOYED.
+## 2026-11-18 codex capital release candidate — art verified
+DID: owner approved live release; thinner painted CIWS tracers, selectable Hangar evolutions, production Missile Cruiser, common capital bursts and heavy tower doublets prepared. R2 upload completed and hashes verified; paired release queued.
 FILES: shared chassis/shop/ship/ordnance/world/config/protocol; room, Hangar/flight/HUD/art profiles, R2 staging, lab comparison and release regression.
 SEAM: protocol27 keeps107-byte ships, accepts chassis4 and ordnance kind2; BUY item5 tier0=Battlecruiser/1=Missile Cruiser. Server validates criteria/cost. Client+Worker must release together.
 CROSS: explicit owner release authorized shared gameplay/input/save/test changes. Sim/config/rig/bank/type/build and verified production art packing pass;7 Hangar and two-client Worker checks, WebGL/Canvas render checks, no capture.
-FOR claude: deferred backlog only. New ZIP still404; orange manual upload tab retained. Do not merge/deploy until its hash verifies. Local artifacts outputs/steroids-alpha/missile-cruiser-lab/.
+FOR claude: deferred backlog only. New R2 ZIP and8 parts verified after Brave upload; task tab closed, no native input/capture. Release authorized. Local artifacts outputs/steroids-alpha/missile-cruiser-lab/.
 
 ## 2026-11-18 codex evolution & siege LOCAL PREVIEW
 DID: isolated ?evolution=1 Hangar/build selection, new18-part Missile Cruiser, eight rear-launch missiles/hold-repeat, common7-shot CIWS and heavy tower doublets. Owner gate LAB FIRST.

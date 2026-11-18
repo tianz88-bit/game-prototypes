@@ -2,7 +2,7 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
-## Capital evolution production port — APPROVED, NOT DEPLOYED (art upload pending)
+## Capital evolution production port — APPROVED, ART VERIFIED (release queued)
 
 Owner approved release18 November2026 after the lab review, requesting narrower CIWS shots. Painted small turret bolts now compress the short axis to20% of the original sprite aspect (with a.7px visibility floor); actual production render checks compare against main shots. Main-gun width remains unchanged. Lab CIWS and primary bolts have distinct draw flags.
 
@@ -14,7 +14,7 @@ Protocol27 keeps107-byte ship layout, permits chassis4 and ordnance kind2 for he
 
 Type/build/shared sim+capital regression/config/rig/bank pass. Seven production Hangar layouts cover both evolution selection/persistence/cards, alongside existing ship equips and bounded rebuilds. Two independent Brave clients through actual local Worker protocol27 pass, including120ms RTT, travel snapshots and remote interpolation. Production WebGL/Canvas fixtures verify actual18-part MC profile, no gun modules, hover/shadow and narrower CIWS; no captures. Tests/proofs in outputs/steroids-alpha/missile-cruiser-lab/. New regression imported by existing sim runner, no workflow edits.
 
-BLOCKER: new R2 object still404 and CLI not authenticated. Owner manual upload tab is preserved; prepared ZIP ready. Do not merge main or trigger live release before upload/hash verification. Then rebase, publish paired client/Worker and Pages, verify public connection/art/evolution UI. No immediate Claude session requested.
+R2 upload completed18 November through Brave file chooser (Files submenu). ZIP and8 parts verified by prepare-steroids-lab; production staging also verifies shared BC turret equipment. Task duplicate closed; no native input/capture/recording. Paired client/Worker and Pages release authorized; public checks follow. No immediate Claude session requested.
 
 ## Evolution & siege — LOCAL LAB PREVIEW, pending art upload
 
