@@ -1,23 +1,23 @@
 ## Current milestone
 
-Evolution lab and approved production release candidate prepared. Public delivery pending owner manual R2 ZIP upload; URL404. No merge/deploy. Live remains171126r0100/protocol26; new production candidate uses27.
+PUBLIC evolution lab verified alongside LIVE 181126r0101/protocol27 via PR562. Pages44232567296, itch44232567195 and Worker44232567203 succeeded. R2 package uploaded and hashes verified.
 
 ## What was implemented
 
-?evolution=1 offers graphical build criteria, selection,18-module Missile Cruiser,8 rear-launch missiles, capital burst CIWS and heavy tower doublets. New CIWS-only flag draws narrow tracers; primary shots retain width. Production port now exists separately in shared sim/renderers and real Hangar EVOLVE tab. Calibration stats expose Missile Cruiser/CIWS/heavy-tower groups.
+?evolution=1 provides graphical requirements/selection,18-module Missile Cruiser,8 rear-launch missiles, capital burst CIWS/heavy tower comparison and narrow CIWS tracers distinct from main guns. Production has its own shared authority and Hangar EVOLVE selection. Calibration stats expose Missile Cruiser/CIWS/heavy-tower groups.
 
 ## Key technical decisions
 
-Lab model remains isolated from game accounts/sockets/config. Production port uses validated authority, shared prediction, protocol27 and verified R2 assets. Type/build/model/rig plus7 lab/headless layouts passed;7 real Hangar layouts,2 local network clients, WebGL/Canvas render and shared sim/config/bank gates pass. No captures. Art stored outside Git; manifests/provenance committed. Evidence outputs/steroids-alpha/missile-cruiser-lab/.
+Lab model stays isolated from accounts/game sockets/publishing. Production uses validated purchases, shared capacity/cooldown/prediction, protocol27 and verified assets. Public desktop/mobile lab checks pass evolution/firing/mines/tilt/persistence/reset/bounds, no errors/sockets/writes/capture. Public Hangar and WebGL/Canvas production rendering also pass. evolution/release-proof.json stores portable proof; raw evidence outputs/steroids-alpha/missile-cruiser-lab/.
 
 ## Open questions
 
-Manual art upload pending in orange Brave tab. Live release approved; no new approval required.
+Human balance/feel review remains useful; live release already approved and completed.
 
 ## Known issues
 
-Do not merge mandatory new asset preparation while R2 URL404. Public build needs uploaded package. Human review still useful for balance/feel.
+Lab is a deterministic design comparison rather than live multiplayer authority. Cold public asset loads can exceed30s. No physical Safari review.
 
 ## Next proposed step
 
-Verify R2 hashes, publish paired client/Worker plus Pages, then public connection/art/UI checks. Claude backlog deferred. Local preview retained for owner review; no resident publisher.
+Owner can compare in the permanent lab or play live. Claude backlog deferred; upload tab and temporary preview/Worker/headless tests cleaned up. No resident publisher.

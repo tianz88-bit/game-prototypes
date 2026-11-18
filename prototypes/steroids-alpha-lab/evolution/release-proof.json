@@ -1,0 +1,152 @@
+{
+  "version": "181126r0101",
+  "protocol": 27,
+  "pr": 562,
+  "merge": "29bb41a4db28900f1c00a4e028b8fb1aff1b6172",
+  "runs": {
+    "itch": 44232567195,
+    "worker": 44232567203,
+    "pages": 44232567296
+  },
+  "art": {
+    "object": "steroids-alpha_missile-cruiser-v1_assets.zip",
+    "sha256": "e190813542aea9f17afc3bcc5743368789f4e6b40143112db1977a9be9d3c3e7",
+    "verifiedParts": 8,
+    "upload": "Brave Files submenu; no native input"
+  },
+  "publicClient": "https://html-classic.itch.zone/html/20420865-2423281/prototypes/steroids-alpha/index.html",
+  "publicHangar": {
+    "capture": false,
+    "cases": [
+      {
+        "width": 1280,
+        "height": 720,
+        "mobile": false,
+        "stats": 20,
+        "equip": true,
+        "noClipping": true,
+        "lifecycle": true
+      },
+      {
+        "width": 568,
+        "height": 320,
+        "mobile": true,
+        "stats": 20,
+        "equip": true,
+        "noClipping": true,
+        "lifecycle": true
+      }
+    ],
+    "errors": []
+  },
+  "publicLab": {
+    "capture": false,
+    "cases": [
+      {
+        "width": 1280,
+        "height": 720,
+        "mobile": false,
+        "canvas": false,
+        "parts": 18,
+        "selection": true,
+        "missiles": 8,
+        "noPrimary": true,
+        "gunCruiser": true,
+        "ffd": true,
+        "noClipping": true,
+        "resetStable": true
+      },
+      {
+        "width": 568,
+        "height": 320,
+        "mobile": true,
+        "canvas": false,
+        "parts": 18,
+        "selection": true,
+        "missiles": 8,
+        "noPrimary": true,
+        "gunCruiser": true,
+        "ffd": true,
+        "noClipping": true,
+        "resetStable": true
+      }
+    ],
+    "errors": [],
+    "sockets": [],
+    "writes": []
+  },
+  "publicRender": [
+    {
+      "canvas": false,
+      "connected": {
+        "status": "open",
+        "snapshots": 47,
+        "hp": 50
+      },
+      "ship": "human-nomad-missile-cruiser-v1",
+      "parts": 18,
+      "keys": true,
+      "guns": 0,
+      "narrow": true,
+      "mainHeight": 7,
+      "ciwsHeight": 2.6133333333333333,
+      "renderer": 2,
+      "hover": true,
+      "shadow": true,
+      "capture": false
+    },
+    {
+      "canvas": true,
+      "connected": {
+        "status": "open",
+        "snapshots": 47,
+        "hp": 50
+      },
+      "ship": "human-nomad-missile-cruiser-v1",
+      "parts": 18,
+      "keys": true,
+      "guns": 0,
+      "narrow": true,
+      "mainHeight": 7,
+      "ciwsHeight": 2.6133333333333333,
+      "renderer": 1,
+      "hover": true,
+      "shadow": true,
+      "capture": false
+    }
+  ],
+  "publicFlight": {
+    "capture": false,
+    "errors": [],
+    "wire": 75,
+    "fast": {
+      "status": "open",
+      "rttMs": 15,
+      "pending": 3,
+      "correction": 0,
+      "remotes": 0,
+      "snapshots": 68,
+      "kBytesIn": 8.5,
+      "inputSeq": 133,
+      "lastAck": 130,
+      "serverTick": 134,
+      "hp": 50,
+      "slip": 23.99999862787595
+    },
+    "brake": {
+      "status": "open",
+      "rttMs": 15,
+      "pending": 4,
+      "correction": 0,
+      "remotes": 0,
+      "snapshots": 74,
+      "kBytesIn": 9.2,
+      "inputSeq": 146,
+      "lastAck": 142,
+      "serverTick": 146,
+      "hp": 50,
+      "slip": 0.5252156497456212
+    }
+  },
+  "capture": false
+}

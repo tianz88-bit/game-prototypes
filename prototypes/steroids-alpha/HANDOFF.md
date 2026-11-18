@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-18 codex capital release LIVE 181126r0101
+DID: PR562 29bb41a4 live; itch44232567195, Worker44232567203, Pages44232567296 success. Thin CIWS, Hangar evolutions, Missile Cruiser and heavy towers released.
+FILES: shared sim/config/protocol27, room, Hangar/flight/HUD/art, verified R2 staging, lab and capital regression; release-proof.json.
+SEAM:107-byte ships/chassis4/ordnance kind2; BUY5 tier0=BC/1=MC validated server-side. Both client and Worker now27; refresh cached clients.
+CROSS: owner approved live. Type/build/sim/capital/config/rig/bank pass;7 local+2 public Hangar,2 public lab,2 public renderers and75 actual public snapshots pass without capture.
+FOR claude: deferred backlog only. R2 ZIP/8 parts verified via Brave Files submenu; no native input, screenshots or recording. Task tab/temporary preview/Worker/headless closed; proof in lab/evolution/release-proof.json.
+
 ## 2026-11-18 codex capital release candidate — art verified
 DID: owner approved live release; thinner painted CIWS tracers, selectable Hangar evolutions, production Missile Cruiser, common capital bursts and heavy tower doublets prepared. R2 upload completed and hashes verified; paired release queued.
 FILES: shared chassis/shop/ship/ordnance/world/config/protocol; room, Hangar/flight/HUD/art profiles, R2 staging, lab comparison and release regression.
@@ -97,10 +104,3 @@ FILES: hudLayout/Flight/CombatHud/UI/input, combatEffects, guide/contextTips, CI
 SEAM: B/click shop,1–6 retained, Tab pilots, H help; mobilePanel reused on PC, shared geometry/priority slots, GuideView.targets/objectiveArrows. Client shield suppression mirrors existing server authority; no wire/live tuning changes.
 CROSS: type/build/rig/sim/config pass;7 local+7 public UI and3 local+3 public full arrow/ram/extraction cases, plus2 local+2 final-public narrow cases pass; zero page errors/captures/public-room fixture writes.
 FOR claude: defer sync per owner. CLAUDE_BACKLOG.md has seams and proof, no immediate execution/review needed. Preview4187 stopped; evidence hud-space-ram-objectives.
-
-## 2026-11-17 codex HUD/ram/objective arrows RELEASE
-DID: collapsed PC shop (B/click,1–6 retained), Tab rankings/own pin, H help; MIN/Lv + distinct cargo; embedded mobile counts/current Fire-Dash sizes; Warzone role and priority warnings. Ram pressure bow/fragments replace chevron; tutorial arrows cover all world/UI goals.
-FILES: hudLayout/mobileFlightUi, Flight/CombatHud/UI/input, combatEffects, guide/contextTips, CI regressions/docs/backlog.
-SEAM: mobilePanel reused on PC, GuideView.targets/objectiveArrows, geometry/priority slots. Client fire gate mirrors existing shield authority; no wire/gameplay tune/economy changes.
-CROSS: type/build/rig/sim/config +7 Brave UI layouts and3 actual tutorial arrow/ram/extraction routes pass, zero page errors/no captures/public-room fixture writes. Hit targets and urgent/objective separation checked.
-FOR claude: owner says sync later; CLAUDE_BACKLOG.md has durable seams and evidence, no immediate action needed. Public proof follows; use main after release.

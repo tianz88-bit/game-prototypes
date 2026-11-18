@@ -1,6 +1,6 @@
 # Evolution & siege preview
 
-Owner approved release18 November2026 after reviewing the lab and requested thinner CIWS shots. The separate production port is implemented in shared simulation/rendering; R2 art uploaded and verified; paired release authorized. This local model remains an isolated comparison, not the live authority.
+Owner approved release18 November2026 after reviewing the lab and requested thinner CIWS shots. The separate production port is implemented in shared simulation/rendering; R2 art uploaded and verified; released181126r0101/protocol27 via PR562. This local model remains an isolated comparison, not the live authority.
 
 Open the permanent lab with `?evolution=1`. Choose a build, LOAD REQUIREMENTS, then EVOLVE & TRY. Selection survives reload in the separate lab preference key. The tier buttons can remove individual requirements to inspect the evolution gate. NEW RUN resets the test, retaining selection. No game account, inventory, hosted settings or network connection is used.
 
@@ -19,4 +19,4 @@ This is a deterministic local design model, not a network chassis addition. It u
 
 Checks: `npm run typecheck`, `npm run build`, `node scripts/test-steroids-evolution-lab.mjs`, and the existing rig regression. Headless Brave checks seven PC/touch/portrait/Canvas cases at DPR 2, actual build selection/evolution, eight launches/no primary fire, gun cruiser, mines, FFD controls, persistence, bounds and stable resets. No captures, live sockets or remote writes. Human review of silhouette, targeting and feel is still required.
 
-R2 package upload is complete and verified; public delivery follows the paired release. Local prepared art and all evidence are in `outputs/steroids-alpha/missile-cruiser-lab/`.
+R2 package upload and public delivery are complete and verified; see release-proof.json. Local prepared art and all evidence are in `outputs/steroids-alpha/missile-cruiser-lab/`.
