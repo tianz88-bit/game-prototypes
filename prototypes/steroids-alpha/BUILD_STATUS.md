@@ -1,25 +1,25 @@
 ## Current milestone
 
-LIVE VERIFIED 181126r0101/protocol27. PR562 merge29bb41a4db28900f1c00a4e028b8fb1aff1b6172; itch44232567195, Worker44232567203 and Pages44232567296 succeeded. Owner approved full capital release18 November2026. New R2 art uploaded through Brave and hashes verified.
+LIVE VERIFIED181126r0102/protocol28. PR564 merge74dd2ced9c85c359983d4ffc421b68bfffd83b28; itch44251753113 attempt2 and Worker44251753080 succeeded. Pages44251753017 deployment step succeeded; unrelated post-deploy counter push failed.
 
 ## What was implemented
 
-Narrow CIWS tracers; Hangar EVOLVE build selection with graphical criteria and stats; Missile Cruiser chassis4 with8 rear-launch missiles/no primary guns, +50% damage/range and larger painted projectile. Shared cooldown/capacity/prediction and server-validated evolution. Both capitals fire7-shot CIWS bursts, pause and reacquire. Heavy towers warn/fire doublets/reload. Siege locks shared with HUD; existing clan/arrival/docking protections retained. Approved18-part profile uses current cardinal rig, palettes, hover/shadow and per-part FFD/Canvas fallback.
+Missile Cruiser grants zero free turrets and keeps only bought turret upgrades. Minimum speed140→90 for artillery positioning; cruise170/top225/turning and Battlecruiser base2/min140 unchanged. MC requirement fields for guns/turrets0; actual criteria remain Missiles4/Mines2 plus300 mineral balance/120 cost. Select Hangar → EVOLVE → Missile Cruiser, then earn/purchase evolution in-run. Lab model/preview matches ownership; four empty mounting pads stay visible.
 
 ## Key technical decisions
 
-Protocol27 keeps107-byte ships, adds chassis4/ordnance kind2; BUY5 tier0/1 selects BC/MC with authority checking criteria/cost/repeats. New bounded config groups upgrade old records and appear in lab stats. R2 ZIP/part/shared turret hashes verified; no binary art or workflow edits. Capital regression runs through existing sim release gate.
+Protocol28 keeps the layout but refreshes cached27 clients with older bundled defaults under the unchanged legacy config hash. Existing hosted record omits MC; no hosted record or art upload changed. Shared turretCount already respects base0; lab removes its hardcoded base2. Native menu previews already hide heads above base ownership.
 
-Type/build/shared sim+capital/config/rig/bank checks pass. Seven local production Hangar layouts, two actual local Worker clients including120ms RTT, WebGL/Canvas fixtures pass. PUBLIC: two PC/touch Hangar layouts verify selection/persistence/criteria/bounds/rebuilds; two lab layouts verify evolution/8 missiles/no primary/mines/FFD/reset; both public renderers receive47 healthy planet snapshots and draw18-module MC/hover/shadow/no gun modules, CIWS2.61px short axis versus7px main. Public flight receives75 binary snapshots, fast slip24°→.53° after braking; no page errors/capture. Proof ../steroids-alpha-lab/evolution/release-proof.json; raw evidence outputs/steroids-alpha/missile-cruiser-lab/.
+Type/build/shared sim+capital/config/lab regression pass. Tests cover0/1/2/4 bought turrets retained after evolution, braking to90, BC base2/min140 and bought CIWS bursts. Public fresh client receives MC min90/base0/cruise170/top225 over49 healthy snapshots; Hangar shows0 MC heads/2 BC heads. Public lab gives0 turrets/min90/ammo8. No page errors/capture. Portable proof ../steroids-alpha-lab/evolution/artillery-release-proof.json; evidence outputs/steroids-alpha/missile-cruiser-lab/artillery-*.
 
 ## Open questions
 
-Owner can tune balance after live play; selection is in Hangar → EVOLVE, purchase remains earned during the run. No immediate Claude action.
+Owner can refine artillery speed after play. No immediate Claude action; deferred handoff saved.
 
 ## Known issues
 
-Cold itch CDN loading exceeded the earlier30s test timeout; public checks allow120s. A wall-clock movement probe was timing-sensitive; actual36/12 input-step checks passed. Headless checks do not replace human feel or physical Safari review.
+Existing randomized bot-spacing test failed client attempt1 (848px vs900), retry passed. Pages actually deployed, then unrelated Operation C counter persistence push raced main. Both deferred for CI housekeeping. Cold itch asset loading can exceed30s; public checks use120s. No physical Safari review.
 
 ## Next proposed step
 
-Owner plays live after refreshing cached clients for protocol27. Claude deferred backlog and release proof saved. Task upload duplicate closed; no screenshots/recording/native input; temporary preview/Worker and headless test browsers stopped.
+Owner refreshes cached game for28, selects MC in Hangar → EVOLVE, earns Missiles4/Mines2 and evolves through UPGRADES. No native input/screenshots/recording; temporary headless tests closed, no local publisher or dev server running.

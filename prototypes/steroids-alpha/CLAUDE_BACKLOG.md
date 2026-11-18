@@ -2,11 +2,13 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
-## Missile Cruiser artillery correction — release pending
+## Missile Cruiser artillery correction — LIVE181126r0102/protocol28
+
+PR564 merge74dd2ced9c85c359983d4ffc421b68bfffd83b28. Client44251753113 attempt2 and Worker44251753080 succeeded. Public server supplied min90/base0/cruise170/top225 over49 healthy snapshots; actual Hangar preview has0 MC heads/2 BC heads. Public lab evolves with0 turrets/min90/ammo8. No page errors/capture; headless closed. Portable proof lab/evolution/artillery-release-proof.json. Pages44251753017 deployed successfully, then failed unrelated Operation C counter persistence on push race. Client first attempt failed existing unseeded bot-spacing assertion (848px vs900), retry passed; defer deterministic fixture/CI counter housekeeping to next Claude session.
 
 Owner clarified zero required turrets means zero free turrets. MC baseTurrets/minTurrets/minGuns now0; bought turret upgrades retained exactly. Minimum speed140→90, cruise170/top225/turn unchanged. Lab model and turning preview match, with empty mounting platforms before purchases. Existing shipPreview already hides heads above base ownership. Bought CIWS keeps its7-shot bursts.
 
-Shared authority regression checks0/1/2/4 bought turrets after evolution and actual braking floor90; Battlecruiser remains2 base/min140. Burst fixtures now explicitly buy MC turrets. Type/sim/lab/config pass. Protocol28 keeps the same layout, forcing refresh of cached27 clients because the older hosted config record lacks MC and keeps its legacy hash. No hosted record or asset upload needed. Pair client/Worker; defer Claude action.
+Shared authority regression checks0/1/2/4 bought turrets after evolution and actual braking floor90; Battlecruiser remains2 base/min140. Burst fixtures now explicitly buy MC turrets. Type/sim/lab/config pass. Protocol28 keeps the same layout, forcing refresh of cached27 clients because the older hosted config record lacks MC and keeps its legacy hash. No hosted record or asset upload needed. Paired client/Worker release completed; defer Claude action.
 
 ## Capital evolution production port — LIVE 181126r0101/protocol27
 
