@@ -65,6 +65,7 @@ for (let lv = 0; lv < total; lv++) {
   }
   const phase = await page.evaluate(() => window.__densha.phase());
   results.push({ level: lv + 1, par, taps, phase });
+  console.log(`level ${lv + 1} par ${par} taps ${taps} ${phase}`);
   if (lv === 0 || lv === 9) await shot(`level${lv + 1}-end`);
 }
 console.table(results);
@@ -84,7 +85,7 @@ await page.mouse.click(285, 760);
 await page.waitForTimeout(400);
 console.log('menu open:', await page.evaluate(() => window.__densha.menuOpen()));
 await shot('level-selector');
-await page.mouse.click(323, 339);
+await page.mouse.click(323, 253);
 await page.waitForTimeout(800);
 const sel = await page.evaluate(() => ({ lvl: window.__densha.level() + 1, taps: window.__densha.taps(), phase: window.__densha.phase() }));
 console.log('after picking level 5:', sel);
