@@ -9,7 +9,8 @@ import type { Asteroid } from './asteroids';
 import { wrap, wrapDelta, angleDelta } from './wrap';
 import { TURRET_SIDE, turretCount, turretPosition } from './turrets';
 import { SHOP_ITEMS, buy, EVOLVE_ITEM, evolve } from './shop';
-import { missileLock } from './ordnance';
+import {MISSILE_CRUISER,isCapital} from './chassis';
+import { missileLock,missileStructureLock } from './ordnance';
 import { BASE_OWNER, BASE_TURRET_SIDE, baseLayout, insideDome, isDocked, speedFloor } from './clanBase';
 import type { BaseLayout } from './clanBase';
 import { isWarPlanet } from './planets';
@@ -58,6 +59,7 @@ export interface HotZone {
 
 /** A homing missile or a mine, owned by a ship. Shootable (hp); ships only are its targets. */
 export interface Ordnance {
+  heavy?:boolean;
   id: number;
   kind: 'missile' | 'mine';
   owner: number;
@@ -165,7 +167,7 @@ export class World {
   hotZone: HotZone = { x: 0, y: 0, r: 0, until: 0 };
   private nextPickupId = 1;
   /** Turret aim (radians, world) and steps until each can fire again, per ship. */
-  private turrets = new Map<number, { angle: number[]; cd: number[] }>();
+  private turrets = new Map<number, { angle: number[]; cd: number[]; left:number[]; lock:string[] }>();
   readonly ordnance = new Map<number, Ordnance>();
   private nextOrdnanceId = 1;
   /** Where each ship was before its last step, so fast (dashing) ships collide along their path. */
@@ -190,6 +192,7 @@ export class World {
   readonly clanOf = new Map<number, number>();
   private baseAim: number[] = [];
   private baseCd: number[] = [];
+  private baseBurst:number[]=[];
   /** Siege state on the Warzone planet (null elsewhere). */
   siege: SiegeState | null = null;
 
@@ -208,6 +211,7 @@ export class World {
     const s = this.siege;
     if (!s || !this.layout) return;
     const g = this.tune.siege;
+    this.baseCd.fill(0);this.baseBurst.fill(0);
     Object.assign(s, { phase: 'war', turretHp: this.layout.turrets.map(() => g.turretHp), shield: g.shieldHp, shieldBroken: false, treasury: g.treasuryHp, tickets: g.attackerTickets, endsAt: this.tick + Math.round(g.roundSeconds * this.tune.net.tickHz), winner: 0, reason: '' });
   }
 
@@ -233,6 +237,7 @@ export class World {
     this.layout = baseLayout(planet, this.tune);
     this.baseAim = (this.layout?.turrets ?? []).map(() => -Math.PI / 2);
     this.baseCd = (this.layout?.turrets ?? []).map(() => 0);
+    this.baseBurst=this.baseCd.map(()=>0);
     this.siege = this.layout && isWarPlanet(planet) ? { phase: 'peace', turretHp: [], shield: 0, shieldBroken: false, treasury: 0, tickets: 0, endsAt: 0, winner: 0, reason: '' } : null;
     this.endPeace();
   }
@@ -354,7 +359,7 @@ export class World {
   /** A shop purchase from ship id (item: index in SHOP_ITEMS). Returns true if it went through. */
   buy(id: number, item: number, tier: number): boolean {
     const s = this.ships.get(id);
-    if (s && item === EVOLVE_ITEM) return tier === 0 && evolve(s, this.tune);
+    if (s && item === EVOLVE_ITEM) return evolve(s, this.tune,tier);
     const name = SHOP_ITEMS[item];
     if (!s || !name) return false;
     return buy(s, name, tier, this.tune);
@@ -439,7 +444,7 @@ export class World {
         // Enemy missiles and mines can be shot down.
         for (const o of this.ordnance.values()) {
           if (o.owner === b.owner) continue;
-          const r = o.kind === 'missile' ? t.missile.radius : t.mine.radius;
+          const r = o.kind === 'missile' ? t.missile.radius*(o.heavy?t.missileCruiser.radiusFactor:1) : t.mine.radius;
           if (!hits(b.x, b.y, o.x, o.y, r + t.weapon.bulletRadius)) continue;
           o.hp -= b.damage;
           if (o.hp <= 0) {
@@ -660,7 +665,7 @@ export class World {
    */
   private stepTurrets(pos: Map<number, { x: number; y: number }>): void {
     const t = this.tune;
-    const tt = t.turret;
+    const normal = t.turret;
     const W = t.world.width;
     const H = t.world.height;
     for (const [id, s] of this.ships) {
@@ -671,42 +676,46 @@ export class World {
         continue;
       }
       let st = this.turrets.get(id);
-      if (!st) this.turrets.set(id, (st = { angle: [], cd: [] }));
+      if (!st) this.turrets.set(id, (st = { angle: [], cd: [],left:[],lock:[] }));
       for (let i = 0; i < n; i++) {
         st.angle[i] ??= s.heading;
         st.cd[i] ??= 0;
         if (st.cd[i] > 0) st.cd[i]--;
-        const at = turretPosition(s, i, t);
+        const at = turretPosition(s, i, t),capital=isCapital(s.chassis),c=t.ciws,tt=capital?{...normal,range:c.range,turnRate:c.turnRate,fireIntervalSteps:Math.max(1,Math.round(c.intervalSeconds*t.net.tickHz)),bulletSpeed:c.speed,damage:c.damage}:normal;
+        st.left[i]??=0;st.lock[i]??='';
         // Priority: incoming missiles, then ships, then mines, then asteroids; nearest within a class.
-        type Target = { dx: number; dy: number; d: number; prio: number };
+        type Target = { dx: number; dy: number; d: number; prio: number;key:string };
         let best = null as Target | null;
-        const consider = (x: number, y: number, r: number, prio: number): void => {
+        const consider = (x: number, y: number, r: number, prio: number,key:string): void => {
+          if(capital&&st.left[i]>0&&st.lock[i]!==key)return;
           const dx = wrapDelta(x, at.x, W);
           const dy = wrapDelta(y, at.y, H);
           const d = Math.hypot(dx, dy);
           if (d - r > tt.range) return;
-          if (!best || prio > best.prio || (prio === best.prio && d < best.d)) best = { dx, dy, d, prio };
+          if (!best || prio > best.prio || (prio === best.prio && d < best.d)) best = { dx, dy, d, prio,key };
         };
-        for (const o of this.ordnance.values()) if (o.owner !== id) consider(o.x, o.y, 0, o.kind === 'missile' ? 3 : 1);
-        for (const [oid, o] of this.ships) if (oid !== id && o.hp > 0) consider(o.x, o.y, 0, 2);
+        for (const o of this.ordnance.values()) if (o.owner !== id) consider(o.x, o.y, 0, o.kind === 'missile' ? 3 : 1,'o'+o.id);
+        for (const [oid, o] of this.ships) if (oid !== id && o.hp > 0) consider(o.x, o.y, 0, 2,'s'+oid);
         for (const a of this.asteroids.values()) {
           const p = pos.get(a.id);
-          if (p) consider(p.x, p.y, t.asteroid.radius[a.size], 0);
+          if (p) consider(p.x, p.y, t.asteroid.radius[a.size], 0,'a'+a.id);
         }
         const target = best as Target | null;
+        if(capital&&!target&&st.left[i]>0){st.left[i]=0;st.lock[i]='';st.cd[i]=Math.ceil(c.pauseSeconds*t.net.tickHz);}
+        if(capital&&target&&st.cd[i]===0&&st.left[i]===0){st.left[i]=c.shots;st.lock[i]=target.key;}
         const want = target ? Math.atan2(target.dy, target.dx) : s.heading;
         const diff = angleDelta(want, st.angle[i]);
         const step = tt.turnRate * this.dt;
         st.angle[i] = angleDelta(st.angle[i] + Math.max(-step, Math.min(step, diff)), 0);
         if (!target || st.cd[i] > 0 || Math.abs(angleDelta(want, st.angle[i])) > tt.aimTolerance) continue;
-        st.cd[i] = tt.fireIntervalSteps;
+        if(capital){st.left[i]--;st.cd[i]=st.left[i]?tt.fireIntervalSteps:Math.ceil(c.pauseSeconds*t.net.tickHz);if(!st.left[i])st.lock[i]='';}else st.cd[i] = tt.fireIntervalSteps;
         const vx = Math.cos(st.angle[i]) * tt.bulletSpeed;
         const vy = Math.sin(st.angle[i]) * tt.bulletSpeed;
         const life = Math.ceil(((tt.range + 60) / tt.bulletSpeed) * t.net.tickHz);
         this.bullets.push({ owner: id, damage: tt.damage, x: at.x, y: at.y, vx, vy, life });
         this.events.shots.push({ owner: id, x: at.x, y: at.y, vx, vy, side: TURRET_SIDE + i });
       }
-      st.angle.length = st.cd.length = n;
+      st.angle.length = st.cd.length = st.left.length=st.lock.length=n;
     }
   }
 
@@ -766,7 +775,8 @@ export class World {
       this.ordnance.delete(o.id);
       this.events.blasts.push({ x: o.x, y: o.y, r: (o.kind === 'missile' ? t.missile.radius : t.mine.radius) * 2, kind: o.kind, shot: true });
     }
-    // Base turrets: nearest non-member ship in range, turn toward it, fire when lined up.
+    // Heavy towers: telegraph, fast doublet, brief reload. Server controls cadence.
+    const heavy=t.heavyTower;
     base.turrets.forEach((at, i) => {
       if (sg && sg.phase !== 'war') return; // Warzone outside a war: the towers hold fire
       if (sg && sg.turretHp[i] <= 0) return; // destroyed
@@ -777,22 +787,26 @@ export class World {
         const dx = wrapDelta(s.x, at.x, W);
         const dy = wrapDelta(s.y, at.y, H);
         const d = Math.hypot(dx, dy);
-        if (d <= b.turretRange && (!best || d < best.d)) best = { dx, dy, d };
+        if (d <= heavy.range && (!best || d < best.d)) best = { dx, dy, d };
       }
-      if (!best) return;
+      if (!best){this.baseBurst[i]=0;return;}
+      if(!this.baseBurst[i]&&this.baseCd[i]<=0){this.baseBurst[i]=heavy.shots;this.baseCd[i]=Math.ceil(heavy.telegraphSeconds*t.net.tickHz);}
       const want = Math.atan2(best.dy, best.dx);
       const diff = angleDelta(want, this.baseAim[i]);
-      const step = b.turretTurnRate * this.dt;
+      const step = heavy.turnRate * this.dt;
       this.baseAim[i] = angleDelta(this.baseAim[i] + Math.max(-step, Math.min(step, diff)), 0);
       if (this.baseCd[i] > 0 || Math.abs(angleDelta(want, this.baseAim[i])) > 0.12) return;
-      this.baseCd[i] = b.turretFireIntervalSteps;
-      const vx = Math.cos(this.baseAim[i]) * b.turretBulletSpeed;
-      const vy = Math.sin(this.baseAim[i]) * b.turretBulletSpeed;
-      const life = Math.ceil(((b.turretRange + 60) / b.turretBulletSpeed) * t.net.tickHz);
-      this.bullets.push({ owner: BASE_OWNER, damage: b.turretDamage, x: at.x, y: at.y, vx, vy, life });
+      this.baseBurst[i]--;
+      this.baseCd[i]=Math.ceil((this.baseBurst[i]?heavy.intervalSeconds:heavy.pauseSeconds)*t.net.tickHz);
+      const vx = Math.cos(this.baseAim[i]) * heavy.speed;
+      const vy = Math.sin(this.baseAim[i]) * heavy.speed;
+      const life = Math.ceil(((heavy.range + 60) / heavy.speed) * t.net.tickHz);
+      this.bullets.push({ owner: BASE_OWNER, damage: heavy.damage, x: at.x, y: at.y, vx, vy, life });
       this.events.shots.push({ owner: BASE_OWNER, x: at.x, y: at.y, vx, vy, side: BASE_TURRET_SIDE + i });
     });
   }
+
+  private structureLock(id:number,s:ShipState):number{if(!this.layout||(this.clanOf.get(id)??0)===this.layout.clan)return 0;return missileStructureLock(s,this.layout,this.siege,this.tune)?.id??0;}
 
   private newOrdnanceId(): number {
     for (;;) {
@@ -805,23 +819,24 @@ export class World {
   /** A missile from ship id: locks the ship nearest the nose (ships only), launches from the nose. */
   private launchMissile(id: number, s: ShipState): void {
     const m = this.tune.missile;
-    const tier = Math.max(1, s.missileTier);
+    const tier = Math.max(1, s.missileTier),heavy=s.chassis===MISSILE_CRUISER,c=this.tune.missileCruiser,h=s.heading+(heavy?Math.PI:0);
     const r = shipRadius(s.hullMax, this.tune, s.chassis) + m.radius;
     const o: Ordnance = {
       id: this.newOrdnanceId(),
       kind: 'missile',
+      heavy,
       owner: id,
-      x: wrap(s.x + Math.cos(s.heading) * r, this.tune.world.width),
-      y: wrap(s.y + Math.sin(s.heading) * r, this.tune.world.height),
-      heading: s.heading,
-      speed: Math.max(m.launchSpeed, s.speed),
+      x: wrap(s.x + Math.cos(h) * r, this.tune.world.width),
+      y: wrap(s.y + Math.sin(h) * r, this.tune.world.height),
+      heading: h,
+      speed: heavy?c.launchSpeed:Math.max(m.launchSpeed, s.speed),
       hp: m.hp,
-      life: Math.round(m.lifeSeconds * this.tune.net.tickHz),
-      armAt: this.tick,
-      target: missileLock(id, s, this.ships, this.tune),
-      damage: m.damage + m.damagePerTier * (tier - 1),
+      life: Math.round((heavy?c.lifeSeconds:m.lifeSeconds) * this.tune.net.tickHz),
+      armAt: this.tick+(heavy?Math.ceil(c.reverseSeconds*this.tune.net.tickHz):0),
+      target: missileLock(id, s, this.ships, this.tune)||(heavy?this.structureLock(id,s):0),
+      damage: (m.damage + m.damagePerTier * (tier - 1))*(heavy?c.damageFactor:1),
       blast: 0,
-      turn: m.turnRate + m.turnPerTier * (tier - 1),
+      turn: heavy?c.turnRateMissile:m.turnRate + m.turnPerTier * (tier - 1),
     };
     this.ordnance.set(o.id, o);
   }
@@ -876,8 +891,9 @@ export class World {
         continue;
       }
       if (o.kind === 'missile') {
-        const target = o.target ? this.ships.get(o.target) : undefined;
-        if (target && target.hp > 0) {
+        const structure=o.target<0&&this.layout&&this.siege?o.target===-1?(this.siege.treasury>0?this.layout.treasury:undefined):(this.siege.turretHp[-2-o.target]>0?this.layout.turrets[-2-o.target]:undefined):undefined;
+        const target = o.target>0?this.ships.get(o.target):structure?{...structure,hp:1}:undefined;
+        if (target && target.hp > 0 && this.tick>=o.armAt) {
           const r = rel(o, target.x, target.y);
           const want = Math.atan2(r.dy, r.dx);
           const step = o.turn * dt;
@@ -888,9 +904,10 @@ export class World {
         const py = o.y;
         o.x = wrap(o.x + Math.cos(o.heading) * o.speed * dt, W);
         o.y = wrap(o.y + Math.sin(o.heading) * o.speed * dt, H);
-        let hit = false;
+        const hostile=this.layout&&(this.clanOf.get(o.owner)??0)!==this.layout.clan;
+        let hit = !!(o.heavy&&hostile&&this.atWar&&this.hitStructure({owner:o.owner,damage:o.damage,x:o.x,y:o.y,vx:0,vy:0,life:1}));
         for (const [sid, s] of this.ships) {
-          if (sid === o.owner || s.hp <= 0 || (s.arrival ?? 0) > 0) continue;
+          if (hit||sid === o.owner || s.hp <= 0 || (s.arrival ?? 0) > 0) continue;
           // Swept: a fast missile cannot skip through a ship between ticks.
           const ex = wrapDelta(o.x, px, W);
           const ey = wrapDelta(o.y, py, H);
@@ -898,7 +915,7 @@ export class World {
           const ty = wrapDelta(s.y, py, H);
           const len2 = ex * ex + ey * ey;
           const k = len2 > 0 ? Math.max(0, Math.min(1, (tx * ex + ty * ey) / len2)) : 0;
-          const rr = shipRadius(s.hullMax, t, s.chassis) + t.missile.radius;
+          const rr = shipRadius(s.hullMax, t, s.chassis) + t.missile.radius*(o.heavy?t.missileCruiser.radiusFactor:1);
           if ((tx - ex * k) ** 2 + (ty - ey * k) ** 2 > rr * rr) continue;
           this.damageShip(sid, s, o.damage, o.owner, o.x, o.y);
           hit = true;
@@ -907,7 +924,7 @@ export class World {
         if (!hit) {
           for (const a of this.asteroids.values()) {
             const p = pos.get(a.id);
-            if (!p || rel(o, p.x, p.y).d > t.asteroid.radius[a.size] + t.missile.radius) continue;
+            if (!p || rel(o, p.x, p.y).d > t.asteroid.radius[a.size] + t.missile.radius*(o.heavy?t.missileCruiser.radiusFactor:1)) continue;
             this.damageAsteroid(a, p, o.damage, Math.cos(o.heading), Math.sin(o.heading), pos);
             hit = true;
             break;

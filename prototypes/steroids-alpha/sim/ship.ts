@@ -2,7 +2,7 @@
 // ship and the server runs it as the authority, so both must call it the same way.
 import type { Tune } from './tune';
 import { angleDelta, wrap, wrapDelta } from './wrap';
-import { GUNS, SCRAPPY, SPARROW, chassisStats, shipMotion } from './chassis';
+import { GUNS, SCRAPPY, SPARROW, MISSILE_CRUISER, chassisStats, shipMotion } from './chassis';
 
 export interface ShipState {
   /** Server-authoritative arrival time remaining. Absent only in older local visual fixtures. */
@@ -123,6 +123,8 @@ export function dashSpeed(hp: number, tune: Tune, chassis = SCRAPPY): number {
 }
 
 /** How much heat the guns hold: gun upgrades add shop.gunHeatPerTier each (more shots before locking). */
+export function missileCapacity(s:ShipState,tune:Tune):number{return s.chassis===MISSILE_CRUISER?tune.missileCruiser.capacity:s.missileTier;}
+
 export function heatCapacity(s: ShipState, tune: Tune): number {
   return 1 + s.damageTier * tune.shop.gunHeatPerTier;
 }
@@ -299,9 +301,10 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune,
     }
     return [charges, cd];
   };
-  [s.missileCharges, s.missileCd] = refill(s.missileCharges, s.missileCd, s.missileTier, tune.missile.refillSeconds);
+  [s.missileCharges, s.missileCd] = refill(s.missileCharges, s.missileCd, missileCapacity(s,tune), tune.missile.refillSeconds);
   [s.mineCharges, s.mineCd] = refill(s.mineCharges, s.mineCd, s.mineTier, tune.mine.refillSeconds);
-  if (input.missile && s.missileCharges > 0) {
+  if ((input.missile || s.chassis===MISSILE_CRUISER&&input.fire) && s.missileCharges > 0 && (s.chassis!==MISSILE_CRUISER||s.fireCd===0)) {
+    if(s.chassis===MISSILE_CRUISER)s.fireCd=Math.max(1,Math.ceil(tune.missileCruiser.repeatSeconds*tune.net.tickHz));
     s.missileCharges--;
     if (s.missileCd <= 0) s.missileCd = tune.missile.refillSeconds;
     s.missileShots = (s.missileShots + 1) & 0xffff;
@@ -311,7 +314,7 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune,
     if (s.mineCd <= 0) s.mineCd = tune.mine.refillSeconds;
     s.mineShots = (s.mineShots + 1) & 0xffff;
   }
-  if (input.fire && s.fireCd === 0 && !s.overheated) {
+  if (s.chassis!==MISSILE_CRUISER && input.fire && s.fireCd === 0 && !s.overheated) {
     s.fireCd = chassisStats(s.chassis, tune).fireIntervalSteps;
     s.shots = (s.shots + 1) & 0xffff;
     s.heat = Math.min(1, s.heat + shotHeat(s, tune));

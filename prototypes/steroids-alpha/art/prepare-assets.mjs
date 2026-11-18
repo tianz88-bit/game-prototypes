@@ -21,6 +21,7 @@ const EXTRA_SHIPS = [
   { id: 'human-nomad-sparrow-v1', list: path.join(here, 'sparrow-v1', 'ship-assets.json') },
   { id: 'human-nomad-bat-v3', list: path.join(here, 'bat-v3', 'ship-assets.json') },
   { id: 'human-nomad-battlecruiser-v3', list: path.join(here, 'battlecruiser-v3', 'ship-assets.json') },
+  { id:'human-nomad-missile-cruiser-v1',list:path.join(here,'missile-cruiser-v1','ship-assets.json') },
 ];
 
 async function stageExtraShips(assetsSrcDir) {
@@ -40,6 +41,7 @@ async function stageExtraShips(assetsSrcDir) {
     }
     const zip = new AdmZip(bytes);
     for (const a of m.assets) {
+      if(a.sourceShip){const source=path.join(assetsSrcDir,'loose',`${a.sourceShip}-${a.asset}.png`);const bytes=readFileSync(source);if(createHash('sha256').update(bytes).digest('hex')!==a.sha256)throw Error('Shared turret hash mismatch');copyFileSync(source,path.join(assetsSrcDir,'loose',`${ship.id}-${a.asset}.png`));continue;}
       const e = zip.getEntry(a.deliveryPath);
       if (!e) throw new Error(`prepare-assets: ${a.deliveryPath} missing from ${m.r2Object}`);
       const data = e.getData();
@@ -57,7 +59,8 @@ async function stageAsteroids(assetsSrcDir) {
   const m = JSON.parse(readFileSync(path.join(here,list), 'utf8'));
   const zip = new AdmZip(await fetchVerified(m));
   for (const a of m.assets) {
-    const e = zip.getEntry(a.deliveryPath);
+
+      const e = zip.getEntry(a.deliveryPath);
     if (!e) throw new Error(`prepare-assets: ${a.deliveryPath} missing from ${m.r2Object}`);
     const data = e.getData();
     const sha = createHash('sha256').update(data).digest('hex');

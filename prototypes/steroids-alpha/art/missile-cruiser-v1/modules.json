@@ -1,0 +1,154 @@
+[
+  {
+    "id": "chassis",
+    "asset": "chassis",
+    "x": 0,
+    "y": -25,
+    "band": 20
+  },
+  {
+    "id": "sideL",
+    "asset": "side-armour",
+    "x": -180,
+    "y": -41.66666666666667,
+    "band": 24,
+    "parent": "chassis"
+  },
+  {
+    "id": "sideR",
+    "asset": "side-armour",
+    "x": 180,
+    "y": -41.66666666666667,
+    "band": 25,
+    "parent": "chassis",
+    "mirror": true
+  },
+  {
+    "id": "bay",
+    "asset": "missile-bay",
+    "x": 0,
+    "y": -50,
+    "band": 30,
+    "parent": "chassis"
+  },
+  {
+    "id": "cockpit",
+    "asset": "cockpit-base",
+    "x": 0,
+    "y": 283.33333333333337,
+    "band": 50,
+    "parent": "chassis"
+  },
+  {
+    "id": "canopy",
+    "asset": "cockpit-canopy",
+    "x": 0,
+    "y": 316.6666666666667,
+    "band": 51,
+    "parent": "cockpit"
+  },
+  {
+    "id": "engineL",
+    "asset": "booster-core",
+    "x": -136.66666666666669,
+    "y": 453.33333333333337,
+    "band": 40,
+    "parent": "chassis",
+    "motion": "engine",
+    "motionGroup": "engineL"
+  },
+  {
+    "id": "engineCapL",
+    "asset": "booster-cowling",
+    "x": -136.66666666666669,
+    "y": 416.6666666666667,
+    "band": 44,
+    "parent": "engineL",
+    "motion": "engine",
+    "motionGroup": "engineL"
+  },
+  {
+    "id": "engineR",
+    "asset": "booster-core",
+    "x": 136.66666666666669,
+    "y": 453.33333333333337,
+    "band": 41,
+    "parent": "chassis",
+    "motion": "engine",
+    "motionGroup": "engineR"
+  },
+  {
+    "id": "engineCapR",
+    "asset": "booster-cowling",
+    "x": 136.66666666666669,
+    "y": 416.6666666666667,
+    "band": 45,
+    "parent": "engineR",
+    "motion": "engine",
+    "motionGroup": "engineR"
+  },
+  {
+    "id": "platform0",
+    "asset": "turret-platform",
+    "x": -186.66666666666669,
+    "y": 186.66666666666669,
+    "band": 54,
+    "parent": "sideL"
+  },
+  {
+    "id": "head0",
+    "asset": "turret-head",
+    "x": -186.66666666666669,
+    "y": 186.66666666666669,
+    "band": 60,
+    "parent": "platform0"
+  },
+  {
+    "id": "platform1",
+    "asset": "turret-platform",
+    "x": 186.66666666666669,
+    "y": 186.66666666666669,
+    "band": 55,
+    "parent": "sideR"
+  },
+  {
+    "id": "head1",
+    "asset": "turret-head",
+    "x": 186.66666666666669,
+    "y": 186.66666666666669,
+    "band": 61,
+    "parent": "platform1"
+  },
+  {
+    "id": "platform2",
+    "asset": "turret-platform",
+    "x": -186.66666666666669,
+    "y": -241.66666666666669,
+    "band": 56,
+    "parent": "sideL"
+  },
+  {
+    "id": "head2",
+    "asset": "turret-head",
+    "x": -186.66666666666669,
+    "y": -241.66666666666669,
+    "band": 62,
+    "parent": "platform2"
+  },
+  {
+    "id": "platform3",
+    "asset": "turret-platform",
+    "x": 186.66666666666669,
+    "y": -241.66666666666669,
+    "band": 57,
+    "parent": "sideR"
+  },
+  {
+    "id": "head3",
+    "asset": "turret-head",
+    "x": 186.66666666666669,
+    "y": -241.66666666666669,
+    "band": 63,
+    "parent": "platform3"
+  }
+]

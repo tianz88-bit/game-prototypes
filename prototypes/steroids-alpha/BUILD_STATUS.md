@@ -1,25 +1,25 @@
 ## Current milestone
 
-LIVE VERIFIED171126r0100 / protocol26. PR559 merge1eccd9e0e6626cc717504a87868314dfbb6518a5; itch44129275449 and Worker44129275517 succeeded. Pages44129275338 succeeded. Owner approved grip/stat Hangar/evolution/regen release18 November2026.
+Capital evolution release candidate prepared, owner approved18 November2026. NOT DEPLOYED: new Missile Cruiser R2 ZIP URL still404, manual upload pending. Live remains171126r0100/protocol26. Candidate requires paired client/Worker protocol27 release after art verifies.
 
 ## What was implemented
 
-Shared movement integrates speed-dependent travel bearing before weapons. Nose response, speed and controls unchanged; high-speed slip capped24°, braking restores grip. Snapshots/replay/interpolation and target leading carry actual travel. Hangar shows base speed/turn/shield/main DPS/real cold-shot ammo bars. Evolution requires2 bought turret upgrades and Guns4 plus existing power/cost, upgrades retained. Shields recover min(35% capacity,25 points/sec) after existing quiet delay.
+Narrow CIWS tracers; Hangar EVOLVE selection/graphical criteria; Missile Cruiser chassis4 with8 rear-launch missiles/no main guns, +50% damage/range and larger painted projectile. Shared prediction/cooldown/capacity and server-validated evolution. Both capitals use7-shot burst CIWS then pause/reacquire. Towers fire high-power doublets with warning/reload. Siege locks shared with HUD; current clan/arrival/docking protections retained. New painted18-part profile supports palettes, fixed cardinal rig, hover/shadow and per-part FFD/fallback.
 
 ## Key technical decisions
 
-Protocol26 appends travelHeading at103,107-byte ship snapshots. No production lab imports/private bullet repair; client+Worker release together. New config fields upgrade old hosted records and validate bounds; both Room/client apply grip group. Candidate lab disables shared grip to avoid double application; Live Baseline uses production. Other lab turn-band/auto-cruise/pushback experiments stay gated. New regression runs in both deployment workflows.
+Protocol27 retains107-byte ships, adds chassis4/ordnance kind2; BUY5 tier0/1 selects BC/MC with authoritative purchase validation. New bounded config groups upgrade old records. Production staging verifies ZIP/parts and shared turret equipment; local verified cache passes134-file pack. No binary art/workflow changes. New release regression is imported by existing sim gate.
 
-Type/build, shared sim/new live grip, lab grip/duels, config/rig/bank/layout regressions pass. Eight chassis/power cases show equal nose/speed, exact lab travel parity, brake slip below4° within.2s, snapshot replay/muzzle/lead/knockback/arrival/warp/dock integrity. Seven Brave DPR2 Hangar layouts pass for20 stat rows, text bounds/equip/listener disposal. Two independent local Brave clients (PC and mobile-sized,120ms RTT) share actual Worker snapshots, regain grip/fire, see each other and maintain bounded prediction. Public seven Hangar layouts and five evolution-UI layouts pass, including blocked/ready1–6 purchase requests in isolated fixtures. Actual live beta connection received72 new-format snapshots, ~24° fast slip and.57° braking slip, zero page errors, healthy hull. Public hosted config resolves grip enabled/cap25/min turrets2/guns4; lab eight Grip fields and all three profiles pass. No screenshots/recording/capture. Evidence outputs/steroids-alpha/live-speed-grip/.
+Type/build, shared sim/new capital, config, rig and bank checks pass. Seven production Hangar PC/touch/portrait DPR2 layouts pass selection/persistence/criteria/bounds/rebuilds. Two independent Brave clients via actual local Worker protocol27 pass, including120ms RTT, travel snapshots/prediction/remote interpolation. Production WebGL and Canvas fixtures verify18 MC modules, no guns, hover/shadow and CIWS short axis2.61px versus7px main shot. No captures. Evidence outputs/steroids-alpha/missile-cruiser-lab/.
 
 ## Open questions
 
-Owner may refine regen cap after live play. Existing35% rate retained with25/s ceiling; default shield recovers17.5/s. No approval for other lab handling changes.
+Owner manual upload of steroids-alpha_missile-cruiser-v1_assets.zip is pending in the preserved orange Cloudflare task tab. Live approval is already given; no further release permission needed.
 
 ## Known issues
 
-Headless checks do not replace physical-phone/Safari or human feel review. Existing unrelated build warnings. Cached old clients need refresh for protocol26.
+Cannot publish while the new art object returns404. CLI is not authenticated; browser file chooser timed out and owner prefers manual upload over native input. No main merge/client/Worker/config deployment performed. Headless checks do not replace human feel/Safari review.
 
 ## Next proposed step
 
-Owner plays the updated public game (refresh cached clients for protocol26). Keep Claude backlog deferred and tune further only on owner feedback. All public checks completed; local preview4187/Worker8788 and task headless browsers are stopped.
+Verify uploaded ZIP SHA256 e190813542aea9f17afc3bcc5743368789f4e6b40143112db1977a9be9d3c3e7 and part hashes, rebase/merge release PR, monitor paired client/Worker and Pages, verify public art/UI/planet connection, then record deployment proof. Claude backlog deferred; temporary local Worker stopped after QA, local preview retained for owner review.

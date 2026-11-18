@@ -2,6 +2,30 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Capital evolution production port — APPROVED, ART VERIFIED (release queued)
+
+Owner approved release18 November2026 after the lab review, requesting narrower CIWS shots. Painted small turret bolts now compress the short axis to20% of the original sprite aspect (with a.7px visibility floor); actual production render checks compare against main shots. Main-gun width remains unchanged. Lab CIWS and primary bolts have distinct draw flags.
+
+Production port adds chassis4 Missile Cruiser, an EVOLVE tab with two graphical requirement cards/ship stats/persistent build choice, and selected build in flight's shop. BUY5 tier0/1 selects BC/MC; authority validates alive fighter, upgrade totals/specific tiers, floor/cost and rejects repeats/invalid builds. MC requires Missiles4/Mines2, floor300/cost120; keeps other upgrades, fills eight missile charges, no main guns, one missile per press/held FIRE repeat. Shared stepShip owns ammo/cooldown so prediction/replay agree. Rear launch .45s before bounded homing, +50% range/damage,1.5x collider/render size. Server chooses ship or hostile Warzone structure locks; HUD shares structure selection; no client target IDs.
+
+Both capital forms have server-owned seven-shot CIWS bursts at two ticks per shot,1.15s pause then reacquire, priority missiles→ships→mines→asteroids. Target is retained during a burst, dropped on loss. Fighters retain existing drone cadence. Four painted platforms, active heads max(2,bought). Heavy towers warn, fire two110-damage1500-speed shots six ticks apart, pause/reload; existing clan/docking/war protections retained. New bounded missileCruiser/ciws/heavyTower tune groups upgrade old config and are exposed in calibration stats.
+
+Protocol27 keeps107-byte ship layout, permits chassis4 and ordnance kind2 for heavy missiles even after owner death; client+Worker must deploy together. Art is a new shared ShipProfile using the approved18 modules/cardinal offsets at equivalent game registration, native hover/shadow/palettes/per-part FFD/fallback. New package plus common BC turret parts have verified hashes; production pack passed from a locally verified ZIP cache. No image binaries committed.
+
+Type/build/shared sim+capital regression/config/rig/bank pass. Seven production Hangar layouts cover both evolution selection/persistence/cards, alongside existing ship equips and bounded rebuilds. Two independent Brave clients through actual local Worker protocol27 pass, including120ms RTT, travel snapshots and remote interpolation. Production WebGL/Canvas fixtures verify actual18-part MC profile, no gun modules, hover/shadow and narrower CIWS; no captures. Tests/proofs in outputs/steroids-alpha/missile-cruiser-lab/. New regression imported by existing sim runner, no workflow edits.
+
+R2 upload completed18 November through Brave file chooser (Files submenu). ZIP and8 parts verified by prepare-steroids-lab; production staging also verifies shared BC turret equipment. Task duplicate closed; no native input/capture/recording. Paired client/Worker and Pages release authorized; public checks follow. No immediate Claude session requested.
+
+## Evolution & siege — LOCAL LAB PREVIEW, pending art upload
+
+Owner approved lab preview first, not live deployment; missiles are one per press, hold to repeat. New isolated `steroids-alpha-lab/?evolution=1` provides graphical build criteria, persistent preview selection and test preparation. Battlecruiser requires Turrets2/Guns4; Missile Cruiser requires Missiles4/Mines2. Both use floor300/cost120 in this comparison. Other upgrades remain. Eight missile capacity, no main guns, .45s rear launch followed by bounded arc, 1.5x range/damage, larger projectile; mines retained. Both capital forms use seven-shot CIWS then pause/reacquire, prioritizing hostile missiles. Towers use two fast110-damage shots plus telegraph/reload; fighter shield-break grace retained conceptually.
+
+New18-module painted rig uses new elongated keel/sponsons/8-door bay/bridge/engines, shared faction turret hardware, fixed order/cardinal offsets/3% shading, engine vibration and per-part control FFD/Canvas fallback. Four platforms; active turret heads use max(2,bought), not additive ownership. Correction to the previous live note: minimum2 bought upgrades do not imply4 equipped heads under the current shared turretCount function.
+
+Model has no network/save/hosted-publish connection and is NOT a production chassis implementation. Before live: authoritative build selection/purchase validation, chassis persistence/protocol, shared missile capacity/rear launch/building lock, burst turrets/towers, replay/prediction and remote rendering tests. `evolution/README.md` and JSON contain candidate values/boundary; ART_PROMPT.md records built-in image_gen provenance.
+
+Type/build/standalone model/rig checks and seven no-capture Brave DPR2 PC/touch/portrait/Canvas layouts pass; selection/evolution,8 missiles/no primary, gun cruiser, mine input, control FFD, persistent selection, bounds and bounded resets pass. No page errors/sockets/remote writes. Evidence: outputs/steroids-alpha/missile-cruiser-lab/. Public delivery pending owner manual R2 ZIP upload; URL404, CLI not authenticated. Do not merge mandatory preparation until upload verifies. No immediate Claude work, itch/Worker/config release or production changes.
+
 ## Live speed grip, Hangar stats and ship balance — LIVE171126r0100 / protocol26
 
 PR559 merge1eccd9e0e6626cc717504a87868314dfbb6518a5. itch44129275449, Worker44129275517 and Pages44129275338 succeeded. Public7 Hangar layouts +5 evolution-gate layouts pass; live beta connection receives72 travel snapshots and slips24° fast→.57° braking. Hosted settings upgrade resolves enabled grip/cap25/turrets2/guns4. Public lab fields/three profiles pass; no page errors or captures, temporary processes stopped.

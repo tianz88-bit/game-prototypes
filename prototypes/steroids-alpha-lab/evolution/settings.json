@@ -1,0 +1,6 @@
+{
+ "missileCruiser":{"minSpeed":140,"cruiseSpeed":170,"maxSpeed":225,"acceleration":230,"turnRate":1.4,"shieldFactor":2.5,"radius":57,"minMissiles":4,"minMines":2,"powerFloor":300,"cost":120,"capacity":8,"rangeFactor":1.5,"damageFactor":1.5,"radiusFactor":1.5,"launchSpeed":220,"reverseSeconds":0.45,"turnRateMissile":1.9,"lifeSeconds":7,"repeatSeconds":0.3},
+ "ciws":{"shots":7,"intervalSeconds":0.067,"pauseSeconds":1.15,"range":520,"speed":1050,"damage":4,"turnRate":18},
+ "tower":{"shots":2,"intervalSeconds":0.18,"pauseSeconds":1.5,"telegraphSeconds":0.55,"range":900,"speed":1500,"damage":110,"turnRate":2.2},
+ "lab":{"startingPower":350,"startingX":2200,"startingY":2700,"nexusHp":1800,"towerHp":500,"raiderHp":130,"raiderSpeed":180,"refillSeconds":6,"mineRepeatSeconds":0.5,"maxProjectiles":180}
+}

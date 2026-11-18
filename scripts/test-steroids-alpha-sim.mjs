@@ -2136,3 +2136,5 @@ await import('./test-steroids-ram-tutorial.mjs');
 
 // Both existing release workflows invoke this runner. Keep grip/state/stat regressions in that gate.
 await import('./test-steroids-live-grip.mjs');
+
+await import('./test-steroids-capital-evolution.mjs');

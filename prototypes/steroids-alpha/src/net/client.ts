@@ -409,13 +409,13 @@ export class NetClient {
       for (const s of msg.shots) {
         if (s.side >= BASE_TURRET_SIDE) {
           // Clan base turret (owner, Clan planets v0): a heavy bolt, and the turret turns to fire.
-          const life = ((TUNE.base.turretRange + 60) / TUNE.base.turretBulletSpeed) * 1000;
+          const life = ((TUNE.heavyTower.range + 60) / TUNE.heavyTower.speed) * 1000;
           this.bullets.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, life, mine: false, look: 1 });
           this.fx.push({ kind: 'baseTurret', index: s.side - BASE_TURRET_SIDE, angle: Math.atan2(s.vy, s.vx) });
           continue;
         }
         if (s.side >= TURRET_SIDE) {
-          const life = ((TUNE.turret.range + 60) / TUNE.turret.bulletSpeed) * 1000;
+          const life = ((Math.max(TUNE.turret.range,TUNE.ciws.range)+60)/Math.max(1,Math.hypot(s.vx,s.vy))) * 1000;
           this.bullets.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, life, mine: s.owner === this.myId, small: true });
           this.fx.push({ kind: 'turret', id: s.owner, index: s.side - TURRET_SIDE, angle: Math.atan2(s.vy, s.vx) });
           continue;

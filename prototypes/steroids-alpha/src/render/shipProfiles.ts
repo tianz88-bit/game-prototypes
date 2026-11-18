@@ -1,3 +1,5 @@
+import missileCalibration from '../../art/missile-cruiser-v1/calibration.json';
+import missileModules from '../../art/missile-cruiser-v1/modules.json';
 import sparrowCalibration from '../../art/sparrow-v1/calibration.json';
 import sparrowModules from '../../art/sparrow-v1/modules.json';
 // The Human Nomad ships as rig profiles: parts (from each kit's ship-profile.mjs), the
@@ -74,4 +76,5 @@ export const SHIP_PROFILES: readonly ShipProfile[] = [
   profile('human-nomad-bat-v3', INTERCEPTOR_MODULES, interceptorCalibration),
   { ...profile('human-nomad-battlecruiser-v3', BATTLECRUISER_MODULES, battlecruiserCalibration), textureScale: 2 },
   profile('human-nomad-sparrow-v1', sparrowModules as readonly RigModule[], sparrowCalibration),
+  {...profile('human-nomad-missile-cruiser-v1',missileModules as readonly RigModule[],missileCalibration),textureScale:2},
 ];

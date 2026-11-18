@@ -116,7 +116,7 @@ export class Room {
   applyConfig(record:ConfigRecord):void{
     if(record.version===this.config.version)return;
     this.config=record;
-    for(const group of ['grip','ship','weapon','turret','shop','missile','mine','bots','warp','salvage','hotZone','sparrow','interceptor','battlecruiser','asteroid','planet','base'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
+    for(const group of ['grip','ship','weapon','turret','shop','missile','mine','bots','warp','salvage','hotZone','sparrow','interceptor','battlecruiser','missileCruiser','ciws','heavyTower','asteroid','planet','base'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
     for(const p of this.players.values()){
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
       p.ship.hullMax=Math.min(this.tune.ship.powerCap,p.ship.hullMax);p.ship.hp=Math.min(p.ship.hullMax,p.ship.hp);
@@ -936,7 +936,7 @@ export class Room {
     for (const o of this.world.ordnance.values()) {
       if (wrapDist2(o.x, o.y, p.ship.x, p.ship.y, TUNE.world.width, TUNE.world.height) > r2) continue;
       const max = o.kind === 'missile' ? this.tune.missile.hp : this.tune.mine.hp;
-      items.push({ id: o.id, kind: o.kind === 'missile' ? 0 : 1, owner: o.owner, target: o.target, x: o.x, y: o.y, heading: o.heading, hp: o.hp / max, armed: this.tick >= o.armAt });
+      items.push({ id: o.id, kind: o.kind === 'missile' ? o.heavy?2:0 : 1, owner: o.owner, target: Math.max(0,o.target), x: o.x, y: o.y, heading: o.heading, hp: o.hp / max, armed: this.tick >= o.armAt });
     }
     return encodeOrdnance(items);
   }

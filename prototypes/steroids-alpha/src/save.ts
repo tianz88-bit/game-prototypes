@@ -4,6 +4,7 @@ import type { Look } from '../sim/unlocks';
 const SAVE_KEY = 'steroids-alpha:save:v1';
 
 export interface Save {
+  evolution?:0|1;
   /** One-time contextual gameplay hints already displayed. */
   tipsSeen?: string[];
   steer?: 'marker' | 'craft';

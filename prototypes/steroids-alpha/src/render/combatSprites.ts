@@ -53,12 +53,12 @@ export class CombatSprites {
     const name=small?'energy-bolt-drone':look===1?'energy-pulse-heavy':'energy-bolt-standard';
     const width=Math.max((small?12:22)*head.scale,Math.hypot(head.x-tail.x,head.y-tail.y)+8*head.scale);
     const image=this.image(name,head.x,head.y,width,25);
-    if(image){image.setOrigin(.88,.5).setRotation(Math.atan2(head.y-tail.y,head.x-tail.x));if(!own)image.setTint(0xffc4b2);}
+    if(image){if(small)image.setDisplaySize(image.displayWidth,Math.max(.7,image.displayHeight*.20));image.setOrigin(.88,.5).setRotation(Math.atan2(head.y-tail.y,head.x-tail.x));if(!own)image.setTint(0xffc4b2);}
     return !!image;
   }
   end():void {for(let i=this.used;i<this.images.length;i++)this.images[i].setVisible(false);}
   ordnance(o:OrdnanceView,at:{x:number;y:number;scale:number}):boolean {
-    const image=this.image(o.kind===0?'missile':'mine',at.x,at.y,(o.kind===0?30:32)*at.scale,26);
+    const image=this.image(o.kind!==1?'missile':'mine',at.x,at.y,(o.kind===2?45:o.kind!==1?30:32)*at.scale,26);
     if(image)image.setRotation(o.heading).setAlpha(o.kind===1&&!o.armed?.72:1);
     return !!image;
   }

@@ -88,7 +88,7 @@ function drawOrdnanceFallback(g: Phaser.GameObjects.Graphics, o: OrdnanceView,
   const {x,y}=at,k=at.scale,signal=own?0x75e7ff:0xff8664;
   const c=Math.cos(o.heading),s=Math.sin(o.heading);
   const p=(u:number,v:number)=>({x:x+(c*u-s*v)*k,y:y+(s*u+c*v)*k});
-  if(o.kind===0){
+  if(o.kind!==1){
     const shape=[p(14,0),p(5,-4),p(-8,-4),p(-13,-9),p(-11,0),p(-13,9),p(-8,4),p(5,4)];
     g.fillStyle(0x1a293b,1);g.fillPoints(shape,true);g.lineStyle(Math.max(1,k*2),signal,1);g.strokePoints(shape,true);
     const a=p(-7,-2),b=p(7,0),d=p(-7,2);g.fillStyle(0xf3f7e9,1);g.fillTriangle(a.x,a.y,b.x,b.y,d.x,d.y);

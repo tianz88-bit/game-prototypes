@@ -1,23 +1,23 @@
 ## Current milestone
 
-Live port verified171126r0100/protocol26 via PR559, approved18 November2026. Pages44129275338 and client/Worker release succeeded; independent duel lab comparisons retained.
+Evolution lab and approved production release candidate prepared. Public delivery pending owner manual R2 ZIP upload; URL404. No merge/deploy. Live remains171126r0100/protocol26; new production candidate uses27.
 
 ## What was implemented
 
-Duel candidate disables the new shared grip to avoid double movement before its existing lab grip/shot bridge. Live Baseline now follows production shared grip. Reset aligns travel state. Permanent lab stats include the new bounded Grip group; shield/evolution fields appear in their existing groups.
+?evolution=1 offers graphical build criteria, selection,18-module Missile Cruiser,8 rear-launch missiles, capital burst CIWS and heavy tower doublets. New CIWS-only flag draws narrow tracers; primary shots retain width. Production port now exists separately in shared sim/renderers and real Hangar EVOLVE tab. Calibration stats expose Missile Cruiser/CIWS/heavy-tower groups.
 
 ## Key technical decisions
 
-Production integrates grip inside shared stepShip before muzzle emission, with snapshot/replay travel state. Lab-only broad turn band, auto-cruise and stronger collision experiments stay independent. New shared-grip regression confirms parity with the approved lab travel formula. Lab grip/duel tests pass; main game BUILD_STATUS holds full release tests. No live config publish from the lab. Public eight Grip fields and all three profiles verified without page errors/capture; shared enable0 on candidates,1 on Live Baseline.
+Lab model remains isolated from game accounts/sockets/config. Production port uses validated authority, shared prediction, protocol27 and verified R2 assets. Type/build/model/rig plus7 lab/headless layouts passed;7 real Hangar layouts,2 local network clients, WebGL/Canvas render and shared sim/config/bank gates pass. No captures. Art stored outside Git; manifests/provenance committed. Evidence outputs/steroids-alpha/missile-cruiser-lab/.
 
 ## Open questions
 
-Other lab handling changes still require owner approval.
+Manual art upload pending in orange Brave tab. Live release approved; no new approval required.
 
 ## Known issues
 
-Headless checks do not prove human combat feel. No physical Safari review/capture.
+Do not merge mandatory new asset preparation while R2 URL404. Public build needs uploaded package. Human review still useful for balance/feel.
 
 ## Next proposed step
 
-Owner can compare further handling experiments against the new Live Baseline. Release and public controls verified; keep deferred Claude backlog, no immediate execution.
+Verify R2 hashes, publish paired client/Worker plus Pages, then public connection/art/UI checks. Claude backlog deferred. Local preview retained for owner review; no resident publisher.

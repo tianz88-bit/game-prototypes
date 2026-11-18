@@ -30,7 +30,7 @@ import { ContextTips } from '../tutorial/contextTips';
 import { localTransport } from '../tutorial/localServer';
 import { maxShield, shipRadius, powerGrowth, topSpeed } from '../../sim/ship';
 import { TURRET_MOUNTS, turretCount } from '../../sim/turrets';
-import { BATTLECRUISER, TURRET_MOUNTS_BY_CHASSIS, chassisStats, upgradeTotal,GUNS } from '../../sim/chassis';
+import { BATTLECRUISER, MISSILE_CRUISER, isCapital, TURRET_MOUNTS_BY_CHASSIS, chassisStats, upgradeTotal,GUNS } from '../../sim/chassis';
 import { SHOP_ITEMS, canBuy, shopOffer, shopTier, EVOLVE_ITEM, canEvolve } from '../../sim/shop';
 import type { ShipState } from '../../sim/ship';
 import { wrapDelta } from '../../sim/wrap';
@@ -51,7 +51,7 @@ import { drawClanBase, styleClanBanner } from '../render/clanBaseArt';
 import { Explosion } from '../render/explosion';
 import { loadSave, recordRun } from '../save';
 import type { ShipPlacement } from '../render/shipView';
-import { missileLock } from '../../sim/ordnance';
+import { missileLock,missileStructureLock } from '../../sim/ordnance';
 import { UI, css, panel, controlFace, controlClearRight } from '../render/ui';
 import { unlockById } from '../../sim/unlocks';
 import type { Look } from '../../sim/unlocks';
@@ -265,7 +265,7 @@ export class FlightScene extends Phaser.Scene {
     this.crystalChips=new CrystalChips(this);
     this.buildingRigs=new BuildingRigs(this);
     this.mobileNavLabels = [0,1].map(() => text(this,0,0,'',11).setOrigin(.5).setDepth(954).setVisible(false));
-    this.evolvePreview = shipPreview(this,2,0,0,0,18,16).setDepth(952).setVisible(false);
+    this.evolvePreview = shipPreview(this,loadSave().evolution===1?4:2,0,0,0,18,16).setDepth(952).setVisible(false);
     this.shopTexts = [...SHOP_ITEMS, 'evolve'].map(() => ({
       title: text(this, 0, 0, '', 12, '#ffffff').setOrigin(0, 0.5).setDepth(951).setVisible(false),
       sub: text(this, 0, 0, '', 10, '#c9d6f2').setOrigin(0, 0.5).setDepth(951).setVisible(false),
@@ -314,7 +314,7 @@ export class FlightScene extends Phaser.Scene {
       if(this.planet===TUTORIAL&&!guide.policy.shop)continue;
       const p = this.net.predicted;
       if (p && item === EVOLVE_ITEM) {
-        if (canEvolve(p, TUNE)) this.net.buy(EVOLVE_ITEM, 0);
+        if (canEvolve(p, TUNE,loadSave().evolution===1?1:0)) this.net.buy(EVOLVE_ITEM, loadSave().evolution===1?1:0);
         continue;
       }
       const name = SHOP_ITEMS[item];
@@ -685,7 +685,7 @@ export class FlightScene extends Phaser.Scene {
     // Ship type from the server (it changes when a ship evolves) and palette from the roster look.
     const palette = unlockById(this.net.roster.get(id)?.look?.palette)?.index ?? 0;
     let ship = this.ships.get(id);
-    if(ship && ship.chassis!==s.chassis && s.chassis===BATTLECRUISER)this.effects.push({x:s.x,y:s.y,at:this.time.now,r:shipRadius(s.hullMax,TUNE,s.chassis),ms:EVOLVE_ART_MS,colour:0,progression:'evolve',palette,followId:id});
+    if(ship && ship.chassis!==s.chassis && isCapital(s.chassis))this.effects.push({x:s.x,y:s.y,at:this.time.now,r:shipRadius(s.hullMax,TUNE,s.chassis),ms:EVOLVE_ART_MS,colour:0,progression:'evolve',palette,followId:id});
     if (ship && (ship.chassis !== s.chassis || ship.palette !== palette)) {
       ship.destroy();
       this.ships.delete(id);
@@ -788,7 +788,7 @@ export class FlightScene extends Phaser.Scene {
     let aim = this.turretAim.get(id);
     if (!aim) this.turretAim.set(id, (aim = { angle: [], firedAt: [] }));
     const now = this.time.now;
-    const mounted = s.chassis === BATTLECRUISER && !!this.ships.get(id)?.setTurrets?.(n, aim.angle, aim.firedAt);
+    const mounted = isCapital(s.chassis) && !!this.ships.get(id)?.setTurrets?.(n, aim.angle, aim.firedAt);
     const g = this.turretGfx;
     const light = this.objectLight(clientTune.render.nightShipDim);
     const c = Math.cos(s.heading);
@@ -805,7 +805,7 @@ export class FlightScene extends Phaser.Scene {
       const d = ((want - prev + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
       const a = prev + d * 0.15;
       aim.angle[i] = a;
-      if (!mounted) (s.chassis===BATTLECRUISER?drawCapitalEscort:drawDrone)(g,x,y,k,a,now,id+i,light,now-(aim.firedAt[i]??-1e9)<70,unlockById(this.net.roster.get(id)?.look?.palette)?.index??0);
+      if (!mounted) (isCapital(s.chassis)?drawCapitalEscort:drawDrone)(g,x,y,k,a,now,id+i,light,now-(aim.firedAt[i]??-1e9)<70,unlockById(this.net.roster.get(id)?.look?.palette)?.index??0);
     }
   }
 
@@ -1082,7 +1082,7 @@ export class FlightScene extends Phaser.Scene {
     const dr = clientTune.touch.dashButtonRadius;
     const fr = clientTune.touch.fireButtonRadius;
     const slots = [
-      { kind: 'missile' as const, tier: p.missileTier, charges: p.missileCharges, cd: p.missileCd, refill: TUNE.missile.refillSeconds, key: 'Q' },
+      { kind: 'missile' as const, tier: p.chassis===MISSILE_CRUISER?TUNE.missileCruiser.capacity:p.missileTier, charges: p.missileCharges, cd: p.missileCd, refill: TUNE.missile.refillSeconds, key: 'Q' },
       { kind: 'mine' as const, tier: p.mineTier, charges: p.mineCharges, cd: p.mineCd, refill: TUNE.mine.refillSeconds, key: 'E' },
     ];
     slots.forEach((sl, i) => {
@@ -1170,7 +1170,7 @@ export class FlightScene extends Phaser.Scene {
     // Evolve (owner design): the fighters can become the Battlecruiser during a run, once they have
     // enough upgrades and power; it costs minerals. The card shows what is still missing.
     const t = this.shopTexts[EVOLVE_ITEM];
-    if (p.chassis === BATTLECRUISER) {
+    if (isCapital(p.chassis)) {
       t.title.setVisible(false);
       t.sub.setVisible(false);
       return;
@@ -1178,16 +1178,16 @@ export class FlightScene extends Phaser.Scene {
     const i = EVOLVE_ITEM;
     const bx = x + (i % cols) * (bw + 6);
     const y = drawer.y + Math.floor(i / cols) * (bh + 6);
-    const b = TUNE.battlecruiser;
-    const can = canEvolve(p, TUNE);
+    const heavy=loadSave().evolution===1,b=heavy?TUNE.missileCruiser:TUNE.battlecruiser;
+    const can = canEvolve(p, TUNE,loadSave().evolution===1?1:0);
     const ups = upgradeTotal(p);
     panel(g, bx, y, bw, bh, can ? UI.uiGold : 0x80664b, can);
     this.evolvePreview.setPosition(bx+bw-15,y+10).setAlpha(can?1:.5).setVisible(true);
-    t.title.setFontSize(mobile ? 10 : 11).setPosition(bx + 5, y + 12).setText(`${intents.touch ? '' : '[6] '}EVOLVE`).setColor(can ? '#ffd23a' : css(0x91a5bb));
+    t.title.setFontSize(mobile ? 10 : 11).setPosition(bx + 5, y + 12).setText(`${intents.touch ? '' : '[6] '}${heavy?'MISSILE CR.':'EVOLVE'}`).setColor(can ? '#ffd23a' : css(0x91a5bb));
     t.sub
       .setFontSize(9)
       .setPosition(bx + 5, y + 29)
-      .setText(can ? `${b.cost} MIN` : p.turrets < b.minTurrets ? `TURRETS ${p.turrets}/${b.minTurrets}` : p.damageTier < b.minGuns ? `GUNS ${p.damageTier}/${b.minGuns}` : ups < b.minUpgrades ? `upgrades ${ups}/${b.minUpgrades}` : p.hullMax < b.powerFloor ? `NEED ${b.powerFloor} PWR` : `NEED ${b.cost} MIN`)
+      .setText(can ? `${b.cost} MIN` : heavy&&p.missileTier<TUNE.missileCruiser.minMissiles?`MISSILES ${p.missileTier}/${TUNE.missileCruiser.minMissiles}`:heavy&&p.mineTier<TUNE.missileCruiser.minMines?`MINES ${p.mineTier}/${TUNE.missileCruiser.minMines}`:!heavy&&p.turrets < b.minTurrets ? `TURRETS ${p.turrets}/${b.minTurrets}` : !heavy&&p.damageTier < b.minGuns ? `GUNS ${p.damageTier}/${b.minGuns}` : ups < b.minUpgrades ? `upgrades ${ups}/${b.minUpgrades}` : p.hullMax < b.powerFloor ? `NEED ${b.powerFloor} PWR` : `NEED ${b.cost} MIN`)
       .setColor(can ? '#ffe9a8' : '#b5a48f');
     intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
   }
@@ -1197,7 +1197,7 @@ export class FlightScene extends Phaser.Scene {
     this.mobileButtons=[];this.mobileNavLabels.forEach(t=>t.setVisible(false));
     if(!p || this.net.death || this.net.extracted)return;
     const header=flightHeader(w,intents.touch);
-    const offers=SHOP_ITEMS.filter(item=>canBuy(p,item,TUNE)).length+(canEvolve(p,TUNE)?1:0);
+    const offers=SHOP_ITEMS.filter(item=>canBuy(p,item,TUNE)).length+(canEvolve(p,TUNE,loadSave().evolution===1?1:0)?1:0);
     const entries = [
       {action:'shop' as const,rect:header.shop,label:`${intents.touch?'UPG':header.tight?'UPG [B]':'UPGRADES [B]'}${offers?' +'+offers:''}`},
       {action:'board' as const,rect:header.board,label:intents.touch?'STATS':header.tight?'TAB':'SCOREBOARD [TAB]'},
@@ -1647,10 +1647,10 @@ export class FlightScene extends Phaser.Scene {
     // Missiles and mines. Missiles are carried forward from the last snapshot so they fly smoothly.
     const tNow = performance.now();
     for (const o of this.net.ordnance.values()) {
-      const ahead = o.kind === 0 ? Math.min(0.12, (tNow - o.at) / 1000) * TUNE.missile.maxSpeed * 0.85 : 0;
+      const ahead = o.kind !== 1 ? Math.min(0.12, (tNow - o.at) / 1000) * TUNE.missile.maxSpeed * 0.85 : 0;
       const at = this.toScreen(o.x + Math.cos(o.heading) * ahead, o.y + Math.sin(o.heading) * ahead);
       if (!at.visible) continue;
-      if(o.kind===0){
+      if(o.kind!==1){
         let trail=this.missileTrails.get(o.id);
         if(!trail)this.missileTrails.set(o.id,trail=[]);
         if(!trail.length || now-trail[trail.length-1].at>40)trail.push({x:o.x,y:o.y,at:now});
@@ -1692,7 +1692,8 @@ export class FlightScene extends Phaser.Scene {
     if (me && me.missileCharges > 0 && !this.net.death) {
       const ships = this.net.remoteRender().map((r) => [r.id, r.s] as [number, ShipState]);
       const lock = missileLock(this.net.myId, me, ships, TUNE);
-      const tgt = ships.find(([id]) => id === lock)?.[1];
+      const structure=this.net.layout&&this.net.clan!==this.net.layout.clan?missileStructureLock(me,this.net.layout,this.net.siege?{...this.net.siege,turretHp:this.net.siege.turrets}:null,TUNE):undefined;
+      const tgt = ships.find(([id]) => id === lock)?.[1]??structure;
       if (tgt && this.toScreen(tgt.x,tgt.y).visible) {
         const at = this.toScreen(tgt.x, tgt.y);
         const R = 34 * at.scale;
@@ -1708,7 +1709,7 @@ export class FlightScene extends Phaser.Scene {
     // pilot it is locked on (owner design); the target also gets a MISSILE LOCK warning.
     let lockedOnMe = false;
     for (const o of this.net.ordnance.values()) {
-      if (o.kind !== 0 || !o.target) continue;
+      if (o.kind === 1 || !o.target) continue;
       if (o.target === this.net.myId && me && !this.net.death) {
         lockedOnMe = true;
         const at = this.toScreen(me.x, me.y);
