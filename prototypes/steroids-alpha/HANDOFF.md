@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-18 codex Missile Cruiser artillery tuning
+DID: zero free/required turrets and zero gun requirement fields; only bought turrets retained. Minimum90 (was140), cruise170/top225 unchanged; lab matches live.
+FILES: tune/protocol28, lab evolution settings/model/preview, capital/lab regressions and deferred docs.
+SEAM: protocol28 has identical wire layout; deployment compatibility refresh prevents cached27 clients retaining old bundled MC defaults under the unchanged legacy config hash.
+CROSS: owner requested balance correction; authority tests cover zero/1/2/4 bought turrets, braking floor, retained BC base2/min140 and bought CIWS bursts. No asset/input/aim changes.
+FOR claude: deferred backlog. Hangar → EVOLVE → Missile Cruiser; Missiles4/Mines2,300 mineral balance,120 cost. Hosted record omits MC, so bundled defaults apply; paired client/Worker release follows.
+
 ## 2026-11-18 codex capital release LIVE 181126r0101
 DID: PR562 29bb41a4 live; itch44232567195, Worker44232567203, Pages44232567296 success. Thin CIWS, Hangar evolutions, Missile Cruiser and heavy towers released.
 FILES: shared sim/config/protocol27, room, Hangar/flight/HUD/art, verified R2 staging, lab and capital regression; release-proof.json.
@@ -97,10 +104,3 @@ FILES: menu, stellarMap, pure landingLayout and existing rig-gate geometry regre
 SEAM: MapAction.chooseSide for closed Warzone, dismissInfo for Escape. Auto-join requires confirmed opening; closing/changing planet cancels. Existing account/input/save/network contracts retained.
 CROSS: type/build/rig/sim/config pass;9 Brave DPR2 desktop/mobile/portrait/tall/short cases plus final compact cancellation case, no page errors/captures/public-room fixture writes. Recovery preserves edited name and modal field layers.
 FOR claude: deferred FYI only; no immediate execution/review. Owner approved go-live. Public release proof follows in CLAUDE_BACKLOG/BUILD_STATUS.
-
-## 2026-11-17 codex HUD/ram/objective arrows LIVE
-DID: HUD reorganisation, pressure-bow ram/crash and every tutorial objective arrow live171126r0097. PR544 864906e6; narrow-label PR545 ea2d9875. itch44041634549/Pages44041634523 success; Worker25 healthy.
-FILES: hudLayout/Flight/CombatHud/UI/input, combatEffects, guide/contextTips, CI regressions/docs/backlog.
-SEAM: B/click shop,1–6 retained, Tab pilots, H help; mobilePanel reused on PC, shared geometry/priority slots, GuideView.targets/objectiveArrows. Client shield suppression mirrors existing server authority; no wire/live tuning changes.
-CROSS: type/build/rig/sim/config pass;7 local+7 public UI and3 local+3 public full arrow/ram/extraction cases, plus2 local+2 final-public narrow cases pass; zero page errors/captures/public-room fixture writes.
-FOR claude: defer sync per owner. CLAUDE_BACKLOG.md has seams and proof, no immediate execution/review needed. Preview4187 stopped; evidence hud-space-ram-objectives.
