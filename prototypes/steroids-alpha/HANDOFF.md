@@ -1,10 +1,10 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
-## 2026-11-18 codex fixed building stacks and barrel shots
-DID: stationary building sprites; only tower heads/barrels aim. Bounded screen-radial layer offsets, aligned central stack, connected columns; smaller bolts launch from actual alternating tips.
+## 2026-11-18 codex fixed building stacks LIVE181126r0105
+DID: PR570 e648baa2 live105; itch44321872467/Pages44321872344 succeeded. Fixed buildings, bounded outward stack offsets, connected columns, smaller alternating barrel-tip bolts.
 FILES: buildingGeometry/Rig, clanBaseArt, rigReview, Flight draw and NetClient visual tags, building regression and brief.
 SEAM: optional stackLean/viewport/barrel plus local tower bullet origin/parity; existing SHOTS retained. Visual180ms launch blend converges to server path; no simulation/wire/tune/assets changes.
-CROSS: net tags and Flight rendering only. Type/build/sim/config/rig pass;3 headless PC/touch layouts pass50 transforms/muzzle checks each plus isolated actual-flight barrel parity/launch/size/convergence. No capture.
+CROSS: net tags and Flight rendering only. Type/build/sim/config/rig pass;3 local+2 public headless layouts pass50 transforms/muzzle checks each; isolated actual-flight parity/launch/size/convergence and public embedded lab pass. No capture.
 FOR claude: deferred only; owner approved live after checks. Nexus position presets/sweep and separate turret aim in lab. No new publishers, emitters, dependencies or server deploy.
 
 ## 2026-11-18 codex main-menu evolution slot LIVE181126r0104

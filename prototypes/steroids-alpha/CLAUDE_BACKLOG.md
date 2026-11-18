@@ -2,7 +2,9 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
-## Fixed building stacks and barrel-aligned tower shots
+## Fixed building stacks and barrel-aligned tower shots — LIVE181126r0105
+
+PR570 e648baa279136176a86ba60da2f4eaaa536bb830; itch44321872467 and Pages44321872344 succeeded.3 local+2 actual public headless cases passed, plus permanent lab embedded controls. Proof lab/building-stack-proof.json. Existing Worker29 unchanged.
 
 Owner correction: buildings do not rotate. Fixed Nexus/tower foundation/shaft/plates; only turret head and barrels aim. buildingStackLean uses screen-relative radius, bounded at0.55 displacement per layer height; centre overlaps, edge offsets scale with height. Same origin feeds connecting columns and muzzle flashes; existing ground projection/cast shadow remains. Lab has five position presets, separate turret aim, optional Nexus position sweep. Existing art/clan/damage/wreck/repair retained.
 

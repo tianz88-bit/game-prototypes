@@ -65,5 +65,69 @@
     "simulation": true,
     "liveConfig": true
   },
-  "release": "pending"
+  "release": {
+    "version": "181126r0105",
+    "protocol": 29,
+    "pr": 570,
+    "merge": "e648baa279136176a86ba60da2f4eaaa536bb830",
+    "itchRun": 44321872467,
+    "pagesRun": 44321872344,
+    "conclusion": "success",
+    "public": {
+      "capture": false,
+      "errors": [],
+      "cases": [
+        {
+          "width": 1280,
+          "height": 720,
+          "mobile": false,
+          "checks": 50,
+          "subjects": [
+            "nexus",
+            "turret"
+          ],
+          "positions": 5,
+          "dualMuzzles": true,
+          "fixedOrientation": true,
+          "smallerBolts": true,
+          "repair": true,
+          "flight": {
+            "networkParity": true,
+            "flightMuzzle": true,
+            "smallerScale": true,
+            "authorityPathRestored": true,
+            "isolatedTutorial": true
+          }
+        },
+        {
+          "width": 390,
+          "height": 844,
+          "mobile": true,
+          "checks": 50,
+          "subjects": [
+            "nexus",
+            "turret"
+          ],
+          "positions": 5,
+          "dualMuzzles": true,
+          "fixedOrientation": true,
+          "smallerBolts": true,
+          "repair": true
+        }
+      ],
+      "url": "https://html-classic.itch.zone/html/20420865-2427406/prototypes/steroids-alpha/index.html"
+    },
+    "lab": {
+      "url": "https://tianz88-bit.github.io/game-prototypes/prototypes/steroids-alpha-lab/?review=nexus",
+      "capture": false,
+      "errors": [],
+      "result": {
+        "nexusFixed": true,
+        "positionButton": true,
+        "rightLean": true,
+        "network": "isolated review",
+        "pointerTap": true
+      }
+    }
+  }
 }
