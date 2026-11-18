@@ -275,7 +275,7 @@ export class GameScene extends Phaser.Scene {
 
   private onIntent(intent: Intent): void {
     if (intent.type === 'restart') return this.startLevel(this.levelIndex);
-    if (intent.type === 'next') return this.startLevel(this.levelIndex + 1);
+    if (intent.type === 'next') return this.isUnlocked(this.levelIndex + 1) ? this.startLevel(this.levelIndex + 1) : this.startLevel(this.levelIndex);
     if (intent.type === 'levels') return this.phase === 'menu' ? (this.closeMenu(), this.updateCoach()) : this.phase === 'play' ? ((this.menuPage = -1), this.openMenu()) : undefined;
     if (intent.type === 'select') return this.selectLevel(intent.level);
     if (this.phase !== 'play') return;
@@ -559,7 +559,12 @@ export class GameScene extends Phaser.Scene {
       this.coach.setText('');
       return;
     }
-    this.coach.setText(lines[Math.min(this.taps, lines.length - 1)]);
+    this.coach.setFontSize(16).setLineSpacing(6).setText(lines[Math.min(this.taps, lines.length - 1)]);
+    // Sit centred in the gap between the stars and the board; shrink if the text is taller than the gap.
+    const top = 118;
+    const gap = this.oy - 8 - top;
+    if (this.coach.height > gap) this.coach.setFontSize(13).setLineSpacing(4);
+    this.coach.setY(top + gap / 2);
     const m = solve(this.level, this.state, 400000, this.rules).moves[0];
     const v = m ? this.views.get(m.train) : undefined;
     if (!m || !v) return;
@@ -587,14 +592,20 @@ export class GameScene extends Phaser.Scene {
     this.phase = 'won';
     const stars = this.starsFor(this.taps);
     this.save.stars[this.levelIndex] = Math.max(this.save.stars[this.levelIndex] ?? 0, stars);
-    this.save.level = Math.min(this.levelIndex + 1, LEVELS.length - 1);
+    const nextOpen = this.levelIndex < LEVELS.length - 1 && this.isUnlocked(this.levelIndex + 1);
+    this.save.level = nextOpen ? this.levelIndex + 1 : this.levelIndex;
     this.persist();
     this.sfx.cleared();
     for (let i = 0; i < 4; i++) this.time.delayedCall(i * 110, () => {
       this.sparks.particleTint = [0xffd04a, 0xff6fb5, 0x4d9bff, 0x5ed957][i];
       this.sparks.explode(18, 60 + Math.random() * 270, 200 + Math.random() * 300);
     });
-    this.showOverlay(`Level ${this.levelIndex + 1} clear!`, stars, this.levelIndex < LEVELS.length - 1 ? 'Next level' : 'Play again', () => this.bus.emit({ type: this.levelIndex < LEVELS.length - 1 ? 'next' : 'restart' }));
+    const last = this.levelIndex >= LEVELS.length - 1;
+    this.showOverlay(`Level ${this.levelIndex + 1} clear!`, stars, last ? 'Play again' : nextOpen ? 'Next level' : 'Replay for stars', () => this.bus.emit({ type: nextOpen ? 'next' : 'restart' }));
+    if (!last && !nextOpen && this.totalStars() < this.gateNeed(this.levelIndex + 1)) {
+      const more = this.gateNeed(this.levelIndex + 1) - this.totalStars();
+      this.hudText(WIDTH / 2, 430, 15, '#ffe27a').setDepth(310).setText(`Level ${this.levelIndex + 2} needs ${more} more star${more === 1 ? '' : 's'}.\nReplay earlier levels for 3 stars.`).setAlign('center');
+    }
   }
 
   private fail(): void {
@@ -634,7 +645,22 @@ export class GameScene extends Phaser.Scene {
   private isUnlocked(i: number): boolean {
     if (tune.rules.unlockAll) return true;
     const cleared = this.save.stars.reduce((best, st, idx) => (st > 0 ? Math.max(best, idx) : best), -1);
-    return i <= cleared + 1;
+    return i <= cleared + 1 && this.totalStars() >= this.gateNeed(i);
+  }
+
+  /** Index of the first level that is not open yet (or the last level). */
+  private firstLocked(): number {
+    for (let i = 0; i < LEVELS.length; i++) if (!this.isUnlocked(i)) return i;
+    return LEVELS.length - 1;
+  }
+
+  private totalStars(): number {
+    return this.save.stars.reduce((sum, st) => sum + (st ?? 0), 0);
+  }
+
+  /** Stars needed in total before level `i` opens: every `gateEvery` levels adds `gateStars`. */
+  private gateNeed(i: number): number {
+    return Math.floor(i / tune.rules.gateEvery) * tune.rules.gateStars;
   }
 
   private selectLevel(i: number): void {
@@ -688,6 +714,9 @@ export class GameScene extends Phaser.Scene {
     const zone = this.add.zone(0, 0, WIDTH, HEIGHT).setOrigin(0).setDepth(299).setInteractive();
     zone.on('pointerdown', () => this.bus.emit({ type: 'levels' }));
     const title = this.hudText(WIDTH / 2, py + 40, 28, '#ffffff').setDepth(310);
+    const nextGate = this.gateNeed(Math.min(LEVELS.length - 1, this.firstLocked()));
+    const gateText = tune.rules.unlockAll || nextGate <= this.totalStars() ? `Stars ${this.totalStars()}` : `Stars ${this.totalStars()} / ${nextGate} to open more`;
+    this.menu.push(this.hudText(WIDTH / 2, py + 68, 13, '#6a5a3a').setDepth(310).setText(gateText));
     title.setText(pages > 1 ? `Select level (${this.menuPage + 1}/${pages})` : 'Select level');
     const stars = this.add.graphics().setDepth(311);
     this.menu.push(zone, dim, title, stars);

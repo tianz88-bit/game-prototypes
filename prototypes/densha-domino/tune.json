@@ -2,7 +2,9 @@
   "rules": {
     "limitSlack": 4,
     "starSlack": 2,
-    "unlockAll": 1,
+    "unlockAll": 0,
+    "gateEvery": 10,
+    "gateStars": 20,
     "followAfterSide": 1
   },
   "feel": {
