@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-18 codex fixed building stacks and barrel shots
+DID: stationary building sprites; only tower heads/barrels aim. Bounded screen-radial layer offsets, aligned central stack, connected columns; smaller bolts launch from actual alternating tips.
+FILES: buildingGeometry/Rig, clanBaseArt, rigReview, Flight draw and NetClient visual tags, building regression and brief.
+SEAM: optional stackLean/viewport/barrel plus local tower bullet origin/parity; existing SHOTS retained. Visual180ms launch blend converges to server path; no simulation/wire/tune/assets changes.
+CROSS: net tags and Flight rendering only. Type/build/sim/config/rig pass;3 headless PC/touch layouts pass50 transforms/muzzle checks each plus isolated actual-flight barrel parity/launch/size/convergence. No capture.
+FOR claude: deferred only; owner approved live after checks. Nexus position presets/sweep and separate turret aim in lab. No new publishers, emitters, dependencies or server deploy.
+
 ## 2026-11-18 codex main-menu evolution slot LIVE181126r0104
 DID: PR568983a497d live104; itch44295327666/Pages44295327839 success. Main menu owned evolution or Choose evolution opens Hangar EVOLVE; shares secondary row with Learn to fly.
 FILES: landingLayout, MenuScene, HangarScene explicit tab option, layout bounds gate and brief.
@@ -97,10 +104,3 @@ FILES: lab controls/input/model/preset/renderer, standalone test and deferred do
 SEAM: per-step clone gyro restored in finally, input adapter owns Brake events; synthetic continuous-aim counter windows are not human-fun/win guarantees.
 CROSS: type/build/rig/sim/config/physics pass;3 local+3 public targeted inputs and6 local+6 public general layouts,12 timing-window sequences. No page errors/game sockets/writes/captures; preview/headless stopped.
 FOR claude: owner retry gate remains. Backlog updated, no immediate execution/review or live port. Public ?duel=tail / ?duel=circle; evidence outputs/steroids-alpha/combat-duel-lab/easier-* and public-easier-*.
-
-## 2026-11-17 codex easier duel controls PREVIEW
-DID: owner found both manoeuvres too difficult. Candidate now auto-cruises on release, mobile drag only steers, Brake holds useful speed, broad cruise turn band; fixed stale Start-pointer aim. Sparring has delayed observations/bursts.
-FILES: lab-only controls/input/model/renderer/preset, standalone regression and deferred docs. Live combat/tuning unchanged.
-SEAM: temporary cloned gyro override restored per shared movement step; pure throttle helper and separate Brake input adapter. Damage and prior impact response retained; opening pointer neutral until moved.
-CROSS: type/build and physics/control tests pass;3 built-preview Brave control cases +6 general layouts pass.12 continuous-aim synthetic counters yield firing windows across timing variation, not human-fun/win proof. Public proof pending.
-FOR claude: backlog only. Owner playtest gate remains; no immediate action or live port. Evidence outputs/steroids-alpha/combat-duel-lab/easier-*.

@@ -93,6 +93,31 @@ for(const root of [[0,0],[400,320],[-950,80]])for(const angle of [0,45,90,180,27
   assert.deepEqual(texel,{x:root[0],y:root[1]},'planet rotation cannot slide surface beneath a root');
   shadows++;
 }
+
+// Screen-position perspective must never rotate or detach a stack, even beyond the viewport.
+for(const view of [{w:1280,h:720},{w:844,h:390},{w:320,h:240}])for(const scale of [.1,1,3]){
+  const centre={x:view.w/2,y:view.h/2};
+  assert.deepEqual(G.buildingStackLean(centre,view),{x:0,y:0});
+  for(const [nx,ny] of [[0,0],[1,0],[-1,0],[0,1],[0,-1],[1,1],[8,-9]]){
+    const at={x:centre.x+nx*view.w/2,y:centre.y+ny*view.h/2,scale,visible:true};
+    const stackLean=G.buildingStackLean(at,view),pose={id:'stack',at,clan:1,now:0,stackLean};
+    assert(Math.hypot(stackLean.x,stackLean.y)<=.55000001,'outward lean is bounded');
+    for(const [lo,hi,jointWidth] of [[0,20,19],[20,60,20],[0,45,160],[45,100,92]]){
+      const a=G.buildingPoint(pose,lo),b=G.buildingPoint(pose,hi);
+      assert(Math.hypot(b.x-a.x,b.y-a.y)<=((hi-lo)*.55+.001)*scale,'connecting column remains bounded');
+      assert(Math.hypot(b.x-a.x,b.y-a.y)<((hi-lo)+jointWidth)*scale,'no disconnected extreme stacks');
+    }
+    for(const angle of [0,.7,2,4])for(const lateral of [-8,8])for(const foreshorten of [.55,.8,1.15]){
+      const p={...pose,foreshorten},m=G.towerMuzzle(p,angle,lateral,6),pivot=G.buildingPoint(p,62,4-6,lateral,angle);
+      near(m.x,pivot.x+Math.cos(angle)*38*.9*foreshorten*scale,'muzzle is rendered barrel tip X');
+      near(m.y,pivot.y+Math.sin(angle)*38*.9*foreshorten*scale,'muzzle is rendered barrel tip Y');
+    }
+  }
+}
+near(G.towerLaunchWeight(0),1,'shot begins at barrel');near(G.towerLaunchWeight(180),0,'shot returns to authoritative path');
+for(let t=1;t<=180;t++)assert(G.towerLaunchWeight(t)<=G.towerLaunchWeight(t-1),'launch correction never reverses');
+console.log('Building perspective: centre/edges/corners/extremes connected; dual muzzle tips and bounded launch blend pass.');
+
 const original=new Uint8ClampedArray([0,97,242,220,255,135,0,255,115,217,255,128,5,9,18,255,230,220,200,255,0,0,0,0]);
 const red=original.slice(),blue=original.slice();M.remapBuildingPixels(red,1);M.remapBuildingPixels(blue,2);
 assert.notDeepEqual(red.slice(0,12),blue.slice(0,12),'clans have distinct enamel/trim/glass');

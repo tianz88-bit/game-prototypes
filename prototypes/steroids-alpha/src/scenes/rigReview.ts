@@ -5,7 +5,7 @@ import { fitCamera, text, versionStamp } from './common';
 import { panel, UI } from '../render/ui';
 import { ShipView } from '../render/shipView';
 import { BuildingRigs, buildingKey } from '../render/buildingRig';
-import { TOWER_BARREL_LIFT } from '../render/buildingGeometry';
+import { buildingStackLean, towerMuzzle } from '../render/buildingGeometry';
 import { CombatSprites } from '../render/combatSprites';
 import { profileFor } from '../render/shipArt';
 import { applyServerConfig, configVersion } from '../liveConfig';
@@ -32,7 +32,7 @@ const SUBJECTS = [
   { id: 'falcon', label: 'Falcon', chassis: 0 },
 ] as const;
 interface ReviewButton { id: string; x: number; y: number; hw: number; hh: number; }
-interface ReviewShot { x: number; y: number; vx: number; vy: number; life: number; small: boolean; }
+interface ReviewShot { x: number; y: number; vx: number; vy: number; life: number; small: boolean; tower:boolean; }
 
 /** Production renderers and simulation weapon origins, isolated from accounts and multiplayer.
  * This scene never buys, grants, publishes or sends simulation state to a game room. */
@@ -46,6 +46,7 @@ export class RigReviewScene extends Phaser.Scene {
   palette = 0;
   equipped = 4;
   control = 0;
+  buildingPosition=0;
   towerHealth = -1;
   shieldHealth = .55;
   nexusHealth = .55;
@@ -100,7 +101,9 @@ export class RigReviewScene extends Phaser.Scene {
   }
 
   private select(id: string): void {
-    this.subject = id; this.ship?.destroy(); this.ship = null;
+    this.subject = id;
+    if(id==='nexus')this.rotating=false;
+    this.ship?.destroy(); this.ship = null;
     this.finalHit=null;this.buildings.clearDestruction();
     this.warGround?.destroy();this.warGround=id==='warzone'?new PlanetGround(this,-8,[1,1,1],'warzone'):null;
     this.state = newShip(TUNE.world.width / 2, TUNE.world.height / 2, this.heading, 140);
@@ -137,9 +140,9 @@ export class RigReviewScene extends Phaser.Scene {
       ['shield-health',`Shield: ${Math.round(this.shieldHealth*100)}%`],['nexus-health',`Nexus: ${Math.round(this.nexusHealth*100)}%`],
       ['palette',`Clan: ${this.palette%2?'Crimson':'Azure'}`],
     ]:building?[
-      ['rotate',this.rotating?'Rotation: ON':'Rotation: PAUSED'],['fire',this.firing?'Firing: ON':'Firing: OFF'],
+      ['rotate',this.subject==='turret'?(this.rotating?'Aim: ON':'Aim: PAUSED'):(this.rotating?'Sweep: ON':'Sweep: PAUSED')],['fire',this.firing?'Firing: ON':'Firing: OFF'],
       ['tower-health',`Tower: ${Math.round((this.towerHealth<0?1:this.towerHealth)*100)}%`],['nexus-health',`Nexus: ${Math.round(this.nexusHealth*100)}%`],
-      ['palette',`Clan: ${this.palette%2?'Crimson':'Azure'}`],['mounts','Grounded rig'],
+      ['palette',`Clan: ${this.palette%2?'Crimson':'Azure'}`],['position',`Position: ${['CENTRE','RIGHT','BOTTOM','LEFT','TOP'][this.buildingPosition]}`],
     ]:[
       ['rotate', this.rotating ? 'Rotation: ON' : 'Rotation: PAUSED'],
       ['fire', this.firing ? 'Firing: ON' : 'Firing: OFF'],
@@ -170,6 +173,7 @@ export class RigReviewScene extends Phaser.Scene {
     }
     if (id === 'rotate') this.rotating = !this.rotating;
     if (id === 'fire') this.firing = !this.firing;
+    if (id === 'position') this.buildingPosition=(this.buildingPosition+1)%5;
     if (id === 'mounts') this.mounts = !this.mounts;
     if (id === 'palette') { this.palette = (this.palette + 1) % 4; this.select(this.subject); return; }
     if (id === 'control') this.control = (this.control + 1) % 5;
@@ -188,12 +192,12 @@ export class RigReviewScene extends Phaser.Scene {
     this.layout();
   }
 
-  private shot(x: number, y: number, vx: number, vy: number, small = false): void {
-    this.projectiles.push({ x, y, vx, vy, life: .65, small }); this.shotCount++;
+  private shot(x: number, y: number, vx: number, vy: number, small = false,tower=false): void {
+    this.projectiles.push({ x, y, vx, vy, life: .65, small,tower }); this.shotCount++;
   }
 
   snapshot(): Record<string, unknown> {
-    return { subject: this.subject, heading: this.heading, firing: this.firing, rotating: this.rotating,
+    return { subject: this.subject, buildingPosition:this.buildingPosition, heading: this.heading, firing: this.firing, rotating: this.rotating,
       profile: this.ship?.profile.shipId, modules: this.ship?.profile.modules.length ?? (this.subject === 'nexus' ? 3 : 5),
       shots: this.shotCount, heat: this.state.heat, projectiles: this.projectiles.length, settings: configVersion,
       buildingsReady: this.textures.exists(buildingKey('nexus-crown', 2)) && this.textures.exists(buildingKey('tower-barrel', 2)),
@@ -265,34 +269,39 @@ export class RigReviewScene extends Phaser.Scene {
       const towers=this.towerHealth<0?[1,.55,.2,0,1,.55]:Array(6).fill(this.towerHealth);
       const fired=this.firing?Math.floor(now/450)*450:-1e9;
       drawClanBase(this.baseArt,{layout,own:null,member:true,docked:false,now,tune:TUNE,project:projectGround,
-        aim:layout.turrets.map((_,i)=>this.heading+i*Math.PI/3),firedAt:towers.map(h=>h>0?fired:-1e9),rigs:this.buildings,
+        viewport:{w,h},aim:layout.turrets.map((_,i)=>this.heading+i*Math.PI/3),firedAt:towers.map(h=>h>0?fired:-1e9),rigs:this.buildings,
         sun:groundFrame.sun,daylight:groundFrame.daylight,brightness:groundFrame.brightness,
         siege:{towers,shield:this.shieldHealth,nexus:this.nexusHealth,broken:this.shieldHealth===0}});
     } else {
       scale = area / (this.subject === 'nexus' ? 185 : 82);
-      const clan = this.palette % 2 ? 1 : 2, basis = this.heading + Math.PI / 2;
-      const pose = { id: 'review-building', at: { x, y: y + area * .28, scale, visible: true }, clan, now, basisAngle: basis, foreshorten: .8,health:this.subject==='nexus'?this.nexusHealth:this.towerHealth<0?1:this.towerHealth };
+      const clan = this.palette % 2 ? 1 : 2;
+      const positions=[[0,0],[1,0],[0,1],[-1,0],[0,-1]],position=positions[this.buildingPosition];
+      const nx=this.subject==='nexus'&&this.rotating?Math.sin(this.heading):position[0];
+      const ny=this.subject==='nexus'&&this.rotating?Math.cos(this.heading)*.5:position[1];
+      const at={x:x+nx*Math.max(20,w/2-area*.85-20),y:h/2+ny*Math.max(20,(h-235)/2-area*.55),scale,visible:true};
+      const pose = { id: 'review-building', at, clan, now, basisAngle:0,stackLean:buildingStackLean(at,{w,h}), foreshorten: .8,health:this.subject==='nexus'?this.nexusHealth:this.towerHealth<0?1:this.towerHealth };
       if (this.subject === 'nexus') this.buildings.drawTreasury(pose);
       else {
-        const aim = this.heading + Math.sin(now / 2200) * .6;
-        if (pose.health>0&&this.firing && now - this.lastTurret > TUNE.turret.fireIntervalSteps * 1000 / TUNE.net.tickHz) {
+        const aim = this.heading;
+        if (pose.health>0&&this.firing && now - this.lastTurret > (this.towerBarrel===1?TUNE.heavyTower.intervalSeconds:TUNE.heavyTower.pauseSeconds)*1000) {
           this.lastTurret = now; this.towerBarrel = 1 - this.towerBarrel;
           const lateral = this.towerBarrel === 0 ? -8 : 8;
-          // The production tower's raised barrel tip, including its initial six-pixel kick.
-          this.shot(Math.cos(aim) * 33 - Math.sin(aim) * lateral - Math.sin(basis) * TOWER_BARREL_LIFT * .35,
-            (pose.at.y - y) / scale + Math.sin(aim) * 33 + Math.cos(aim) * lateral - Math.cos(basis) * TOWER_BARREL_LIFT,
-            Math.cos(aim) * TUNE.turret.bulletSpeed, Math.sin(aim) * TUNE.turret.bulletSpeed, true);
+          const muzzle=towerMuzzle(pose,aim,lateral,6);
+          this.shot((muzzle.x-x)/scale,(muzzle.y-y)/scale,
+            Math.cos(aim)*TUNE.heavyTower.speed,Math.sin(aim)*TUNE.heavyTower.speed,false,true);
         }
-        this.buildings.drawTurret({ ...pose, angle: aim, firedAt: this.lastTurret });
+        this.buildings.drawTurret({ ...pose, angle: aim, firedAt: this.lastTurret,barrel:this.towerBarrel });
       }
     }
     const alive: ReviewShot[] = [];
     for (const b of this.projectiles) {
       b.life -= dt; if (b.life <= 0) continue;
       b.x += b.vx * dt; b.y += b.vy * dt; alive.push(b);
-      this.combat.bullet(project(b.x, b.y), project(b.x - b.vx * .012, b.y - b.vy * .012), true, b.small, this.state.chassis === 2 ? 1 : 0);
+      const head=project(b.x,b.y),tail=project(b.x-b.vx*(b.tower?.006:.012),b.y-b.vy*(b.tower?.006:.012));
+      this.combat.bullet({...head,scale:head.scale*(b.tower?clientTune.render.bulletScale*.45:1)},tail,true,b.small,b.tower?1:this.state.chassis===2?1:0);
     }
     this.projectiles = alive; this.buildings.end(); this.combat.end();
-    this.caption.setText(this.subject==='warzone'?`PREVIEW ONLY · Towers ${this.towerHealth<0?'healthy / damaged / critical / wreck':damageStage(this.towerHealth)} · Shield ${this.shieldHealth===0?'BROKEN':Math.round(this.shieldHealth*100)+'%'} · Nexus ${damageStage(this.nexusHealth)}\nTap health controls to cycle states · Orbit moves across the same anchored ground`:`${SUBJECTS.find(s => s.id === this.subject)!.label} · ${Math.round((this.heading * 180 / Math.PI + 450) % 360)}° · ${this.subject === 'nexus' ? 'No weapons · '+damageStage(this.nexusHealth) : this.subject === 'turret' ? 'Dual barrels · '+damageStage(this.towerHealth<0?1:this.towerHealth) : 'Gold crosses = simulation gun origins'} · ${configVersion === 'bundled' ? 'Bundled settings' : 'Live settings'}`);
+    const poseLabel=this.ship||this.subject==='turret'?`${this.subject==='turret'?'Aim ':''}${Math.round((this.heading*180/Math.PI+450)%360)}°`:`Position ${['CENTRE','RIGHT','BOTTOM','LEFT','TOP'][this.buildingPosition]}`;
+    this.caption.setText(this.subject==='warzone'?`PREVIEW ONLY · Towers ${this.towerHealth<0?'healthy / damaged / critical / wreck':damageStage(this.towerHealth)} · Shield ${this.shieldHealth===0?'BROKEN':Math.round(this.shieldHealth*100)+'%'} · Nexus ${damageStage(this.nexusHealth)}\nTap health controls to cycle states · Orbit moves across the same anchored ground`:`${SUBJECTS.find(s => s.id === this.subject)!.label} · ${poseLabel} · ${this.subject === 'nexus' ? 'Position-driven stack · '+damageStage(this.nexusHealth) : this.subject === 'turret' ? 'Fixed tower · aiming head · '+damageStage(this.towerHealth<0?1:this.towerHealth) : 'Gold crosses = simulation gun origins'} · ${configVersion === 'bundled' ? 'Bundled settings' : 'Live settings'}`);
   }
 }

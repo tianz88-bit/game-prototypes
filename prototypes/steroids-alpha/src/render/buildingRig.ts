@@ -5,7 +5,7 @@ import { damageStage, durability } from './buildingCondition';
 import { isBuildingFinalHit } from './buildingBlast';
 import { BuildingDestruction } from './buildingDestruction';
 import { clanArtColours, colourCss, remapBuildingPixels } from './buildingMaterials';
-import { buildingPoint, buildingShadowPolygon, TOWER_BARREL_LIFT, TOWER_HEAD_LIFT } from './buildingGeometry';
+import { buildingPoint, buildingShadowPolygon, towerMuzzle, TOWER_BARREL_LIFT, TOWER_HEAD_LIFT } from './buildingGeometry';
 import type { BuildingRigPose } from './buildingGeometry';
 export type { BuildingAt, BuildingRigPose } from './buildingGeometry';
 
@@ -34,7 +34,7 @@ export function prepareBuildingArt(scene:Phaser.Scene):void {
   }
 }
 
-export interface TurretRigPose extends BuildingRigPose {angle:number;firedAt:number;groundMuzzle?:{x:number;y:number};}
+export interface TurretRigPose extends BuildingRigPose {angle:number;firedAt:number;barrel?:number;}
 export interface BuildingRigBounds {top:number;bottom:number;left:number;right:number;labelY:number;}
 interface BuildingView {
   kind:'nexus'|'turret';clan:number;parts:Phaser.GameObjects.Image[];shadow:Phaser.GameObjects.Image;
@@ -99,7 +99,7 @@ export class BuildingRigs {
   private point(p:BuildingRigPose,lift:number,forward=0,lateral=0,angle=p.basisAngle??0):{x:number;y:number} {
     return buildingPoint(p,lift,forward,lateral,angle);
   }
-  private part(image:Phaser.GameObjects.Image,p:BuildingRigPose,width:number,lift:number,depthShade:number,rotation=p.basisAngle??0,forward=0,lateral=0,originY=.5):void {
+  private part(image:Phaser.GameObjects.Image,p:BuildingRigPose,width:number,lift:number,depthShade:number,rotation=0,forward=0,lateral=0,originY=.5):void {
     const at=this.point(p,lift,forward,lateral,rotation-Math.PI/2);
     image.setPosition(at.x,at.y).setOrigin(.5,originY).setRotation(rotation);
     image.setDisplaySize(width*p.at.scale,width*p.at.scale*image.frame.height/image.frame.width*clamp(p.foreshorten??1,.55,1.15));
@@ -175,7 +175,8 @@ export class BuildingRigs {
     this.part(view.parts[0],p,44,0,.91);
     this.part(view.parts[1],p,29,20,.94);
     this.part(view.parts[2],p,48,TOWER_HEAD_LIFT,.97,p.angle+Math.PI/2);
-    if(p.firedAt>view.lastShot){view.lastShot=p.firedAt;view.barrel=1-view.barrel;}
+    if(p.firedAt>view.lastShot){view.lastShot=p.firedAt;view.barrel=p.barrel??1-view.barrel;}
+    if(p.barrel!==undefined)view.barrel=p.barrel;
     const age=p.now-p.firedAt;
     for(let side=0;side<2;side++){
       const barrel=view.parts[3+side],active=side===view.barrel&&age>=0&&age<180;
@@ -186,7 +187,7 @@ export class BuildingRigs {
       barrel.setPosition(at.x,at.y).setOrigin(.5,.9).setRotation(p.angle+Math.PI/2)
         .setDisplaySize(width*p.at.scale,38*p.at.scale*clamp(p.foreshorten??1,.55,1.15)).setTint(shade(p.brightness??1));
       if(active&&age<85){
-        const q=this.point(p,TOWER_BARREL_LIFT,39-recoil,lateral,p.angle),k=p.at.scale,c=Math.cos(p.angle),s=Math.sin(p.angle),g=this.flashes;
+        const q=towerMuzzle(p,p.angle,lateral,recoil),k=p.at.scale,c=Math.cos(p.angle),s=Math.sin(p.angle),g=this.flashes;
         g.fillStyle(0xffa766,.7*(1-age/85));g.fillTriangle(q.x+c*13*k,q.y+s*13*k,q.x-s*5*k,q.y+c*5*k,q.x+s*5*k,q.y-c*5*k);
         g.fillStyle(0xf1ffeb,1-age/85);g.fillCircle(q.x+c*3*k,q.y+s*3*k,3*k);
       }

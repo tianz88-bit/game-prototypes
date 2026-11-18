@@ -2,6 +2,14 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Fixed building stacks and barrel-aligned tower shots
+
+Owner correction: buildings do not rotate. Fixed Nexus/tower foundation/shaft/plates; only turret head and barrels aim. buildingStackLean uses screen-relative radius, bounded at0.55 displacement per layer height; centre overlaps, edge offsets scale with height. Same origin feeds connecting columns and muzzle flashes; existing ground projection/cast shadow remains. Lab has five position presets, separate turret aim, optional Nexus position sweep. Existing art/clan/damage/wreck/repair retained.
+
+NetClient adds local tower-origin/duration/barrel tags to existing SHOTS (no wire change). Each received tower shot toggles local per-index parity and forwards it to the rig; rendering begins at the matching recoil/foreshortened barrel tip and smoothly merges onto authoritative trajectory in180ms. Tower bolts use45% of the existing bulletScale and a shorter trail; primary/CIWS remain unchanged. No simulation, hitboxes, damage, cadence, assets, dependencies or Worker changes. Owner approved release after testing. Deferred only, no immediate Claude action.
+
+Type/build/sim/config/rig pass;3 local headless PC/touch/portrait cases each check50 fixed-orientation/position/muzzle combinations, smaller bolts and wreck/repair. Isolated tutorial fixture exercises actual NetClient handle/Flight draw for parity, exact projected muzzle, size and final authority path. No live account spending, captures or screenshots.
+
 ## Main-menu evolution loadout slot — LIVE181126r0104
 
 PR568983a497d; itch44295327666 and Pages44295327839 succeeded.8 local+2 public headless PC/touch cases passed; proof lab/evolution/menu-slot-proof.json. No capture, real account purchases or immediate Claude action.

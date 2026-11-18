@@ -1,0 +1,69 @@
+{
+  "capture": false,
+  "local": {
+    "capture": false,
+    "errors": [],
+    "cases": [
+      {
+        "width": 1280,
+        "height": 720,
+        "mobile": false,
+        "checks": 50,
+        "subjects": [
+          "nexus",
+          "turret"
+        ],
+        "positions": 5,
+        "dualMuzzles": true,
+        "fixedOrientation": true,
+        "smallerBolts": true,
+        "repair": true,
+        "flight": {
+          "networkParity": true,
+          "flightMuzzle": true,
+          "smallerScale": true,
+          "authorityPathRestored": true,
+          "isolatedTutorial": true
+        }
+      },
+      {
+        "width": 568,
+        "height": 320,
+        "mobile": true,
+        "checks": 50,
+        "subjects": [
+          "nexus",
+          "turret"
+        ],
+        "positions": 5,
+        "dualMuzzles": true,
+        "fixedOrientation": true,
+        "smallerBolts": true,
+        "repair": true
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "mobile": true,
+        "checks": 50,
+        "subjects": [
+          "nexus",
+          "turret"
+        ],
+        "positions": 5,
+        "dualMuzzles": true,
+        "fixedOrientation": true,
+        "smallerBolts": true,
+        "repair": true
+      }
+    ]
+  },
+  "checks": {
+    "typecheck": true,
+    "build": true,
+    "rigGeometry": true,
+    "simulation": true,
+    "liveConfig": true
+  },
+  "release": "pending"
+}

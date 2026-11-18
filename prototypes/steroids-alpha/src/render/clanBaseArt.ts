@@ -5,6 +5,7 @@ import type { ShipState } from '../../sim/ship';
 import type { Tune } from '../../sim/tune';
 import { wrapDelta } from '../../sim/wrap';
 import type { BuildingRigs, BuildingRigPose } from './buildingRig';
+import { buildingStackLean } from './buildingGeometry';
 import { clanArtColours } from './buildingMaterials';
 import { drawWarzoneShield } from './warzoneShield';
 export { CLAN_ART, clanArtColours } from './buildingMaterials';
@@ -24,6 +25,8 @@ export interface ClanBaseArtOptions {
   project:(x:number,y:number)=>At;
   aim:readonly number[];
   firedAt:readonly number[];
+  barrels?:readonly number[];
+  viewport?:{w:number;h:number};
   /** Existing world impacts; only those on the dome perimeter are used. */
   impacts?:readonly {x:number;y:number;at:number}[];
   rigs?:BuildingRigs;
@@ -65,7 +68,7 @@ export function drawClanBase(g:Phaser.GameObjects.Graphics,o:ClanBaseArtOptions)
     const qx=project(x+24,y),qy=project(x,y+24),dx=qx.x-at.x,dy=qx.y-at.y;
     const basisAngle=qx.visible?Math.atan2(dy,dx):0;
     const foreshorten=qx.visible&&qy.visible?Math.max(.55,Math.min(1.15,Math.hypot(qy.x-at.x,qy.y-at.y)/Math.max(.001,Math.hypot(dx,dy)))):1;
-    return{id,at,clan:layout.clan,now,basisAngle,foreshorten,sun:o.sun,daylight:o.daylight,brightness:o.brightness,
+    return{id,at,clan:layout.clan,now,basisAngle,foreshorten,stackLean:o.viewport?buildingStackLean(at,o.viewport):undefined,sun:o.sun,daylight:o.daylight,brightness:o.brightness,
       projectGround:(dx,dy)=>project(x+dx,y+dy)};
   };
   // A projected perimeter and two light latitude bands suggest a dome without a solid gameplay veil.
@@ -130,7 +133,7 @@ export function drawClanBase(g:Phaser.GameObjects.Graphics,o:ClanBaseArtOptions)
     const at=project(p.x,p.y);if(!at.visible)return;
     const k=Math.max(.7,at.scale),aim=o.aim[i]??-Math.PI/2,ahead=project(p.x+Math.cos(aim)*30,p.y+Math.sin(aim)*30);
     const a=Math.atan2(ahead.y-at.y,ahead.x-at.x),ca=Math.cos(a),sa=Math.sin(a),flash=now-(o.firedAt[i]??-1e9)<90;
-    if(o.rigs?.drawTurret({...rigPose(`base-turret-${layout.clan}-${i}`,p.x,p.y,at),health:o.siege?.towers[i],angle:a,firedAt:o.firedAt[i]??-1e9,groundMuzzle:ahead}))return;
+    if(o.rigs?.drawTurret({...rigPose(`base-turret-${layout.clan}-${i}`,p.x,p.y,at),health:o.siege?.towers[i],angle:a,firedAt:o.firedAt[i]??-1e9,barrel:o.barrels?.[i]}))return;
     const pt=(u:number,v:number)=>({x:at.x+(ca*u-sa*v)*k,y:at.y+(sa*u+ca*v)*k});
     poly(g,hex(at.x,at.y+2*k,18*k),c.shade,0x111c2c,Math.max(1,2*k));
     poly(g,[pt(-8,-11),pt(12,-9),pt(15,0),pt(12,9),pt(-8,11),pt(-13,0)],c.hull,0x101c31,Math.max(1,2*k));
