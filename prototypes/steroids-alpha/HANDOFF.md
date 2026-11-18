@@ -1,10 +1,10 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
-## 2026-11-18 codex cruise/home warp and building tilt
-DID: neutral restores power-adjusted chassis cruise; marker aims only, mobile hold+/−; brake over owned pad docks, release takes off. Peace homes bypass cooldown; compact low-speed flashes.
+## 2026-11-18 codex cruise/home/tilt LIVE181126r0106
+DID: PR5723245a9e4 live106/30; itch44338617901/Worker44338617904/Pages44338621246 succeeded. Neutral cruise, deliberate docking, peace-home warp, compact FX, building FFD and idle heads.
 FILES: shared ship/home/world, Intents/NetClient/Flight/tutorial, buildingFFD/geometry/Rig/clanBaseArt and ship exhaust; authority/grip/building fixtures.
 SEAM: protocol30 same wire layout forces paired refresh; shared authority/prediction agree. Optional idleScan and pooled per-part building meshes preserve roots/fixed layers and Canvas/context-loss fallback.
-CROSS: owner requested movement/landing/warp; existing acceleration/braking/tuned caps unchanged. Type/build/sim/config/rig pass;3 WebGL PC/touch cases plus actual Canvas fallback, touch holds/neutral marker, home UI, real mesh faces/stable objects pass. No capture.
+CROSS: owner requested movement/landing/warp; existing acceleration/braking/tuned caps unchanged. Type/build/sim/config/rig pass;3 local+2 public WebGL cases plus Canvas pass input/FFD; actual home56 snapshots verify cruise260/lock0/acknowledged warp. No capture.
 FOR claude: deferred only. Explicit brake/full-throttle now used in fixed-speed shield/ram/grip fixtures; neutral post-dash expects cruise. No new assets/dependencies/migration or hosted config changes.
 
 ## 2026-11-18 codex fixed building stacks LIVE181126r0105

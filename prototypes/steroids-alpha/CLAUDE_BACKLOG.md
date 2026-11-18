@@ -2,7 +2,9 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
-## Cruise/home extraction, low-speed FX and building tilt — release pending
+## Cruise/home extraction, low-speed FX and building tilt — LIVE181126r0106/protocol30
+
+PR5723245a9e4350f4fb170a837b575ae82f778f20bb3. Client44338617901/Worker44338617904/Pages44338621246 succeeded.3 local+2 public WebGL cases and actual Canvas fallback pass; real home server56 snapshots confirm cruise260,lockdown0,warp across10 more snapshots/ack99. Proof lab/cruise-home-proof.json. No capture/spending; temporary preview/headless stopped.
 
 Owner18 November: no held speed control returns to each chassis/power cruise with existing accel/brake; no tuned rates changed. Shared stepShip performs this in authority/prediction. Removed marker auto-brake and marker-push acceleration; aiming is independent. Mobile gets compact hold+/− controls (44px high), with pointer release/cancel/blur/shutdown cleanup. Down/− over own pad reaches zero and docks; release accelerates and takes off. Tutorial/control wording updated.
 
