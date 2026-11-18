@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-18 codex Missile Cruiser correction LIVE181126r0102
+DID: PR564 74dd2ced live; client44251753113 attempt2 + Worker44251753080 success. MC zero free turrets, bought upgrades retained, min90/cruise170/top225. Public lab matches.
+FILES: tune/protocol28, lab settings/model/preview, capital/lab regressions; artillery-release-proof.json and deferred docs.
+SEAM:28 has identical layout; refresh cached27 clients. Existing legacy hosted record omits MC, so defaults90/base0 apply to new client and Worker.
+CROSS: authority tests cover0/1/2/4 bought turrets, actual braking floor90, BC base2/min140 and bought CIWS bursts. Type/build/sim/lab/config pass;49 public snapshots and heads0/BC2 verified, no capture.
+FOR claude: deferred only. Client retry cleared randomized bot-spacing fixture failure; Pages deploy succeeded but Operation C counter push raced main. Future deterministic fixture/counter retry housekeeping; no live block.
+
 ## 2026-11-18 codex Missile Cruiser artillery tuning
 DID: zero free/required turrets and zero gun requirement fields; only bought turrets retained. Minimum90 (was140), cruise170/top225 unchanged; lab matches live.
 FILES: tune/protocol28, lab evolution settings/model/preview, capital/lab regressions and deferred docs.
@@ -97,10 +104,3 @@ FILES: menu, stellarMap, landingLayout and rig-gate layout test; BRIEF/COLLAB/BU
 SEAM: chooseSide while closed; Info dismissal; confirmed Warzone auto-join with cancellation state/label. Existing account/save/input APIs; no wire/gameplay/live tuning changes.
 CROSS: type/build/rig/sim/config pass;9 local+9 public Brave DPR2 layouts plus final compact case. Utilities/recovery/all5 intel routes/side selection/auto-join/Hangar/Learn/lifecycle pass, zero page errors/captures/public-room fixture writes.
 FOR claude: deferred backlog ready; no immediate execution/review needed. Vite4187 stopped, no leftover headless test process. Evidence outputs/steroids-alpha/landing-map-hierarchy/.
-
-## 2026-11-17 codex landing menu/map RELEASE
-DID: selected real ship/palette hero with primary Warp, secondary Learn to fly; utility panels preserve mobile Settings/Account/Share. Map has name/danger/players/resources and optional Info.
-FILES: menu, stellarMap, pure landingLayout and existing rig-gate geometry regression; brief/collaboration/status/backlog.
-SEAM: MapAction.chooseSide for closed Warzone, dismissInfo for Escape. Auto-join requires confirmed opening; closing/changing planet cancels. Existing account/input/save/network contracts retained.
-CROSS: type/build/rig/sim/config pass;9 Brave DPR2 desktop/mobile/portrait/tall/short cases plus final compact cancellation case, no page errors/captures/public-room fixture writes. Recovery preserves edited name and modal field layers.
-FOR claude: deferred FYI only; no immediate execution/review. Owner approved go-live. Public release proof follows in CLAUDE_BACKLOG/BUILD_STATUS.

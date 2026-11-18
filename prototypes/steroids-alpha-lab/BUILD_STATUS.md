@@ -1,23 +1,23 @@
 ## Current milestone
 
-PUBLIC evolution lab verified alongside LIVE 181126r0101/protocol27 via PR562. Pages44232567296, itch44232567195 and Worker44232567203 succeeded. R2 package uploaded and hashes verified.
+PUBLIC lab matches LIVE181126r0102/protocol28 artillery correction via PR564. Pages44251753017 deploy succeeded; post-deploy counter persistence raced main. Client/Worker succeeded.
 
 ## What was implemented
 
-?evolution=1 provides graphical requirements/selection,18-module Missile Cruiser,8 rear-launch missiles, capital burst CIWS/heavy tower comparison and narrow CIWS tracers distinct from main guns. Production has its own shared authority and Hangar EVOLVE selection. Calibration stats expose Missile Cruiser/CIWS/heavy-tower groups.
+Missile Cruiser preview/evolution has zero base turrets, retains bought ones, minimum90/cruise170/top225; four empty platforms visible. Battlecruiser base2/min140 retained. Graphical build choice/requirements,8 rear-launched missiles and bought CIWS bursts remain.
 
 ## Key technical decisions
 
-Lab model stays isolated from accounts/game sockets/publishing. Production uses validated purchases, shared capacity/cooldown/prediction, protocol27 and verified assets. Public desktop/mobile lab checks pass evolution/firing/mines/tilt/persistence/reset/bounds, no errors/sockets/writes/capture. Public Hangar and WebGL/Canvas production rendering also pass. evolution/release-proof.json stores portable proof; raw evidence outputs/steroids-alpha/missile-cruiser-lab/.
+Lab no longer hardcodes2 turrets for MC. Shared production uses tune base0. Unit/type/build/sim/config/lab pass; public lab gives0 turrets/min90/ammo8 and actual public Hangar heads0/BC2.49 healthy network snapshots carry corrected values. Proof evolution/artillery-release-proof.json, no errors/capture.
 
 ## Open questions
 
-Human balance/feel review remains useful; live release already approved and completed.
+Owner can playtest slower artillery positioning; no further release permission needed.
 
 ## Known issues
 
-Lab is a deterministic design comparison rather than live multiplayer authority. Cold public asset loads can exceed30s. No physical Safari review.
+Unrelated randomized bot-spacing test retried successfully; Pages post-deploy counter push race deferred. Lab remains isolated from game accounts/network authority.
 
 ## Next proposed step
 
-Owner can compare in the permanent lab or play live. Claude backlog deferred; upload tab and temporary preview/Worker/headless tests cleaned up. No resident publisher.
+Use the public lab or refresh/play live. Claude backlog saved; no resident publisher, temporary tests closed.

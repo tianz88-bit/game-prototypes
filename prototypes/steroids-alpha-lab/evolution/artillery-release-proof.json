@@ -1,0 +1,67 @@
+{
+  "version": "181126r0102",
+  "protocol": 28,
+  "pr": 564,
+  "merge": "74dd2ced9c85c359983d4ffc421b68bfffd83b28",
+  "runs": {
+    "itch": 44251753113,
+    "worker": 44251753080,
+    "pages": 44251753017
+  },
+  "clientAttempt": 2,
+  "pages": "Deployment step succeeded; subsequent unrelated Operation C counter push raced main",
+  "public": {
+    "capture": false,
+    "errors": [],
+    "snapshots": 49,
+    "url": "https://html-classic.itch.zone/html/20420865-2424338/prototypes/steroids-alpha/index.html",
+    "missileCruiser": {
+      "radius": 57,
+      "minSpeed": 90,
+      "cruiseSpeed": 170,
+      "maxSpeed": 225,
+      "acceleration": 230,
+      "braking": 600,
+      "turnRate": 1.4,
+      "shieldFactor": 2.5,
+      "damageFactor": 1.5,
+      "fireIntervalSteps": 5,
+      "baseTurrets": 0,
+      "minUpgrades": 6,
+      "powerFloor": 300,
+      "cost": 120,
+      "minTurrets": 0,
+      "minGuns": 0,
+      "minMissiles": 4,
+      "minMines": 2,
+      "capacity": 8,
+      "rangeFactor": 1.5,
+      "radiusFactor": 1.5,
+      "launchSpeed": 220,
+      "reverseSeconds": 0.45,
+      "turnRateMissile": 1.9,
+      "lifeSeconds": 7,
+      "repeatSeconds": 0.3
+    },
+    "connection": {
+      "status": "open",
+      "hp": 50
+    },
+    "preview": {
+      "x": 892.4444444444445,
+      "y": 70
+    },
+    "heads": {
+      "missile": 0,
+      "battle": 2
+    }
+  },
+  "lab": {
+    "form": "missileCruiser",
+    "turrets": 0,
+    "minSpeed": 90,
+    "ammo": 8,
+    "capture": false
+  },
+  "capture": false
+}
