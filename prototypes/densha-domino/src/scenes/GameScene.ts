@@ -20,6 +20,13 @@ interface Save {
   stars: number[];
 }
 
+/** Tutorial captions by level (index 0 to 2), then by tap number. Later levels have none. */
+const COACH: Record<number, string[]> = {
+  0: ['Tap the train. It runs along its track until it leaves the board.'],
+  1: ['Tap the back train. It bumps the one ahead, which takes off too, and the back one follows it out.'],
+  2: ['A bump on the side sets a train off as well. It runs away from the bump.', 'Fewer taps means more stars. Par is the fewest possible.'],
+};
+
 const BOARD_TOP = 120;
 const BOARD_BOTTOM = 690;
 const BOARD_W = WIDTH - 40;
@@ -50,6 +57,8 @@ export class GameScene extends Phaser.Scene {
   private hudLevel!: Phaser.GameObjects.Text;
   private hudTaps!: Phaser.GameObjects.Text;
   private banner!: Phaser.GameObjects.Text;
+  private coach!: Phaser.GameObjects.Text;
+  private hint: Phaser.GameObjects.Container | null = null;
   private starsG!: Phaser.GameObjects.Graphics;
   private gBackdrop!: Phaser.GameObjects.Graphics;
   private cursorG!: Phaser.GameObjects.Graphics;
@@ -105,6 +114,7 @@ export class GameScene extends Phaser.Scene {
     this.hudTaps = this.hudText(WIDTH / 2, 70, 15, '#f1f9ff');
     this.starsG = this.add.graphics().setDepth(240);
     this.banner = this.hudText(WIDTH / 2, 400, 34, '#ffe27a').setDepth(230).setAlpha(0);
+    this.coach = this.hudText(WIDTH / 2, 172, 16, '#ffffff').setDepth(230).setAlign('center').setWordWrapWidth(WIDTH - 50);
     this.yard = this.add.graphics().setDepth(0);
     this.arrows = this.add.graphics().setDepth(60);
     this.cursorG = this.add.graphics().setDepth(70);
@@ -139,6 +149,8 @@ export class GameScene extends Phaser.Scene {
         },
         goto: (n: number) => this.startLevel(n),
         menuOpen: () => this.phase === 'menu',
+        coach: () => this.coach.text,
+        hintShown: () => !!this.hint,
         slow: (s: number) => (this.testSlow = s),
         levels: () => LEVELS.length,
       };
@@ -213,6 +225,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.cursor = { c: 0, r: 0 };
     this.refreshHud();
+    this.updateCoach();
   }
 
   private refreshHud(): void {
@@ -263,7 +276,7 @@ export class GameScene extends Phaser.Scene {
   private onIntent(intent: Intent): void {
     if (intent.type === 'restart') return this.startLevel(this.levelIndex);
     if (intent.type === 'next') return this.startLevel(this.levelIndex + 1);
-    if (intent.type === 'levels') return this.phase === 'menu' ? this.closeMenu() : this.phase === 'play' ? ((this.menuPage = -1), this.openMenu()) : undefined;
+    if (intent.type === 'levels') return this.phase === 'menu' ? (this.closeMenu(), this.updateCoach()) : this.phase === 'play' ? ((this.menuPage = -1), this.openMenu()) : undefined;
     if (intent.type === 'select') return this.selectLevel(intent.level);
     if (this.phase !== 'play') return;
     if (intent.type === 'tap') {
@@ -357,6 +370,7 @@ export class GameScene extends Phaser.Scene {
     if (!canRun(this.level, this.state, train, dir)) return this.tapTrain(train);
     this.pending = null;
     this.arrows.clear();
+    this.clearHint();
     const res = applyTap(this.level, this.state, { train, dir }, this.rules);
     this.taps++;
     this.state = res.state;
@@ -524,6 +538,47 @@ export class GameScene extends Phaser.Scene {
     if (isCleared(this.state)) return this.win();
     if (this.taps >= this.limit) return this.fail();
     this.phase = 'play';
+    this.updateCoach();
+  }
+
+  // ------------------------------------------------------------ tutorial
+
+  private clearHint(): void {
+    this.hint?.destroy();
+    this.hint = null;
+  }
+
+  /**
+   * Guided tutorial for levels 1 to 3: a caption plus a pulsing ring and arrow on the train
+   * an optimal solution taps next. It is only a hint: it never blocks or swallows input.
+   */
+  private updateCoach(): void {
+    this.clearHint();
+    const lines = COACH[this.levelIndex];
+    if (!lines || this.phase !== 'play') {
+      this.coach.setText('');
+      return;
+    }
+    this.coach.setText(lines[Math.min(this.taps, lines.length - 1)]);
+    const m = solve(this.level, this.state, 400000, this.rules).moves[0];
+    const v = m ? this.views.get(m.train) : undefined;
+    if (!m || !v) return;
+    const horizontal = this.level.trains[m.train].axis === 'h';
+    const a = this.arrowPos(m.train, m.dir);
+    const g = this.add.graphics();
+    g.lineStyle(4, 0xffe27a, 1);
+    g.strokeRoundedRect(-this.cs * 0.6 * (horizontal ? this.level.trains[m.train].len : 1), -this.cs * 0.6 * (horizontal ? 1 : this.level.trains[m.train].len), this.cs * 1.2 * (horizontal ? this.level.trains[m.train].len : 1), this.cs * 1.2 * (horizontal ? 1 : this.level.trains[m.train].len), 14);
+    const ring = this.add.container(v.container.x, v.container.y, [g]).setDepth(220);
+    const arrow = this.add.graphics().setDepth(221);
+    arrow.fillStyle(0xffe27a, 1);
+    const k = this.cs * 0.28;
+    if (horizontal) arrow.fillTriangle(m.dir * k, 0, -m.dir * k * 0.5, -k, -m.dir * k * 0.5, k);
+    else arrow.fillTriangle(0, m.dir * k, -k, -m.dir * k * 0.5, k, -m.dir * k * 0.5);
+    const holder = this.add.container(0, 0, [ring, arrow]).setDepth(220);
+    arrow.setPosition(a.x, a.y);
+    this.tweens.add({ targets: ring, alpha: 0.35, duration: 450, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: arrow, x: a.x + (horizontal ? m.dir * 8 : 0), y: a.y + (horizontal ? 0 : m.dir * 8), duration: 380, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    this.hint = holder;
   }
 
   // ---------------------------------------------------------------- results
@@ -554,6 +609,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showOverlay(title: string, stars: number, label: string, onTap: () => void): void {
+    this.clearHint();
+    this.coach.setText('');
     this.clearOverlay();
     const panel = this.add.graphics().setDepth(300);
     panel.fillStyle(0x1f4f8f, 0.55);

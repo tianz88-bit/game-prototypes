@@ -6,6 +6,7 @@ Scope step 1 plus level selector, now with a 100-level pack: 10 hand-picked leve
 - Level selector, paged (20 per page, previous and next buttons), opens on the page of the current level.
 - Backwards generator (`src/game/generator.ts`): scatters obstacles, builds a long climax chain first (one tap clears it), then adds blockers backwards, keeping each only if the plan gets one tap longer. The plan is replayed with the real rules. Solvable by construction.
 - Pack (`src/game/pack.ts`, levels 11 to 100) written by `scripts/build-densha-pack.mjs`. Ramp: 6x7 with 8-9 trains, 7x8 with 10-12, 8x9 with 12-14. Do not hand-edit.
+- Guided tutorial on levels 1 to 3: a caption above the board plus a pulsing ring and arrow on the train an optimal solution taps next (from the solver, so it tracks the real state). Hint only, never blocks input. Captions are in `COACH` in `GameScene.ts`; level 3 changes its caption after the first tap.
 - `scripts/gen-densha-levels.mjs` prints generator stats per board size.
 - `ART_HANDOFF.md` for Codex (art layer plan, replacement table). Not acted on yet.
 
@@ -21,6 +22,7 @@ Scope step 1 plus level selector, now with a 100-level pack: 10 hand-picked leve
 - Does the 100-level ramp feel right? Generated boards have randomly placed obstacles and have not been playtested by a person.
 
 ## Known issues
+- Tutorial text is English only and shown every time on levels 1 to 3 (no first-run flag). It is not covered by the BRIEF yet.
 - Generator is not yet tuned for variety: boards may look alike.
 - Solver stops at 400k states; boards above about 8x9 get approximate par.
 - Exact par is sometimes lower than the plan, so the optimal solution may not end on the climax chain.
