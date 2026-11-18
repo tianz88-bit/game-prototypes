@@ -2,7 +2,9 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
-## Capital evolution production port — APPROVED, ART VERIFIED (release queued)
+## Capital evolution production port — LIVE 181126r0101/protocol27
+
+LIVE proof: PR562 29bb41a4db28900f1c00a4e028b8fb1aff1b6172; itch44232567195/Worker44232567203/Pages44232567296 all success. Public2 Hangar+2 lab+WebGL/Canvas rendering pass, real healthy planet connections and75 snapshots. Step-count grip check24°→.53° passes. Portable proof steroids-alpha-lab/evolution/release-proof.json; no captures; upload tab and temporary processes stopped. No immediate Claude action.
 
 Owner approved release18 November2026 after the lab review, requesting narrower CIWS shots. Painted small turret bolts now compress the short axis to20% of the original sprite aspect (with a.7px visibility floor); actual production render checks compare against main shots. Main-gun width remains unchanged. Lab CIWS and primary bolts have distinct draw flags.
 
