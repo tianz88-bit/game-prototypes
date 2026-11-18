@@ -2,7 +2,7 @@
 // Pure game rules with no networking, so it runs in the Cloudflare room and in Node tests alike.
 // The room steps each ship with its input, then calls step() once per tick and sends out the events.
 import type { Tune } from './tune';
-import { damageScale, maxShield, shieldRegen, shipVelocity, muzzleShot, newShip, shipRadius, stepShip } from './ship';
+import { damageScale, maxShield, mineralBalance, hullCapacity, shieldRegen, shipVelocity, muzzleShot, newShip, shipRadius, stepShip } from './ship';
 import type { AssistTarget, ShipInput, ShipState } from './ship';
 import { asteroidMass, asteroidPos, splitAsteroid } from './asteroids';
 import type { Asteroid } from './asteroids';
@@ -36,8 +36,8 @@ export interface ShotEvent {
 }
 
 /**
- * Something lying on the planet to fly into: a health boost (heals), or minerals (value points of
- * hull and shield; dropped by asteroids and spilled by damaged or destroyed ships).
+ * Something lying on the planet to fly into: a health boost (heals), or wallet minerals
+ * (dropped by asteroids and spilled by damaged or destroyed ships).
  */
 export interface Pickup {
   id: number;
@@ -507,7 +507,7 @@ export class World {
         // ship.dashRamHullFraction of the target's hull maximum, so any pilot can hurt a big ship.
         // The target takes it straight to the hull; the rammer takes the same amount on its shield
         // (no overflow), or on its hull only if its shield is already down (owner, 16 November 2026).
-        const ram = Math.max(t.ship.dashRamDamage * damageScale(s, t), t.ship.dashRamHullFraction * o.hullMax);
+        const ram = Math.max(t.ship.dashRamDamage * damageScale(s, t), t.ship.dashRamHullFraction * hullCapacity(o,t));
         this.damageShip(oid, o, ram, id, wrap(o.x - dx * or, W), wrap(o.y - dy * or, H), 'hull');
         this.damageShip(id, s, ram, oid, wrap(s.x + dx * sr, W), wrap(s.y + dy * sr, H), 'shield');
         this.events.rams.push({ id, target: oid, x: wrap(s.x + dx * sr, W), y: wrap(s.y + dy * sr, H) });
@@ -589,7 +589,7 @@ export class World {
     }
 
     // Pickups: the first ship to touch one takes it; unclaimed ones fade away. A health boost heals a
-    // share of the starting hull; minerals add their value to hull and shield, up to the power cap.
+    // share of the starting hull; minerals fill the independent wallet up to its carried-load cap.
     for (const k of this.pickups.values()) {
       let by = 0;
       if (this.tick >= k.expires) by = -1;
@@ -598,7 +598,7 @@ export class World {
           if (s.hp <= 0 || (id === k.from && this.tick < k.lockedUntil)) continue;
           if (!hits(s.x, s.y, k.x, k.y, t.asteroid.pickupRadius + shipRadius(s.hullMax, t, s.chassis))) continue;
           // A health boost repairs (up to the hull maximum).
-          if (k.kind === 'heal') s.hp = Math.min(s.hullMax, s.hp + t.ship.maxHp * t.asteroid.healthHealFraction);
+          if (k.kind === 'heal') s.hp = Math.min(hullCapacity(s,t), s.hp + t.ship.maxHp * t.asteroid.healthHealFraction);
           else if (k.kind === 'salvage') {
             // Cargo hold (owner, 15 November 2026): at most salvage.cargoMax carried. A full ship
             // leaves gold where it lies for others; a nearly full one takes what fits.
@@ -612,12 +612,8 @@ export class World {
             }
           }
           else {
-            // Minerals repair damage first; the rest grows the hull maximum (power), up to the cap.
-            const repair = Math.min(k.value, Math.max(0, s.hullMax - s.hp));
-            const grow = Math.min(k.value - repair, Math.max(0, t.ship.powerCap - s.hullMax));
-            s.hullMax += grow;
-            s.hp += repair + grow;
-            s.shield = Math.min(maxShield(s, t), s.shield + k.value);
+            // The wallet is independent of hull/shields: collecting/spending cannot repair or harm.
+            s.hullMax = Math.min(t.ship.powerCap,s.hullMax+k.value);
             // Mined minerals also add salvage (bots never earn it); minerals spilled by ships do not.
             // Clan home planets (owner, 15 November 2026): no salvage; members mine fuel for the
             // clan treasury instead (visitors get neither).
@@ -752,7 +748,7 @@ export class World {
         continue;
       }
       if (this.siege || !isDocked(base, base.clan, s, t)) continue;
-      s.hp = Math.min(s.hullMax, s.hp + s.hullMax * b.dockRepairPerSecond * this.dt);
+      s.hp = Math.min(hullCapacity(s,t), s.hp + hullCapacity(s,t) * b.dockRepairPerSecond * this.dt);
       s.shield = Math.min(maxShield(s, t), s.shield + maxShield(s, t) * b.dockRepairPerSecond * this.dt);
       if (s.fuel >= 1) {
         const amount = Math.floor(s.fuel);
@@ -1085,10 +1081,11 @@ export class World {
     }
     const before = s.hp;
     s.hp = Math.max(0, s.hp - toHull);
-    // Hull is minerals: some of what is knocked off spills where the ship is, for anyone to collect.
-    // A destroyed ship loses everything and spills a share of all it carried.
-    // Destroyed: a share of everything carried (the hull maximum) spills.
-    const spill = s.hp === 0 ? s.hullMax * t.ship.deathSpillFraction : (before - s.hp) * t.ship.hullSpillFraction;
+    // Hull damage spills some carried minerals, bounded by the wallet; starting HP is never loot.
+    // A destroyed ship drops a share of its wallet.
+    const purse=mineralBalance(s,t);
+    const spill = Math.floor(Math.min(purse,s.hp===0?purse*t.ship.deathSpillFraction:(before-s.hp)*t.ship.hullSpillFraction)*10+1e-8)/10;
+    s.hullMax-=spill;
     this.spillMinerals(s.x, s.y, spill, s.hp === 0 ? 90 : 40, id);
     if (s.hp === 0) {
       // Gold (BRIEF.md): everything the ship carried, plus a share of its power above the start as
@@ -1096,7 +1093,7 @@ export class World {
       // kills of the same pilot (payoutFactor); bots carry no salvage and drop a reduced share.
       const sv = t.salvage;
       const fresh = this.tick - (this.spawnedAt.get(id) ?? -Infinity) <= 2 * t.net.tickHz;
-      let payout = fresh ? 0 : sv.killPowerShare * Math.max(0, s.hullMax - t.ship.maxHp) * this.payoutFactor(id, attacker);
+      let payout = fresh ? 0 : sv.killPowerShare * purse * this.payoutFactor(id, attacker);
       if (this.botIds.has(id)) payout *= sv.botDropFactor;
       // No salvage on clan home planets (owner): no gold drops there; carried fuel is simply lost.
       if (!this.layout) this.dropGold(s.x, s.y, s.salvage + payout, id);
@@ -1154,8 +1151,10 @@ export class World {
     const t = this.tune;
     if (value < 1) return;
     const chunks = Math.min(t.asteroid.mineralChunksMax, Math.ceil(value / t.asteroid.mineralChunkValue));
-    const each = value / chunks;
+    // Split one quantized budget instead of rounding every chunk upward independently.
+    const units=Math.floor(value*10+1e-8),baseUnits=Math.floor(units/chunks),remainder=units%chunks;
     for (let i = 0; i < chunks; i++) {
+      const each=(baseUnits+(i<remainder?1:0))/10;
       const a = this.rng() * Math.PI * 2;
       const d = (chunks === 1 ? 0 : 0.4 + this.rng() * 0.6) * reach;
       this.addPickup(wrap(x + Math.cos(a) * d, t.world.width), wrap(y + Math.sin(a) * d, t.world.height), 'mineral', each, from, each * salvagePer);

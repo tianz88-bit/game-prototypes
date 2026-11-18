@@ -9,7 +9,7 @@
 // that respect overheat; a badly hurt bot runs.
 import type { Tune } from './tune';
 import type { ShipInput, ShipState } from './ship';
-import { topSpeed, shipVelocity } from './ship';
+import { topSpeed, shipVelocity, hullCapacity } from './ship';
 import { asteroidPos } from './asteroids';
 import type { World } from './world';
 import type { BaseLayout } from './clanBase';
@@ -149,7 +149,7 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
   const mayFire = !brain.cooling && !s.overheated;
 
   // Attackers respawn at once at the gate, so they press on instead of running.
-  const hurt = !(war && !defending) && s.hp < s.hullMax * t.fleeHullFraction;
+  const hurt = !(war && !defending) && s.hp < hullCapacity(s,tune) * t.fleeHullFraction;
   if (enemy && hurt && !reacting) {
     // Run: straight away from the threat, flat out, dashing when possible.
     const away = Math.atan2(-enemy.dy, -enemy.dx);

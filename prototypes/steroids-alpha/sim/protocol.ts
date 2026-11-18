@@ -1,5 +1,5 @@
 import type { Look } from './unlocks';
-// Protocol v30: binary game frames are little-endian. The server also sends JSON text frames:
+// Protocol v31: binary game frames are little-endian. The server also sends JSON text frames:
 //   {type:'config',record:ConfigRecord}            before welcome/cutover snapshots
 //   {type:'roster',players:[{id,name,kills,power}]} on join/leave, and when anyone's power changes (2 Hz max)
 //   {type:'deaths',deaths:[{id,x,y,killer}]}       ships destroyed (killer 0 = an asteroid)
@@ -31,7 +31,7 @@ import type { ShipInput, ShipState } from './ship';
 import type { Asteroid } from './asteroids';
 import type { ShotEvent } from './world';
 
-export const PROTOCOL_VERSION = 30;
+export const PROTOCOL_VERSION = 31;
 
 export const MSG = {
   INPUT: 1,

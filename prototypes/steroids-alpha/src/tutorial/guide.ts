@@ -1,7 +1,7 @@
 // Four short tasks in the in-page tutorial room. Progress follows real play; no modal lessons.
 import type Phaser from 'phaser';
 import type { ShipState } from '../../sim/ship';
-import { dashSpeed } from '../../sim/ship';
+import { dashSpeed, mineralBalance } from '../../sim/ship';
 import { upgradeTotal } from '../../sim/chassis';
 import { canBuy,SHOP_ITEMS } from '../../sim/shop';
 import { TUNE } from '../../sim/tune';
@@ -98,7 +98,7 @@ export class TutorialGuide {
  }
  private mineralBundle(s:ShipState){
   const p=ahead(s,180),floor=Math.max(...SHOP_ITEMS.map(item=>TUNE.shop[`${item}Floors`][0]));
-  return this.world.spawnPickup('mineral',p.x,p.y,Math.max(35,floor-s.hullMax+5));
+  return this.world.spawnPickup('mineral',p.x,p.y,Math.max(5,floor-mineralBalance(s,TUNE)+1));
  }
  update(v:GuideView){
   this.objectiveArrows=[];this.hide();if(this.done)return;this.syncRules();

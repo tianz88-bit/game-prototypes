@@ -2,6 +2,16 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Flat combat progression — protocol31, release pending
+
+Owner chose about+75% strongest max fighter versus fresh Sparrow.60-second main+ideal4-drone DPS × hull/shield reaches1.76756, excluding accuracy, regen, missiles/mines and cruiser roles. All five tier tracks5/10/15/20, total250; both equipped/owned evolutions50 cost/floor,115 earliest route.1500 bank unlock prices unchanged.
+
+Legacy ShipState.hullMax now stores tune.ship.maxHp+wallet to preserve the wire layout and existing carried-load size/speed penalty. Always use mineralBalance for money and hullCapacity for actual HP; never use raw hullMax as a health maximum. Shared World, Room, shop/evolve, HUD/tutorial, bots and lab follow this contract. Collection/spending never repairs/damages. Repair pods/pads use actual hull; damage spills at most wallet, death spill quantized once before chunking (no minted baseline hull or rounding money). Roster/extraction power keys report actual wallet. Room config application preserves wallets across base-hull edits and clamps each chassis shield correctly. Protocol31 forces paired refresh.
+
+shop.balanceVersion2 performs a one-time upgrade of older published balances: resets shop, drone damage, missile/mine tier-damage scaling and evolution cost/floor to approved defaults while preserving unrelated art/controls. Current epoch2 owner edits survive. No remote publisher or secret needed. New progression gate runs in the sim gate; includes60s benchmark,250/115 paths, exact-cost Float32 boundary, wallet/repair/loot conservation and migration. Config/bank gates retain real authority/SQLite coverage.3 local headless PC/touch/portrait layouts buy all20 via actual local Room/NetClient, check empty/repeat/49vs50 evolution, HP and bounds; account ownership is a fixture, not a live purchase.
+
+Deferred only. Revisit actual time-to-upgrade, ordnance tactics and cruiser siege matchups after playtesting; no universal win-rate claim. See ../steroids-alpha-lab/progression-balance-proof.json for release evidence.
+
 ## Cruise/home extraction, low-speed FX and building tilt — LIVE181126r0106/protocol30
 
 PR5723245a9e4350f4fb170a837b575ae82f778f20bb3. Client44338617901/Worker44338617904/Pages44338621246 succeeded.3 local+2 public WebGL cases and actual Canvas fallback pass; real home server56 snapshots confirm cruise260,lockdown0,warp across10 more snapshots/ack99. Proof lab/cruise-home-proof.json. No capture/spending; temporary preview/headless stopped.

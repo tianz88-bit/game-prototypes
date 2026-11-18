@@ -28,7 +28,7 @@ import { CLOSE } from '../../sim/protocol';
 import { guide } from '../tutorial/guide';
 import { ContextTips } from '../tutorial/contextTips';
 import { localTransport } from '../tutorial/localServer';
-import { maxShield, shipRadius, powerGrowth, topSpeed } from '../../sim/ship';
+import { maxShield, hullCapacity, shipRadius, powerGrowth, topSpeed } from '../../sim/ship';
 import { TURRET_MOUNTS, turretCount } from '../../sim/turrets';
 import { BATTLECRUISER, MISSILE_CRUISER, isCapital, TURRET_MOUNTS_BY_CHASSIS, chassisStats, upgradeTotal,GUNS } from '../../sim/chassis';
 import { SHOP_ITEMS, canBuy, shopOffer, shopTier, EVOLVE_ITEM, canEvolve,evolutionProgress } from '../../sim/shop';
@@ -1155,7 +1155,7 @@ export class FlightScene extends Phaser.Scene {
     const width=mobile?Math.min(330,logicalSize().w*.5-32):drawer.w;
     const x=mobile?12:drawer.x,cols=3,bw=(width-12)/3,bh=42;
     panel(g,x,drawer.y-22,width,118,UI.uiBorder);
-    this.shopHeader.setPosition(x+8,drawer.y-17).setText(`SPEND MINERALS · HULL ${Math.round(p.hp)}/${Math.round(p.hullMax)}`);
+    this.shopHeader.setPosition(x+8,drawer.y-17).setText(`SPEND MINERALS · HULL ${Math.round(p.hp)}/${Math.round(hullCapacity(p,TUNE))}`);
     intents.uiZones.push({x:x+width/2,y:drawer.y+37,hw:width/2,hh:59});
     SHOP_ITEMS.forEach((item, i) => {
       const bx = x + (i % cols) * (bw + 6);
@@ -1169,7 +1169,7 @@ export class FlightScene extends Phaser.Scene {
       t.sub
         .setFontSize(mobile ? 9 : 9)
         .setPosition(bx + 5, y + 29)
-        .setText(offer ? `${offer.cost} MIN · ${offer.floor}PWR` : 'MAXED')
+        .setText(offer ? `${offer.cost} MIN${offer.floor>offer.cost?' · carry '+offer.floor:''}` : 'MAXED')
         .setColor(can ? '#c7f1dd' : '#a1afbf');
       intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
     });
@@ -1211,7 +1211,7 @@ export class FlightScene extends Phaser.Scene {
     this.combatState.setVisible(false);this.urgentMessage=this.lockText.visible;
     if(!p||p.hp<=0||this.net.death||this.net.extracted||this.net.warDown)return;
     const shieldBlocked=this.shieldBlocksFire(p);
-    const message=this.urgentMessage?'':p.hp<p.hullMax*.25?'HULL CRITICAL':p.overheated?'OVERHEATED':intents.fire&&shieldBlocked?'SHIELD BLOCKING FIRE':'';
+    const message=this.urgentMessage?'':p.hp<hullCapacity(p,TUNE)*.25?'HULL CRITICAL':p.overheated?'OVERHEATED':intents.fire&&shieldBlocked?'SHIELD BLOCKING FIRE':'';
     if(!message)return;this.urgentMessage=true;
     const pos=combatNotice(w,h,intents.touch,this.hudAnchor,controlClearRight(w,h));
     this.combatState.setVisible(true).setText(message).setPosition(pos.x,pos.y);
@@ -1336,7 +1336,7 @@ export class FlightScene extends Phaser.Scene {
     const x = at.x - w / 2, y = at.y + below + 16 * k;
     const shieldMax = maxShield(s, TUNE);
     const onShield = s.shield > 0.5 && shieldMax > 0;
-    const share = onShield ? s.shield / shieldMax : Math.max(0, s.hp) / Math.max(1, s.hullMax);
+    const share = onShield ? s.shield / shieldMax : Math.max(0, s.hp) / Math.max(1, hullCapacity(s,TUNE));
     drawTargetMeter(this.turretGfx,x,y,w,h,share,onShield,fade);
   }
 

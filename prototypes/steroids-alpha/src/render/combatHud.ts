@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 import type { ShipState } from '../../sim/ship';
-import { maxShield } from '../../sim/ship';
+import { maxShield, hullCapacity, mineralBalance } from '../../sim/ship';
 import { TUNE } from '../../sim/tune';
 import { text } from '../scenes/common';
 import { panel, css, UI } from './ui';
@@ -24,7 +24,7 @@ export class CombatHud {
     };
     if(anchor?.visible){
       const {x,y,radius:r}=anchor,k=touch?1:1.1,gap=.24;
-      const shield=clamp(p.shield/Math.max(1,maxShield(p,TUNE))),hull=clamp(p.hp/Math.max(1,p.hullMax));
+      const shield=clamp(p.shield/Math.max(1,maxShield(p,TUNE))),hull=clamp(p.hp/Math.max(1,hullCapacity(p,TUNE)));
       // Owner, 16 November 2026: hull below 50% flashes red.
       const down=p.shield<=.001,critical=hull<=.5,flash=critical&&Math.sin(now/140)>0;
       const arc=(radius:number,start:number,end:number,width:number,colour:number,alpha=1)=>{
@@ -60,7 +60,7 @@ export class CombatHud {
       };
       const leftBase=Math.PI/2+gap,leftStart=leftBase+.15,leftEnd=Math.PI*1.5-gap;
       const shieldColour=down?(critical?(flash?0xff4a3d:0xf17d68):0xf2bc6c):0x61d7ed;
-      meter(r,leftStart,leftEnd,down?hull:shield,shieldColour,4.5*k,false,down?p.hullMax:maxShield(p,TUNE));
+      meter(r,leftStart,leftEnd,down?hull:shield,shieldColour,4.5*k,false,down?hullCapacity(p,TUNE):maxShield(p,TUNE));
       const hullColour=critical?(flash?0xff4a3d:0xf17d68):0xf2bc6c;
       meter(r-4.8*k,leftStart,leftEnd,hull,hullColour,1.15*k);
       baseSymbol(r,leftBase+.07,shieldColour,'shield');
@@ -86,7 +86,7 @@ export class CombatHud {
     // Minerals are spendable; salvage/fuel is a separate carry-out balance.
     const home=hold==='fuel',held=home?p.fuel:p.salvage,cargo=TUNE.salvage.cargoMax,full=held>=cargo-.5;
     panel(g,12,12,196,36,UI.uiBorder);
-    label(0,22,16,`MIN ${Math.floor(p.hullMax)}`,UI.uiGold,touch?13:14,0);
+    label(0,22,16,`MIN ${Math.floor(mineralBalance(p,TUNE))}`,UI.uiGold,touch?13:14,0);
     label(1,198,18,`Lv.${upgradeTotal(p)}`,UI.uiText,11,1);
     if(hold!=='none')label(2,22,34,`${home?'FUEL':'SALVAGE'} ${Math.floor(held)}/${cargo} · ${home?'UNLOAD AT HOME':'BANK ON WARP'}`,full?0xffb394:0xcfc8b7,9,0);
     if(full&&hold!=='none')label(3,22,52,home?'FULL · DOCK TO UNLOAD':'FULL · WARP TO BANK',0xffbd91,10,0);
