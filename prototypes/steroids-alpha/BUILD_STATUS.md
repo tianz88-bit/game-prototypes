@@ -1,25 +1,27 @@
 ## Current milestone
 
-LIVE VERIFIED181126r0104/protocol29. PR568 merge983a497d2cf6af8f13234f8211b88cd35348de6d; itch44295327666 and Pages44295327839 succeeded. Main-menu evolution loadout shortcut released. Existing Worker29 unchanged.
+LIVE VERIFIED181126r0105/protocol29. PR570 mergee648baa279136176a86ba60da2f4eaaa536bb830; itch44321872467 and Pages44321872344 succeeded. Fixed building perspective and barrel-aligned smaller tower shots released. Existing Worker29 unchanged.
 
 ## What was implemented
 
-Main menu shows the owned equipped Battlecruiser/Missile Cruiser, or Choose evolution. Tap opens Hangar directly on EVOLVE, overriding a previously selected tab; ordinary Hangar entry still remembers its tab. Equipment changes refresh on returning to the menu. Shares the44px secondary row with Learn to fly, preserving ship/Warp focus and mobile height.
+Nexus/tower foundations, shafts and plates keep a fixed top-down orientation. Only tower heads/barrels aim. A centred stack overlaps at its root; screen-edge layers offset outward in proportion to height, with a0.55 radial bound and connecting cylinders. Existing terrain-anchored roots/contact/cast shadows and clan/damage/wreck/repair art retained. Lab adds Centre/Right/Bottom/Left/Top positions, separate tower aim and Nexus position sweep.
+
+Tower bolts use45% of prior visual size and a shorter trail. Existing received SHOTS gain local origin/duration/barrel tags; matching alternating recoil/foreshortened tips launch them, then a180ms smooth blend restores the authoritative trajectory. No damage, collision, cadence, gameplay tune or wire change.
 
 ## Key technical decisions
 
-Reuses selectedEvolution with current account unlocks and saved look; unowned/forged selections and legacy numeric preferences display empty. Explicit scene tab option changes navigation only. No account schema, protocol, Worker, balance, dependencies or assets changes. Existing1500-credit unlock/equip and in-match gates remain.
+Ground orientation remains separate from stackLean and turret aim. Optional viewport/barrel fields share perspective and firing parity between lab and production. No new assets, dependencies, emitters, migration, protocol or Worker deploy. Existing paired-client/server release is not needed for these visual tags.
 
-Typecheck/build/rig and22 layout combinations pass. Eight local headless Brave desktop/touch/portrait cases plus two actual public itch cases pass owned/empty labels, ownership filtering, action bounds/separation, direct EVOLVE navigation, equip-return refresh and utility isolation. No page errors, screenshots or recording. Proof ../steroids-alpha-lab/evolution/menu-slot-proof.json; raw outputs/steroids-alpha/missile-cruiser-lab/menu-evolution-*.
+Typecheck/build/sim/live-config/rig plus expanded centre/edge/corner/extreme geometry and22 layout cases pass. Three local headless Brave PC/touch/portrait cases plus2 public itch cases each pass50 transforms/muzzles, smaller bolts and wreck/repair. An isolated actual Flight/NetClient fixture checks alternating parity, exact projected barrel origin, size and authority-path convergence. Public permanent lab shows fixed Nexus and working position controls. No page errors, screenshots or recording. Proof ../steroids-alpha-lab/building-stack-proof.json; raw outputs/steroids-alpha/missile-cruiser-lab/building-stack-*.
 
 ## Open questions
 
-None. Deferred Claude handoff saved; no immediate action requested.
+None. Owner approved live release after checks; deferred Claude handoff saved without requesting immediate work.
 
 ## Known issues
 
-Browser account responses are intercepted fixtures; no live credits spent. No physical Safari or visual screenshot review, per owner's no-capture instruction. Previously recorded randomized bot-spacing/Pages housekeeping remains deferred; this release passed on first attempt.
+Headless render/transform checks use bundled-config and isolated tutorial fixtures; no hostile live player or account spending involved. No screenshot visual inspection or physical Safari review per owner preference. Existing randomized bot-spacing/Pages housekeeping remains deferred; this release passed first attempt.
 
 ## Next proposed step
 
-Refresh the live game for104. Review the equipped evolution beneath Warp and use it to open Hangar EVOLVE before launch. Temporary preview/headless processes closed after checks; no resident publisher.
+Refresh for105, then use the permanent lab Nexus/Tower turrets Position control to compare centre and edges. Aim turns only tower heads/barrels. Temporary preview and headless test processes closed; no resident publisher or capture session.
