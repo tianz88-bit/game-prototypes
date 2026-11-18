@@ -5,7 +5,7 @@
 // stat are tuned values, never derived from the art size.
 import type { Tune } from './tune';
 
-export const CHASSIS = ['scrappy', 'interceptor', 'battlecruiser', 'sparrow'] as const;
+export const CHASSIS = ['scrappy', 'interceptor', 'battlecruiser', 'sparrow', 'missileCruiser'] as const;
 export type ChassisId = (typeof CHASSIS)[number];
 export const SCRAPPY = 0;
 export const INTERCEPTOR = 1;
@@ -14,6 +14,8 @@ export const BATTLECRUISER = 2;
 export const FALCON = SCRAPPY;
 export const BAT = INTERCEPTOR;
 export const SPARROW = 3;
+export const MISSILE_CRUISER = 4;
+export const isCapital = (c:number):boolean => c===BATTLECRUISER||c===MISSILE_CRUISER;
 
 export interface ChassisStats {
   /** Hit radius before power growth. */
@@ -26,8 +28,8 @@ export interface ChassisStats {
 }
 
 export function chassisStats(chassis: number, tune: Tune): ChassisStats {
-  if (chassis === INTERCEPTOR || chassis === BATTLECRUISER) {
-    const c = chassis === INTERCEPTOR ? tune.interceptor : tune.battlecruiser;
+  if (chassis === INTERCEPTOR || isCapital(chassis)) {
+    const c = chassis === INTERCEPTOR ? tune.interceptor : chassis===MISSILE_CRUISER?tune.missileCruiser:tune.battlecruiser;
     return { radius: c.radius, shield: c.shieldFactor, damage: c.damageFactor, fireIntervalSteps: c.fireIntervalSteps, baseTurrets: c.baseTurrets };
   }
   return { radius: tune.ship.radius, shield: 1, damage: 1, fireIntervalSteps: chassis === SPARROW ? tune.sparrow.fireIntervalSteps : tune.weapon.fireIntervalSteps, baseTurrets: 0 };
@@ -44,7 +46,7 @@ export interface ShipMotion {
 }
 
 export function shipMotion(chassis: number, tune: Tune): ShipMotion {
-  const c = chassis === INTERCEPTOR ? tune.interceptor : chassis === BATTLECRUISER ? tune.battlecruiser : tune.ship;
+  const c = chassis === INTERCEPTOR ? tune.interceptor : chassis === BATTLECRUISER ? tune.battlecruiser : chassis===MISSILE_CRUISER?tune.missileCruiser:tune.ship;
   return { minSpeed: c.minSpeed, cruiseSpeed: c.cruiseSpeed, maxSpeed: c.maxSpeed, acceleration: c.acceleration, braking: c.braking, turnRate: c.turnRate };
 }
 
@@ -73,6 +75,7 @@ export const GUNS: Record<number, readonly (Mount & { side: number })[]> = {
 
 /** Turret drone mounts (base size), up to four per ship. */
 export const TURRET_MOUNTS_BY_CHASSIS: Record<number, readonly Mount[]> = {
+  [MISSILE_CRUISER]: [{forward:-33.6,right:-33.6},{forward:-33.6,right:33.6},{forward:43.5,right:-33.6},{forward:43.5,right:33.6}],
   [SCRAPPY]: [
     { forward: -14, right: -24 },
     { forward: -14, right: 24 },

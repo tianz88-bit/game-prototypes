@@ -4,6 +4,7 @@ import { maxShield } from '../../sim/ship';
 import { TUNE } from '../../sim/tune';
 import { text } from '../scenes/common';
 import { panel, css, UI } from './ui';
+import {MISSILE_CRUISER} from '../../sim/chassis';
 import { upgradeTotal } from '../../sim/chassis';
 
 /** Screen-space silhouette clearance, supplied by the existing projected ship rig. */
@@ -71,7 +72,7 @@ export class CombatHud {
       const rightStart=-Math.PI/2+gap,rightBase=Math.PI/2-gap,rightEnd=rightBase-.15;
       const dashRadius=r,weaponRadius=r+2.3*k,weaponEnd=rightEnd-.24;
       const weaponColour=p.overheated?0xf18d73:0xf2bc6c;
-      meter(weaponRadius,rightStart,weaponEnd,1-clamp(p.heat),weaponColour,2.3*k,true);
+      meter(weaponRadius,rightStart,weaponEnd,p.chassis===MISSILE_CRUISER?clamp(p.missileCharges/TUNE.missileCruiser.capacity):1-clamp(p.heat),weaponColour,2.3*k,true);
       baseSymbol(weaponRadius,weaponEnd+.08,weaponColour,'weapon');
       const charging=p.dashCharge>0,active=p.dashTime>0;
       const dash=charging?1-p.dashCharge/TUNE.ship.dashChargeSeconds:active?1:1-p.dashCd/TUNE.ship.dashCooldown;

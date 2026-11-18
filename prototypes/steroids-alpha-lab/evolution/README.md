@@ -1,6 +1,6 @@
 # Evolution & siege preview
 
-Owner gate: **lab preview first**, 18 November 2026. Do not release this model into the live game without approval and a shared server/client implementation.
+Owner approved release18 November2026 after reviewing the lab and requested thinner CIWS shots. The separate production port is implemented in shared simulation/rendering; release is pending the R2 art upload. This local model remains an isolated comparison, not the live authority.
 
 Open the permanent lab with `?evolution=1`. Choose a build, LOAD REQUIREMENTS, then EVOLVE & TRY. Selection survives reload in the separate lab preference key. The tier buttons can remove individual requirements to inspect the evolution gate. NEW RUN resets the test, retaining selection. No game account, inventory, hosted settings or network connection is used.
 

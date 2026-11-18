@@ -1,23 +1,23 @@
 ## Current milestone
 
-Evolution & siege lab implemented locally on codex/steroids-evolution-lab. Owner requested lab preview first. Public delivery awaits new art ZIP upload to R2; its URL returns404. No push/merge/deploy. Live game remains171126r0100/protocol26.
+Evolution lab and approved production release candidate prepared. Public delivery pending owner manual R2 ZIP upload; URL404. No merge/deploy. Live remains171126r0100/protocol26; new production candidate uses27.
 
 ## What was implemented
 
-?evolution=1 opens graphical build criteria/selection, new18-module Missile Cruiser, rear-launch eight-missile combat, shared7-shot CIWS and heavy two-shot towers. LOAD REQUIREMENTS then EVOLVE & TRY; TEST SPARROW compares fighter vulnerability. Ordinary calibration/duel entries retained. New cruiser art stays outside Git with SHA256 manifest.
+?evolution=1 offers graphical build criteria, selection,18-module Missile Cruiser,8 rear-launch missiles, capital burst CIWS and heavy tower doublets. New CIWS-only flag draws narrow tracers; primary shots retain width. Production port now exists separately in shared sim/renderers and real Hangar EVOLVE tab. Calibration stats expose Missile Cruiser/CIWS/heavy-tower groups.
 
 ## Key technical decisions
 
-Separate local model, cloned tune, dedicated preview selection key and shared movement/rig/renderers. No game sockets/account/save/hosted setting writes. Control-only per-part FFD, Canvas fallback; fixed depth/3% shading and cardinal offsets. Type/build/model/rig tests and7 headless Brave DPR2 PC/touch/portrait/Canvas cases pass: selection, evolve,8 missiles/no main gun, gun cruiser, mines, tilt, bounds/persistence/reset stability; zero page errors/capture. Evidence outputs/steroids-alpha/missile-cruiser-lab/.
+Lab model remains isolated from game accounts/sockets/config. Production port uses validated authority, shared prediction, protocol27 and verified R2 assets. Type/build/model/rig plus7 lab/headless layouts passed;7 real Hangar layouts,2 local network clients, WebGL/Canvas render and shared sim/config/bank gates pass. No captures. Art stored outside Git; manifests/provenance committed. Evidence outputs/steroids-alpha/missile-cruiser-lab/.
 
 ## Open questions
 
-Owner manual art upload is pending in the orange Brave task tab. Human silhouette/targeting/feel review remains. No live approval.
+Manual art upload pending in orange Brave tab. Live release approved; no new approval required.
 
 ## Known issues
 
-Sandbox combat is not shared authority. Missile Cruiser temporarily uses cloned Battlecruiser state only in the isolated page. Server/chassis/save/protocol, prediction/replay and production targeting/burst implementation required before live. See evolution/README.md. Do not merge mandatory asset fetch while R2 URL404.
+Do not merge mandatory new asset preparation while R2 URL404. Public build needs uploaded package. Human review still useful for balance/feel.
 
 ## Next proposed step
 
-Verify uploaded R2 ZIP and each part hash, publish Pages lab only, run public no-capture checks and let owner playtest. Keep Claude backlog deferred. Do not release itch/Worker/config.
+Verify R2 hashes, publish paired client/Worker plus Pages, then public connection/art/UI checks. Claude backlog deferred. Local preview retained for owner review; no resident publisher.

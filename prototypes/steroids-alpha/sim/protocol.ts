@@ -1,5 +1,5 @@
 import type { Look } from './unlocks';
-// Protocol v26: binary game frames are little-endian. The server also sends JSON text frames:
+// Protocol v27: binary game frames are little-endian. The server also sends JSON text frames:
 //   {type:'config',record:ConfigRecord}            before welcome/cutover snapshots
 //   {type:'roster',players:[{id,name,kills,power}]} on join/leave, and when anyone's power changes (2 Hz max)
 //   {type:'deaths',deaths:[{id,x,y,killer}]}       ships destroyed (killer 0 = an asteroid)
@@ -19,7 +19,7 @@ import type { Look } from './unlocks';
 //                    f32 hp, f32 shield, f32 kx, f32 ky, u8 fireCd, u16 shots, f32 heat, u8 overheated, u8 turrets, u8 shieldTier, u8 damageTier, f32 dashCharge, f32 hullMax,
 //                    u8 missileTier, u8 mineTier, u8 missileCharges, u8 mineCharges, f32 missileCd, f32 mineCd,
 //                    u16 missileShots, u16 mineShots, f32 lockdown, u8 warping, f32 warpDist, f32 salvage, u8 chassis, f32 shieldCd, f32 fuel, f32 arrival, f32 travelHeading
-//   ORDNANCE  u8 type, u16 count, count x (u16 id, u8 kind 0 missile / 1 mine, u16 owner, f32 x, f32 y,
+//   ORDNANCE  u8 type, u16 count, count x (u16 id, u8 kind 0 missile / 1 mine / 2 heavy missile, u16 owner, f32 x, f32 y,
 //             f32 heading, u8 hp percent, u8 armed, u16 target): missiles and mines near you, every snapshot
 //   PONG      u8 type, f64 clientTimeMs
 //   ASTEROIDS u8 type, u16 count, count x (u16 id, u8 size, f32 x, f32 y, f32 vx, f32 vy, u32 t0, f32 hp, u8 family | 0x80 if mineral-rich)
@@ -31,7 +31,7 @@ import type { ShipInput, ShipState } from './ship';
 import type { Asteroid } from './asteroids';
 import type { ShotEvent } from './world';
 
-export const PROTOCOL_VERSION = 26;
+export const PROTOCOL_VERSION = 27;
 
 export const MSG = {
   INPUT: 1,
@@ -109,7 +109,7 @@ export type ServerMessage =
 /** A missile or mine as clients see it. */
 export interface OrdnanceView {
   id: number;
-  kind: 0 | 1;
+  kind: 0 | 1 | 2;
   owner: number;
   /** Ship a missile is locked on (0: none; always 0 for mines). */
   target: number;
@@ -378,7 +378,7 @@ export function decodeServer(buf: ArrayBuffer): ServerMessage | null {
         warping: v.getUint8(o + 81) === 1,
         warpDist: v.getFloat32(o + 82, true),
         salvage: v.getFloat32(o + 86, true),
-        chassis: Math.min(3, v.getUint8(o + 90)),
+        chassis: Math.min(4, v.getUint8(o + 90)),
         shieldCd: v.getFloat32(o + 91, true),
         fuel: v.getFloat32(o + 95, true),
         arrival: v.getFloat32(o + 99, true),
@@ -429,7 +429,7 @@ export function decodeServer(buf: ArrayBuffer): ServerMessage | null {
     for (let i = 0; i < count; i++) {
       items.push({
         id: v.getUint16(o, true),
-        kind: v.getUint8(o + 2) === 1 ? 1 : 0,
+        kind: v.getUint8(o + 2) === 1 ? 1 : v.getUint8(o + 2)===2?2:0,
         owner: v.getUint16(o + 3, true),
         x: v.getFloat32(o + 5, true),
         y: v.getFloat32(o + 9, true),

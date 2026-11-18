@@ -4,7 +4,7 @@
 import type { Tune } from './tune';
 import type { ShipState } from './ship';
 import { maxShield } from './ship';
-import { BATTLECRUISER, upgradeTotal } from './chassis';
+import { BATTLECRUISER, MISSILE_CRUISER, isCapital, upgradeTotal } from './chassis';
 
 /** Shop items by their wire number. */
 export const SHOP_ITEMS = ['turret', 'shield', 'damage', 'missile', 'mine'] as const;
@@ -55,9 +55,10 @@ export function buy(s: ShipState, item: ShopItem, tier: number, tune: Tune): boo
  */
 export const EVOLVE_ITEM = 5;
 
-export function canEvolve(s: ShipState, tune: Tune): boolean {
-  const b = tune.battlecruiser;
-  return s.hp > 0 && s.chassis !== BATTLECRUISER && upgradeTotal(s) >= b.minUpgrades && s.turrets >= b.minTurrets && s.damageTier >= b.minGuns && s.hullMax >= b.powerFloor && s.hullMax - b.cost >= 1;
+export function canEvolve(s: ShipState, tune: Tune, build=0): boolean {
+  if(build!==0&&build!==1)return false;
+  const b = build===1?tune.missileCruiser:tune.battlecruiser;
+  return s.hp > 0 && !isCapital(s.chassis) && upgradeTotal(s) >= b.minUpgrades && (build===1?s.missileTier>=tune.missileCruiser.minMissiles&&s.mineTier>=tune.missileCruiser.minMines:s.turrets >= b.minTurrets && s.damageTier >= b.minGuns) && s.hullMax >= b.powerFloor && s.hullMax - b.cost >= 1;
 }
 
 /**
@@ -65,12 +66,13 @@ export function canEvolve(s: ShipState, tune: Tune): boolean {
  * charge and the salvage carried; the hull keeps its points (capped by the new maximum after the
  * price) and the shield keeps its share of the larger maximum; gun heat resets.
  */
-export function evolve(s: ShipState, tune: Tune): boolean {
-  if (!canEvolve(s, tune)) return false;
+export function evolve(s: ShipState, tune: Tune, build=0): boolean {
+  if (!canEvolve(s, tune,build)) return false;
   const shieldShare = s.shield / Math.max(1, maxShield(s, tune));
-  s.hullMax -= tune.battlecruiser.cost;
+  s.hullMax -= (build===1?tune.missileCruiser:tune.battlecruiser).cost;
   s.hp = Math.min(s.hp, s.hullMax);
-  s.chassis = BATTLECRUISER;
+  s.chassis = build===1?MISSILE_CRUISER:BATTLECRUISER;
+  if(build===1)s.missileCharges=tune.missileCruiser.capacity;
   s.shield = shieldShare * maxShield(s, tune);
   s.heat = 0;
   s.overheated = false;

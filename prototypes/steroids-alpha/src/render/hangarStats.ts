@@ -7,16 +7,17 @@ export function shipStats(chassis:number,t:Tune){
  const s=newShip(0,0,0,0);s.chassis=chassis;s.hullMax=t.ship.maxHp;
  const c=chassisStats(chassis,t),m=shipMotion(chassis,t),heat=shotHeat(s,t),cool=t.weapon.coolPerSecond*c.fireIntervalSteps/t.net.tickHz;
  const shots=heat>=1?1:heat<=cool?Infinity:1+Math.ceil((1-heat-1e-10)/(heat-cool));
+ if(chassis===4)return [{label:'SPEED',value:m.maxSpeed,display:String(m.maxSpeed)},{label:'TURN',value:m.turnRate,display:`${Math.round(m.turnRate*180/Math.PI)}°/s`},{label:'SHIELD',value:maxShield(s,t),display:String(maxShield(s,t))},{label:'MSL DMG',value:(t.missile.damage+t.missile.damagePerTier*3)*t.missileCruiser.damageFactor,display:String((t.missile.damage+t.missile.damagePerTier*3)*t.missileCruiser.damageFactor)},{label:'MISSILES',value:t.missileCruiser.capacity,display:String(t.missileCruiser.capacity)}];
  return [
   {label:'SPEED',value:m.maxSpeed,display:String(Math.round(m.maxSpeed))},
   {label:'TURN',value:m.turnRate,display:`${Math.round(m.turnRate*180/Math.PI)}°/s`},
   {label:'SHIELD',value:maxShield(s,t),display:String(Math.round(maxShield(s,t)))},
-  {label:'GUN DPS',value:t.weapon.damage*c.damage*t.net.tickHz/c.fireIntervalSteps,display:(t.weapon.damage*c.damage*t.net.tickHz/c.fireIntervalSteps).toFixed(0)},
+  {label:chassis===4?'MSL DMG':'GUN DPS',value:t.weapon.damage*c.damage*t.net.tickHz/c.fireIntervalSteps,display:(t.weapon.damage*c.damage*t.net.tickHz/c.fireIntervalSteps).toFixed(0)},
   {label:'AMMO',value:shots,display:Number.isFinite(shots)?String(shots):'∞'},
  ];
 }
 export function shipStatBars(chassis:number,t:Tune){
- const all=[0,1,2,3].map(c=>shipStats(c,t));
+ const all=[0,1,2,3,4].map(c=>shipStats(c,t));
  return all[chassis].map((row,i)=>({...row,fill:Number.isFinite(row.value)?row.value/Math.max(1,...all.map(r=>Number.isFinite(r[i].value)?r[i].value:0)):1}));
 }
 

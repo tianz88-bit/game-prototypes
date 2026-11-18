@@ -91,7 +91,7 @@ export function drawShieldShatter(g:Phaser.GameObjects.Graphics,at:At,t:number,r
 /** Painted bodies stay at their existing world size; only exhaust/status lamps animate. */
 export function drawOrdnanceCue(g:Phaser.GameObjects.Graphics,o:OrdnanceView,at:At,own:boolean,now:number,triggerRadius:number,seeking=false):void {
   const {x,y}=at,k=at.scale,signal=own?0x78e7ff:0xff8969,c=Math.cos(o.heading),s=Math.sin(o.heading);
-  if(o.kind===0){
+  if(o.kind!==1){
     const len=(12+3*Math.sin(now/35+o.id))*k,px=x-c*14*k,py=y-s*14*k;
     g.fillStyle(0xffa756,.8);g.fillTriangle(px-s*3*k,py+c*3*k,px+s*3*k,py-c*3*k,px-c*len,py-s*len);
     g.fillStyle(0xd3f9ff,1);g.fillTriangle(px-s*1.6*k,py+c*1.6*k,px+s*1.6*k,py-c*1.6*k,px-c*len*.6,py-s*len*.6);

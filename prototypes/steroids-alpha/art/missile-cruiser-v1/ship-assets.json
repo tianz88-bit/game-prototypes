@@ -1,0 +1,59 @@
+{
+  "r2Object": "steroids-alpha_missile-cruiser-v1_assets.zip",
+  "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_missile-cruiser-v1_assets.zip",
+  "zipSha256": "e190813542aea9f17afc3bcc5743368789f4e6b40143112db1977a9be9d3c3e7",
+  "assets": [
+    {
+      "asset": "chassis",
+      "deliveryPath": "loose/chassis.png",
+      "sha256": "bc9951bca7fe33d483d3513a6ac4e3d585faa4db8336f3a3483ce7591999799e"
+    },
+    {
+      "asset": "side-armour",
+      "deliveryPath": "loose/side-armour.png",
+      "sha256": "4104bcce6503179168b3f1da823c09c71336a5c6ce780c2d0c59b919ca6c1aff"
+    },
+    {
+      "asset": "missile-bay",
+      "deliveryPath": "loose/missile-bay.png",
+      "sha256": "6ea1c2a9d4645f4484a44176656324b365ce883ad49cc0705585e208a4b91da6"
+    },
+    {
+      "asset": "hatch",
+      "deliveryPath": "loose/hatch.png",
+      "sha256": "0eb41a4ef4c5f1e41c042ad56f095f057208ac32bb8f9d0d5a4b7fc880ab798c"
+    },
+    {
+      "asset": "cockpit-base",
+      "deliveryPath": "loose/cockpit-base.png",
+      "sha256": "d4065cdd7d918a876d946ebcb94f9cdf1d6c3cebc036ae9ffa047845a2d2290d"
+    },
+    {
+      "asset": "cockpit-canopy",
+      "deliveryPath": "loose/cockpit-canopy.png",
+      "sha256": "5b30a3b165833fbb1a7b97eef421c746cf949ec50121a5be4f58428de8196b95"
+    },
+    {
+      "asset": "booster-core",
+      "deliveryPath": "loose/booster-core.png",
+      "sha256": "9b2265b8f76f5b6917029ce9ebe32de24d8089c090b7d288e92b6a3406b49c08"
+    },
+    {
+      "asset": "booster-cowling",
+      "deliveryPath": "loose/booster-cowling.png",
+      "sha256": "4097faae9882fa339cace85f15495e2e6ea81edfb4827f279fc61347a3f72a32"
+    },
+    {
+      "asset": "turret-head",
+      "deliveryPath": "loose/turret-head.png",
+      "sha256": "5b36a22a49ef36c24f354d0f2326954f5c1fa9e044ae0a3f768813b5a4d79a5a",
+      "sourceShip": "human-nomad-battlecruiser-v3"
+    },
+    {
+      "asset": "turret-platform",
+      "deliveryPath": "loose/turret-platform.png",
+      "sha256": "c094c4106d30b195c2afa9ee20305d10163dcbf60f31fd2eda941ea4e3d115a0",
+      "sourceShip": "human-nomad-battlecruiser-v3"
+    }
+  ]
+}

@@ -26,6 +26,7 @@ const TABS: { label: string; items: string[] }[] = [
   { label: 'BADGES', items: ['badge.crown', 'badge.spark', 'badge.skull'] },
   { label: 'NAMES', items: ['tag.gold', 'tag.mint', 'tag.rose'] },
   { label: 'EXTRAS', items: ['runlog'] },
+  {label:'EVOLVE',items:[]},
 ];
 /** The open tab, kept while the game is open (back to the menu and in again). */
 let openTab = 0;
@@ -42,6 +43,7 @@ export class HangarScene extends Phaser.Scene {
   credits: number | null = null;
   unlocks: string[] = [];
   cards: Card[] = [];
+  private builds:{build:0|1;x:number;y:number;w:number;h:number}[]=[];
   backButton = { x: 0, y: 0, w: 0, h: 0 };
   reviewButton = { x: 0, y: 0, w: 108, h: 32 };
   tabs: { index: number; label: string; x: number; y: number; w: number; h: number }[] = [];
@@ -113,6 +115,8 @@ export class HangarScene extends Phaser.Scene {
       return { index: i, label: t.label, x, y, w: tw, h: 32 };
     });
     // The open category's items, large cards.
+    this.builds=[];
+    if(TABS[openTab].label==='EVOLVE'){this.drawEvolution(w,h);versionStamp(this);return;}
     const items = TABS[openTab].items;
     const shipTab = openTab === 0;
     const visualTab = shipTab || openTab === 1;
@@ -169,6 +173,8 @@ export class HangarScene extends Phaser.Scene {
     if (this.showRuns) this.drawRuns(w, h);
     versionStamp(this);
   }
+
+  private drawEvolution(w:number,h:number):void{const gap=12,cw=Math.min(400,(w-40-gap)/2),ch=h-142,y=104+ch/2,selected=loadSave().evolution===1?1:0;for(const build of [0,1] as const){const x=w/2+(build===0?-1:1)*(cw+gap)/2,on=selected===build,g=this.add.graphics(),b=build?TUNE.missileCruiser:TUNE.battlecruiser;panel(g,x-cw/2,y-ch/2,cw,ch,on?UI.uiAccent:UI.uiBorder,on);const small=h<450;this.drawShipStats(build?4:2,build?'Missile Cruiser':'Battlecruiser',on?'SELECTED EVOLUTION':'TAP TO SELECT',x,y-18,cw,ch-36,Number((loadSave().look?.palette??'palette.0').split('.')[1]),on?UI.uiAccent:UI.uiGold);const req=build?[['MISSILES',TUNE.missileCruiser.minMissiles],['MINES',TUNE.missileCruiser.minMines]]:[['TURRETS',TUNE.battlecruiser.minTurrets],['GUNS',TUNE.battlecruiser.minGuns]];req.forEach(([label,count],i)=>{const sx=x-cw/2+12+i*cw/2,sy=y+ch/2-35;text(this,sx,sy,String(label),cw<200?8:10,'#a8c3cf');for(let n=0;n<Number(count);n++)g.fillStyle(UI.uiGold,.85).fillRect(sx+n*11,sy+13,7,4);});this.builds.push({build,x,y,w:cw,h:ch});}text(this,w/2,h-22,`${(selected?TUNE.missileCruiser:TUNE.battlecruiser).powerFloor} MIN BALANCE · ${(selected?TUNE.missileCruiser:TUNE.battlecruiser).cost} MIN COST · upgrades kept`,w<650?10:12,'#d5c197').setOrigin(.5);}
 
   private drawShipStats(chassis:number,name:string,status:string,x:number,y:number,w:number,h:number,palette:number,colour:number):void{
     const left=x-w/2+10,top=y-h/2,row=h<240?13:20,statsTop=top+h-30-row*5,g=this.add.graphics(),small=w<160;
@@ -284,6 +290,7 @@ export class HangarScene extends Phaser.Scene {
         this.scene.start('menu');
         return;
       }
+      const build=this.builds.find(b=>Math.abs(t.x-b.x)<=b.w/2&&Math.abs(t.y-b.y)<=b.h/2);if(build){writeSave({evolution:build.build});this.layout();return;}
       if (this.busy) continue;
       const c = this.cards.find((c) => Math.abs(t.x - c.x) <= c.w / 2 && Math.abs(t.y - c.y) <= c.h / 2);
       if (c) void this.tapCard(c.u);

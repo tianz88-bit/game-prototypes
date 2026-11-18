@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-18 codex capital release candidate — R2 upload pending
+DID: owner approved live release; thinner painted CIWS tracers, selectable Hangar evolutions, production Missile Cruiser, common capital bursts and heavy tower doublets prepared. NOT DEPLOYED.
+FILES: shared chassis/shop/ship/ordnance/world/config/protocol; room, Hangar/flight/HUD/art profiles, R2 staging, lab comparison and release regression.
+SEAM: protocol27 keeps107-byte ships, accepts chassis4 and ordnance kind2; BUY item5 tier0=Battlecruiser/1=Missile Cruiser. Server validates criteria/cost. Client+Worker must release together.
+CROSS: explicit owner release authorized shared gameplay/input/save/test changes. Sim/config/rig/bank/type/build and verified production art packing pass;7 Hangar and two-client Worker checks, WebGL/Canvas render checks, no capture.
+FOR claude: deferred backlog only. New ZIP still404; orange manual upload tab retained. Do not merge/deploy until its hash verifies. Local artifacts outputs/steroids-alpha/missile-cruiser-lab/.
+
 ## 2026-11-18 codex evolution & siege LOCAL PREVIEW
 DID: isolated ?evolution=1 Hangar/build selection, new18-part Missile Cruiser, eight rear-launch missiles/hold-repeat, common7-shot CIWS and heavy tower doublets. Owner gate LAB FIRST.
 FILES: steroids-alpha-lab/evolution*, entry/index; prepare-steroids-lab; standalone evolution test and deferred backlog.
@@ -97,10 +104,3 @@ FILES: hudLayout/mobileFlightUi, Flight/CombatHud/UI/input, combatEffects, guide
 SEAM: mobilePanel reused on PC, GuideView.targets/objectiveArrows, geometry/priority slots. Client fire gate mirrors existing shield authority; no wire/gameplay tune/economy changes.
 CROSS: type/build/rig/sim/config +7 Brave UI layouts and3 actual tutorial arrow/ram/extraction routes pass, zero page errors/no captures/public-room fixture writes. Hit targets and urgent/objective separation checked.
 FOR claude: owner says sync later; CLAUDE_BACKLOG.md has durable seams and evidence, no immediate action needed. Public proof follows; use main after release.
-
-## 2026-11-17 codex four-step tutorial LIVE
-DID: Fly/Fight/Dash-Ram/Escape +6 brief saved contextual tips live171126r0095. PR542 7b90e92a; itch44032662726/Pages44032662575/Worker44032662716 success; protocol25 healthy, Warzone retained.
-FILES: guide/policy/contextTips/tipState, Flight/save, local Room/manual stationary target, CI regressions and CLAUDE_BACKLOG.md.
-SEAM: four-stage/Fight-phase policy, optional warp, auto-turret quiet gate, Save.tipsSeen; tutorial only. No new wire/live tuning/economy changes; real extraction completes practice, no bank credit.
-CROSS: type/build/rig/sim/config pass;3 local+3 public real-route and18 local+18 public tip cases pass across desktop/mobile landscape/portrait, zero page errors/captures/public-room fixture writes.
-FOR claude: owner says sync later. Durable backlog has release details and obsolete-index warning; no immediate execution/review needed. Temporary Vite4187 stopped; evidence four-step-tutorial.
