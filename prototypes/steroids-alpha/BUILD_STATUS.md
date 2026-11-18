@@ -1,27 +1,27 @@
 ## Current milestone
 
-LIVE VERIFIED181126r0105/protocol29. PR570 mergee648baa279136176a86ba60da2f4eaaa536bb830; itch44321872467 and Pages44321872344 succeeded. Fixed building perspective and barrel-aligned smaller tower shots released. Existing Worker29 unchanged.
+LIVE VERIFIED181126r0106/protocol30. PR572 merge3245a9e4350f4fb170a837b575ae82f778f20bb3; itch44338617901, Worker44338617904 and Pages44338621246 succeeded. Neutral cruise/home extraction, compact low-speed FX, outward building FFD and idle tower heads released.
 
 ## What was implemented
 
-Nexus/tower foundations, shafts and plates keep a fixed top-down orientation. Only tower heads/barrels aim. A centred stack overlaps at its root; screen-edge layers offset outward in proportion to height, with a0.55 radial bound and connecting cylinders. Existing terrain-anchored roots/contact/cast shadows and clan/damage/wreck/repair art retained. Lab adds Centre/Right/Bottom/Left/Top positions, separate tower aim and Nexus position sweep.
+No speed input smoothly restores each chassis/power cruise with existing acceleration/braking; aiming is independent. Keyboard Up/Down and compact mobile hold+/− explicitly control speed. Marker drag no longer auto-brakes or accelerates. Hold Down/− over an owned pad to slow below normal minimum and dock; release accelerates/takes off. Peaceful Crimson/Azure homes have no warp cooldown; ordinary/Warzone and arrival protection restrictions remain. Tutorial/control text follows the new controls.
 
-Tower bolts use45% of prior visual size and a shorter trail. Existing received SHOTS gain local origin/duration/barrel tags; matching alternating recoil/foreshortened tips launch them, then a180ms smooth blend restores the authoritative trajectory. No damage, collision, cadence, gameplay tune or wire change.
+Low-speed plume narrower and nozzle-width ignition blocks capped, retaining rectangular particles and speed colours. Building plates have bounded outward per-part FFD while root/stack/fixed-depth layout remain. Original sprites cover Canvas/context-loss/disabled FFD; pooled meshes use source crop UVs/clan/damage tint. Home heads wander slowly when idle and yield to recent fire. No new assets or gameplay rate changes.
 
 ## Key technical decisions
 
-Ground orientation remains separate from stackLean and turret aim. Optional viewport/barrel fields share perspective and firing parity between lab and production. No new assets, dependencies, emitters, migration, protocol or Worker deploy. Existing paired-client/server release is not needed for these visual tags.
+Shared movement/home helper and NetClient replay/prediction stay aligned. Client explicitly checks home IDs before siege data arrives. Protocol30 retains wire layout but refreshes old movement clients; paired release completed. Input pointer release/cancel/blur/shutdown cleanup prevents stuck throttle. No migration, dependency, published config edit or resident service.
 
-Typecheck/build/sim/live-config/rig plus expanded centre/edge/corner/extreme geometry and22 layout cases pass. Three local headless Brave PC/touch/portrait cases plus2 public itch cases each pass50 transforms/muzzles, smaller bolts and wreck/repair. An isolated actual Flight/NetClient fixture checks alternating parity, exact projected barrel origin, size and authority-path convergence. Public permanent lab shows fixed Nexus and working position controls. No page errors, screenshots or recording. Proof ../steroids-alpha-lab/building-stack-proof.json; raw outputs/steroids-alpha/missile-cruiser-lab/building-stack-*.
+Typecheck/build/sim/live-config/rig pass. Neutral/dock/release/home/war/arrival regressions and bounded tilt/idle checks added; fixed-speed shield/ram/grip fixtures explicitly hold brake/throttle, post-dash neutral expects cruise. Three local and2 public WebGL PC/touch/portrait cases pass actual keyboard/CDP touch holds, release, neutral marker and home UI. Actual GPU faces render; mesh/object/texture reuse, centre identity and context-loss fallback pass, plus real Canvas fallback. Real home connection held cruise260 and lockdown0 at46 snapshots, then warp persisted through56 snapshots/ack99. No page errors, screenshots or recording. Proof ../steroids-alpha-lab/cruise-home-proof.json; raw outputs/steroids-alpha/missile-cruiser-lab/cruise-*.
 
 ## Open questions
 
-None. Owner approved live release after checks; deferred Claude handoff saved without requesting immediate work.
+None. Deferred Claude handoff saved; no immediate session requested.
 
 ## Known issues
 
-Headless render/transform checks use bundled-config and isolated tutorial fixtures; no hostile live player or account spending involved. No screenshot visual inspection or physical Safari review per owner preference. Existing randomized bot-spacing/Pages housekeeping remains deferred; this release passed first attempt.
+Docking authority is covered by shared tests; headless home flight verifies cruise and warp, without manual bay navigation or visual capture. Idle head patrol is cosmetic and shot angles remain authoritative. Browser fixtures use intercepted accounts/config where noted; no bank credits spent. No physical Safari review.
 
 ## Next proposed step
 
-Refresh for105, then use the permanent lab Nexus/Tower turrets Position control to compare centre and edges. Aim turns only tower heads/barrels. Temporary preview and headless test processes closed; no resident publisher or capture session.
+Refresh both game/lab for106/30. Try neutral cruise, hold−/Down to dock and release to depart; use building Position presets to inspect outward tilt. Temporary preview and headless processes stopped; no publisher or capture left running.

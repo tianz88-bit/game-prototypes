@@ -79,11 +79,100 @@
           "contextFallback": true,
           "centreIdentity": true
         },
-        "neutralInput": true,
-        "holdRelease": true,
-        "homeWarpUI": true
+        "neutralInput": false,
+        "holdRelease": false,
+        "homeWarpUI": false,
+        "inputSkipped": true
       }
     ]
   },
-  "release": "pending"
+  "release": {
+    "version": "181126r0106",
+    "protocol": 30,
+    "pr": 572,
+    "merge": "3245a9e4350f4fb170a837b575ae82f778f20bb3",
+    "itchRun": 44338617901,
+    "workerRun": 44338617904,
+    "pagesRun": 44338621246,
+    "conclusion": "success",
+    "public": {
+      "capture": false,
+      "errors": [],
+      "cases": [
+        {
+          "width": 1280,
+          "height": 720,
+          "mobile": false,
+          "canvas": false,
+          "graphics": {
+            "renderer": 2,
+            "meshes": 3,
+            "stableObjects": 52,
+            "textures": 197,
+            "contextFallback": true,
+            "centreIdentity": true,
+            "renderedFaces": 168
+          },
+          "neutralInput": true,
+          "holdRelease": true,
+          "homeWarpUI": true
+        },
+        {
+          "width": 390,
+          "height": 844,
+          "mobile": true,
+          "canvas": false,
+          "graphics": {
+            "renderer": 2,
+            "meshes": 3,
+            "stableObjects": 52,
+            "textures": 197,
+            "contextFallback": true,
+            "centreIdentity": true,
+            "renderedFaces": 168
+          },
+          "neutralInput": true,
+          "holdRelease": true,
+          "homeWarpUI": true
+        },
+        {
+          "width": 1280,
+          "height": 720,
+          "mobile": false,
+          "canvas": true,
+          "graphics": {
+            "renderer": 1,
+            "meshes": 0,
+            "stableObjects": 49,
+            "textures": 197,
+            "contextFallback": true,
+            "centreIdentity": true
+          },
+          "neutralInput": false,
+          "holdRelease": false,
+          "homeWarpUI": false,
+          "inputSkipped": true
+        }
+      ],
+      "url": "https://html-classic.itch.zone/html/20420865-2428122/prototypes/steroids-alpha/index.html"
+    },
+    "authority": {
+      "capture": false,
+      "errors": [],
+      "before": {
+        "status": "open",
+        "speed": 260,
+        "lockdown": 0,
+        "freeWarp": true,
+        "snapshots": 46,
+        "ship": 3
+      },
+      "after": {
+        "warping": true,
+        "lockdown": 0,
+        "snapshots": 56,
+        "ack": 99
+      }
+    }
+  }
 }
