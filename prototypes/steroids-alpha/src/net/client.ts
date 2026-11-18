@@ -63,6 +63,8 @@ export function closeReason(code: number, reason: string): string {
 
 /** A bullet as drawn. Damage is decided by the server; this is only what the player sees. */
 export interface VisualBullet {
+  /** Visual-only tower origin/parity: never changes the server projectile. */
+  tower?:{x:number;y:number;lateral:number;duration:number};
   x: number;
   y: number;
   vx: number;
@@ -82,7 +84,7 @@ export type NetFx =
   /** A turret on ship id fired at angle (radians, world). */
   | { kind: 'turret'; id: number; index: number; angle: number }
   /** A clan base turret (index in the layout) fired at angle. */
-  | { kind: 'baseTurret'; index: number; angle: number }
+  | { kind: 'baseTurret'; index: number; angle: number; barrel:number }
   | { kind: 'burst'; x: number; y: number; size: number }
   | ({kind:'crystal'}&CrystalChipEvent)
   | { kind: 'spark'; x: number; y: number; angle?: number }
@@ -174,6 +176,7 @@ export class NetClient {
   /** When each asteroid was last hit (performance.now), for the hit flash. */
   readonly asteroidHitAt = new Map<number, number>();
   bullets: VisualBullet[] = [];
+  private baseBarrels:number[]=[];
   private fx: NetFx[] = [];
   private rttSmooth = 0;
   /** Asteroids destroyed that split into pieces (test hook). */
@@ -414,8 +417,9 @@ export class NetClient {
         if (s.side >= BASE_TURRET_SIDE) {
           // Clan base turret (owner, Clan planets v0): a heavy bolt, and the turret turns to fire.
           const life = ((TUNE.heavyTower.range + 60) / TUNE.heavyTower.speed) * 1000;
-          this.bullets.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, life, mine: false, look: 1 });
-          this.fx.push({ kind: 'baseTurret', index: s.side - BASE_TURRET_SIDE, angle: Math.atan2(s.vy, s.vx) });
+          const index=s.side-BASE_TURRET_SIDE,barrel=1-(this.baseBarrels[index]??0);this.baseBarrels[index]=barrel;
+          this.bullets.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, life, mine: false, look: 1,tower:{x:s.x,y:s.y,lateral:barrel===0?-8:8,duration:life} });
+          this.fx.push({ kind: 'baseTurret', index: s.side - BASE_TURRET_SIDE, angle: Math.atan2(s.vy, s.vx),barrel });
           continue;
         }
         if (s.side >= TURRET_SIDE) {

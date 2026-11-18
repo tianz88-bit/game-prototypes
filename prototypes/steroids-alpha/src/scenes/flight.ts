@@ -47,6 +47,7 @@ import { shipArtStatus,buildShadow,CALIBRATION,SHADOW_ANCHOR } from '../render/s
 import { lightingRadius, planetFrame, projectOffset, shipShadow, sunState } from '../render/planet';
 import type { PlanetFrame } from '../render/planet';
 import { PlanetGround } from '../render/planetGround';
+import { buildingStackLean, towerMuzzle, towerLaunchWeight } from '../render/buildingGeometry';
 import { drawClanBase, styleClanBanner } from '../render/clanBaseArt';
 import { Explosion } from '../render/explosion';
 import { loadSave, recordRun } from '../save';
@@ -248,6 +249,7 @@ export class FlightScene extends Phaser.Scene {
     this.arrivedAt = performance.now();
     this.baseAim = [];
     this.baseFiredAt = [];
+    this.baseBarrels = [];
     this.boardTitle = text(this, 0, 0, 'LEVEL · KO · MINERALS', 10, '#8fa2c8').setOrigin(1, 0).setDepth(950);
 
     this.hotZoneText = text(this, 0, 0, '', 11, '#7dffc4').setOrigin(0.5).setDepth(953).setVisible(false);
@@ -381,6 +383,7 @@ export class FlightScene extends Phaser.Scene {
       else if (f.kind === 'baseTurret') {
         this.baseAim[f.index] = f.angle;
         this.baseFiredAt[f.index] = this.time.now;
+        this.baseBarrels[f.index] = f.barrel;
       }
       else if (f.kind === 'turret') {
         let aim = this.turretAim.get(f.id);
@@ -515,6 +518,7 @@ export class FlightScene extends Phaser.Scene {
   }
   private baseAim: number[] = [];
   private baseFiredAt: number[] = [];
+  private baseBarrels:number[]=[];
 
   /** Hyperspace safety net state. */
   private stuck = false;
@@ -591,7 +595,7 @@ export class FlightScene extends Phaser.Scene {
     this.gateText.setVisible(false);
     if (!layout || !p) return;
     const labels=drawClanBase(this.world,{layout,own:p,member:this.net.clan===layout.clan,docked:!!this.net.docked,now,tune:TUNE,
-      project:(x,y)=>this.toScreen(x,y),aim:this.baseAim,firedAt:this.baseFiredAt,impacts:this.effects,
+      project:(x,y)=>this.toScreen(x,y),aim:this.baseAim,firedAt:this.baseFiredAt,barrels:this.baseBarrels,viewport:this.view,impacts:this.effects,
       rigs:this.buildingRigs,sun:this.frame.sun,daylight:this.frame.daylight,brightness:this.objectLight(),
       siege:this.net.siege?{towers:this.net.siege.turrets.map(h=>h/TUNE.siege.turretHp),shield:this.net.siege.shield/TUNE.siege.shieldHp,nexus:this.net.siege.treasury/TUNE.siege.treasuryHp,broken:this.net.siege.broken}:undefined});
     if(labels.treasury){
@@ -1626,12 +1630,26 @@ export class FlightScene extends Phaser.Scene {
     // Drawn bulletScale times bigger (owner); the hit radius is the server's and does not change.
     const bulletScale = clientTune.render.bulletScale;
     for (const b of this.net.bullets) {
-      const len = (b.small ? 0.012 : 0.018) * bulletScale;
+      const size=bulletScale*(b.tower?.45:1);
+      const len = (b.tower?.006:b.small ? 0.012 : 0.018) * size;
       const head = this.toScreen(b.x, b.y);
       const tail = this.toScreen(b.x - b.vx * len, b.y - b.vy * len);
       if (!head.visible || !tail.visible) continue;
-      if(!this.combatSprites.bullet({...head,scale:head.scale*bulletScale},tail,b.mine,!!b.small,b.look??0))
-        drawBullet(g,{...head,scale:head.scale*bulletScale},tail,b.mine,!!b.small,b.look??0);
+      if(b.tower){
+        const speed=Math.max(1,Math.hypot(b.vx,b.vy));
+        const root=this.toScreen(b.tower.x,b.tower.y),ahead=this.toScreen(b.tower.x+b.vx/speed*30,b.tower.y+b.vy/speed*30);
+        if(root.visible&&ahead.visible){
+          const angle=Math.atan2(ahead.y-root.y,ahead.x-root.x),age=b.tower.duration-b.life;
+          const qx=this.toScreen(b.tower.x+24,b.tower.y),qy=this.toScreen(b.tower.x,b.tower.y+24);
+          const foreshorten=qx.visible&&qy.visible?Math.max(.55,Math.min(1.15,Math.hypot(qy.x-root.x,qy.y-root.y)/Math.max(.001,Math.hypot(qx.x-root.x,qx.y-root.y)))):1;
+          const p={id:'shot',at:root,clan:0,now,foreshorten,stackLean:buildingStackLean(root,this.view)};
+          const muzzle=towerMuzzle(p,angle,b.tower.lateral,6),weight=towerLaunchWeight(age);
+          const dx=(muzzle.x-root.x)*weight,dy=(muzzle.y-root.y)*weight;
+          head.x+=dx;head.y+=dy;tail.x+=dx;tail.y+=dy;
+        }
+      }
+      if(!this.combatSprites.bullet({...head,scale:head.scale*size},tail,b.mine,!!b.small,b.look??0))
+        drawBullet(g,{...head,scale:head.scale*size},tail,b.mine,!!b.small,b.look??0);
     }
     // Missiles and mines. Missiles are carried forward from the last snapshot so they fly smoothly.
     const tNow = performance.now();
