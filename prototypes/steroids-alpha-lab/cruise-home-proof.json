@@ -1,0 +1,89 @@
+{
+  "capture": false,
+  "checks": {
+    "typecheck": true,
+    "build": true,
+    "simulation": true,
+    "liveConfig": true,
+    "rig": true,
+    "neutralMarker": true
+  },
+  "local": {
+    "capture": false,
+    "errors": [],
+    "cases": [
+      {
+        "width": 1280,
+        "height": 720,
+        "mobile": false,
+        "canvas": false,
+        "graphics": {
+          "renderer": 2,
+          "meshes": 3,
+          "stableObjects": 52,
+          "textures": 197,
+          "contextFallback": true,
+          "centreIdentity": true,
+          "renderedFaces": 144
+        },
+        "neutralInput": true,
+        "holdRelease": true,
+        "homeWarpUI": true
+      },
+      {
+        "width": 568,
+        "height": 320,
+        "mobile": true,
+        "canvas": false,
+        "graphics": {
+          "renderer": 2,
+          "meshes": 3,
+          "stableObjects": 52,
+          "textures": 197,
+          "contextFallback": true,
+          "centreIdentity": true,
+          "renderedFaces": 144
+        },
+        "neutralInput": true,
+        "holdRelease": true,
+        "homeWarpUI": true
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "mobile": true,
+        "canvas": false,
+        "graphics": {
+          "renderer": 2,
+          "meshes": 3,
+          "stableObjects": 52,
+          "textures": 197,
+          "contextFallback": true,
+          "centreIdentity": true,
+          "renderedFaces": 144
+        },
+        "neutralInput": true,
+        "holdRelease": true,
+        "homeWarpUI": true
+      },
+      {
+        "width": 1280,
+        "height": 720,
+        "mobile": false,
+        "canvas": true,
+        "graphics": {
+          "renderer": 1,
+          "meshes": 0,
+          "stableObjects": 49,
+          "textures": 197,
+          "contextFallback": true,
+          "centreIdentity": true
+        },
+        "neutralInput": true,
+        "holdRelease": true,
+        "homeWarpUI": true
+      }
+    ]
+  },
+  "release": "pending"
+}

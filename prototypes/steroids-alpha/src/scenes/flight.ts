@@ -203,7 +203,7 @@ export class FlightScene extends Phaser.Scene {
       intents.schemeButton = null;
       intents.fireButton = null;
       intents.missileButton = null;
-      intents.mineButton = null;
+      intents.mineButton = null;intents.clearThrottle();
       intents.warpButton = null;
       intents.shopZones = [];
       intents.uiZones = [];
@@ -570,7 +570,7 @@ export class FlightScene extends Phaser.Scene {
     if (this.planet === 'alpha') return 'LAWLESS SPACE\nBots will hunt you down';
     if (!home) return 'SATELLITE\nFarm and fight; no turrets, no shields';
     const owner = clanName(home).toUpperCase();
-    return this.net.clan === home ? `${owner} HOME\nMine fuel for the Nexus; stop over a landing pad to dock and unload it` : `${owner} TERRITORY\nTheir turrets fire on sight. Their shield keeps you out`;
+    return this.net.clan === home ? `${owner} HOME\nMine fuel for the Nexus; hold Down over a landing pad to dock and unload it` : `${owner} TERRITORY\nTheir turrets fire on sight. Their shield keeps you out`;
   }
 
   /**
@@ -595,7 +595,7 @@ export class FlightScene extends Phaser.Scene {
     this.gateText.setVisible(false);
     if (!layout || !p) return;
     const labels=drawClanBase(this.world,{layout,own:p,member:this.net.clan===layout.clan,docked:!!this.net.docked,now,tune:TUNE,
-      project:(x,y)=>this.toScreen(x,y),aim:this.baseAim,firedAt:this.baseFiredAt,barrels:this.baseBarrels,viewport:this.view,impacts:this.effects,
+      project:(x,y)=>this.toScreen(x,y),aim:this.baseAim,firedAt:this.baseFiredAt,barrels:this.baseBarrels,viewport:this.view,idleScan:!this.net.siege,impacts:this.effects,
       rigs:this.buildingRigs,sun:this.frame.sun,daylight:this.frame.daylight,brightness:this.objectLight(),
       siege:this.net.siege?{towers:this.net.siege.turrets.map(h=>h/TUNE.siege.turretHp),shield:this.net.siege.shield/TUNE.siege.shieldHp,nexus:this.net.siege.treasury/TUNE.siege.treasuryHp,broken:this.net.siege.broken}:undefined});
     if(labels.treasury){
@@ -942,7 +942,7 @@ export class FlightScene extends Phaser.Scene {
     const y = header.warp.y;
     if(this.planet===TUTORIAL&&!guide.policy.warp){this.warpText.setVisible(false);return;}
     const warLocked=this.net.siege?.phase==='war'||this.net.siege?.phase==='release';
-    const locked = p.lockdown > 0||warLocked;
+    const locked = (p.arrival??0)>0||(!this.net.freeWarp&&p.lockdown>0)||warLocked;
     const accent = p.warping ? 0x7fe9ff : locked ? UI.uiBorder : UI.uiAccent;
     panel(g, x - bw / 2, y - bh / 2, bw, bh, accent, !locked);
     if (p.warping) {
@@ -1257,6 +1257,7 @@ export class FlightScene extends Phaser.Scene {
       if (intents.fire) { g.fillStyle(UI.uiDanger, 0.6); g.fillCircle(m.x, m.y, 4); }
     }
     if (!intents.touch) {
+      intents.clearThrottle();
       intents.dashButton = null;
       intents.schemeButton = null;
       intents.fireButton = null;
@@ -1276,6 +1277,11 @@ export class FlightScene extends Phaser.Scene {
     controlFace(g,b.x,b.y,r,UI.uiAccent,ready);
     g.lineStyle(3,UI.uiAccent,ready?.95:.4);
     for(let i=0;i<3;i++){const x=b.x-12+i*10;g.lineBetween(x,b.y-10,x+8,b.y);g.lineBetween(x+8,b.y,x,b.y+10);}
+    if(p&&!this.net.death&&!this.net.extracted){
+      const budget=Math.min(w*.43,controlClearRight(w,h)-12),bw=Math.max(36,Math.min(80,(budget-32)/2));
+      intents.throttleButtons=[-1,1].map((thrust,i)=>({thrust,x:12+bw/2+i*(bw+8),y:h-28,hw:bw/2,hh:22}));
+      for(const b of intents.throttleButtons){panel(g,b.x-b.hw,b.y-22,b.hw*2,44,UI.uiAccent,intents.heldThrottle===b.thrust);g.lineStyle(2,UI.uiAccent,.8);g.lineBetween(b.x-10,b.y,b.x+10,b.y);if(b.thrust>0)g.lineBetween(b.x,b.y-10,b.x,b.y+10);}
+    }else intents.clearThrottle();
     const st = intents.stick;
     if (st) {
       g.lineStyle(2, 0xffffff, 0.35);

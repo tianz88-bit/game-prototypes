@@ -23,7 +23,7 @@ export interface GuideView {
 const ahead=(s:ShipState,d:number,turn=0):Point=>({x:wrap(s.x+Math.cos(s.heading+turn)*d,W),y:wrap(s.y+Math.sin(s.heading+turn)*d,H)});
 const dist=(a:Point,b:Point)=>Math.hypot(wrapDelta(a.x,b.x,W),wrapDelta(a.y,b.y,H));
 function controls(){
- if(intents.touch)return{steer:'Drag on the left to steer; reach further to speed up.',fire:'Hold FIRE',dash:'Tap DASH',buy:'Open UPGRADES',warp:'Tap WARP'};
+ if(intents.touch)return{steer:'Drag left to steer. Hold + / − to change speed.',fire:'Hold FIRE',dash:'Tap DASH',buy:'Open UPGRADES',warp:'Tap WARP'};
  if(intents.scheme==='marker')return{steer:'Mouse to steer; W faster, S slower.',fire:'Hold LEFT CLICK',dash:'Press SHIFT',buy:'Choose an upgrade (1–5)',warp:'Press R'};
  return{steer:'A/D to steer; W faster, S slower.',fire:'Hold SPACE',dash:'Press SHIFT',buy:'Choose an upgrade (1–5)',warp:'Press R'};
 }

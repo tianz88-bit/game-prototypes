@@ -1,5 +1,5 @@
 import {applyServerConfig} from '../liveConfig';
-import { BASE_TURRET_SIDE, baseLayout, isDocked, speedFloor } from '../../sim/clanBase';
+import { BASE_TURRET_SIDE, baseLayout, isDocked, speedFloor, freeHomeWarp } from '../../sim/clanBase';
 import type { BaseLayout } from '../../sim/clanBase';
 // Connection to a planet room, with the client half of the netcode:
 //  - own ship: predicted every fixed step from local input, then reconciled against
@@ -217,6 +217,11 @@ export class NetClient {
   /** Lowest speed our ship may slow to right now (0 over our clan's landing pad). */
   get speedFloorNow(): number {
     return this.predicted ? this.floor(this.predicted) : TUNE.ship.minSpeed;
+  }
+  get freeWarp():boolean{return (this.planet==='crimson'||this.planet==='azure')&&freeHomeWarp(this.layout,!!this.siege,false);}
+  private predictStep(s:ShipState,input:ShipInput):void{
+    if(this.freeWarp)s.lockdown=0;
+    stepShip(s,input,stepSeconds(TUNE),TUNE,this.floor(s));
   }
   private floor(s: ShipState): number {
     return speedFloor(this.layout, this.clan, s, TUNE);
@@ -469,7 +474,7 @@ export class NetClient {
   private reconcile(auth: SnapshotShip, ackSeq: number): void {
     this.pending = this.pending.filter((i) => i.seq > ackSeq);
     const replay = copyShip(auth);
-    for (const input of this.pending) stepShip(replay, input, stepSeconds(TUNE), TUNE, this.floor(replay));
+    for (const input of this.pending) this.predictStep(replay,input);
     if (!this.predicted) {
       this.predicted = replay;
       return;
@@ -532,7 +537,7 @@ export class NetClient {
         if (this.pending.length > 120) this.pending.shift();
         this.send(encodeInput(cmd));
         const shots = this.predicted.shots;
-        stepShip(this.predicted, cmd, stepSeconds(TUNE), TUNE, this.floor(this.predicted));
+        this.predictStep(this.predicted,cmd);
         if (this.predicted.shots !== shots) {
           // Our own bullet appears at once; the server fires its real one when this input arrives.
           // Same aim assist as the server, against where this client sees the targets.

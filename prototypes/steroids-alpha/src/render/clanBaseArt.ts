@@ -5,7 +5,7 @@ import type { ShipState } from '../../sim/ship';
 import type { Tune } from '../../sim/tune';
 import { wrapDelta } from '../../sim/wrap';
 import type { BuildingRigs, BuildingRigPose } from './buildingRig';
-import { buildingStackLean } from './buildingGeometry';
+import { buildingStackLean, idleTowerAim } from './buildingGeometry';
 import { clanArtColours } from './buildingMaterials';
 import { drawWarzoneShield } from './warzoneShield';
 export { CLAN_ART, clanArtColours } from './buildingMaterials';
@@ -26,6 +26,7 @@ export interface ClanBaseArtOptions {
   aim:readonly number[];
   firedAt:readonly number[];
   barrels?:readonly number[];
+  idleScan?:boolean;
   viewport?:{w:number;h:number};
   /** Existing world impacts; only those on the dome perimeter are used. */
   impacts?:readonly {x:number;y:number;at:number}[];
@@ -131,7 +132,10 @@ export function drawClanBase(g:Phaser.GameObjects.Graphics,o:ClanBaseArtOptions)
   }
   layout.turrets.forEach((p,i)=>{
     const at=project(p.x,p.y);if(!at.visible)return;
-    const k=Math.max(.7,at.scale),aim=o.aim[i]??-Math.PI/2,ahead=project(p.x+Math.cos(aim)*30,p.y+Math.sin(aim)*30);
+    const idle=idleTowerAim(i,now),lastAim=o.aim[i]??(o.idleScan?idle:-Math.PI/2),age=now-(o.firedAt[i]??-1e9);
+    const blend=o.idleScan?Math.max(0,Math.min(1,(age-3000)/20000)):0;
+    const aim=lastAim+Math.atan2(Math.sin(idle-lastAim),Math.cos(idle-lastAim))*blend;
+    const k=Math.max(.7,at.scale),ahead=project(p.x+Math.cos(aim)*30,p.y+Math.sin(aim)*30);
     const a=Math.atan2(ahead.y-at.y,ahead.x-at.x),ca=Math.cos(a),sa=Math.sin(a),flash=now-(o.firedAt[i]??-1e9)<90;
     if(o.rigs?.drawTurret({...rigPose(`base-turret-${layout.clan}-${i}`,p.x,p.y,at),health:o.siege?.towers[i],angle:a,firedAt:o.firedAt[i]??-1e9,barrel:o.barrels?.[i]}))return;
     const pt=(u:number,v:number)=>({x:at.x+(ca*u-sa*v)*k,y:at.y+(sa*u+ca*v)*k});

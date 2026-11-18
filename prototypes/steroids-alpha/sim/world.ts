@@ -11,7 +11,7 @@ import { TURRET_SIDE, turretCount, turretPosition } from './turrets';
 import { SHOP_ITEMS, buy, EVOLVE_ITEM, evolve } from './shop';
 import {MISSILE_CRUISER,isCapital} from './chassis';
 import { missileLock,missileStructureLock } from './ordnance';
-import { BASE_OWNER, BASE_TURRET_SIDE, baseLayout, insideDome, isDocked, speedFloor } from './clanBase';
+import { BASE_OWNER, BASE_TURRET_SIDE, baseLayout, insideDome, isDocked, speedFloor, freeHomeWarp } from './clanBase';
 import type { BaseLayout } from './clanBase';
 import { isWarPlanet } from './planets';
 
@@ -394,6 +394,7 @@ export class World {
       const sg = this.siege!;
       if ((this.clanOf.get(id) ?? 0) === this.layout.clan && sg.shield > 0 && insideDome(this.layout, s.x, s.y, this.tune)) input = { ...input, fire: false, missile: false, mine: false };
     }
+    if(freeHomeWarp(this.layout,!!this.siege,this.atWar))s.lockdown=0;
     stepShip(s, input, this.dt, this.tune, speedFloor(this.layout, this.clanOf.get(id) ?? 0, s, this.tune), false);
     if (s.missileShots !== missilesBefore) this.launchMissile(id, s);
     if (s.mineShots !== minesBefore) this.dropMine(id, s);

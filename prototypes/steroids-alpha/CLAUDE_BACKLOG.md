@@ -2,6 +2,16 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Cruise/home extraction, low-speed FX and building tilt — release pending
+
+Owner18 November: no held speed control returns to each chassis/power cruise with existing accel/brake; no tuned rates changed. Shared stepShip performs this in authority/prediction. Removed marker auto-brake and marker-push acceleration; aiming is independent. Mobile gets compact hold+/− controls (44px high), with pointer release/cancel/blur/shutdown cleanup. Down/− over own pad reaches zero and docks; release accelerates and takes off. Tutorial/control wording updated.
+
+Peaceful Crimson/Azure home worlds bypass warp cooldown; ordinary planets and Warzone keep restrictions, protected arrival still blocks warp. Shared freeHomeWarp drives World; NetClient explicitly checks home IDs (avoids pre-siege-frame Warzone ambiguity), clears prediction/replay lockdown similarly; UI reads same rule. Protocol30 keeps layout but forces old clients to refresh. Paired client/Worker release required.
+
+Nozzle-width ignition blocks capped to particle-scale size, slow idle plume narrower; rectangular particles and slow/cruise palettes retained. BuildingFFD reuses nine samples/eight triangles per plate with cropped-frame UVs, shade, clan/damage skins and fixed roots/depths; only vertex positions tilt radially. Identity at centre, bounded edge projection. Canvas, disabled FFD and context-loss retain originals; meshes destroyed with views. Home idle tower aim is seeded slow continuous wandering, yielding to recent fire then slowly blending back. No extra shots or server aiming changes.
+
+Type/build/sim/config/rig pass. New neutral/dock/release/home/war/arrival tests plus explicit-speed shield/ram/grip fixtures and cruise-after-dash assertion. Headless PC/touch/portrait verifies neutral input and independent marker, actual keyboard/touch holds and release, home warp UI, real GPU faces, bounded reusable mesh/object/texture counts, context-loss and actual Canvas fallback. No capture/live account spending. Deferred only; no immediate Claude action.
+
 ## Fixed building stacks and barrel-aligned tower shots — LIVE181126r0105
 
 PR570 e648baa279136176a86ba60da2f4eaaa536bb830; itch44321872467 and Pages44321872344 succeeded.3 local+2 actual public headless cases passed, plus permanent lab embedded controls. Proof lab/building-stack-proof.json. Existing Worker29 unchanged.
