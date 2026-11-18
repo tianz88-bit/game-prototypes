@@ -1,0 +1,157 @@
+{
+  "version": "181126r0103",
+  "protocol": 29,
+  "pr": 566,
+  "merge": "2c0ee7a97268be7d687d43a01884610a4556fa2f",
+  "runs": {
+    "itch": 44292583012,
+    "worker": 44292583031,
+    "pages": 44292583010
+  },
+  "unlockCreditsEach": 1500,
+  "matchMineralFloor": 300,
+  "matchMineralCost": 120,
+  "localUI": {
+    "capture": false,
+    "errors": [],
+    "cases": [
+      {
+        "width": 1280,
+        "height": 720,
+        "mobile": false,
+        "twoPaidUnlocks": true,
+        "explicitEquip": true,
+        "oneSlot": true,
+        "legacyIgnored": true,
+        "compactProgress": true,
+        "noEquipBlocked": true,
+        "frozenChoice": true,
+        "noClipping": true
+      },
+      {
+        "width": 960,
+        "height": 540,
+        "mobile": false,
+        "twoPaidUnlocks": true,
+        "explicitEquip": true,
+        "oneSlot": true,
+        "legacyIgnored": true,
+        "compactProgress": true,
+        "noEquipBlocked": true,
+        "frozenChoice": true,
+        "noClipping": true
+      },
+      {
+        "width": 844,
+        "height": 390,
+        "mobile": true,
+        "twoPaidUnlocks": true,
+        "explicitEquip": true,
+        "oneSlot": true,
+        "legacyIgnored": true,
+        "compactProgress": true,
+        "noEquipBlocked": true,
+        "frozenChoice": true,
+        "noClipping": true
+      },
+      {
+        "width": 568,
+        "height": 320,
+        "mobile": true,
+        "twoPaidUnlocks": true,
+        "explicitEquip": true,
+        "oneSlot": true,
+        "legacyIgnored": true,
+        "compactProgress": true,
+        "noEquipBlocked": true,
+        "frozenChoice": true,
+        "noClipping": true
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "mobile": true,
+        "twoPaidUnlocks": true,
+        "explicitEquip": true,
+        "oneSlot": true,
+        "legacyIgnored": true,
+        "compactProgress": true,
+        "noEquipBlocked": true,
+        "frozenChoice": true,
+        "noClipping": true
+      },
+      {
+        "width": 480,
+        "height": 600,
+        "mobile": true,
+        "twoPaidUnlocks": true,
+        "explicitEquip": true,
+        "oneSlot": true,
+        "legacyIgnored": true,
+        "compactProgress": true,
+        "noEquipBlocked": true,
+        "frozenChoice": true,
+        "noClipping": true
+      }
+    ]
+  },
+  "publicUI": {
+    "capture": false,
+    "errors": [],
+    "cases": [
+      {
+        "width": 1280,
+        "height": 720,
+        "mobile": false,
+        "twoPaidUnlocks": true,
+        "explicitEquip": true,
+        "oneSlot": true,
+        "legacyIgnored": true,
+        "compactProgress": true,
+        "noEquipBlocked": true,
+        "frozenChoice": true,
+        "noClipping": true
+      },
+      {
+        "width": 568,
+        "height": 320,
+        "mobile": true,
+        "twoPaidUnlocks": true,
+        "explicitEquip": true,
+        "oneSlot": true,
+        "legacyIgnored": true,
+        "compactProgress": true,
+        "noEquipBlocked": true,
+        "frozenChoice": true,
+        "noClipping": true
+      }
+    ],
+    "url": "https://html-classic.itch.zone/html/20420865-2426043/prototypes/steroids-alpha/index.html"
+  },
+  "publicAuthority": {
+    "capture": false,
+    "errors": [],
+    "status": "open",
+    "snapshots": 51,
+    "equipped": null,
+    "look": {
+      "ship": "ship.sparrow"
+    },
+    "shop": "NO EVO",
+    "version": "181126r0103"
+  },
+  "bankTests": [
+    "exact1500 debit each",
+    "insufficient funds",
+    "permanent/idempotent unlocks",
+    "owned slot-cleaned look",
+    "unequipped and unowned denied",
+    "late and silent-late auth denied",
+    "alternate owned build denied",
+    "equipped purchase succeeds",
+    "duplicate evolution harmless",
+    "resume keeps equipment"
+  ],
+  "browserPurchases": "Intercepted fixtures, no live credits spent; authority/bank positive cases use real SQLite/Room",
+  "capture": false
+}
