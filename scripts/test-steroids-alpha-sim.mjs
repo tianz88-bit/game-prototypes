@@ -133,7 +133,7 @@ function rock(w, size, x, y, vx = 0, vy = 0, hp = tune.asteroid.hp[size]) {
 }
 function placeShip(w, id, x, y, heading) {
   const s = w.addShip(id);
-  Object.assign(s, { x, y, heading, chassis:S.FALCON });
+  Object.assign(s, { x, y, heading, travelHeading:heading, chassis:S.FALCON });
   // Skip the drop-in immunity.
   for (let i = 0; i < 2 * tune.net.tickHz + 1; i++) w.step();
   w.drain();
@@ -386,10 +386,10 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   near(fast.speed, sh.maxSpeed - sh.braking / tune.net.tickHz, 1e-9, 'excess speed bleeds off at the braking rate');
   for (let i = 0; i < tune.net.tickHz; i++) S.stepShip(fast, { ...idle, thrust: 1 }, 1 / tune.net.tickHz, tune);
   near(fast.speed, S.topSpeed(sh.powerCap, tune), 1e-9, 'speed capped by power');
-  // Regen is a share of the (bigger) maximum: one quiet second refills shieldRegenPerSecond of it.
+  // Larger shield pools recover at the capped capacity-scaled rate.
   s.shield = 0;
   for (let i = 0; i < tune.net.tickHz; i++) w.step();
-  near(s.shield, S.maxShield(s, tune) * sh.shieldRegenPerSecond, S.maxShield(s, tune) * 0.05, 'regen is a % of max shield');
+  near(s.shield, S.shieldRegen(s, tune), 1, 'regen respects the absolute cap');
 }
 
 // --- Spills: hull damage spills minerals the victim cannot take straight back; death spills a share of all. ---
@@ -465,7 +465,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
     assert.equal(w.buy(1, 6, 0), false, 'unknown item');
     // The shield refills up to its new maximum over time.
     s.shield = 0;
-    for (let i = 0; i < tune.net.tickHz * 6; i++) w.step();
+    for (let i = 0; i < Math.ceil(tune.net.tickHz*(S.maxShield(s,tune)/S.shieldRegen(s,tune)+tune.ship.shieldRegenDelaySeconds+1)); i++) w.step();
     assert.equal(s.shield, S.maxShield(s, tune), 'shield refills to the bought maximum');
   }
   // One turret, a rock just inside range behind the ship: the turret turns at its capped rate, then fires.
@@ -771,7 +771,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
     const w = emptyWorld();
     const bot = placeShip(w, 1, 1000, 1000, 0);
     bot.hp = bot.hullMax = tune.battlecruiser.powerFloor + 10;
-    Object.assign(bot, { turrets: 2, shieldTier: 2, damageTier: 2 });
+    Object.assign(bot, { turrets: 2, shieldTier: 2, damageTier: 4 });
     const { buy } = S.botThink(1, bot, w, { ...S.newBrain(() => 0), bornAt: w.tick }, tune, () => 0);
     assert(buy && buy.item === 5 && w.buy(1, buy.item, buy.tier) && bot.chassis === 2, 'a qualifying bot evolves');
   }
@@ -1273,7 +1273,7 @@ assert.equal(S.cleanName(null), '');
   // The old dash-aim float is still on the wire (reserved): whatever an old client puts there is ignored.
   { const buf = S.encodeInput(input); new DataView(buf).setFloat32(18, 1.5, true); assert(!('dashAim' in S.decodeClient(buf).input), 'dash aim is no longer read'); }
   assert.deepEqual(S.decodeClient(S.encodeBuy(0, 2)), { type: S.MSG.BUY, item: 0, tier: 2 });
-  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5, salvage: 87.5, chassis: 2, shieldCd: 1.5, fuel: 33.5, arrival: 1.25 };
+  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, travelHeading:1.25, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5, salvage: 87.5, chassis: 2, shieldCd: 1.5, fuel: 33.5, arrival: 1.25 };
   assert.deepEqual(S.decodeServer(S.encodeSnapshot(1234, 55, [ship])), { type: S.MSG.SNAPSHOT, tick: 1234, ackSeq: 55, ships: [ship] });
   const rockRec = { id: 3, size: 1, x: 10.5, y: 20.25, vx: -30, vy: 12.5, t0: 900, hp: 30, family: 2 };
   assert.deepEqual(S.decodeServer(S.encodeAsteroids([rockRec])).asteroids, [rockRec]);
@@ -2061,9 +2061,12 @@ assert.equal(S.cleanName(null), '');
   const w = emptyWorld();
   const a = placeShip(w, 1, 1000, 1000, 0);
   a.hullMax = a.hp = tb.powerFloor + 50;
-  a.turrets = 2; a.shieldTier = 2; a.damageTier = tb.minUpgrades - 6; a.missileTier = 1; // minUpgrades - 1 in total
-  assert.equal(w.buy(1, S.EVOLVE_ITEM, 0), false, 'one upgrade short: no evolve');
-  a.mineTier = 1;
+  a.turrets = 2; a.shieldTier = 2; a.damageTier = 3; a.missileTier = 1; // Enough total levels, but Guns4 is missing
+  assert.equal(w.buy(1, S.EVOLVE_ITEM, 0), false, 'Guns4 missing: no evolve');
+  a.damageTier = 4;
+  a.turrets = 1;
+  assert.equal(w.buy(1, S.EVOLVE_ITEM, 0), false, 'second turret missing: no evolve');
+  a.turrets = 2;
   a.hullMax = tb.powerFloor - 1; a.hp = a.hullMax;
   assert.equal(w.buy(1, S.EVOLVE_ITEM, 0), false, 'below the power floor: no evolve');
   a.hullMax = a.hp = tb.powerFloor + 50;
@@ -2130,3 +2133,6 @@ assert.equal(S.cleanName(null), '');
 
 console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, bots, ramming, health boosts, kill credit, missiles, mines, bounty, lockdown, warp-out, salvage, hot zone, ship types, evolving and settings upgrade all pass.');
 await import('./test-steroids-ram-tutorial.mjs');
+
+// Both existing release workflows invoke this runner. Keep grip/state/stat regressions in that gate.
+await import('./test-steroids-live-grip.mjs');

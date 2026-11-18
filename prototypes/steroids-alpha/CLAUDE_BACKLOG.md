@@ -2,6 +2,22 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Live speed grip, Hangar stats and ship balance — LIVE171126r0100 / protocol26
+
+PR559 merge1eccd9e0e6626cc717504a87868314dfbb6518a5. itch44129275449, Worker44129275517 and Pages44129275338 succeeded. Public7 Hangar layouts +5 evolution-gate layouts pass; live beta connection receives72 travel snapshots and slips24° fast→.57° braking. Hosted settings upgrade resolves enabled grip/cap25/turrets2/guns4. Public lab fields/three profiles pass; no page errors or captures, temporary processes stopped.
+
+Owner explicitly approved live Speed Grip, superseding the previous grip-only live gate. Other experimental lab turn-band, auto-cruise and pushback remain unported. Protocol26 carries travelHeading at103 (107-byte ships); one shared movement step owns grip before shot emission, including replay/snapshot/interpolation and actual target velocity. No private bullet bridge in production. Lab candidates disable shared grip to retain their independent comparisons; Live Baseline now uses live grip.
+
+Battlecruiser now requires2 bought turret upgrades and Guns4, plus existing total/power/cost; upgrades retained and base2 turrets make4 equipped after minimum evolve. Ship shields use min(35% capacity,25 points/sec), existing delay/hit reset retained. Hangar five bar rows show tune-derived base speed, turn, shield, main DPS and actual cold-to-overheat shots. No ownership/schema changes. New grip regression is in client and Worker release gates.
+
+Evidence: outputs/steroids-alpha/live-speed-grip/. Shared simulation, grip/lab/config/rig/bank/type/build checks and seven headless Hangar layouts pass. Two independent Brave clients including120ms RTT verify binary travel, fast slip/brake recovery, firing, remote interpolation and bounded reconciliation. No captures or immediate Claude work. Public proof above; release complete.
+
+## Desktop/mobile UI correction — live171126r0099
+
+PR557 mergeec5ef477; itch44119747544 success. Public seven title/resize and eight HUD layouts pass with zero page errors/no capture; backend healthy protocol25 and five planets. Worker was not redeployed. Companion Pages44119747530 completed build/deploy but failed unrelated Operation C counter persistence after a concurrent main push; future CI housekeeping only, no Steroids block.
+
+Owner clarified PC upgrade menu/scoreboard were missing. Root cause: touch-only early return suppressed clickable drawer navigation on PC, while the shop was collapsed. Both devices now get buttons through the existing intents/uiZones; PC keeps B/Tab/1–6 shortcuts, compact pinned-self ranking and collapsed shop. Header Warp and nav share geometry. Large PC title layouts are bounded and centred with a larger logo/ship/action panel; touch/short/narrow retain compact arrangement. No new dependencies, account schema, gameplay tuning or protocol change. Speed Grip remains lab-only awaiting approval. Headless no-capture interaction and responsive geometry evidence: outputs/steroids-alpha/desktop-layout/. No immediate Claude action.
+
 ## Awaiting owner playtest: speed-dependent grip
 
 Owner approved this next LAB candidate after the drift research. PUBLIC LAB PREVIEW VERIFIED. PR554 mergecc1fc0b7e3f97a2dfa5c442ae4af93bd049980a3; Pages44074248828 succeeded. Six local plus6 public headless Brave DPR2 layouts pass, including tall/portrait, held Thrust/Brake recovery, profiles, all4 ships, firing/dash and reset disposal. Direct No Drift link works. Zero page errors/game sockets/writes/captures; temporary preview/headless stopped. Live combat remains171126r0098/protocol25. No immediate Claude execution/review or live port is requested.

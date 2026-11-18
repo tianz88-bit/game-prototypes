@@ -57,7 +57,7 @@ export const EVOLVE_ITEM = 5;
 
 export function canEvolve(s: ShipState, tune: Tune): boolean {
   const b = tune.battlecruiser;
-  return s.hp > 0 && s.chassis !== BATTLECRUISER && upgradeTotal(s) >= b.minUpgrades && s.hullMax >= b.powerFloor && s.hullMax - b.cost >= 1;
+  return s.hp > 0 && s.chassis !== BATTLECRUISER && upgradeTotal(s) >= b.minUpgrades && s.turrets >= b.minTurrets && s.damageTier >= b.minGuns && s.hullMax >= b.powerFloor && s.hullMax - b.cost >= 1;
 }
 
 /**

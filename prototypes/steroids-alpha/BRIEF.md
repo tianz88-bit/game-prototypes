@@ -892,3 +892,11 @@ Owner playtest feedback17 November2026: both duel controls/manoeuvres are almost
 ## Speed-dependent grip lab candidate (owner,17 November2026)
 
 Approved a playable lab trial: more travel drift at high speed, braking restores grip, keep nose aiming responsive. Test headlessly, expose it in the permanent lab before any live release, and keep the deferred Claude backlog. Compare against the existing No Drift candidate and Live Baseline. No live combat/config publication is authorized yet.
+
+## Desktop/mobile layout correction (owner,17 November2026)
+
+Owner reports the title screen works on mobile but is poor on PC, and clarified that the PC buying/upgrade menu and scoreboard cannot be seen. Use distinct large-desktop and compact layouts; retain ship/Warp focus, accessible mobile actions and collapsed PC shop with1–6 quick buys. Restore obvious clickable PC Upgrades/Scoreboard entry points as well as B/Tab. This UI correction does not approve the lab Speed Grip candidate for live combat.
+
+## Live speed grip and ship balance (owner,18 November2026)
+
+Approved live release of speed-dependent travel grip, preserving responsive nose aiming. Port into shared authoritative/predicted movement and reconcile travel state; no lab private-field projectile bridge in production. This approves grip only, not the other lab collision/turn-band/auto-cruise experiments. Hangar ship descriptions become actual-stat comparison bars. Battlecruiser evolution needs at least two bought turret upgrades and Guns4; retain its existing mineral cost/power floor and carried upgrades, including two base turrets on the evolved chassis. Ship shield recovery uses the existing35% capacity rate capped at25 shield/sec; preserve delay and hit reset. Keep Claude's handoff deferred.

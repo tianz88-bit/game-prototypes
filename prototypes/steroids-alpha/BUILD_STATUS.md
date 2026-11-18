@@ -1,25 +1,25 @@
 ## Current milestone
 
-Speed-dependent grip PUBLIC LAB preview ready. PR554 mergecc1fc0b7e3f97a2dfa5c442ae4af93bd049980a3; Pages44074248828 succeeded. Six local plus6 public headless Brave DPR2 layouts pass, including tall/portrait, held Thrust/Brake recovery, profiles, all4 ships, firing/dash and reset disposal. Direct No Drift link works. Zero page errors/game sockets/writes/captures; temporary preview/headless stopped. Owner approved lab testing only. Existing live client171126r0098 / Worker25 stays unchanged.
+LIVE VERIFIED171126r0100 / protocol26. PR559 merge1eccd9e0e6626cc717504a87868314dfbb6518a5; itch44129275449 and Worker44129275517 succeeded. Pages44129275338 succeeded. Owner approved grip/stat Hangar/evolution/regen release18 November2026.
 
 ## What was implemented
 
-Travel side-slip grows with speed and rapidly realigns while slowing. Nose aiming, scalar speed and weapon damage remain unchanged. Cruise is nearly planted; drift is bounded24°. Profiles cycle Speed Grip / No Drift / Live Baseline. Held THRUST and BRAKE work on PC/mobile alongside existing steering/fire/dash; layout clears enlarged targets in row and tall-column arrangements. All four ships and Tailed/Circling presets remain.
+Shared movement integrates speed-dependent travel bearing before weapons. Nose response, speed and controls unchanged; high-speed slip capped24°, braking restores grip. Snapshots/replay/interpolation and target leading carry actual travel. Hangar shows base speed/turn/shield/main DPS/real cold-shot ammo bars. Evolution requires2 bought turret upgrades and Guns4 plus existing power/cost, upgrades retained. Shields recover min(35% capacity,25 points/sec) after existing quiet delay.
 
 ## Key technical decisions
 
-All executable changes are lab-only. Optional per-pilot travel state corrects forward displacement after one shared ship step and before World.step. Knockback/World.prev stay intact; guarded bridge repairs only the new main bullet/event after its mount shifts and uses actual target velocity for lead. Ram impulses use travel direction. Before a live port this must move into shared authority/prediction, including travel-state serialization, instead of shipping the private-field bridge.
+Protocol26 appends travelHeading at103,107-byte ship snapshots. No production lab imports/private bullet repair; client+Worker release together. New config fields upgrade old hosted records and validate bounds; both Room/client apply grip group. Candidate lab disables shared grip to avoid double application; Live Baseline uses production. Other lab turn-band/auto-cruise/pushback experiments stay gated. New regression runs in both deployment workflows.
 
-Type/build/rig/sim/config and existing duel/new grip tests pass. All4 ships have bounded drift and restore slip below4° within.2s braking; nose/speed parity, launch origins/lead, straight travel/knockback/wrap/ram and hold-hitbox separation checked.48 scripted comparison runs provide mixed outcomes, not human-playtest proof. Six local+6 public Brave DPR2 PC/mobile/portrait/tall layouts pass for held Thrust/Brake recovery, profiles, all4 ships, fire/dash, direct routes and reset disposal. No captures or online writes. Evidence outputs/steroids-alpha/speed-grip-lab/.
+Type/build, shared sim/new live grip, lab grip/duels, config/rig/bank/layout regressions pass. Eight chassis/power cases show equal nose/speed, exact lab travel parity, brake slip below4° within.2s, snapshot replay/muzzle/lead/knockback/arrival/warp/dock integrity. Seven Brave DPR2 Hangar layouts pass for20 stat rows, text bounds/equip/listener disposal. Two independent local Brave clients (PC and mobile-sized,120ms RTT) share actual Worker snapshots, regain grip/fire, see each other and maintain bounded prediction. Public seven Hangar layouts and five evolution-UI layouts pass, including blocked/ready1–6 purchase requests in isolated fixtures. Actual live beta connection received72 new-format snapshots, ~24° fast slip and.57° braking slip, zero page errors, healthy hull. Public hosted config resolves grip enabled/cap25/min turrets2/guns4; lab eight Grip fields and all three profiles pass. No screenshots/recording/capture. Evidence outputs/steroids-alpha/live-speed-grip/.
 
 ## Open questions
 
-Owner to try the public Grip/No Drift comparison and judge whether speed commitment plus Brake cuts feel readable and useful. Live release not approved.
+Owner may refine regen cap after live play. Existing35% rate retained with25/s ceiling; default shield recovers17.5/s. No approval for other lab handling changes.
 
 ## Known issues
 
-Scripted sparring/continuous aim does not prove human fun, fairness or online feel. No online prediction/travel-state protocol is implemented for this lab-only feature. Physical-phone/Safari visuals not inspected; existing unrelated build warnings remain.
+Headless checks do not replace physical-phone/Safari or human feel review. Existing unrelated build warnings. Cached old clients need refresh for protocol26.
 
 ## Next proposed step
 
-Owner tries ?duel=tail&grip=1 and ?duel=circle&grip=1 in the permanent lab, comparing Speed Grip/No Drift/Live Baseline. Playtest determines further tuning or any live port. Claude backlog stays deferred. Temporary preview4187 and task headless browsers are stopped.
+Owner plays the updated public game (refresh cached clients for protocol26). Keep Claude backlog deferred and tune further only on owner feedback. All public checks completed; local preview4187/Worker8788 and task headless browsers are stopped.

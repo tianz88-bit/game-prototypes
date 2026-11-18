@@ -1,5 +1,19 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-18 codex live speed grip and ship balance
+DID: LIVE171126r0100/protocol26 via PR5591eccd9e0; itch44129275449 + Worker44129275517 + Pages44129275338 success. Responsive grip, stat Hangar,2T/Guns4 and25/s regen cap.
+FILES: shared sim/protocol/tune/config, client replay/lead, Hangar/shop UI, lab isolation/stat fields, regressions and both release gates.
+SEAM: Protocol26,107-byte ships with travelHeading103; shared movement precedes gun mounts, no lab bridge. Client+Worker must deploy together. Other lab handling stays gated.
+CROSS: sim/server/net/menu/test/CI changed within owner's explicit live request. Unit/config/rig/bank and no-capture PC/mobile/two-client proof recorded in BUILD_STATUS.
+FOR claude: deferred backlog only.7 public Hangar/5 evolution layouts, live beta drift/brake72 snapshots and lab three modes pass, no page errors/capture. Evidence outputs/steroids-alpha/live-speed-grip/.
+
+## 2026-11-17 codex desktop/mobile UI correction
+DID: LIVE171126r0099 via PR557 ec5ef477; itch44119747544 success. Bounded desktop title; clickable PC Upgrades[B]/Scoreboard[Tab], aligned Warp/header.
+FILES: render/landingLayout,hudLayout; scenes/menu,flight; landing layout regression and deferred docs.
+SEAM: optional touch argument/desktop credit anchors; flight header shares PC nav/Warp geometry; existing drawer/input intents unchanged.
+CROSS: menu/input behaviour minimally touched to repair missing PC controls; no simulation/tune/Worker/config or live Speed Grip port.
+FOR claude: backlog ready, no immediate action.12 local menus/8 HUD/7 final menu and7 public menus/8 HUD pass without page errors/capture. Pages post-deploy Operation C counter push race logged.
+
 ## 2026-11-17 codex speed-dependent grip PUBLIC LAB
 DID: Speed Grip / No Drift / Live Baseline, held Thrust/Brake and bounded speed-dependent travel drift public via PR554 cc1fc0b7; Pages44074248828 success.
 FILES: lab-only grip/model/layout/input/UI/preset and standalone tests/comparison scripts; deferred docs. Live combat171126r0098/Worker25 unchanged; no client/server deploy.
@@ -90,17 +104,3 @@ FILES: guide/policy/contextTips/tipState, Flight/save, local Room/manual target 
 SEAM: tutorial phases replace old indices; optional warp policy gates queued/held input, buys and auto-turret quiet state. Online rooms ignore it. Save.tipsSeen; no wire/live tune/economy changes, no practice bank credit.
 CROSS: type/build/rig/sim/config checks pass;3 Brave full-route and18 tip desktop/mobile orientation cases pass, zero page errors/no captures. RAM waits for dash end before Escape.
 FOR claude: owner approved release and says sync later. CLAUDE_BACKLOG.md is the durable deferred handoff; no immediate execution/review requested. Public proof follows.
-
-## 2026-11-17 claude warzone-sessions
-DID: Warzone session flow (owner): 20 s start countdown (joinable), sessions end with everyone sent to the menu (CLOSE.ROUND_OVER with the result) after the round-over pause or 10 s after a side empties, then a 20 s wall-clock reset (CLOSE.WAR_RESETTING with seconds). /planets returns status.warzone {phase,left}; stellar map shows it, JOIN AS CRIMSON/AZURE for clanless pilots, NOTIFY ME auto-warps when open. Hyperspace safety net: 10 s without a ship shows the wait reason with RETRY / BACK TO MENU. Warzone hot zone labelled MINERAL ZONE for both sides. Protocol 25. Investigated the reported join freeze: not reproducible locally or live; the safety net covers it either way.
-FILES: server/src/{room,index}.ts sim/protocol.ts tune.json src/net/client.ts src/scenes/{flight,menu}.ts src/render/stellarMap.ts BRIEF.md scripts/test-steroids-alpha-sim.mjs
-SEAM: Room.siegeStatus/closeSession; SiegePhase 'cooldown'; tune.siege.{overSeconds,cooldownSeconds}; MapAction joinAs/notify; WarStatus/warLabel.
-CROSS: src/render/stellarMap.ts (yours): Warzone status line, buttons under the details; flight maskOrbitalUi also skips when stuck.
-FOR codex: map buttons and the stuck-in-hyperspace panel are plain panels; style as you like.
-
-## 2026-11-17 codex desktop ordnance/speed UI LIVE
-DID: larger PC bottom-left missile/mine badges/counts and violet slow/teal cruise streams live171126r0093. Routine top telemetry removed; mobile/warnings/actions retained. PR539 7b3c11fe.
-FILES: Flight, ShipView/Thrusters, stale SPEED wording, existing sim regression and docs.
-SEAM: optional speedBand from actual chassis-relative speed; legacy/custom fast flames and emission budgets retained. No wire/tune/gameplay changes.
-CROSS: type/build/rig/fullsim and3 local+3 public Brave DPR2 desktop/compact/mobile runtime cases pass, zero page errors/capture. itch44028038724/Pages44028038740/Worker44028038814 success; protocol24 healthy.
-FOR claude: tutorial reduction remains discussion ONLY. Proposed one-minute Fly/Fight+upgrade/Dash+Ram/Warp with contextual first-use tips; do not implement before owner response. Evidence ordnance-speed-ui; temporary preview stopped.
