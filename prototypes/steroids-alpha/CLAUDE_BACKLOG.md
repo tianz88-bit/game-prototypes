@@ -2,6 +2,12 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Missile Cruiser artillery correction — release pending
+
+Owner clarified zero required turrets means zero free turrets. MC baseTurrets/minTurrets/minGuns now0; bought turret upgrades retained exactly. Minimum speed140→90, cruise170/top225/turn unchanged. Lab model and turning preview match, with empty mounting platforms before purchases. Existing shipPreview already hides heads above base ownership. Bought CIWS keeps its7-shot bursts.
+
+Shared authority regression checks0/1/2/4 bought turrets after evolution and actual braking floor90; Battlecruiser remains2 base/min140. Burst fixtures now explicitly buy MC turrets. Type/sim/lab/config pass. Protocol28 keeps the same layout, forcing refresh of cached27 clients because the older hosted config record lacks MC and keeps its legacy hash. No hosted record or asset upload needed. Pair client/Worker; defer Claude action.
+
 ## Capital evolution production port — LIVE 181126r0101/protocol27
 
 LIVE proof: PR562 29bb41a4db28900f1c00a4e028b8fb1aff1b6172; itch44232567195/Worker44232567203/Pages44232567296 all success. Public2 Hangar+2 lab+WebGL/Canvas rendering pass, real healthy planet connections and75 snapshots. Step-count grip check24°→.53° passes. Portable proof steroids-alpha-lab/evolution/release-proof.json; no captures; upload tab and temporary processes stopped. No immediate Claude action.

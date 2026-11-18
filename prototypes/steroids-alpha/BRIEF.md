@@ -904,3 +904,5 @@ Approved live release of speed-dependent travel grip, preserving responsive nose
 ## Capital evolution release — owner18 November2026
 
 Hangar selects Battlecruiser (Turrets2/Guns4) or Missile Cruiser (Missiles4/Mines2), earned in-run at300 mineral balance for120 cost. Missile Cruiser has eight rear-launched missiles, larger shots, +50% range/damage and no primary guns; one per press, hold FIRE to repeat. Both capitals use seven-shot burst CIWS then pause/reacquire; tower cannons use high-power doublets then reload. Existing upgrade retention, clan/war protection and shared prediction/authority remain. Owner approved release after the lab review and requested thinner CIWS tracers. Released 181126r0101/protocol27 through PR562; see BUILD_STATUS.
+
+Owner correction18 November2026: Missile Cruiser has zero free/required turrets and no gun requirement; all bought turrets remain. Minimum speed90; cruise170/top225 unchanged. Battlecruiser defaults unchanged.
