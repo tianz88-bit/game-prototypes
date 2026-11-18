@@ -2,6 +2,16 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Evolution & siege — LOCAL LAB PREVIEW, pending art upload
+
+Owner approved lab preview first, not live deployment; missiles are one per press, hold to repeat. New isolated `steroids-alpha-lab/?evolution=1` provides graphical build criteria, persistent preview selection and test preparation. Battlecruiser requires Turrets2/Guns4; Missile Cruiser requires Missiles4/Mines2. Both use floor300/cost120 in this comparison. Other upgrades remain. Eight missile capacity, no main guns, .45s rear launch followed by bounded arc, 1.5x range/damage, larger projectile; mines retained. Both capital forms use seven-shot CIWS then pause/reacquire, prioritizing hostile missiles. Towers use two fast110-damage shots plus telegraph/reload; fighter shield-break grace retained conceptually.
+
+New18-module painted rig uses new elongated keel/sponsons/8-door bay/bridge/engines, shared faction turret hardware, fixed order/cardinal offsets/3% shading, engine vibration and per-part control FFD/Canvas fallback. Four platforms; active turret heads use max(2,bought), not additive ownership. Correction to the previous live note: minimum2 bought upgrades do not imply4 equipped heads under the current shared turretCount function.
+
+Model has no network/save/hosted-publish connection and is NOT a production chassis implementation. Before live: authoritative build selection/purchase validation, chassis persistence/protocol, shared missile capacity/rear launch/building lock, burst turrets/towers, replay/prediction and remote rendering tests. `evolution/README.md` and JSON contain candidate values/boundary; ART_PROMPT.md records built-in image_gen provenance.
+
+Type/build/standalone model/rig checks and seven no-capture Brave DPR2 PC/touch/portrait/Canvas layouts pass; selection/evolution,8 missiles/no primary, gun cruiser, mine input, control FFD, persistent selection, bounds and bounded resets pass. No page errors/sockets/remote writes. Evidence: outputs/steroids-alpha/missile-cruiser-lab/. Public delivery pending owner manual R2 ZIP upload; URL404, CLI not authenticated. Do not merge mandatory preparation until upload verifies. No immediate Claude work, itch/Worker/config release or production changes.
+
 ## Live speed grip, Hangar stats and ship balance — LIVE171126r0100 / protocol26
 
 PR559 merge1eccd9e0e6626cc717504a87868314dfbb6518a5. itch44129275449, Worker44129275517 and Pages44129275338 succeeded. Public7 Hangar layouts +5 evolution-gate layouts pass; live beta connection receives72 travel snapshots and slips24° fast→.57° braking. Hosted settings upgrade resolves enabled grip/cap25/turrets2/guns4. Public lab fields/three profiles pass; no page errors or captures, temporary processes stopped.
