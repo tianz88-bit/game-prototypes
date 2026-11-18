@@ -116,6 +116,15 @@ for(const view of [{w:1280,h:720},{w:844,h:390},{w:320,h:240}])for(const scale o
 }
 near(G.towerLaunchWeight(0),1,'shot begins at barrel');near(G.towerLaunchWeight(180),0,'shot returns to authoritative path');
 for(let t=1;t<=180;t++)assert(G.towerLaunchWeight(t)<=G.towerLaunchWeight(t-1),'launch correction never reverses');
+
+for(const lean of [{x:0,y:0},{x:.55,y:0},{x:-.55,y:.2},{x:.2,y:-.5}])for(const [x,y] of [[0,0],[-100,-70],[100,70]]){
+ const p=G.buildingTiltPoint(x,y,lean);assert(Number.isFinite(p.x)&&Number.isFinite(p.y));
+ if(!lean.x&&!lean.y)assert.deepEqual(p,{x,y},'centre FFD is exact identity');
+ assert(Math.hypot(p.x,p.y)<Math.hypot(x,y)*1.3+1e-8,'building plate deformation stays bounded');
+}
+for(let i=0;i<6;i++)for(let now=0;now<120000;now+=100){assert(Math.abs(G.idleTowerAim(i,now+100)-G.idleTowerAim(i,now))<.007,'idle towers move slowly and continuously');}
+assert.notEqual(G.idleTowerAim(0,2000),G.idleTowerAim(1,2000),'tower patrol phases vary');
+
 console.log('Building perspective: centre/edges/corners/extremes connected; dual muzzle tips and bounded launch blend pass.');
 
 const original=new Uint8ClampedArray([0,97,242,220,255,135,0,255,115,217,255,128,5,9,18,255,230,220,200,255,0,0,0,0]);

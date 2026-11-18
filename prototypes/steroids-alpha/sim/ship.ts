@@ -270,7 +270,10 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune,
   } else {
     const thrust = Math.max(-1, Math.min(1, input.thrust));
     if (s.speed > top) s.speed = Math.max(top, s.speed - motion.braking * dt + Math.min(0, thrust) * motion.braking * dt);
-    else s.speed = Math.max(floor, Math.min(top, s.speed + thrust * (thrust > 0 ? motion.acceleration : motion.braking) * dt));
+    else if(thrust===0){
+      const cruise=Math.max(motion.minSpeed,top*motion.cruiseSpeed/motion.maxSpeed);
+      s.speed=s.speed<cruise?Math.min(cruise,s.speed+motion.acceleration*dt):Math.max(cruise,s.speed-motion.braking*dt);
+    } else s.speed = Math.max(floor, Math.min(top, s.speed + thrust * (thrust > 0 ? motion.acceleration : motion.braking) * dt));
   }
   const speed = s.speed;
   if (s.warping) s.warpDist += speed * dt;

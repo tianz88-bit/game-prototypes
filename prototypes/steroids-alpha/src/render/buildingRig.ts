@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { BuildingFFD } from './buildingFFD';
 import manifest from '../../art/buildings-v1/assets.json';
 import damageManifest from '../../art/warzone-v1/assets.json';
 import { damageStage, durability } from './buildingCondition';
@@ -38,6 +39,7 @@ export interface TurretRigPose extends BuildingRigPose {angle:number;firedAt:num
 export interface BuildingRigBounds {top:number;bottom:number;left:number;right:number;labelY:number;}
 interface BuildingView {
   kind:'nexus'|'turret';clan:number;parts:Phaser.GameObjects.Image[];shadow:Phaser.GameObjects.Image;
+  ffd:BuildingFFD[];lean:{x:number;y:number};
   columns:Phaser.GameObjects.Image[];cast:Phaser.GameObjects.Graphics;
   used:boolean;lastShot:number;barrel:number;health?:number;lastSeen:number;
 }
@@ -87,9 +89,10 @@ export class BuildingRigs {
     if(!view){
       const parts=names.map((name,i)=>this.scene.add.image(0,0,buildingKey(name,p.clan),'body').setDepth(16+i*.65));
       const columns=[0,1].map(i=>this.scene.add.image(0,0,columnTexture(this.scene,p.clan)).setDepth(16.3+i*.65));
-      view={kind,clan:p.clan,parts,columns,cast:this.scene.add.graphics().setDepth(12.5),shadow:this.scene.add.image(0,0,shadowTexture(this.scene)).setDepth(12.6),used:true,lastShot:-1e9,barrel:0,lastSeen:-1e9};
+      view={kind,clan:p.clan,parts,columns,ffd:[0,1,2].map(()=>new BuildingFFD(this.scene)),lean:p.stackLean??{x:0,y:0},cast:this.scene.add.graphics().setDepth(12.5),shadow:this.scene.add.image(0,0,shadowTexture(this.scene)).setDepth(12.6),used:true,lastShot:-1e9,barrel:0,lastSeen:-1e9};
       this.views.set(p.id,view);
     }
+    view.lean=p.stackLean??{x:0,y:0};
     const health=durability(p.health);
     if(isBuildingFinalHit(view.health,health,p.now-view.lastSeen))this.destruction.trigger(p,kind);
     if(view.health===0&&health>0)this.destruction.cancel(p.id);
@@ -197,8 +200,9 @@ export class BuildingRigs {
   end():void {
     const visible=new Set<string>();
     for(const [id,view] of this.views)if(view.used)visible.add(id);else{view.shadow.setVisible(false);view.cast.setVisible(false);view.parts.forEach(part=>part.setVisible(false));view.columns.forEach(part=>part.setVisible(false));}
+    for(const view of this.views.values())view.ffd.forEach((ffd,i)=>{if(view.used)ffd.draw(view.parts[i],view.lean);else ffd.hide();});
     this.destruction.draw(this.scene.time.now,visible);
   }
-  private dispose(view:BuildingView):void {view.shadow.destroy();view.cast.destroy();view.parts.forEach(part=>part.destroy());view.columns.forEach(part=>part.destroy());}
+  private dispose(view:BuildingView):void {view.ffd.forEach(ffd=>ffd.destroy());view.shadow.destroy();view.cast.destroy();view.parts.forEach(part=>part.destroy());view.columns.forEach(part=>part.destroy());}
   destroy():void {for(const view of this.views.values())this.dispose(view);this.views.clear();this.flashes.destroy();this.destruction.destroy();}
 }

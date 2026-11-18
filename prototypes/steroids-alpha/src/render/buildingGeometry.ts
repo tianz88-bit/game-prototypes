@@ -63,3 +63,15 @@ export function buildingShadowPolygon(p:BuildingRigPose,width:number,height:numb
   }
   return hull(points);
 }
+
+/** Slow deterministic wandering, independent per tower; no frame-to-frame random jumps. */
+export function idleTowerAim(index:number,now:number):number {
+  const seed=index*2.39996323;return -Math.PI/2+Math.sin(now/18000+seed)*.9+Math.sin(now/31000+seed*1.7)*.45;
+}
+/** Per-part radial tilt: bounded perspective deformation, identity at screen centre. */
+export function buildingTiltPoint(x:number,y:number,lean:Point):Point {
+  const magnitude=Math.min(.55,Math.hypot(lean.x,lean.y));if(magnitude<1e-8)return{x,y};
+  const dx=lean.x/Math.hypot(lean.x,lean.y),dy=lean.y/Math.hypot(lean.x,lean.y),a=magnitude/.55*Math.PI/10;
+  const along=x*dx+y*dy,depth=-along*Math.sin(a),f=600/Math.max(480,Math.min(720,600+depth));
+  const compress=along*(Math.cos(a)-1);return{x:(x+dx*compress)*f,y:(y+dy*compress)*f};
+}

@@ -10,7 +10,7 @@ const evidence=[];
 for(const c of[0,1,2,3])for(const power of[t.ship.maxHp,t.ship.powerCap]){
  const a=fresh(c,power),b=S.copyShip(a),lab=S.copyShip(a),state=S.newGripState(lab);
  for(let tick=0;tick<40;tick++){
-  const input={...idle,turn:1,fire:true},before=S.copyShip(lab);
+  const input={...idle,turn:1,thrust:1,fire:true},before=S.copyShip(lab);
   S.stepShip(a,input,dt,t);S.stepShip(b,input,dt,plain);S.stepShip(lab,input,dt,plain);S.stepGrip(state,lab,before,t);
   near(a.heading,b.heading);near(a.speed,b.speed);near(a.x,lab.x);near(a.y,lab.y);near(a.travelHeading,state.travel);
   assert(Math.abs(S.angleDelta(a.heading,a.travelHeading))<=24*Math.PI/180+1e-9);

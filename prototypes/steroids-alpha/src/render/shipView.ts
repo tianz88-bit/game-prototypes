@@ -320,7 +320,7 @@ export class ShipView {
     };
     for(let i=0;i<nozzles.length && !demand.off;i++){
       const n=nozzles[i],a=n.angle*Math.PI/180,len=n.width*(this.exhaust.strong[i]?1.5: .7)*(boosting?1.6:1);
-      g.fillStyle(0x73d9ff,.25);rect(n.x,n.y,n.width*.65,len,a,len*.4);
+      g.fillStyle(0x73d9ff,.25);rect(n.x,n.y,n.width*(demand.speedBand==='slow'?.3:.65),len,a,len*.4);
       g.fillStyle(0xe8fdff,.85);rect(n.x,n.y,n.width*.24,n.width*.38,a,n.width*.12);
     }
     if(boosting){const a=angle*Math.PI/180,dx=-Math.sin(a),dy=Math.cos(a),sx=Math.cos(a),sy=Math.sin(a);
@@ -335,7 +335,7 @@ export class ShipView {
     }
     for (const f of this.exhaust.flashes) {
       const t = f.age / f.life;
-      const size = f.width * (0.8 + t * 1.2);
+      const size = Math.min(f.width,18*(f.particleScale??1)) * (0.8 + t * 1.2);
       const a = (f.angle * Math.PI) / 180;
       g.fillStyle(0x73cfff, (1 - t) * 0.85);
       rect(f.x, f.y, size, size * 0.5, a, size * 0.25);

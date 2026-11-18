@@ -2,7 +2,7 @@
 //   move       steer and throttle, in one of two schemes (both always available):
 //                craft-relative   left/right rotates, up/down accelerates/brakes
 //                direction marker the ship steers toward a direction; pushing further
-//                                 accelerates harder; letting go eases back to minimum speed
+//                                 accelerates harder; letting go eases back to cruising speed
 //   primary    fire (held), also taps on menu buttons
 //   secondary  dash (charges, then boosts straight ahead)
 //   buy        shop purchases (one-tap buttons top left, or number keys)
@@ -10,7 +10,7 @@
 // PC (owner, 16 November 2026): the default scheme is mouse aim: the ship always steers toward the
 // cursor (not while the cursor is over the ship or an on-screen button), the left button fires, the
 // right button launches a missile, W accelerates, S brakes, and with neither held the ship eases back
-// to minimum speed. A/D still turn while pressed. The keyboard-only scheme ('craft') is the
+// to cruise speed. A/D still turn while pressed. The keyboard-only scheme ('craft') is the
 // alternative, chosen in the menu.
 // Devices: keyboard is craft-relative (A/D or left/right rotate, W/S or up/down throttle,
 // Shift or K dash (with S for a 180, A or D for 90 degrees), Space or J fire, Q missile, E mine, 1-5 buy turret/shield/guns/missile/mine). Touch: floating stick on the left half, in the scheme
@@ -76,6 +76,10 @@ export class Intents {
    */
   copyZone: { zone: Zone; text: string } | null = null;
   private copyPointer: number | null = null;
+  throttleButtons:(Zone&{thrust:number})[]=[];
+  private throttlePointers=new Map<number,number>();
+  get heldThrottle():number{return Math.max(-1,Math.min(1,this.thrust+[...this.throttlePointers.values()].reduce((a,b)=>a+b,0)));}
+  clearThrottle():void{this.throttleButtons=[];this.throttlePointers.clear();}
   dashButton: Zone | null = null;
   /** Missile and mine buttons (touch), shown once owned. */
   missileButton: Zone | null = null;
@@ -143,7 +147,7 @@ export class Intents {
     window.addEventListener('keydown', (e) => this.onKey(e, true));
     window.addEventListener('keyup', (e) => this.onKey(e, false));
     window.addEventListener('blur', () => {
-      this.held.clear();
+      this.held.clear();this.throttlePointers.clear();
       this.refreshTurn();
       this.endStick();
       this.firePointer = null;
@@ -201,12 +205,12 @@ export class Intents {
   }
 
   /** The move intent for one step, from whichever device is active. speed is the ship's current speed. */
-  /** floor: the lowest speed allowed here (0 over one's own landing pad: the stick at rest lands). */
-  flight(speed: number, floor = TUNE.ship.minSpeed): { turn: number; aim: number; thrust: number } {
+  /** floor: the lowest speed allowed here (0 over one's own landing pad: hold Slower to land). */
+  flight(_speed: number, _floor = TUNE.ship.minSpeed): { turn: number; aim: number; thrust: number } {
     const st = this.stick;
-    // Mouse aim (PC): steer toward the cursor; W/S throttle; neither eases back to minimum speed.
+    // Mouse aim (PC): steer toward the cursor; W/S throttle; neither eases back to cruise speed.
     if (!st && !this.touch && this.scheme === 'marker') {
-      const rest = this.thrust !== 0 ? this.thrust : speed > floor ? -1 : 0;
+      const rest = this.heldThrottle;
       if (this.turn === 0 && this.mouseSteering) {
         const m = this.mouse!, o = this.mouseOrigin!;
         return { turn: 0, aim: Math.atan2(m.y - o.y, m.x - o.x), thrust: rest };
@@ -215,9 +219,9 @@ export class Intents {
     }
     if (!st) {
       // No finger on the stick counts as the stick at rest: in marker mode the ship eases back to
-      // minimum speed. Keyboard throttle, when pressed, still wins.
-      const rest = this.touch && this.scheme === 'marker' && speed > floor ? -1 : 0;
-      return { turn: this.turn, aim: NaN, thrust: this.thrust !== 0 ? this.thrust : rest };
+      // cruise speed. Keyboard throttle, when pressed, still wins.
+      const rest = this.heldThrottle;
+      return { turn: this.turn, aim: NaN, thrust: rest };
     }
     const r = clientTune.touch.joystickRadius;
     const dead = clientTune.touch.deadZone;
@@ -225,14 +229,14 @@ export class Intents {
     const ny = st.dy / r;
     if (this.scheme === 'craft') {
       const axis = (v: number): number => (Math.abs(v) < dead ? 0 : (Math.sign(v) * (Math.abs(v) - dead)) / (1 - dead));
-      return { turn: axis(nx), aim: NaN, thrust: axis(-ny) };
+      return { turn: axis(nx), aim: NaN, thrust: this.heldThrottle||axis(-ny) };
     }
-    // Direction marker (owner decision): with the stick at rest the ship eases back to minimum speed.
-    // Pushing it accelerates, gently at first and at full strength only near the edge.
+    // Direction marker (owner decision): with the stick at rest the ship eases back to cruise speed.
+    // The marker only aims; Faster/Slower holds control speed independently.
     const mag = Math.min(1, Math.hypot(nx, ny));
-    if (mag < dead) return { turn: 0, aim: NaN, thrust: speed > floor ? -1 : 0 };
-    const push = (mag - dead) / (1 - dead);
-    return { turn: 0, aim: Math.atan2(ny, nx), thrust: Math.pow(push, clientTune.touch.markerThrustCurve) };
+    if (mag < dead) return { turn: 0, aim: NaN, thrust: this.heldThrottle };
+
+    return { turn: 0, aim: Math.atan2(ny, nx), thrust: this.heldThrottle };
   }
 
   private onDown(e: PointerEvent): void {
@@ -252,6 +256,7 @@ export class Intents {
         return;
       }
     }
+    const throttle=this.throttleButtons.find(hit);if(throttle){this.throttlePointers.set(e.pointerId,throttle.thrust);return;}
     if (this.uiZones.some(hit)) return;
     if (hit(this.warpButton)) {
       this.presses.add('warp');
@@ -315,6 +320,7 @@ export class Intents {
   }
 
   private onUp(e: PointerEvent): void {
+    this.throttlePointers.delete(e.pointerId);
     if (e.pointerId === this.copyPointer) {
       this.copyPointer = null;
       const c = this.copyZone;

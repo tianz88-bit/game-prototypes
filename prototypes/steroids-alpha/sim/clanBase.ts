@@ -69,3 +69,6 @@ export function isDocked(layout: BaseLayout | null, clan: number, s: ShipState, 
 export function insideDome(layout: BaseLayout, x: number, y: number, tune: Tune): boolean {
   return dist(x, y, layout.treasury.x, layout.treasury.y, tune) < tune.base.domeRadius;
 }
+
+/** Peaceful home worlds have no extraction cooldown; arrival still gates warp in stepShip. */
+export function freeHomeWarp(layout:BaseLayout|null,hasSiege:boolean,atWar:boolean):boolean{return !!layout&&!hasSiege&&!atWar;}

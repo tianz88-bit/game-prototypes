@@ -105,7 +105,11 @@ const near = (a, b, eps, what) => assert(Math.abs(a - b) <= eps, `${what}: ${a} 
   assert.equal(s.speed, tune.ship.minSpeed, 'brakes to min speed, not to a stop');
   const x0 = s.x;
   for (let i = 0; i < 30; i++) S.stepShip(s, idle, dt, tune);
-  near(s.x - x0, tune.ship.minSpeed, 1e-6, 'holds speed with no thrust, moving where the nose points');
+  assert(s.speed>tune.ship.minSpeed&&s.x>x0,'neutral accelerates from minimum toward cruise');
+  for(const chassis of [0,1,2,3,4])for(const power of [50,500])for(const fast of [false,true]){
+    const a=falcon(100,100,0,0);a.chassis=chassis;a.hullMax=a.hp=power;const m=S.shipMotion(chassis,tune),top=S.topSpeed(power,tune,chassis),cruise=Math.max(m.minSpeed,top*m.cruiseSpeed/m.maxSpeed);a.speed=fast?top:m.minSpeed;
+    for(let i=0;i<180;i++)S.stepShip(a,idle,dt,tune);near(a.speed,cruise,1e-6,'neutral restores chassis/power cruise');
+  }
 }
 
 // --- Guns: fire rate in whole steps, alternating sides. ---
@@ -257,7 +261,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   for (let i = 0; i < 600 && b.hp === sh.maxHp; i++) {
     a.x = 1000; a.y = 1000; a.heading = 0; a.heat = 0; a.overheated = false;
     b.x = 1200; b.y = 1000;
-    w.stepShip(1, { ...idle, fire: true });
+    w.stepShip(1, { ...idle, thrust:-1, fire: true });
     w.step();
     const ev = w.drain().hits;
     hits.push(...ev);
@@ -629,8 +633,8 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   let rams = [];
   // The boost starts after the charge, then closes the gap.
   for (let i = 0; i < 2 * tune.net.tickHz; i++) {
-    w.stepShip(1, { ...idle, dash: i === 0 });
-    w.stepShip(2, idle);
+    w.stepShip(1, { ...idle, thrust:-1, dash: i === 0 });
+    w.stepShip(2, {...idle,thrust:-1});
     w.step();
     const got = w.drain().rams;
     if (got.length && !rams.length) var push = { a: a.kx, b: b.kx };
@@ -1456,7 +1460,7 @@ assert.equal(S.cleanName(null), '');
   // Above top speed the extra bleeds at the braking rate; at 1x the boost is top speed already.
   near(sh.speed, Math.max(tune.ship.maxSpeed, boost - tune.ship.braking * dt), 1e-6, 'eases out of the boost');
   for (let i = 0; i < 6 * tune.net.tickHz; i++) S.stepShip(sh, { ...idle, thrust: 0 }, dt, tune);
-  near(sh.speed, tune.ship.maxSpeed, 1e-6, 'settles at top speed when coasting');
+  near(sh.speed, tune.ship.cruiseSpeed, 1e-6, 'returns to cruise after dash when throttle released');
   // Steering returns once the boost is over.
   const before = sh.heading;
   S.stepShip(sh, { ...idle, turn: 1 }, dt, tune);
@@ -2129,6 +2133,23 @@ assert.equal(S.cleanName(null), '');
   assert(Math.tan(Math.max(...dirs))*650>26 && Math.tan(Math.max(...dirs))*150<10,'close aim remains forgiving, distant shots drift outside hull');
   const snap=S.decodeServer(S.encodeSnapshot(1,0,[{...s,id:99} ]));assert.equal(snap.ships[0].chassis,S.SPARROW,'Sparrow survives snapshot');
   console.log('Sparrow cold-burst ammo:',JSON.stringify(counts));
+}
+
+
+// Owner18 November: neutral cruise, deliberate pad descent and unrestricted peaceful home extraction.
+{
+ const t=JSON.parse(readFileSync(path.join(root,'prototypes/steroids-alpha/tune.json'),'utf8'));t.warp.arrivalSeconds=0;t.asteroid.targetMass=0;
+ for(const planet of ['crimson','azure','beta','warzone']){
+  const w=new S.World(t,rng(701));w.setPlanet(planet);const a=w.addShip(1);a.lockdown=999;a.arrival=0;
+  if(planet==='warzone')w.startWar();w.stepShip(1,{...idle,warp:true});
+  assert.equal(a.warping,planet==='crimson'||planet==='azure','home-only peace warp bypasses cooldown');
+ }
+ const w=new S.World(t,rng(702));w.setPlanet('crimson');const p=w.layout.pads[0],a=w.addShip(1);w.clanOf.set(1,1);
+ Object.assign(a,{x:p.x,y:p.y,speed:t.ship.minSpeed,arrival:0,lockdown:999});w.stepShip(1,idle);assert(a.speed>t.ship.minSpeed&&!w.docked(1),'neutral never lands at minimum');
+ for(let i=0;i<90;i++){a.x=p.x;a.y=p.y;w.stepShip(1,{...idle,thrust:-1});}assert.equal(a.speed,0);assert(w.docked(1),'holding brake over pad lands');
+ for(let i=0;i<20;i++){a.x=p.x;a.y=p.y;w.stepShip(1,idle);}assert(a.speed>t.base.dockSpeed&&!w.docked(1),'release takes off toward cruise');
+ a.arrival=1;a.warping=false;w.stepShip(1,{...idle,warp:true});assert(!a.warping,'arrival still prevents premature warp');
+ console.log('PASS neutral cruise, hold-brake pad landing/release and home peace warp versus ordinary/war/arrival locks');
 }
 
 console.log('Steroids-Alpha sim rules: throttle, guns, asteroid splits, contact, deaths, population, wire format, planet lighting, thrusters, dash, shield, power, hull max, minerals, spills, turret shop, overheat, gun heat upgrades, aim assist, dash charge and boost, dash ram, bots, ramming, health boosts, kill credit, missiles, mines, bounty, lockdown, warp-out, salvage, hot zone, ship types, evolving and settings upgrade all pass.');

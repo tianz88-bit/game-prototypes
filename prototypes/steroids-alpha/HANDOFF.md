@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-18 codex cruise/home warp and building tilt
+DID: neutral restores power-adjusted chassis cruise; marker aims only, mobile hold+/−; brake over owned pad docks, release takes off. Peace homes bypass cooldown; compact low-speed flashes.
+FILES: shared ship/home/world, Intents/NetClient/Flight/tutorial, buildingFFD/geometry/Rig/clanBaseArt and ship exhaust; authority/grip/building fixtures.
+SEAM: protocol30 same wire layout forces paired refresh; shared authority/prediction agree. Optional idleScan and pooled per-part building meshes preserve roots/fixed layers and Canvas/context-loss fallback.
+CROSS: owner requested movement/landing/warp; existing acceleration/braking/tuned caps unchanged. Type/build/sim/config/rig pass;3 WebGL PC/touch cases plus actual Canvas fallback, touch holds/neutral marker, home UI, real mesh faces/stable objects pass. No capture.
+FOR claude: deferred only. Explicit brake/full-throttle now used in fixed-speed shield/ram/grip fixtures; neutral post-dash expects cruise. No new assets/dependencies/migration or hosted config changes.
+
 ## 2026-11-18 codex fixed building stacks LIVE181126r0105
 DID: PR570 e648baa2 live105; itch44321872467/Pages44321872344 succeeded. Fixed buildings, bounded outward stack offsets, connected columns, smaller alternating barrel-tip bolts.
 FILES: buildingGeometry/Rig, clanBaseArt, rigReview, Flight draw and NetClient visual tags, building regression and brief.
@@ -97,10 +104,3 @@ FILES: portable lab/drift-findings.json, deferred backlog and status. Raw memory
 SEAM: none; production/lab code/tune and live config untouched. Motion lag only, nose aiming preserved; same profile for both pilots.
 CROSS:320 scripted duel runs, all4 chassis slip checks, zero-variant canonical parity and exact delayed replay;10 Brave DPR2 runtime cases, zero page errors/sockets/writes/captures, processes stopped.
 FOR claude: research only, no implementation/live approval. Do not assume drift solves tailing/circling; current easier candidate stays. Backlog records metrics and limitations.
-
-## 2026-11-17 codex easier duel controls PUBLIC
-DID: fixed stale Start-pointer aim; auto-cruise, mobile steering/Brake, broad turn band and delayed sparring live in LAB only. PR551 b7ed4f4d; Pages44064727969 success.
-FILES: lab controls/input/model/preset/renderer, standalone test and deferred docs. Production combat remains171126r0098/Worker25, no new client/server deploy.
-SEAM: per-step clone gyro restored in finally, input adapter owns Brake events; synthetic continuous-aim counter windows are not human-fun/win guarantees.
-CROSS: type/build/rig/sim/config/physics pass;3 local+3 public targeted inputs and6 local+6 public general layouts,12 timing-window sequences. No page errors/game sockets/writes/captures; preview/headless stopped.
-FOR claude: owner retry gate remains. Backlog updated, no immediate execution/review or live port. Public ?duel=tail / ?duel=circle; evidence outputs/steroids-alpha/combat-duel-lab/easier-* and public-easier-*.
