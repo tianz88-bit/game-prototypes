@@ -1,23 +1,23 @@
 ## Current milestone
 
-Production loadouts LIVE181126r0103/protocol29 via PR566; Pages44292583010, itch44292583012 and Worker44292583031 succeeded. Existing design lab remains public and isolated.
+Public permanent lab matches LIVE181126r0107/protocol31 balance. Pages44357659573 succeeded; production PR574.
 
 ## What was implemented
 
-Production Hangar requires1500 bank credits per permanent evolution unlock, then explicit pre-mission equipment; match shop shows both requirement counters/resources. This standalone lab keeps free prepare/evolve controls for design comparisons and never unlocks/equips an account. MC base0/min90 and bought CIWS behavior retained.
+Shared actual hull capacity separates lab health bars/repair from money. Evolution sandbox keeps free prepare/evolve; production still requires owned/equipped1500-credit unlocks and in-run prerequisites. Evolution cost/floor50; Shop5/10/15/20 per track. Hidden internal balanceVersion; whole-mineral tier inputs.
 
 ## Key technical decisions
 
-Lab account isolation unchanged. Shared catalogue/config adds evolution slot/price; backend verifies initial loadout and ownership, protocol29 same layout. Six local+2 public UI cases and SQLite/Room bank tests pass; public real authority rejects forged MC selection over51 healthy snapshots. No capture. Portable production proof evolution/loadout-release-proof.json.
+Canonical hullCapacity/mineralBalance interpret legacy wire hullMax=baseHP+wallet. Historical config parses into epoch2 without losing calibration. No production sockets/account writes in isolated sandboxes. Public lab DOM check confirms5/10/15/20 inputs with step1 and no exposed epoch control; no writes/errors/capture. Evolution gate/type/build/rig pass. Proof progression-balance-proof.json includes3 local/2 public game transactions and real Worker55 snapshots.
 
 ## Open questions
 
-Owner may tune progression after play; no immediate Claude request.
+No blocking questions. Owner benchmark target recorded in production BRIEF.md.
 
 ## Known issues
 
-No live credits spent by QA; positive bank/equip checks use SQLite/Room and browser intercepted fixtures. Design lab intentionally bypasses account progression only in its isolated model.
+Evolution sandbox is a design preview and does not unlock/equip live accounts. Power benchmark excludes capital roles, ordnance tactics, accuracy and regeneration. No screenshots/recording.
 
 ## Next proposed step
 
-Use Hangar → EVOLVE for real unlocks/loadouts and this lab for art/combat comparison. Deferred handoff saved, preview/headless closed.
+Playtest progression pace and fresh-versus-max combat; keep capital role balance separate.

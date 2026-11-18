@@ -2,7 +2,9 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
-## Flat combat progression — protocol31, release pending
+## Flat combat progression — LIVE181126r0107/protocol31
+
+PR574d43bdd7e8dba3d315055fea50640932fcd9fa6bf; itch44357659530/Worker44357659566/Pages44357659573 succeeded.2 public PC/portrait purchase cases, real home Worker55 snapshots/ack92 (zero wallet rejection, roster0, HP50/50), effective socket epoch2 and public lab5/10/15/20 integer inputs pass. Historical public stored ConfigRecord remains unchanged; parseRecord upgrades its effective data in Room/client/lab. No publisher/credential operation.
 
 Owner chose about+75% strongest max fighter versus fresh Sparrow.60-second main+ideal4-drone DPS × hull/shield reaches1.76756, excluding accuracy, regen, missiles/mines and cruiser roles. All five tier tracks5/10/15/20, total250; both equipped/owned evolutions50 cost/floor,115 earliest route.1500 bank unlock prices unchanged.
 

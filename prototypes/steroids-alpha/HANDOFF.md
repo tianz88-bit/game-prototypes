@@ -1,11 +1,11 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
-## 2026-11-19 codex flat progression — release pending
-DID: Owner-approved about+75% fighter target measures+76.8%; shop250 total, evolution50/earliest115; minerals no longer add/spend combat HP.
+## 2026-11-19 codex flat progression LIVE181126r0107
+DID: PR574d43bdd7e LIVE107/31; itch44357659530/Worker44357659566/Pages44357659573 succeeded. Fighter benchmark+76.8%; shop250/evolution50; wallet independent of HP.
 FILES: shared ship/shop/world/liveConfig/tune, Room, HUD/Flight/tutorial, lab/evolution and progression/config/bank/sim gates.
 SEAM: protocol31 same layout; hullMax is legacy baseline+wallet, use mineralBalance/hullCapacity. Epoch2 upgrades legacy hosted balance once, preserving art/control settings and later epoch2 edits.
 CROSS: authority/economy/UI/tests per owner; type/build/sim/config/bank/rig/evolution and3 headless purchase layouts pass. No new assets/dependencies/D1 schema/permanent-price change or capture.
-FOR claude: deferred; see CLAUDE_BACKLOG/progression-balance-proof.json. Capital roles, tactics, regen and accuracy are outside the benchmark; monitor separately.
+FOR claude: deferred; proof ../steroids-alpha-lab/progression-balance-proof.json.2 public UI cases/real Worker55 snapshots and public lab pass; no capture. Capital/tactics/regen/accuracy need separate playtesting.
 
 ## 2026-11-18 codex cruise/home/tilt LIVE181126r0106
 DID: PR5723245a9e4 live106/30; itch44338617901/Worker44338617904/Pages44338621246 succeeded. Neutral cruise, deliberate docking, peace-home warp, compact FX, building FFD and idle heads.

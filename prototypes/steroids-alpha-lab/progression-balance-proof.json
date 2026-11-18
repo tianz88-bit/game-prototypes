@@ -1,6 +1,6 @@
 {
   "date": "2026-11-19",
-  "release": "pending",
+  "release": "181126r0107",
   "protocol": 31,
   "baseline": {
     "version": "181126r0106",
@@ -139,5 +139,128 @@
     "Browser account ownership fixture; actual billing is covered separately by Room/SQLite tests",
     "Power index excludes accuracy, regeneration, tactical ordnance and capital roles",
     "Mineral costs measured; no claimed minutes-to-max"
-  ]
+  ],
+  "pr": 574,
+  "merge": "d43bdd7e8dba3d315055fea50640932fcd9fa6bf",
+  "runs": {
+    "itch": 44357659530,
+    "worker": 44357659566,
+    "pages": 44357659573,
+    "conclusion": "success"
+  },
+  "publicHeadless": {
+    "capture": false,
+    "errors": [],
+    "cases": [
+      {
+        "width": 1280,
+        "height": 720,
+        "mobile": false,
+        "emptyWalletRejected": true,
+        "firstBuy5": true,
+        "repeatedTapSafe": true,
+        "fullShop250": true,
+        "evolution50": true,
+        "boundary49vs50": true,
+        "miningAndSpendingDoNotHealOrDamage": true,
+        "hullHeaderActual": true,
+        "all20Retained": true,
+        "bounds": true,
+        "snapshots": 72
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "mobile": true,
+        "emptyWalletRejected": true,
+        "firstBuy5": true,
+        "repeatedTapSafe": true,
+        "fullShop250": true,
+        "evolution50": true,
+        "boundary49vs50": true,
+        "miningAndSpendingDoNotHealOrDamage": true,
+        "hullHeaderActual": true,
+        "all20Retained": true,
+        "bounds": true,
+        "snapshots": 80
+      }
+    ],
+    "accountFixture": true,
+    "localRoomAuthority": true,
+    "url": "https://html-classic.itch.zone/html/20420865-2428968/prototypes/steroids-alpha/index.html"
+  },
+  "publicAuthority": {
+    "capture": false,
+    "errors": [],
+    "positivePurchases": "covered by actual local Room/NetClient and SQLite bank gates; no live money fixture",
+    "authorityConfig": {
+      "version": "4f47a322b78387895ddce1bd629d86bc4b0264ee94176c71599cbc05232407ae",
+      "balanceVersion": 2,
+      "costs": [
+        5,
+        10,
+        15,
+        20
+      ],
+      "droneDamage": 0.8,
+      "evolutionCost": 50
+    },
+    "before": {
+      "status": "open",
+      "hp": 50,
+      "rawWalletField": 50,
+      "turrets": 0,
+      "rosterPower": 0,
+      "snapshots": 45,
+      "ack": 72
+    },
+    "after": {
+      "hp": 50,
+      "rawWalletField": 50,
+      "turrets": 0,
+      "snapshots": 55,
+      "ack": 92,
+      "shop": "5 MIN",
+      "header": "SPEND MINERALS · HULL 50/50"
+    },
+    "storedConfig": {
+      "version": "4f47a322b78387895ddce1bd629d86bc4b0264ee94176c71599cbc05232407ae",
+      "costs": [
+        50,
+        60,
+        70,
+        80
+      ],
+      "droneDamage": 2,
+      "evolutionCost": 120
+    }
+  },
+  "publicLab": {
+    "capture": false,
+    "errors": [],
+    "writes": [],
+    "prices": [
+      {
+        "value": "5",
+        "step": "1"
+      },
+      {
+        "value": "10",
+        "step": "1"
+      },
+      {
+        "value": "15",
+        "step": "1"
+      },
+      {
+        "value": "20",
+        "step": "1"
+      }
+    ]
+  },
+  "stampCheck": {
+    "stamp": "181126r0107",
+    "capture": false
+  },
+  "configNote": "Stored historical record is intentionally unchanged. Room socket and client/lab parseRecord apply epoch2; public socket was verified to deliver effective new prices/damage/evolution cost. Future publishing stores epoch2."
 }

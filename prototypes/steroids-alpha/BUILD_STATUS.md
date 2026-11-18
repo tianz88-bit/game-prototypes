@@ -1,27 +1,27 @@
 ## Current milestone
 
-LIVE VERIFIED181126r0106/protocol30. PR572 merge3245a9e4350f4fb170a837b575ae82f778f20bb3; itch44338617901, Worker44338617904 and Pages44338621246 succeeded. Neutral cruise/home extraction, compact low-speed FX, outward building FFD and idle tower heads released.
+LIVE VERIFIED181126r0107/protocol31. PR574 merge d43bdd7e8dba3d315055fea50640932fcd9fa6bf; itch44357659530, Worker44357659566 and Pages44357659573 succeeded. Flat fighter progression and cheaper mineral shop released.
 
 ## What was implemented
 
-No speed input smoothly restores each chassis/power cruise with existing acceleration/braking; aiming is independent. Keyboard Up/Down and compact mobile hold+/− explicitly control speed. Marker drag no longer auto-brakes or accelerates. Hold Down/− over an owned pad to slow below normal minimum and dock; release accelerates/takes off. Peaceful Crimson/Azure homes have no warp cooldown; ordinary/Warzone and arrival protection restrictions remain. Tutorial/control text follows the new controls.
+Owner-selected about+75% fighter power target measures+76.8% strongest max Falcon versus fresh Sparrow on60-second main+ideal automatic-drone DPS × hull/shield. All5 upgrade tracks5/10/15/20 minerals,250 for20 upgrades (was1240). Both owned/equipped evolutions50 cost/floor,115 earliest mineral route including existing BC Turrets2/Guns4 or MC Missiles4/Mines2.1500-credit permanent unlocks unchanged.
 
-Low-speed plume narrower and nozzle-width ignition blocks capped, retaining rectangular particles and speed colours. Building plates have bounded outward per-part FFD while root/stack/fixed-depth layout remain. Original sprites cover Canvas/context-loss/disabled FFD; pooled meshes use source crop UVs/clan/damage tint. Home heads wander slowly when idle and yield to recent fire. No new assets or gameplay rate changes.
+Wallet and combat health are independent; mining/spending cannot heal or damage. Actual hull50, fighter max shield65 (Bat45.5), tier gun damage+12%, heat capacity+10%; drones0.8 damage, ordnance retains capacity/utility without tier damage stacking. Repair, bounded wallet-only loot, health bars, roster/extraction and tutorial follow the new economy. Art/rig/controls/calibration and capital role factors retained.
 
 ## Key technical decisions
 
-Shared movement/home helper and NetClient replay/prediction stay aligned. Client explicitly checks home IDs before siege data arrives. Protocol30 retains wire layout but refreshes old movement clients; paired release completed. Input pointer release/cancel/blur/shutdown cleanup prevents stuck throttle. No migration, dependency, published config edit or resident service.
+Protocol31 forces paired refresh without wire-layout changes. Legacy hullMax stores base HP+wallet; use mineralBalance/hullCapacity. Existing carried-load size/speed penalty retained. Room preserves wallets across config base-hull edits. Epoch2 upgrades historical published balances once, preserving unrelated settings/later epoch2 edits. Historical stored ConfigRecord/hash remains unchanged; effective socket/client/lab data are migrated. No D1 migration, resident publisher, credentials, assets or dependencies.
 
-Typecheck/build/sim/live-config/rig pass. Neutral/dock/release/home/war/arrival regressions and bounded tilt/idle checks added; fixed-speed shield/ram/grip fixtures explicitly hold brake/throttle, post-dash neutral expects cruise. Three local and2 public WebGL PC/touch/portrait cases pass actual keyboard/CDP touch holds, release, neutral marker and home UI. Actual GPU faces render; mesh/object/texture reuse, centre identity and context-loss fallback pass, plus real Canvas fallback. Real home connection held cruise260 and lockdown0 at46 snapshots, then warp persisted through56 snapshots/ack99. No page errors, screenshots or recording. Proof ../steroids-alpha-lab/cruise-home-proof.json; raw outputs/steroids-alpha/missile-cruiser-lab/cruise-*.
+Type/build/full sim/progression/capital/grip, real SQLite bank, live-config/OIDC/admin/publisher, rig/FFD/building/layout and evolution-lab pass.3 local+2 public headless Brave PC/touch/portrait cases buy all20 through actual local Room/NetClient and test empty/repeat taps,49/50 evolution, health invariance and bounds. Actual public Worker55 snapshots/ack92 confirms HP50, wallet0, roster0, rejected empty buy and socket epoch2. Public lab prices/whole-mineral fields pass with no writes; public label reads181126r0107. No screenshots/recording. Durable proof ../steroids-alpha-lab/progression-balance-proof.json.
 
 ## Open questions
 
-None. Deferred Claude handoff saved; no immediate session requested.
+Owner's benchmark choice is recorded in BRIEF.md. No blocking questions. Measure actual time-to-upgrade, missile/mine tactics and capital siege matchups through playtesting. Claude handoff remains deferred in CLAUDE_BACKLOG.md.
 
 ## Known issues
 
-Docking authority is covered by shared tests; headless home flight verifies cruise and warp, without manual bay navigation or visual capture. Idle head patrol is cosmetic and shot angles remain authoritative. Browser fixtures use intercepted accounts/config where noted; no bank credits spent. No physical Safari review.
+Power index excludes accuracy, shield recovery, tactical ordnance and capital roles; it is not a win-rate guarantee. Browser account ownership is a fixture; real billing/positive authority are covered separately by Room/SQLite tests. Mineral requirements are measured, no minutes-to-max claim. Existing Vite large-bundle warning remains.
 
 ## Next proposed step
 
-Refresh both game/lab for106/30. Try neutral cruise, hold−/Down to dock and release to depart; use building Position presets to inspect outward tilt. Temporary preview and headless processes stopped; no publisher or capture left running.
+Playtest early upgrade cadence and fresh-versus-max fighter encounters; measure cruiser siege roles separately before further tuning.
