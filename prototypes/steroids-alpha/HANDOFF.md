@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-18 codex main-menu evolution slot
+DID: main menu shows owned equipped evolution, or Choose evolution; tap opens Hangar EVOLVE directly. Shares secondary row with Learn to fly without adding height.
+FILES: landingLayout, MenuScene, HangarScene explicit tab option, layout bounds gate and brief.
+SEAM: none; existing selectedEvolution ownership check and saved look reused. No account/gameplay/protocol/config changes.
+CROSS: minimal menu scene flow and existing layout test extension; desktop/mobile headless checks, no capture.
+FOR claude: deferred only; normal Hangar entry retains remembered tab, explicit evolution shortcut overrides it. No immediate action.
+
 ## 2026-11-18 codex evolution loadouts LIVE181126r0103
 DID: PR566 2c0ee7a9 live; itch44292583012/Worker44292583031/Pages44292583010 success.1500-credit permanent unlock each, separate equip, compact missing-upgrade/resource status.
 FILES: catalogue/tune, Room auth/buy gate, client frozen look/Hangar/shop/tips, bank regression; loadout-release-proof.json and deferred docs.
@@ -97,10 +104,3 @@ FILES: lab-only controls/input/model/renderer/preset, standalone regression and 
 SEAM: temporary cloned gyro override restored per shared movement step; pure throttle helper and separate Brake input adapter. Damage and prior impact response retained; opening pointer neutral until moved.
 CROSS: type/build and physics/control tests pass;3 built-preview Brave control cases +6 general layouts pass.12 continuous-aim synthetic counters yield firing windows across timing variation, not human-fun/win proof. Public proof pending.
 FOR claude: backlog only. Owner playtest gate remains; no immediate action or live port. Evidence outputs/steroids-alpha/combat-duel-lab/easier-*.
-
-## 2026-11-17 codex combat duel lab PUBLIC PREVIEW
-DID: Tailed/Circling handling lab published via PR549 06e75665; Pages44057784026 success. Live combat stays171126r0098/Worker25; no new Steroids itch/Worker run.
-FILES: lab-only model/renderer/tuning/entry plus standalone physics test; durable docs/backlog.
-SEAM: existing World damage/weapons/grace, post-step candidate contact response and read-only projectile adapter. No live config writes or production code/tune changes.
-CROSS: type/build/rig/sim/config/physics pass;6 local+6 public DPR2 PC/mobile layouts, all4 public ships/held Fire/Dash/roles/presets/reset disposal. Zero page errors/game sockets/writes/captures; Vite/headless stopped.
-FOR claude: OWNER PLAYTEST GATE remains. Deferred backlog has future authority/prediction port requirements; no immediate execution/review. URLs ?duel=tail and ?duel=circle; evidence outputs/steroids-alpha/combat-duel-lab/.

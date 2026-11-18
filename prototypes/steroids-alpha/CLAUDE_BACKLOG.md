@@ -2,6 +2,10 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Main-menu evolution loadout slot
+
+Shows the existing owned equipped evolution (or Choose evolution) beside Learn to fly beneath Warp. Tap opens Hangar EVOLVE using an explicit scene option; ordinary Hangar entry retains its remembered tab. Selection reads selectedEvolution with current account unlocks; forged/unowned and legacy numeric choices display empty. Menu rebuild refreshes after equip/unequip. Same44px action row, no extra mobile height. No account, gameplay, protocol or assets changes. Headless Brave validation only, no capture; no immediate Claude action.
+
 ## Owned pre-mission evolution loadouts — LIVE181126r0103/protocol29
 
 PR5662c0ee7a97268be7d687d43a01884610a4556fa2f. Client44292583012/Worker44292583031/Pages44292583010 success.6 local+2 public UI cases pass, actual public Worker rejects forged/unowned MC auth and shows NO EVO over51 healthy snapshots. Source proof lab/evolution/loadout-release-proof.json. No capture/live credit spending; SQLite/Room covers positive bank/authority cases and browser fixture purchases cover presentation. Temporary processes stopped. No immediate Claude action.

@@ -1,0 +1,57 @@
+{
+  "capture": false,
+  "checks": [
+    "owned MC/BC labels",
+    "empty and unowned/legacy show Choose evolution",
+    "44px touch height and non-overlap",
+    "shortcut overrides remembered tab",
+    "equip return refresh",
+    "utility overlay isolation"
+  ],
+  "cases": [
+    {
+      "width": 1920,
+      "height": 1080,
+      "mobile": false
+    },
+    {
+      "width": 1280,
+      "height": 720,
+      "mobile": false
+    },
+    {
+      "width": 960,
+      "height": 540,
+      "mobile": false
+    },
+    {
+      "width": 844,
+      "height": 390,
+      "mobile": true
+    },
+    {
+      "width": 568,
+      "height": 320,
+      "mobile": true
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "mobile": true
+    },
+    {
+      "width": 480,
+      "height": 600,
+      "mobile": true
+    },
+    {
+      "width": 844,
+      "height": 280,
+      "mobile": true
+    }
+  ],
+  "pageErrors": [],
+  "typecheck": true,
+  "build": true,
+  "rigAndLayoutGate": true
+}

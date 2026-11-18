@@ -57,9 +57,10 @@ export class HangarScene extends Phaser.Scene {
     super('hangar');
   }
 
-  create(data: { credits?: number | null; unlocks?: string[] }): void {
+  create(data: { credits?: number | null; unlocks?: string[]; tab?: 'evolution' }): void {
     this.credits = data?.credits ?? null;
     this.unlocks = data?.unlocks ?? [];
+    if (data?.tab === 'evolution') openTab = TABS.findIndex(t => t.label === 'EVOLVE');
     this.armed = null;
     this.note = '';
     this.showRuns = false;
