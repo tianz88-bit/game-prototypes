@@ -31,7 +31,7 @@ import { localTransport } from '../tutorial/localServer';
 import { maxShield, shipRadius, powerGrowth, topSpeed } from '../../sim/ship';
 import { TURRET_MOUNTS, turretCount } from '../../sim/turrets';
 import { BATTLECRUISER, MISSILE_CRUISER, isCapital, TURRET_MOUNTS_BY_CHASSIS, chassisStats, upgradeTotal,GUNS } from '../../sim/chassis';
-import { SHOP_ITEMS, canBuy, shopOffer, shopTier, EVOLVE_ITEM, canEvolve } from '../../sim/shop';
+import { SHOP_ITEMS, canBuy, shopOffer, shopTier, EVOLVE_ITEM, canEvolve,evolutionProgress } from '../../sim/shop';
 import type { ShipState } from '../../sim/ship';
 import { wrapDelta } from '../../sim/wrap';
 import { DEBUG, DEBUG_ROTATION, logicalSize } from '../base';
@@ -125,6 +125,7 @@ export class FlightScene extends Phaser.Scene {
   private mobileButtons: { action: 'shop' | 'board'; x: number; y: number; w: number }[] = [];
   private mobileNavLabels: Phaser.GameObjects.Text[] = [];
   private evolvePreview!: Phaser.GameObjects.Container;
+  private evolvePreviewBuild=-1;
   /** Charge counts on the missile and mine buttons. */
   private weaponTexts: Phaser.GameObjects.Text[] = [];
   /** Bounty label: over the holder's ship, at the edge tracker, or "BOUNTY ON YOU". */
@@ -265,7 +266,8 @@ export class FlightScene extends Phaser.Scene {
     this.crystalChips=new CrystalChips(this);
     this.buildingRigs=new BuildingRigs(this);
     this.mobileNavLabels = [0,1].map(() => text(this,0,0,'',11).setOrigin(.5).setDepth(954).setVisible(false));
-    this.evolvePreview = shipPreview(this,loadSave().evolution===1?4:2,0,0,0,18,16).setDepth(952).setVisible(false);
+    this.evolvePreview = shipPreview(this,this.net.equippedEvolution===1?4:2,0,0,0,18,16).setDepth(952).setVisible(false);
+    this.evolvePreviewBuild=this.net.equippedEvolution??-1;
     this.shopTexts = [...SHOP_ITEMS, 'evolve'].map(() => ({
       title: text(this, 0, 0, '', 12, '#ffffff').setOrigin(0, 0.5).setDepth(951).setVisible(false),
       sub: text(this, 0, 0, '', 10, '#c9d6f2').setOrigin(0, 0.5).setDepth(951).setVisible(false),
@@ -314,7 +316,7 @@ export class FlightScene extends Phaser.Scene {
       if(this.planet===TUTORIAL&&!guide.policy.shop)continue;
       const p = this.net.predicted;
       if (p && item === EVOLVE_ITEM) {
-        if (canEvolve(p, TUNE,loadSave().evolution===1?1:0)) this.net.buy(EVOLVE_ITEM, loadSave().evolution===1?1:0);
+        const build=this.net.equippedEvolution;if(build!==null&&canEvolve(p,TUNE,build))this.net.buy(EVOLVE_ITEM,build);
         continue;
       }
       const name = SHOP_ITEMS[item];
@@ -1167,29 +1169,16 @@ export class FlightScene extends Phaser.Scene {
         .setColor(can ? '#c7f1dd' : '#a1afbf');
       intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
     });
-    // Evolve (owner design): the fighters can become the Battlecruiser during a run, once they have
-    // enough upgrades and power; it costs minerals. The card shows what is still missing.
-    const t = this.shopTexts[EVOLVE_ITEM];
-    if (isCapital(p.chassis)) {
-      t.title.setVisible(false);
-      t.sub.setVisible(false);
-      return;
-    }
-    const i = EVOLVE_ITEM;
-    const bx = x + (i % cols) * (bw + 6);
-    const y = drawer.y + Math.floor(i / cols) * (bh + 6);
-    const heavy=loadSave().evolution===1,b=heavy?TUNE.missileCruiser:TUNE.battlecruiser;
-    const can = canEvolve(p, TUNE,loadSave().evolution===1?1:0);
-    const ups = upgradeTotal(p);
-    panel(g, bx, y, bw, bh, can ? UI.uiGold : 0x80664b, can);
-    this.evolvePreview.setPosition(bx+bw-15,y+10).setAlpha(can?1:.5).setVisible(true);
-    t.title.setFontSize(mobile ? 10 : 11).setPosition(bx + 5, y + 12).setText(`${intents.touch ? '' : '[6] '}${heavy?'MISSILE CR.':'EVOLVE'}`).setColor(can ? '#ffd23a' : css(0x91a5bb));
-    t.sub
-      .setFontSize(9)
-      .setPosition(bx + 5, y + 29)
-      .setText(can ? `${b.cost} MIN` : heavy&&p.missileTier<TUNE.missileCruiser.minMissiles?`MISSILES ${p.missileTier}/${TUNE.missileCruiser.minMissiles}`:heavy&&p.mineTier<TUNE.missileCruiser.minMines?`MINES ${p.mineTier}/${TUNE.missileCruiser.minMines}`:!heavy&&p.turrets < b.minTurrets ? `TURRETS ${p.turrets}/${b.minTurrets}` : !heavy&&p.damageTier < b.minGuns ? `GUNS ${p.damageTier}/${b.minGuns}` : ups < b.minUpgrades ? `upgrades ${ups}/${b.minUpgrades}` : p.hullMax < b.powerFloor ? `NEED ${b.powerFloor} PWR` : `NEED ${b.cost} MIN`)
-      .setColor(can ? '#ffe9a8' : '#b5a48f');
-    intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
+    // The server-validated pre-mission loadout owns this slot; local preferences cannot swap it.
+    const t=this.shopTexts[EVOLVE_ITEM],i=EVOLVE_ITEM,bx=x+(i%cols)*(bw+6),y=drawer.y+Math.floor(i/cols)*(bh+6),build=this.net.equippedEvolution;
+    panel(g,bx,y,bw,bh,UI.uiBorder);
+    if(build===null){t.title.setPosition(bx+5,y+10).setFontSize(9).setText('NO EVO').setColor('#a1afbf');t.sub.setPosition(bx+5,y+29).setFontSize(8).setText('Buy + equip\nin HANGAR').setColor('#9fb7c8');return;}
+    const progress=evolutionProgress(p,TUNE,build),done=isCapital(p.chassis),can=progress.ready&&!done;
+    if(this.evolvePreviewBuild!==build){this.evolvePreview.destroy(true);this.evolvePreview=shipPreview(this,build===1?4:2,0,0,0,16,14).setDepth(952);this.evolvePreviewBuild=build;}
+    // Text gets the compact card's full width. The ship preview is shown in Hangar.
+    t.title.setFontSize(9).setPosition(bx+5,y+9).setText((can&&!mobile?'[6] ':'')+(build===1?'MISSILE EVO':'BATTLE EVO')).setColor(can?'#ffd23a':css(UI.uiText));
+    t.sub.setFontSize(8).setPosition(bx+5,y+29).setText(done?'EVOLVED':progress.upgradeText+'\n'+progress.resourceText).setColor(can?'#ffe9a8':'#adc0cf');
+    if(can){panel(g,bx,y,bw,bh,UI.uiGold,true);intents.shopZones.push({item:i,zone:{x:bx+bw/2,y:y+bh/2,hw:bw/2,hh:bh/2}});}
   }
 
   /** Both devices can open the compact upgrade and scoreboard drawers. */
@@ -1197,7 +1186,7 @@ export class FlightScene extends Phaser.Scene {
     this.mobileButtons=[];this.mobileNavLabels.forEach(t=>t.setVisible(false));
     if(!p || this.net.death || this.net.extracted)return;
     const header=flightHeader(w,intents.touch);
-    const offers=SHOP_ITEMS.filter(item=>canBuy(p,item,TUNE)).length+(canEvolve(p,TUNE,loadSave().evolution===1?1:0)?1:0);
+    const offers=SHOP_ITEMS.filter(item=>canBuy(p,item,TUNE)).length+((this.net.equippedEvolution!==null&&canEvolve(p,TUNE,this.net.equippedEvolution))?1:0);
     const entries = [
       {action:'shop' as const,rect:header.shop,label:`${intents.touch?'UPG':header.tight?'UPG [B]':'UPGRADES [B]'}${offers?' +'+offers:''}`},
       {action:'board' as const,rect:header.board,label:intents.touch?'STATS':header.tight?'TAB':'SCOREBOARD [TAB]'},
@@ -1241,7 +1230,7 @@ export class FlightScene extends Phaser.Scene {
     this.drawHotZone(p, w, h);
     this.drawBaseMarkers(p, w, h);
     this.drawSiege(w, h);
-    const tip=this.contextTips?.update(g,p,w,h,this.time.now,!!p&&!intents.helpHeld&&!this.urgentMessage&&!p.warping&&!this.net.warDown&&!this.net.death&&!this.net.extracted&&this.net.status==='open'&&!(p.arrival??0)&&(this.planet!==TUTORIAL||guide.tipsAllowed),this.planet===TUTORIAL);
+    const tip=this.contextTips?.update(g,p,w,h,this.time.now,!!p&&!intents.helpHeld&&!this.urgentMessage&&!p.warping&&!this.net.warDown&&!this.net.death&&!this.net.extracted&&this.net.status==='open'&&!(p.arrival??0)&&(this.planet!==TUTORIAL||guide.tipsAllowed),this.planet===TUTORIAL,this.net.equippedEvolution);
     this.tipActive=!!tip;
     if (this.planet === TUTORIAL && (this.net.death || this.net.extracted)) guide.hide();
     else if(this.planet===TUTORIAL){

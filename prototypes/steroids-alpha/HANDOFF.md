@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-18 codex owned pre-mission evolution loadouts
+DID: permanent BC/MC unlocks1500 bank credits each; buy then explicitly equip one in Hangar. Match shop shows both upgrade counters/mineral progress; no equipped build means no evolve.
+FILES: unlock catalogue/tune, Room auth/buy guard, NetClient frozen look, Hangar/shop/tips, bank authority regression and deferred docs.
+SEAM: Look.evolution is owned/slot-cleaned at initial auth before controls/within3s; queued BUY5 must match. Reconnect retains equipment; old Save.evolution ignored. Protocol29 same wire layout.
+CROSS: user requested price1500 and loadout gate; real SQLite bank/Room tests reject forged/unowned/unequipped/late/alternate/duplicate purchases;6 headless PC/touch layouts pass buy/equip/status/bounds with no capture.
+FOR claude: deferred only. No new DB migration/assets/dependencies; existing bank atomicity reused. Paired client/Worker release required; lab remains a free isolated design sandbox.
+
 ## 2026-11-18 codex Missile Cruiser correction LIVE181126r0102
 DID: PR564 74dd2ced live; client44251753113 attempt2 + Worker44251753080 success. MC zero free turrets, bought upgrades retained, min90/cruise170/top225. Public lab matches.
 FILES: tune/protocol28, lab settings/model/preview, capital/lab regressions; artillery-release-proof.json and deferred docs.
@@ -97,10 +104,3 @@ FILES: steroids-alpha-lab entry/duel/duel-model/duel.tune/index/README; standalo
 SEAM: production World handles damage/weapons; isolated post-step candidate replaces kicks/separates contacts. Read-only projectile adapter observes private World.bullets. No socket/account/publishing.
 CROSS: pure collision/radius/damage-parity/wrap tests pass,6 Brave DPR2 layouts incl touch steering/held fire/Dash and reset lifecycle; zero page errors/game sockets/writes/captures. Public preview proof follows.
 FOR claude: backlog only, no immediate work. LIVE BALANCE NOT APPROVED: await owner lab playtest before porting to authority/prediction; no online latency or human-fun proof claimed.
-
-## 2026-11-17 codex landing menu/map LIVE
-DID: ship/Warp hero, accessible utilities and clearer five-planet map live171126r0098. PR547 fde1891e; itch44051762536/Pages44051762420 success, Worker25 healthy.
-FILES: menu, stellarMap, landingLayout and rig-gate layout test; BRIEF/COLLAB/BUILD_STATUS/CLAUDE_BACKLOG.
-SEAM: chooseSide while closed; Info dismissal; confirmed Warzone auto-join with cancellation state/label. Existing account/save/input APIs; no wire/gameplay/live tuning changes.
-CROSS: type/build/rig/sim/config pass;9 local+9 public Brave DPR2 layouts plus final compact case. Utilities/recovery/all5 intel routes/side selection/auto-join/Hangar/Learn/lifecycle pass, zero page errors/captures/public-room fixture writes.
-FOR claude: deferred backlog ready; no immediate execution/review needed. Vite4187 stopped, no leftover headless test process. Evidence outputs/steroids-alpha/landing-map-hierarchy/.

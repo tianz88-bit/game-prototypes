@@ -5,9 +5,10 @@ import type { ConfigRecord } from '../../sim/liveConfig';
 // Players drop in and out at any time; the tick loop runs only while someone is connected.
 import { TUNE, stepSeconds } from '../../sim/tune';
 import { copyShip, maxShield } from '../../sim/ship';
+import {EVOLVE_ITEM} from '../../sim/shop';
 import { SPARROW } from '../../sim/chassis';
 import type { ShipInput, ShipState } from '../../sim/ship';
-import { selectedFighter, cleanLook } from '../../sim/unlocks';
+import { selectedFighter, cleanLook, evolutionBuild } from '../../sim/unlocks';
 import type { Look } from '../../sim/unlocks';
 import { World } from '../../sim/world';
 import { TURRET_SIDE } from '../../sim/turrets';
@@ -66,6 +67,8 @@ interface Player {
   secret: string | null;
   /** Cosmetics worn: what the client asked for, kept only where the account owns it. */
   look: Look;
+  /** Only an auth initiated before the first binary intent may equip this run. */
+  loadoutOpen:boolean;
   /** Room tick at drop-in: the chosen ship type applies only within its first moments. */
   joinedAt: number;
   /** Clan chosen in the menu (0: none). Trusted from the client in the Clan planets v0 demo. */
@@ -503,7 +506,7 @@ export class Room {
     const base = this.world.layout;
     const spawn = !base ? this.world.addShip(id) : clan === base.clan ? this.world.addShipNear(id, base.treasury.x, base.treasury.y, this.tune.base.padRing) : this.world.addShipNear(id, base.gate.x, base.gate.y, 120);
     this.world.clanOf.set(id, clan);
-    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null, look: {}, joinedAt: this.tick, resume: crypto.randomUUID(), awayUntil: -1, clan, down: -1 };
+    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null, look: {},loadoutOpen:true, joinedAt: this.tick, resume: crypto.randomUUID(), awayUntil: -1, clan, down: -1 };
     this.players.set(id, player);
     this.lingerUntil = -1;
     this.attach(player, ws);
@@ -600,13 +603,15 @@ export class Room {
       try {
         const m = JSON.parse(data) as { type?: unknown; secret?: unknown; look?: unknown };
         if (m.type === 'auth' && typeof m.secret === 'string' && /^[A-Za-z0-9_-]{40,64}$/.test(m.secret)) {
+          const preMission=player.loadoutOpen&&this.tick-player.joinedAt<=3*this.tune.net.tickHz;player.loadoutOpen=false;
           player.secret = m.secret;
           // Cosmetics: worn only once the bank confirms they are owned; everyone hears via the roster.
           if (this.owned && m.look) {
             this.owned(m.secret)
               .then((ids) => {
-                if (!this.players.has(player.id)) return;
+                if (this.players.get(player.id)!==player) return;
                 player.look = cleanLook(m.look, ids ?? []);
+                if(!preMission)delete player.look.evolution;
                 // Ship chosen in the menu (owner design): an owned fighter replaces the starter,
                 // only right after drop-in so nobody swaps ship mid-run.
                 const s = player.ship;
@@ -626,6 +631,7 @@ export class Room {
         // Falls through to the binary-only close.
       }
     }
+    player.loadoutOpen=false;
     const bytes=data instanceof ArrayBuffer?data.byteLength:data instanceof Blob?data.size:0;
     if(bytes!==PING_BYTES&&bytes!==INPUT_BYTES&&bytes!==BUY_BYTES){player.ws.close(CLOSE.BAD_PROTOCOL,'invalid input size');return;}
     if (typeof data === 'string' || data === null || typeof data !== 'object') {
@@ -714,7 +720,7 @@ export class Room {
 
   private buys: { id: number; item: number; tier: number }[] = [];
   private step(): void {
-    for (const b of this.buys.splice(0)) if (this.players.has(b.id)) this.world.buy(b.id, b.item, b.tier);
+    for (const b of this.buys.splice(0)){const p=this.players.get(b.id);if(p&&(b.item!==EVOLVE_ITEM||evolutionBuild(p.look)===b.tier))this.world.buy(b.id,b.item,b.tier);}
     // Pilots away longer than the grace period lose their ship.
     for (const p of [...this.players.values()]) if (p.awayUntil >= 0 && this.tick >= p.awayUntil) this.leave(p.id);
     this.stepSiege();

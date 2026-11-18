@@ -18,9 +18,9 @@ export class ContextTips {
   this.model=model??new TipState(Array.isArray(saved)?saved.filter((s):s is TipId=>TIP_IDS.includes(s as TipId)):[],()=>writeSave({tipsSeen:[...this.model.seen]}));
   this.label=text(scene,0,0,'',12,'#dfe8ff').setOrigin(.5,0).setAlign('center').setDepth(955).setVisible(false);
  }
- update(g:Phaser.GameObjects.Graphics,s:ShipState|null,w:number,h:number,now:number,enabled:boolean,inline=false):string|null{
+ update(g:Phaser.GameObjects.Graphics,s:ShipState|null,w:number,h:number,now:number,enabled:boolean,inline=false,evolution:0|1|null=null):string|null{
   this.label.setVisible(false);if(!s||s.hp<=0)return null;
-  const id=this.model.update(s,now,canEvolve(s,TUNE),enabled);if(!id)return null;
+  const id=this.model.update(s,now,evolution!==null&&canEvolve(s,TUNE,evolution),enabled);if(!id)return null;
   const missile=intents.touch?'MISSILE':intents.scheme==='marker'?'RIGHT CLICK / Q':'Q',mine=intents.touch?'MINE':'E';
   const messages:Record<TipId,string>={hull:'Hull damaged: collect a green repair pod.',overheat:'Guns overheated: release fire to cool.',shield:'Avoid hits to recharge shields; the thin arc is hull.',missile:`${missile}: face a target until it locks, then launch.`,mine:`${mine}: drop a mine for enemies on your tail.`,evolve:'Evolution ready: evolve in UPGRADES.'};
   const message=messages[id];if(inline)return message;

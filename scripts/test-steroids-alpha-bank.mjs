@@ -188,7 +188,7 @@ function d1() {
   assert.equal((await B.buyUnlock(db, a.secret, 'free.everything', quoteFor('free.everything'))).error, 'not for sale');
   // Every item for sale is priced; nothing sold is a stat.
   for (const u of B.UNLOCKS) if (!u.free && !u.legacy) assert(B.unlockPrice(u, tune) > 0, `${u.id} priced`);
-  assert(B.UNLOCKS.every((u) => ['ship', 'palette', 'tint', 'flame', 'shield', 'killfx', 'badge', 'tag', 'qol'].includes(u.slot)), 'cosmetic, ship-choice and QoL slots only');
+  assert(B.UNLOCKS.every((u) => ['ship', 'palette', 'tint', 'flame', 'shield', 'killfx', 'badge', 'tag', 'evolution', 'qol'].includes(u.slot)), 'cosmetic, ship-choice, evolution-loadout and QoL slots only');
 
   // Legacy tints: crimson owners own the crimson palette; a gold owner claims any one palette free, once.
   const t = await B.createAccount(db);
@@ -358,3 +358,26 @@ function d1() {
 }
 
 console.log('Steroids-Alpha bank: codes, hashed accounts, idempotent capped credits, recovery, room auth, banking on extraction, unlock purchases, palettes from tints, ship choice, owned looks, lingering bots, reconnect grace and clan home rooms all pass.');
+
+// Permanent evolution purchases and authoritative pre-mission equipment, owner18 Nov2026.
+{
+ const tune=JSON.parse(readFileSync(path.join(root,'prototypes/steroids-alpha/tune.json'),'utf8')),db=d1(),acct=await B.createAccount(db);
+ const quote=id=>owned=>{const u=B.unlockById(id);return B.effectiveOwned(owned).has(id)?'owned':u?{price:B.unlockPrice(u,tune)}:null;};
+ assert.equal(B.unlockPrice(B.unlockById('evolution.battlecruiser'),tune),1500);assert.equal(B.unlockPrice(B.unlockById('evolution.missile-cruiser'),tune),1500);
+ assert(!B.effectiveOwned([]).has('evolution.battlecruiser'));assert.deepEqual(B.cleanLook({evolution:'evolution.missile-cruiser'},[]),{});
+ assert.equal((await B.buyUnlock(db,acct.secret,'evolution.battlecruiser',quote('evolution.battlecruiser'))).error,'not enough credits');
+ await B.creditExtraction(db,acct.secret,6000,'evo-credit');
+ const first=await B.buyUnlock(db,acct.secret,'evolution.battlecruiser',quote('evolution.battlecruiser'));assert(first.ok);assert.equal(first.balance,4500);
+ const duplicate=await B.buyUnlock(db,acct.secret,'evolution.battlecruiser',quote('evolution.battlecruiser'));assert.equal(duplicate.error,'owned');
+ const second=await B.buyUnlock(db,acct.secret,'evolution.missile-cruiser',quote('evolution.missile-cruiser'));assert(second.ok);assert.equal(second.balance,3000);
+ assert.deepEqual(B.cleanLook({evolution:'evolution.missile-cruiser'},second.unlocks),{evolution:'evolution.missile-cruiser'});
+ class Sock extends EventTarget{sent=[];closed=0;send(v){this.sent.push(v);}close(c){this.closed=c;}}
+ const flush=()=>new Promise(r=>setImmediate(r));
+ async function player(owned,look,late=false){const room=new B.Room(undefined,()=>{},undefined,async()=>owned);room.setBots(false);const ws=new Sock();room.join(ws,'Loadout');room.stop();const p=[...room.players.values()][0];if(late===true)room.onMessage(p,B.encodePing(0));if(late==='silent')room.world.tick+=4*tune.net.tickHz;room.onMessage(p,JSON.stringify({type:'auth',secret:acct.secret,look}));await flush();Object.assign(p.ship,{hp:500,hullMax:500,arrival:0,damageTier:4,turrets:2,missileTier:4,mineTier:2});return{room,p,ws};}
+ async function buyEvo(fixture,build){const{room,p}=fixture;room.onMessage(p,B.encodeBuy(5,build));await p.reading;room.step();}
+ for(const [owned,look,late]of [[[],{evolution:'evolution.missile-cruiser'},false],[second.unlocks,{},false],[second.unlocks,{evolution:'evolution.missile-cruiser'},true],[second.unlocks,{evolution:'evolution.missile-cruiser'},'silent']]){const f=await player(owned,look,late);await buyEvo(f,1);assert.equal(f.p.ship.chassis,3,'unowned/unequipped/late loadout rejected');assert.equal(f.p.ship.hullMax,500);f.room.stop();}
+ const f=await player(second.unlocks,{evolution:'evolution.missile-cruiser'});await buyEvo(f,0);assert.equal(f.p.ship.chassis,3,'cannot buy another owned evolution mid-mission');await buyEvo(f,1);assert.equal(f.p.ship.chassis,4);assert.equal(f.p.ship.hullMax,380);await buyEvo(f,1);assert.equal(f.p.ship.hullMax,380,'duplicate evolve cannot charge twice');
+ const replacement=new Sock();assert(f.room.join(replacement,'Resumed',f.p.resume));f.room.stop();assert.equal(f.p.look.evolution,'evolution.missile-cruiser','resume retains mission equipment');
+ f.room.onMessage(f.p,JSON.stringify({type:'auth',secret:acct.secret,look:{evolution:'evolution.battlecruiser'}}));assert.equal(f.p.look.evolution,'evolution.missile-cruiser');assert.equal(replacement.closed,B.CLOSE.BAD_PROTOCOL,'second auth cannot switch loadout');f.room.stop();
+ console.log('PASS evolution unlocks:1500 credits each, permanent/insufficient/idempotent purchases, owned clean look, equipped-only authority, late/forged/alternate loadouts rejected, resume fixed and duplicate evolution harmless.');
+}

@@ -1,8 +1,7 @@
 import { drawUnlockEmblem } from '../render/flightIndicators';
 import { shipPreview } from '../render/shipPreview';
 import {shipStatBars,shipCardLayout} from '../render/hangarStats';
-// Hangar: spend banked credits on unlocks (sim/unlocks.ts: cosmetics and quality of life, never
-// raw power) and choose what to wear. Buying takes two taps (tap, then tap again to confirm); the
+// Hangar: buy permanent ship/evolution/cosmetic unlocks with banked credits and equip the next mission. Buying takes two taps (tap, then tap again to confirm); the
 // server sets the price and checks the balance. Equipping is saved locally and sent on drop-in,
 // where the server shows only what the account owns. Placeholder look: Phaser canvas only.
 import Phaser from 'phaser';
@@ -12,7 +11,7 @@ import { fitCamera, text, versionStamp } from './common';
 import { loadSave, writeSave } from '../save';
 import { UI, css, panel } from '../render/ui';
 import { TUNE } from '../../sim/tune';
-import { UNLOCKS, selectedFighter, effectiveOwned, unclaimedLegacy, unlockPrice } from '../../sim/unlocks';
+import { UNLOCKS, selectedFighter, selectedEvolution, evolutionBuild, effectiveOwned, unclaimedLegacy, unlockPrice } from '../../sim/unlocks';
 import type { Unlock } from '../../sim/unlocks';
 import { buyUnlock, ensureAccount } from '../net/account';
 
@@ -43,7 +42,8 @@ export class HangarScene extends Phaser.Scene {
   credits: number | null = null;
   unlocks: string[] = [];
   cards: Card[] = [];
-  private builds:{build:0|1;x:number;y:number;w:number;h:number}[]=[];
+  private builds:{u:Unlock;x:number;y:number;w:number;h:number}[]=[];
+  private evolutionShortcut:{x:number;y:number;w:number;h:number}|null=null;
   backButton = { x: 0, y: 0, w: 0, h: 0 };
   reviewButton = { x: 0, y: 0, w: 108, h: 32 };
   tabs: { index: number; label: string; x: number; y: number; w: number; h: number }[] = [];
@@ -115,7 +115,7 @@ export class HangarScene extends Phaser.Scene {
       return { index: i, label: t.label, x, y, w: tw, h: 32 };
     });
     // The open category's items, large cards.
-    this.builds=[];
+    this.builds=[];this.cards=[];this.evolutionShortcut=null;
     if(TABS[openTab].label==='EVOLVE'){this.drawEvolution(w,h);versionStamp(this);return;}
     const items = TABS[openTab].items;
     const shipTab = openTab === 0;
@@ -166,27 +166,43 @@ export class HangarScene extends Phaser.Scene {
       const x = left + 3*(cw+gap)+cw/2, y = top+ch/2;
       const g=this.add.graphics();
       panel(g,x-cw/2,y-ch/2,cw,ch,0x937249);
-      this.drawShipStats(2,'Battlecruiser','EVOLVE IN RUN',x,y,cw,ch,Number((look.palette??'palette.0').split('.')[1]),UI.uiGold);
-      text(this,w/2,h-34,`Base stats · Evolve: ${TUNE.battlecruiser.minTurrets} turret upgrades + Guns ${TUNE.battlecruiser.minGuns}`,w<650?10:12,'#acbdce').setOrigin(.5);
+      const evo=selectedEvolution(look,this.unlocks);this.evolutionShortcut={x,y,w:cw,h:ch};
+      this.drawShipStats(evo?.index===1?4:2,evo?.name??'Evolution slot',evo?'EQUIPPED · EVOLVE':'BUY/EQUIP → EVOLVE',x,y,cw,ch,Number((look.palette??'palette.0').split('.')[1]),UI.uiGold);
+      text(this,w/2,h-34,'Pre-mission loadout · choose your evolution in EVOLVE',w<650?10:12,'#acbdce').setOrigin(.5);
     }
     if (this.note) text(this, w / 2, h - 16, this.note, 12, '#ffd98a').setOrigin(0.5);
     if (this.showRuns) this.drawRuns(w, h);
     versionStamp(this);
   }
 
-  private drawEvolution(w:number,h:number):void{const gap=12,cw=Math.min(400,(w-40-gap)/2),ch=h-142,y=104+ch/2,selected=loadSave().evolution===1?1:0;for(const build of [0,1] as const){const x=w/2+(build===0?-1:1)*(cw+gap)/2,on=selected===build,g=this.add.graphics(),b=build?TUNE.missileCruiser:TUNE.battlecruiser;panel(g,x-cw/2,y-ch/2,cw,ch,on?UI.uiAccent:UI.uiBorder,on);const small=h<450;this.drawShipStats(build?4:2,build?'Missile Cruiser':'Battlecruiser',on?'SELECTED EVOLUTION':'TAP TO SELECT',x,y-18,cw,ch-36,Number((loadSave().look?.palette??'palette.0').split('.')[1]),on?UI.uiAccent:UI.uiGold);const req=build?[['MISSILES',TUNE.missileCruiser.minMissiles],['MINES',TUNE.missileCruiser.minMines]]:[['TURRETS',TUNE.battlecruiser.minTurrets],['GUNS',TUNE.battlecruiser.minGuns]];req.forEach(([label,count],i)=>{const sx=x-cw/2+12+i*cw/2,sy=y+ch/2-35;text(this,sx,sy,String(label),cw<200?8:10,'#a8c3cf');for(let n=0;n<Number(count);n++)g.fillStyle(UI.uiGold,.85).fillRect(sx+n*11,sy+13,7,4);});this.builds.push({build,x,y,w:cw,h:ch});}text(this,w/2,h-22,`${(selected?TUNE.missileCruiser:TUNE.battlecruiser).powerFloor} MIN BALANCE · ${(selected?TUNE.missileCruiser:TUNE.battlecruiser).cost} MIN COST · upgrades kept`,w<650?10:12,'#d5c197').setOrigin(.5);}
+  private drawEvolution(w:number,h:number):void{
+    const gap=12,cw=Math.min(400,(w-40-gap)/2),ch=h-154,y=104+ch/2,selected=selectedEvolution(loadSave().look,this.unlocks);
+    for(const build of[0,1] as const){
+      const u=UNLOCKS.find(u=>u.slot==='evolution'&&u.index===build)!,owned=this.owned(u.id),on=selected?.id===u.id,armed=this.armed===u.id;
+      const x=w/2+(build===0?-1:1)*(cw+gap)/2,g=this.add.graphics(),b=build?TUNE.missileCruiser:TUNE.battlecruiser;
+      panel(g,x-cw/2,y-ch/2,cw,ch,on?UI.uiAccent:armed?UI.uiGold:UI.uiBorder,on||armed);
+      const status=this.busy?'WORKING…':on?'EQUIPPED · TAP TO REMOVE':owned?'UNLOCKED · TAP TO EQUIP':armed?'TAP AGAIN TO BUY':String(this.priceOf(u))+' BANK CREDITS';
+      this.drawShipStats(build?4:2,u.name,status,x,y-18,cw,ch-36,Number((loadSave().look?.palette??'palette.0').split('.')[1]),on?UI.uiAccent:UI.uiGold);
+      const req=build?[['MISSILES',TUNE.missileCruiser.minMissiles],['MINES',TUNE.missileCruiser.minMines]]:[['TURRETS',TUNE.battlecruiser.minTurrets],['GUNS',TUNE.battlecruiser.minGuns]];
+      req.forEach(([label,count],i)=>{const sx=x-cw/2+12+i*cw/2,sy=y+ch/2-35;text(this,sx,sy,String(label)+' '+count,cw<200?8:10,'#a8c3cf');for(let n=0;n<Number(count);n++)g.fillStyle(UI.uiGold,.85).fillRect(sx+n*11,sy+13,7,4);});
+      this.builds.push({u,x,y,w:cw,h:ch});
+    }
+    const b=selected?.index===1?TUNE.missileCruiser:TUNE.battlecruiser;
+    text(this,w/2,h-35,'IN MATCH · '+b.powerFloor+' MIN BALANCE · '+b.cost+' MIN TO EVOLVE',w<650?9:11,'#d5c197').setOrigin(.5);
+    text(this,w/2,h-17,this.note||(selected?'Equipped for your next mission':'Unlock permanently, then tap to equip'),w<650?9:11,this.note?'#ffd98a':'#adc2d0').setOrigin(.5);
+  }
 
   private drawShipStats(chassis:number,name:string,status:string,x:number,y:number,w:number,h:number,palette:number,colour:number):void{
-    const left=x-w/2+10,top=y-h/2,row=h<240?13:20,statsTop=top+h-30-row*5,g=this.add.graphics(),small=w<160;
-    text(this,x,top+15,name,small?11:16,css(UI.uiText)).setOrigin(.5);
-    const artH=Math.max(20,statsTop-top-40);
-    shipPreview(this,chassis,palette,x,top+28+artH/2,w-24,artH,{spin:true,relative:true});
+    const left=x-w/2+10,top=y-h/2,compact=h<160,row=compact?11:h<240?13:20,statsTop=top+h-(compact?26:30)-row*5,g=this.add.graphics(),small=w<160;
+    text(this,x,top+(compact?11:15),name,compact?12:small?11:16,css(UI.uiText)).setOrigin(.5);
+    const artH=Math.max(20,statsTop-top-(compact?30:40));
+    shipPreview(this,chassis,palette,x,top+(compact?22:28)+artH/2,w-24,artH,{spin:true,relative:true});
     shipStatBars(chassis,TUNE).forEach((stat,i)=>{
       const sy=statsTop+i*row;
-      text(this,left,sy,stat.label,small?8:10,'#9fb7c8');
-      text(this,x+w/2-10,sy,stat.display,small?8:10,css(UI.uiText)).setOrigin(1,0);
-      g.fillStyle(UI.uiBorder,.55).fillRect(left,sy+row-4,w-20,2);
-      g.fillStyle(colour,.85).fillRect(left,sy+row-4,(w-20)*stat.fill,2);
+      text(this,left,sy,stat.label,compact?8:small?8:10,'#9fb7c8');
+      text(this,x+w/2-10,sy,stat.display,compact?8:small?8:10,css(UI.uiText)).setOrigin(1,0);
+      g.fillStyle(UI.uiBorder,.55).fillRect(left,sy+row-(compact?1:4),w-20,compact?1:2);
+      g.fillStyle(colour,.85).fillRect(left,sy+row-(compact?1:4),(w-20)*stat.fill,compact?1:2);
     });
     text(this,x,top+h-14,status,small?9:11,css(colour)).setOrigin(.5);
   }
@@ -256,8 +272,8 @@ export class HangarScene extends Phaser.Scene {
       this.credits = r.balance;
       this.unlocks = r.unlocks;
       // Wear it straight away (except quality-of-life items, which just work).
-      if (u.slot !== 'qol') writeSave({ look: { ...(loadSave().look ?? {}), [u.slot]: u.id } });
-      this.note = `${u.name} bought`;
+      if (u.slot !== 'qol'&&u.slot!=='evolution') writeSave({ look: { ...(loadSave().look ?? {}), [u.slot]: u.id } });
+      this.note = u.slot==='evolution'?`${u.name} unlocked · tap to equip`:`${u.name} bought`;
     }
     if (this.scene.isActive()) this.layout();
   }
@@ -290,7 +306,9 @@ export class HangarScene extends Phaser.Scene {
         this.scene.start('menu');
         return;
       }
-      const build=this.builds.find(b=>Math.abs(t.x-b.x)<=b.w/2&&Math.abs(t.y-b.y)<=b.h/2);if(build){writeSave({evolution:build.build});this.layout();return;}
+      if(this.busy)continue;
+      const shortcut=this.evolutionShortcut;if(shortcut&&Math.abs(t.x-shortcut.x)<=shortcut.w/2&&Math.abs(t.y-shortcut.y)<=shortcut.h/2){openTab=TABS.findIndex(t=>t.label==='EVOLVE');this.armed=null;this.note='';this.layout();return;}
+      const build=this.builds.find(b=>Math.abs(t.x-b.x)<=b.w/2&&Math.abs(t.y-b.y)<=b.h/2);if(build){void this.tapCard(build.u);return;}
       if (this.busy) continue;
       const c = this.cards.find((c) => Math.abs(t.x - c.x) <= c.w / 2 && Math.abs(t.y - c.y) <= c.h / 2);
       if (c) void this.tapCard(c.u);

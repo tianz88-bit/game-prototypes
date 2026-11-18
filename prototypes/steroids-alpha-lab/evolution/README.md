@@ -20,3 +20,5 @@ This is a deterministic local design model, not a network chassis addition. It u
 Checks: `npm run typecheck`, `npm run build`, `node scripts/test-steroids-evolution-lab.mjs`, and the existing rig regression. Headless Brave checks seven PC/touch/portrait/Canvas cases at DPR 2, actual build selection/evolution, eight launches/no primary fire, gun cruiser, mines, FFD controls, persistence, bounds and stable resets. No captures, live sockets or remote writes. Human review of silhouette, targeting and feel is still required.
 
 R2 package upload and public delivery are complete and verified; see release-proof.json. Local prepared art and all evidence are in `outputs/steroids-alpha/missile-cruiser-lab/`.
+
+Production loadout update: both evolutions now require a permanent1500-credit unlock and explicit pre-mission equipment. The live match shop shows the equipped build’s upgrade/mineral progress. This lab stays a free isolated sandbox; preparing/evolving here never purchases/unlocks/equips a real account.
