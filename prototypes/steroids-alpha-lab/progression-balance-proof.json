@@ -1,0 +1,143 @@
+{
+  "date": "2026-11-19",
+  "release": "pending",
+  "protocol": 31,
+  "baseline": {
+    "version": "181126r0106",
+    "shopTotal": 1240,
+    "freshSparrow": {
+      "ehp": 100,
+      "primaryDps60": 46.4
+    },
+    "maxSparrow": {
+      "ehp": 790,
+      "primaryDps60": 150.9333333333
+    },
+    "source": "actual published ConfigData plus pre-change compiled simulation"
+  },
+  "approvedTarget": 1.75,
+  "measured": {
+    "fresh": {
+      "chassis": 3,
+      "tier": 0,
+      "hull": 50,
+      "shield": 50,
+      "primaryDps60": 46.4,
+      "automaticDps": 0,
+      "ehp": 100,
+      "dps": 46.4
+    },
+    "max": [
+      {
+        "chassis": 0,
+        "tier": 4,
+        "hull": 50,
+        "shield": 65,
+        "primaryDps60": 63.31733333333334,
+        "automaticDps": 8,
+        "ehp": 115,
+        "dps": 71.31733333333334
+      },
+      {
+        "chassis": 1,
+        "tier": 4,
+        "hull": 50,
+        "shield": 45.5,
+        "primaryDps60": 53.81973333333334,
+        "automaticDps": 8,
+        "ehp": 95.5,
+        "dps": 61.81973333333334
+      },
+      {
+        "chassis": 3,
+        "tier": 4,
+        "hull": 50,
+        "shield": 65,
+        "primaryDps60": 54.95466666666667,
+        "automaticDps": 8,
+        "ehp": 115,
+        "dps": 62.95466666666667
+      }
+    ],
+    "indices": [
+      1.7675632183908045,
+      1.2723673563218392,
+      1.5602988505747124
+    ],
+    "ceiling": 1.7675632183908045,
+    "shopTotal": 250,
+    "evolutionPath": 115,
+    "scope": "primary+automatic throughput × hull+shield; excludes aiming, regen, missiles/mines and cruiser roles"
+  },
+  "localHeadless": {
+    "capture": false,
+    "errors": [],
+    "cases": [
+      {
+        "width": 1280,
+        "height": 720,
+        "mobile": false,
+        "emptyWalletRejected": true,
+        "firstBuy5": true,
+        "repeatedTapSafe": true,
+        "fullShop250": true,
+        "evolution50": true,
+        "boundary49vs50": true,
+        "miningAndSpendingDoNotHealOrDamage": true,
+        "hullHeaderActual": true,
+        "all20Retained": true,
+        "bounds": true,
+        "snapshots": 71
+      },
+      {
+        "width": 568,
+        "height": 320,
+        "mobile": true,
+        "emptyWalletRejected": true,
+        "firstBuy5": true,
+        "repeatedTapSafe": true,
+        "fullShop250": true,
+        "evolution50": true,
+        "boundary49vs50": true,
+        "miningAndSpendingDoNotHealOrDamage": true,
+        "hullHeaderActual": true,
+        "all20Retained": true,
+        "bounds": true,
+        "snapshots": 78
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "mobile": true,
+        "emptyWalletRejected": true,
+        "firstBuy5": true,
+        "repeatedTapSafe": true,
+        "fullShop250": true,
+        "evolution50": true,
+        "boundary49vs50": true,
+        "miningAndSpendingDoNotHealOrDamage": true,
+        "hullHeaderActual": true,
+        "all20Retained": true,
+        "bounds": true,
+        "snapshots": 80
+      }
+    ],
+    "accountFixture": true,
+    "localRoomAuthority": true
+  },
+  "checks": [
+    "typecheck",
+    "production build",
+    "full sim/progression/capital/grip",
+    "real SQLite bank",
+    "live config/OIDC/publisher regression",
+    "rig/FFD/building/layout",
+    "isolated evolution lab"
+  ],
+  "limits": [
+    "No screenshots or recording",
+    "Browser account ownership fixture; actual billing is covered separately by Room/SQLite tests",
+    "Power index excludes accuracy, regeneration, tactical ordnance and capital roles",
+    "Mineral costs measured; no claimed minutes-to-max"
+  ]
+}

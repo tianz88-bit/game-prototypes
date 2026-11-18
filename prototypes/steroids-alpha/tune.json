@@ -77,77 +77,78 @@
     "turnRate": 4,
     "aimTolerance": 0.12,
     "fireIntervalSteps": 12,
-    "damage": 2,
+    "damage": 0.8,
     "bulletSpeed": 750
   },
   "shop": {
     "turretFloors": [
-      100,
-      150,
-      200,
-      250
+      5,
+      10,
+      15,
+      20
     ],
     "turretCosts": [
-      50,
-      60,
-      70,
-      80
+      5,
+      10,
+      15,
+      20
     ],
     "shieldFloors": [
-      80,
-      130,
-      180,
-      230
+      5,
+      10,
+      15,
+      20
     ],
     "shieldCosts": [
-      40,
-      50,
-      60,
-      70
+      5,
+      10,
+      15,
+      20
     ],
-    "shieldPerTier": 60,
+    "shieldPerTier": 3.75,
     "damageFloors": [
-      90,
-      140,
-      190,
-      240
+      5,
+      10,
+      15,
+      20
     ],
     "damageCosts": [
-      45,
-      55,
-      65,
-      75
+      5,
+      10,
+      15,
+      20
     ],
-    "damagePerTier": 0.25,
-    "gunHeatPerTier": 0.2,
+    "damagePerTier": 0.03,
+    "gunHeatPerTier": 0.025,
     "missileFloors": [
-      120,
-      170,
-      220,
-      270
+      5,
+      10,
+      15,
+      20
     ],
     "missileCosts": [
-      55,
-      65,
-      75,
-      85
+      5,
+      10,
+      15,
+      20
     ],
     "mineFloors": [
-      100,
-      150,
-      200,
-      250
+      5,
+      10,
+      15,
+      20
     ],
     "mineCosts": [
-      45,
-      55,
-      65,
-      75
-    ]
+      5,
+      10,
+      15,
+      20
+    ],
+    "balanceVersion": 2
   },
   "missile": {
     "damage": 35,
-    "damagePerTier": 5,
+    "damagePerTier": 0,
     "hp": 36,
     "launchSpeed": 500,
     "maxSpeed": 800,
@@ -162,7 +163,7 @@
   },
   "mine": {
     "damage": 40,
-    "damagePerTier": 8,
+    "damagePerTier": 0,
     "blastRadius": 110,
     "blastPerTier": 10,
     "triggerRadius": 70,
@@ -281,8 +282,8 @@
     "fireIntervalSteps": 5,
     "baseTurrets": 2,
     "minUpgrades": 6,
-    "powerFloor": 300,
-    "cost": 120,
+    "powerFloor": 50,
+    "cost": 50,
     "minTurrets": 2,
     "minGuns": 4
   },
@@ -369,8 +370,8 @@
     "fireIntervalSteps": 5,
     "baseTurrets": 0,
     "minUpgrades": 6,
-    "powerFloor": 300,
-    "cost": 120,
+    "powerFloor": 50,
+    "cost": 50,
     "minTurrets": 0,
     "minGuns": 0,
     "minMissiles": 4,

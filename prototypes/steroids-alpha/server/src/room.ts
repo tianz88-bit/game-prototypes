@@ -4,7 +4,7 @@ import type { ConfigRecord } from '../../sim/liveConfig';
 // One running planet room: the authority for every ship on that planet.
 // Players drop in and out at any time; the tick loop runs only while someone is connected.
 import { TUNE, stepSeconds } from '../../sim/tune';
-import { copyShip, maxShield } from '../../sim/ship';
+import { copyShip, maxShield, hullCapacity, mineralBalance } from '../../sim/ship';
 import {EVOLVE_ITEM} from '../../sim/shop';
 import { SPARROW } from '../../sim/chassis';
 import type { ShipInput, ShipState } from '../../sim/ship';
@@ -118,12 +118,13 @@ export class Room {
   /** Called between fixed ticks. Announce a complete version before its new snapshots. */
   applyConfig(record:ConfigRecord):void{
     if(record.version===this.config.version)return;
+    const ships=[...this.players.values(),...this.bots.values()].map(p=>p.ship);
+    const wallets=ships.map(s=>mineralBalance(s,this.tune));
     this.config=record;
     for(const group of ['grip','ship','weapon','turret','shop','missile','mine','bots','warp','salvage','hotZone','sparrow','interceptor','battlecruiser','missileCruiser','ciws','heavyTower','asteroid','planet','base'] as const)Object.assign(this.tune[group],structuredClone(record.data.tune[group]));
+    ships.forEach((s,i)=>{s.hullMax=this.tune.ship.maxHp+Math.min(wallets[i],Math.max(0,this.tune.ship.powerCap-this.tune.ship.maxHp));s.hp=Math.min(hullCapacity(s,this.tune),s.hp);s.shield=Math.min(maxShield(s,this.tune),s.shield);});
     for(const p of this.players.values()){
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
-      p.ship.hullMax=Math.min(this.tune.ship.powerCap,p.ship.hullMax);p.ship.hp=Math.min(p.ship.hullMax,p.ship.hp);
-      p.ship.shield=Math.min(this.tune.ship.maxShield,p.ship.shield);
       if(p.queue.length)p.last=p.queue[p.queue.length-1];p.queue=[];p.deficit=0;p.deficitTicks=0;p.owedDash=false;p.owedWarp=false;p.started=false;
       this.send(p,JSON.stringify({type:'config',record}));this.send(p,this.snapshotFor(p));
     }
@@ -768,7 +769,7 @@ export class Room {
     }
     // Power changes all the time; the leaderboard hears about it twice a second at most.
     if (this.tick % Math.max(1, Math.round(this.tune.net.tickHz / 2)) === 0) {
-      const key = [...this.players.values(), ...this.bots.values()].map((p) => `${p.id}:${Math.round(p.ship.hullMax)}:${p.kills}:${upgradeCount(p.ship)}`).join(',');
+      const key = [...this.players.values(), ...this.bots.values()].map((p) => `${p.id}:${Math.floor(mineralBalance(p.ship,this.tune))}:${p.kills}:${upgradeCount(p.ship)}`).join(',');
       if (key !== this.rosterKey) this.broadcastRoster();
       this.broadcastBounty();
     }
@@ -817,7 +818,7 @@ export class Room {
     for (const x of out) {
       const p = this.players.get(x.id)!;
       const salvage = Math.floor(p.ship.salvage);
-      this.send(p, JSON.stringify({ type: 'extracted', power: Math.round(p.ship.hullMax), kills: p.kills, salvage }));
+      this.send(p, JSON.stringify({ type: 'extracted', power: Math.floor(mineralBalance(p.ship,this.tune)), kills: p.kills, salvage }));
       this.leave(x.id);
       void this.bankRun(p, salvage).then((result) => {
         this.send(p, JSON.stringify({ type: 'banked', ...result }));
@@ -849,8 +850,8 @@ export class Room {
   private rosterKey = '';
   private broadcastRoster(): void {
     const players = [...this.players.values(), ...this.bots.values()];
-    this.rosterKey = players.map((p) => `${p.id}:${Math.round(p.ship.hullMax)}:${p.kills}:${upgradeCount(p.ship)}`).join(',');
-    this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.round(p.ship.hullMax), level: upgradeCount(p.ship), bot: this.bots.has(p.id), look: (p as Partial<Player>).look ?? {}, clan: (p as Partial<Player>).clan ?? 0 })) }));
+    this.rosterKey = players.map((p) => `${p.id}:${Math.floor(mineralBalance(p.ship,this.tune))}:${p.kills}:${upgradeCount(p.ship)}`).join(',');
+    this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.floor(mineralBalance(p.ship,this.tune)), level: upgradeCount(p.ship), bot: this.bots.has(p.id), look: (p as Partial<Player>).look ?? {}, clan: (p as Partial<Player>).clan ?? 0 })) }));
   }
 
   /**

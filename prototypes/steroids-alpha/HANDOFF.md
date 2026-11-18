@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-19 codex flat progression — release pending
+DID: Owner-approved about+75% fighter target measures+76.8%; shop250 total, evolution50/earliest115; minerals no longer add/spend combat HP.
+FILES: shared ship/shop/world/liveConfig/tune, Room, HUD/Flight/tutorial, lab/evolution and progression/config/bank/sim gates.
+SEAM: protocol31 same layout; hullMax is legacy baseline+wallet, use mineralBalance/hullCapacity. Epoch2 upgrades legacy hosted balance once, preserving art/control settings and later epoch2 edits.
+CROSS: authority/economy/UI/tests per owner; type/build/sim/config/bank/rig/evolution and3 headless purchase layouts pass. No new assets/dependencies/D1 schema/permanent-price change or capture.
+FOR claude: deferred; see CLAUDE_BACKLOG/progression-balance-proof.json. Capital roles, tactics, regen and accuracy are outside the benchmark; monitor separately.
+
 ## 2026-11-18 codex cruise/home/tilt LIVE181126r0106
 DID: PR5723245a9e4 live106/30; itch44338617901/Worker44338617904/Pages44338621246 succeeded. Neutral cruise, deliberate docking, peace-home warp, compact FX, building FFD and idle heads.
 FILES: shared ship/home/world, Intents/NetClient/Flight/tutorial, buildingFFD/geometry/Rig/clanBaseArt and ship exhaust; authority/grip/building fixtures.
@@ -98,9 +105,3 @@ SEAM: optional travel state, corrected forward displacement/main-shot mount/lead
 CROSS: type/build/rig/sim/config and speed-grip/duel tests pass;48 scripted scenarios show mixed outcomes, no human-fun claim. Six built-preview Brave layouts pass, no page errors/game sockets/writes/captures; public proof follows.
 FOR claude: backlog only; owner must try public lab before any live release. Evidence outputs/steroids-alpha/speed-grip-lab/.
 
-## 2026-11-17 codex drift headless RESEARCH
-DID: tested travel-direction lag0/.10/.22/.45s and capped15° light grip. Mixed results: some overshoot openings, evader path changes also weakened. No handling changes applied.
-FILES: portable lab/drift-findings.json, deferred backlog and status. Raw memory-only experiment artifacts outputs/steroids-alpha/drift-experiment/.
-SEAM: none; production/lab code/tune and live config untouched. Motion lag only, nose aiming preserved; same profile for both pilots.
-CROSS:320 scripted duel runs, all4 chassis slip checks, zero-variant canonical parity and exact delayed replay;10 Brave DPR2 runtime cases, zero page errors/sockets/writes/captures, processes stopped.
-FOR claude: research only, no implementation/live approval. Do not assume drift solves tailing/circling; current easier candidate stays. Backlog records metrics and limitations.

@@ -366,11 +366,11 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   const s = placeShip(w, 1, 1000, 1000, 0);
   w.pickups.set(1, { id: 1, x: s.x, y: s.y, kind: 'mineral', value: 40, from: 0, lockedUntil: 0, expires: w.tick + 100 });
   w.step();
-  assert.equal(s.hp, sh.maxHp + 40, 'minerals add hull');
+  assert.equal(s.hp, sh.maxHp, 'mining does not increase combat hull');assert.equal(S.mineralBalance(s,tune),40,'mining credits the wallet');
   assert.equal(S.maxShield(s, tune), sh.maxShield, 'but do not raise the shield maximum');
   w.pickups.set(2, { id: 2, x: s.x, y: s.y, kind: 'mineral', value: 100000, from: 0, lockedUntil: 0, expires: w.tick + 100 });
   w.step();
-  assert.equal(s.hp, sh.powerCap, 'hull stops at the power cap');
+  assert.equal(s.hp,sh.maxHp,'carried money never grants health');assert.equal(s.hullMax,sh.powerCap,'wallet storage remains capped');
   // Scaling: nothing at the start, full effect at the cap, square-root growth in between.
   assert.equal(S.powerLevel(sh.maxHp, tune), 0);
   assert.equal(S.powerLevel(sh.powerCap, tune), 1);
@@ -451,14 +451,14 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
     const s = placeShip(w, 1, 1000, 1000, 0);
     assert.equal(s.turrets, 0, 'a fresh ship has no turrets');
     assert.equal(w.buy(1, 0, 0), false, 'below the floor: no sale');
-    s.hp = s.hullMax = sp.turretFloors[0];
+    s.hp=base;s.hullMax=base+sp.turretFloors[0];
     assert.equal(w.buy(1, 0, 1), false, 'wrong tier (a stale or repeated tap): no sale');
     assert.equal(w.buy(1, 0, 0), true, 'at the floor: sold');
-    assert.equal(s.hullMax, sp.turretFloors[0] - sp.turretCosts[0], 'paid from the hull maximum');
-    assert.equal(s.hp, s.hullMax, 'a full hull drops to the new maximum');
+    assert.equal(S.mineralBalance(s,tune),sp.turretFloors[0]-sp.turretCosts[0],'paid from wallet');
+    assert.equal(s.hp,base,'buying cannot reduce health');
     assert.equal(s.turrets, 1);
     assert.equal(w.buy(1, 0, 0), false, 'the same tap again buys nothing');
-    s.hp = s.hullMax = 100000;
+    s.hp=base;s.hullMax=100000;
     for (let tier = 1; tier < 4; tier++) assert.equal(w.buy(1, 0, tier), true);
     assert.equal(s.turrets, 4);
     assert.equal(w.buy(1, 0, 4), false, '4 at most');
@@ -545,29 +545,15 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   near(deg(S.assistDirection(1000, 1000, dir, [{ ...at(1, 200), ship: false }, { ...at(-4, 400), ship: true }], t)), -4, 1e-9, 'a ship wins over a closer rock');
 }
 
-// --- Hull maximum (power) vs current hull: minerals repair first, then grow the maximum; buying spends
-// the maximum and only lowers current hull if it is above the new maximum (owner design). ---
+// --- Wallet transactions are independent of combat hull, including damaged ships. ---
 {
-  const sp = tune.shop;
-  const w = emptyWorld();
-  const s = placeShip(w, 1, 1000, 1000, 0);
-  s.hullMax = 200;
-  s.hp = 120; // damaged
-  w.pickups.set(1, { id: 1, x: s.x, y: s.y, kind: 'mineral', value: 100, from: 0, lockedUntil: 0, expires: w.tick + 100 });
-  w.step();
-  assert.deepEqual([s.hp, s.hullMax], [220, 220], 'minerals repair 80 first, the other 20 grow the maximum');
-  // Buy while damaged: the maximum drops; current hull stays if it is below the new maximum.
-  s.hp = 100;
-  assert.equal(w.buy(1, 0, 0), true);
-  assert.deepEqual([s.hp, s.hullMax], [100, 220 - sp.turretCosts[0]], 'a damaged ship keeps its hull');
-  // Buy at full: current hull follows the maximum down.
-  s.hp = s.hullMax;
-  assert.equal(w.buy(1, 1, 0), true);
-  assert.equal(s.hp, s.hullMax, 'a full hull follows the maximum down');
-  // Floors are checked against the maximum, not the current hull.
-  s.hp = 5;
-  assert(s.hullMax >= sp.damageFloors[0]);
-  assert.equal(w.buy(1, 2, 0), true, 'floor uses the hull maximum, not the damaged hull');
+ const w=emptyWorld(),s=placeShip(w,1,1000,1000,0),sp=tune.shop;
+ s.hullMax=200;s.hp=20;s.shield=10;
+ w.pickups.set(1,{id:1,x:s.x,y:s.y,kind:'mineral',value:100,from:0,lockedUntil:0,expires:w.tick+100});w.step();
+ assert.deepEqual([s.hp,s.hullMax],[20,300],'minerals credit money and never repair/grow hull');assert(s.shield<11,'mining is not instant shield healing');
+ assert(w.buy(1,0,0));assert.deepEqual([s.hp,s.hullMax],[20,300-sp.turretCosts[0]],'damaged ship buys without losing health');
+ s.hp=tune.ship.maxHp;const before=s.hullMax;assert(w.buy(1,1,0));assert.equal(s.hp,tune.ship.maxHp,'full hull remains full after buying');assert.equal(s.hullMax,before-sp.shieldCosts[0]);
+ s.hp=5;assert(w.buy(1,2,0),'low-health ships can spend their money');assert.equal(s.hp,5);
 }
 
 // --- Gun upgrades: each tier holds gunHeatPerTier more heat, so more shots before the lock. ---
@@ -586,7 +572,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
     return n;
   };
   near(S.heatCapacity({ damageTier: 2 }, tune), 1 + 2 * tune.shop.gunHeatPerTier, 1e-12);
-  assert(shotsToLock(4) > shotsToLock(0) * 1.4, `4 gun tiers fire clearly longer before locking (${shotsToLock(0)} → ${shotsToLock(4)} shots)`);
+  assert(shotsToLock(4) > shotsToLock(0) * 1.1 && shotsToLock(4) <= shotsToLock(0) * 1.3, `4 gun tiers give a bounded burst extension (${shotsToLock(0)} → ${shotsToLock(4)} shots)`);
 }
 
 // --- Overheat: firing heats the guns; at full they lock until cooled to unlockHeat. ---
@@ -774,7 +760,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   {
     const w = emptyWorld();
     const bot = placeShip(w, 1, 1000, 1000, 0);
-    bot.hp = bot.hullMax = tune.battlecruiser.powerFloor + 10;
+    bot.hp=tune.ship.maxHp;bot.hullMax=tune.ship.maxHp+tune.battlecruiser.powerFloor+10;
     Object.assign(bot, { turrets: 2, shieldTier: 2, damageTier: 4 });
     const { buy } = S.botThink(1, bot, w, { ...S.newBrain(() => 0), bornAt: w.tick }, tune, () => 0);
     assert(buy && buy.item === 5 && w.buy(1, buy.item, buy.tier) && bot.chassis === 2, 'a qualifying bot evolves');
@@ -1061,7 +1047,7 @@ assert.equal(S.cleanName(null), '');
   const hp0 = big.hp;
   for (let i = 0; i < 20 && big.hp === hp0; i++) { w.stepShip(1, idle); w.stepShip(2, idle); w.step(); }
   const flat = tune.ship.dashRamDamage * S.damageScale(r, tune);
-  near(hp0 - big.hp, Math.max(flat, tune.ship.dashRamHullFraction * 400), 1e-6, 'ram deals the larger of flat and hull share');
+  near(hp0 - big.hp, Math.max(flat, tune.ship.dashRamHullFraction * tune.ship.maxHp), 1e-6, 'carried money cannot inflate ram hull damage');
 }
 
 // --- Siege v0 (owner, 16 November 2026): Warzone base at war. Turrets, shield and treasury take
@@ -1878,7 +1864,7 @@ assert.equal(S.cleanName(null), '');
     for (let i = 0; i < 20 && s1.closed === 0; i++) await new Promise((r) => setTimeout(r, 5));
     assert.equal(s1.closed, S.CLOSE.EXTRACTED, 'pilot closed as extracted');
     const res = s1.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).find((m) => m.type === 'extracted');
-    assert(res && res.power >= tune.ship.maxHp, 'result frame with what was carried out');
+    assert(res && res.power === Math.round(S.mineralBalance(p1.ship,tune)), 'result reports carried minerals without the legacy hull baseline');
     const seen = s2.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).find((m) => m.type === 'warpouts');
     assert(seen && seen.ships.some((x) => x.id === id), 'others see the warp-out');
     assert(!room.world.ships.has(id), 'ship left the planet');
@@ -2159,3 +2145,5 @@ await import('./test-steroids-ram-tutorial.mjs');
 await import('./test-steroids-live-grip.mjs');
 
 await import('./test-steroids-capital-evolution.mjs');
+
+await import('./test-steroids-progression-balance.mjs');

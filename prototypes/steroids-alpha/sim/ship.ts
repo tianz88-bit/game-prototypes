@@ -24,8 +24,8 @@ export interface ShipState {
   /** Hull points now. Changed only by the server; 0 means destroyed. */
   hp: number;
   /**
-   * Hull maximum, which is the ship's power: minerals raise it (after repairing any damage), shop
-   * purchases spend it. hp never exceeds it. Speed, size and the leaderboard follow it.
+   * Legacy wire name: baseline ship.maxHp + mineral wallet. Use mineralBalance for money and
+   * hullCapacity for health. Carrying still affects size/speed; collecting/spending never changes HP.
    */
   hullMax: number;
   /** Shield points, taken before the hull. Changed only by the server. */
@@ -99,7 +99,7 @@ export interface ShipInput {
 }
 
 /**
- * Power: minerals are the hull. A ship starts at ship.maxHp and grows by collecting minerals up to
+ * Carried resource load: minerals are independent of hull health. A ship starts at ship.maxHp and grows by collecting minerals up to
  * ship.powerCap. Growth has diminishing returns (square root): the ship gets slower and bigger (an
  * easier target). Firepower and shield come from shop upgrades bought with minerals (sim/shop.ts).
  * Returns 0 for a fresh ship and 1 at the cap.
@@ -145,6 +145,11 @@ export function damageScale(s: ShipState, tune: Tune): number {
 }
 
 /** Shield maximum: the base shield plus shieldPerTier for each shield upgrade bought. */
+/** The legacy wire hullMax field stores baseline + unspent minerals; it no longer grants health. */
+export function mineralBalance(s:Pick<ShipState,'hullMax'>,tune:Tune):number{return Math.round(Math.max(0,s.hullMax-tune.ship.maxHp)*10)/10;}
+/** Actual hull capacity is independent of the carried wallet. */
+export function hullCapacity(_s:Pick<ShipState,'chassis'>,tune:Tune):number{return tune.ship.maxHp;}
+
 export function maxShield(s: ShipState, tune: Tune): number {
   return (tune.ship.maxShield + s.shieldTier * tune.shop.shieldPerTier) * chassisStats(s.chassis ?? SCRAPPY, tune).shield;
 }

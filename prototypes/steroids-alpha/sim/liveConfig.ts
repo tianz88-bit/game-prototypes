@@ -41,6 +41,15 @@ function sameShape(value: unknown, base: unknown, path = 'config'): void {
 export function upgradeConfig(input: unknown): unknown {
   if (!input || typeof input !== 'object') return input;
   const value = structuredClone(input) as Record<string, any>;
+  // Owner-approved progression epoch: upgrade legacy published balance once; preserve later edits.
+  if(value.tune&&(value.tune.shop===undefined||value.tune.shop&&typeof value.tune.shop==='object'&&value.tune.shop.balanceVersion===undefined)){
+    value.tune.shop??={};
+    const defaults=defaultConfig().tune;
+    Object.assign(value.tune.shop,defaults.shop);
+    if(value.tune.turret)value.tune.turret.damage=defaults.turret.damage;
+    for(const key of ['missile','mine'])if(value.tune[key])value.tune[key].damagePerTier=defaults[key as 'missile'|'mine'].damagePerTier;
+    for(const key of ['battlecruiser','missileCruiser'])if(value.tune[key]){value.tune[key].cost=defaults[key as 'battlecruiser'|'missileCruiser'].cost;value.tune[key].powerFloor=defaults[key as 'battlecruiser'|'missileCruiser'].powerFloor;}
+  }
   const ship = value.tune?.ship;
   if (ship && typeof ship === 'object' && ship.maxShield === undefined && typeof ship.maxHp === 'number') {
     ship.maxShield = ship.maxHp / 2;
@@ -83,6 +92,7 @@ export function validateConfig(input: unknown): ConfigData {
     if (v < 0 || v > 10000) fail(`${group}.${key}: value must be 0–10000`);
   }
   {const m=value.tune.missileCruiser,c=value.tune.ciws,h=value.tune.heavyTower;if(m.capacity!==8||[m.minMissiles,m.minMines].some(v=>!Number.isInteger(v)||v<0||v>4)||m.damageFactor<1||m.damageFactor>3||m.rangeFactor<1||m.rangeFactor>3||m.radiusFactor<1||m.radiusFactor>3||m.repeatSeconds<.1||m.repeatSeconds>2||m.reverseSeconds<.1||m.reverseSeconds>2||m.turnRateMissile<=0||m.turnRateMissile>10||m.lifeSeconds<1||m.lifeSeconds>20||m.cost<0||m.powerFloor<m.cost||m.launchSpeed<=0)fail('Missile Cruiser settings out of range');for(const b of [c,h])if(!Number.isInteger(b.shots)||b.shots<1||b.shots>12||b.intervalSeconds<.03||b.intervalSeconds>1||b.pauseSeconds<.1||b.pauseSeconds>5||b.range<1||b.range>3000||b.speed<1||b.speed>3000||b.damage<=0||b.damage>500||b.turnRate<=0||b.turnRate>30)fail('Burst cannon settings out of range');if(h.telegraphSeconds<.1||h.telegraphSeconds>2)fail('Tower warning out of range');}
+  if(value.tune.shop.balanceVersion!==2)fail('Progression epoch requires a code deployment');
   const s = value.tune.ship, w = value.tune.weapon;
   { const g=value.tune.grip;
     if(![0,1].includes(g.enabled)||[g.slowTau,g.cruiseTau,g.fastTau,g.dashTau,g.brakeTau].some(v=>!(v>0&&v<=1))||g.maxSlipDeg>45||g.decelerationEpsilon>5)fail('Grip: enabled 0/1, response times above 0 up to 1s, slip 0–45 degrees, deceleration epsilon 0–5');
@@ -99,7 +109,7 @@ export function validateConfig(input: unknown): ConfigData {
   if (s.acceleration <= 0 || s.braking <= 0 || s.radius <= 0 || s.maxHp <= 0) fail('Acceleration, braking, radius and hull must be positive');
   if (!(s.powerCap >= s.maxHp) || s.speedPenaltyAtCap < 0 || s.speedPenaltyAtCap >= 1 || s.radiusBonusAtCap < 0 || s.hullSpillFraction < 0 || s.hullSpillFraction > 1 || s.deathSpillFraction < 0 || s.deathSpillFraction > 1 || s.spillLockSeconds < 0) fail('Power: cap at least the starting hull, bonuses and penalties in range, spill fractions 0..1');
   { const t = value.tune.turret; if (!(t.range > 0) || !(t.turnRate > 0) || t.aimTolerance <= 0 || !Number.isInteger(t.fireIntervalSteps) || t.fireIntervalSteps < 1 || t.damage < 0 || !(t.bulletSpeed > 0)) fail('Turret stats out of range'); }
-  { const sh = value.tune.shop; for (const item of ['turret', 'shield', 'damage', 'missile', 'mine'] as const) { const f = sh[`${item}Floors`], c = sh[`${item}Costs`]; if (f.length !== 4 || c.length !== 4 || [0, 1, 2, 3].some((i) => !(c[i] > 0) || !(f[i] - c[i] >= 1) || (i > 0 && f[i] < f[i - 1]))) fail(`Shop ${item}: 4 tiers, each floor above its cost and not below the last`); } if (sh.shieldPerTier < 0 || sh.damagePerTier < 0 || sh.gunHeatPerTier < 0) fail('Shop upgrades must not be negative'); }
+  { const sh = value.tune.shop; for (const item of ['turret', 'shield', 'damage', 'missile', 'mine'] as const) { const f = sh[`${item}Floors`], c = sh[`${item}Costs`]; if (f.length !== 4 || c.length !== 4 || [0, 1, 2, 3].some((i) => !Number.isInteger(c[i]) || !Number.isInteger(f[i]) || !(c[i] > 0) || !(f[i] >= c[i]) || (i > 0 && f[i] < f[i - 1]))) fail(`Shop ${item}: 4 whole-mineral tiers, each floor at least its cost and not below the last`); } if (sh.shieldPerTier < 0 || sh.damagePerTier < 0 || sh.gunHeatPerTier < 0) fail('Shop upgrades must not be negative'); }
   { const m = value.tune.missile, n = value.tune.mine; if (!(m.hp > 0) || !(m.launchSpeed > 0) || !(m.maxSpeed >= m.launchSpeed) || !(m.lifeSeconds > 0) || !(m.refillSeconds > 0) || !(m.lockConeDeg > 0 && m.lockConeDeg <= 90) || !(n.hp > 0) || !(n.blastRadius > 0) || !(n.lifeSeconds > 0) || !(n.refillSeconds > 0) || !Number.isInteger(n.maxActive) || n.maxActive < 1) fail('Missile and mine settings out of range'); }
   for (const c of [value.tune.interceptor, value.tune.battlecruiser,value.tune.missileCruiser]) if (!(c.radius >= 8 && c.radius <= 200) || !(c.minSpeed > 0 && c.minSpeed <= c.cruiseSpeed && c.cruiseSpeed <= c.maxSpeed) || !(c.acceleration > 0) || !(c.braking > 0) || !(c.turnRate > 0) || !(c.shieldFactor > 0 && c.shieldFactor <= 10) || !(c.damageFactor > 0 && c.damageFactor <= 10) || !Number.isInteger(c.fireIntervalSteps) || c.fireIntervalSteps < 1 || !Number.isInteger(c.baseTurrets) || c.baseTurrets < 0 || c.baseTurrets > 4) fail('Ships: radius 8-200, minimum ≤ cruise ≤ top speed, positive acceleration, braking and turn rate, factors above 0 (up to 3, shield/damage up to 10), whole fire interval 1+, 0-4 base turrets');
   { const b = value.tune.battlecruiser; if (!Number.isInteger(b.minUpgrades) || b.minUpgrades < 0 || b.minUpgrades > 20 || [b.minTurrets,b.minGuns].some(v=>!Number.isInteger(v)||v<0||v>4) || !(b.powerFloor >= 0) || !(b.cost >= 0)) fail('Battlecruiser: 0-20 total upgrades, turret/gun requirements 0-4, floor and cost 0 or more'); }

@@ -5,7 +5,7 @@ import {DuelHoldInput} from './duel-input';
 import {DuelModel,idle,DUEL_SCENARIO} from './duel-model';
 import type {DuelStart,Handling} from './duel-model';
 import {TUNE} from '../steroids-alpha/sim/tune';
-import {shipRadius,topSpeed,maxShield} from '../steroids-alpha/sim/ship';
+import {shipRadius,topSpeed,maxShield,hullCapacity} from '../steroids-alpha/sim/ship';
 import {shipMotion} from '../steroids-alpha/sim/chassis';
 import {wrapDelta} from '../steroids-alpha/sim/wrap';
 import {intents} from '../steroids-alpha/src/input/intents';
@@ -85,7 +85,7 @@ class DuelScene extends Phaser.Scene{
   this.ground.update(w,h,k,{camera:{x:p.x-m.tune.world.width/2,y:p.y-m.tune.world.height/2},sun:{x:-.55,y:-.35,z:.75},daylight:.95,brightness:.95});
   this.ui.clear();this.modal.clear();this.fx.clear();this.wordUsed=0;this.buttons=[];this.sprites.begin();
   m.pilots.forEach((s,i)=>{const at=project(s.x,s.y),radius=shipRadius(s.hullMax,m.tune,s.chassis);this.ships[i].update({...at,visible:at.visible&&s.hp>0,brightness:.95,shadowX:at.x+10*k,shadowY:at.y+15*k,shadowAlpha:.4},s.heading,now,s.speed,s.dashTime>0,i===0?this.lastInput:'observed',topSpeed(s.hullMax,m.tune,s.chassis));
-   if(s.hp>0&&at.visible){this.label(at.x,at.y+(radius+40)*at.scale,i===0?'YOU':'SPARRING SHIP',10,i===0?'#aee8f0':'#ffb89c');if(i===1){const bw=64*k;this.fx.fillStyle(0x121c28,.9).fillRect(at.x-bw/2,at.y-(radius+22)*at.scale,bw,4);this.fx.fillStyle(0x83dbec,.8).fillRect(at.x-bw/2,at.y-(radius+22)*at.scale,bw*s.shield/maxShield(s,m.tune),2);this.fx.fillStyle(0xf3ba7c,.85).fillRect(at.x-bw/2,at.y-(radius+22)*at.scale+2,bw*s.hp/s.hullMax,2);}
+   if(s.hp>0&&at.visible){this.label(at.x,at.y+(radius+40)*at.scale,i===0?'YOU':'SPARRING SHIP',10,i===0?'#aee8f0':'#ffb89c');if(i===1){const bw=64*k;this.fx.fillStyle(0x121c28,.9).fillRect(at.x-bw/2,at.y-(radius+22)*at.scale,bw,4);this.fx.fillStyle(0x83dbec,.8).fillRect(at.x-bw/2,at.y-(radius+22)*at.scale,bw*s.shield/maxShield(s,m.tune),2);this.fx.fillStyle(0xf3ba7c,.85).fillRect(at.x-bw/2,at.y-(radius+22)*at.scale+2,bw*s.hp/hullCapacity(s,m.tune),2);}
     if(s.dashTime>0)drawRamAttack(this.fx,at,s.heading,radius*2, radius,now);
    }else if(i===1&&s.hp>0){const dx=wrapDelta(s.x,p.x,m.tune.world.width),dy=wrapDelta(s.y,p.y,m.tune.world.height),a=Math.atan2(dy,dx),r=Math.min(w,h)*.38;this.label(w/2+Math.cos(a)*r,h/2+Math.sin(a)*r,'◆ OPPONENT',11,'#ffba9d');}
   });

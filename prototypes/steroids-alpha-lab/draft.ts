@@ -81,12 +81,12 @@ export function mountStats(): void {
   for (const [name, values] of groups) {
     const detail = document.createElement('details'), summary = document.createElement('summary'); summary.textContent=name; detail.append(summary); if(name==='Ship')detail.open=true;
     for (const [key, value] of Object.entries(values)) {
-      if(key==='partTextureMax')continue;
+      if(key==='partTextureMax'||key==='balanceVersion')continue;
       const items = Array.isArray(value) ? value : [value];
       items.forEach((n,index) => {
         const label = document.createElement('label'); label.className='row';
-        const text = document.createElement('span'); text.textContent=friendly(key)+(Array.isArray(value)?` · size ${index+1}`:'');
-        const input = document.createElement('input'); input.type='number'; input.className='num'; input.value=String(n); input.step=key.endsWith('Steps')?'1':'any'; input.setAttribute('aria-label',name+' '+text.textContent);
+        const text = document.createElement('span'); text.textContent=friendly(key)+(Array.isArray(value)?` · ${name==='Shop'?'tier':'size'} ${index+1}`:'');
+        const input = document.createElement('input'); input.type='number'; input.className='num'; input.value=String(n); input.step=key.endsWith('Steps')||name==='Shop'&&Array.isArray(value)?'1':'any'; input.setAttribute('aria-label',name+' '+text.textContent);
         input.oninput=()=>{const v=Number(input.value);if(!Number.isFinite(v))return message('Enter a finite number');if(Array.isArray(value))value[index]=v;else values[key]=v;remember();window.dispatchEvent(new Event('lab-stats'));};
         label.append(text,input);detail.append(label);
       });
