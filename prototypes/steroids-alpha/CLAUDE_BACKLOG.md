@@ -2,7 +2,9 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
-## Owned pre-mission evolution loadouts — release pending
+## Owned pre-mission evolution loadouts — LIVE181126r0103/protocol29
+
+PR5662c0ee7a97268be7d687d43a01884610a4556fa2f. Client44292583012/Worker44292583031/Pages44292583010 success.6 local+2 public UI cases pass, actual public Worker rejects forged/unowned MC auth and shows NO EVO over51 healthy snapshots. Source proof lab/evolution/loadout-release-proof.json. No capture/live credit spending; SQLite/Room covers positive bank/authority cases and browser fixture purchases cover presentation. Temporary processes stopped. No immediate Claude action.
 
 Owner chose1500 banked credits each for permanent BC/MC unlocks. New evolution slot reuses catalogue/bank atomic purchase/cleanLook. Buying does NOT auto-equip; a subsequent tap equips one owned build, tapping equipped removes it. Ship page evolution-slot shortcut opens EVOLVE. Requirements/prices during match stay BC2T/G4 or MC4MSL/2MINE, floor300/cost120; no free default/grandfather grant. Legacy numeric Save.evolution is ignored.
 
@@ -10,7 +12,7 @@ NetClient snapshots its requested look at construction. Server accepts initial a
 
 Compact shop shows both counters (e.g.MSL3/4 MINE1/2) and mineral goal/cost on two lines; READY enables button/6, EVOLVED remains visible, NO EVO prompts Hangar. Readiness/tips derive from server roster, never editable local preference. Headless fixture confirms changing saved look mid-mission still requests equipped build. Six PC/touch/portrait layouts pass two1500 purchases, explicit equip, one-slot swap/unequip, old preference ignored, progress/ready/blocked input and bounds. No captures or actual live credit spending; browser purchases are intercepted fixtures, authority/bank checks use real SQLite/Room.
 
-Type/build/sim/config/bank pass. Bank regression covers insufficient funds, exact deductions, idempotence, unowned/unequipped/alternate/late/silent-late auth rejection, selected evolution purchase and resume. Temporary preview4187 for QA; evidence outputs/steroids-alpha/missile-cruiser-lab/loadout-*. Existing randomized bot-spacing and Pages counter housekeeping remains deferred.
+Type/build/sim/config/bank pass. Bank regression covers insufficient funds, exact deductions, idempotence, unowned/unequipped/alternate/late/silent-late auth rejection, selected evolution purchase and resume. Temporary preview4187 stopped after QA; evidence outputs/steroids-alpha/missile-cruiser-lab/loadout-*. Existing randomized bot-spacing and Pages counter housekeeping remains deferred.
 
 ## Missile Cruiser artillery correction — LIVE181126r0102/protocol28
 

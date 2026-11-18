@@ -1,23 +1,23 @@
 ## Current milestone
 
-PUBLIC lab matches LIVE181126r0102/protocol28 artillery correction via PR564. Pages44251753017 deploy succeeded; post-deploy counter persistence raced main. Client/Worker succeeded.
+Production loadouts LIVE181126r0103/protocol29 via PR566; Pages44292583010, itch44292583012 and Worker44292583031 succeeded. Existing design lab remains public and isolated.
 
 ## What was implemented
 
-Missile Cruiser preview/evolution has zero base turrets, retains bought ones, minimum90/cruise170/top225; four empty platforms visible. Battlecruiser base2/min140 retained. Graphical build choice/requirements,8 rear-launched missiles and bought CIWS bursts remain.
+Production Hangar requires1500 bank credits per permanent evolution unlock, then explicit pre-mission equipment; match shop shows both requirement counters/resources. This standalone lab keeps free prepare/evolve controls for design comparisons and never unlocks/equips an account. MC base0/min90 and bought CIWS behavior retained.
 
 ## Key technical decisions
 
-Lab no longer hardcodes2 turrets for MC. Shared production uses tune base0. Unit/type/build/sim/config/lab pass; public lab gives0 turrets/min90/ammo8 and actual public Hangar heads0/BC2.49 healthy network snapshots carry corrected values. Proof evolution/artillery-release-proof.json, no errors/capture.
+Lab account isolation unchanged. Shared catalogue/config adds evolution slot/price; backend verifies initial loadout and ownership, protocol29 same layout. Six local+2 public UI cases and SQLite/Room bank tests pass; public real authority rejects forged MC selection over51 healthy snapshots. No capture. Portable production proof evolution/loadout-release-proof.json.
 
 ## Open questions
 
-Owner can playtest slower artillery positioning; no further release permission needed.
+Owner may tune progression after play; no immediate Claude request.
 
 ## Known issues
 
-Unrelated randomized bot-spacing test retried successfully; Pages post-deploy counter push race deferred. Lab remains isolated from game accounts/network authority.
+No live credits spent by QA; positive bank/equip checks use SQLite/Room and browser intercepted fixtures. Design lab intentionally bypasses account progression only in its isolated model.
 
 ## Next proposed step
 
-Use the public lab or refresh/play live. Claude backlog saved; no resident publisher, temporary tests closed.
+Use Hangar → EVOLVE for real unlocks/loadouts and this lab for art/combat comparison. Deferred handoff saved, preview/headless closed.

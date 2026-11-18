@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-18 codex evolution loadouts LIVE181126r0103
+DID: PR566 2c0ee7a9 live; itch44292583012/Worker44292583031/Pages44292583010 success.1500-credit permanent unlock each, separate equip, compact missing-upgrade/resource status.
+FILES: catalogue/tune, Room auth/buy gate, client frozen look/Hangar/shop/tips, bank regression; loadout-release-proof.json and deferred docs.
+SEAM:29 same layout; owned Look.evolution captured before controls/within3s; BUY5 must match. Roster drives UI, resume retains equipment, old numeric preference ignored; lab stays isolated/free.
+CROSS: type/build/sim/config/bank pass.6 local+2 public layouts pass full buy/equip/status; real Worker rejects forged selection with51 healthy snapshots. Browser purchases mocked, SQLite/Room tests cover actual billing/positive authority; no capture.
+FOR claude: deferred only. No migration/assets/dependencies; no live credits spent. Temporary preview/headless stopped. Existing random bot-spacing/Pages counter housekeeping remains future work; this release all first-attempt success.
+
 ## 2026-11-18 codex owned pre-mission evolution loadouts
 DID: permanent BC/MC unlocks1500 bank credits each; buy then explicitly equip one in Hangar. Match shop shows both upgrade counters/mineral progress; no equipped build means no evolve.
 FILES: unlock catalogue/tune, Room auth/buy guard, NetClient frozen look, Hangar/shop/tips, bank authority regression and deferred docs.
@@ -97,10 +104,3 @@ FILES: lab-only model/renderer/tuning/entry plus standalone physics test; durabl
 SEAM: existing World damage/weapons/grace, post-step candidate contact response and read-only projectile adapter. No live config writes or production code/tune changes.
 CROSS: type/build/rig/sim/config/physics pass;6 local+6 public DPR2 PC/mobile layouts, all4 public ships/held Fire/Dash/roles/presets/reset disposal. Zero page errors/game sockets/writes/captures; Vite/headless stopped.
 FOR claude: OWNER PLAYTEST GATE remains. Deferred backlog has future authority/prediction port requirements; no immediate execution/review. URLs ?duel=tail and ?duel=circle; evidence outputs/steroids-alpha/combat-duel-lab/.
-
-## 2026-11-17 codex combat duel lab PREVIEW
-DID: lab-only stronger mass-weighted opposing impacts, ram consumes dash, longer kick decay and cruise-best turning. Tailed/Circling starts, baseline/candidate, four ships, role swap, reset/pause and existing PC/mobile controls.
-FILES: steroids-alpha-lab entry/duel/duel-model/duel.tune/index/README; standalone physics test and deferred docs. Production runtime/tune/workflows untouched.
-SEAM: production World handles damage/weapons; isolated post-step candidate replaces kicks/separates contacts. Read-only projectile adapter observes private World.bullets. No socket/account/publishing.
-CROSS: pure collision/radius/damage-parity/wrap tests pass,6 Brave DPR2 layouts incl touch steering/held fire/Dash and reset lifecycle; zero page errors/game sockets/writes/captures. Public preview proof follows.
-FOR claude: backlog only, no immediate work. LIVE BALANCE NOT APPROVED: await owner lab playtest before porting to authority/prediction; no online latency or human-fun proof claimed.
