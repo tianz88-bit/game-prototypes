@@ -1,4 +1,4 @@
-import { startMusic } from '../music';
+import { startMusic, type MusicControls } from '../music';
 import { createTitleArt } from '../render/titleArt';
 import { GAME_FONT } from '../gameFont';
 import Phaser from 'phaser';
@@ -61,7 +61,9 @@ export class GameScene extends Phaser.Scene {
   private par = 0;
   private limit = 0;
   private titleOpen=false;
-  private playBoardMusic = () => {};
+  private music?: MusicControls;
+  private effectsOn = true;
+  private dialogOpen = false;
   private longestChain=0;
   private taps = 0;
   private phase: Phase = 'play';
@@ -106,8 +108,9 @@ export class GameScene extends Phaser.Scene {
     const cam = this.cameras.main;
     cam.setZoom(PIXEL_RATIO);
     cam.centerOn(WIDTH / 2, HEIGHT / 2);
+    this.effectsOn = localStorage.getItem('kaiten-express:effects') !== 'off';
     this.sfx = new Sfx(this, {
-      volume: () => tune.feel.volume,
+      volume: () => this.effectsOn ? tune.feel.volume : 0,
       pitchStep: () => tune.feel.pitchStepPerLink,
       pitchStepMax: () => tune.feel.pitchStepMax,
     });
@@ -146,8 +149,8 @@ export class GameScene extends Phaser.Scene {
       .setDepth(220);
 
     this.add.text(5, 4, VERSION_STAMP, { fontFamily: 'monospace', fontSize: '8px', color: '#1f4f8f', resolution: PIXEL_RATIO }).setAlpha(0.35).setDepth(250);
-    this.hudLevel = this.hudText(WIDTH / 2, 34, 24, '#74435c');
-    this.hudTaps = this.hudText(WIDTH / 2, 70, 15, '#795a68');
+    this.hudLevel = this.hudText(WIDTH / 2, 62, 23, '#74435c');
+    this.hudTaps = this.hudText(WIDTH / 2, 87, 15, '#795a68');
     this.starsG = this.add.graphics().setDepth(240);
     this.banner = this.hudText(WIDTH / 2, 400, 34, '#ffe27a').setDepth(230).setAlpha(0);
     this.coach = this.hudText(WIDTH / 2, 172, 16, '#74435c').setDepth(230).setAlign('center').setWordWrapWidth(WIDTH - 50);
@@ -155,8 +158,8 @@ export class GameScene extends Phaser.Scene {
     this.arrows = this.add.graphics().setDepth(60);
     this.cursorG = this.add.graphics().setDepth(70);
 
-    this.restartBtn = new Button(this, 105, 760, 170, 54, 'Restart', null, { fill: 0x8b416d, edge: 0xba7b9f }, () => this.bus.emit({ type: 'restart' }), 20);
-    this.levelsBtn = new Button(this, 285, 760, 170, 54, 'Levels', null, { fill: 0x508067, edge: 0x9fc49c }, () => this.bus.emit({ type: 'levels' }), 20);
+    this.restartBtn = new Button(this, WIDTH-56, 30, 94, 38, 'Restart', null, { fill: 0x8b416d, edge: 0xba7b9f }, () => this.confirmRestart(), 16);
+    this.levelsBtn = new Button(this, 56, 30, 94, 38, 'Menu', null, { fill: 0x508067, edge: 0x9fc49c }, () => this.bus.emit({ type: 'levels' }), 16);
     this.restartBtn.container.setDepth(240);this.levelsBtn.container.setDepth(240);
 
     this.bus.on((i) => this.onIntent(i));
@@ -169,7 +172,7 @@ export class GameScene extends Phaser.Scene {
     this.loadSave();
     this.startLevel(this.save.level);
     const title = new URLSearchParams(location.search).get('test') !== '1';
-    this.playBoardMusic = startMusic(this, title);
+    this.music = startMusic(this, title);
     if(title)this.showTitle();
 
     if (new URLSearchParams(location.search).get('test') === '1') {
@@ -220,9 +223,10 @@ export class GameScene extends Phaser.Scene {
     const title = createTitleArt(this, WIDTH / 2, 335, WIDTH - 32)
       ?? this.hudText(WIDTH / 2, 335, 40, '#74374a').setText('Kaiten Express');
     const start=new Button(this,WIDTH/2,525,210,58,this.save.level?'Continue':'Play',null,{fill:0x387d68,edge:0x92dac3},()=>{
-      this.titleOpen=false;cover.destroy();this.playBoardMusic();
+      this.titleOpen=false;cover.destroy();this.music?.playGameplay();
     },23);
-    const cover=this.add.container(0,0,[background,title,start.container]).setDepth(450);
+    const menu = new Button(this,56,30,94,38,'Menu',null,{fill:0x508067,edge:0x9fc49c},()=>this.openTitleMenu(),16);
+    const cover=this.add.container(0,0,[background,title,start.container,menu.container]).setDepth(450);
   }
 
   private loadSave(): void {
@@ -337,7 +341,7 @@ export class GameScene extends Phaser.Scene {
     const g = this.starsG;
     g.clear();
     const stars = this.starsFor(this.taps);
-    for (let i = 0; i < 3; i++) this.drawStar(g, WIDTH / 2 + (i - 1) * 34, 100, 11, i < stars ? 0xffd04a : 0x6f8db5);
+    for (let i = 0; i < 3; i++) this.drawStar(g, WIDTH / 2 + (i - 1) * 34, 113, 11, i < stars ? 0xffd04a : 0x6f8db5);
   }
 
   private starsFor(taps: number): number {
@@ -393,7 +397,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onIntent(intent: Intent): void {
-    if(this.titleOpen)return;
+    if(this.titleOpen || this.dialogOpen)return;
     if(this.restarting)return;
     if (intent.type === 'restart') return this.restartWithFade();
     if (intent.type === 'next') return this.isUnlocked(this.levelIndex + 1) ? this.startLevel(this.levelIndex + 1) : this.startLevel(this.levelIndex);
@@ -817,9 +821,56 @@ export class GameScene extends Phaser.Scene {
   }
 
   private closeMenu(): void {
+    this.dialogOpen = false;
     this.menu.forEach((o) => o.destroy());
     this.menu = [];
     if (this.phase === 'menu') this.phase = 'play';
+  }
+
+  private soundButtons(y: number): Phaser.GameObjects.Container[] {
+    const options = [{name:'Effects', enabled:()=>this.effectsOn, toggle:()=>{
+      this.effectsOn = !this.effectsOn;
+      localStorage.setItem('kaiten-express:effects', this.effectsOn ? 'on' : 'off');
+    }}];
+    if (this.music) options.unshift({name:'Music', enabled:this.music.enabled, toggle:this.music.toggle});
+    return options.map((option, i) => {
+      const label = () => option.name + (option.enabled() ? ' on' : ' off');
+      const x = options.length === 1 ? WIDTH / 2 : WIDTH / 2 + (i === 0 ? -76 : 76);
+      const button = new Button(this,x,y,138,40,label(),null,{fill:0x508067,edge:0x9fc49c},()=>{
+        option.toggle();
+        const text = button.container.list.find(child=>child instanceof Phaser.GameObjects.Text);
+        if (text instanceof Phaser.GameObjects.Text) text.setText(label());
+      },16);
+      return button.container;
+    });
+  }
+
+  private dialog(title: string): Phaser.GameObjects.Container {
+    this.closeMenu();
+    this.dialogOpen = true;
+    const shade = this.add.rectangle(WIDTH/2,HEIGHT/2,WIDTH,HEIGHT,0x61485e,.46).setInteractive();
+    const panel = this.add.graphics().fillStyle(0xfff8e6).fillRoundedRect(29,315,WIDTH-58,202,22);
+    const heading = this.hudText(WIDTH/2,352,24,'#74435c').setText(title);
+    const layer = this.add.container(0,0,[shade,panel,heading]).setDepth(500);
+    this.menu.push(layer);
+    return layer;
+  }
+
+  private openTitleMenu(): void {
+    const layer = this.dialog('Sound');
+    const close = new Button(this,WIDTH/2,479,138,42,'Close',null,{fill:0x508067,edge:0x9fc49c},()=>this.closeMenu(),16);
+    layer.add([...this.soundButtons(408),close.container]);
+  }
+
+  private confirmRestart(): void {
+    if (this.phase !== 'play' || this.restarting || this.dialogOpen) return;
+    const layer = this.dialog('Restart this level?');
+    const cancel = new Button(this,WIDTH/2-76,470,138,44,'Cancel',null,{fill:0x508067,edge:0x9fc49c},()=>this.closeMenu(),16);
+    const restart = new Button(this,WIDTH/2+76,470,138,44,'Restart',null,{fill:0x8b416d,edge:0xba7b9f},()=>{
+      this.closeMenu();
+      this.restartWithFade();
+    },16);
+    layer.add([this.hudText(WIDTH/2,400,15,'#795a68').setText('Your moves on this board will reset.'),cancel.container,restart.container]);
   }
 
   /** A grid of levels with the stars earned so far. */
@@ -843,7 +894,7 @@ export class GameScene extends Phaser.Scene {
     const gridW = cols * cell + (cols - 1) * gap;
     const rowH = cell + 30;
     const panelW = WIDTH - 50;
-    const panelH = 120 + rows * rowH + 70;
+    const panelH = 170 + rows * rowH + 70;
     const px = (WIDTH - panelW) / 2;
     const py = Math.round((HEIGHT - panelH) / 2) - 30;
     const dim = this.add.graphics().setDepth(300);
@@ -858,6 +909,7 @@ export class GameScene extends Phaser.Scene {
     const nextGate = this.gateNeed(Math.min(LEVELS.length - 1, this.firstLocked()));
     const gateText = tune.rules.unlockAll || nextGate <= this.totalStars() ? `Stars ${this.totalStars()}` : `Stars ${this.totalStars()} / ${nextGate} to open more`;
     this.menu.push(this.hudText(WIDTH / 2, py + 68, 13, '#6a5a3a').setDepth(310).setText(gateText));
+    this.menu.push(...this.soundButtons(py + 107));
     let taps=0,lastTap=0;
     title.setInteractive().on('pointerdown',()=>{
       const now=this.time.now;taps=now-lastTap<750?taps+1:1;lastTap=now;
@@ -871,7 +923,7 @@ export class GameScene extends Phaser.Scene {
       const c = k0 % cols;
       const r = Math.floor(k0 / cols);
       const x = (WIDTH - gridW) / 2 + c * (cell + gap) + cell / 2;
-      const y = py + 100 + r * rowH + cell / 2;
+      const y = py + 150 + r * rowH + cell / 2;
       const open = this.isUnlocked(i);
       const here = i === this.levelIndex;
       const b = new Button(this, x, y, cell, cell, String(i + 1), null, open ? { fill: here ? 0x2f9e5b : 0x3a4a68, edge: here ? 0x6dffa8 : 0x6f9cff } : { fill: 0x8a8fa0, edge: 0xb7bccb }, () => this.bus.emit({ type: 'select', level: i }), 22);
