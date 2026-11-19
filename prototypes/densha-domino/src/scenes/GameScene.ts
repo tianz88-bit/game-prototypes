@@ -76,6 +76,7 @@ export class GameScene extends Phaser.Scene {
   private starsG!: Phaser.GameObjects.Graphics;
   private gBackdrop!: Phaser.GameObjects.Graphics;
   private cursorG!: Phaser.GameObjects.Graphics;
+  private goalBalls!:Phaser.GameObjects.Particles.ParticleEmitter;
   private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
   private restartBtn!: Button;
   private levelsBtn!: Button;
@@ -114,6 +115,16 @@ export class GameScene extends Phaser.Scene {
     px.fillRect(0, 0, 4, 4);
     px.generateTexture('px', 4, 4);
     px.destroy();
+    const orbKey='dd_goal_orb';
+    if(!this.textures.exists(orbKey)){
+      const texture=this.textures.createCanvas(orbKey,48,48)!;
+      const ctx=texture.context,halo=ctx.createRadialGradient(24,24,0,24,24,24);
+      halo.addColorStop(0,'#ffffd1');halo.addColorStop(.24,'#fff995');
+      halo.addColorStop(.38,'#ffdf00');halo.addColorStop(.56,'rgba(255,216,0,.55)');
+      halo.addColorStop(1,'rgba(255,216,0,0)');ctx.fillStyle=halo;ctx.fillRect(0,0,48,48);texture.refresh();
+    }
+    this.goalBalls=this.add.particles(0,0,orbKey,{emitting:false,maxParticles:72,lifespan:{min:390,max:550},
+      scale:{start:.43,end:.09},alpha:{start:1,end:0},speed:0}).setDepth(4);
     this.sparks = this.add
       .particles(0, 0, 'px', {
         emitting: false,
@@ -235,6 +246,7 @@ export class GameScene extends Phaser.Scene {
     this.level = LEVELS[this.levelIndex];
     // Drop anything still scheduled from the previous round so it cannot move the new trains.
     this.playToken++;
+    this.goalBalls.killAll();
     this.comboArt?.destroy();this.comboArt=undefined;
     this.timers.forEach((t) => t.remove(false));
     this.timers = [];
@@ -504,8 +516,15 @@ export class GameScene extends Phaser.Scene {
               scored=true;
               const glow=this.children.getByName('goal-'+side+'-'+t.line) as Phaser.GameObjects.Graphics|null;
               if(glow){
-                this.tweens.killTweensOf(glow);glow.setAlpha(1).setScale(.8);
-                this.tweens.add({targets:glow,scaleX:1.5,scaleY:1.12,alpha:0,duration:340,ease:'Quad.Out'});
+                this.tweens.killTweensOf(glow);glow.setAlpha(1).setScale(.77);
+                const inward=glow.rotation+Math.PI;
+                for(let ray=0;ray<9;ray++){
+                  const angle=inward+(ray-4)*.32;
+                  const speed=this.cs*(2.3+Math.random()*1.5);
+                  const ball=this.goalBalls.emitParticleAt(glow.x+Math.cos(angle)*this.cs*.17,glow.y+Math.sin(angle)*this.cs*.17,1);
+                  if(ball){ball.velocityX=Math.cos(angle)*speed;ball.velocityY=Math.sin(angle)*speed;}
+                }
+                this.tweens.add({targets:glow,scaleX:1.85,scaleY:1.45,alpha:0,duration:520,ease:'Quad.Out'});
               }
               this.sfx.tone(440,.09,'triangle',.17,690);
               this.sfx.tone(880,.16,'sine',.16,undefined,.065);
@@ -873,5 +892,6 @@ export class GameScene extends Phaser.Scene {
     this.time.timeScale = speed;
   }
 }
+
 
 

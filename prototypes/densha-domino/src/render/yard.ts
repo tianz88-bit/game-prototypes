@@ -71,9 +71,12 @@ export function drawYard(g:Phaser.GameObjects.Graphics,level:Level,geo:YardGeo):
     for(const [offset,colour] of [[1,0xfffaf0],[0,0xb4978d]]){
       badge.lineStyle(cs*.041,colour);badge.beginPath();badge.moveTo(-cs*.053,-cs*.085+offset);badge.lineTo(cs*.045,offset);badge.lineTo(-cs*.053,cs*.085+offset);badge.strokePath();
     }
-    const glow=scene.add.graphics().setPosition(x,y).setRotation(angle).setDepth(91).setAlpha(0).setName('goal-'+dir+'-'+(vertical?Math.floor((x-ox)/cs):Math.floor((y-oy)/cs)));
-    for(const [width,color,alpha] of [[.18,0xff7826,.28],[.09,0xffb15f,.85],[.035,0xfffae0,1]]){
-      glow.lineStyle(cs*width,color,alpha);glow.beginPath();glow.moveTo(cs*.14,-cs*.39);glow.lineTo(0,-cs*.32);glow.lineTo(0,cs*.32);glow.lineTo(cs*.14,cs*.39);glow.strokePath();
+    const glow=scene.add.graphics().setPosition(x,y).setRotation(angle).setDepth(3).setAlpha(0).setName('goal-'+dir+'-'+(vertical?Math.floor((x-ox)/cs):Math.floor((y-oy)/cs)));
+    // Project the light back onto the playable floor from the tunnel mouth.
+    for(let layer=0;layer<12;layer++){
+      const fraction=1-layer/14;
+      glow.fillStyle(layer<6?0xffdc00:0xfff586,.075+layer*.009);
+      glow.fillEllipse(-cs*.2*fraction,0,cs*1.55*fraction,cs*2.1*fraction);
     }
     glow.once('destroy',()=>scene.tweens.killTweensOf(glow));objects.push(badge,glow);
     if(vertical){
