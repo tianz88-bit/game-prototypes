@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-19 codex combined LIVE release PR588
+DID: Itch r0109/Worker protocol33/Pages deployed. Bat now has Falcon primary damage and its existing shields and agility. Also shipped pickups, tutorial, missile fixes, economy and fighter shields.
+FILES: Pickup art manifest/render/HUD, local tutorial, room/sim/net, tune/live config and lab. Release proof in ../steroids-alpha-lab/combined-release-proof.json.
+SEAM: Protocol33 paired release, authoritative pickup motion and fuel metadata; economy epoch4 migration; Bat parity, independent resource budgets and cruiser refill scoped to each chassis.
+CROSS: Local type/build/sim/config/bank/rig/evolution checks, actual Room browser fixtures, and public checks. Itch/Worker/Pages runs 44475904101/44475903983/44475904099 all succeeded.
+FOR claude: Deferred backlog summarizes the released values and links the proof. Owner will sync later.
+
 ## 2026-11-19 codex simplified mineral prices
 DID: All upgrade tracks use 1/2/3/4 minerals, either evolution costs 10, HUD shows fractional minerals, and hull spills scale to the smaller wallet.
 FILES: Tune, World, live config, HUD, evolution lab and focused regressions.
@@ -97,11 +104,4 @@ FILES: tune/protocol28, lab settings/model/preview, capital/lab regressions; art
 SEAM:28 has identical layout; refresh cached27 clients. Existing legacy hosted record omits MC, so defaults90/base0 apply to new client and Worker.
 CROSS: authority tests cover0/1/2/4 bought turrets, actual braking floor90, BC base2/min140 and bought CIWS bursts. Type/build/sim/lab/config pass;49 public snapshots and heads0/BC2 verified, no capture.
 FOR claude: deferred only. Client retry cleared randomized bot-spacing fixture failure; Pages deploy succeeded but Operation C counter push raced main. Future deterministic fixture/counter retry housekeeping; no live block.
-
-## 2026-11-18 codex Missile Cruiser artillery tuning
-DID: zero free/required turrets and zero gun requirement fields; only bought turrets retained. Minimum90 (was140), cruise170/top225 unchanged; lab matches live.
-FILES: tune/protocol28, lab evolution settings/model/preview, capital/lab regressions and deferred docs.
-SEAM: protocol28 has identical wire layout; deployment compatibility refresh prevents cached27 clients retaining old bundled MC defaults under the unchanged legacy config hash.
-CROSS: owner requested balance correction; authority tests cover zero/1/2/4 bought turrets, braking floor, retained BC base2/min140 and bought CIWS bursts. No asset/input/aim changes.
-FOR claude: deferred backlog. Hangar → EVOLVE → Missile Cruiser; Missiles4/Mines2,300 mineral balance,120 cost. Hosted record omits MC, so bundled defaults apply; paired client/Worker release follows.
 

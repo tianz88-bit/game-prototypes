@@ -2,11 +2,11 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
-## Approved combined release
+## Combined release — LIVE r0109 / protocol 33
 
 Owner approved Bat primary damage parity and the combined pickup, tutorial, missile and economy candidate. Bat uses Falcon's shot damage and cadence. Bat's 52.5 shield, turning, acceleration and speeds retain their previous tune. Legacy hosted balance records adopt damage parity during upgrade to the current epoch. Test both stock and max gun tiers for equal sustained primary output.
 
-Deployment and public verification details will be added once the three release workflows finish.
+PR588 merge 97f6ca80c3312db0531e87846f63b43941c429f2. Itch 44475904101, Worker 44475903983 and Pages 44475904099 succeeded. The new denominations, tutorial, missile and pickup sections below are shipped by this release. Public headless Brave verified itch build 191126r0109 and Crimson connection (45 snapshots, ack 78), with effective settings, pickup textures and updated tutorial shown. Public lab shows 1/2/3/4. See ../steroids-alpha-lab/combined-release-proof.json. Deferred sync only.
 
 ## Simplified mineral denomination
 
