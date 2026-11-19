@@ -72,7 +72,9 @@ export function registerArt(scene: Phaser.Scene): void {
   }
 }
 
-export function bodyCell(vertical:boolean,headDir:number,count:number,i:number):number {
-  if(!vertical){if(count===1)return headDir<0?3:7;if(i>0&&i<count-1)return 1;return i===0?(headDir<0?0:4):(headDir>0?6:2);}
-  if(count===1)return headDir<0?11:15;if(i>0&&i<count-1)return 9;return i===0?(headDir<0?8:12):(headDir>0?14:10);
+export function bodyCell(vertical: boolean, headDir: number, count: number, index: number): number {
+  const offset = vertical ? 8 : 0;
+  if (count === 1) return offset + (headDir < 0 ? 3 : 7);
+  const headIndex = headDir < 0 ? 0 : count - 1;
+  return offset + (index === headIndex ? (headDir < 0 ? 0 : 6) : 1);
 }

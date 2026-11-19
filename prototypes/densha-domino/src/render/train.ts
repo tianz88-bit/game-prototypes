@@ -50,12 +50,13 @@ export class TrainView {
       const shadow=scene.add.graphics();shadow.fillStyle(0x8b6952,.14);shadow.fillEllipse(px,py+5,29,11);holder.add(shadow);holder.add(food);
       const lamps=scene.add.graphics();holder.add(lamps);this.container.add(holder);
       const cabs:Car['cabs']=[];
-      for(const end of [-1,1] as Dir[])if(end<0?i===0:i===def.len-1){
+      for(const end of [-1,1] as Dir[])if(end===def.headDir && (end<0?i===0:i===def.len-1)){
         const head=end===def.headDir,ex=vertical?0:end*(head?40:43),ey=vertical?(end<0?(head?-44:-57):25):(head?5:7),scale=vertical?(head?.95:.6):(head?.85:.63);
         let signal:Phaser.GameObjects.Image|null=null;
         if(head&&hasArt(scene,'dd_signals')){signal=scene.add.image(0,vertical?-8:4,'dd_signals',String(cell)).setDisplaySize(vertical?64:116,vertical?124:64).setVisible(false);const box=BODY_BOXES[cell],half=Math.floor(box[vertical?3:2]/2);if(vertical)signal.setCrop(0,end<0?0:half,box[2],end<0?half:box[3]-half);else signal.setCrop(end<0?0:half,0,end<0?half:box[2]-half,box[3]);holder.add(signal);}
         if(signal)holder.add(attachSocketLight(signal,vertical,end));
-        const eye=scene.add.image(ex,ey,'dd_eyes',eyeFrame('sleep',vertical,0,def.headDir)).setDisplaySize(40*scale,32*scale);holder.add(eye);cabs.push({end,head,eye,signal});
+        const eyeY = vertical && def.len === 1 ? -8 + end * 42 : ey;
+        const eye=scene.add.image(ex,eyeY,'dd_eyes',eyeFrame('sleep',vertical,0,def.headDir)).setDisplaySize(40*scale,32*scale);holder.add(eye);cabs.push({end,head,eye,signal});
       }
       const base=vertical?54:36,content=scene.add.container(0,-base,[...holder.list]),turn=scene.add.container(0,0,[content]),shear=scene.add.container(0,base,[turn]);holder.add(shear);
       this.cars.push({holder,shear,turn,food,lamps,index:i,cabs});
@@ -66,7 +67,7 @@ export class TrainView {
   private fallback(i:number):Phaser.GameObjects.Graphics {
     const g=this.scene.add.graphics(),v=this.def.axis==='v',w=v?64:116,h=v?124:64,x=-w/2,y=v?-70:-28;
     g.fillStyle(0x5b3e5e);g.fillRoundedRect(x,y+8,w,h,16);g.fillStyle(this.def.color);g.fillRoundedRect(x,y,w,h-6,18);g.lineStyle(2,0xffe7d8);g.strokeRoundedRect(x+3,y+3,w-6,h-12,15);
-    for(const end of [-1,1] as Dir[])if(end<0?i===0:i===this.def.len-1){
+    for(const end of [-1,1] as Dir[])if(end===this.def.headDir && (end<0?i===0:i===this.def.len-1)){
       const head=end===this.def.headDir,ex=v?0:end*(head?40:43),ey=v?(end<0?(head?-44:-57):25):(head?5:7);
       if(head){g.fillStyle(0x22b4ac);if(v)g.fillRoundedRect(-30,ey-end*23-5,60,12,4);else g.fillRoundedRect(ex-end*17-6,-26,12,55,4);}
       g.fillStyle(0x543451);g.fillRoundedRect(ex-(head?14:11),ey-13,head?28:22,24,8);

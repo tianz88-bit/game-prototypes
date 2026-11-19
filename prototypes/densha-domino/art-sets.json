@@ -10,9 +10,9 @@
   },
   "sets": {
     "classic": {
-      "dd_family": "loose/train-family-shaded.webp",
-      "dd_liveries_0": "loose/train-cab-liveries-0.webp",
-      "dd_liveries_1": "loose/train-cab-liveries-1.webp",
+      "dd_family": "loose/train-family-unstriped.webp",
+      "dd_liveries_0": "loose/train-deck-liveries-0.webp",
+      "dd_liveries_1": "loose/train-deck-liveries-1.webp",
       "dd_food": "loose/sushi-plate-atlas.png",
       "dd_props": "loose/restaurant-atlas.png",
       "dd_tunnels": "loose/plastic-tunnel-atlas.png"
