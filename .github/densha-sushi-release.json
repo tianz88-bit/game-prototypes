@@ -1,0 +1,8 @@
+{
+  "source_branch": "codex/densha-domino-sushi",
+  "source_commit": "4845871adc9ff825aea39e7429b7a93a4057b317",
+  "release_counter": 9,
+  "artifact_url": "https://github.com/tianz88-bit/game-prototypes/releases/download/densha-sushi-v9/densha-sushi-v9.zip",
+  "sha256": "cbcb2ad88a816c7ce4e58f2e210eb129552fe32826b0364f69be7e8ef6504c25",
+  "output_path": "prototypes/densha-domino-sushi"
+}
