@@ -38,6 +38,49 @@ function purchase(w, s) {
   for (const item of [2, 1, 0, 3, 4]) { const o = S.shopOffer(s, S.SHOP_ITEMS[item], t); if (o && (!best || o.cost < best.o.cost)) best = { item, o }; }
   return best && S.canBuy(s, S.SHOP_ITEMS[best.item], t) ? w.buy(1, best.item, best.o.tier) : false;
 }
+// ACCOUNT=cautious|mid|allin: whole careers with real warp-outs, until the hangar is bought out.
+//   cautious: buys every upgrade, warps out at 3:00.  mid: stops at 10 upgrades, warps when the hold
+//   is full.  allin: full build, warps when the hold is full. Every run adds 30 s of menu and arrival;
+//   a death adds 5 s more and loses the run. Each run is a fresh planet.
+if (process.env.ACCOUNT) {
+  const policy = process.env.ACCOUNT, overhead = 30, maxAccount = 8 * 3600;
+  const p = t.unlockPrices, goals = { 'first evolution': p.evolution, 'ships + evolutions': 2 * p.ship + 2 * p.evolution, 'whole hangar': 2 * p.ship + 2 * p.evolution + 3 * p.palette + 4 * p.flame + 3 * p.shield + p.killfx + 3 * p.badge + 3 * p.tag + p.runlog };
+  const cap = policy === 'mid' ? 10 : 20, results = [];
+  for (let seed = 1; seed <= seeds; seed++) {
+    let clock = 0, bank = 0, runs = 0, deaths = 0, banked = [], hit = {}, run = 0;
+    while (bank < goals['whole hangar'] && clock < maxAccount) {
+      const r = rng(seed * 1000 + run++), w = new S.World(structuredClone(t), r); w.moveHotZone();
+      let s = w.addShip(1); const mem = { wander: s.heading }, brains = new Map();
+      if (profile === 'bots') for (let id = 2; id <= 5; id++) { w.addShip(id, true); w.botIds.add(id); brains.set(id, { ...S.newBrain(r), bornAt: w.tick }); }
+      w.drain();
+      let input = idle(), leaving = false, outcome = null, k = 0;
+      for (; k < 15 * 60 * hz && !outcome; k++) {
+        const sec = k / hz, wallet = S.mineralBalance(s, t), full = s.hullMax >= S.walletCap(s, t) - 1;
+        if (!leaving && s.lockdown <= 0 && (policy === 'cautious' ? sec >= 180 : full || sec >= 480)) leaving = true;
+        if (leaving) { input = { ...idle(), thrust: 1, aim: s.heading, warp: !s.warping && k % 10 === 0 }; }
+        else { if (k % 5 === 0) input = pilot(s, w, mem); if (k % 15 === 0 && S.upgradeTotal(s) < cap) purchase(w, s); }
+        w.stepShip(1, input);
+        const all = [...brains.values()];
+        for (const [id, b] of brains) { const bs = w.ships.get(id); if (!bs) continue; const { input: bi, buy } = S.botThink(id, bs, w, b, t, r, all); if (buy) w.buy(id, buy.item, buy.tier); w.stepShip(id, bi); }
+        w.step(); const ev = w.drain();
+        for (const d of ev.deaths) {
+          if (d.id === 1) outcome = { died: true };
+          else { w.removeShip(d.id); brains.delete(d.id); const nid = 100 + k; w.addShip(nid, true); w.botIds.add(nid); brains.set(nid, { ...S.newBrain(r), bornAt: w.tick }); }
+        }
+        for (const x of ev.extracted ?? []) { const id = typeof x === 'number' ? x : x.id; if (id === 1) outcome = { banked: S.bankedMinerals(s, t, false) }; else if (w.ships.has(id)) { w.removeShip(id); brains.delete(id); } }
+      }
+      runs++; clock += k / hz + overhead;
+      if (outcome?.died) { deaths++; clock += 5; } else if (outcome) { bank += outcome.banked; banked.push(outcome.banked); }
+      for (const [name, need] of Object.entries(goals)) if (hit[name] === undefined && bank >= need) hit[name] = clock;
+    }
+    results.push({ seed, runs, deaths, bank, clock, hit, perRun: banked.length ? Math.round(banked.reduce((a, b) => a + b, 0) / banked.length) : 0 });
+  }
+  const fmt = (x) => (x === undefined ? 'not reached' : `${Math.floor(x / 3600) ? Math.floor(x / 3600) + 'h ' : ''}${Math.round((x % 3600) / 60)}m`);
+  console.log(`Account pace: ${policy}, ${profile}, ${seeds} seeds. Prices: evolution ${p.evolution}, ship ${p.ship}, whole hangar ${goals['whole hangar']}.`);
+  console.log(`Credits/min ${med(results.map((x) => Math.round((x.bank / x.clock) * 60)))}, banked per successful run ${med(results.map((x) => x.perRun))}, deaths per run ${(results.reduce((a, x) => a + x.deaths, 0) / results.reduce((a, x) => a + x.runs, 0)).toFixed(2)}.`);
+  for (const name of Object.keys(goals)) { const v = results.map((x) => x.hit[name]); console.log(`  ${name} (${goals[name]}): median ${fmt(med(v.filter((x) => x !== undefined)))}, reached ${v.filter((x) => x !== undefined).length}/${seeds}`); }
+  process.exit(0);
+}
 const cases = [];
 for (let seed = 1; seed <= seeds; seed++) {
   const r = rng(seed), w = new S.World(structuredClone(t), r); w.moveHotZone();
@@ -73,7 +116,7 @@ for (let seed = 1; seed <= seeds; seed++) {
   cases.push(row);
 }
 function shopSpent(s) { let n = 0; for (const item of S.SHOP_ITEMS) { const tier = S.shopTier(s, item); for (let i = 0; i < tier; i++) n += t.shop[item + 'Costs'][i]; } return n; }
-const med = (xs) => { const v = xs.filter((x) => x !== null && x !== undefined).sort((a, b) => a - b); return v.length ? v[Math.floor((v.length - 1) / 2)] : '-'; };
+function med(xs) { const v = xs.filter((x) => x !== null && x !== undefined).sort((a, b) => a - b); return v.length ? v[Math.floor((v.length - 1) / 2)] : "-"; }
 const cost = (i) => t.shop.damageCosts.join('/');
 console.log(`Run economy probe: ${profile}, buys up to ${buyLimit}, ${seeds} seeds, ${limit}s. Tier costs ${cost()}, yield +${t.shop.yieldPerUpgrade * 100}%/upgrade, mining x${t.asteroid.miningMineralFactor}, warp lock ${t.warp.lockdownSeconds}s, bank rate ${t.salvage.bankRate} (home ${t.salvage.homeBankRate}).`);
 console.log('time  upgrades  carried(bankable)  spent  top speed');
