@@ -69,6 +69,7 @@ export class GameScene extends Phaser.Scene {
   private overlay: Phaser.GameObjects.GameObject[] = [];
   private hudLevel!: Phaser.GameObjects.Text;
   private hudTaps!: Phaser.GameObjects.Text;
+  private comboArt?: Phaser.GameObjects.Container;
   private banner!: Phaser.GameObjects.Text;
   private coach!: Phaser.GameObjects.Text;
   private hint: Phaser.GameObjects.Container | null = null;
@@ -234,6 +235,7 @@ export class GameScene extends Phaser.Scene {
     this.level = LEVELS[this.levelIndex];
     // Drop anything still scheduled from the previous round so it cannot move the new trains.
     this.playToken++;
+    this.comboArt?.destroy();this.comboArt=undefined;
     this.timers.forEach((t) => t.remove(false));
     this.timers = [];
     for (const v of this.views.values()) v.destroy();
@@ -462,6 +464,7 @@ export class GameScene extends Phaser.Scene {
     const pos = new Map<number, number>();
     for (const [id] of this.views) pos.set(id, initial[id]);
     let combo = 0;
+    const movingTrains=new Set<number>();
 
     events.forEach((e, idx) => {
       const nextE = events[idx + 1];
@@ -479,6 +482,10 @@ export class GameScene extends Phaser.Scene {
         // A resumed run starts while the train ahead is still moving off.
         const start = e.resume && lastRunDur ? lastRunStart + lastRunDur * f.resumeOverlap : cursor;
         at(start, () => {
+          if(!movingTrains.has(e.train)){
+            movingTrains.add(e.train);
+            if(movingTrains.size>=2)this.showCombo(movingTrains.size);
+          }
           v.setTravel(e.dir);
           let scored=false;
           const horizontal=t.axis==='h';
@@ -545,6 +552,30 @@ export class GameScene extends Phaser.Scene {
     at(Math.max(cursor,visualEnd) + 60, () => this.afterPlay(links, exits));
   }
 
+  private showCombo(count:number):void {
+    const calls=['Double Roll!','Triple Stack!','Wasabi Rush!','Sushi Surge!','Maki Mayhem!','Tempura Tempest!','Salmon Stampede!','Tsunami Roll!','Omakase Overdrive!','Mega Maki Meteor!','Cosmic Sushi Storm!'];
+    const title=calls[count-2]??('Galaxy Roll '+count+'!');
+    const tier=Math.min(count-2,8);
+    this.comboArt?.destroy();
+    this.coach.setText('');
+    const burst=this.add.graphics();
+    const label=this.hudText(0,0,22+tier, '#fff7dc').setText(title).setStroke('#74374a',5);
+    const badge=this.hudText(0,-23,14,'#fff7dc').setText('×'+count).setStroke('#74374a',4);
+    const half=Math.min(146,label.width/2+12);
+    for(let n=0;n<6+tier*2;n++){
+      const angle=n*Math.PI*2/(6+tier*2),x=Math.cos(angle),y=Math.sin(angle);
+      burst.lineStyle(2+n%3,n%2?0xf2884e:0xf6bd50,.95);
+      burst.lineBetween(x*(half+3),y*23,x*(half+10+tier),y*(28+tier));
+    }
+    const card=this.add.container(WIDTH/2,this.oy-34,[burst,label,badge]).setDepth(242).setScale(.66).setAngle(count%2?3:-3);
+    this.comboArt=card;
+    this.tweens.add({targets:card,scale:1.08,angle:0,duration:105,ease:'Quad.Out',onComplete:()=>{
+      this.tweens.add({targets:card,scale:1,duration:110,ease:'Quad.Out'});
+    }});
+    this.tweens.add({targets:card,alpha:0,delay:470,duration:150,onComplete:()=>card.destroy()});
+    card.once('destroy',()=>{this.tweens.killTweensOf(card);if(this.comboArt===card)this.comboArt=undefined;});
+  }
+
   private horn(runner:TrainView,axis:'h'|'v',dir:Dir,step:number,_sameLine:boolean):void {
     const f=tune.feel;runner.react('honk',dir,f.hornMs*2);
     const p=Math.pow(2,Math.min(step,f.pitchStepMax)*f.pitchStepPerLink);
@@ -580,7 +611,7 @@ export class GameScene extends Phaser.Scene {
       this.sfx.cleared();
       this.cameras.main.shake(tune.feel.shakeMs, tune.feel.shakeIntensity);
       this.punchZoom(tune.feel.punchZoom);
-      this.say(`CHAIN x${links}`);
+
       if (navigator.vibrate && tune.feel.vibrate) navigator.vibrate(15);
     }
     if (isCleared(this.state)) return this.win();
