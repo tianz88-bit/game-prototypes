@@ -41,7 +41,7 @@ export class TrainView {
       const food=scene.add.container(px,py+9);
       if(hasArt(scene,'dd_food')){
         holder.add(scene.add.image(px,py+3,'dd_food','0').setDisplaySize(49,35));
-        const f=1+def.id%6,fw=(f===4?28:f===5?29:32),fh=(f===4?29:f===5?30:24);
+        const f=1+def.id%6,fw=(f===4?32:f===5?34:38),fh=(f===4?34:f===5?36:28);
         food.add(scene.add.image(0,-fh/2,'dd_food',String(f)).setDisplaySize(fw,fh));
       }else{
         const p=scene.add.graphics();p.fillStyle(0xe4d5bc);p.fillEllipse(px,py+6,44,28);p.fillStyle(0xfffaf0);p.fillEllipse(px,py+2,42,25);holder.add(p);

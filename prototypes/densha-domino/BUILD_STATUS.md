@@ -2,7 +2,7 @@
 Local cab and livery review after public Kaiten Express release 12.
 
 ## What was implemented
-The head carries both eyes and the orange socket wave. Plain rears appear on trains of every length. Ten liveries use TrainDef.color. Smaller, subdued cargo repeats within each train. The HUD counts remaining trains and the first tutorial explains the goal.
+The head carries both eyes and the orange socket wave. Plain rears appear on trains of every length. Ten liveries use TrainDef.color. The original full-colour sushi is served one variety per train on compact plates. The HUD counts remaining trains and the first tutorial explains the goal.
 
 ## Key technical decisions
 The two five-colour sheets are precomputed from the shaded family. Window glass, the teal head stripe and the existing warm-plum outline keep their original treatment. Runtime derives socket frames from the base sheet and uses the existing batched shine. Art files are supplied through the loose asset pipeline. This is a presentation update.
