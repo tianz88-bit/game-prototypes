@@ -10,7 +10,7 @@ try{
   if(!art)await page.route('**/assets/manifest.json',route=>route.fulfill({status:404,body:'Missing art test'}));
   await page.goto(base+'?test=1');await page.waitForFunction(()=>window.__densha);
   assert.equal(await page.evaluate(()=>window.__densha.art()),art);
-  await page.evaluate(()=>window.__densha.goto(99));await page.waitForTimeout(500);
+  await page.evaluate(()=>window.__densha.goto(100));await page.waitForTimeout(500);
   assert.equal(await page.evaluate(()=>window.__densha.phase()),'play');assert.equal(await page.evaluate(()=>window.__densha.level()),99);
   await page.screenshot({path:path.join(out,'densha-'+name+'-level100.png')});assert.deepEqual(errors,[]);
   console.log('PASS: '+name+' level 100 boots; '+(art?'approved art':'automatic missing-manifest fallback')+'; no runtime exceptions.');await ctx.close();

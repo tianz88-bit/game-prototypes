@@ -19,6 +19,6 @@ try{
  await page.waitForFunction(()=>window.__densha.phase()==='won',{},{timeout:15000});await page.waitForTimeout(240);await page.mouse.click(195,480);await page.waitForFunction(()=>window.__densha.phase()==='play');await page.waitForTimeout(1000);assert.deepEqual(await page.evaluate(()=>window.__densha.effects().confetti),[]);
  await page.waitForTimeout(500);await page.mouse.click(285,760);await page.waitForFunction(()=>window.__densha.menuOpen());await page.waitForTimeout(550);await page.screenshot({path:path.join(out,'bouncing-level-menu.png')});
  await page.mouse.click(195,668); // Outside/close remains keyboard-independent; reload below also tests disposal.
- await page.evaluate(()=>window.__densha.goto(99));await page.waitForTimeout(400);await page.screenshot({path:path.join(out,'new-tunnels-tracks-pillars.png')});
+ await page.evaluate(()=>window.__densha.goto(100));await page.waitForTimeout(400);await page.screenshot({path:path.join(out,'new-tunnels-tracks-pillars.png')});
  assert.deepEqual(errors,[]);console.log('PASS: 0.67 travel speed, actual three-star win, bounded confetti burst and expiry, next button/cleanup, bouncing selector and new dense-board art; no console errors.');
 }finally{await browser.close();}

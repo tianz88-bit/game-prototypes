@@ -5,7 +5,7 @@ const browser=await chromium.launch({executablePath:'C:/Program Files/BraveSoftw
 try{
  const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.argv[2]+'?test=1');await page.waitForFunction(()=>window.__densha);await page.evaluate(()=>{
-   window.__densha.goto(4);window.__foodSamples=[];window.__watchFood=true;
+   window.__densha.goto(5);window.__foodSamples=[];window.__watchFood=true;
    function sample(){if(!window.__watchFood)return;window.__foodSamples.push(window.__densha.trains().map(t=>({id:t.id,poses:t.carriagePoses})));requestAnimationFrame(sample);}requestAnimationFrame(sample);
  });
  for(let i=0;i<3;i++){const m=await page.evaluate(()=>window.__densha.nextMove());await page.mouse.move(m.x,m.y);await page.mouse.down();await page.mouse.move(m.x+(m.axis==='h'?m.dir*40:0),m.y+(m.axis==='v'?m.dir*40:0),{steps:3});await page.mouse.up();await page.waitForFunction(()=>window.__densha.phase()!=='animating',{},{timeout:30000});}

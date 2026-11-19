@@ -56,7 +56,9 @@ export const LEVEL_SOURCES: LevelSource[] = [
   { name: 'First Departure', rows: ['.....', '.....', 'bAA..', '.....', '.....'] },
   // 2. Tap the back train: it bumps the front one, which takes off, and follows it out.
   { name: 'Follow the Leader', rows: ['.....', '.....', 'bA.B.', '.....', '.....'], axis: { A: 'h', B: 'h' } },
-  // 3 to 10 were found by a search under the current rules (any bump sets the other train off and the
+  // One swipe starts a three-train relay around a corner.
+  { name: 'Round the Corner', rows: ['.....','...CC','.....','bA.B.','.....'], axis: { A:'h', B:'v' }, head: { A:1, B:-1, C:1 } },
+  // 4 to 11 were found by a search under the current rules (any bump sets the other train off and the
   // bumper follows once its way is clear) and proved solvable by the solver; see
   // scripts/check-densha-levels.mjs. They are tuned for `rules.followAfterSide` = 1.
   { name: 'Shibuya Siding', rows: ['.A..b', '.A...', '.....', 'DDs..', 's.BBC'], axis: { C: 'h' } },

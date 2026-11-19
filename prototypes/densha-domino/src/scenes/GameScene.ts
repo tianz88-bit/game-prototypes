@@ -20,14 +20,16 @@ interface Save {
   v: 2;
   level: number;
   stars: number[];
+  tutorialEdition?: number;
   unlockAll?: boolean;
 }
 
 /** Tutorial captions by level (index 0 to 2), then by tap number. Later levels have none. */
 const COACH: Record<number, string[]> = {
-  0: ['Swipe to serve! The teal stripe marks the head. A flashing band means its route is open.'],
-  1: ['Brake, honk, then follow. A signalled train always goes toward its striped head.'],
-  2: ['Side signals also follow the striped head. If that end is blocked, no light and no chain departure.', 'Swipe either way to move manually. A solid band marks travel; stopping restores the preferred head.'],
+  0: ['Swipe the train right to send it through the tunnel.'],
+  1: ['Swipe the back train right. It honks, the train ahead leaves, and yours follows.'],
+  2: ['Swipe right. Watch the middle train go up when it hears the honk. Each train goes the way its light points.'],
+  3: ['Swipe the highlighted train left to make room. You can swipe either way along its track.', 'Now swipe the highlighted train down. Watch how many trains leave from one swipe!'],
 };
 
 const BOARD_TOP = 120;
@@ -39,7 +41,7 @@ type Phase = 'play' | 'animating' | 'won' | 'failed' | 'menu';
 export class GameScene extends Phaser.Scene {
   private bus = new IntentBus<Intent>();
   private sfx!: Sfx;
-  private save: Save = { v: 2, level: 0, stars: [] };
+  private save: Save = { v: 2, level: 0, stars: [], tutorialEdition: 2 };
   private visualState:State=[];
   private yardArt:Phaser.GameObjects.GameObject[]=[];
   private trainMasks:Phaser.Display.Masks.GeometryMask[]=[];
@@ -192,7 +194,15 @@ export class GameScene extends Phaser.Scene {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
         const s = JSON.parse(raw) as Save;
-        if (s.v === 2) this.save = s;
+        if (s.v === 2) {
+          if (s.tutorialEdition !== 2) {
+            if (s.stars.length > 2) s.stars.splice(2, 0, 0);
+            if (s.level >= 2) s.level++;
+            s.tutorialEdition = 2;
+          }
+          this.save = s;
+          this.persist();
+        }
       }
     } catch {
       /* storage unavailable */
@@ -575,7 +585,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Guided tutorial for levels 1 to 3: a caption plus a pulsing ring and arrow on the train
+   * Guided tutorial for levels 1 to 4: a caption plus a pulsing ring and arrow on the train
    * an optimal solution taps next. It is only a hint: it never blocks or swallows input.
    */
   private updateCoach():void {
@@ -585,7 +595,12 @@ export class GameScene extends Phaser.Scene {
     const top=118,gap=this.oy-8-top;if(this.coach.height>gap)this.coach.setFontSize(12);this.coach.setY(top+gap/2);
     const m=solve(this.level,this.state,400000,this.rules).moves[0],v=m?this.views.get(m.train):undefined;if(!m||!v)return;
     v.setAwake(true,m.dir);
-    const t=this.level.trains[m.train],g=this.add.graphics(),x=v.container.x-(t.axis==='h'?t.len:1)*this.cs/2-4,y=v.container.y-(t.axis==='v'?t.len:1)*this.cs/2-4,w=(t.axis==='h'?t.len:1)*this.cs+8,h=(t.axis==='v'?t.len:1)*this.cs+8;
+    const t=this.level.trains[m.train];
+    if(this.levelIndex===3){
+      const direction=t.axis==='h'?(m.dir<0?'left':'right'):(m.dir<0?'up':'down');
+      this.coach.setText(this.taps===0?'Swipe '+direction+' to make room for the other trains.':'Swipe '+direction+' to start the next chain.');
+    }
+    const g=this.add.graphics(),x=v.container.x-(t.axis==='h'?t.len:1)*this.cs/2-4,y=v.container.y-(t.axis==='v'?t.len:1)*this.cs/2-4,w=(t.axis==='h'?t.len:1)*this.cs+8,h=(t.axis==='v'?t.len:1)*this.cs+8;
     const bx=this.ox,by=this.oy,bw=this.level.cols*this.cs,bh=this.level.rows*this.cs,l=Math.max(bx,x),focusTop=Math.max(by,y),r=Math.min(bx+bw,x+w),bottom=Math.min(by+bh,y+h);
     g.fillStyle(0x543044,.16);g.fillRect(bx,by,Math.max(0,l-bx),bh);g.fillRect(r,by,Math.max(0,bx+bw-r),bh);g.fillRect(l,by,Math.max(0,r-l),Math.max(0,focusTop-by));g.fillRect(l,bottom,Math.max(0,r-l),Math.max(0,by+bh-bottom));
     g.lineStyle(5,0xfffcf3,1);g.strokeRoundedRect(x,y,w,h,11);g.lineStyle(2,0x853e68,1);g.strokeRoundedRect(x,y,w,h,11);

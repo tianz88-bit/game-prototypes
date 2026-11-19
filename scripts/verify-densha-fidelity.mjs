@@ -18,7 +18,7 @@ try{
  await page.waitForFunction(()=>window.__densha.trains().some(t=>t.carriagePoses?.some(p=>p.expression==='insist')),{},{timeout:6000,polling:16});
  await page.evaluate(()=>window.__densha.slow(0));await page.waitForTimeout(30);await page.screenshot({path:path.join(out,'real-game-honk-eyes.png')});
  await page.evaluate(()=>window.__densha.slow(1));await settle();
- await page.evaluate(()=>window.__densha.goto(4));await page.waitForTimeout(100);
+ await page.evaluate(()=>window.__densha.goto(5));await page.waitForTimeout(100);
  assert.equal(await page.evaluate(()=>window.__densha.definitions().find(t=>t.letter==='E').headDir),1);
  assert.equal(await page.evaluate(()=>window.__densha.trains().find(t=>t.id===4).light),'off');
  await swipe(await page.evaluate(()=>window.__densha.nextMove()));await settle();
@@ -34,5 +34,5 @@ try{
  await page.waitForFunction(()=>window.__densha.trains().some(t=>t.carriagePoses?.length>=3&&new Set(t.carriagePoses.map(p=>Math.round(p.scale*100))).size>1),{},{timeout:10000,polling:16});
  await page.evaluate(()=>window.__densha.slow(0));await page.waitForTimeout(30);await page.screenshot({path:path.join(out,'real-game-carriage-cascade.png')});
  await page.evaluate(()=>window.__densha.slow(1));await settle();assert.equal(await page.evaluate(()=>window.__densha.phase()),'won');assert.equal(await page.evaluate(()=>window.__densha.taps()),3);
- assert.deepEqual(errors,[]);console.log('PASS: 1x crisp backing store, subtle floor variation, 120 reviewed eye frames, 16 socket-registered light frames, honk, reverse solid-tail→stop flashing-head, independent carriage poses, level 5 three-tap/six-train chain; no console errors.');
+ assert.deepEqual(errors,[]);console.log('PASS: 1x crisp backing store, subtle floor variation, 120 reviewed eye frames, 16 socket-registered light frames, honk, reverse solid-tail→stop flashing-head, independent carriage poses, level 6 three-tap/six-train chain; no console errors.');
 }finally{await browser.close();}
