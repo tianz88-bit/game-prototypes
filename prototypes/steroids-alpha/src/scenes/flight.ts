@@ -285,7 +285,7 @@ export class FlightScene extends Phaser.Scene {
 
   private lastConfigVersion='';
   update(): void {
-    if(this.planet===TUTORIAL){guide.syncRules();if(!guide.policy.shop&&this.mobilePanel==='shop')this.mobilePanel=null;}
+    if(this.planet===TUTORIAL&&!guide.policy.shop&&this.mobilePanel==='shop')this.mobilePanel=null;
     if(this.lastConfigVersion!==configVersion){for(const ship of this.ships.values())ship.destroy();this.ships.clear();if(shipArtStatus==='ready')buildShadow(this);this.lastConfigVersion=configVersion;}
     const dead = !!this.net.death || this.net.status === 'destroyed';
     const dash = intents.consume('secondary');
@@ -1236,14 +1236,14 @@ export class FlightScene extends Phaser.Scene {
     this.drawHotZone(p, w, h);
     this.drawBaseMarkers(p, w, h);
     this.drawSiege(w, h);
-    const tip=this.contextTips?.update(g,p,w,h,this.time.now,!!p&&!intents.helpHeld&&!this.urgentMessage&&!p.warping&&!this.net.warDown&&!this.net.death&&!this.net.extracted&&this.net.status==='open'&&!(p.arrival??0)&&(this.planet!==TUTORIAL||guide.tipsAllowed),this.planet===TUTORIAL,this.net.equippedEvolution);
+    const tip=this.contextTips?.update(g,p,w,h,this.time.now,!!p&&!intents.helpHeld&&!this.urgentMessage&&!p.warping&&!this.net.warDown&&!this.net.death&&!this.net.extracted&&this.net.status==='open'&&!(p.arrival??0)&&this.planet!==TUTORIAL,this.planet===TUTORIAL,this.net.equippedEvolution);
     this.tipActive=!!tip;
     if (this.planet === TUTORIAL && (this.net.death || this.net.extracted)) guide.hide();
     else if(this.planet===TUTORIAL){
       const offers=intents.shopZones.filter(z=>z.item<SHOP_ITEMS.length&&!!p&&canBuy(p,SHOP_ITEMS[z.item],TUNE));
       const first=intents.touch?offers.sort((a,b)=>b.item%3-a.item%3)[0]:offers[0];
       const header=flightHeader(w,intents.touch);
-      guide.update({myId:this.net.myId,predicted:this.net.predicted,g:this.overlay,w,h,tip,toScreen:(x,y)=>this.toScreen(x,y),targets:{shop:guide.policy.shop?header.shop:null,upgrade:this.mobilePanel==='shop'&&first?{x:first.zone.x+(intents.touch?first.zone.hw+8:-first.zone.hw-8),y:first.zone.y,dir:intents.touch?'left':'right'}:null,warp:intents.warpButton}});
+      guide.update({myId:this.net.myId,predicted:this.net.predicted,g:this.overlay,w,h,toScreen:(x,y)=>this.toScreen(x,y),targets:{shop:guide.policy.shop?header.shop:null,upgrade:this.mobilePanel==='shop'&&first?{x:first.zone.x+(intents.touch?first.zone.hw+8:-first.zone.hw-8),y:first.zone.y,dir:intents.touch?'left':'right'}:null,warp:intents.warpButton}});
     }
     this.buildingRigs.begin();
     this.drawBase(p, w, h);

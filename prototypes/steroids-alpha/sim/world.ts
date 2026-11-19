@@ -239,6 +239,7 @@ export class World {
   /** Make this world a clan home planet (or not), from the planet id. */
   setPlanet(planet: string): void {
     this.tutorial=planet==='tutorial';this.tutorialMinerals=!this.tutorial;
+    if (this.tutorial) this.asteroids.clear();
     this.layout = baseLayout(planet, this.tune);
     this.baseAim = (this.layout?.turrets ?? []).map(() => -Math.PI / 2);
     this.baseCd = (this.layout?.turrets ?? []).map(() => 0);
@@ -248,6 +249,25 @@ export class World {
   }
   private tutorial=false;
   private tutorialMinerals=true;
+  private tutorialRock: { id: number; reward: number } | null = null;
+
+  setTutorialRock(x: number, y: number, reward: number): number {
+    if (!this.tutorial) return 0;
+    this.clearTutorialRock();
+    const id = this.spawnAsteroid(2, x, y);
+    this.tutorialRock = { id, reward };
+    return id;
+  }
+
+  clearTutorialRock(): void {
+    const id = this.tutorialRock?.id;
+    this.tutorialRock = null;
+    if (id === undefined) return;
+    const rock = this.asteroids.get(id);
+    if (!rock) return;
+    this.asteroids.delete(id);
+    this.events.gone.push({ id, x: rock.x, y: rock.y });
+  }
   setTutorialMinerals(enabled:boolean):void {
     if(!this.tutorial)return;this.tutorialMinerals=enabled;
     if(!enabled)for(const [id,p] of this.pickups)if(p.kind==='mineral'){
@@ -442,7 +462,7 @@ export class World {
         for (const a of this.asteroids.values()) {
           const p = pos.get(a.id);
           if (!p || !hits(b.x, b.y, p.x, p.y, t.asteroid.radius[a.size] + t.weapon.bulletRadius)) continue;
-          this.damageAsteroid(a, p, b.damage, b.vx, b.vy, pos);
+          this.damageAsteroid(a, p, b.damage, b.vx, b.vy, pos, true);
           spent = true;
           break;
         }
@@ -1179,11 +1199,14 @@ export class World {
 
   /** Smash an asteroid outright (a ship flew into it): it splits as if this hit had destroyed it. */
   private destroyAsteroid(a: Asteroid, at: { x: number; y: number }, splitDamage: number, dirX: number, dirY: number, pos: Map<number, { x: number; y: number }>): void {
+    if (a.id === this.tutorialRock?.id) return;
     a.hp = 0;
     this.damageAsteroid(a, at, splitDamage, dirX, dirY, pos);
   }
 
-  private damageAsteroid(a: Asteroid, at: { x: number; y: number }, damage: number, dirX: number, dirY: number, pos: Map<number, { x: number; y: number }>): void {
+  private damageAsteroid(a: Asteroid, at: { x: number; y: number }, damage: number, dirX: number, dirY: number, pos: Map<number, { x: number; y: number }>, mainShot = false): void {
+    const practice = this.tutorialRock?.id === a.id ? this.tutorialRock : null;
+    if (practice && !mainShot) return;
     a.hp -= damage;
     if (a.hp > 0) {
       this.events.asteroids.push({ ...a }); // a copy: the record keeps changing
@@ -1192,6 +1215,11 @@ export class World {
     this.asteroids.delete(a.id);
     pos.delete(a.id);
     this.events.gone.push({ id: a.id, x: at.x, y: at.y });
+    if (practice) {
+      this.tutorialRock = null;
+      this.spawnPickup('mineral', at.x, at.y, practice.reward);
+      return;
+    }
     // Every destroyed asteroid leaves minerals; sometimes a health boost as well.
     // Mined minerals carry salvage too: salvage.perMineral each, more inside the hot zone.
     const per = this.tune.salvage.perMineral * (this.inHotZone(at.x, at.y) ? this.tune.hotZone.salvageMultiplier : 1);
@@ -1214,6 +1242,7 @@ export class World {
    * beside the hot zone (it does not follow the zone afterwards).
    */
   private keepRichRocks(): void {
+    if (this.tutorial) return;
     const t = this.tune, ta = t.asteroid;
     let rich = 0;
     for (const a of this.asteroids.values()) if (a.rich) rich++;
@@ -1242,6 +1271,7 @@ export class World {
   }
 
   private populate(): void {
+    if (this.tutorial) return;
     const t = this.tune;
     let mass = 0;
     for (const a of this.asteroids.values()) mass += asteroidMass(a.size);

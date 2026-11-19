@@ -2,6 +2,10 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Tutorial lesson gates
+
+Tutorial progress observes local simulation ticks. Brake and accelerate through separate gates. The marked rock yields its ore at the impact site only when shot, and the shop opens only after that pickup is collected. The ram lesson has a launch marker and requires both gates and an actual ram in a single dash. A missed attempt lays out a new course. Warp still completes through the existing extraction path. Contextual prompts outside the tutorial remain separate.
+
 ## Separate resources — tested candidate, not live
 
 Owner chose separate mineral/cargo physical objects. Gold crystals buy upgrades; new purple salvage cases bank on warp; new cyan fuel canisters unload at own home Nexus. Existing green repair retained. R2 resource-pickups-v1 manifest verifies uploaded original ZIP and sources; runtime192px. HUD uses the same body frames.

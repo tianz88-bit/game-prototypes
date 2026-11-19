@@ -11,6 +11,7 @@ import type { ShipInput, ShipState } from '../../sim/ship';
 import { selectedFighter, cleanLook, evolutionBuild } from '../../sim/unlocks';
 import type { Look } from '../../sim/unlocks';
 import { World } from '../../sim/world';
+import type { WorldEvents } from '../../sim/world';
 import { TURRET_SIDE } from '../../sim/turrets';
 import { BOT_NAMES, botThink, newBrain, tutorialBotThink } from '../../sim/bots';
 import type { TutorialBotKind } from '../../sim/bots';
@@ -362,6 +363,7 @@ export class Room {
    */
   private manualBots = false;
   private tutorial=false;
+  onTutorialTick?: (id: number, ship: ShipState, events: WorldEvents) => void;
   private tutorialShop=false;
   private tutorialFire=true;
   private tutorialWarp=false;
@@ -734,6 +736,9 @@ export class Room {
     }
     this.world.step();
     const ev = this.world.drain();
+    if (this.tutorial && this.onTutorialTick) {
+      for (const p of this.players.values()) this.onTutorialTick(p.id, p.ship, ev);
+    }
     if (ev.asteroids.length) this.broadcast(encodeAsteroids(ev.asteroids));
     if (ev.gone.length) this.broadcast(encodeGone(ev.gone));
     if (ev.shots.length) {

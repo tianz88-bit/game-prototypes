@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-19 codex tutorial revision
+DID: Four short lessons now require braking and accelerating through gates, shooting the marked rock, taking its ore, buying an upgrade, ramming after both gates in one dash, and completing warp out.
+FILES: TutorialGuide, Room, World practice rock, Flight guidance, and tutorial simulation regression.
+SEAM: Local Room exposes a per-tick tutorial observer with real World events. Tutorial progress no longer depends on render frames.
+CROSS: Tutorial-only world and room changes plus regression coverage. No additional wire fields.
+FOR claude: Deferred. Tutorial is on the resource pickups candidate branch. See CLAUDE_BACKLOG.md.
+
 ## 2026-11-19 codex resource pickup candidate
 DID: Separate mineral/cargo drops, painted purple salvage and cyan fuel, matching icons and bounded authoritative magnet. Tested candidate, not live; unchanged mineral prices/generated totals.
 FILES: sim/pickups/world/liveConfig/protocol33, room/client, combat render/HUD/Flight, resource manifest/prep, lab draft/proof and pickup gate.
@@ -97,11 +104,4 @@ FILES: steroids-alpha-lab/evolution*, entry/index; prepare-steroids-lab; standal
 SEAM: none in production. Sandbox clones shared motion; live chassis/save/authority/burst/missile port requires approval and implementation, not copying the local model.
 CROSS: new isolated test/asset staging. Type/build/model/rig +7 headless Brave DPR2 PC/touch/Canvas layouts pass, no captures/sockets/writes. R2 upload URL still404; no push/merge/deploy.
 FOR claude: deferred backlog only. R2 ZIP prepared; owner manual upload tab retained. README records mechanics, tuning, asset hashes and live-port boundaries.
-
-## 2026-11-18 codex live speed grip and ship balance
-DID: LIVE171126r0100/protocol26 via PR5591eccd9e0; itch44129275449 + Worker44129275517 + Pages44129275338 success. Responsive grip, stat Hangar,2T/Guns4 and25/s regen cap.
-FILES: shared sim/protocol/tune/config, client replay/lead, Hangar/shop UI, lab isolation/stat fields, regressions and both release gates.
-SEAM: Protocol26,107-byte ships with travelHeading103; shared movement precedes gun mounts, no lab bridge. Client+Worker must deploy together. Other lab handling stays gated.
-CROSS: sim/server/net/menu/test/CI changed within owner's explicit live request. Unit/config/rig/bank and no-capture PC/mobile/two-client proof recorded in BUILD_STATUS.
-FOR claude: deferred backlog only.7 public Hangar/5 evolution layouts, live beta drift/brake72 snapshots and lab three modes pass, no page errors/capture. Evidence outputs/steroids-alpha/live-speed-grip/.
 

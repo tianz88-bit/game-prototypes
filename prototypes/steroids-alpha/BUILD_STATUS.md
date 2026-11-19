@@ -4,6 +4,8 @@ Resource pickup candidate tested on codex/steroids-resource-pickups; not release
 
 ## What was implemented
 
+Tutorial candidate adds speed gates, shot-only practice mining, marked ore and upgrade prerequisites, and a launch marker with a same-dash two-gate ram requirement. Extraction remains the final objective.
+
 Separate gold mineral crystals and purple salvage cases (ordinary planets) or cyan fuel canisters (own home); green repair pod retained. Matching pooled HUD icons and short-range server attraction, independent wallet/cargo collection. Tutorial mineral-only and Warzone no mined cargo.
 
 ## Key technical decisions
