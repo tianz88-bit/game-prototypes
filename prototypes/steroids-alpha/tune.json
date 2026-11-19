@@ -43,7 +43,7 @@
     "contactGraceSeconds": 0.5,
     "knockbackSpeed": 320,
     "knockbackDecayPerSecond": 5,
-    "powerCap": 700,
+    "powerCap": 900,
     "speedPenaltyAtCap": 0.3,
     "radiusBonusAtCap": 0.5,
     "hullSpillFraction": 0.5,
@@ -145,9 +145,12 @@
       50,
       80
     ],
-    "yieldPerUpgrade": 0.08,
     "holdBase": 50,
-    "holdPerUpgrade": 30,
+    "holdPerUpgrade": 40,
+    "levelUp": 1,
+    "levelXpBase": 6,
+    "levelXpGrowth": 3.5,
+    "levelEvolutionWeight": 3,
     "balanceVersion": 5
   },
   "missile": {

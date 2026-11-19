@@ -78,6 +78,10 @@ export interface ShipState {
   chassis: number;
   /** Seconds until the shield starts recharging (reset by every hit). Set only by the server. */
   shieldCd: number;
+  /** Run experience: minerals collected this run (sim/levels.ts). Set only by the server. */
+  xp: number;
+  /** Level-up cards picked this run (upgrades and an evolution). Set only by the server. */
+  picks: number;
 }
 
 export interface ShipInput {
@@ -159,12 +163,11 @@ export function primaryDamageScale(s: ShipState, tune: Tune): number {
 export function mineralBalance(s:Pick<ShipState,'hullMax'>,tune:Tune):number{return Math.round(Math.max(0,s.hullMax-tune.ship.maxHp)*10)/10;}
 /**
  * Mineral hold (owner redesign, 19 November 2026): how many minerals this ship can carry. It grows
- * with every upgrade owned (shop.holdBase + shop.holdPerUpgrade each, never past ship.powerCap), so
- * carrying out the most means building up first. Returned in the legacy hullMax units (with ship.maxHp).
+ * with every level picked (shop.holdBase + shop.holdPerUpgrade each, never past ship.powerCap), so
+ * carrying out the most means levelling up first. Returned in the legacy hullMax units (with ship.maxHp).
  */
-export function walletCap(s:Pick<ShipState,'turrets'|'shieldTier'|'damageTier'|'missileTier'|'mineTier'>,tune:Tune):number{
-  const ups=s.turrets+s.shieldTier+s.damageTier+s.missileTier+s.mineTier;
-  return Math.min(tune.ship.powerCap,tune.ship.maxHp+tune.shop.holdBase+tune.shop.holdPerUpgrade*ups);
+export function walletCap(s:Pick<ShipState,'picks'>,tune:Tune):number{
+  return Math.min(tune.ship.powerCap,tune.ship.maxHp+tune.shop.holdBase+tune.shop.holdPerUpgrade*(s.picks??0));
 }
 /** Credits banked by warping out with this wallet: whole minerals times the planet's bank rate. */
 export function bankedMinerals(s:Pick<ShipState,'hullMax'>,tune:Tune,home:boolean):number{return Math.floor(mineralBalance(s,tune)*(home?tune.salvage.homeBankRate:tune.salvage.bankRate)+1e-8);}
@@ -204,7 +207,7 @@ export function gripHeading(s:ShipState,previousSpeed:number,dt:number,tune:Tune
 }
 
 export function newShip(x: number, y: number, heading: number, speed: number): ShipState {
-  return { x, y, heading, travelHeading:heading, speed, arrival: 0, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, missileFireCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0, salvage: 0, fuel: 0, chassis: SPARROW, shieldCd: 0 };
+  return { x, y, heading, travelHeading:heading, speed, arrival: 0, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, missileFireCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0, salvage: 0, fuel: 0, chassis: SPARROW, shieldCd: 0, xp: 0, picks: 0 };
 }
 
 /** Warp top speed: warp.topSpeedFactor times this ship's top speed (only slightly faster, so pursuit is possible). */
@@ -213,7 +216,7 @@ export function warpSpeed(hp: number, tune: Tune, chassis = SCRAPPY): number {
 }
 
 export function copyShip(s: ShipState): ShipState {
-  return { x: s.x, y: s.y, heading: s.heading, travelHeading:s.travelHeading??s.heading, speed: s.speed, arrival: s.arrival ?? 0, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, missileFireCd: s.missileFireCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist, salvage: s.salvage, fuel: s.fuel, chassis: s.chassis, shieldCd: s.shieldCd };
+  return { x: s.x, y: s.y, heading: s.heading, travelHeading:s.travelHeading??s.heading, speed: s.speed, arrival: s.arrival ?? 0, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, missileFireCd: s.missileFireCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist, salvage: s.salvage, fuel: s.fuel, chassis: s.chassis, shieldCd: s.shieldCd, xp: s.xp ?? 0, picks: s.picks ?? 0 };
 }
 
 /**

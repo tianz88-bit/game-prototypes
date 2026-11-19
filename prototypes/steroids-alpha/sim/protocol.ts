@@ -385,6 +385,9 @@ export function decodeServer(buf: ArrayBuffer): ServerMessage | null {
         arrival: v.getFloat32(o + 99, true),
         travelHeading: v.getFloat32(o + 103, true),
         missileFireCd: v.getUint16(o + 107, true),
+        // Run levels are not on the wire yet (headless review, 19 November 2026).
+        xp: 0,
+        picks: 0,
       });
       o += SHIP_BYTES;
     }

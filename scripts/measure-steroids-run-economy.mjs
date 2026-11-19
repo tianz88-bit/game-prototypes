@@ -29,43 +29,44 @@ function pilot(s, w, mem) {
   else { i.aim = mem.wander; if (w.tick % 150 === 0) mem.wander += 0.8; }
   return i;
 }
-// Buys the cheapest next tier first (damage first on ties): the early spikes come quickly.
-// BUY=n stops after n upgrades (BUY=0: a hoarder who banks everything).
-const buyLimit = process.env.BUY === undefined ? 20 : Number(process.env.BUY);
-function purchase(w, s) {
-  if (S.upgradeTotal(s) >= buyLimit) return false;
-  let best = null;
-  for (const item of [2, 1, 0, 3, 4]) { const o = S.shopOffer(s, S.SHOP_ITEMS[item], t); if (o && (!best || o.cost < best.o.cost)) best = { item, o }; }
-  return best && S.canBuy(s, S.SHOP_ITEMS[best.item], t) ? w.buy(1, best.item, best.o.tier) : false;
+// BUY=n stops picking level cards after n (BUY=0 never levels). Picks an evolution card when offered,
+// otherwise guns, shield, drones, missiles, mines in that order.
+const buyLimit = process.env.BUY === undefined ? 99 : Number(process.env.BUY);
+const pickOrder = [10, 11, 2, 1, 0, 3, 4];
+function purchase(w, s, id = 1) {
+  if (s.picks >= buyLimit) return false;
+  const offer = w.cards.get(id);
+  if (!offer) return false;
+  return w.pick(id, pickOrder.find((c) => offer.includes(c)) ?? offer[0]);
 }
 // ACCOUNT=cautious|mid|allin: whole careers with real warp-outs, until the hangar is bought out.
-//   cautious: buys every upgrade, warps out at 3:00.  mid: stops at 10 upgrades, warps when the hold
-//   is full.  allin: full build, warps when the hold is full. Every run adds 30 s of menu and arrival;
+//   cautious: warps out at 3:00.  mid: warps at 4:30 (or a full hold).  allin: warps when the hold is
+//   full. Every style picks every level card; the first evolution is owned once 400 is banked. Every run adds 30 s of menu and arrival;
 //   a death adds 5 s more and loses the run. Each run is a fresh planet.
 if (process.env.ACCOUNT) {
   // PILOT=miner (never fights, default) | flee (runs from ships) | fight (production bot brain).
   const policy = process.env.ACCOUNT, pilotKind = process.env.PILOT || 'miner', overhead = 30, maxAccount = 8 * 3600;
   const p = t.unlockPrices, goals = { 'first evolution': p.evolution, 'ships + evolutions': 2 * p.ship + 2 * p.evolution, 'whole hangar': 2 * p.ship + 2 * p.evolution + 3 * p.palette + 4 * p.flame + 3 * p.shield + p.killfx + 3 * p.badge + 3 * p.tag + p.runlog };
-  const cap = policy === 'mid' ? 10 : 20, results = [];
+  const results = [];
   for (let seed = 1; seed <= seeds; seed++) {
     let clock = 0, bank = 0, runs = 0, deaths = 0, banked = [], hit = {}, run = 0;
     while (bank < goals['whole hangar'] && clock < maxAccount) {
       const r = rng(seed * 1000 + run++), w = new S.World(structuredClone(t), r); w.moveHotZone();
       let s = w.addShip(1); const mem = { wander: s.heading }, brains = new Map();
+      if (hit['first evolution'] !== undefined) w.evolutionsOwned.set(1, [0]);
       if (profile === 'bots') for (let id = 2; id <= 5; id++) { w.addShip(id, true); w.botIds.add(id); brains.set(id, { ...S.newBrain(r), bornAt: w.tick }); }
       w.drain();
       let input = idle(), leaving = false, outcome = null, k = 0; const me = { ...S.newBrain(r), bornAt: w.tick };
       for (; k < 15 * 60 * hz && !outcome; k++) {
         const sec = k / hz, wallet = S.mineralBalance(s, t), full = s.hullMax >= S.walletCap(s, t) - 1;
-        if (!leaving && s.lockdown <= 0 && (policy === 'cautious' ? sec >= 180 : full || sec >= 480)) leaving = true;
+        if (!leaving && s.lockdown <= 0 && (policy === 'cautious' ? sec >= 180 : policy === 'mid' ? full || sec >= 270 : full || sec >= 600)) leaving = true;
         if (leaving) { input = { ...idle(), thrust: 1, aim: s.heading, warp: !s.warping && k % 10 === 0 }; }
         else if (pilotKind === 'fight') {
           // The production bot brain flies the pilot: it mines, collects and fights back with guns,
           // missiles and mines (bot aim and reaction delays, so an average pilot, not a perfect one).
           const out = S.botThink(1, s, w, me, t, r, [...brains.values()]);
           input = { ...out.input, warp: false };
-          if (out.buy && S.upgradeTotal(s) < cap) w.buy(1, out.buy.item, out.buy.tier);
-          else if (k % 15 === 0 && S.upgradeTotal(s) < cap) purchase(w, s);
+          if (k % 15 === 0) purchase(w, s);
         } else {
           if (k % 5 === 0) input = pilot(s, w, mem);
           if (pilotKind === 'flee') {
@@ -74,7 +75,7 @@ if (process.env.ACCOUNT) {
             for (const [id, b] of w.ships) { if (id === 1) continue; const dx = S.wrapDelta(b.x, s.x, t.world.width), dy = S.wrapDelta(b.y, s.y, t.world.height), d = Math.hypot(dx, dy); if (d < 600 && (!threat || d < threat.d)) threat = { dx, dy, d }; }
             if (threat) { const aim = Math.atan2(-threat.dy, -threat.dx); input = { ...idle(), aim, thrust: 1, dash: s.dashCd <= 0 && Math.abs(S.angleDelta(aim, s.heading)) < 0.35 }; }
           }
-          if (k % 15 === 0 && S.upgradeTotal(s) < cap) purchase(w, s);
+          if (k % 15 === 0) purchase(w, s);
         }
         w.stepShip(1, input);
         const all = [...brains.values()];
@@ -123,11 +124,11 @@ for (let seed = 1; seed <= seeds; seed++) {
     }
     for (const x of ev.extracted ?? []) { const id = typeof x === 'number' ? x : x.id; if (id !== 1 && w.ships.has(id)) { w.removeShip(id); brains.delete(id); } }
     if (w.ships.has(1)) {
-      const wallet = S.mineralBalance(s, t), spent = shopSpent(s);
+      const wallet = S.mineralBalance(s, t), spent = Math.round(s.xp);
       if (wallet > prevWallet) row.mined += wallet - prevWallet; prevWallet = wallet;
-      if (row.fullAt === null && S.upgradeTotal(s) === 20) row.fullAt = Math.round(sec);
+      if (row.fullAt === null && s.picks >= 20) row.fullAt = Math.round(sec);
       const m = marks.find((x) => Math.abs(x - (k + 1) / hz) < 1e-9);
-      if (m) { row.at[m] = { up: S.upgradeTotal(s), wallet: Math.round(wallet), spent, top: Math.round(S.topSpeed(s.hullMax, t, s.chassis)) }; }
+      if (m) { row.at[m] = { up: s.picks, wallet: Math.round(wallet), spent, top: Math.round(S.topSpeed(s.hullMax, t, s.chassis)) }; }
     }
   }
   cases.push(row);
@@ -135,12 +136,12 @@ for (let seed = 1; seed <= seeds; seed++) {
 function shopSpent(s) { let n = 0; for (const item of S.SHOP_ITEMS) { const tier = S.shopTier(s, item); for (let i = 0; i < tier; i++) n += t.shop[item + 'Costs'][i]; } return n; }
 function med(xs) { const v = xs.filter((x) => x !== null && x !== undefined).sort((a, b) => a - b); return v.length ? v[Math.floor((v.length - 1) / 2)] : "-"; }
 const cost = (i) => t.shop.damageCosts.join('/');
-console.log(`Run economy probe: ${profile}, buys up to ${buyLimit}, ${seeds} seeds, ${limit}s. Tier costs ${cost()}, yield +${t.shop.yieldPerUpgrade * 100}%/upgrade, mining x${t.asteroid.miningMineralFactor}, warp lock ${t.warp.lockdownSeconds}s, bank rate ${t.salvage.bankRate} (home ${t.salvage.homeBankRate}).`);
-console.log('time  upgrades  carried(bankable)  spent  top speed');
+console.log(`Run economy probe: ${profile}, picks up to ${buyLimit}, ${seeds} seeds, ${limit}s. Level XP ${t.shop.levelXpBase}+${t.shop.levelXpGrowth}/level, hold ${t.shop.holdBase}+${t.shop.holdPerUpgrade}/level, mining x${t.asteroid.miningMineralFactor}, warp lock ${t.warp.lockdownSeconds}s, bank rate ${t.salvage.bankRate} (home ${t.salvage.homeBankRate}).`);
+console.log('time    levels  carried(bankable)   xp  top speed');
 for (const m of marks) {
   const rows = cases.map((c) => c.at[m]).filter(Boolean);
   if (!rows.length) continue;
   console.log(`${String(m).padStart(4)}s  ${String(med(rows.map((x) => x.up))).padStart(8)}  ${String(med(rows.map((x) => x.wallet))).padStart(17)}  ${String(med(rows.map((x) => x.spent))).padStart(5)}  ${med(rows.map((x) => x.top))}`);
 }
 const full = cases.map((c) => c.fullAt);
-console.log(`Full build (20 upgrades): median ${med(full)}s, reached ${full.filter((x) => x !== null).length}/${seeds}. Deaths per run: ${cases.map((c) => c.deaths).join(',')}; carried when killed: ${cases.flatMap((c) => c.lostOnDeath).join(',') || '-'}.`);
+console.log(`Level 20: median ${med(full)}s, reached ${full.filter((x) => x !== null).length}/${seeds}. Deaths per run: ${cases.map((c) => c.deaths).join(',')}; carried when killed: ${cases.flatMap((c) => c.lostOnDeath).join(',') || '-'}.`);

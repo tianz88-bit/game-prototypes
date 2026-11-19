@@ -11,6 +11,7 @@ import type { Asteroid } from './asteroids';
 import { wrap, wrapDelta, angleDelta } from './wrap';
 import { TURRET_SIDE, turretCount, turretPosition } from './turrets';
 import { SHOP_ITEMS, buy, EVOLVE_ITEM, evolve } from './shop';
+import { applyCard, drawCards, pendingPicks } from './levels';
 import {MISSILE_CRUISER,isCapital,upgradeTotal} from './chassis';
 import { missileLock,missileStructureLock } from './ordnance';
 import { BASE_OWNER, BASE_TURRET_SIDE, baseLayout, insideDome, isDocked, speedFloor, freeHomeWarp } from './clanBase';
@@ -383,13 +384,49 @@ export class World {
     return out;
   }
 
-  /** A shop purchase from ship id (item: index in SHOP_ITEMS). Returns true if it went through. */
+  /**
+   * The old mineral shop. Run levels replace it when shop.levelUp is on (owner, 19 November 2026):
+   * then this refuses everything and upgrades come only from picked level cards (pick).
+   */
   buy(id: number, item: number, tier: number): boolean {
+    if (this.tune.shop.levelUp) return false;
     const s = this.ships.get(id);
     if (s && item === EVOLVE_ITEM) return evolve(s, this.tune,tier);
     const name = SHOP_ITEMS[item];
     if (!s || !name) return false;
     return buy(s, name, tier, this.tune);
+  }
+
+  /** Level cards on offer to each ship (sim/levels.ts), drawn when it has a level-up to pick. */
+  readonly cards = new Map<number, number[]>();
+  /** Evolutions each pilot owns (0 Battlecruiser, 1 Missile Cruiser), set by the room from the bank. */
+  readonly evolutionsOwned = new Map<number, number[]>();
+
+  /** Pick one of the offered level cards. Returns true if it applied. */
+  pick(id: number, card: number): boolean {
+    const s = this.ships.get(id), offer = this.cards.get(id);
+    if (!s || !offer || !offer.includes(card) || pendingPicks(s, this.tune) <= 0 || s.hp <= 0) return false;
+    if (!applyCard(s, card, this.tune)) return false;
+    s.picks++;
+    this.cards.delete(id);
+    return true;
+  }
+
+  /** Draw cards for ships with a level-up waiting; bots pick at once (an evolution if offered). */
+  private stepLevels(): void {
+    if (!this.tune.shop.levelUp) return;
+    for (const [id, s] of this.ships) {
+      if (s.hp <= 0 || pendingPicks(s, this.tune) <= 0) continue;
+      if (!this.cards.has(id)) {
+        const cards = drawCards(s, this.evolutionsOwned.get(id) ?? [], this.tune, this.rng);
+        if (!cards.length) continue;
+        this.cards.set(id, cards);
+      }
+      if (this.botIds.has(id)) {
+        const offer = this.cards.get(id)!;
+        this.pick(id, offer.find((c) => c >= 10) ?? offer[Math.floor(this.rng() * offer.length)]);
+      }
+    }
   }
 
   removeShip(id: number): void {
@@ -405,6 +442,8 @@ export class World {
     this.turrets.delete(id);
     this.rammed.delete(id);
     this.prev.delete(id);
+    this.cards.delete(id);
+    this.evolutionsOwned.delete(id);
   }
 
   /** Advance one ship by one step with the given input, spawning its bullet if it fired. */
@@ -439,6 +478,7 @@ export class World {
     const W = t.world.width;
     const H = t.world.height;
     this.tick++;
+    this.stepLevels();
     // One authoritative countdown per world tick, even before the pilot's input buffer starts.
     for (const s of this.ships.values()) s.arrival = Math.max(0, (s.arrival ?? 0) - this.dt);
     const pos = new Map<number, { x: number; y: number }>();
@@ -635,7 +675,7 @@ export class World {
       }
       if(d<=radius){
         if(k.kind==='heal')s.hp=Math.min(hullCapacity(s,t),s.hp+t.ship.maxHp*t.asteroid.healthHealFraction);
-        else if(k.kind==='mineral')s.hullMax=Math.min(walletCap(s,t),s.hullMax+k.value);
+        else if(k.kind==='mineral'){const before=s.hullMax;s.hullMax=Math.min(walletCap(s,t),s.hullMax+k.value);s.xp=(s.xp??0)+(s.hullMax-before);}
         else{
           const held=k.kind==='fuel'?'fuel':'salvage',taken=Math.min(k.value,Math.max(0,t.salvage.cargoMax-s[held]));
           s[held]+=taken;k.value=Math.round((k.value-taken)*10)/10;
@@ -1232,14 +1272,11 @@ export class World {
       return;
     }
     // Every destroyed asteroid leaves minerals, the one run currency (owner, 19 November 2026);
-    // sometimes a health boost as well. More inside the hot zone, and more for a pilot with more
-    // upgrades (shop.yieldPerUpgrade each), so a full build earns the most. Clan home planets
+    // sometimes a health boost as well. More inside the hot zone. Clan home planets
     // also leave fuel for the clan treasury; nowhere else leaves a second cargo.
     const hot = this.inHotZone(at.x, at.y) ? this.tune.hotZone.mineralMultiplier : 1;
-    const miner = by ? this.ships.get(by) : undefined;
-    const skill = 1 + this.tune.shop.yieldPerUpgrade * (miner ? upgradeTotal(miner) : 0);
     const fuel = this.layout && !this.siege ? this.tune.salvage.perMineral : 0;
-    this.spillMinerals(at.x, at.y, this.tune.asteroid.mineralYield[a.size] * (a.rich ? this.tune.asteroid.richMineralFactor : 1), this.tune.asteroid.radius[a.size] * 0.5, 0, fuel, this.tune.asteroid.miningMineralFactor * hot * skill);
+    this.spillMinerals(at.x, at.y, this.tune.asteroid.mineralYield[a.size] * (a.rich ? this.tune.asteroid.richMineralFactor : 1), this.tune.asteroid.radius[a.size] * 0.5, 0, fuel, this.tune.asteroid.miningMineralFactor * hot);
     if ((!this.tutorial||this.tutorialMinerals)&&this.rng() < this.tune.asteroid.healthDropChance) this.addPickup(at.x, at.y, 'heal', 0);
     for (const child of splitAsteroid(a, at, dirX, dirY, damage, this.tick, () => this.newAsteroidId(), this.rng, this.tune)) {
       this.asteroids.set(child.id, child);
