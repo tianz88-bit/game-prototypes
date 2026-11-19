@@ -2,6 +2,14 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Separate resources — tested candidate, not live
+
+Owner chose separate mineral/cargo physical objects. Gold crystals buy upgrades; new purple salvage cases bank on warp; new cyan fuel canisters unload at own home Nexus. Existing green repair retained. R2 resource-pickups-v1 manifest verifies uploaded original ZIP and sources; runtime192px. HUD uses the same body frames.
+
+Protocol33 adds fuel/mined pickup metadata and optional JSON move array; no binary layout/D1 changes. Actual server chooses nearest eligible collector within old radius+64px, attracts420px/s, coalesces movement at snapshot cadence. Preserve spill locks, full/partial capacity, bot mined-cargo exclusion and home ownership. Pool200→400 for split objects, strict even for death salvage. pickupVersion1 migrates once and retains future edits. Tutorial mineral-only/Warzone no mined cargo. Prices/generated nominal totals unchanged; collection pace may differ from historical bundled rewards.
+
+All required gates plus3 actual Room/NetClient headless layouts atDPR2 pass;400-object pool/texture plateau, no capture/live spending. Evidence ../steroids-alpha-lab/resource-pickups-proof.json, original prompts/art/readability outside checkout outputs/steroids-alpha/resource-pickups-v01. No immediate Claude session requested; paired release pending.
+
 ## Bot survival /500-credit evolutions — LIVE191126r0108/protocol32
 
 Owner19 November: keep minerals; reduce both permanent evos1500→500 rather than free first choice; test survival changes before release. Owner then approved release: PR577076417e1ea73c84960404a57e9941ba172c58c16. Client44443795181/Worker44443795129/Pages44443795169 succeeded; live191126r0108/protocol32.

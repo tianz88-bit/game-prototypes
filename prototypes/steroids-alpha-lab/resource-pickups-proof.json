@@ -1,0 +1,267 @@
+{
+  "status": "tested candidate; not live",
+  "date": "2026-11-19",
+  "branch": "codex/steroids-resource-pickups",
+  "protocol": 33,
+  "assets": {
+    "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_resource-pickups-v1_assets.zip",
+    "zipSha256": "290b286f78af40c2099161077e345257c7e0c8b1ca9bbab85b610f5864f9f310",
+    "bytes": 1781015,
+    "sources": [
+      {
+        "name": "salvage-case",
+        "sha256": "5ae4d4795ac7e0a035bee785573bb0e5d92298d656b1ab5714e342292937f7ca"
+      },
+      {
+        "name": "fuel-canister",
+        "sha256": "8987264f9e1be7c5c02ab61ad1edc73ce5bff7e25b6ebd5a913d2e6266fc8fe1"
+      }
+    ],
+    "browser": "Brave",
+    "account": "game account",
+    "upload": "DOM file chooser",
+    "capture": false
+  },
+  "headless": {
+    "capture": false,
+    "errors": [],
+    "cases": [
+      {
+        "stress": {
+          "objects": 400,
+          "texturesBefore": 231,
+          "texturesAfter": 231,
+          "frameMedianMs": 16.700000002980232,
+          "frameP95Ms": 17.599999994039536
+        },
+        "width": 1280,
+        "height": 720,
+        "mobile": false,
+        "independentBalances": true,
+        "serverMotion": true,
+        "homeFuel": true,
+        "hudIcons": true,
+        "wrapAndLateMove": true,
+        "moves": 3,
+        "removed": 3,
+        "icons": [
+          {
+            "key": "combat-mineral-cluster",
+            "visible": true,
+            "height": 18
+          },
+          {
+            "key": "combat-fuel-canister",
+            "visible": true,
+            "height": 13
+          }
+        ],
+        "labels": [
+          {
+            "text": "MIN 5",
+            "type": 5,
+            "x": 40,
+            "y": 16,
+            "width": 42,
+            "height": 19
+          },
+          {
+            "text": "Lv.0",
+            "type": 5,
+            "x": 176,
+            "y": 18,
+            "width": 22,
+            "height": 16
+          },
+          {
+            "text": "FUEL 0/400 · UNLOAD AT HOME",
+            "type": 5,
+            "x": 38,
+            "y": 34,
+            "width": 131,
+            "height": 15
+          }
+        ],
+        "textures": [
+          {
+            "key": "combat-mineral-cluster",
+            "body": true
+          },
+          {
+            "key": "combat-salvage-case",
+            "body": true
+          },
+          {
+            "key": "combat-fuel-canister",
+            "body": true
+          },
+          {
+            "key": "combat-health-pod",
+            "body": true
+          }
+        ]
+      },
+      {
+        "stress": {
+          "objects": 400,
+          "texturesBefore": 226,
+          "texturesAfter": 226,
+          "frameMedianMs": 16.700000002980232,
+          "frameP95Ms": 17.80000001192093
+        },
+        "width": 568,
+        "height": 320,
+        "mobile": true,
+        "independentBalances": true,
+        "serverMotion": true,
+        "homeFuel": true,
+        "hudIcons": true,
+        "wrapAndLateMove": true,
+        "moves": 3,
+        "removed": 3,
+        "icons": [
+          {
+            "key": "combat-mineral-cluster",
+            "visible": true,
+            "height": 18
+          },
+          {
+            "key": "combat-fuel-canister",
+            "visible": true,
+            "height": 13
+          }
+        ],
+        "labels": [
+          {
+            "text": "MIN 5",
+            "type": 5,
+            "x": 40,
+            "y": 16,
+            "width": 39,
+            "height": 18
+          },
+          {
+            "text": "Lv.0",
+            "type": 5,
+            "x": 176,
+            "y": 18,
+            "width": 22,
+            "height": 16
+          },
+          {
+            "text": "FUEL 0/400 · UNLOAD AT HOME",
+            "type": 5,
+            "x": 38,
+            "y": 34,
+            "width": 131,
+            "height": 15
+          }
+        ],
+        "textures": [
+          {
+            "key": "combat-mineral-cluster",
+            "body": true
+          },
+          {
+            "key": "combat-salvage-case",
+            "body": true
+          },
+          {
+            "key": "combat-fuel-canister",
+            "body": true
+          },
+          {
+            "key": "combat-health-pod",
+            "body": true
+          }
+        ]
+      },
+      {
+        "stress": {
+          "objects": 400,
+          "texturesBefore": 226,
+          "texturesAfter": 226,
+          "frameMedianMs": 16.700000002980232,
+          "frameP95Ms": 17.69999998807907
+        },
+        "width": 390,
+        "height": 844,
+        "mobile": true,
+        "independentBalances": true,
+        "serverMotion": true,
+        "homeFuel": true,
+        "hudIcons": true,
+        "wrapAndLateMove": true,
+        "moves": 3,
+        "removed": 3,
+        "icons": [
+          {
+            "key": "combat-mineral-cluster",
+            "visible": true,
+            "height": 18
+          },
+          {
+            "key": "combat-fuel-canister",
+            "visible": true,
+            "height": 13
+          }
+        ],
+        "labels": [
+          {
+            "text": "MIN 5",
+            "type": 5,
+            "x": 40,
+            "y": 16,
+            "width": 39,
+            "height": 18
+          },
+          {
+            "text": "Lv.0",
+            "type": 5,
+            "x": 176,
+            "y": 18,
+            "width": 22,
+            "height": 16
+          },
+          {
+            "text": "FUEL 0/400 · UNLOAD AT HOME",
+            "type": 5,
+            "x": 38,
+            "y": 34,
+            "width": 131,
+            "height": 15
+          }
+        ],
+        "textures": [
+          {
+            "key": "combat-mineral-cluster",
+            "body": true
+          },
+          {
+            "key": "combat-salvage-case",
+            "body": true
+          },
+          {
+            "key": "combat-fuel-canister",
+            "body": true
+          },
+          {
+            "key": "combat-health-pod",
+            "body": true
+          }
+        ]
+      }
+    ],
+    "authority": "actual local Room + NetClient transport; no public account writes"
+  },
+  "checks": [
+    "typecheck",
+    "production build with packed assets",
+    "full simulation including pickup regression",
+    "live config and owner admin",
+    "SQLite bank/evolution",
+    "rig/FFD/building and 22 layouts"
+  ],
+  "prices": "unchanged",
+  "limits": "Scripted fixtures and headless desktop GPU timings do not predict real mobile hardware, concurrent-room CPU or human collection pace."
+}

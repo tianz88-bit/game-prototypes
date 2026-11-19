@@ -1,3 +1,5 @@
+import {pickupHasRoom} from './pickups';
+import type {PickupKind} from './pickups';
 // Everything that happens on a planet besides moving ships: bullets, asteroids, damage and deaths.
 // Pure game rules with no networking, so it runs in the Cloudflare room and in Node tests alike.
 // The room steps each ship with its input, then calls step() once per tick and sends out the events.
@@ -44,7 +46,9 @@ export interface Pickup {
   x: number;
   y: number;
   /** heal: repairs; mineral: power (hull); salvage: gold dropped by a destroyed ship (salvage only). */
-  kind: 'heal' | 'mineral' | 'salvage';
+  kind: PickupKind;
+  /** Mined cargo is separate from death salvage; bots do not take this bankable reward. */
+  mined?:boolean;
   value: number;
 }
 
@@ -125,6 +129,7 @@ export interface WorldEvents {
   /** Health boosts dropped, and boosts taken (by = ship id) or expired (by = 0). */
   pickups: Pickup[];
   pickupsGone: { id: number; by: number }[];
+  pickupsMoved: {id:number;x:number;y:number;value:number}[];
   /** Dash rams: who rammed whom, and where they met. */
   rams: { id: number; target: number; x: number; y: number }[];
   /** Missile and mine explosions (r = blast radius), and ordnance shot down (shot: true). */
@@ -141,7 +146,7 @@ export interface WorldEvents {
   structureHits: { what: number | 'shield' | 'treasury'; x: number; y: number; destroyed: boolean }[];
 }
 
-const noEvents = (): WorldEvents => ({ asteroids: [], gone: [], shots: [], deaths: [], hits: [], pickups: [], pickupsGone: [], rams: [], blasts: [], extracted: [], hotZone: null, deposits: [], siegeOver: null, structureHits: [] });
+const noEvents = (): WorldEvents => ({ asteroids: [], gone: [], shots: [], deaths: [], hits: [], pickups: [], pickupsGone: [], pickupsMoved: [], rams: [], blasts: [], extracted: [], hotZone: null, deposits: [], siegeOver: null, structureHits: [] });
 
 export class World {
   tick = 0;
@@ -152,7 +157,7 @@ export class World {
   private grace = new Map<number, number>();
   private nextAsteroidId = 1;
   /** from: the ship that spilled it, which cannot take it back until lockedUntil (a tick). */
-  readonly pickups = new Map<number, Pickup & { expires: number; from: number; lockedUntil: number; salvage: number }>();
+  readonly pickups = new Map<number, Pickup & { expires: number; from: number; lockedUntil: number }>();
   /** Ships that are bots: they never earn salvage and drop less (salvage.botDropFactor). Set by the room. */
   readonly botIds = new Set<number>();
   /** Tutorial practice ships whose turret drones never fire (a drone or chaser that must not shoot). */
@@ -589,49 +594,34 @@ export class World {
       }
     }
 
-    // Pickups: the first ship to touch one takes it; unclaimed ones fade away. A health boost heals a
-    // share of the starting hull; minerals fill the independent wallet up to its carried-load cap.
-    for (const k of this.pickups.values()) {
-      let by = 0;
-      if (this.tick >= k.expires) by = -1;
-      else {
-        for (const [id, s] of this.ships) {
-          if (s.hp <= 0 || (id === k.from && this.tick < k.lockedUntil)) continue;
-          if (!hits(s.x, s.y, k.x, k.y, t.asteroid.pickupRadius + shipRadius(s.hullMax, t, s.chassis))) continue;
-          // A health boost repairs (up to the hull maximum).
-          if (k.kind === 'heal') s.hp = Math.min(hullCapacity(s,t), s.hp + t.ship.maxHp * t.asteroid.healthHealFraction);
-          else if (k.kind === 'salvage') {
-            // Cargo hold (owner, 15 November 2026): at most salvage.cargoMax carried. A full ship
-            // leaves gold where it lies for others; a nearly full one takes what fits.
-            const room = Math.max(0, t.salvage.cargoMax - s.salvage);
-            if (room <= 0) continue;
-            const taken = Math.min(k.value, room);
-            s.salvage += taken;
-            if (k.value - taken > 0.5) {
-              k.value -= taken;
-              continue;
-            }
-          }
-          else {
-            // The wallet is independent of hull/shields: collecting/spending cannot repair or harm.
-            s.hullMax = Math.min(t.ship.powerCap,s.hullMax+k.value);
-            // Mined minerals also add salvage (bots never earn it); minerals spilled by ships do not.
-            // Clan home planets (owner, 15 November 2026): no salvage; members mine fuel for the
-            // clan treasury instead (visitors get neither).
-            if (this.siege) {
-              // Warzone (siege v0): power only, no salvage or fuel (no rewards yet).
-            } else if (this.layout) {
-              if ((this.clanOf.get(id) ?? 0) === this.layout.clan) s.fuel = Math.min(t.salvage.cargoMax, s.fuel + k.salvage);
-            } else if (!this.botIds.has(id)) s.salvage = Math.min(t.salvage.cargoMax, s.salvage + k.salvage);
-          }
-          by = id;
-          break;
+    // Nearest eligible collector attracts only nearby objects; server decides every movement/reward.
+    const collectors=[...this.ships].filter(([,s])=>s.hp>0);
+    for(const k of this.pickups.values()){
+      if(this.tick>=k.expires){this.pickups.delete(k.id);this.events.pickupsGone.push({id:k.id,by:0});continue;}
+      let target:{id:number;s:ShipState;dx:number;dy:number;d2:number;radius:number}|null=null;
+      for(const[id,s]of collectors){
+        if(id===k.from&&this.tick<k.lockedUntil)continue;
+        if(!pickupHasRoom(k,s,t,{bot:this.botIds.has(id),clan:this.clanOf.get(id)??0,homeClan:this.layout?.clan??0,warzone:!!this.siege}))continue;
+        const dx=wrapDelta(s.x,k.x,W),dy=wrapDelta(s.y,k.y,H),d2=dx*dx+dy*dy,radius=t.asteroid.pickupRadius+shipRadius(s.hullMax,t,s.chassis),reach=radius+t.asteroid.pickupMagnetReach;
+        if(d2>reach*reach)continue;
+        if(!target||d2<target.d2||(d2===target.d2&&id<target.id))target={id,s,dx,dy,d2,radius};
+      }
+      if(!target)continue;
+      const{id,s,dx,dy,radius}=target;let d=Math.sqrt(target.d2),moved=false;
+      if(d>radius&&t.asteroid.pickupMagnetSpeed>0&&t.asteroid.pickupMagnetReach>0){
+        const step=Math.min(t.asteroid.pickupMagnetSpeed*this.dt,d-radius+1);
+        k.x=wrap(k.x+dx/d*step,W);k.y=wrap(k.y+dy/d*step,H);d-=step;moved=true;
+      }
+      if(d<=radius){
+        if(k.kind==='heal')s.hp=Math.min(hullCapacity(s,t),s.hp+t.ship.maxHp*t.asteroid.healthHealFraction);
+        else if(k.kind==='mineral')s.hullMax=Math.min(t.ship.powerCap,s.hullMax+k.value);
+        else{
+          const held=k.kind==='fuel'?'fuel':'salvage',taken=Math.min(k.value,Math.max(0,t.salvage.cargoMax-s[held]));
+          s[held]+=taken;k.value=Math.round((k.value-taken)*10)/10;
+          if(k.value>0){this.events.pickupsMoved.push({id:k.id,x:k.x,y:k.y,value:k.value});continue;}
         }
-      }
-      if (by !== 0) {
-        this.pickups.delete(k.id);
-        this.events.pickupsGone.push({ id: k.id, by: Math.max(0, by) });
-      }
+        this.pickups.delete(k.id);this.events.pickupsGone.push({id:k.id,by:id});
+      }else if(moved)this.events.pickupsMoved.push({id:k.id,x:Math.round(k.x*10)/10,y:Math.round(k.y*10)/10,value:k.value});
     }
 
     // Shields come back after a quiet spell (shieldCd counts it down; every hit resets it).
@@ -1158,16 +1148,22 @@ export class World {
       const each=(baseUnits+(i<remainder?1:0))/10;
       const a = this.rng() * Math.PI * 2;
       const d = (chunks === 1 ? 0 : 0.4 + this.rng() * 0.6) * reach;
-      this.addPickup(wrap(x + Math.cos(a) * d, t.world.width), wrap(y + Math.sin(a) * d, t.world.height), 'mineral', each, from, each * salvagePer);
+      const px=wrap(x+Math.cos(a)*d,t.world.width),py=wrap(y+Math.sin(a)*d,t.world.height);
+      this.addPickup(px,py,'mineral',each,from);
+      if(salvagePer>0&&!this.siege&&!this.tutorial){
+        const kind=this.layout?'fuel':'salvage';
+        this.addPickup(wrap(px-Math.sin(a)*32,t.world.width),wrap(py+Math.cos(a)*32,t.world.height),kind,each*salvagePer,0,true);
+      }
     }
   }
 
-  private addPickup(x: number, y: number, kind: Pickup['kind'], value: number, from = 0, salvage = 0): void {
+  private addPickup(x: number, y: number, kind: Pickup['kind'], value: number, from = 0, mined = false): void {
     const t = this.tune;
     // Keep the planet from filling with pickups: the oldest go first. Gold is never pushed out early.
     if (this.pickups.size >= t.asteroid.pickupsMax) {
       let oldest = 0;
-      for (const k of this.pickups.values()) if (k.kind !== 'salvage') { oldest = k.id; break; }
+      for (const k of this.pickups.values()) if (k.kind !== 'salvage'||k.mined) { oldest = k.id; break; }
+      if (!oldest) oldest=this.pickups.keys().next().value??0;
       if (oldest) {
         this.pickups.delete(oldest);
         this.events.pickupsGone.push({ id: oldest, by: 0 });
@@ -1175,10 +1171,10 @@ export class World {
     }
     const id = this.nextPickupId;
     this.nextPickupId = this.nextPickupId >= 0xffff ? 1 : this.nextPickupId + 1;
-    const life = kind === 'salvage' ? t.salvage.goldLifeSeconds : t.asteroid.pickupLifeSeconds;
-    const k = { id, x, y, kind, value: Math.round(value * 10) / 10, expires: this.tick + Math.round(life * t.net.tickHz), from, lockedUntil: this.tick + Math.round(t.ship.spillLockSeconds * t.net.tickHz), salvage };
+    const life = kind === 'salvage'&&!mined ? t.salvage.goldLifeSeconds : t.asteroid.pickupLifeSeconds;
+    const k = { id, x, y, kind, value: Math.round(value * 10) / 10, expires: this.tick + Math.round(life * t.net.tickHz), from, lockedUntil: this.tick + Math.round(t.ship.spillLockSeconds * t.net.tickHz), mined };
     this.pickups.set(id, k);
-    this.events.pickups.push({ id, x, y, kind, value: k.value });
+    this.events.pickups.push({ id, x, y, kind, value: k.value, mined });
   }
 
   /** Smash an asteroid outright (a ship flew into it): it splits as if this hit had destroyed it. */

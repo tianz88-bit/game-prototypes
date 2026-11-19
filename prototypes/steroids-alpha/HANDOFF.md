@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-19 codex resource pickup candidate
+DID: Separate mineral/cargo drops, painted purple salvage and cyan fuel, matching icons and bounded authoritative magnet. Tested candidate, not live; unchanged mineral prices/generated totals.
+FILES: sim/pickups/world/liveConfig/protocol33, room/client, combat render/HUD/Flight, resource manifest/prep, lab draft/proof and pickup gate.
+SEAM: fuel PickupKind, mined metadata and optional pickups.move payload; snapshot-coalesced authority, wrapped interpolation. Paired client/Worker release required; no D1 migration.
+CROSS: minimal sim/net/server/tune/tests for explicit separate-drop choice. Type/build/sim/config/bank/rig pass;3 DPR2 headless layouts,400 pooled sprites, stable textures. No capture/live writes.
+FOR claude: deferred; read CLAUDE_BACKLOG pickup section. Preserve ownership/capacity/spill locks and prices. Prior bundled-cargo pace results are historical.
+
 ## 2026-11-19 codex bot survival LIVE191126r0108
 DID: PR577076417e1 live108/32; itch44443795181/Worker44443795129/Pages44443795169 succeeded. Bot aim/passes/spawns and500-credit evos; mineral prices unchanged.
 FILES: bots/world/tune/liveConfig/protocol32, lab draft/version hiding, instrumented pace harness, bank/sim/config/new survival gates; lab BOT_SURVIVAL_REVIEW/proof.
@@ -97,11 +104,4 @@ FILES: shared sim/protocol/tune/config, client replay/lead, Hangar/shop UI, lab 
 SEAM: Protocol26,107-byte ships with travelHeading103; shared movement precedes gun mounts, no lab bridge. Client+Worker must deploy together. Other lab handling stays gated.
 CROSS: sim/server/net/menu/test/CI changed within owner's explicit live request. Unit/config/rig/bank and no-capture PC/mobile/two-client proof recorded in BUILD_STATUS.
 FOR claude: deferred backlog only.7 public Hangar/5 evolution layouts, live beta drift/brake72 snapshots and lab three modes pass, no page errors/capture. Evidence outputs/steroids-alpha/live-speed-grip/.
-
-## 2026-11-17 codex desktop/mobile UI correction
-DID: LIVE171126r0099 via PR557 ec5ef477; itch44119747544 success. Bounded desktop title; clickable PC Upgrades[B]/Scoreboard[Tab], aligned Warp/header.
-FILES: render/landingLayout,hudLayout; scenes/menu,flight; landing layout regression and deferred docs.
-SEAM: optional touch argument/desktop credit anchors; flight header shares PC nav/Warp geometry; existing drawer/input intents unchanged.
-CROSS: menu/input behaviour minimally touched to repair missing PC controls; no simulation/tune/Worker/config or live Speed Grip port.
-FOR claude: backlog ready, no immediate action.12 local menus/8 HUD/7 final menu and7 public menus/8 HUD pass without page errors/capture. Pages post-deploy Operation C counter push race logged.
 

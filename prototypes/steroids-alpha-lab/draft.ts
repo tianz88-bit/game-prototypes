@@ -81,7 +81,7 @@ export function mountStats(): void {
   for (const [name, values] of groups) {
     const detail = document.createElement('details'), summary = document.createElement('summary'); summary.textContent=name; detail.append(summary); if(name==='Ship')detail.open=true;
     for (const [key, value] of Object.entries(values)) {
-      if(key==='partTextureMax'||key==='balanceVersion'||key==='behaviourVersion')continue;
+      if(key==='partTextureMax'||key==='balanceVersion'||key==='behaviourVersion'||key==='pickupVersion')continue;
       const items = Array.isArray(value) ? value : [value];
       items.forEach((n,index) => {
         const label = document.createElement('label'); label.className='row';

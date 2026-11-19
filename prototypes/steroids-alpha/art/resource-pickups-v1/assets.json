@@ -1,0 +1,41 @@
+{
+  "source": "Built-in imagegen19 November2026, matched to approved mineral and Human Nomad casing style. Original alpha/source frames preserved; runtime body frames only. Purple salvage cargo case and cyan fuel canister, distinct from existing gold crystals/green repair pod.",
+  "r2Object": "steroids-alpha_resource-pickups-v1_assets.zip",
+  "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_resource-pickups-v1_assets.zip",
+  "zipSha256": "290b286f78af40c2099161077e345257c7e0c8b1ca9bbab85b610f5864f9f310",
+  "assets": [
+    {
+      "name": "salvage-case",
+      "deliveryPath": "loose/salvage-case.png",
+      "sourceSize": [
+        1254,
+        1254
+      ],
+      "trimFrame": {
+        "x": 115,
+        "y": 171,
+        "w": 1025,
+        "h": 903
+      },
+      "sha256": "5ae4d4795ac7e0a035bee785573bb0e5d92298d656b1ab5714e342292937f7ca",
+      "runtimeMax": 192
+    },
+    {
+      "name": "fuel-canister",
+      "deliveryPath": "loose/fuel-canister.png",
+      "sourceSize": [
+        1024,
+        1536
+      ],
+      "trimFrame": {
+        "x": 222,
+        "y": 170,
+        "w": 576,
+        "h": 1216
+      },
+      "sha256": "8987264f9e1be7c5c02ab61ad1edc73ce5bff7e25b6ebd5a913d2e6266fc8fe1",
+      "runtimeMax": 192
+    }
+  ],
+  "storageVerified": "19 November2026: uploaded to existing game-assets bucket via Brave DOM file chooser; fetched public ZIP and verified ZIP/every PNG SHA-256. No capture."
+}

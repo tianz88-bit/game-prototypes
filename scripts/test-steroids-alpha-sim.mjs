@@ -346,7 +346,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   // A health boost heals 25% of the starting hull.
   s.hp = 10;
   s.x = heals[0].x; s.y = heals[0].y;
-  for (const k of minerals) w.pickups.delete(k.id);
+  for (const k of pickups) if(k.kind!=='heal') w.pickups.delete(k.id);
   w.step();
   const ev = w.drain();
   near(s.hp, 10 + tune.ship.maxHp * tune.asteroid.healthHealFraction, 1e-9, 'heals 25% of the starting hull');
@@ -1001,14 +1001,16 @@ assert.equal(S.cleanName(null), '');
   const miner = placeShip(mine, 1, far.x, far.y, 0);
   mine.clanOf.set(1, 1);
   miner.speed = 0;
-  mine.pickups.set(903, { id: 903, x: far.x, y: far.y, kind: 'mineral', value: 5, from: 0, lockedUntil: 0, expires: mine.tick + 100, salvage: 5 });
+  mine.pickups.set(903, { id: 903, x: far.x, y: far.y, kind: 'mineral', value: 5, from: 0, lockedUntil: 0, expires: mine.tick + 100 });
+  mine.pickups.set(1903,{id:1903,x:far.x,y:far.y,kind:'fuel',value:5,from:0,lockedUntil:0,expires:mine.tick+100,mined:true});
   mine.stepShip(1, idle);
   mine.step();
   assert(miner.fuel === 5 && miner.salvage === 0, `a member mines fuel, not salvage (fuel ${miner.fuel}, salvage ${miner.salvage})`);
   const guest = placeShip(mine, 2, far.x + 600, far.y, 0);
   mine.clanOf.set(2, 2);
   guest.speed = 0;
-  mine.pickups.set(904, { id: 904, x: far.x + 600, y: far.y, kind: 'mineral', value: 5, from: 0, lockedUntil: 0, expires: mine.tick + 100, salvage: 5 });
+  mine.pickups.set(904, { id: 904, x: far.x + 600, y: far.y, kind: 'mineral', value: 5, from: 0, lockedUntil: 0, expires: mine.tick + 100 });
+  mine.pickups.set(1904,{id:1904,x:far.x+600,y:far.y,kind:'fuel',value:5,from:0,lockedUntil:0,expires:mine.tick+100,mined:true});
   mine.stepShip(1, idle); mine.stepShip(2, idle);
   mine.step();
   assert(guest.fuel === 0 && guest.salvage === 0, 'a non-member mines neither fuel nor salvage on a home planet');
@@ -1893,10 +1895,13 @@ assert.equal(S.cleanName(null), '');
     assert(!w.asteroids.has(r.id), 'rock mined');
     const minerals = [...w.pickups.values()].filter((k) => k.kind === 'mineral');
     const total = minerals.reduce((n, k) => n + k.value, 0);
-    near(minerals.reduce((n, k) => n + k.salvage, 0), total * sv.perMineral, 1e-6, 'mined minerals carry perMineral salvage');
+    const cargo=[...w.pickups.values()].filter(k=>k.kind==='salvage'&&k.mined);
+    near(cargo.reduce((n,k)=>n+k.value,0),total*sv.perMineral,1e-6,'mining drops a separate perMineral cargo reward');
     for (const k of minerals) { k.x = a.x; k.y = a.y; }
     settle(w, 2);
-    near(a.salvage, total * sv.perMineral, 0.2, 'collecting them adds salvage');
+    near(a.salvage,0,1e-9,'minerals alone do not pay hidden salvage');
+    for(const k of cargo){k.x=a.x;k.y=a.y;}settle(w,2);
+    near(a.salvage,total*sv.perMineral,.2,'collecting cargo adds only salvage');
   }
   // Hot zone: double salvage for rock mined inside; it moves after moveSeconds.
   {
@@ -1910,7 +1915,7 @@ assert.equal(S.cleanName(null), '');
     w.drain();
     const minerals = [...w.pickups.values()].filter((k) => k.kind === 'mineral');
     const total = minerals.reduce((n, k) => n + k.value, 0);
-    near(minerals.reduce((n, k) => n + k.salvage, 0), total * sv.perMineral * hz.salvageMultiplier, 1e-6, 'hot zone multiplies mined salvage');
+    near([...w.pickups.values()].filter(k=>k.kind==='salvage'&&k.mined).reduce((n,k)=>n+k.value,0),total*sv.perMineral*hz.salvageMultiplier,1e-6,'hot zone multiplies the separate cargo reward');
     let ev = null;
     for (let i = 0; i < 70 && !ev; i++) { w.step(); ev = w.drain().hotZone ? w.hotZone : null; }
     ev = ev && { hotZone: ev };
@@ -1933,7 +1938,7 @@ assert.equal(S.cleanName(null), '');
     for (let i = 0; i < 30 && !hitOnce; i++) { b.x = 1300; b.y = 1000; w.stepShip(1, { ...idle, thrust: -1, fire: true }); w.step(); hitOnce = b.hp < 250; }
     w.drain();
     assert(hitOnce, 'b was hit');
-    assert([...w.pickups.values()].filter((k) => k.kind === 'mineral').every((k) => k.salvage === 0), 'minerals spilled by a hit carry no salvage');
+    assert([...w.pickups.values()].filter((k) => k.kind === 'mineral').every((k) => !('salvage' in k)), 'minerals spilled by a hit carry no salvage');
     const powerAbove = b.hullMax - tune.ship.maxHp;
     b.hp = 1; b.shield = 0;
     for (let i = 0; i < 30 && b.hp > 0; i++) { b.x = 1300; b.y = 1000; w.stepShip(1, { ...idle, thrust: -1, fire: true }); w.step(); }
@@ -2149,3 +2154,5 @@ await import('./test-steroids-capital-evolution.mjs');
 await import('./test-steroids-progression-balance.mjs');
 
 await import('./test-steroids-bot-survival.mjs');
+
+await import('./test-steroids-pickups.mjs');

@@ -1,29 +1,25 @@
 ## Current milestone
 
-LIVE VERIFIED191126r0108/protocol32. PR577 merge076417e1ea73c84960404a57e9941ba172c58c16; itch44443795181, Worker44443795129 and Pages44443795169 succeeded. Owner approved the tested bot survival changes and500-credit evolution unlocks.
+Resource pickup candidate tested on codex/steroids-resource-pickups; not released. Public game remains 191126r0108/protocol32. Original sprite ZIP uploaded and downloaded/hash-verified in existing game-assets R2 bucket.
 
 ## What was implemented
 
-Bot aim wobble7→14deg, perception.25→.45s, mean reaction.9→1.3s. Ordinary encounters make an attack pass then commit to a1.2s exit below360px; siege retains close-approach behavior (shared observation tuning also applies there). Occupied open-player entries/retries reuse ship/rock-clear spread placement; empty-room/home/Warzone positioning and arrival immunity unchanged.
-
-Both permanent evolution unlocks now500 bank credits, still bought/equipped explicitly. Mineral prices5/10/15/20 (250 all20), in-run evolution50/earliest115 path and prerequisites unchanged. Ship health/damage/fire/movement/grip/ram rules, art/rig and+76.8% fighter benchmark retained.
+Separate gold mineral crystals and purple salvage cases (ordinary planets) or cyan fuel canisters (own home); green repair pod retained. Matching pooled HUD icons and short-range server attraction, independent wallet/cargo collection. Tutorial mineral-only and Warzone no mined cargo.
 
 ## Key technical decisions
 
-Protocol32 keeps layout but forces paired client/Worker refresh for catalogue quotes. Bot behaviourVersion1 migrates old observations once, preserves later edits/mineral/calibration data. Evolution quote500 is deployment-owned and normalized in effective config. Historical stored record remains; effective socket/client/lab data verified. No D1 migration, asset/dependency or resident publisher changes.
+Protocol33 requires paired client/Worker release. Movement coalesces at snapshots and interpolates over wrapped seams. Magnet adds64px at420px/s; ownership, nearest eligible target, spill locks and capacity remain authoritative. Partial cargo retains remainder. Pool400 accommodates separate drops; cap remains bounded. One-time pickupVersion migration preserves subsequent tuning. No D1 migration/new dependency/resident publisher. Mineral/evolution prices and generated nominal reward totals unchanged.
 
-Typecheck/build/full sim/progression/grip/capital/tutorial, live-config/OIDC/admin/publisher, SQLite499 insufficient/exact500/duplicate/ownership, rig/FFD/building/22 layouts and new survival regression pass. Equal600s×10 seeds per policy: deaths27.5→4 mining,10.5→1 evasive,18→2.5 with frozen combat pilot.40 safe500-credit account routes reach first cruiser8:23–8:34 median after2 extractions.
-
-Public headless Brave PC/portrait verify both500 quotes, purchases/equipment using mocked accounts; real home55 snapshots/ack100 confirms effective bot epoch/price/all mineral tracks and rejected empty buy. Actual Planet A80 snapshots/ack155 with4 bots,HP50 and arrival0 stays connected. Public lab shows aim14/perception.45/reaction1.3 and whole-mineral5/10/15/20 fields; hidden epochs, no writes/errors. Public stamp191126r0108. Proof bot-survival-proof.json and BOT_SURVIVAL_REVIEW.md. No screenshots/recording/live spending; test browsers finite.
+Typecheck, packed production build, full sim including new pickup gate, config/admin, SQLite bank and rig/building/22 layouts pass. Actual Room+NetClient headless Brave PC1280x720/mobile568x320/390x844 atDPR2 independently collect ore/salvage/home fuel, update HUD, interpolate wrap seam and reject stale resurrection; no page errors.400-image stress retains231/226/226 textures, median16.7ms and p95~17.6–17.8ms on this PC. No captures or live account writes.
 
 ## Open questions
 
-No blocking questions. Owner chose500 rather than a free starter evolution and approved release. Claude backlog updated for deferred sync.
+Candidate is ready for owner review/release. No further upload or identity permission needed.
 
 ## Known issues
 
-Scripted pilots do not measure human beginner/PvP difficulty; human playtesting should confirm adequate challenge. Death lifetime samples exclude survivors, so no population survival median is inferred. Safe account route excludes tutorial/sign-in/human menu/network time and assumes successful unlock/equipment after earnings. Public account transactions are fixtures; real billing/authorization has separate SQLite/Room coverage. Existing large-bundle warning remains.
+Separate physical cargo makes actual earnings depend on what is collected; prior progression timings assumed bundled rewards and should not be reused as new measurements. Headless fixtures cannot predict real mobile GPU performance or concurrent room CPU. Existing bundle-size warning remains.
 
 ## Next proposed step
 
-Human playtest bot attack passes, escape opportunities and first-cruiser access; retain current mineral prices while observing the live results.
+Review resource silhouettes and collection feel, then publish client/Worker/lab together. Deferred Claude handoff in CLAUDE_BACKLOG.md; lab/resource-pickups-proof.json records evidence.

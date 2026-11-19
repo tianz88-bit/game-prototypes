@@ -93,7 +93,7 @@ export default async function prepare({ assetsSrcDir }) {
   await stageExtraShips(assetsSrcDir);
   await stageAsteroids(assetsSrcDir);
   // Preserve original PNGs in the delivery ZIP; only runtime copies are resolution-bounded.
-  for (const pack of ['combat-title-v1','combat-backlog-v1','buildings-v1','warzone-v1']) {
+  for (const pack of ['combat-title-v1','combat-backlog-v1','resource-pickups-v1','buildings-v1','warzone-v1']) {
   const combat = JSON.parse(readFileSync(path.join(here,pack,'assets.json'),'utf8'));
   const combatZip = new AdmZip(await fetchVerified(combat));
   for (const a of combat.assets) {

@@ -539,7 +539,7 @@ export class Room {
     this.send(player,JSON.stringify({type:'config',record:this.config}));
     this.send(player, encodeWelcome(player.id, this.tick));
     this.send(player, encodeAsteroids([...this.world.asteroids.values()]));
-    this.send(player, JSON.stringify({ type: 'pickups', add: [...this.world.pickups.values()].map(({ id, x, y, kind, value }) => ({ id, x, y, kind, value })), remove: [] }));
+    this.send(player, JSON.stringify({ type: 'pickups', add: [...this.world.pickups.values()].map(({ id, x, y, kind, value, mined }) => ({ id, x, y, kind, value, mined })), remove: [] }));
     this.send(player, this.hotZoneFrame());
     this.send(player, this.snapshotFor(player));
     this.send(player, JSON.stringify({ type: 'resume', token: player.resume, seconds: this.tune.net.reconnectGraceSeconds }));
@@ -720,6 +720,7 @@ export class Room {
   }
 
   private buys: { id: number; item: number; tier: number }[] = [];
+  private pickupMoves=new Map<number,{id:number;x:number;y:number;value:number}>();
   private step(): void {
     for (const b of this.buys.splice(0)){const p=this.players.get(b.id);if(p&&(b.item!==EVOLVE_ITEM||evolutionBuild(p.look)===b.tier))this.world.buy(b.id,b.item,b.tier);}
     // Pilots away longer than the grace period lose their ship.
@@ -757,7 +758,12 @@ export class Room {
     if (ev.rams.length) this.broadcast(JSON.stringify({ type: 'rams', rams: ev.rams }));
     if (ev.hotZone) this.broadcast(this.hotZoneFrame());
     if (ev.blasts.length) this.broadcast(JSON.stringify({ type: 'blasts', blasts: ev.blasts }));
-    if (ev.pickups.length || ev.pickupsGone.length) this.broadcast(JSON.stringify({ type: 'pickups', add: ev.pickups, remove: ev.pickupsGone }));
+    for(const p of ev.pickupsMoved)this.pickupMoves.set(p.id,p);
+    for(const p of ev.pickupsGone)this.pickupMoves.delete(p.id);
+    const moveTick=this.tick%Math.max(1,Math.round(this.tune.net.tickHz/this.tune.net.snapshotHz))===0;
+    if(ev.pickups.length||ev.pickupsGone.length||(moveTick&&this.pickupMoves.size)){
+      this.broadcast(JSON.stringify({type:'pickups',add:ev.pickups,remove:ev.pickupsGone,move:[...this.pickupMoves.values()]}));this.pickupMoves.clear();
+    }
     const dead = new Set(ev.deaths.map((d) => d.id));
     if (ev.deaths.length) {
       // Everyone sees the explosion; whoever fired the killing shot scores.

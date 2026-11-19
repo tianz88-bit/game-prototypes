@@ -1,3 +1,4 @@
+import {resourceGlyph} from '../render/resources';
 import { rankPilots, mineralCount } from '../../sim/leaderboard';
 import { drawCombatImpact, drawShieldShatter,drawRamAttack } from '../render/combatEffects';
 import { shipDestructionPose,SHIP_SMALL_BLASTS,SHIP_DESTRUCTION_MS } from '../render/shipDestruction';
@@ -56,7 +57,7 @@ import { missileLock,missileStructureLock } from '../../sim/ordnance';
 import { UI, css, panel, controlFace, controlClearRight } from '../render/ui';
 import { unlockById } from '../../sim/unlocks';
 import type { Look } from '../../sim/unlocks';
-import { drawPickup, drawOrdnance, drawExplosionCore, drawBullet, drawDrone, drawHitSpark } from '../render/worldArt';
+import { drawOrdnance, drawExplosionCore, drawBullet, drawDrone, drawHitSpark } from '../render/worldArt';
 import { PixelRocks } from '../render/rockPixels';
 import { PaintedRocks, paintedRocksReady } from '../render/rockPainted';
 
@@ -418,7 +419,7 @@ export class FlightScene extends Phaser.Scene {
           this.shieldHitCount++;
         }
       }
-      else if (f.kind === 'gold') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 30, ms: 450, colour: 0xffd23a, chips: 10 });
+      else if (f.kind === 'gold') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 30, ms: 450, colour: 0xbd7cf6, chips: 6 });
       else if (f.kind === 'warpout') {
         // A ship launching off the planet: a bright cyan flash and a wide ring.
         this.effects.push({ x:f.x,y:f.y,at:this.time.now,r:150,ms:WARP_LAUNCH_ART_MS,colour:0x7fe9ff,progression:'warp' });
@@ -432,6 +433,7 @@ export class FlightScene extends Phaser.Scene {
         this.ramCount++;
         this.effects.push({ x:f.x,y:f.y,at:this.time.now,r:100,ms:440,colour:0xffa04a,combat:'ram' });
       } else if (f.kind === 'mineral') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 24, ms: 420, colour: 0xffc14a, chips: 8 });
+      else if(f.kind==='fuel')this.effects.push({x:f.x,y:f.y,at:this.time.now,r:24,ms:360,colour:0x4de0ed,chips:5});
       else if (f.kind === 'heal') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: TUNE.asteroid.pickupRadius, ms: 500, colour: 0x7dff9a, heal: true });
       else this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.kind === 'burst' ? TUNE.asteroid.radius[f.size] : 9, ms: f.kind === 'burst' ? 420 : 180, colour: 0xffc78a, chips: f.kind === 'burst' ? 10 : 4, combat:f.kind==='burst'?'asteroid':undefined });
     }
@@ -1549,30 +1551,14 @@ export class FlightScene extends Phaser.Scene {
     this.rocks.end();
     this.crystalChips.draw(this.time.now,(x,y)=>this.toScreen(x,y),light);
     this.combatSprites.begin();
-    // Cosmetic bob and sparkle never alter the server's pickup position or collection radius.
-    for (const item of this.net.pickups.values()) {
-      const at = this.toScreen(item.x, item.y);
-      if (!at.visible) continue;
-      {
-        // Repair pods are drawn near their collection size (owner, 16 November 2026: readable).
-        const radius=(item.kind==='salvage'?8+Math.sqrt(item.value)*1.6:item.kind==='heal'?TUNE.asteroid.pickupRadius*clientTune.render.healDropScale:7+Math.sqrt(item.value)*3)*at.scale;
-        if(this.combatSprites.pickup(at,radius,item.kind,item.id,now))continue;
-      }
-      if (item.kind === 'salvage') {
-        // Gold salvage (placeholder): a spinning gold coin with a glow.
-        const r = (8 + Math.sqrt(item.value) * 1.6) * at.scale;
-        const spin = Math.abs(Math.cos(now / 260 + item.id));
-        g.fillStyle(0xffd23a, 0.25 + 0.15 * Math.sin(now / 180 + item.id));
-        g.fillCircle(at.x, at.y, r * 1.8);
-        g.fillStyle(0xb8860b, 1);
-        g.fillEllipse(at.x, at.y, r * 2 * Math.max(0.2, spin), r * 2);
-        g.fillStyle(0xffe27a, 1);
-        g.fillEllipse(at.x, at.y, r * 1.5 * Math.max(0.15, spin), r * 1.5);
-        continue;
-      }
-      const mineral = item.kind === 'mineral';
-      const r = (mineral ? 7 + Math.sqrt(item.value) * 3 : TUNE.asteroid.pickupRadius * clientTune.render.healDropScale) * at.scale;
-      drawPickup(g, at, r, mineral, item.id, now);
+    // Each actual resource has a distinct painted silhouette; server movement is interpolated once.
+    const pickupNow=performance.now();
+    for(const item of this.net.pickups.values()){
+      const pos=this.net.pickupPosition(item,pickupNow),at=this.toScreen(pos.x,pos.y);if(!at.visible)continue;
+      const height=item.kind==='heal'?Math.max(24,TUNE.asteroid.pickupRadius*clientTune.render.healDropScale*2*at.scale):Math.max(20,Math.min(40,24+Math.sqrt(item.value)*2)*at.scale);
+      const collectible=item.kind!=='fuel'||this.net.clan===this.net.layout?.clan;
+      if(this.combatSprites.pickup(at,height/2,item.kind,item.id,now,collectible))continue;
+      resourceGlyph(g,item.kind,at.x,at.y,height);
     }
     // Ship explosions.
     const dt = Math.min(0.05, this.game.loop.delta / 1000);
