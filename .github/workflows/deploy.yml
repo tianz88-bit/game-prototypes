@@ -106,6 +106,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Install pinned independent Sushi Trains release
+        run: node scripts/install-densha-sushi-release.mjs
+
       # Pin the reviewed gameplay source independently of staging infrastructure.
       - name: Read pinned Punchies staging commit
         id: staging
