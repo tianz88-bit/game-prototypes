@@ -1,27 +1,27 @@
 ## Current milestone
 
-Progression pace study completed19 November2026; live107/31 unchanged.210 seeded headless simulation runs saved in ../steroids-alpha-lab/PROGRESSION_PACE.md and progression-pace-proof.json.
-
-Public permanent lab matches LIVE181126r0107/protocol31 balance. Pages44357659573 succeeded; production PR574.
+Bot survival and500-credit evolution candidate completed19 November2026; **NOT LIVE**. Branch codex/steroids-bot-survival-candidate, pending protocol32. Public remains181126r0107/protocol31. Review BOT_SURVIVAL_REVIEW.md and bot-survival-proof.json.
 
 ## What was implemented
 
-Measurement only: safe max20 upgrades median2:32–2:46; owned cruiser~1:15–1:19. Zero-credit account → first evolution~16:49–17:57 with4 successful extractions; permanent unlock remains1500. Cost−79.8% matches safe elapsed−81.9%, not a linear combat-power reduction. Runtime/tuning unchanged.
+Owner chose500-credit permanent evolution unlocks and unchanged mineral shop/in-run requirements. Candidate widens/slows bot aim observations, commits ordinary attack-pass exits for1.2s, and uses ship/rock-clear spread placement for occupied open-planet player arrivals/retries. Ship health/damage/fire/movement/grip, collision/ram, art/rig and+76.8% fighter benchmark retained. Siege close approach does not peel; shared bot observation tuning also applies there.
 
-Shared actual hull capacity separates lab health bars/repair from money. Evolution sandbox keeps free prepare/evolve; production still requires owned/equipped1500-credit unlocks and in-run prerequisites. Evolution cost/floor50; Shop5/10/15/20 per track. Hidden internal balanceVersion; whole-mineral tier inputs.
+Instrumented real headless simulation:10 seeds per policy, equal full10 minutes even after reaching max. Median deaths mining27.5→4, evasive10.5→1, combat18→2.5. Combat controller held to live AI/settings on both sides with per-life memory reset. New500-credit first cruiser route40 cases completes after2 successful extractions at8:23–8:34 median.
 
 ## Key technical decisions
 
-Canonical hullCapacity/mineralBalance interpret legacy wire hullMax=baseHP+wallet. Historical config parses into epoch2 without losing calibration. No production sockets/account writes in isolated sandboxes. Public lab DOM check confirms5/10/15/20 inputs with step1 and no exposed epoch control; no writes/errors/capture. Evolution gate/type/build/rig pass. Proof progression-balance-proof.json includes3 local/2 public game transactions and real Worker55 snapshots.
+Candidate protocol32 retains layout but needs paired client/Worker refresh to align catalogue quotes. Bot behaviourVersion1 upgrades old aim/reaction/perception once, preserving later owner edits and mineral/calibration settings. Evolution quote500 is deployment-owned and normalized in effective config. No D1 schema/assets/dependencies/resident publisher. No main merge or deployment.
+
+Full npm typecheck/build/sim/progression/grip/capital/tutorial, live-config/OIDC/admin/publisher, real SQLite bank499 insufficient/exact500/duplicate/ownership, rig/FFD/building/22 layouts and new survival gate pass. Two local headless Brave PC/portrait cases pass500 quotes/purchases/explicit equipment with mocked accounts. No capture/live spending. Temporary preview/headless stopped.
 
 ## Open questions
 
-No blocking questions. Owner benchmark target recorded in production BRIEF.md.
+500-credit choice is recorded in BRIEF.md. Exact bot candidate is held for owner review before release; no further clarification needed to test it. Claude handoff deferred.
 
 ## Known issues
 
-Evolution sandbox is a design preview and does not unlock/equip live accounts. Power benchmark excludes capital roles, ordnance tactics, accuracy and regeneration. No screenshots/recording.
+Scripted pilots do not measure human beginner/PvP difficulty. Raw lifetime samples exclude survivors, so no population survival median is inferred. The substantial reduction should be human-playtested for adequate challenge. Safe account route excludes tutorial/sign-in/human menu time/network delay and assumes successful ownership/equipment after earning credits. Existing large-bundle warning remains.
 
 ## Next proposed step
 
-Review the measured safe pace, permanent-unlock grind and interrupted progression with the owner. Human playtest survival and combat; discuss an earlier first-cruiser unlock if desired. No further tuning approved by this measurement request.
+Review the candidate; on owner go-live approval, merge and deploy paired client/Worker/lab, verify public price/connection/config and record live proof.

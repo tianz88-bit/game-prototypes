@@ -363,13 +363,15 @@ console.log('Steroids-Alpha bank: codes, hashed accounts, idempotent capped cred
 {
  const tune=JSON.parse(readFileSync(path.join(root,'prototypes/steroids-alpha/tune.json'),'utf8')),db=d1(),acct=await B.createAccount(db);
  const quote=id=>owned=>{const u=B.unlockById(id);return B.effectiveOwned(owned).has(id)?'owned':u?{price:B.unlockPrice(u,tune)}:null;};
- assert.equal(B.unlockPrice(B.unlockById('evolution.battlecruiser'),tune),1500);assert.equal(B.unlockPrice(B.unlockById('evolution.missile-cruiser'),tune),1500);
+ assert.equal(B.unlockPrice(B.unlockById('evolution.battlecruiser'),tune),500);assert.equal(B.unlockPrice(B.unlockById('evolution.missile-cruiser'),tune),500);
  assert(!B.effectiveOwned([]).has('evolution.battlecruiser'));assert.deepEqual(B.cleanLook({evolution:'evolution.missile-cruiser'},[]),{});
  assert.equal((await B.buyUnlock(db,acct.secret,'evolution.battlecruiser',quote('evolution.battlecruiser'))).error,'not enough credits');
- await B.creditExtraction(db,acct.secret,6000,'evo-credit');
- const first=await B.buyUnlock(db,acct.secret,'evolution.battlecruiser',quote('evolution.battlecruiser'));assert(first.ok);assert.equal(first.balance,4500);
+ await B.creditExtraction(db,acct.secret,499,'evo-credit-short');
+ assert.equal((await B.buyUnlock(db,acct.secret,'evolution.battlecruiser',quote('evolution.battlecruiser'))).error,'not enough credits');
+ await B.creditExtraction(db,acct.secret,501,'evo-credit');
+ const first=await B.buyUnlock(db,acct.secret,'evolution.battlecruiser',quote('evolution.battlecruiser'));assert(first.ok);assert.equal(first.balance,500);
  const duplicate=await B.buyUnlock(db,acct.secret,'evolution.battlecruiser',quote('evolution.battlecruiser'));assert.equal(duplicate.error,'owned');
- const second=await B.buyUnlock(db,acct.secret,'evolution.missile-cruiser',quote('evolution.missile-cruiser'));assert(second.ok);assert.equal(second.balance,3000);
+ const second=await B.buyUnlock(db,acct.secret,'evolution.missile-cruiser',quote('evolution.missile-cruiser'));assert(second.ok);assert.equal(second.balance,0);
  assert.deepEqual(B.cleanLook({evolution:'evolution.missile-cruiser'},second.unlocks),{evolution:'evolution.missile-cruiser'});
  class Sock extends EventTarget{sent=[];closed=0;send(v){this.sent.push(v);}close(c){this.closed=c;}}
  const flush=()=>new Promise(r=>setImmediate(r));
@@ -379,5 +381,5 @@ console.log('Steroids-Alpha bank: codes, hashed accounts, idempotent capped cred
  const f=await player(second.unlocks,{evolution:'evolution.missile-cruiser'});await buyEvo(f,0);assert.equal(f.p.ship.chassis,3,'cannot buy another owned evolution mid-mission');await buyEvo(f,1);assert.equal(f.p.ship.chassis,4);assert.equal(f.p.ship.hullMax,500-tune.missileCruiser.cost);await buyEvo(f,1);assert.equal(f.p.ship.hullMax,500-tune.missileCruiser.cost,'duplicate evolve cannot charge twice');
  const replacement=new Sock();assert(f.room.join(replacement,'Resumed',f.p.resume));f.room.stop();assert.equal(f.p.look.evolution,'evolution.missile-cruiser','resume retains mission equipment');
  f.room.onMessage(f.p,JSON.stringify({type:'auth',secret:acct.secret,look:{evolution:'evolution.battlecruiser'}}));assert.equal(f.p.look.evolution,'evolution.missile-cruiser');assert.equal(replacement.closed,B.CLOSE.BAD_PROTOCOL,'second auth cannot switch loadout');f.room.stop();
- console.log('PASS evolution unlocks:1500 credits each, permanent/insufficient/idempotent purchases, owned clean look, equipped-only authority, late/forged/alternate loadouts rejected, resume fixed and duplicate evolution harmless.');
+ console.log('PASS evolution unlocks:500 credits each, permanent/insufficient/idempotent purchases, owned clean look, equipped-only authority, late/forged/alternate loadouts rejected, resume fixed and duplicate evolution harmless.');
 }
