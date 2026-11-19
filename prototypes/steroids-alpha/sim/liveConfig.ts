@@ -59,7 +59,7 @@ export function upgradeConfig(input: unknown): unknown {
   if (value.tune && [undefined, 2, 3, 4].includes(oldBalance)) {
     const d = defaultConfig().tune, v = value.tune;
     const take = (group: string, keys: string[]) => { if (v[group]) for (const k of keys) v[group][k] = structuredClone((d as any)[group][k]); };
-    take('shop', ['turretCosts','turretFloors','shieldCosts','shieldFloors','damageCosts','damageFloors','missileCosts','missileFloors','mineCosts','mineFloors','yieldPerUpgrade','holdBase','holdPerUpgrade','balanceVersion']);
+    take('shop', ['turretCosts','turretFloors','shieldCosts','shieldFloors','damageCosts','damageFloors','missileCosts','missileFloors','mineCosts','mineFloors','holdBase','holdPerUpgrade','levelUp','levelXpBase','levelXpGrowth','levelEvolutionWeight','balanceVersion']);
     take('asteroid', ['miningMineralFactor']);
     take('ship', ['powerCap','hullSpillFraction','deathSpillFraction']);
     take('salvage', ['killPowerShare','botDropFactor','bankRate','homeBankRate']);

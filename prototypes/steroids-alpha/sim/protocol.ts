@@ -383,6 +383,9 @@ export function decodeServer(buf: ArrayBuffer): ServerMessage | null {
         fuel: v.getFloat32(o + 95, true),
         arrival: v.getFloat32(o + 99, true),
         travelHeading: v.getFloat32(o + 103, true),
+        // Run levels are not on the wire yet (headless review, 19 November 2026).
+        xp: 0,
+        picks: 0,
       });
       o += SHIP_BYTES;
     }
