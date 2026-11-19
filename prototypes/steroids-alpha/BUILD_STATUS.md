@@ -4,6 +4,8 @@ Resource pickup candidate tested on codex/steroids-resource-pickups; not release
 
 ## What was implemented
 
+Economy and shield candidate reduces rock minerals 30%, prices upgrades at 4/8/13/17 and evolutions at 40 in-run. Fighter hull is 50 and shield is 75 for Sparrow/Falcon or 52.5 for Bat. Headless quiet mining medians: first purchase 7.5s, full shop 155s, owned cruisers ~79s.
+
 Missile candidate fixes desktop fighter HUD launches and lost late ordnance presses. Missile Cruiser starts its turn sooner and reloads each missile in 12 seconds at bundled defaults. Desktop and touch headless input, full sim, config and evolution lab checks pass.
 
 Tutorial candidate adds speed gates, shot-only practice mining, marked ore and upgrade prerequisites, and a launch marker with a same-dash two-gate ram requirement. Extraction remains the final objective.

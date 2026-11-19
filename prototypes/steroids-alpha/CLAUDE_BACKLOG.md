@@ -2,6 +2,12 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Economy and starting shields candidate
+
+Owner requests less mineral income, proportional prices, and more shield than hull. Mining mineral yield factor .70 is independent of salvage and fuel. Tier prices 4/8/13/17 total 210 across twenty upgrades. Either equipped evolution costs 40 in-run, with a 94-mineral minimum route and the existing 500-credit permanent unlock. Combat spills still transfer minerals from the wallet. Progression epoch 3 migrates earlier price tables.
+
+Fighters have 50 hull, with 75 shield for Sparrow/Falcon and 52.5 for Bat. Current regen cap applies. Ten matched seeds per route found median first upgrade 6.25→7.5s, max 139→155s and evolutions ~70→79s in quiet scripted mining. Perfect hit max Falcon vs fresh Sparrow: 9→11 bullets, 1.07→1.33s from first hit. These fixtures measure controlled scenarios.
+
 ## Missile control and artillery handling candidate
 
 Fighter missile HUD now accepts desktop clicks. Late and queue-overflow input preserves a single missile and mine press. Cruiser rear delay .45→.18s, turn 1.9→4.2rad/s and reload 6→12s per missile. Unlocked rear launch curves forward. Locked fixed-target fixture 491→137px rear excursion and 1.27→.57s before moving forward. Base fighter stats and progression are pending balance discussion.

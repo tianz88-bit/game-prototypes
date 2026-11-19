@@ -2,7 +2,7 @@
 // ship and the server runs it as the authority, so both must call it the same way.
 import type { Tune } from './tune';
 import { angleDelta, wrap, wrapDelta } from './wrap';
-import { GUNS, SCRAPPY, SPARROW, MISSILE_CRUISER, chassisStats, shipMotion } from './chassis';
+import { GUNS, SCRAPPY, SPARROW, MISSILE_CRUISER, chassisStats, isCapital, shipMotion } from './chassis';
 
 export interface ShipState {
   /** Server-authoritative arrival time remaining. Absent only in older local visual fixtures. */
@@ -155,7 +155,9 @@ export function mineralBalance(s:Pick<ShipState,'hullMax'>,tune:Tune):number{ret
 export function hullCapacity(_s:Pick<ShipState,'chassis'>,tune:Tune):number{return tune.ship.maxHp;}
 
 export function maxShield(s: ShipState, tune: Tune): number {
-  return (tune.ship.maxShield + s.shieldTier * tune.shop.shieldPerTier) * chassisStats(s.chassis ?? SCRAPPY, tune).shield;
+  const chassis = s.chassis ?? SCRAPPY;
+  const fighterBonus = isCapital(chassis) ? 0 : tune.ship.fighterShieldBonus;
+  return (tune.ship.maxShield + fighterBonus + s.shieldTier * tune.shop.shieldPerTier) * chassisStats(chassis, tune).shield;
 }
 
 /** Capacity-scaled recovery with an absolute ceiling, after the existing quiet delay. */

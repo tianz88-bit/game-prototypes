@@ -53,7 +53,8 @@
     "dashRamHullFraction": 0.15,
     "bumpDamage": 20,
     "bumpKnockbackSpeed": 380,
-    "shieldRegenCapPerSecond": 25
+    "shieldRegenCapPerSecond": 25,
+    "fighterShieldBonus": 25
   },
   "weapon": {
     "fireIntervalSteps": 4,
@@ -82,69 +83,69 @@
   },
   "shop": {
     "turretFloors": [
-      5,
-      10,
-      15,
-      20
+      4,
+      8,
+      13,
+      17
     ],
     "turretCosts": [
-      5,
-      10,
-      15,
-      20
+      4,
+      8,
+      13,
+      17
     ],
     "shieldFloors": [
-      5,
-      10,
-      15,
-      20
+      4,
+      8,
+      13,
+      17
     ],
     "shieldCosts": [
-      5,
-      10,
-      15,
-      20
+      4,
+      8,
+      13,
+      17
     ],
     "shieldPerTier": 3.75,
     "damageFloors": [
-      5,
-      10,
-      15,
-      20
+      4,
+      8,
+      13,
+      17
     ],
     "damageCosts": [
-      5,
-      10,
-      15,
-      20
+      4,
+      8,
+      13,
+      17
     ],
     "damagePerTier": 0.03,
     "gunHeatPerTier": 0.025,
     "missileFloors": [
-      5,
-      10,
-      15,
-      20
+      4,
+      8,
+      13,
+      17
     ],
     "missileCosts": [
-      5,
-      10,
-      15,
-      20
+      4,
+      8,
+      13,
+      17
     ],
     "mineFloors": [
-      5,
-      10,
-      15,
-      20
+      4,
+      8,
+      13,
+      17
     ],
     "mineCosts": [
-      5,
-      10,
-      15,
-      20
+      4,
+      8,
+      13,
+      17
     ],
-    "balanceVersion": 2
+    "balanceVersion": 3
   },
   "missile": {
     "damage": 35,
@@ -283,8 +284,8 @@
     "fireIntervalSteps": 5,
     "baseTurrets": 2,
     "minUpgrades": 6,
-    "powerFloor": 50,
-    "cost": 50,
+    "powerFloor": 40,
+    "cost": 40,
     "minTurrets": 2,
     "minGuns": 4
   },
@@ -343,7 +344,8 @@
     "richRespawnSeconds": 20,
     "pickupVersion": 1,
     "pickupMagnetReach": 64,
-    "pickupMagnetSpeed": 420
+    "pickupMagnetSpeed": 420,
+    "miningMineralFactor": 0.7
   },
   "sparrow": {
     "fireIntervalSteps": 5,
@@ -374,8 +376,8 @@
     "fireIntervalSteps": 5,
     "baseTurrets": 0,
     "minUpgrades": 6,
-    "powerFloor": 50,
-    "cost": 50,
+    "powerFloor": 40,
+    "cost": 40,
     "minTurrets": 0,
     "minGuns": 0,
     "minMissiles": 4,

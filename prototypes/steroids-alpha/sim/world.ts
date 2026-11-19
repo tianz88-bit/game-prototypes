@@ -360,7 +360,7 @@ export class World {
     const ship = newShip(best.x, best.y, this.rng() * Math.PI * 2 - Math.PI, t.ship.cruiseSpeed);
     ship.hp = t.ship.maxHp;
     ship.hullMax = t.ship.maxHp;
-    ship.shield = t.ship.maxShield;
+    ship.shield = maxShield(ship, t);
     ship.arrival = t.warp.arrivalSeconds;
     if (ship.arrival > 0) ship.speed = t.ship.maxSpeed;
     this.ships.set(id, ship);
@@ -1164,11 +1164,14 @@ export class World {
   }
 
   /** Drop value points of minerals around (x, y), in a few chunks scattered within reach. */
-  private spillMinerals(x: number, y: number, value: number, reach: number, from = 0, salvagePer = 0): void {
+  private spillMinerals(x: number, y: number, value: number, reach: number, from = 0, salvagePer = 0, mineralFactor = 1): void {
     if(this.tutorial&&!this.tutorialMinerals)return;
     const t = this.tune;
     if (value < 1) return;
-    const chunks = Math.min(t.asteroid.mineralChunksMax, Math.ceil(value / t.asteroid.mineralChunkValue));
+    const mineralUnits = Math.floor(value * mineralFactor * 10 + 1e-8);
+    const cargo = salvagePer > 0 && !this.siege && !this.tutorial;
+    const chunks = Math.min(t.asteroid.mineralChunksMax, Math.ceil((cargo ? value : mineralUnits / 10) / t.asteroid.mineralChunkValue));
+    if (chunks === 0) return;
     // Split one quantized budget instead of rounding every chunk upward independently.
     const units=Math.floor(value*10+1e-8),baseUnits=Math.floor(units/chunks),remainder=units%chunks;
     for (let i = 0; i < chunks; i++) {
@@ -1176,8 +1179,9 @@ export class World {
       const a = this.rng() * Math.PI * 2;
       const d = (chunks === 1 ? 0 : 0.4 + this.rng() * 0.6) * reach;
       const px=wrap(x+Math.cos(a)*d,t.world.width),py=wrap(y+Math.sin(a)*d,t.world.height);
-      this.addPickup(px,py,'mineral',each,from);
-      if(salvagePer>0&&!this.siege&&!this.tutorial){
+      const mineral = (Math.floor(mineralUnits / chunks) + (i < mineralUnits % chunks ? 1 : 0)) / 10;
+      if (mineral > 0) this.addPickup(px, py, 'mineral', mineral, from);
+      if (cargo) {
         const kind=this.layout?'fuel':'salvage';
         this.addPickup(wrap(px-Math.sin(a)*32,t.world.width),wrap(py+Math.cos(a)*32,t.world.height),kind,each*salvagePer,0,true);
       }
@@ -1228,9 +1232,9 @@ export class World {
       return;
     }
     // Every destroyed asteroid leaves minerals; sometimes a health boost as well.
-    // Mined minerals carry salvage too: salvage.perMineral each, more inside the hot zone.
+    // The unscaled rock yield sets the separate cargo reward, boosted inside the hot zone.
     const per = this.tune.salvage.perMineral * (this.inHotZone(at.x, at.y) ? this.tune.hotZone.salvageMultiplier : 1);
-    this.spillMinerals(at.x, at.y, this.tune.asteroid.mineralYield[a.size] * (a.rich ? this.tune.asteroid.richMineralFactor : 1), this.tune.asteroid.radius[a.size] * 0.5, 0, per);
+    this.spillMinerals(at.x, at.y, this.tune.asteroid.mineralYield[a.size] * (a.rich ? this.tune.asteroid.richMineralFactor : 1), this.tune.asteroid.radius[a.size] * 0.5, 0, per, this.tune.asteroid.miningMineralFactor);
     if ((!this.tutorial||this.tutorialMinerals)&&this.rng() < this.tune.asteroid.healthDropChance) this.addPickup(at.x, at.y, 'heal', 0);
     for (const child of splitAsteroid(a, at, dirX, dirY, damage, this.tick, () => this.newAsteroidId(), this.rng, this.tune)) {
       this.asteroids.set(child.id, child);
