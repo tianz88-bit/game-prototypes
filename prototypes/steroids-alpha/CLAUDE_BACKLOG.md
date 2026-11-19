@@ -2,6 +2,12 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Approved combined release
+
+Owner approved Bat primary damage parity and the combined pickup, tutorial, missile and economy candidate. Bat uses Falcon's shot damage and cadence. Bat's 52.5 shield, turning, acceleration and speeds retain their previous tune. Legacy hosted balance records adopt damage parity during upgrade to the current epoch. Test both stock and max gun tiers for equal sustained primary output.
+
+Deployment and public verification details will be added once the three release workflows finish.
+
 ## Simplified mineral denomination
 
 Owner requests memorable numbers. Every track costs 1, 2, 3, 4, with 50 minerals for the full shop. Either owned/equipped cruiser costs 10 during the run, including 13 in prerequisite upgrade spend for a 23-mineral route. Mining scales to .18 of original ore. The HUD shows tenths and dropped hull minerals are proportional to the new prices. The epoch 4 migration also covers older epoch 2 and 3 records. Bat's shields are 70% of Falcon's, with 70% faster turn, 20% stronger acceleration, 10% lower top speed and 15% lower shot damage. No Bat stat changes in this pass.

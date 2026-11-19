@@ -41,6 +41,10 @@ function sameShape(value: unknown, base: unknown, path = 'config'): void {
 export function upgradeConfig(input: unknown): unknown {
   if (!input || typeof input !== 'object') return input;
   const value = structuredClone(input) as Record<string, any>;
+  const oldBalance = value.tune?.shop?.balanceVersion;
+  if ([undefined, 2, 3].includes(oldBalance) && value.tune?.interceptor) {
+    value.tune.interceptor.damageFactor = defaultConfig().tune.interceptor.damageFactor;
+  }
   // Owner-approved progression epoch: upgrade legacy published balance once; preserve later edits.
   if(value.tune&&(value.tune.shop===undefined||value.tune.shop&&typeof value.tune.shop==='object'&&value.tune.shop.balanceVersion===undefined)){
     value.tune.shop??={};

@@ -9,6 +9,10 @@ function measure(chassis,tier){const s=fighter(chassis,tier);let shots=0;for(let
 const fresh=measure(3,0),max=[0,1,3].map(c=>measure(c,4)),indices=max.map(a=>a.ehp/fresh.ehp*a.dps/fresh.dps),ceiling=Math.max(...indices);
 assert(ceiling>=1.7&&ceiling<=1.8,'owner target about +75% on primary+automatic sustained DPS × durability');
 assert.deepEqual([0,1,3].map(c=>fighter(c).shield),[75,52.5,75]);
+for (const tier of [0,4]) {
+ assert.equal(measure(1,tier).primaryDps60,measure(0,tier).primaryDps60,'Bat and Falcon share primary DPS');
+}
+assert.equal(S.shipMotion(1,t).turnRate,S.shipMotion(0,t).turnRate*1.7);
 assert.equal(S.maxShield({chassis:2,shieldTier:0},t),125);
 assert.equal(S.maxShield({chassis:4,shieldTier:0},t),125);
 const total=S.SHOP_ITEMS.reduce((n,k)=>n+t.shop[k+'Costs'].reduce((a,b)=>a+b,0),0);assert.equal(total,50);
@@ -28,6 +32,7 @@ assert.deepEqual(w.drain().pickups.filter(p=>p.kind==='mineral').map(p=>p.value)
 const old=S.defaultConfig();delete old.tune.shop.balanceVersion;old.tune.shop.damagePerTier=.25;old.tune.shop.shieldPerTier=60;old.tune.turret.damage=2;old.tune.battlecruiser.powerFloor=300;old.clientTune.render.hoverLightY=98;const migrated=S.validateConfig(old);assert.deepEqual(migrated.tune.shop,t.shop);assert.equal(migrated.tune.turret.damage,.8);assert.equal(migrated.tune.battlecruiser.powerFloor,10);assert.equal(migrated.clientTune.render.hoverLightY,98,'art calibration survives balance migration');migrated.tune.shop.turretCosts[0]=2;migrated.tune.shop.turretFloors[0]=2;assert.equal(S.validateConfig(migrated).tune.shop.turretCosts[0],2,'later owner price edits survive');
 const previous = S.defaultConfig();
 previous.tune.shop.balanceVersion = 2;
+previous.tune.interceptor.damageFactor = .85;
 previous.tune.shop.damageCosts = [5,10,15,20];
 previous.tune.battlecruiser.cost = previous.tune.battlecruiser.powerFloor = 50;
 delete previous.tune.ship.fighterShieldBonus;
@@ -37,6 +42,9 @@ assert.deepEqual(revised.tune.shop.damageCosts,[1,2,3,4]);
 assert.equal(revised.tune.ship.fighterShieldBonus,25);
 assert.equal(revised.tune.asteroid.miningMineralFactor,.18);
 assert.equal(revised.tune.battlecruiser.cost,10);
+assert.equal(revised.tune.interceptor.damageFactor,1);
+revised.tune.interceptor.damageFactor = 1.1;
+assert.equal(S.validateConfig(revised).tune.interceptor.damageFactor,1.1);
 console.log('PASS progression balance',JSON.stringify({fresh,max,indices,ceiling,shopTotal:total,evolutionPath:23,scope:'primary+automatic throughput × hull+shield; excludes aiming, regen, missiles/mines and cruiser roles'}));
 
 

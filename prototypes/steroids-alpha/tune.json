@@ -267,7 +267,7 @@
     "braking": 600,
     "turnRate": 5.44,
     "shieldFactor": 0.7,
-    "damageFactor": 0.85,
+    "damageFactor": 1,
     "fireIntervalSteps": 4,
     "baseTurrets": 0
   },
