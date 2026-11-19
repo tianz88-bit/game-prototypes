@@ -48,6 +48,8 @@ interface Player {
   deficit: number;
   /** A dash from a dropped late input, applied on the next step. */
   owedDash: boolean;
+  owedMissile: boolean;
+  owedMine: boolean;
   /** A warp press from a dropped (late) input, applied on the next step. */
   owedWarp: boolean;
   /** Keeps incoming messages in arrival order when any must be read asynchronously. */
@@ -126,7 +128,7 @@ export class Room {
     ships.forEach((s,i)=>{s.hullMax=this.tune.ship.maxHp+Math.min(wallets[i],Math.max(0,this.tune.ship.powerCap-this.tune.ship.maxHp));s.hp=Math.min(hullCapacity(s,this.tune),s.hp);s.shield=Math.min(maxShield(s,this.tune),s.shield);});
     for(const p of this.players.values()){
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
-      if(p.queue.length)p.last=p.queue[p.queue.length-1];p.queue=[];p.deficit=0;p.deficitTicks=0;p.owedDash=false;p.owedWarp=false;p.started=false;
+      if(p.queue.length)p.last=p.queue[p.queue.length-1];p.queue=[];p.deficit=0;p.deficitTicks=0;p.owedDash=false;p.owedMissile=false;p.owedMine=false;p.owedWarp=false;p.started=false;
       this.send(p,JSON.stringify({type:'config',record}));this.send(p,this.snapshotFor(p));
     }
   }
@@ -380,6 +382,8 @@ export class Room {
     if(!rules.shop)this.buys=[];
     if(!rules.fire){
       for(const p of this.players.values()){
+        p.owedMissile = false;
+        p.owedMine = false;
         p.last={...p.last,fire:false,missile:false,mine:false};
         p.queue=p.queue.map(i=>({...i,fire:false,missile:false,mine:false}));
       }
@@ -509,7 +513,7 @@ export class Room {
     const base = this.world.layout;
     const spawn = !base ? this.world.addShip(id) : clan === base.clan ? this.world.addShipNear(id, base.treasury.x, base.treasury.y, this.tune.base.padRing) : this.world.addShipNear(id, base.gate.x, base.gate.y, 120);
     this.world.clanOf.set(id, clan);
-    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null, look: {},loadoutOpen:true, joinedAt: this.tick, resume: crypto.randomUUID(), awayUntil: -1, clan, down: -1 };
+    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedMissile: false, owedMine: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null, look: {},loadoutOpen:true, joinedAt: this.tick, resume: crypto.randomUUID(), awayUntil: -1, clan, down: -1 };
     this.players.set(id, player);
     this.lingerUntil = -1;
     this.attach(player, ws);
@@ -561,6 +565,8 @@ export class Room {
     player.last = { ...IDLE_INPUT, seq: player.last.seq };
     player.deficit = 0;
     player.owedDash = false;
+    player.owedMissile = false;
+    player.owedMine = false;
     player.owedWarp = false;
   }
 
@@ -676,7 +682,11 @@ export class Room {
     if(this.tutorial&&!this.tutorialFire)input={...input,fire:false,missile:false,mine:false};
     if(this.tutorial&&!this.tutorialWarp)input={...input,warp:false};
     player.queue.push(input);
-    while(player.queue.length > TUNE.net.maxQueuedInputs) player.queue.shift();
+    while (player.queue.length > TUNE.net.maxQueuedInputs) {
+      const dropped = player.queue.shift()!;
+      player.owedMissile ||= dropped.missile;
+      player.owedMine ||= dropped.mine;
+    }
     if (this.lockstep) this.step();
   }
 
@@ -905,6 +915,8 @@ export class Room {
     while (p.deficit > 0 && p.queue.length) {
       const late = p.queue.shift() as ShipInput;
       p.owedDash ||= late.dash;
+      p.owedMissile ||= late.missile;
+      p.owedMine ||= late.mine;
       p.owedWarp = p.owedWarp !== late.warp; // two dropped presses cancel out
       p.last = late;
       p.deficit--;
@@ -929,7 +941,11 @@ export class Room {
       const warp = (input ? input.warp : false) !== p.owedWarp;
       p.owedDash = false;
       p.owedWarp = false;
-      this.world.stepShip(p.id, input ? { ...input, dash, warp } : { ...p.last, dash, warp, missile: false, mine: false });
+      const missile = (input?.missile ?? false) || p.owedMissile;
+      const mine = (input?.mine ?? false) || p.owedMine;
+      p.owedMissile = false;
+      p.owedMine = false;
+      this.world.stepShip(p.id, { ...p.last, dash, warp, missile, mine });
     }
   }
 

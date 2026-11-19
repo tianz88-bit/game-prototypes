@@ -119,7 +119,7 @@ export class Intents {
   /** Over an on-screen button or panel (hovering to click one must not turn the ship). */
   private overButton(x: number, y: number): boolean {
     const hit = (z: Zone | null): boolean => !!z && Math.abs(x - z.x) <= z.hw && Math.abs(y - z.y) <= z.hh;
-    return this.shopZones.some((z) => hit(z.zone)) || this.uiZones.some(hit) || hit(this.warpButton);
+    return this.shopZones.some((z) => hit(z.zone)) || this.uiZones.some(hit) || hit(this.warpButton) || hit(this.missileButton) || hit(this.mineButton);
   }
 
   setScheme(s: SteerScheme): void {

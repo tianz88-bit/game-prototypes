@@ -2,6 +2,10 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Missile control and artillery handling candidate
+
+Fighter missile HUD now accepts desktop clicks. Late and queue-overflow input preserves a single missile and mine press. Cruiser rear delay .45→.18s, turn 1.9→4.2rad/s and reload 6→12s per missile. Unlocked rear launch curves forward. Locked fixed-target fixture 491→137px rear excursion and 1.27→.57s before moving forward. Base fighter stats and progression are pending balance discussion.
+
 ## Tutorial lesson gates
 
 Tutorial progress observes local simulation ticks. Brake and accelerate through separate gates. The marked rock yields its ore at the impact site only when shot, and the shop opens only after that pickup is collected. The ram lesson has a launch marker and requires both gates and an actual ram in a single dash. A missed attempt lays out a new course. Warp still completes through the existing extraction path. Contextual prompts outside the tutorial remain separate.

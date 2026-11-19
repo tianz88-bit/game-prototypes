@@ -56,6 +56,16 @@ export function upgradeConfig(input: unknown): unknown {
   if(value.tune?.bots&&value.tune.bots.behaviourVersion===undefined){const b=defaultConfig().tune.bots;Object.assign(value.tune.bots,{behaviourVersion:b.behaviourVersion,aimErrorDeg:b.aimErrorDeg,perceptionSeconds:b.perceptionSeconds,reactionSeconds:b.reactionSeconds});}
   // Physical cargo doubles the default pool once; keep later owner settings and reward amounts.
   if(value.tune?.asteroid&&value.tune.asteroid.pickupVersion===undefined){const a=value.tune.asteroid,b=defaultConfig().tune.asteroid;Object.assign(a,{pickupVersion:1,pickupMagnetReach:b.pickupMagnetReach,pickupMagnetSpeed:b.pickupMagnetSpeed,pickupsMax:typeof a.pickupsMax==='number'?a.pickupsMax*2:b.pickupsMax});}
+  // Apply the artillery handling update once to existing live records.
+  const artillery = value.tune?.missileCruiser;
+  if (artillery && typeof artillery === 'object' && artillery.missileRefillFactor === undefined) {
+    const defaults = defaultConfig().tune.missileCruiser;
+    Object.assign(artillery, {
+      reverseSeconds: defaults.reverseSeconds,
+      turnRateMissile: defaults.turnRateMissile,
+      missileRefillFactor: defaults.missileRefillFactor,
+    });
+  }
   const ship = value.tune?.ship;
   if (ship && typeof ship === 'object' && ship.maxShield === undefined && typeof ship.maxHp === 'number') {
     ship.maxShield = ship.maxHp / 2;
@@ -97,7 +107,7 @@ export function validateConfig(input: unknown): ConfigData {
   for (const group of ['grip','ship','weapon','turret','shop','missile','mine','bots','warp','salvage','hotZone','sparrow','interceptor','battlecruiser','missileCruiser','ciws','heavyTower','asteroid','base','siege'] as const) for (const [key, n] of Object.entries(value.tune[group])) for (const v of Array.isArray(n) ? n : [n]) {
     if (v < 0 || v > 10000) fail(`${group}.${key}: value must be 0–10000`);
   }
-  {const m=value.tune.missileCruiser,c=value.tune.ciws,h=value.tune.heavyTower;if(m.capacity!==8||[m.minMissiles,m.minMines].some(v=>!Number.isInteger(v)||v<0||v>4)||m.damageFactor<1||m.damageFactor>3||m.rangeFactor<1||m.rangeFactor>3||m.radiusFactor<1||m.radiusFactor>3||m.repeatSeconds<.1||m.repeatSeconds>2||m.reverseSeconds<.1||m.reverseSeconds>2||m.turnRateMissile<=0||m.turnRateMissile>10||m.lifeSeconds<1||m.lifeSeconds>20||m.cost<0||m.powerFloor<m.cost||m.launchSpeed<=0)fail('Missile Cruiser settings out of range');for(const b of [c,h])if(!Number.isInteger(b.shots)||b.shots<1||b.shots>12||b.intervalSeconds<.03||b.intervalSeconds>1||b.pauseSeconds<.1||b.pauseSeconds>5||b.range<1||b.range>3000||b.speed<1||b.speed>3000||b.damage<=0||b.damage>500||b.turnRate<=0||b.turnRate>30)fail('Burst cannon settings out of range');if(h.telegraphSeconds<.1||h.telegraphSeconds>2)fail('Tower warning out of range');}
+  {const m=value.tune.missileCruiser,c=value.tune.ciws,h=value.tune.heavyTower;if(m.capacity!==8||m.missileRefillFactor<1||m.missileRefillFactor>5||[m.minMissiles,m.minMines].some(v=>!Number.isInteger(v)||v<0||v>4)||m.damageFactor<1||m.damageFactor>3||m.rangeFactor<1||m.rangeFactor>3||m.radiusFactor<1||m.radiusFactor>3||m.repeatSeconds<.1||m.repeatSeconds>2||m.reverseSeconds<.1||m.reverseSeconds>2||m.turnRateMissile<=0||m.turnRateMissile>10||m.lifeSeconds<1||m.lifeSeconds>20||m.cost<0||m.powerFloor<m.cost||m.launchSpeed<=0)fail('Missile Cruiser settings out of range');for(const b of [c,h])if(!Number.isInteger(b.shots)||b.shots<1||b.shots>12||b.intervalSeconds<.03||b.intervalSeconds>1||b.pauseSeconds<.1||b.pauseSeconds>5||b.range<1||b.range>3000||b.speed<1||b.speed>3000||b.damage<=0||b.damage>500||b.turnRate<=0||b.turnRate>30)fail('Burst cannon settings out of range');if(h.telegraphSeconds<.1||h.telegraphSeconds>2)fail('Tower warning out of range');}
   if(value.tune.asteroid.pickupVersion!==1||value.tune.asteroid.pickupMagnetReach>160||value.tune.asteroid.pickupMagnetSpeed>800)fail('Pickup policy/range/speed requires bounded settings');
   if(value.tune.bots.behaviourVersion!==1)fail('Bot policy requires a code deployment');
   if(value.tune.shop.balanceVersion!==2)fail('Progression epoch requires a code deployment');

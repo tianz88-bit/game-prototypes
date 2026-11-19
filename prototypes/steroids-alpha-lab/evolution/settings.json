@@ -16,8 +16,9 @@
     "damageFactor": 1.5,
     "radiusFactor": 1.5,
     "launchSpeed": 220,
-    "reverseSeconds": 0.45,
-    "turnRateMissile": 1.9,
+    "reverseSeconds": 0.18,
+    "turnRateMissile": 4.2,
+    "missileRefillFactor": 2,
     "lifeSeconds": 7,
     "repeatSeconds": 0.3,
     "baseTurrets": 0

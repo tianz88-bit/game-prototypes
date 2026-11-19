@@ -70,6 +70,7 @@ export interface Ordnance {
   x: number;
   y: number;
   heading: number;
+  returnHeading?: number;
   speed: number;
   hp: number;
   /** Steps left before it fizzles out. */
@@ -837,6 +838,7 @@ export class World {
       x: wrap(s.x + Math.cos(h) * r, this.tune.world.width),
       y: wrap(s.y + Math.sin(h) * r, this.tune.world.height),
       heading: h,
+      returnHeading: heavy ? s.heading : undefined,
       speed: heavy?c.launchSpeed:Math.max(m.launchSpeed, s.speed),
       hp: m.hp,
       life: Math.round((heavy?c.lifeSeconds:m.lifeSeconds) * this.tune.net.tickHz),
@@ -901,11 +903,16 @@ export class World {
       if (o.kind === 'missile') {
         const structure=o.target<0&&this.layout&&this.siege?o.target===-1?(this.siege.treasury>0?this.layout.treasury:undefined):(this.siege.turretHp[-2-o.target]>0?this.layout.turrets[-2-o.target]:undefined):undefined;
         const target = o.target>0?this.ships.get(o.target):structure?{...structure,hp:1}:undefined;
-        if (target && target.hp > 0 && this.tick>=o.armAt) {
-          const r = rel(o, target.x, target.y);
-          const want = Math.atan2(r.dy, r.dx);
-          const step = o.turn * dt;
-          o.heading = angleDelta(o.heading + Math.max(-step, Math.min(step, angleDelta(want, o.heading))), 0);
+        if (this.tick >= o.armAt) {
+          let want = o.returnHeading;
+          if (target && target.hp > 0) {
+            const r = rel(o, target.x, target.y);
+            want = Math.atan2(r.dy, r.dx);
+          }
+          if (want !== undefined) {
+            const step = o.turn * dt;
+            o.heading = angleDelta(o.heading + Math.max(-step, Math.min(step, angleDelta(want, o.heading))), 0);
+          }
         }
         o.speed = Math.min(t.missile.maxSpeed, o.speed + t.missile.acceleration * dt);
         const px = o.x;

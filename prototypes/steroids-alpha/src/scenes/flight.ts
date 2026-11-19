@@ -1,3 +1,4 @@
+import { missileRefillSeconds } from '../../sim/ship';
 import {resourceGlyph} from '../render/resources';
 import { rankPilots, mineralCount } from '../../sim/leaderboard';
 import { drawCombatImpact, drawShieldShatter,drawRamAttack } from '../render/combatEffects';
@@ -1090,7 +1091,7 @@ export class FlightScene extends Phaser.Scene {
     const dr = clientTune.touch.dashButtonRadius;
     const fr = clientTune.touch.fireButtonRadius;
     const slots = [
-      { kind: 'missile' as const, tier: p.chassis===MISSILE_CRUISER?TUNE.missileCruiser.capacity:p.missileTier, charges: p.missileCharges, cd: p.missileCd, refill: TUNE.missile.refillSeconds, key: 'Q' },
+      { kind: 'missile' as const, tier: p.chassis===MISSILE_CRUISER?TUNE.missileCruiser.capacity:p.missileTier, charges: p.missileCharges, cd: p.missileCd, refill: missileRefillSeconds(p, TUNE), key: 'Q' },
       { kind: 'mine' as const, tier: p.mineTier, charges: p.mineCharges, cd: p.mineCd, refill: TUNE.mine.refillSeconds, key: 'E' },
     ];
     slots.forEach((sl, i) => {
@@ -1131,10 +1132,8 @@ export class FlightScene extends Phaser.Scene {
         .setText(touch ? `${sl.charges}` : `${sl.charges} [${sl.key}]`)
         .setColor(ready ? '#ffd27a' : '#8f7f6a');
       const zone = { x, y, hw: r * 1.25, hh: r * 1.25 };
-      if (touch) {
-        if (sl.kind === 'missile') intents.missileButton = zone;
-        else intents.mineButton = zone;
-      }
+      if (sl.kind === 'missile') intents.missileButton = zone;
+      else intents.mineButton = zone;
     });
   }
 

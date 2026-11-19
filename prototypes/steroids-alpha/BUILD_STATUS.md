@@ -4,6 +4,8 @@ Resource pickup candidate tested on codex/steroids-resource-pickups; not release
 
 ## What was implemented
 
+Missile candidate fixes desktop fighter HUD launches and lost late ordnance presses. Missile Cruiser starts its turn sooner and reloads each missile in 12 seconds at bundled defaults. Desktop and touch headless input, full sim, config and evolution lab checks pass.
+
 Tutorial candidate adds speed gates, shot-only practice mining, marked ore and upgrade prerequisites, and a launch marker with a same-dash two-gate ram requirement. Extraction remains the final objective.
 
 Separate gold mineral crystals and purple salvage cases (ordinary planets) or cyan fuel canisters (own home); green repair pod retained. Matching pooled HUD icons and short-range server attraction, independent wallet/cargo collection. Tutorial mineral-only and Warzone no mined cargo.
