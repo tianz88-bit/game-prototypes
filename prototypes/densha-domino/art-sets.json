@@ -1,8 +1,7 @@
 {
   "defaultSet": "classic",
   "shared": {
-    "dd_glove": "loose/tutorial-glove.png",
-    "dd_logo": "loose/sushi-logo.webp"
+    "dd_glove": "loose/tutorial-glove.png"
   },
   "sets": {
     "classic": {
@@ -13,4 +12,5 @@
     }
   }
 }
+
 

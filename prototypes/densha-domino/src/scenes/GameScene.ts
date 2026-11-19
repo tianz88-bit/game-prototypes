@@ -210,12 +210,11 @@ export class GameScene extends Phaser.Scene {
   private showTitle():void {
     this.titleOpen=true;
     const background=this.add.rectangle(WIDTH/2,HEIGHT/2,WIDTH,HEIGHT,0xffefdb).setInteractive();
-    const logo=hasArt(this,'dd_logo')?this.add.image(WIDTH/2,335,'dd_logo'):this.hudText(WIDTH/2,335,38,'#74374a').setText('Sushi Trains');
-    if(logo instanceof Phaser.GameObjects.Image)logo.setScale(Math.min(335/logo.width,245/logo.height));
+    const title=this.hudText(WIDTH/2,335,40,'#74374a').setText('Sushi Trains');
     const start=new Button(this,WIDTH/2,525,210,58,this.save.level?'Continue':'Play',null,{fill:0x387d68,edge:0x92dac3},()=>{
       this.titleOpen=false;cover.destroy();
     },23);
-    const cover=this.add.container(0,0,[background,logo,start.container]).setDepth(450);
+    const cover=this.add.container(0,0,[background,title,start.container]).setDepth(450);
   }
 
   private loadSave(): void {
@@ -920,6 +919,7 @@ export class GameScene extends Phaser.Scene {
     this.time.timeScale = speed;
   }
 }
+
 
 
 
