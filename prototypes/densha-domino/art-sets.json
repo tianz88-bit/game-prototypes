@@ -1,0 +1,16 @@
+{
+  "defaultSet": "classic",
+  "shared": {
+    "dd_glove": "loose/tutorial-glove.png",
+    "dd_logo": "loose/sushi-logo.webp"
+  },
+  "sets": {
+    "classic": {
+      "dd_family": "loose/train-family-atlas.png",
+      "dd_food": "loose/sushi-plate-atlas.png",
+      "dd_props": "loose/restaurant-atlas.png",
+      "dd_tunnels": "loose/plastic-tunnel-atlas.png"
+    }
+  }
+}
+

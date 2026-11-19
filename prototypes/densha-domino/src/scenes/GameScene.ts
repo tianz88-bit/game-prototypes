@@ -23,6 +23,7 @@ interface Save {
   stars: number[];
   tutorialEdition?: number;
   unlockAll?: boolean;
+  records?: Record<string,{moves:number;chain:number}>;
 }
 
 /** Tutorial captions by level (index 0 to 2), then by tap number. Later levels have none. */
@@ -55,6 +56,8 @@ export class GameScene extends Phaser.Scene {
   private state: State = [];
   private par = 0;
   private limit = 0;
+  private titleOpen=false;
+  private longestChain=0;
   private taps = 0;
   private phase: Phase = 'play';
   private cs = 0;
@@ -160,6 +163,7 @@ export class GameScene extends Phaser.Scene {
 
     this.loadSave();
     this.startLevel(this.save.level);
+    if(new URLSearchParams(location.search).get('test')!=='1')this.showTitle();
 
     if (new URLSearchParams(location.search).get('test') === '1') {
       const timings:number[]=[];let frameStart=0;
@@ -202,6 +206,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ------------------------------------------------------------- save / load
+
+  private showTitle():void {
+    this.titleOpen=true;
+    const background=this.add.rectangle(WIDTH/2,HEIGHT/2,WIDTH,HEIGHT,0xffefdb).setInteractive();
+    const logo=hasArt(this,'dd_logo')?this.add.image(WIDTH/2,335,'dd_logo'):this.hudText(WIDTH/2,335,38,'#74374a').setText('Sushi Trains');
+    if(logo instanceof Phaser.GameObjects.Image)logo.setScale(Math.min(335/logo.width,245/logo.height));
+    const start=new Button(this,WIDTH/2,525,210,58,this.save.level?'Continue':'Play',null,{fill:0x387d68,edge:0x92dac3},()=>{
+      this.titleOpen=false;cover.destroy();
+    },23);
+    const cover=this.add.container(0,0,[background,logo,start.container]).setDepth(450);
+  }
 
   private loadSave(): void {
     try {
@@ -268,6 +283,7 @@ export class GameScene extends Phaser.Scene {
     this.visualState=this.state.slice();
     this.readyStateKey='';
     this.taps = 0;
+    this.longestChain=0;
     this.phase = 'play';
     // Rules come from tune.json; par is solved under the same rules so stars stay honest.
     this.rules = { followAfterSide: !!tune.rules.followAfterSide };
@@ -302,7 +318,8 @@ export class GameScene extends Phaser.Scene {
 
   private refreshHud(): void {
     this.hudLevel.setText(`LEVEL ${this.levelIndex + 1}`);
-    this.hudTaps.setText(`${this.level.name}   |   Taps ${this.taps} / ${this.limit}   |   Par ${this.par}`);
+    this.hudTaps.setText(`${this.level.name}   |   Moves ${this.taps}   ·   Target ${this.par}`);
+    if(this.limit-this.taps<=2)this.hudTaps.setText('Moves '+this.taps+'   ·   Target '+this.par+'   ·   '+Math.max(0,this.limit-this.taps)+' left');
     const g = this.starsG;
     g.clear();
     const stars = this.starsFor(this.taps);
@@ -362,6 +379,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onIntent(intent: Intent): void {
+    if(this.titleOpen)return;
     if(this.restarting)return;
     if (intent.type === 'restart') return this.restartWithFade();
     if (intent.type === 'next') return this.isUnlocked(this.levelIndex + 1) ? this.startLevel(this.levelIndex + 1) : this.startLevel(this.levelIndex);
@@ -446,6 +464,7 @@ export class GameScene extends Phaser.Scene {
     this.state = res.state;
     this.phase = 'animating';
     this.refreshHud();
+    this.longestChain=Math.max(this.longestChain,res.links);
     this.play(res.events, res.links,before);
   }
 
@@ -684,22 +703,23 @@ export class GameScene extends Phaser.Scene {
     this.phase = 'won';
     const stars = this.starsFor(this.taps);
     this.save.stars[this.levelIndex] = Math.max(this.save.stars[this.levelIndex] ?? 0, stars);
+    const records=this.save.records??={};
+    const old=records[this.level.name];
+    records[this.level.name]={moves:Math.min(old?.moves??Infinity,this.taps),chain:Math.max(old?.chain??0,this.longestChain)};
     const nextOpen = this.levelIndex < LEVELS.length - 1 && this.isUnlocked(this.levelIndex + 1);
     this.save.level = nextOpen ? this.levelIndex + 1 : this.levelIndex;
     this.persist();
     this.sfx.cleared();
-    const last = this.levelIndex >= LEVELS.length - 1;
-    this.showOverlay(`Level ${this.levelIndex + 1} clear!`, stars, last ? 'Play again' : nextOpen ? 'Next level' : 'Replay for stars', () => this.bus.emit({ type: nextOpen ? 'next' : 'restart' }));
-    if (!last && !nextOpen && this.totalStars() < this.gateNeed(this.levelIndex + 1)) {
-      const more = this.gateNeed(this.levelIndex + 1) - this.totalStars();
-      this.hudText(WIDTH / 2, 430, 15, '#ffe27a').setDepth(310).setText(`Level ${this.levelIndex + 2} needs ${more} more star${more === 1 ? '' : 's'}.\nReplay earlier levels for 3 stars.`).setAlign('center');
-    }
+    this.showOverlay(this.taps===this.par?'Perfect!':'Level clear!',stars,nextOpen?'Next':'Levels',()=>{
+      if(nextOpen)this.bus.emit({type:'next'});
+      else {this.clearOverlay();this.menuPage=-1;this.openMenu();}
+    });
   }
 
   private fail(): void {
     this.phase = 'failed';
     this.sfx.miss();
-    this.showOverlay('Out of taps', 0, 'Try again', () => this.bus.emit({ type: 'restart' }));
+    this.showOverlay('Out of moves', 0, 'Try again', () => this.bus.emit({ type: 'restart' }));
   }
 
   private clearOverlay(): void {
@@ -731,8 +751,16 @@ export class GameScene extends Phaser.Scene {
       }
       if(i<stars){const glint=this.add.graphics({x,y:390});glint.lineStyle(2,0xffdc80,.9);for(let n=0;n<8;n++){const a=n*Math.PI/4;glint.lineBetween(Math.cos(a)*30,Math.sin(a)*30,Math.cos(a)*37,Math.sin(a)*37);}glint.setScale(.6).setAlpha(0);decorations.push(glint);this.tweens.add({targets:glint,scale:1.45,alpha:{from:1,to:0},delay:i*tune.feel.starStaggerMs+tune.feel.starArrivalMs,duration:tune.feel.uiBounceMs,ease:'Sine.Out'});}
     }
-    else decorations.push(this.hudText(WIDTH / 2, 390, 15, '#795a68').setText(`Par is ${this.par} taps. You used ${this.taps}.`));
-    const b = new Button(this, WIDTH / 2, 480, 220, 60, label, null, { fill: 0x2f9e5b, edge: 0x6dffa8 }, onTap, 22);
+    else decorations.push(this.hudText(WIDTH / 2, 390, 15, '#795a68').setText(`Moves ${this.taps}   ·   Target ${this.par}`));
+    if(stars){
+      const record=this.save.records![this.level.name];
+      decorations.push(this.hudText(WIDTH/2,344,16,'#74435c').setText('Moves '+this.taps+'   ·   Target '+this.par));
+      decorations.push(this.hudText(WIDTH/2,430,16,'#74435c').setText('Best moves '+record.moves+'   ·   Longest chain '+record.chain));
+      if(label==='Levels'&&this.levelIndex<LEVELS.length-1)decorations.push(this.hudText(WIDTH/2,451,12,'#74435c').setText('Next opens at '+this.gateNeed(this.levelIndex+1)+' stars'));
+      const replay=new Button(this,129,490,119,50,'Replay',null,{fill:0x8b416d,edge:0xba7b9f},()=>this.bus.emit({type:'restart'}),18);
+      decorations.push(replay.container);
+    }
+    const b = new Button(this, stars?261:WIDTH/2, stars?490:480, stars?119:220, stars?50:60, label, null, { fill: 0x2f9e5b, edge: 0x6dffa8 }, onTap, 22);
     const body=this.add.container(0,0,[panel,t,...decorations,b.container]).setDepth(310).setY(22);
     this.tweens.add({targets:body,y:0,duration:tune.feel.uiBounceMs,ease:tune.feel.uiEase});
     this.overlay.push(dim,body);
