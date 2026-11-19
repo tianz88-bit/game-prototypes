@@ -1,0 +1,115 @@
+{
+  "release": "191126r0109",
+  "protocol": 33,
+  "releasePr": 588,
+  "releaseCommit": "97f6ca80c3312db0531e87846f63b43941c429f2",
+  "actions": {
+    "itch": 44475904101,
+    "worker": 44475903983,
+    "pages": 44475904099
+  },
+  "checks": [
+    "typecheck",
+    "production build",
+    "full sim and Bat/Falcon stock and max gun parity",
+    "live config",
+    "banking",
+    "rig and 22 layouts",
+    "evolution lab",
+    "headless tutorial on PC and two phone layouts",
+    "desktop HUD and Q plus touch missile launch",
+    "split pickups and 400-object render pool"
+  ],
+  "itch": {
+    "capture": false,
+    "errors": [],
+    "itch": "https://html-classic.itch.zone/html/20420865-2435140/prototypes/steroids-alpha/index.html",
+    "version": "191126r0109",
+    "tutorial": {
+      "title": "1/4 · FLIGHT CONTROLS  0/2",
+      "prompt": "Point the mouse to steer. Hold S to brake through the ring."
+    },
+    "settings": {
+      "epoch": 4,
+      "costs": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "evolution": 10,
+      "missileEvolution": 10,
+      "batDamage": 1,
+      "batShield": 0.7,
+      "batTurn": 5.44,
+      "shieldBonus": 25,
+      "magnet": 64,
+      "ore": 0.18,
+      "reload": 12,
+      "turnDelay": 0.18
+    },
+    "liveRoom": {
+      "snapshots": 45,
+      "ack": 78,
+      "hull": 50,
+      "shield": 75,
+      "sprites": true
+    },
+    "lab": {
+      "url": "https://tianz88-bit.github.io/game-prototypes/prototypes/steroids-alpha-lab/",
+      "title": "Steroids-Alpha · Calibration & Balance Lab",
+      "prices": [
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  },
+  "pages": {
+    "capture": false,
+    "errors": [],
+    "pagesClient": "https://tianz88-bit.github.io/game-prototypes/prototypes/steroids-alpha/",
+    "version": "191126r0108",
+    "tutorial": {
+      "title": "1/4 · FLIGHT CONTROLS  0/2",
+      "prompt": "Point the mouse to steer. Hold S to brake through the ring."
+    },
+    "settings": {
+      "epoch": 4,
+      "costs": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "evolution": 10,
+      "missileEvolution": 10,
+      "batDamage": 1,
+      "batShield": 0.7,
+      "batTurn": 5.44,
+      "shieldBonus": 25,
+      "magnet": 64,
+      "ore": 0.18,
+      "reload": 12,
+      "turnDelay": 0.18
+    },
+    "liveRoom": {
+      "snapshots": 44,
+      "ack": 76,
+      "hull": 50,
+      "shield": 75,
+      "sprites": true
+    },
+    "lab": {
+      "url": "https://tianz88-bit.github.io/game-prototypes/prototypes/steroids-alpha-lab/",
+      "title": "Steroids-Alpha · Calibration & Balance Lab",
+      "prices": [
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  }
+}
