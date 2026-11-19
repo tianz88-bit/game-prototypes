@@ -32,7 +32,7 @@ interface Save {
 const COACH: Record<number, string[]> = {
   0: ['Swipe the train right to send it through the tunnel.'],
   1: ['Swipe the back train right. It honks, the train ahead leaves, and yours follows.'],
-  2: ['Swipe right. Watch the middle train go up when it hears the honk. Each train goes the way its light points.'],
+  2: ['Swipe right. Watch the middle train go up when it hears the honk. Honked trains drive forward, toward their face.'],
   3: ['Swipe the highlighted train left to make room. You can swipe either way along its track.', 'Now swipe the highlighted train down. Watch how many trains leave from one swipe!'],
 };
 

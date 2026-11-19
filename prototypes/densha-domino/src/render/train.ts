@@ -14,7 +14,6 @@ interface Car {holder:Phaser.GameObjects.Container; shear:Phaser.GameObjects.Con
 export class TrainView {
   readonly container:Phaser.GameObjects.Container;
   private cars:Car[]=[];
-  private underglow:Phaser.GameObjects.Image;
   private coupling:Phaser.GameObjects.Graphics;
   private travel:Dir|null=null;
   private ready=false;
@@ -28,18 +27,7 @@ export class TrainView {
   private dirty=true;
   constructor(private scene:Phaser.Scene,readonly def:TrainDef,private cs:number){
     this.container=scene.add.container(0,0);this.gaze=def.headDir;
-    const beamKey='dd_floor_beam';
-    if(!scene.textures.exists(beamKey)){
-      const texture=scene.textures.createCanvas(beamKey,96,80)!;
-      const ctx=texture.context,pixels=ctx.createImageData(96,80);
-      for(let x=0;x<96;x++)for(let y=0;y<80;y++){
-        const distance=x/96,across=Math.abs(y-40)/(8+31*distance),i=(y*96+x)*4;
-        pixels.data.set([255,118,20,210*(1-distance)**1.3*Math.max(0,1-across*across)],i);
-      }
-      ctx.putImageData(pixels,0,0);texture.refresh();
-    }
-    this.underglow=scene.add.image(0,0,beamKey).setOrigin(0,.5).setDisplaySize(cs*.76,cs*.62);
-    this.container.add(this.underglow);
+
     this.coupling=scene.add.graphics();this.container.add(this.coupling);
     const vertical=def.axis==='v',palette=def.id%4,key=palette===0?'dd_family':'dd_family_'+(palette-1);
     for(let i=0;i<def.len;i++){
@@ -61,7 +49,7 @@ export class TrainView {
       const shadow=scene.add.graphics();shadow.fillStyle(0x8b6952,.14);shadow.fillEllipse(px,py+5,38,14);holder.add(shadow);holder.add(food);
       const lamps=scene.add.graphics();holder.add(lamps);this.container.add(holder);
       const cabs:Car['cabs']=[];
-      for(const end of [-1,1] as Dir[])if(def.len===1||(end<0?i===0:i===def.len-1)){
+      for(const end of [-1,1] as Dir[])if(end===def.headDir&&(end<0?i===0:i===def.len-1)){
         const head=end===def.headDir,ex=vertical?0:end*(head?40:43),ey=vertical?(end<0?(head?-44:-57):25):(head?5:7),scale=vertical?(head?.95:.6):(head?.85:.63);
         let signal:Phaser.GameObjects.Image|null=null;
         if(hasArt(scene,'dd_signals')){signal=scene.add.image(0,vertical?-8:4,'dd_signals',String(cell)).setDisplaySize(vertical?64:116,vertical?124:64).setVisible(false);const box=BODY_BOXES[cell],half=Math.floor(box[vertical?3:2]/2);if(vertical)signal.setCrop(0,end<0?0:half,box[2],end<0?half:box[3]-half);else signal.setCrop(end<0?0:half,0,end<0?half:box[2]-half,box[3]);holder.add(signal);}
@@ -77,7 +65,7 @@ export class TrainView {
   private fallback(i:number):Phaser.GameObjects.Graphics {
     const g=this.scene.add.graphics(),v=this.def.axis==='v',w=v?64:116,h=v?124:64,x=-w/2,y=v?-70:-28;
     g.fillStyle(0x5b3e5e);g.fillRoundedRect(x,y+8,w,h,16);g.fillStyle(this.def.color);g.fillRoundedRect(x,y,w,h-6,18);g.lineStyle(2,0xffe7d8);g.strokeRoundedRect(x+3,y+3,w-6,h-12,15);
-    for(const end of [-1,1] as Dir[])if(this.def.len===1||(end<0?i===0:i===this.def.len-1)){
+    for(const end of [-1,1] as Dir[])if(end===this.def.headDir&&(end<0?i===0:i===this.def.len-1)){
       const head=end===this.def.headDir,ex=v?0:end*(head?40:43),ey=v?(end<0?(head?-44:-57):25):(head?5:7);
       if(head){g.fillStyle(0x22b4ac);if(v)g.fillRoundedRect(-30,ey-end*23-5,60,12,4);else g.fillRoundedRect(ex-end*17-6,-26,12,55,4);}
       g.fillStyle(0x543451);g.fillRoundedRect(ex-(head?14:11),ey-13,head?28:22,24,8);
@@ -100,10 +88,7 @@ export class TrainView {
   }
   update(delta=0):void {
     if(!this.alive)return;this.clock+=delta;const now=this.clock,v=this.def.axis==='v',factor=this.cs/116*.94,r=this.reaction;
-    const end=this.travel??this.def.headDir;
-    const nose=end*(this.def.len/2-.045)*this.cs;
-    this.underglow.setPosition(v?0:nose,v?nose:this.cs*.035).setRotation(v?end*Math.PI/2:end<0?Math.PI:0)
-      .setVisible(this.travel!==null||this.ready).setAlpha(this.travel!==null?.95:.55+.35*Math.cos(now/tune.feel.lightFlashMs*Math.PI*2));
+
     if(!this.dirty&&!this.history.length&&!this.foodHistory.length&&this.travel===null){
       // Parked geometry, expression frames, couplings and food are unchanged.
       // Animate only the live signal bands; do not allocate/rebuild every car.
@@ -146,7 +131,7 @@ export class TrainView {
     this.foodHistory=this.foodHistory.filter(event=>now-event.start<tune.feel.foodSpringMs+(this.def.len-1)*tune.feel.carriageDelayMs);
     this.dirty=false;
   }
-  inspect():object {return {headDir:this.def.headDir,travel:this.travel,light:this.travel!==null?'solid':this.ready?'flashing':'off',carriages:this.cars.length,reaction:this.reaction?.kind??null,carriagePoses:this.cars.map(c=>c.pose),socketArt:hasArt(this.scene,'dd_signals')};}
+  inspect():object {return {headDir:this.def.headDir,travel:this.travel,light:this.travel!==null?(this.travel===this.def.headDir?'solid':'off'):this.ready?'flashing':'off',carriages:this.cars.length,reaction:this.reaction?.kind??null,carriagePoses:this.cars.map(c=>c.pose),socketArt:hasArt(this.scene,'dd_signals')};}
   /** Test-only caller: full, unclipped world bounds, including plate/food/lights. */
   geometry():object {return {id:this.def.id,axis:this.def.axis,travel:this.travel,x:this.container.x,y:this.container.y,cars:this.cars.map(c=>{const b=c.holder.getBounds();return {index:c.index,visible:c.holder.visible,bounds:{x:b.x,y:b.y,width:b.width,height:b.height}};})};}
   destroy():void {this.alive=false;this.scene.tweens.killTweensOf(this.container);this.container.destroy();}
