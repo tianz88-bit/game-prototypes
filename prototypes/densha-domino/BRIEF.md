@@ -2,7 +2,9 @@
 
 The owner approved DESIGN_REVIEW.md and publication. Pillars are now decorative blockers on existing concrete cells, with a full-tile solid base and faded upper shaft; outside-board ghost columns are removed. Recessed dead ends receive flush ivory/plum stop caps only at existing obstacle boundaries. Train silhouettes use a cached warm-plum outer contour, plates are 15% larger and food 20% larger. Food remains plate-anchored, with its own 480 ms spring and the existing 100 ms per-car delay; the short body reaction and end-of-move reset do not truncate it. Award stars use a staged Quad arrival to one controlled overshoot and settle, ascending landing chimes, and a third-star hold before confetti. Unearned slots stay still. Buttons and panels use short controlled motion. These supersede the older elastic-reward and background-pillar descriptions below. Rules, train head preference, saves, levels, tunnels and travelSpeed=0.67 are unchanged.
 
-# Densha Domino
+# Kaiten Express (formerly Densha Domino)
+
+Owner decision (19 November 2026): the game is named Kaiten Express (回転 = revolving, as in kaiten-zushi, conveyor-belt sushi). The logo and any kanji are made by the art owner, as image art. Folder names, save keys (`densha-domino:save:v2`) and code names keep the old name on purpose so no progress is lost. Name conflict checks (App Store, Google Play, Meta Instant Games, trademark) are still open.
 
 Latest review (19 November): the active sushi deployment is `/game-prototypes/prototypes/densha-domino-sushi/`, with Claude retained at its original path and on its backup branch. The owner clarified that replacement pillars must be decorative blockers on existing blocked board cells. Pillar/end-cap art, train-outline direction, larger plates/food and revised food/reward motion are proposed in `DESIGN_REVIEW.md`; those visual changes are pending discussion and are not part of the hosting migration.
 

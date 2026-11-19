@@ -6,7 +6,7 @@ import {LEVELS} from '../game/levels';
 
 export function mountDebugPanelIfRequested(): void {
   mountTunePanelIfRequested({
-    title: 'densha domino tune',
+    title: 'kaiten express tune',
     tune,
     defaults: tuneDefaults,
     extras: (pane) => {

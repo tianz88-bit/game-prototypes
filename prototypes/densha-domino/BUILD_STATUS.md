@@ -1,5 +1,5 @@
 ## Current milestone
-Approved sushi art and motion pass is live as release 3 (r0003) on the owner's prototypes site, from the permanent codex/densha-domino-sushi branch.
+Renamed to Kaiten Express (page title, debug panel title, BRIEF). Folder, save key and code names unchanged. Logo and kanji come from the art owner. Approved sushi art and motion pass is live as release 3 (r0003) on the owner's prototypes site, from the permanent codex/densha-domino-sushi branch.
 
 ## What was implemented
 - Regenerated ivory/mint restaurant pillar blockers on existing concrete cells; removed background ghost columns. Added flush ivory/plum caps at obstacle-ended recessed channels, keeping exits/crossings open.
