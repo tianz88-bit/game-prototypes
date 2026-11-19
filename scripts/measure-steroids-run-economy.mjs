@@ -43,7 +43,8 @@ function purchase(w, s) {
 //   is full.  allin: full build, warps when the hold is full. Every run adds 30 s of menu and arrival;
 //   a death adds 5 s more and loses the run. Each run is a fresh planet.
 if (process.env.ACCOUNT) {
-  const policy = process.env.ACCOUNT, overhead = 30, maxAccount = 8 * 3600;
+  // PILOT=miner (never fights, default) | flee (runs from ships) | fight (production bot brain).
+  const policy = process.env.ACCOUNT, pilotKind = process.env.PILOT || 'miner', overhead = 30, maxAccount = 8 * 3600;
   const p = t.unlockPrices, goals = { 'first evolution': p.evolution, 'ships + evolutions': 2 * p.ship + 2 * p.evolution, 'whole hangar': 2 * p.ship + 2 * p.evolution + 3 * p.palette + 4 * p.flame + 3 * p.shield + p.killfx + 3 * p.badge + 3 * p.tag + p.runlog };
   const cap = policy === 'mid' ? 10 : 20, results = [];
   for (let seed = 1; seed <= seeds; seed++) {
@@ -53,12 +54,28 @@ if (process.env.ACCOUNT) {
       let s = w.addShip(1); const mem = { wander: s.heading }, brains = new Map();
       if (profile === 'bots') for (let id = 2; id <= 5; id++) { w.addShip(id, true); w.botIds.add(id); brains.set(id, { ...S.newBrain(r), bornAt: w.tick }); }
       w.drain();
-      let input = idle(), leaving = false, outcome = null, k = 0;
+      let input = idle(), leaving = false, outcome = null, k = 0; const me = { ...S.newBrain(r), bornAt: w.tick };
       for (; k < 15 * 60 * hz && !outcome; k++) {
         const sec = k / hz, wallet = S.mineralBalance(s, t), full = s.hullMax >= S.walletCap(s, t) - 1;
         if (!leaving && s.lockdown <= 0 && (policy === 'cautious' ? sec >= 180 : full || sec >= 480)) leaving = true;
         if (leaving) { input = { ...idle(), thrust: 1, aim: s.heading, warp: !s.warping && k % 10 === 0 }; }
-        else { if (k % 5 === 0) input = pilot(s, w, mem); if (k % 15 === 0 && S.upgradeTotal(s) < cap) purchase(w, s); }
+        else if (pilotKind === 'fight') {
+          // The production bot brain flies the pilot: it mines, collects and fights back with guns,
+          // missiles and mines (bot aim and reaction delays, so an average pilot, not a perfect one).
+          const out = S.botThink(1, s, w, me, t, r, [...brains.values()]);
+          input = { ...out.input, warp: false };
+          if (out.buy && S.upgradeTotal(s) < cap) w.buy(1, out.buy.item, out.buy.tier);
+          else if (k % 15 === 0 && S.upgradeTotal(s) < cap) purchase(w, s);
+        } else {
+          if (k % 5 === 0) input = pilot(s, w, mem);
+          if (pilotKind === 'flee') {
+            // Runs from any ship within 600 px: turns away, full throttle, dashes when it can.
+            let threat = null;
+            for (const [id, b] of w.ships) { if (id === 1) continue; const dx = S.wrapDelta(b.x, s.x, t.world.width), dy = S.wrapDelta(b.y, s.y, t.world.height), d = Math.hypot(dx, dy); if (d < 600 && (!threat || d < threat.d)) threat = { dx, dy, d }; }
+            if (threat) { const aim = Math.atan2(-threat.dy, -threat.dx); input = { ...idle(), aim, thrust: 1, dash: s.dashCd <= 0 && Math.abs(S.angleDelta(aim, s.heading)) < 0.35 }; }
+          }
+          if (k % 15 === 0 && S.upgradeTotal(s) < cap) purchase(w, s);
+        }
         w.stepShip(1, input);
         const all = [...brains.values()];
         for (const [id, b] of brains) { const bs = w.ships.get(id); if (!bs) continue; const { input: bi, buy } = S.botThink(id, bs, w, b, t, r, all); if (buy) w.buy(id, buy.item, buy.tier); w.stepShip(id, bi); }
@@ -76,7 +93,7 @@ if (process.env.ACCOUNT) {
     results.push({ seed, runs, deaths, bank, clock, hit, perRun: banked.length ? Math.round(banked.reduce((a, b) => a + b, 0) / banked.length) : 0 });
   }
   const fmt = (x) => (x === undefined ? 'not reached' : `${Math.floor(x / 3600) ? Math.floor(x / 3600) + 'h ' : ''}${Math.round((x % 3600) / 60)}m`);
-  console.log(`Account pace: ${policy}, ${profile}, ${seeds} seeds. Prices: evolution ${p.evolution}, ship ${p.ship}, whole hangar ${goals['whole hangar']}.`);
+  console.log(`Account pace: ${policy}, ${pilotKind} pilot, ${profile}, ${seeds} seeds. Prices: evolution ${p.evolution}, ship ${p.ship}, whole hangar ${goals['whole hangar']}.`);
   console.log(`Credits/min ${med(results.map((x) => Math.round((x.bank / x.clock) * 60)))}, banked per successful run ${med(results.map((x) => x.perRun))}, deaths per run ${(results.reduce((a, x) => a + x.deaths, 0) / results.reduce((a, x) => a + x.runs, 0)).toFixed(2)}.`);
   for (const name of Object.keys(goals)) { const v = results.map((x) => x.hit[name]); console.log(`  ${name} (${goals[name]}): median ${fmt(med(v.filter((x) => x !== undefined)))}, reached ${v.filter((x) => x !== undefined).length}/${seeds}`); }
   process.exit(0);
