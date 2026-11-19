@@ -1,5 +1,7 @@
 import { PACK } from './pack';
-import type { Axis, Level, ObstacleKind, TrainDef } from './types';
+import type { Axis, Dir, Level, Move, ObstacleKind, TrainDef } from './types';
+import { HEAD_DIRECTIONS } from './head-directions';
+import {LEVEL_REPAIRS} from './level-repairs';
 
 // Liveries (index = train letter order). Generic colours, no real line branding.
 export const LIVERIES = [0xff7a59, 0x4d9bff, 0x5ed957, 0xffd04a, 0xff6fb5, 0xb45cff, 0x2ed3c6, 0xe8434f, 0x8fa3d1, 0xffa23a];
@@ -12,7 +14,7 @@ const OBSTACLES: Record<string, ObstacleKind> = { '#': 'concrete', k: 'kiosk', s
  *   A-Z  one train: all cells with the same letter, in a straight line.
  * A one-cell train needs its direction in `axis` (h or v); longer trains are read from their cells.
  */
-export function parseLevel(name: string, rows: string[], axis: Record<string, Axis> = {}): Level {
+export function parseLevel(name: string, rows: string[], axis: Record<string, Axis> = {}, head: Record<string, Dir> = HEAD_DIRECTIONS[name] ?? {}): Level {
   const h = rows.length;
   const w = rows[0].length;
   const obstacles = new Map<number, ObstacleKind>();
@@ -35,7 +37,7 @@ export function parseLevel(name: string, rows: string[], axis: Record<string, Ax
     const ax: Axis = cs.length === 1 ? axis[letter] ?? (() => { throw new Error(`${name}: train ${letter} needs an axis`); })() : sameRow ? 'h' : 'v';
     const idx = cs.map(([c, r]) => (ax === 'h' ? c : r)).sort((a, b) => a - b);
     if (idx[idx.length - 1] - idx[0] !== idx.length - 1) throw new Error(`${name}: train ${letter} has a gap`);
-    trains.push({ id: trains.length, letter, color: LIVERIES[i % LIVERIES.length], axis: ax, line: ax === 'h' ? cs[0][1] : cs[0][0], start: idx[0], len: idx.length });
+    trains.push({ id: trains.length, letter, color: LIVERIES[i % LIVERIES.length], axis: ax, line: ax === 'h' ? cs[0][1] : cs[0][0], start: idx[0], len: idx.length, headDir: head[letter] ?? 1 });
   });
   return { name, cols: w, rows: h, obstacles, trains };
 }
@@ -44,6 +46,8 @@ export interface LevelSource {
   name: string;
   rows: string[];
   axis?: Record<string, Axis>;
+  head?: Record<string, Dir>;
+  quality?: {par:number;minChain:number;minFinal:number;plan:Move[]};
 }
 
 /** Hand-authored levels. Each is checked by the solver in scripts/check-densha-levels. */
@@ -65,4 +69,7 @@ export const LEVEL_SOURCES: LevelSource[] = [
   { name: 'Tokyo Terminal', rows: ['HCCCCJJ', '..bs.tK', '......K', 'BBBB#.K', 'A..##Dk', 'A..k.Ds', 'AGFFFFF', 'A.EIII.'], axis: { E: 'v', G: 'h', H: 'v' } },
 ];
 
-export const LEVELS: Level[] = [...LEVEL_SOURCES, ...PACK].map((s) => parseLevel(s.name, s.rows, s.axis));
+export const LEVELS: Level[] = [...LEVEL_SOURCES, ...PACK].map((s) => {
+  const repair=s.quality?undefined:LEVEL_REPAIRS[s.name];
+  return parseLevel(s.name, repair?.rows??s.rows, repair?.axis??s.axis, repair?.head??s.head);
+});

@@ -1,5 +1,7 @@
 # Densha Domino: art replacement handoff
 
+Owner-approved update, 18 November 2026: the sushi train family and fixed-head chain/light rule have been approved for real-game integration. The original restrictions on changing `src/game/` below described the earlier art-only handoff; the approved BRIEF integration section now governs head metadata, chain direction, tutorial and puzzle generation. Other tuned values remain intact; new presentation-only controls cover carriage cascade, light flash, seated sushi spring and brake compression. Complete body sprites replace cab overlays, with separate animated eyes/food and an optional-art fallback. Local approved art is prepared by `node scripts/prepare-densha-art.mjs <approved-lab-folder>`; upload/public deployment is a separate step. No bitmap files are committed.
+
 For: Codex (or any agent) replacing the placeholder visuals with real art.
 Written by Claude Code. Read `BRIEF.md` (rules and look) and `BUILD_STATUS.md`
 (what exists) first. The repo-wide rules are in the root `CLAUDE.md`.

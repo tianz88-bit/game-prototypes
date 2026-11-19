@@ -1,30 +1,32 @@
 import Phaser from 'phaser';
-import { Button, PIXEL_RATIO, Sfx } from 'dig-kit';
+import { Sfx } from 'dig-kit';
+import {GameButton as Button} from '../uiButton';
 import { LEVELS } from '../game/levels';
 import { type RuleOptions, applyTap, canRun, initialState, isCleared, trainAt, trainsLeft } from '../game/rules';
 import { solve } from '../game/solver';
 import { type Dir, type Level, type State, type TapEvent } from '../game/types';
 import { type Intent, IntentBus, bindKeyboard, bindPointer } from '../input/intents';
-import { HEIGHT, WIDTH } from '../pixelRatio';
-import { TrainView, bakeCar } from '../render/train';
+import { HEIGHT, WIDTH, PIXEL_RATIO } from '../pixelRatio';
+import { TrainView,SIDE_BODY_LIFT } from '../render/train';
 import { drawYard } from '../render/yard';
+import {preloadArt,registerArt,hasArt} from '../render/art';
 import { tune } from '../tune';
 import { VERSION_STAMP } from '../version.generated';
 
-export const SAVE_KEY = 'densha-domino:save:v1';
-export const runtime = { goto: 1, apply: false };
+export const SAVE_KEY = 'densha-domino:save:v2';
+export const runtime = { goto: 1, apply: false, fps:60 };
 
 interface Save {
-  v: 1;
+  v: 2;
   level: number;
   stars: number[];
 }
 
 /** Tutorial captions by level (index 0 to 2), then by tap number. Later levels have none. */
 const COACH: Record<number, string[]> = {
-  0: ['Tap the train. It runs along its track until it leaves the board.'],
-  1: ['Tap the back train. It bumps the one ahead, which takes off too, and the back one follows it out.'],
-  2: ['A bump on the side sets a train off as well. It runs away from the bump.', 'Fewer taps means more stars. Par is the fewest possible.'],
+  0: ['Tap to serve! The teal stripe marks the head. A flashing band means its route is open.'],
+  1: ['Brake, honk, then follow. A signalled train always goes toward its striped head.'],
+  2: ['Side signals also follow the striped head. If that end is blocked, no light and no chain departure.', 'Swipe either way to move manually. A solid band marks travel; stopping restores the preferred head.'],
 };
 
 const BOARD_TOP = 120;
@@ -36,7 +38,13 @@ type Phase = 'play' | 'animating' | 'won' | 'failed' | 'menu';
 export class GameScene extends Phaser.Scene {
   private bus = new IntentBus<Intent>();
   private sfx!: Sfx;
-  private save: Save = { v: 1, level: 0, stars: [] };
+  private save: Save = { v: 2, level: 0, stars: [] };
+  private visualState:State=[];
+  private yardArt:Phaser.GameObjects.GameObject[]=[];
+  private trainMasks:Phaser.Display.Masks.GeometryMask[]=[];
+  private trainLayer:Phaser.GameObjects.Container|null=null;
+  private readyStateKey='';
+  private exitAudit:object[]|null=null;
   private levelIndex = 0;
   private level!: Level;
   private state: State = [];
@@ -76,7 +84,10 @@ export class GameScene extends Phaser.Scene {
     super('game');
   }
 
+  preload():void {preloadArt(this);}
+
   create(): void {
+    registerArt(this);
     const cam = this.cameras.main;
     cam.setZoom(PIXEL_RATIO);
     cam.centerOn(WIDTH / 2, HEIGHT / 2);
@@ -87,7 +98,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.gBackdrop = this.add.graphics().setDepth(-10);
-    this.gBackdrop.fillGradientStyle(0x8fd3ff, 0x8fd3ff, 0xdff6e6, 0xdff6e6, 1);
+    this.gBackdrop.fillGradientStyle(0xfff3e1, 0xfff3e1, 0xf6dfc5, 0xf6dfc5, 1);
     this.gBackdrop.fillRect(0, 0, WIDTH, HEIGHT);
     this.gBackdrop.fillStyle(0xffffff, 0.35);
     for (const [x, y, r] of [[70, 70, 30], [320, 50, 22], [330, 760, 36], [50, 780, 26]]) this.gBackdrop.fillCircle(x, y, r);
@@ -110,17 +121,18 @@ export class GameScene extends Phaser.Scene {
       .setDepth(220);
 
     this.add.text(5, 4, VERSION_STAMP, { fontFamily: 'monospace', fontSize: '8px', color: '#1f4f8f', resolution: PIXEL_RATIO }).setAlpha(0.35).setDepth(250);
-    this.hudLevel = this.hudText(WIDTH / 2, 34, 24, '#ffffff');
-    this.hudTaps = this.hudText(WIDTH / 2, 70, 15, '#f1f9ff');
+    this.hudLevel = this.hudText(WIDTH / 2, 34, 24, '#74435c');
+    this.hudTaps = this.hudText(WIDTH / 2, 70, 15, '#795a68');
     this.starsG = this.add.graphics().setDepth(240);
     this.banner = this.hudText(WIDTH / 2, 400, 34, '#ffe27a').setDepth(230).setAlpha(0);
-    this.coach = this.hudText(WIDTH / 2, 172, 16, '#ffffff').setDepth(230).setAlign('center').setWordWrapWidth(WIDTH - 50);
+    this.coach = this.hudText(WIDTH / 2, 172, 16, '#74435c').setDepth(230).setAlign('center').setWordWrapWidth(WIDTH - 50);
     this.yard = this.add.graphics().setDepth(0);
     this.arrows = this.add.graphics().setDepth(60);
     this.cursorG = this.add.graphics().setDepth(70);
 
-    this.restartBtn = new Button(this, 105, 760, 170, 54, 'Restart', null, { fill: 0x3a4a68, edge: 0x6f9cff }, () => this.bus.emit({ type: 'restart' }), 20);
-    this.levelsBtn = new Button(this, 285, 760, 170, 54, 'Levels', null, { fill: 0x5a3f2e, edge: 0xffa05c }, () => this.bus.emit({ type: 'levels' }), 20);
+    this.restartBtn = new Button(this, 105, 760, 170, 54, 'Restart', null, { fill: 0x8b416d, edge: 0xba7b9f }, () => this.bus.emit({ type: 'restart' }), 20);
+    this.levelsBtn = new Button(this, 285, 760, 170, 54, 'Levels', null, { fill: 0x508067, edge: 0x9fc49c }, () => this.bus.emit({ type: 'levels' }), 20);
+    this.restartBtn.container.setDepth(240);this.levelsBtn.container.setDepth(240);
 
     this.bus.on((i) => this.onIntent(i));
     bindKeyboard(this, this.bus);
@@ -133,7 +145,12 @@ export class GameScene extends Phaser.Scene {
     this.startLevel(this.save.level);
 
     if (new URLSearchParams(location.search).get('test') === '1') {
+      const timings:number[]=[];let frameStart=0;
+      const begin=()=>{frameStart=performance.now();},end=()=>{timings.push(performance.now()-frameStart);if(timings.length>600)timings.shift();};
+      this.game.events.on(Phaser.Core.Events.PRE_STEP,begin);this.game.events.on(Phaser.Core.Events.POST_RENDER,end);
+      this.events.once('shutdown',()=>{this.game.events.off(Phaser.Core.Events.PRE_STEP,begin);this.game.events.off(Phaser.Core.Events.POST_RENDER,end);});
       (window as unknown as Record<string, unknown>).__densha = {
+        perf:()=>{const a=timings.splice(0).sort((a,b)=>a-b);return {cpuP50:a[Math.floor(a.length*.5)],cpuP95:a[Math.floor(a.length*.95)],gameFps:this.game.loop.actualFps};},
         level: () => this.levelIndex,
         phase: () => this.phase,
         taps: () => this.taps,
@@ -153,6 +170,16 @@ export class GameScene extends Phaser.Scene {
         hintShown: () => !!this.hint,
         slow: (s: number) => (this.testSlow = s),
         levels: () => LEVELS.length,
+        art:()=>hasArt(this,'dd_family'),
+        renderInfo:()=>({pixelRatio:PIXEL_RATIO,eyeFrames:this.textures.get('dd_eyes').getFrameNames().length,signalFrames:hasArt(this,'dd_signals')?this.textures.get('dd_signals').getFrameNames().length:0}),
+        trains:()=>[...this.views.values()].map(v=>({id:v.def.id,...v.inspect()})),
+        definitions:()=>this.level.trains,
+        state:()=>this.state.slice(),
+        carriages:(id:number)=>this.views.get(id)?.geometry()??null,
+        setTrainVisible:(id:number,visible:boolean)=>this.views.get(id)?.container.setVisible(visible),
+        exitAudit:(enable?:boolean)=>{if(enable!==undefined)this.exitAudit=enable?[]:null;return this.exitAudit;},
+        board:()=>({x:this.ox,y:this.oy,cs:this.cs,cols:this.level.cols,rows:this.level.rows}),
+        effects:()=>({confetti:this.children.list.filter(o=>o.name==='three-star-confetti').map(o=>(o as Phaser.GameObjects.Particles.ParticleEmitter).getAliveParticleCount()),fps:this.game.loop.actualFps,travelSpeed:tune.feel.travelSpeed}),
       };
     }
   }
@@ -164,7 +191,7 @@ export class GameScene extends Phaser.Scene {
       const raw = localStorage.getItem(SAVE_KEY);
       if (raw) {
         const s = JSON.parse(raw) as Save;
-        if (s.v === 1) this.save = s;
+        if (s.v === 2) this.save = s;
       }
     } catch {
       /* storage unavailable */
@@ -183,7 +210,7 @@ export class GameScene extends Phaser.Scene {
 
   private hudText(x: number, y: number, size: number, color: string): Phaser.GameObjects.Text {
     return this.add
-      .text(x, y, '', { fontFamily: 'Arial, sans-serif', fontStyle: 'bold', fontSize: `${size}px`, color, stroke: '#1f4f8f', strokeThickness: Math.max(2, size / 6), align: 'center', resolution: PIXEL_RATIO })
+      .text(x, y, '', { fontFamily: 'Trebuchet MS, Segoe UI, sans-serif', fontStyle: 'bold', fontSize: `${size}px`, color:color==='#ffffff'?'#74435c':color, strokeThickness:0, align: 'center', resolution: PIXEL_RATIO })
       .setOrigin(0.5)
       .setDepth(240);
   }
@@ -197,11 +224,16 @@ export class GameScene extends Phaser.Scene {
     this.timers = [];
     for (const v of this.views.values()) v.destroy();
     this.views.clear();
+    this.trainLayer?.destroy();this.trainLayer=null;
+    this.yardArt.forEach(o=>o.destroy());this.yardArt=[];
+    this.trainMasks.forEach(m=>m.destroy());this.trainMasks=[];
     this.clearOverlay();
     this.closeMenu();
     this.pending = null;
     this.arrows.clear();
     this.state = initialState(this.level);
+    this.visualState=this.state.slice();
+    this.readyStateKey='';
     this.taps = 0;
     this.phase = 'play';
     // Rules come from tune.json; par is solved under the same rules so stars stay honest.
@@ -215,12 +247,15 @@ export class GameScene extends Phaser.Scene {
     this.ox = Math.round((WIDTH - this.cs * this.level.cols) / 2);
     this.oy = Math.round(BOARD_TOP + (BOARD_BOTTOM - BOARD_TOP - this.cs * this.level.rows) / 2);
     this.yard.clear();
-    drawYard(this.yard, this.level, { cs: this.cs, ox: this.ox, oy: this.oy });
+    this.yardArt=drawYard(this.yard, this.level, { cs: this.cs, ox: this.ox, oy: this.oy });
+    this.trainLayer=this.add.container(0,0).setDepth(10);
+    const mask=this.make.graphics({x:0,y:0},false);mask.fillStyle(0xffffff).fillRect(this.ox-this.cs*.12,this.oy-this.cs*.12,this.cs*(this.level.cols+.24),this.cs*(this.level.rows+.24));
+    const geometry=mask.createGeometryMask();this.trainLayer.setMask(geometry);this.trainMasks.push(geometry);this.yardArt.push(mask);
     for (const t of this.level.trains) {
-      bakeCar(this, t.color, this.cs);
       const v = new TrainView(this, t, this.cs);
       const c = v.centre(t.start, this.ox, this.oy);
       v.container.setPosition(c.x, c.y).setDepth(10 + t.id);
+      this.trainLayer.add(v.container);
       this.views.set(t.id, v);
     }
     this.cursor = { c: 0, r: 0 };
@@ -248,7 +283,7 @@ export class GameScene extends Phaser.Scene {
       const rr = i % 2 === 0 ? r : r * 0.45;
       pts.push({ x: x + Math.cos(a) * rr, y: y + Math.sin(a) * rr });
     }
-    g.fillStyle(0x1f4f8f, 1);
+    g.fillStyle(0xad7851, 1);
     g.fillPoints(pts.map((p) => ({ x: p.x, y: p.y + 1.5 })), true);
     g.fillStyle(color, 1);
     g.fillPoints(pts, true);
@@ -280,12 +315,6 @@ export class GameScene extends Phaser.Scene {
     if (intent.type === 'select') return this.selectLevel(intent.level);
     if (this.phase !== 'play') return;
     if (intent.type === 'tap') {
-      if (this.pending) {
-        for (const d of this.pending.dirs) {
-          const a = this.arrowPos(this.pending.train, d);
-          if (Math.hypot(intent.x - a.x, intent.y - a.y) < 30) return this.runTrain(this.pending.train, d);
-        }
-      }
       const t = this.locate(intent.x, intent.y);
       if (t >= 0) return this.tapTrain(t);
       this.pending = null;
@@ -330,6 +359,7 @@ export class GameScene extends Phaser.Scene {
 
   /** A tap on a train: run it if only one way is open, show two arrows if both are, shake if it is stuck. */
   private tapTrain(train: number): void {
+    this.clearHint();for(const view of this.views.values())view.setAwake(false);
     const dirs = ([-1, 1] as Dir[]).filter((d) => canRun(this.level, this.state, train, d));
     this.pending = null;
     this.arrows.clear();
@@ -347,21 +377,11 @@ export class GameScene extends Phaser.Scene {
     this.showArrows(train);
   }
 
-  private showArrows(train: number): void {
-    const t = this.level.trains[train];
-    const g = this.arrows;
-    g.clear();
-    for (const d of [-1, 1] as Dir[]) {
-      const { x, y } = this.arrowPos(train, d);
-      g.fillStyle(0x1f4f8f, 0.9);
-      g.fillCircle(x, y + 2, 20);
-      g.fillStyle(0xffd04a, 1);
-      g.fillCircle(x, y, 19);
-      g.fillStyle(0x1f4f8f, 1);
-      const a = 8;
-      if (t.axis === 'h') g.fillTriangle(x + d * a, y, x - d * a * 0.6, y - a, x - d * a * 0.6, y + a);
-      else g.fillTriangle(x, y + d * a, x - a, y - d * a * 0.6, x + a, y - d * a * 0.6);
-    }
+  private showArrows(train:number):void {
+    const t=this.level.trains[train],v=this.views.get(train)!;v.setAwake(true);
+    this.arrows.clear();const x=v.container.x-(t.axis==='h'?t.len:1)*this.cs/2-3,y=v.container.y-(t.axis==='v'?t.len:1)*this.cs/2-3,w=(t.axis==='h'?t.len:1)*this.cs+6,h=(t.axis==='v'?t.len:1)*this.cs+6;
+    this.arrows.lineStyle(5,0xfffcf3,1);this.arrows.strokeRoundedRect(x,y,w,h,11);this.arrows.lineStyle(2,0x853e68,1);this.arrows.strokeRoundedRect(x,y,w,h,11);
+    this.coach.setText(t.axis==='h'?'Swipe left or right to serve.':'Swipe up or down to serve.');
   }
 
   // ------------------------------------------------------------------- run
@@ -371,12 +391,13 @@ export class GameScene extends Phaser.Scene {
     this.pending = null;
     this.arrows.clear();
     this.clearHint();
+    const before=this.state.slice();this.visualState=before.slice();
     const res = applyTap(this.level, this.state, { train, dir }, this.rules);
     this.taps++;
     this.state = res.state;
     this.phase = 'animating';
     this.refreshHud();
-    this.play(res.events, res.links);
+    this.play(res.events, res.links,before);
   }
 
   // ------------------------------------------------------------- animation
@@ -387,23 +408,24 @@ export class GameScene extends Phaser.Scene {
   }
 
   private runDuration(distCells: number, link: number): number {
-    return (tune.feel.runBaseMs + tune.feel.runPerCellMs * distCells) * this.pace(link);
+    return (tune.feel.runBaseMs + tune.feel.runPerCellMs * distCells) * this.pace(link)/tune.feel.travelSpeed;
   }
 
   /** Lays the events out on a timeline: runs, then horn and spook beats, overlapping so chains stay quick. */
-  private play(events: TapEvent[], links: number): void {
+  private play(events: TapEvent[], links: number,initial:State): void {
     const f = tune.feel;
     let cursor = 0;
     let lastRunStart = 0;
     let lastRunDur = 0;
     let exits = 0;
+    let visualEnd=0;
     const token = this.playToken;
     const at = (ms: number, fn: () => void) => {
       this.timers.push(this.time.delayedCall(Math.max(1, ms), () => token === this.playToken && fn()));
     };
     // Pixel position of each train as of the end of its last scheduled run.
     const pos = new Map<number, number>();
-    for (const [id] of this.views) pos.set(id, this.level.trains[id].start);
+    for (const [id] of this.views) pos.set(id, initial[id]);
     let combo = 0;
 
     events.forEach((e, idx) => {
@@ -416,35 +438,39 @@ export class GameScene extends Phaser.Scene {
         const dur = this.runDuration(dist, e.link);
         const from = v.centre(startPos, this.ox, this.oy);
         const to = v.centre(e.to + (e.exited ? e.dir * f.exitExtraCells : 0), this.ox, this.oy);
+        const half=(t.len/2+1)*this.cs;
+        const outside={x:t.axis==='h'?(e.dir>0?WIDTH+half:-half):to.x,y:t.axis==='v'?(e.dir>0?HEIGHT+half:-half):to.y};
+        const tailMs=e.exited?this.runDuration((Math.abs(outside.x-to.x)+Math.abs(outside.y-to.y))/this.cs,e.link):0;
         // A resumed run starts while the train ahead is still moving off.
         const start = e.resume && lastRunDur ? lastRunStart + lastRunDur * f.resumeOverlap : cursor;
         at(start, () => {
+          v.setTravel(e.dir);
           this.sfx.noise(0.1, 0.18, 1800);
           this.tweens.add({
             targets: v.container,
             x: to.x,
             y: to.y,
             duration: dur,
-            ease: e.exited ? 'Sine.In' : 'Cubic.In',
+            ease: e.exited ? 'Sine.In' : 'Cubic.Out',
             onUpdate: undefined,
             onComplete: () => {
               if (e.exited) {
+                this.visualState[e.train]=-1;
                 this.sfx.treasure();
-                this.sparks.particleTint = t.color;
-                this.sparks.explode(10, Phaser.Math.Clamp(to.x, 20, WIDTH - 20), Phaser.Math.Clamp(to.y, 130, 700));
-                v.destroy();
-                this.views.delete(e.train);
-              } else v.brake();
+                // Continue at full size under the cover until every carriage is offscreen.
+                this.tweens.add({targets:v.container,x:outside.x,y:outside.y,duration:tailMs,ease:'Linear',onComplete:()=>{if(this.exitAudit)this.exitAudit.push({train:e.train,dir:e.dir,geometry:v.geometry()});v.destroy();this.views.delete(e.train);}});
+              } else {this.visualState[e.train]=e.to;v.setTravel(null);}
             },
           });
-          if (e.exited) this.tweens.add({ targets: v.container, alpha: 0, delay: dur * 0.55, duration: dur * 0.45 });
           void from;
           void v.container.setPosition(from.x, from.y);
         });
+        if(!e.exited){const brakeMs=f.brakeMs*this.pace(e.link);at(start+Math.max(0,dur-brakeMs),()=>v.react('brake',e.dir,brakeMs));}
         pos.set(e.train, e.exited ? e.to : e.to);
         lastRunStart = start;
         lastRunDur = dur;
         cursor = start + dur;
+        visualEnd=Math.max(visualEnd,cursor+tailMs,(!e.exited&&nextE?.type!=='hit')?cursor+f.brakeMs*2+(t.len-1)*f.carriageDelayMs:0);
         if (e.exited) exits++;
         void nextE;
       } else {
@@ -454,10 +480,11 @@ export class GameScene extends Phaser.Scene {
         const rt = this.level.trains[e.runner];
         const link = e.link;
         const beat = (e.spooked ? f.spookMs : f.hornMs * 0.6) * this.pace(link);
+        visualEnd=Math.max(visualEnd,cursor+f.hornMs*2+(Math.max(runner.def.len,target.def.len)-1)*f.carriageDelayMs);
         const step = combo++;
         at(cursor, () => {
           this.horn(runner, rt.axis, e.dir, step, e.sameLine);
-          if (e.spooked) this.spook(target, beat);
+          if (e.spooked) this.spook(target, beat,e.targetDir);
           else this.bonk(target);
         });
         cursor += beat;
@@ -465,68 +492,39 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    at(cursor + 60, () => this.afterPlay(links, exits));
+    at(Math.max(cursor,visualEnd) + 60, () => this.afterPlay(links, exits));
   }
 
-  private horn(runner: TrainView, axis: 'h' | 'v', dir: Dir, step: number, sameLine: boolean): void {
-    const f = tune.feel;
-    runner.brake();
-    // Two-note electric horn, rising a little with each link.
-    const p = Math.pow(2, Math.min(step, f.pitchStepMax) * f.pitchStepPerLink);
-    this.sfx.tone(392 * p, 0.14, 'square', 0.13);
-    this.sfx.tone(494 * p, 0.14, 'square', 0.11, undefined, 0.01);
-    const frontX = runner.container.x + (axis === 'h' ? dir * ((runner.def.len * this.cs) / 2 + 4) : 0);
-    const frontY = runner.container.y + (axis === 'v' ? dir * ((runner.def.len * this.cs) / 2 + 4) : 0);
-    const g = this.add.graphics({ x: frontX, y: frontY }).setDepth(200);
-    g.setRotation(axis === 'h' ? (dir > 0 ? 0 : Math.PI) : dir > 0 ? Math.PI / 2 : -Math.PI / 2);
-    g.lineStyle(4, 0xffffff, 1);
-    for (let i = 0; i < f.hornRings; i++) {
-      const r = 10 + i * (f.hornRingPx / f.hornRings);
-      g.beginPath();
-      g.arc(0, 0, r, -0.75, 0.75);
-      g.strokePath();
+  private horn(runner:TrainView,axis:'h'|'v',dir:Dir,step:number,_sameLine:boolean):void {
+    const f=tune.feel;runner.react('honk',dir,f.hornMs*2);
+    const p=Math.pow(2,Math.min(step,f.pitchStepMax)*f.pitchStepPerLink);
+    this.sfx.tone(392*p,.14,'square',.13);this.sfx.tone(494*p,.14,'square',.11,undefined,.01);
+    const x=runner.container.x+(axis==='h'?dir*(runner.def.len/2-.2)*this.cs:0),y=runner.container.y+(axis==='v'?dir*(runner.def.len/2-.2)*this.cs:-SIDE_BODY_LIFT*this.cs/116*.94)-this.cs*.35;
+    const g=this.add.graphics({x,y}).setDepth(200);
+    g.setName('honk-burst');
+    // Soft cream rims, coral/mango signal rays, and a little expanding sound arc.
+    for(const [i,angle] of [-55,-28,0,28,55].entries()){
+      const a=angle*Math.PI/180,co=Math.cos(a),si=Math.sin(a),length=22-Math.abs(i-2)*3;
+      const points=(pad:number)=>[[-1-pad,-5],[-2.4-pad,-length],[2.4+pad,-length],[1+pad,-5]].map(([px,py])=>({x:px*co-py*si,y:px*si+py*co}));
+      g.fillStyle(0xfff9ea);g.fillPoints(points(1.5),true);g.fillStyle(i%2?0xf3b446:0xec7e83);g.fillPoints(points(0),true);
     }
-    g.setScale(0.5);
-    this.tweens.add({ targets: g, scale: 1.5, alpha: 0, duration: f.hornMs * 2, ease: 'Cubic.Out', onComplete: () => g.destroy() });
-    this.sparks.particleTint = 0xffffff;
-    this.sparks.explode(f.hornPuffs, frontX, frontY);
-    if (!sameLine) return;
+    g.lineStyle(1.5,0xd696ab,.7);g.beginPath();g.arc(0,0,27,Phaser.Math.DegToRad(242),Phaser.Math.DegToRad(298));g.strokePath();
+    g.setAlpha(0).setScale(.45);
+    this.tweens.add({targets:g,scale:1.12,alpha:1,duration:f.hornMs*.65,ease:'Back.Out'});
+    this.tweens.add({targets:g,y:y-7,scale:1.25,alpha:0,delay:f.hornMs,duration:f.hornMs,ease:'Sine.In',onComplete:()=>g.destroy()});
+    g.once('destroy',()=>this.tweens.killTweensOf(g));
   }
 
   /** The hit train is startled: stretches, skews and shakes, then springs away. */
-  private spook(v: TrainView, beatMs: number): void {
-    const f = tune.feel;
-    const prog = { k: 0 };
-    this.tweens.add({
-      targets: prog,
-      k: 1,
-      duration: beatMs,
-      ease: 'Sine.Out',
-      onUpdate: () => {
-        v.pose(prog.k, f.spookStretch, f.spookSquash, f.spookSkewPx, f.spookTiltDeg);
-        v.container.x += (Math.random() - 0.5) * 2 * f.spookShakePx * prog.k;
-      },
-      onComplete: () => {
-        // Release into the run: springs back while it starts to move.
-        this.tweens.add({ targets: prog, k: 0, duration: f.spookReleaseMs, ease: 'Back.Out', onUpdate: () => v.pose(prog.k, f.spookStretch, f.spookSquash, f.spookSkewPx, f.spookTiltDeg), onComplete: () => v.rest() });
-      },
-    });
-    const bang = this.add
-      .text(v.container.x, v.container.y - this.cs * 0.6, '!', { fontFamily: 'Arial, sans-serif', fontStyle: 'bold', fontSize: '30px', color: '#ffcf3a', stroke: '#7a3a00', strokeThickness: 5, resolution: PIXEL_RATIO })
-      .setOrigin(0.5)
-      .setDepth(210)
-      .setScale(0.3);
-    this.tweens.add({ targets: bang, scale: 1.1, duration: f.bangPopMs * 0.4, ease: 'Back.Out' });
-    this.tweens.add({ targets: bang, alpha: 0, y: bang.y - 10, delay: f.bangPopMs * 0.5, duration: f.bangPopMs * 0.5, onComplete: () => bang.destroy() });
+  private spook(v:TrainView,beatMs:number,dir:Dir):void {
+    v.react('ack',dir,beatMs+tune.feel.spookReleaseMs);
   }
 
   /** A hit train that does not move (crossing track or boxed in) just takes the bump. */
-  private bonk(v: TrainView): void {
-    const x = v.container.x;
-    this.tweens.add({ targets: v.container, x: x + 3, duration: 40, yoyo: true, repeat: 2, onComplete: () => (v.container.x = x) });
-  }
+  private bonk(v:TrainView):void {v.react('blocked',v.def.headDir,tune.feel.brakeMs*2);}
 
   private afterPlay(links: number, exits: number): void {
+    this.visualState=this.state.slice();for(const v of this.views.values())v.rest();
     void exits;
     if (links >= tune.feel.bigChainTrains) {
       this.sfx.cleared();
@@ -552,38 +550,18 @@ export class GameScene extends Phaser.Scene {
    * Guided tutorial for levels 1 to 3: a caption plus a pulsing ring and arrow on the train
    * an optimal solution taps next. It is only a hint: it never blocks or swallows input.
    */
-  private updateCoach(): void {
-    this.clearHint();
-    const lines = COACH[this.levelIndex];
-    if (!lines || this.phase !== 'play') {
-      this.coach.setText('');
-      return;
-    }
-    this.coach.setFontSize(16).setLineSpacing(6).setText(lines[Math.min(this.taps, lines.length - 1)]);
-    // Sit centred in the gap between the stars and the board; shrink if the text is taller than the gap.
-    const top = 118;
-    const gap = this.oy - 8 - top;
-    if (this.coach.height > gap) this.coach.setFontSize(13).setLineSpacing(4);
-    this.coach.setY(top + gap / 2);
-    const m = solve(this.level, this.state, 400000, this.rules).moves[0];
-    const v = m ? this.views.get(m.train) : undefined;
-    if (!m || !v) return;
-    const horizontal = this.level.trains[m.train].axis === 'h';
-    const a = this.arrowPos(m.train, m.dir);
-    const g = this.add.graphics();
-    g.lineStyle(4, 0xffe27a, 1);
-    g.strokeRoundedRect(-this.cs * 0.6 * (horizontal ? this.level.trains[m.train].len : 1), -this.cs * 0.6 * (horizontal ? 1 : this.level.trains[m.train].len), this.cs * 1.2 * (horizontal ? this.level.trains[m.train].len : 1), this.cs * 1.2 * (horizontal ? 1 : this.level.trains[m.train].len), 14);
-    const ring = this.add.container(v.container.x, v.container.y, [g]).setDepth(220);
-    const arrow = this.add.graphics().setDepth(221);
-    arrow.fillStyle(0xffe27a, 1);
-    const k = this.cs * 0.28;
-    if (horizontal) arrow.fillTriangle(m.dir * k, 0, -m.dir * k * 0.5, -k, -m.dir * k * 0.5, k);
-    else arrow.fillTriangle(0, m.dir * k, -k, -m.dir * k * 0.5, k, -m.dir * k * 0.5);
-    const holder = this.add.container(0, 0, [ring, arrow]).setDepth(220);
-    arrow.setPosition(a.x, a.y);
-    this.tweens.add({ targets: ring, alpha: 0.35, duration: 450, yoyo: true, repeat: -1 });
-    this.tweens.add({ targets: arrow, x: a.x + (horizontal ? m.dir * 8 : 0), y: a.y + (horizontal ? 0 : m.dir * 8), duration: 380, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-    this.hint = holder;
+  private updateCoach():void {
+    this.clearHint();const lines=COACH[this.levelIndex];
+    if(!lines||this.phase!=='play'){this.coach.setText('');return;}
+    this.coach.setFontSize(14).setLineSpacing(4).setText(lines[Math.min(this.taps,lines.length-1)]);
+    const top=118,gap=this.oy-8-top;if(this.coach.height>gap)this.coach.setFontSize(12);this.coach.setY(top+gap/2);
+    const m=solve(this.level,this.state,400000,this.rules).moves[0],v=m?this.views.get(m.train):undefined;if(!m||!v)return;
+    v.setAwake(true,m.dir);
+    const t=this.level.trains[m.train],g=this.add.graphics(),x=v.container.x-(t.axis==='h'?t.len:1)*this.cs/2-4,y=v.container.y-(t.axis==='v'?t.len:1)*this.cs/2-4,w=(t.axis==='h'?t.len:1)*this.cs+8,h=(t.axis==='v'?t.len:1)*this.cs+8;
+    const bx=this.ox,by=this.oy,bw=this.level.cols*this.cs,bh=this.level.rows*this.cs,l=Math.max(bx,x),focusTop=Math.max(by,y),r=Math.min(bx+bw,x+w),bottom=Math.min(by+bh,y+h);
+    g.fillStyle(0x543044,.16);g.fillRect(bx,by,Math.max(0,l-bx),bh);g.fillRect(r,by,Math.max(0,bx+bw-r),bh);g.fillRect(l,by,Math.max(0,r-l),Math.max(0,focusTop-by));g.fillRect(l,bottom,Math.max(0,r-l),Math.max(0,by+bh-bottom));
+    g.lineStyle(5,0xfffcf3,1);g.strokeRoundedRect(x,y,w,h,11);g.lineStyle(2,0x853e68,1);g.strokeRoundedRect(x,y,w,h,11);
+    const ring=this.add.container(0,0,[g]).setDepth(220);this.tweens.add({targets:ring,alpha:.78,duration:450,yoyo:true,repeat:-1});this.hint=ring;
   }
 
   // ---------------------------------------------------------------- results
@@ -596,10 +574,6 @@ export class GameScene extends Phaser.Scene {
     this.save.level = nextOpen ? this.levelIndex + 1 : this.levelIndex;
     this.persist();
     this.sfx.cleared();
-    for (let i = 0; i < 4; i++) this.time.delayedCall(i * 110, () => {
-      this.sparks.particleTint = [0xffd04a, 0xff6fb5, 0x4d9bff, 0x5ed957][i];
-      this.sparks.explode(18, 60 + Math.random() * 270, 200 + Math.random() * 300);
-    });
     const last = this.levelIndex >= LEVELS.length - 1;
     this.showOverlay(`Level ${this.levelIndex + 1} clear!`, stars, last ? 'Play again' : nextOpen ? 'Next level' : 'Replay for stars', () => this.bus.emit({ type: nextOpen ? 'next' : 'restart' }));
     if (!last && !nextOpen && this.totalStars() < this.gateNeed(this.levelIndex + 1)) {
@@ -623,21 +597,32 @@ export class GameScene extends Phaser.Scene {
     this.clearHint();
     this.coach.setText('');
     this.clearOverlay();
-    const panel = this.add.graphics().setDepth(300);
-    panel.fillStyle(0x1f4f8f, 0.55);
-    panel.fillRect(0, 0, WIDTH, HEIGHT);
+    const dim=this.add.graphics().setDepth(300);dim.fillStyle(0x61485e,.38);dim.fillRect(0,0,WIDTH,HEIGHT);
+    const panel = this.add.graphics().setDepth(310);
     panel.fillStyle(0x000000, 0.25);
     panel.fillRoundedRect(46, 268, WIDTH - 92, 280, 26);
     panel.fillStyle(0xfff8e6, 1);
     panel.fillRoundedRect(46, 260, WIDTH - 92, 280, 26);
-    const t = this.hudText(WIDTH / 2, 310, 28, '#ffffff').setDepth(310);
+    const t = this.hudText(WIDTH / 2, 310, 28, '#74435c').setDepth(310);
     t.setText(title);
-    const g = this.add.graphics().setDepth(310);
-    if (stars > 0) for (let i = 0; i < 3; i++) this.drawStar(g, WIDTH / 2 + (i - 1) * 62, 390, 26, i < stars ? 0xffd04a : 0xc9c2b0);
-    else this.hudText(WIDTH / 2, 390, 15, '#ffffff').setDepth(310).setText(`Par is ${this.par} taps. You used ${this.taps}.`);
+    const decorations:Phaser.GameObjects.GameObject[]=[];
+    if (stars > 0) for (let i = 0; i < 3; i++){
+      const x=WIDTH/2+(i-1)*62,star=this.add.graphics({x,y:390});this.drawStar(star,0,0,26,i<stars?0xffd04a:0xc9c2b0);decorations.push(star);
+      star.setScale(.05).setAngle(-18);
+      this.tweens.add({targets:star,scale:1,angle:0,delay:i*tune.feel.starStaggerMs,duration:tune.feel.uiBounceMs*1.35,ease:'Elastic.Out'});
+      if(i<stars){const glint=this.add.graphics({x,y:390});glint.lineStyle(2,0xffdc80,.9);for(let n=0;n<8;n++){const a=n*Math.PI/4;glint.lineBetween(Math.cos(a)*30,Math.sin(a)*30,Math.cos(a)*37,Math.sin(a)*37);}glint.setScale(.6).setAlpha(0);decorations.push(glint);this.tweens.add({targets:glint,scale:1.45,alpha:{from:1,to:0},delay:i*tune.feel.starStaggerMs,duration:tune.feel.uiBounceMs,ease:'Sine.Out'});}
+    }
+    else decorations.push(this.hudText(WIDTH / 2, 390, 15, '#795a68').setText(`Par is ${this.par} taps. You used ${this.taps}.`));
     const b = new Button(this, WIDTH / 2, 480, 220, 60, label, null, { fill: 0x2f9e5b, edge: 0x6dffa8 }, onTap, 22);
-    b.container.setDepth(310);
-    this.overlay.push(panel, t, g, b.container);
+    const body=this.add.container(0,0,[panel,t,...decorations,b.container]).setDepth(310).setY(22);
+    this.tweens.add({targets:body,y:0,duration:tune.feel.uiBounceMs,ease:'Back.Out'});
+    this.overlay.push(dim,body);
+    for(const o of [body,...decorations])o.once('destroy',()=>this.tweens.killTweensOf(o));
+    if(stars===3){
+      const confetti=this.add.particles(0,0,'px',{emitting:false,maxParticles:tune.feel.confettiCount,lifespan:tune.feel.confettiMs,speedX:{min:-150,max:150},speedY:{min:-260,max:-90},gravityY:230,scaleX:{start:1.7,end:.9},scaleY:{start:.65,end:.35},rotate:{start:0,end:540},alpha:{start:1,end:0},tint:[0xf18d9e,0xf5c854,0x78b9c3,0xb6a0d8,0xfff5dc]}).setDepth(330).setName('three-star-confetti');
+      const timer=this.time.delayedCall(tune.feel.starStaggerMs*2,()=>{confetti.explode(tune.feel.confettiCount/2,65,420);confetti.explode(tune.feel.confettiCount/2,WIDTH-65,420);});
+      confetti.once('destroy',()=>timer.remove(false));this.overlay.push(confetti);
+    }
   }
 
   // ------------------------------------------------------------ level selector
@@ -704,16 +689,14 @@ export class GameScene extends Phaser.Scene {
     const px = (WIDTH - panelW) / 2;
     const py = Math.round((HEIGHT - panelH) / 2) - 30;
     const dim = this.add.graphics().setDepth(300);
-    dim.fillStyle(0x1f4f8f, 0.55);
+    dim.fillStyle(0x61485e, 0.38);
     dim.fillRect(0, 0, WIDTH, HEIGHT);
-    dim.fillStyle(0x000000, 0.25);
-    dim.fillRoundedRect(px, py + 8, panelW, panelH, 26);
-    dim.fillStyle(0xfff8e6, 1);
-    dim.fillRoundedRect(px, py, panelW, panelH, 26);
+    const card=this.add.graphics().setDepth(310);card.fillStyle(0x74435c,.18);card.fillRoundedRect(px,py+8,panelW,panelH,26);card.fillStyle(0xfff8e6);card.fillRoundedRect(px,py,panelW,panelH,26);
+    this.menu.push(card);
     // Tapping the dimmed area outside the panel closes the menu.
     const zone = this.add.zone(0, 0, WIDTH, HEIGHT).setOrigin(0).setDepth(299).setInteractive();
     zone.on('pointerdown', () => this.bus.emit({ type: 'levels' }));
-    const title = this.hudText(WIDTH / 2, py + 40, 28, '#ffffff').setDepth(310);
+    const title = this.hudText(WIDTH / 2, py + 40, 28, '#74435c').setDepth(310);
     const nextGate = this.gateNeed(Math.min(LEVELS.length - 1, this.firstLocked()));
     const gateText = tune.rules.unlockAll || nextGate <= this.totalStars() ? `Stars ${this.totalStars()}` : `Stars ${this.totalStars()} / ${nextGate} to open more`;
     this.menu.push(this.hudText(WIDTH / 2, py + 68, 13, '#6a5a3a').setDepth(310).setText(gateText));
@@ -750,6 +733,8 @@ export class GameScene extends Phaser.Scene {
     const close = new Button(this, WIDTH / 2, py + panelH - 40, 160, 48, 'Close', null, { fill: 0x2f9e5b, edge: 0x6dffa8 }, () => this.bus.emit({ type: 'levels' }), 20);
     close.container.setDepth(310);
     this.menu.push(close.container);
+    const content=this.menu.filter(o=>o!==dim&&o!==zone),body=this.add.container(0,22,content).setDepth(310);
+    this.tweens.add({targets:body,y:0,duration:tune.feel.uiBounceMs,ease:'Back.Out'});body.once('destroy',()=>this.tweens.killTweensOf(body));this.menu.push(body);
   }
 
   // -------------------------------------------------------------------- fx
@@ -768,7 +753,11 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: this.banner, alpha: 0, delay: 700, duration: 300 });
   }
 
-  update(): void {
+  update(_time:number,delta:number): void {
+    runtime.fps=Math.round(this.game.loop.actualFps);
+    const readyKey=this.visualState.join(',');
+    if(readyKey!==this.readyStateKey){for(const [id,v]of this.views)v.setReady(canRun(this.level,this.visualState,id,v.def.headDir));this.readyStateKey=readyKey;}
+    for(const v of this.views.values())v.update(delta*this.tweens.timeScale);
     if (runtime.apply) {
       runtime.apply = false;
       this.startLevel(runtime.goto - 1);

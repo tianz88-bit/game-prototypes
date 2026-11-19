@@ -32,6 +32,8 @@ export interface GenSpec {
 export interface GenResult {
   rows: string[];
   axis: Record<string, Axis>;
+  /** Fixed head directions, serialized with the puzzle and used by the solver. */
+  head: Record<string, Dir>;
   /** Taps in the intended solution (an upper bound on par). */
   planLength: number;
   /** Exact par if the solver finished, otherwise the plan length. */
@@ -108,7 +110,7 @@ function tryGenerate(spec: GenSpec, rules: RuleOptions): GenResult | null {
     const along = axis === 'h' ? spec.cols : spec.rows;
     const across = axis === 'h' ? spec.rows : spec.cols;
     if (len > along) return null;
-    return { id, letter: String.fromCharCode(65 + id), color: 0, axis, line: Math.floor(rand() * across), start: Math.floor(rand() * (along - len + 1)), len };
+    return { id, letter: String.fromCharCode(65 + id), color: 0, axis, line: Math.floor(rand() * across), start: Math.floor(rand() * (along - len + 1)), len, headDir: rand() < .5 ? -1 : 1 };
   };
   const fits = (t: TrainDef, level: Level): boolean => {
     const occ = occupied(level);
@@ -169,7 +171,7 @@ function tryGenerate(spec: GenSpec, rules: RuleOptions): GenResult | null {
   if (!isCleared(final.state)) return null;
   const linksPerTap = final.links;
   const climaxLinks = linksPerTap[linksPerTap.length - 1];
-  if (climaxLinks < Math.min(spec.climax, 3) || climaxLinks < Math.max(...linksPerTap)) return null;
+  if (climaxLinks < spec.climax || climaxLinks < Math.max(...linksPerTap)) return null;
 
   // Exact par when the solver can finish quickly; the plan is an upper bound otherwise.
   const sol = solve(level, initialState(level), 120000, rules);
@@ -181,14 +183,16 @@ function tryGenerate(spec: GenSpec, rules: RuleOptions): GenResult | null {
   const glyph: Record<ObstacleKind, string> = { concrete: '#', kiosk: 'k', signal: 's', tree: 't', machine: 'm', buffer: 'b' };
   for (const [cell, kind] of obstacles) grid[Math.floor(cell / spec.cols)][cell % spec.cols] = glyph[kind];
   const axis: Record<string, Axis> = {};
+  const head: Record<string, Dir> = {};
   for (const t of trains) {
     axis[t.letter] = t.axis;
+    head[t.letter] = t.headDir;
     for (let i = 0; i < t.len; i++) {
       if (t.axis === 'h') grid[t.line][t.start + i] = t.letter;
       else grid[t.start + i][t.line] = t.letter;
     }
   }
-  return { rows: grid.map((r) => r.join('')), axis, planLength: final.moves.length, par, exact, climaxLinks, linksPerTap, plan: final.moves, attempts: 0 };
+  return { rows: grid.map((r) => r.join('')), axis, head, planLength: final.moves.length, par, exact, climaxLinks, linksPerTap, plan: final.moves, attempts: 0 };
 }
 
 export type { Dir };

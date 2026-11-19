@@ -67,39 +67,6 @@ export function aheadCell(level: Level, state: State, train: number, dir: Dir): 
   return t.axis === 'h' ? [next, t.line] : [t.line, next];
 }
 
-/** How many free cells (or the way off the board) lie ahead of a train in `dir`. */
-function freeRun(level: Level, state: State, train: number, dir: Dir): number {
-  const s = state.slice();
-  let n = 0;
-  for (;;) {
-    const a = look(level, s, train, dir);
-    if (a.kind === 'exit') return n + 1000;
-    if (a.kind !== 'free') return n;
-    s[train] += dir;
-    n++;
-  }
-}
-
-/**
- * Which way a train hit on its side runs. It runs away from the bump: a hit near
- * its low end sends it toward the high end and the other way round. If only one way
- * is open it takes that. A hit dead centre goes whichever way has more room (the
- * way off the board counts most), then the positive way.
- */
-function sideBumpDir(level: Level, state: State, target: number, cell: [number, number]): Dir | null {
-  const o = level.trains[target];
-  const open = ([-1, 1] as Dir[]).filter((d) => canRun(level, state, target, d));
-  if (open.length === 0) return null;
-  if (open.length === 1) return open[0];
-  const idx = (o.axis === 'h' ? cell[0] : cell[1]) - state[target];
-  const centre = (o.len - 1) / 2;
-  if (idx < centre) return 1;
-  if (idx > centre) return -1;
-  const a = freeRun(level, state, target, -1);
-  const b = freeRun(level, state, target, 1);
-  return a > b ? -1 : 1;
-}
-
 /** A train can run in `dir` if the cell beyond its end is free or is the way off the board. */
 export function canRun(level: Level, state: State, train: number, dir: Dir): boolean {
   if (state[train] === GONE) return false;
@@ -158,7 +125,7 @@ export function applyTap(level: Level, state: State, move: Move, rules: RuleOpti
       const sameLine = o.axis === t.axis && o.line === t.line;
       // Head to tail the hit train runs on in the same direction. A bump on its side
       // sets it off along its own track, away from the bump.
-      const targetDir = sameLine ? dir : sideBumpDir(level, next, target, aheadCell(level, next, train, dir));
+      const targetDir = level.trains[target].headDir;
       const spooked = targetDir !== null && canRun(level, next, target, targetDir) && !ran.has(target);
       flush(false);
       events.push({ type: 'hit', runner: train, target, dir, targetDir: targetDir ?? dir, spooked, sameLine, link });

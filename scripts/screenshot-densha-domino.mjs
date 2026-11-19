@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 
-const { chromium } = createRequire(import.meta.url)('playwright');
+const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const base = process.argv[2];
 const outDir = process.argv[3];
 if (!base || !outDir) {
@@ -17,13 +17,15 @@ if (!base || !outDir) {
 }
 fs.mkdirSync(outDir, { recursive: true });
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({executablePath:process.env.BROWSER_EXECUTABLE || 'C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe',args:['--no-sandbox','--disable-gpu']});
+try {
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
 const page = await ctx.newPage();
 const errors = [];
-page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+page.on('console', (m) => m.type() === 'error' && errors.push(m.text()+' '+m.location().url));
 page.on('pageerror', (e) => errors.push(e.message));
-await page.goto(`${base}?test=1`);
+const entry=new URL(base);entry.searchParams.set('test','1');
+await page.goto(entry.href);
 await page.evaluate(() => localStorage.clear());
 await page.reload();
 await page.waitForTimeout(1000);
@@ -41,21 +43,24 @@ const settle = async () => {
   for (let t = 0; t < 60 && (await page.evaluate(() => window.__densha.phase())) === 'animating'; t++) await page.waitForTimeout(100);
 };
 const results = [];
-const total = await page.evaluate(() => window.__densha.levels());
+const total = Math.min(await page.evaluate(() => window.__densha.levels()),Number(process.env.DENSHA_TEST_LEVELS || Infinity));
 for (let lv = 0; lv < total; lv++) {
   await page.evaluate((n) => window.__densha.goto(n), lv);
   await page.waitForTimeout(300);
   const par = await page.evaluate(() => window.__densha.par());
-  if (lv === 3) await shot('level4-start');
+  if (lv === 3 || lv === 9) await shot(`level${lv+1}-start`);
   let taps = 0;
   for (let i = 0; i < 40 && (await page.evaluate(() => window.__densha.phase())) === 'play'; i++) {
     const m = await page.evaluate(() => window.__densha.nextMove());
     if (!m) break;
+    if(lv===1&&taps===0)await page.evaluate(()=>window.__densha.slow(.35));
     await swipe(m);
     taps++;
     if (lv === 1 && taps === 1) {
-      await page.waitForTimeout(170);
+      await page.waitForFunction(()=>window.__densha.trains().some(t=>t.reaction==='honk'||t.reaction==='ack'),{},{timeout:5000,polling:16});
+      await page.waitForTimeout(80);
       await shot('level2-horn-spook');
+      await page.evaluate(()=>window.__densha.slow(1));
     }
     if (lv === 5 && taps === 1) {
       await page.waitForTimeout(300);
@@ -101,3 +106,4 @@ if (bad.length) {
   process.exit(1);
 }
 console.log('ok, every level cleared in par taps with no console errors');
+} finally {await browser.close();}

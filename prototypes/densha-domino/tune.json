@@ -8,6 +8,16 @@
     "followAfterSide": 1
   },
   "feel": {
+    "travelSpeed": 0.67,
+    "uiBounceMs": 420,
+    "starStaggerMs": 140,
+    "confettiCount": 72,
+    "confettiMs": 1700,
+    "carriageDelayMs": 100,
+    "lightFlashMs": 650,
+    "sushiSpring": 0.1,
+    "artBrakeSquash": 0.22,
+    "acknowledgementSquash": 0.15,
     "runBaseMs": 140,
     "runPerCellMs": 55,
     "exitExtraCells": 0.8,

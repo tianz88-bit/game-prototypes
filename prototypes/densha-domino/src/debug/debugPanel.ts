@@ -2,6 +2,7 @@ import { mountTunePanelIfRequested } from 'dig-kit';
 import { SAVE_KEY } from '../scenes/GameScene';
 import { runtime } from '../scenes/GameScene';
 import { tune, tuneDefaults } from '../tune';
+import {LEVELS} from '../game/levels';
 
 export function mountDebugPanelIfRequested(): void {
   mountTunePanelIfRequested({
@@ -9,7 +10,8 @@ export function mountDebugPanelIfRequested(): void {
     tune,
     defaults: tuneDefaults,
     extras: (pane) => {
-      pane.addBinding(runtime, 'goto', { min: 1, max: 20, step: 1, label: 'level' });
+      pane.addBinding(runtime,'fps',{readonly:true,label:'render fps'});
+      pane.addBinding(runtime, 'goto', { min: 1, max: LEVELS.length, step: 1, label: 'level' });
       pane.addButton({ title: 'Go to level' }).on('click', () => {
         runtime.apply = true;
       });

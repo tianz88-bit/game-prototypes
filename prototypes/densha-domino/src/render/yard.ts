@@ -1,136 +1,103 @@
-import type Phaser from 'phaser';
-import type { Level, ObstacleKind } from '../game/types';
+import Phaser from 'phaser';
+import type {Level} from '../game/types';
+import {hasArt} from './art';
+import {WIDTH,HEIGHT} from '../pixelRatio';
+import {channelSurface} from './channels';
+import {channelRuns} from './channelRuns';
+import {TUNNEL_FRAME,planTunnelTexture} from './tunnelArt';
+export interface YardGeo {cs:number;ox:number;oy:number;}
 
-export interface YardGeo {
-  cs: number;
-  ox: number;
-  oy: number;
-}
-
-const RAIL = 0xa9b2c6;
-const TIE = 0x9a7b62;
-
-/** Draws rails along every line a train uses, exit arrows at open ends, and the fixed obstacles. */
-export function drawYard(g: Phaser.GameObjects.Graphics, level: Level, geo: YardGeo): void {
-  const { cs, ox, oy } = geo;
-  const blocked = (c: number, r: number) => level.obstacles.has(r * level.cols + c);
-  const lines = new Set(level.trains.map((t) => `${t.axis}${t.line}`));
-
-  // Ground under the yard.
-  g.fillStyle(0xe7dcc5, 1);
-  g.fillRoundedRect(ox - 8, oy - 8, level.cols * cs + 16, level.rows * cs + 16, 22);
-  g.lineStyle(3, 0xffffff, 0.35);
-  g.strokeRoundedRect(ox - 8, oy - 8, level.cols * cs + 16, level.rows * cs + 16, 22);
-
-  for (const key of lines) {
-    const axis = key[0];
-    const line = Number(key.slice(1));
-    const len = axis === 'h' ? level.cols : level.rows;
-    for (let i = 0; i < len; i++) {
-      const [c, r] = axis === 'h' ? [i, line] : [line, i];
-      if (blocked(c, r)) continue;
-      const cx = ox + (c + 0.5) * cs;
-      const cy = oy + (r + 0.5) * cs;
-      g.fillStyle(TIE, 1);
-      if (axis === 'h') g.fillRoundedRect(cx - cs * 0.07, cy - cs * 0.3, cs * 0.14, cs * 0.6, 2);
-      else g.fillRoundedRect(cx - cs * 0.3, cy - cs * 0.07, cs * 0.6, cs * 0.14, 2);
-    }
-    g.lineStyle(3, RAIL, 1);
-    for (const side of [-1, 1]) {
-      let run: number | null = null;
-      const flush = (end: number) => {
-        if (run === null) return;
-        const a = run;
-        const b = end;
-        if (axis === 'h') g.lineBetween(ox + a * cs, oy + (line + 0.5 + side * 0.18) * cs, ox + b * cs, oy + (line + 0.5 + side * 0.18) * cs);
-        else g.lineBetween(ox + (line + 0.5 + side * 0.18) * cs, oy + a * cs, ox + (line + 0.5 + side * 0.18) * cs, oy + b * cs);
-        run = null;
-      };
-      for (let i = 0; i < len; i++) {
-        const [c, r] = axis === 'h' ? [i, line] : [line, i];
-        if (blocked(c, r)) flush(i);
-        else if (run === null) run = i;
-      }
-      flush(len);
-    }
-    // Exit arrows where the rails reach the edge of the board.
-    for (const end of [0, len - 1]) {
-      const [c, r] = axis === 'h' ? [end, line] : [line, end];
-      if (blocked(c, r)) continue;
-      const dir = end === 0 ? -1 : 1;
-      const cx = ox + (c + 0.5) * cs;
-      const cy = oy + (r + 0.5) * cs;
-      const tipX = axis === 'h' ? cx + dir * (cs * 0.5 + 12) : cx;
-      const tipY = axis === 'h' ? cy : cy + dir * (cs * 0.5 + 12);
-      g.fillStyle(0x6dd36b, 1);
-      const a = 7;
-      if (axis === 'h') g.fillTriangle(tipX, tipY, tipX - dir * a * 1.2, tipY - a, tipX - dir * a * 1.2, tipY + a);
-      else g.fillTriangle(tipX, tipY, tipX - a, tipY - dir * a * 1.2, tipX + a, tipY - dir * a * 1.2);
-    }
+/** Countertop and recessed guide channels; all objects are owned by this level. */
+export function drawYard(g:Phaser.GameObjects.Graphics,level:Level,geo:YardGeo):Phaser.GameObjects.GameObject[] {
+  const {cs,ox,oy}=geo,scene=g.scene,w=level.cols*cs,h=level.rows*cs,objects:Phaser.GameObjects.GameObject[]=[];
+  for(const key of ['dd_active_plan_up','dd_active_plan_down'])if(scene.textures.exists(key))scene.textures.remove(key);
+  g.fillStyle(0xffe7cb);g.fillRoundedRect(ox-8,oy-8,w+16,h+16,15);
+  g.fillStyle(0xfff0dc);g.fillRect(ox,oy,w,h);
+  for(let r=0;r<level.rows;r++)for(let c=0;c<level.cols;c++){
+    const noise=((r+3)*73856093^(c+7)*19349663^(level.rows*level.cols*83492791))>>>0;
+    if(noise%7<2){g.fillStyle([0xfbedda,0xfff3e0,0xf9ebd8][noise%3]);g.fillRect(ox+c*cs,oy+r*cs,cs,cs);}
   }
-
-  for (const [idx, kind] of level.obstacles) drawObstacle(g, kind, ox + (idx % level.cols) * cs, oy + Math.floor(idx / level.cols) * cs, cs);
-}
-
-function drawObstacle(g: Phaser.GameObjects.Graphics, kind: ObstacleKind, x: number, y: number, cs: number): void {
-  const p = cs * 0.08;
-  const w = cs - p * 2;
-  const bx = x + p;
-  const by = y + p;
-  g.fillStyle(0x000000, 0.18);
-  g.fillRoundedRect(bx + 2, by + 4, w, w, cs * 0.16);
-  switch (kind) {
-    case 'concrete':
-      g.fillStyle(0xb7bccb, 1);
-      g.fillRoundedRect(bx, by, w, w, cs * 0.16);
-      g.fillStyle(0xd7dbe6, 1);
-      g.fillRoundedRect(bx + 3, by + 3, w - 6, w * 0.4, cs * 0.12);
-      g.lineStyle(2, 0x8d93a5, 0.7);
-      for (let i = 1; i < 4; i++) g.lineBetween(bx + (w * i) / 4, by + w - 4, bx + (w * i) / 4 + 8, by + w * 0.55);
-      break;
-    case 'kiosk':
-      g.fillStyle(0xffd28a, 1);
-      g.fillRoundedRect(bx, by + w * 0.28, w, w * 0.72, cs * 0.1);
-      g.fillStyle(0xe8434f, 1);
-      g.fillTriangle(bx - 2, by + w * 0.34, bx + w + 2, by + w * 0.34, bx + w * 0.5, by);
-      g.fillStyle(0x7ac8ff, 1);
-      g.fillRoundedRect(bx + w * 0.16, by + w * 0.52, w * 0.68, w * 0.22, 3);
-      break;
-    case 'signal':
-      g.fillStyle(0x4a4a5c, 1);
-      g.fillRect(bx + w * 0.46, by + w * 0.35, w * 0.08, w * 0.65);
-      g.fillStyle(0x2c2f3a, 1);
-      g.fillRoundedRect(bx + w * 0.28, by, w * 0.44, w * 0.46, 5);
-      g.fillStyle(0xff5d5d, 1);
-      g.fillCircle(bx + w * 0.5, by + w * 0.13, w * 0.07);
-      g.fillStyle(0x6dd36b, 1);
-      g.fillCircle(bx + w * 0.5, by + w * 0.32, w * 0.07);
-      break;
-    case 'tree':
-      g.fillStyle(0x8a5a3a, 1);
-      g.fillRect(bx + w * 0.44, by + w * 0.55, w * 0.12, w * 0.4);
-      g.fillStyle(0x3fbf5a, 1);
-      g.fillCircle(bx + w * 0.5, by + w * 0.35, w * 0.3);
-      g.fillCircle(bx + w * 0.3, by + w * 0.5, w * 0.2);
-      g.fillCircle(bx + w * 0.7, by + w * 0.5, w * 0.2);
-      g.fillStyle(0x7be08e, 0.8);
-      g.fillCircle(bx + w * 0.42, by + w * 0.26, w * 0.1);
-      break;
-    case 'machine':
-      g.fillStyle(0x4d9bff, 1);
-      g.fillRoundedRect(bx + w * 0.12, by + w * 0.05, w * 0.76, w * 0.9, 6);
-      g.fillStyle(0xe9f6ff, 1);
-      g.fillRoundedRect(bx + w * 0.22, by + w * 0.14, w * 0.4, w * 0.5, 4);
-      g.fillStyle(0xffd04a, 1);
-      for (let i = 0; i < 3; i++) g.fillCircle(bx + w * 0.74, by + w * (0.22 + i * 0.16), w * 0.04);
-      break;
-    case 'buffer':
-      g.fillStyle(0x6b6f80, 1);
-      g.fillRoundedRect(bx + w * 0.05, by + w * 0.42, w * 0.9, w * 0.16, 4);
-      g.fillStyle(0xe8434f, 1);
-      g.fillRoundedRect(bx + w * 0.12, by + w * 0.25, w * 0.76, w * 0.2, 5);
-      g.fillStyle(0xffffff, 0.8);
-      for (let i = 0; i < 3; i++) g.fillRect(bx + w * (0.2 + i * 0.22), by + w * 0.27, w * 0.1, w * 0.16);
-      break;
+  for(let r=0;r<=level.rows;r++){g.lineStyle(.85,0xdbb292,.8);g.lineBetween(ox,oy+r*cs,ox+w,oy+r*cs);g.lineStyle(.6,0xfffaf0,.8);g.lineBetween(ox,oy+r*cs+1,ox+w,oy+r*cs+1);}
+  for(let c=0;c<=level.cols;c++){g.lineStyle(.85,0xdbb292,.8);g.lineBetween(ox+c*cs,oy,ox+c*cs,oy+h);g.lineStyle(.6,0xfffaf0,.8);g.lineBetween(ox+c*cs+1,oy,ox+c*cs+1,oy+h);}
+  const cols=new Set(level.trains.filter(t=>t.axis==='v').map(t=>t.line));
+  objects.push(channelSurface(scene,level,cs).setPosition(ox,oy));
+  const prop=(frame:number,x:number,y:number,size=1)=>{
+    const boxes=[[132,46,278,288],[602,35,338,295],[1159,44,232,283],[163,366,221,299],[549,423,441,205],[1135,429,268,191],[1182,693,176,300]],widths=[68,75,57,49,132,60,36];
+    if(!hasArt(scene,'dd_props'))return;
+    const box=boxes[frame],pw=widths[frame],ph=pw*box[3]/box[2],scale=cs/92*size;
+    const image=scene.add.image(x,y+(28-ph/2)*scale,'dd_props',String(frame)).setDisplaySize(pw*scale,ph*scale).setDepth(5).setName('restaurant-prop-'+frame);objects.push(image);
+  };
+  for(const [cell,kind]of level.obstacles){
+    const x=ox+(cell%level.cols+.5)*cs,y=oy+(Math.floor(cell/level.cols)+.5)*cs;
+    const frame={concrete:1,kiosk:0,signal:3,tree:2,machine:3,buffer:0}[kind];
+    if(hasArt(scene,'dd_props'))prop(frame,x,y);
+    else{g.fillStyle(0x8e708e);g.fillRoundedRect(x-cs*.3,y-cs*.28,cs*.6,cs*.56,8);g.fillStyle(0xfff5dd);g.fillEllipse(x,y-cs*.18,cs*.6,cs*.24);}
   }
+  // Quiet restaurant details are outside the legal cell field and never block input.
+  g.fillStyle(0xf8e2c7);g.fillRect(ox,oy-23,w,14);g.lineStyle(1,0xd4ac85,.7);g.lineBetween(ox,oy-9,ox+w,oy-9);
+  for(let x=ox+12;x<ox+w;x+=12){g.lineStyle(.7,0xfff6e6,.8);g.lineBetween(x,oy-22,x,oy-11);}
+  const gaps:[number,number][]=[];let edge=ox;
+  for(const col of [...cols].sort((a,b)=>a-b)){const left=ox+(col+.5)*cs-cs*.55;if(left>edge)gaps.push([edge,left]);edge=ox+(col+.5)*cs+cs*.55;}if(edge<ox+w)gaps.push([edge,ox+w]);
+  // One-floor-tile columns with their upper shaft fading into implied height.
+  const pillarKey='dd_pillar_fade';
+  if(!scene.textures.exists(pillarKey)){
+    const t=scene.textures.createCanvas(pillarKey,128,256)!,ctx=t.context;
+    ctx.fillStyle='#d5bcbd';ctx.fillRect(4,0,116,238);ctx.fillStyle='#f8e8db';ctx.fillRect(4,0,91,238);ctx.fillStyle='#e9d3c8';ctx.fillRect(95,0,25,238);
+    ctx.fillStyle='#bda4a9';ctx.fillRect(0,232,128,24);ctx.fillStyle='#f0ded0';ctx.fillRect(3,233,120,14);
+    ctx.globalCompositeOperation='destination-in';const fade=ctx.createLinearGradient(0,0,0,256);fade.addColorStop(0,'transparent');fade.addColorStop(.55,'#ffffff');ctx.fillStyle=fade;ctx.fillRect(0,0,128,256);t.refresh();
+  }
+  for(const x of [ox+cs*.45,ox+w-cs*.45])objects.push(scene.add.image(x,oy-cs*.55,pillarKey).setOrigin(.5,1).setDisplaySize(cs,cs*2).setDepth(4).setName('restaurant-pillar'));
+  const stickGap=gaps.find(([a,b])=>b-a>132*cs/92*.72+8),dishGap=[...gaps].reverse().find(([a,b])=>b-a>60*cs/92*.65+8);
+  const shared=stickGap&&dishGap&&stickGap===dishGap,space=shared?stickGap[1]-stickGap[0]:0;
+  const bothFit=!shared||space>(132*.72+60*.65)*cs/92+14;
+  if(stickGap)prop(4,shared&&bothFit?stickGap[0]+space*.3:(stickGap[0]+stickGap[1])/2,oy+h+34,.72);
+  if(dishGap&&bothFit)prop(5,shared?dishGap[0]+space*.7:(dishGap[0]+dishGap[1])/2,oy+h+34,.65);
+  const portal=(x:number,y:number,dir:'up'|'down'|'left'|'right')=>{
+    const vertical=dir==='up'||dir==='down',sign=dir==='up'||dir==='left'?-1:1,s=cs/116*.94;
+    if(vertical){
+      // Plan view: north/south covers have parallel sides and no visible arch face.
+      // Render at constant width through the full fade, never tapering into depth.
+      const extent=sign<0?y:HEIGHT-y,halfWidth=cs*.51;
+      const key=planTunnelTexture(scene,dir,cs,extent);
+      // Both covers must occlude an entering carriage. A north roof behind the
+      // train exposed its final pixels on top of the mouth before the clip plane.
+      const roof=scene.add.image(x,sign<0?0:y,key).setOrigin(.5,0).setDisplaySize(halfWidth*2,extent).setDepth(90).setName('serving-tunnel-'+dir);
+      roof.setData({projection:'orthographic-plan',direction:dir,width:halfWidth*2,sourceSet:'plastic-tunnel-atlas',entrance:sign<0});objects.push(roof);
+      return;
+    }
+    const extent=sign<0?x:WIDTH-x;
+    // Extend to the screen edge with a soft plastic fade; trains are separately occluded.
+    const cover=scene.add.graphics().setDepth(85);objects.push(cover);
+    for(let i=0;i<16;i++){
+      const start=extent*i/16,len=extent/16+1;cover.fillStyle(0xfff1de,1-i/16);
+      cover.fillRect(x+sign*start-(sign<0?len:0),y-cs*.57,len,cs*1.02);
+    }
+    if(hasArt(scene,'dd_tunnel_set')){
+      const frame=dir==='right'?0:1,height=cs*1.05,width=height*TUNNEL_FRAME.width/TUNNEL_FRAME.height,split=width*TUNNEL_FRAME.split/TUNNEL_FRAME.width;
+      const left=dir==='right'?x-split:x+split-width,top=y+cs*.3-height;
+      for(const part of ['back','front'])objects.push(scene.add.image(left,top,'dd_tunnel_set',frame+'-'+part).setOrigin(0).setDisplaySize(width,height).setDepth(part==='back'?6:90).setName('serving-tunnel-'+dir+'-'+part).setData('sourceSet','plastic-tunnel-atlas'));
+    }else if(hasArt(scene,'dd_tunnels')){
+      const frame=dir==='left'?2:3;
+      const ix=x+sign*110*s,iy=y-19*s;
+      const back=scene.add.image(ix,iy,'dd_tunnels',String(frame)).setDisplaySize(240*s,138*s).setDepth(6);
+      const front=scene.add.image(ix,iy,'dd_tunnels',String(frame)).setDisplaySize(240*s,138*s).setDepth(90);
+      const mask=scene.make.graphics({x:0,y:0},false);mask.fillStyle(0xffffff);
+      if(dir==='right')mask.fillRect(x,0,WIDTH-x,HEIGHT);else mask.fillRect(0,0,x,HEIGHT);
+      const geometry=mask.createGeometryMask();front.setMask(geometry);objects.push(back,front,mask);front.once('destroy',()=>geometry.destroy());
+    }else {cover.fillStyle(0xffefd6);cover.fillRoundedRect(x-cs*.2,y-cs*.5,cs*.4,cs,8);}
+  };
+  for(const run of channelRuns(level)){
+    if(run.axis==='h'){if(run.start===0)portal(ox,oy+(run.line+.5)*cs,'left');if(run.end===level.cols)portal(ox+w,oy+(run.line+.5)*cs,'right');}
+    else{if(run.start===0)portal(ox+(run.line+.5)*cs,oy,'up');if(run.end===level.rows)portal(ox+(run.line+.5)*cs,oy+h,'down');}
+  }
+  // Floor/grout/wall details are static. Render their vector commands once at
+  // the existing 2x resolution, then draw one cropped sprite each frame.
+  const floorKey='dd_floor_cached';if(scene.textures.exists(floorKey))scene.textures.remove(floorKey);
+  const staging=document.createElement('canvas');staging.width=WIDTH*2;staging.height=HEIGHT*2;
+  g.setScale(2);g.generateTexture(staging,staging.width,staging.height);g.setScale(1);g.clear();
+  const left=Math.max(0,ox-8),top=Math.max(0,oy-23),fw=Math.min(WIDTH-left,w+16),fh=Math.min(HEIGHT-top,h+31);
+  const floor=scene.textures.createCanvas(floorKey,fw*2,fh*2)!;
+  floor.context.drawImage(staging,left*2,top*2,fw*2,fh*2,0,0,fw*2,fh*2);floor.refresh();
+  objects.push(scene.add.image(left,top,floorKey).setOrigin(0).setDisplaySize(fw,fh).setDepth(0));
+  return objects;
 }

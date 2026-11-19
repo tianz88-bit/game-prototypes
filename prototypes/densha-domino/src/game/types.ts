@@ -14,6 +14,8 @@ export interface TrainDef {
   /** Start cell along the axis at level start. */
   start: number;
   len: number;
+  /** Permanent striped cab; chain signals always depart toward this end. */
+  headDir: Dir;
 }
 
 export interface Level {

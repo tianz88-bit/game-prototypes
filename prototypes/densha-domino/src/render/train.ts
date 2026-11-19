@@ -1,109 +1,126 @@
 import Phaser from 'phaser';
-import { bakeTexture, mix, pillow, shade } from 'dig-kit';
-import type { TrainDef } from '../game/types';
-import { tune } from '../tune';
+import type {Dir, TrainDef} from '../game/types';
+import {tune} from '../tune';
+import {WIDTH, HEIGHT} from '../pixelRatio';
+import {bodyCell,hasArt,BODY_BOXES} from './art';
+import {eyeFrame} from './expressions';
+import {carriagePose,shearTransform,type Reaction} from './carriageMotion';
+import {attachSocketLight,updateSocketLight} from './signalPipeline';
 
-const carKey = (color: number) => `dd_car_${color}`;
+export const SIDE_BODY_LIFT=24;
 
-/** Bakes the car pillow (body, roof stripe, windows) for a livery, once. */
-export function bakeCar(scene: Phaser.Scene, color: number, cs: number): void {
-  const w = cs * tune.feel.carLengthFrac;
-  const h = cs * tune.feel.carWidthFrac;
-  bakeTexture(scene, carKey(color), w, h, (g, res) => {
-    const W = w * res;
-    const H = h * res;
-    pillow(g, 0, 0, W, H, H * 0.36, color, true);
-    // Roof stripe in a darker shade of the livery, then three windows.
-    g.fillStyle(shade(color, 0.72), 0.9);
-    g.fillRoundedRect(W * 0.08, H * 0.4, W * 0.84, H * 0.07, H * 0.03);
-    g.fillStyle(0xe9f6ff, 1);
-    for (let i = 0; i < 3; i++) g.fillRoundedRect(W * (0.13 + i * 0.27), H * 0.16, W * 0.2, H * 0.2, H * 0.06);
-    g.fillStyle(mix(color, 0xffffff, 0.45), 1);
-    g.fillRoundedRect(W * 0.08, H * 0.58, W * 0.84, H * 0.1, H * 0.04);
-  });
-}
-
-/** A train on the board: a row of cars with couplers and headlights, drawn along its axis. */
+interface Car {holder:Phaser.GameObjects.Container; shear:Phaser.GameObjects.Container;turn:Phaser.GameObjects.Container;food:Phaser.GameObjects.Container; lamps:Phaser.GameObjects.Graphics; index:number; cabs:{end:Dir;head:boolean;eye:Phaser.GameObjects.Image;signal:Phaser.GameObjects.Image|null}[]; pose?:object;}
+/** Complete individual cars, permanent head/tail identities, independently delayed presentation. */
 export class TrainView {
-  readonly container: Phaser.GameObjects.Container;
-  private cars: Phaser.GameObjects.Image[] = [];
-  private tilt = 1;
-
-  constructor(private scene: Phaser.Scene, readonly def: TrainDef, private cs: number) {
-    this.container = scene.add.container(0, 0);
-    this.tilt = def.id % 2 === 0 ? 1 : -1;
-    const n = def.len;
-    const horizontal = def.axis === 'h';
-    const g = scene.add.graphics();
-    this.container.add(g);
-    for (let i = 0; i < n; i++) {
-      const off = (i - (n - 1) / 2) * cs;
-      const img = scene.add.image(horizontal ? off : 0, horizontal ? 0 : off, carKey(def.color)).setDisplaySize(cs * tune.feel.carLengthFrac, cs * tune.feel.carWidthFrac);
-      if (!horizontal) img.setAngle(90);
-      this.cars.push(img);
-      this.container.add(img);
-      if (i < n - 1) {
-        g.fillStyle(0x4a4a5c, 1);
-        const cx = horizontal ? off + cs / 2 : 0;
-        const cy = horizontal ? 0 : off + cs / 2;
-        g.fillRoundedRect(cx - (horizontal ? 3 : 4), cy - (horizontal ? 4 : 3), horizontal ? 6 : 8, horizontal ? 8 : 6, 2);
+  readonly container:Phaser.GameObjects.Container;
+  private cars:Car[]=[];
+  private coupling:Phaser.GameObjects.Graphics;
+  private travel:Dir|null=null;
+  private ready=false;
+  private awake=false;
+  private gaze:Dir;
+  private reaction:{kind:Reaction;dir:Dir;start:number;duration:number}|null=null;
+  private history:{kind:Reaction;dir:Dir;start:number;duration:number}[]=[];
+  private alive=true;
+  private clock=0;
+  private dirty=true;
+  constructor(private scene:Phaser.Scene,readonly def:TrainDef,private cs:number){
+    this.container=scene.add.container(0,0);this.gaze=def.headDir;
+    this.coupling=scene.add.graphics();this.container.add(this.coupling);
+    const vertical=def.axis==='v',palette=def.id%4,key=palette===0?'dd_family':'dd_family_'+(palette-1);
+    for(let i=0;i<def.len;i++){
+      const holder=scene.add.container(0,0),cell=bodyCell(vertical,def.headDir,def.len,i);
+      const contact=scene.add.graphics();contact.fillStyle(0x75505a,.14);if(vertical)contact.fillRoundedRect(-30,-61,62,118,22);else contact.fillEllipse(2,31,112,17);holder.add(contact);
+      if(hasArt(scene,key))holder.add(scene.add.image(0,vertical?-8:4,key,String(cell)).setDisplaySize(vertical?64:116,vertical?124:64));
+      else holder.add(this.fallback(i));
+      const inward=def.len===1?0:i===0?10:i===def.len-1?-10:0,px=vertical?0:inward,py=vertical?-9+inward:-7;
+      const food=scene.add.container(px,py+9);
+      if(hasArt(scene,'dd_food')){
+        holder.add(scene.add.image(px,py+3,'dd_food','0').setDisplaySize(58,42));
+        const f=1+(i+def.id)%6,fw=f===4?37:f===5?40:47,fh=f===4?40:f===5?43:34;
+        food.add(scene.add.image(0,-fh/2,'dd_food',String(f)).setDisplaySize(fw,fh));
+      }else{
+        const p=scene.add.graphics();p.fillStyle(0xe4d5bc);p.fillEllipse(px,py+6,51,31);p.fillStyle(0xfffaf0);p.fillEllipse(px,py+2,48,28);holder.add(p);
+        const f=scene.add.graphics();f.fillStyle(0xfff9e9);f.fillRoundedRect(-19,-24,38,23,9);f.fillStyle([0xff9160,0xffd54e,0xf46f96][i%3]);f.fillRoundedRect(-21,-31,42,17,7);f.lineStyle(2,0xffedd5);for(let n=-13;n<16;n+=8)f.lineBetween(n,-30,n+6,-16);f.setRotation(-.3);food.add(f);
       }
+      const shadow=scene.add.graphics();shadow.fillStyle(0x8b6952,.14);shadow.fillEllipse(px,py+5,38,14);holder.add(shadow);holder.add(food);
+      const lamps=scene.add.graphics();holder.add(lamps);this.container.add(holder);
+      const cabs:Car['cabs']=[];
+      for(const end of [-1,1] as Dir[])if(def.len===1||(end<0?i===0:i===def.len-1)){
+        const head=end===def.headDir,ex=vertical?0:end*(head?40:43),ey=vertical?(end<0?(head?-44:-57):25):(head?5:7),scale=vertical?(head?.95:.6):(head?.85:.63);
+        let signal:Phaser.GameObjects.Image|null=null;
+        if(hasArt(scene,'dd_signals')){signal=scene.add.image(0,vertical?-8:4,'dd_signals',String(cell)).setDisplaySize(vertical?64:116,vertical?124:64).setVisible(false);const box=BODY_BOXES[cell],half=Math.floor(box[vertical?3:2]/2);if(vertical)signal.setCrop(0,end<0?0:half,box[2],end<0?half:box[3]-half);else signal.setCrop(end<0?0:half,0,end<0?half:box[2]-half,box[3]);holder.add(signal);}
+        if(signal)holder.add(attachSocketLight(signal,vertical,end));
+        const eye=scene.add.image(ex,ey,'dd_eyes',eyeFrame('sleep',vertical,0,def.headDir)).setDisplaySize(40*scale,32*scale);holder.add(eye);cabs.push({end,head,eye,signal});
+      }
+      const base=vertical?54:36,content=scene.add.container(0,-base,[...holder.list]),turn=scene.add.container(0,0,[content]),shear=scene.add.container(0,base,[turn]);holder.add(shear);
+      this.cars.push({holder,shear,turn,food,lamps,index:i,cabs});
     }
-    // Headlights at both ends, since a train can run either way.
-    const half = (n * cs) / 2 - 5;
-    g.fillStyle(0xfff3a8, 1);
-    for (const end of [-1, 1])
-      for (const side of [-1, 1]) {
-        const px = horizontal ? end * half : side * cs * 0.17;
-        const py = horizontal ? side * cs * 0.17 : end * half;
-        g.fillCircle(px, py, 2.6);
+    this.update();
+    this.dirty=true; // Re-evaluate visibility after the scene places this root.
+  }
+  private fallback(i:number):Phaser.GameObjects.Graphics {
+    const g=this.scene.add.graphics(),v=this.def.axis==='v',w=v?64:116,h=v?124:64,x=-w/2,y=v?-70:-28;
+    g.fillStyle(0x5b3e5e);g.fillRoundedRect(x,y+8,w,h,16);g.fillStyle(this.def.color);g.fillRoundedRect(x,y,w,h-6,18);g.lineStyle(2,0xffe7d8);g.strokeRoundedRect(x+3,y+3,w-6,h-12,15);
+    for(const end of [-1,1] as Dir[])if(this.def.len===1||(end<0?i===0:i===this.def.len-1)){
+      const head=end===this.def.headDir,ex=v?0:end*(head?40:43),ey=v?(end<0?(head?-44:-57):25):(head?5:7);
+      if(head){g.fillStyle(0x22b4ac);if(v)g.fillRoundedRect(-30,ey-end*23-5,60,12,4);else g.fillRoundedRect(ex-end*17-6,-26,12,55,4);}
+      g.fillStyle(0x543451);g.fillRoundedRect(ex-(head?14:11),ey-13,head?28:22,24,8);
+    }return g;
+  }
+  centre(pos:number,ox:number,oy:number):{x:number;y:number}{const along=(pos+this.def.len/2)*this.cs,across=(this.def.line+.5)*this.cs;return this.def.axis==='h'?{x:ox+along,y:oy+across}:{x:ox+across,y:oy+along};}
+  setReady(ready:boolean):void {this.ready=ready;}
+  setAwake(awake:boolean,dir:Dir=this.def.headDir):void {this.dirty=true;this.awake=awake;this.gaze=dir;}
+  setTravel(dir:Dir|null):void {this.dirty=true;this.travel=dir;if(dir!==null){this.gaze=dir;this.react('startup',dir,tune.feel.spookMs+tune.feel.spookReleaseMs);}}
+  react(kind:Reaction,dir:Dir,duration:number):void {this.dirty=true;this.gaze=dir;if(kind!=='blocked')this.awake=true;this.reaction={kind,dir,start:this.clock,duration};this.history.push(this.reaction);}
+  brake(dir:Dir=this.gaze):void {this.travel=null;this.react('brake',dir,tune.feel.brakeMs*2);}
+  /** Compatibility for externally driven anticipation; no whole-train tilt or hopping. */
+  pose(k:number,_stretch:number,_squash:number,_skew:number,_tilt:number):void {if(k>0)this.react('ack',this.gaze,tune.feel.spookMs);}
+  rest():void {this.dirty=true;this.travel=null;this.awake=false;this.reaction=null;this.history=[];}
+  private band(g:Phaser.GameObjects.Graphics,end:Dir,head:boolean,lit:boolean):void {
+    const v=this.def.axis==='v';g.lineStyle(lit?3.5:2.8,lit?0xc6f7ff:0xf5e4c4,1);g.beginPath();
+    if(v){for(let i=0;i<=12;i++){const t=i/6-1,x=t*(head?23:21),y=end<0?(head?-52-17*(1-t*t):-60-6*(1-t*t)):38+10*(1-t*t);if(i===0)g.moveTo(x,y);else g.lineTo(x,y);}}
+    else {const y=head?24:25;g.moveTo(end*55,head?9:16);g.lineTo(end*51,y-2);g.lineTo(end*40,y);g.lineTo(end*30,y);}
+    g.strokePath();
+  }
+  update(delta=0):void {
+    if(!this.alive)return;this.clock+=delta;const now=this.clock,v=this.def.axis==='v',factor=this.cs/116*.94,r=this.reaction;
+    if(!this.dirty&&!this.history.length&&this.travel===null){
+      // Parked geometry, expression frames, couplings and food are unchanged.
+      // Animate only the live signal bands; do not allocate/rebuild every car.
+      for(const car of this.cars){if(!hasArt(this.scene,'dd_signals'))car.lamps.clear();for(const cab of car.cabs){const active=cab.head&&this.ready;if(cab.signal)updateSocketLight(cab.signal,active,false,now);else this.band(car.lamps,cab.end,cab.head,active&&Math.cos(now/tune.feel.lightFlashMs*Math.PI*2)>0);}}
+      return;
+    }
+    const leading=(r?.dir??this.travel??this.def.headDir)>0?this.def.len-1:0;
+    const scales=this.cars.map(c=>{
+      let selected:typeof this.reaction=null,local=0,scheduled=-Infinity;
+      for(const event of this.history){const lead=event.dir>0?this.def.len-1:0,start=event.start+Math.abs(c.index-lead)*tune.feel.carriageDelayMs,t=now-start;if(t>=0&&t<event.duration&&start>=scheduled){selected=event;local=t;scheduled=start;}}
+      if(!selected)return {along:1,cross:1,expression:this.travel!==null?'focus':this.awake?'wait':'sleep',eyePhase:.5,spring:0,lean:0,skew:0,gaze:this.travel??this.gaze};
+      const pose=carriagePose(selected.kind,local/selected.duration);
+      return {...pose,along:pose.scale,gaze:selected.dir};
+    });
+    const centers=Array<number>(this.cars.length);centers[leading]=(leading-(this.cars.length-1)/2)*this.cs;
+    const step=leading===0?1:-1;for(let i=leading+step;i>=0&&i<this.cars.length;i+=step)centers[i]=centers[i-step]+step*this.cs/2*(scales[i].along+scales[i-step].along);
+    this.coupling.clear();this.coupling.lineStyle(5*factor,0x604359,1);
+    for(let i=1;i<centers.length;i++)this.coupling.lineBetween(v?0:centers[i-1],v?centers[i-1]:(12-SIDE_BODY_LIFT)*factor,v?0:centers[i],v?centers[i]:(12-SIDE_BODY_LIFT)*factor);
+    this.cars.forEach((c,i)=>{
+      const a=scales[i],sx=factor*(v?a.cross:a.along),sy=factor*(v?a.along:a.cross),base=v?54:36;
+      c.holder.setPosition(v?0:centers[i],(v?centers[i]:-SIDE_BODY_LIFT*factor)+base*(factor-sy)).setScale(sx,sy);
+      const shear=shearTransform(a.skew);c.shear.setRotation(shear.u).setScale(shear.s1,shear.s2);c.turn.setRotation(-shear.v);
+      const spring=Math.min(tune.feel.sushiSpring*1.2,a.spring*tune.feel.sushiSpring*.25);c.food.setScale(1-spring*.45,1+spring).setAngle(a.lean*.15);
+      c.holder.setVisible(this.container.x+(v?0:centers[i])+this.cs>0&&this.container.x+(v?0:centers[i])-this.cs<WIDTH&&this.container.y+(v?centers[i]:0)+this.cs>0&&this.container.y+(v?centers[i]:0)-this.cs<HEIGHT);
+      c.lamps.clear();c.pose={index:i,expression:a.expression,phase:a.eyePhase,scale:a.along,gaze:a.gaze};
+      for(const cab of c.cabs){
+        const active=this.travel!==null?cab.end===this.travel:cab.head&&this.ready;
+        if(cab.signal)updateSocketLight(cab.signal,active,this.travel!==null,now);else this.band(c.lamps,cab.end,cab.head,active&&(this.travel!==null||Math.cos(now/tune.feel.lightFlashMs*Math.PI*2)>0));
+        cab.eye.setFrame(eyeFrame(a.expression,v,a.eyePhase,a.gaze));
       }
-  }
-
-  /** Centre of the train in board pixels for a start cell along its axis. */
-  centre(pos: number, ox: number, oy: number): { x: number; y: number } {
-    const along = (pos + this.def.len / 2) * this.cs;
-    const across = (this.def.line + 0.5) * this.cs;
-    return this.def.axis === 'h' ? { x: ox + along, y: oy + across } : { x: ox + across, y: oy + along };
-  }
-
-  /** Pose for the "spooked" anticipation: stretched along the track, narrower, sheared and tilted. k runs 0 to 1. */
-  pose(k: number, stretch: number, squash: number, skewPx: number, tiltDeg: number): void {
-    const along = 1 + stretch * k;
-    const across = 1 - squash * k;
-    const horizontal = this.def.axis === 'h';
-    this.container.setScale(horizontal ? along : across, horizontal ? across : along);
-    this.container.setAngle(this.tilt * tiltDeg * k);
-    const n = this.cars.length;
-    this.cars.forEach((c, i) => {
-      const shear = skewPx * k * (i - (n - 1) / 2);
-      const off = (i - (n - 1) / 2) * this.cs;
-      if (horizontal) c.setPosition(off, shear);
-      else c.setPosition(shear, off);
     });
+    this.history=this.history.filter(event=>now-event.start<event.duration+(this.def.len-1)*tune.feel.carriageDelayMs);if(!this.history.length)this.reaction=null;
+    this.dirty=false;
   }
-
-  rest(): void {
-    this.pose(0, 0, 0, 0, 0);
-    this.container.setScale(1);
-  }
-
-  /** Squash along the track when braking against something. */
-  brake(): void {
-    const horizontal = this.def.axis === 'h';
-    const s = tune.feel.brakeSquash;
-    this.scene.tweens.add({
-      targets: this.container,
-      scaleX: horizontal ? s : 1 + (1 - s) * 0.6,
-      scaleY: horizontal ? 1 + (1 - s) * 0.6 : s,
-      duration: tune.feel.brakeMs,
-      yoyo: true,
-      ease: 'Sine.Out',
-    });
-  }
-
-  destroy(): void {
-    this.scene.tweens.killTweensOf(this.container);
-    this.container.destroy();
-  }
+  inspect():object {return {headDir:this.def.headDir,travel:this.travel,light:this.travel!==null?'solid':this.ready?'flashing':'off',carriages:this.cars.length,reaction:this.reaction?.kind??null,carriagePoses:this.cars.map(c=>c.pose),socketArt:hasArt(this.scene,'dd_signals')};}
+  /** Test-only caller: full, unclipped world bounds, including plate/food/lights. */
+  geometry():object {return {id:this.def.id,axis:this.def.axis,travel:this.travel,x:this.container.x,y:this.container.y,cars:this.cars.map(c=>{const b=c.holder.getBounds();return {index:c.index,visible:c.holder.visible,bounds:{x:b.x,y:b.y,width:b.width,height:b.height}};})};}
+  destroy():void {this.alive=false;this.scene.tweens.killTweensOf(this.container);this.container.destroy();}
 }
