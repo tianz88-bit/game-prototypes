@@ -54,6 +54,11 @@
       "deliveryPath": "loose/turret-platform.png",
       "sha256": "c094c4106d30b195c2afa9ee20305d10163dcbf60f31fd2eda941ea4e3d115a0",
       "sourceShip": "human-nomad-battlecruiser-v3"
+    },
+    {
+      "asset": "gun",
+      "sourceShip": "human-nomad-sparrow-v1",
+      "sha256": "6e3e21f9d0522ddbaf09e3fb57d803984a71370dc06d7b0aa75ea94a2fd026a7"
     }
   ]
 }

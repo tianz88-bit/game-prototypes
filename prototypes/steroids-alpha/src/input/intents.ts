@@ -132,6 +132,11 @@ export class Intents {
   private held = new Set<string>();
   private stickPointer: number | null = null;
   private firePointer: number | null = null;
+  private missilePointer: number | null = null;
+
+  get missileHeld(): boolean {
+    return this.missilePointer !== null || this.held.has('q') || (!this.touch && this.scheme === 'marker' && !!(this.mouseButtons & 2));
+  }
 
   /** Fire is held (keyboard Space or J, or a finger on the fire button). */
   get fire(): boolean {
@@ -152,6 +157,8 @@ export class Intents {
       this.endStick();
       this.firePointer = null;
       this.mouseFire = null;
+      this.missilePointer = null;
+      this.mouseButtons = 0;
     });
   }
 
@@ -263,6 +270,7 @@ export class Intents {
       return;
     }
     if (hit(this.missileButton)) {
+      this.missilePointer = e.pointerId;
       this.presses.add('missile');
       return;
     }
@@ -320,6 +328,7 @@ export class Intents {
   }
 
   private onUp(e: PointerEvent): void {
+    if (e.pointerId === this.missilePointer) this.missilePointer = null;
     this.throttlePointers.delete(e.pointerId);
     if (e.pointerId === this.copyPointer) {
       this.copyPointer = null;

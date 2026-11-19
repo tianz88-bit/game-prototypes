@@ -427,6 +427,10 @@ export class ShipView {
     this.firedAt[side] = this.now;
   }
 
+  /** Read-only inspection for the ship rig lab. */
+  rigSnapshot() {
+    return { parts: this.parts.length, tilt: { ...this.tilt }, bounds: this.container.getBounds() };
+  }
   destroy(): void {
     for (const p of this.parts) p.ffd?.destroy();
     this.container.destroy();

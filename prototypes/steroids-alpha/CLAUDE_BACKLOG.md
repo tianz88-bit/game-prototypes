@@ -2,6 +2,10 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Missile Cruiser bow gun candidate
+
+Owner requested a lopsided right-front Sparrow-style cannon. The existing Sparrow gun PNG is now reused on the new cruiser mount via the hash-verified manifest. The gun handles like Sparrow and gets right-side recoil, standard primary Fire input and a heat ring. Q/right click or the touch missile button handles missiles with independent hold-to-repeat and the existing refill. Evolution lab uses the same production rig. Protocol 34 adds the separate missile spacing timer and requires a paired release.
+
 ## Combined release — LIVE r0109 / protocol 33
 
 Owner approved Bat primary damage parity and the combined pickup, tutorial, missile and economy candidate. Bat uses Falcon's shot damage and cadence. Bat's 52.5 shield, turning, acceleration and speeds retain their previous tune. Legacy hosted balance records adopt damage parity during upgrade to the current epoch. Test both stock and max gun tiers for equal sustained primary output.

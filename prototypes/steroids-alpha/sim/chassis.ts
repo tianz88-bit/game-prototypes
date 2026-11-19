@@ -30,7 +30,7 @@ export interface ChassisStats {
 export function chassisStats(chassis: number, tune: Tune): ChassisStats {
   if (chassis === INTERCEPTOR || isCapital(chassis)) {
     const c = chassis === INTERCEPTOR ? tune.interceptor : chassis===MISSILE_CRUISER?tune.missileCruiser:tune.battlecruiser;
-    return { radius: c.radius, shield: c.shieldFactor, damage: c.damageFactor, fireIntervalSteps: c.fireIntervalSteps, baseTurrets: c.baseTurrets };
+    return { radius: c.radius, shield: c.shieldFactor, damage: c.damageFactor, fireIntervalSteps: chassis === MISSILE_CRUISER ? tune.sparrow.fireIntervalSteps : c.fireIntervalSteps, baseTurrets: c.baseTurrets };
   }
   return { radius: tune.ship.radius, shield: 1, damage: 1, fireIntervalSteps: chassis === SPARROW ? tune.sparrow.fireIntervalSteps : tune.weapon.fireIntervalSteps, baseTurrets: 0 };
 }
@@ -60,6 +60,9 @@ export interface Mount {
  * side: which gun, for recoil and bullet look: -1/1 inner pair, -2/2 the Battlecruiser's outer pair.
  * Guns fire in this order, one per shot.
  */
+// Sparrow barrel sprite, mounted on the right bow. Rig pixels map to world at .18.
+export const MISSILE_CRUISER_GUN = { forward: 92.4, right: 25.2, side: 1 } as const;
+
 export const GUNS: Record<number, readonly (Mount & { side: number })[]> = {
   [INTERCEPTOR]: [
     { forward: 10.93, right: -16.38, side: -1 },

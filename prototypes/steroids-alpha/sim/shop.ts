@@ -75,6 +75,7 @@ export function evolve(s: ShipState, tune: Tune, build=0): boolean {
   s.heat = 0;
   s.overheated = false;
   s.fireCd = 0;
+  s.missileFireCd = 0;
   return true;
 }
 

@@ -41,7 +41,7 @@ async function stageExtraShips(assetsSrcDir) {
     }
     const zip = new AdmZip(bytes);
     for (const a of m.assets) {
-      if(a.sourceShip){const source=path.join(assetsSrcDir,'loose',`${a.sourceShip}-${a.asset}.png`);const bytes=readFileSync(source);if(createHash('sha256').update(bytes).digest('hex')!==a.sha256)throw Error('Shared turret hash mismatch');copyFileSync(source,path.join(assetsSrcDir,'loose',`${ship.id}-${a.asset}.png`));continue;}
+      if(a.sourceShip){const source=path.join(assetsSrcDir,'loose',`${a.sourceShip}-${a.asset}.png`);const bytes=readFileSync(source);if(createHash('sha256').update(bytes).digest('hex')!==a.sha256)throw Error('Shared ship part hash mismatch: '+a.asset);copyFileSync(source,path.join(assetsSrcDir,'loose',`${ship.id}-${a.asset}.png`));continue;}
       const e = zip.getEntry(a.deliveryPath);
       if (!e) throw new Error(`prepare-assets: ${a.deliveryPath} missing from ${m.r2Object}`);
       const data = e.getData();

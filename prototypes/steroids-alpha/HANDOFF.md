@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-19 codex Missile Cruiser bow gun candidate
+DID: One Sparrow-style cannon on the right bow. Gun uses normal Fire, missiles use their own button and retain hold-to-repeat. Evolution lab draws the production rig.
+FILES: Cruiser asset manifest, mount and calibration, shared ship/world/protocol, controls/HUD, evolution lab and tests.
+SEAM: Protocol34 appends missileFireCd to keep gun cooldown independent of missile spacing and ammo reload. Paired client/Worker release required.
+CROSS: Ship input, sim/world, wire, and lab. Sparrow source PNG reused via the existing hash-verified asset staging. No new upload.
+FOR claude: Pending release. Gun has Sparrow cadence, heat and drift. Missile payload, refill, and cruiser ram damage preserve their own tuning.
+
 ## 2026-11-19 codex combined LIVE release PR588
 DID: Itch r0109/Worker protocol33/Pages deployed. Bat now has Falcon primary damage and its existing shields and agility. Also shipped pickups, tutorial, missile fixes, economy and fighter shields.
 FILES: Pickup art manifest/render/HUD, local tutorial, room/sim/net, tune/live config and lab. Release proof in ../steroids-alpha-lab/combined-release-proof.json.
@@ -97,11 +104,4 @@ FILES: unlock catalogue/tune, Room auth/buy guard, NetClient frozen look, Hangar
 SEAM: Look.evolution is owned/slot-cleaned at initial auth before controls/within3s; queued BUY5 must match. Reconnect retains equipment; old Save.evolution ignored. Protocol29 same wire layout.
 CROSS: user requested price1500 and loadout gate; real SQLite bank/Room tests reject forged/unowned/unequipped/late/alternate/duplicate purchases;6 headless PC/touch layouts pass buy/equip/status/bounds with no capture.
 FOR claude: deferred only. No new DB migration/assets/dependencies; existing bank atomicity reused. Paired client/Worker release required; lab remains a free isolated design sandbox.
-
-## 2026-11-18 codex Missile Cruiser correction LIVE181126r0102
-DID: PR564 74dd2ced live; client44251753113 attempt2 + Worker44251753080 success. MC zero free turrets, bought upgrades retained, min90/cruise170/top225. Public lab matches.
-FILES: tune/protocol28, lab settings/model/preview, capital/lab regressions; artillery-release-proof.json and deferred docs.
-SEAM:28 has identical layout; refresh cached27 clients. Existing legacy hosted record omits MC, so defaults90/base0 apply to new client and Worker.
-CROSS: authority tests cover0/1/2/4 bought turrets, actual braking floor90, BC base2/min140 and bought CIWS bursts. Type/build/sim/lab/config pass;49 public snapshots and heads0/BC2 verified, no capture.
-FOR claude: deferred only. Client retry cleared randomized bot-spacing fixture failure; Pages deploy succeeded but Operation C counter push raced main. Future deterministic fixture/counter retry housekeeping; no live block.
 

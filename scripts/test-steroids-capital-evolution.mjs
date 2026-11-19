@@ -2,7 +2,26 @@ import assert from 'node:assert/strict';import{build}from'esbuild';import fs fro
 const r=await build({stdin:{contents:"export * from './prototypes/steroids-alpha/sim/world'; export {Room} from './prototypes/steroids-alpha/server/src/room'; export * from './prototypes/steroids-alpha/sim/ship'; export * from './prototypes/steroids-alpha/sim/shop'; export * from './prototypes/steroids-alpha/sim/chassis'; export * from './prototypes/steroids-alpha/sim/turrets'; export * from './prototypes/steroids-alpha/sim/protocol'; export {TUNE} from './prototypes/steroids-alpha/sim/tune'; export * from './prototypes/steroids-alpha/sim/liveConfig';",resolveDir:process.cwd(),loader:'ts'},bundle:true,platform:'node',format:'esm',write:false});const S=await import('data:text/javascript;base64,'+Buffer.from(r.outputFiles[0].text).toString('base64'));const t=structuredClone(S.TUNE);t.asteroid.max=0;t.warp.arrivalSeconds=0;const idle={seq:0,turn:0,aim:NaN,thrust:0,dash:false,fire:false,missile:false,mine:false,warp:false},dt=1/t.net.tickHz;
 function world(){const w=new S.World(t,()=>.5);w.asteroids.clear();return w;}function ship(w,id,x=1500,y=1500,chassis=4){const s=S.newShip(x,y,0,0);Object.assign(s,{hp:5000,hullMax:5000,shield:0,chassis,arrival:0,missileTier:4,mineTier:2,missileCharges:8,lockdown:0});w.ships.set(id,s);return s;}
 {const w=world(),s=ship(w,1);s.chassis=3;s.hp=s.hullMax=500;assert(!w.buy(1,5,9));assert(!w.buy(1,5,-1));s.mineTier=1;assert(!w.buy(1,5,1));s.mineTier=2;const before={...s};assert(w.buy(1,5,1));assert.equal(s.chassis,4);assert.equal(S.turretCount(s,t),0,'no unbought Missile Cruiser turrets');assert.equal(s.hullMax,500-t.missileCruiser.cost);assert.equal(s.missileCharges,8);assert.equal(s.mineTier,before.mineTier);assert(!w.buy(1,5,0));const wire=S.decodeServer(S.encodeSnapshot(1,0,[{id:1,...s}]));assert.equal(wire.ships[0].chassis,4);}
-{const w=world(),s=ship(w,1);let launches=0;for(let n=0;n<90;n++){const before=s.missileShots;S.stepShip(s,{...idle,fire:true},dt,t);launches+=s.missileShots!==before?1:0;}assert.equal(launches,8);assert.equal(s.shots,0);assert.equal(s.missileCharges,0);const replay={...s};for(let n=0;n<30;n++){S.stepShip(s,idle,dt,t);S.stepShip(replay,idle,dt,t);}assert.deepEqual(s,replay);}
+{
+ const w=world(),s=ship(w,1);
+ w.stepShip(1,{...idle,fire:true});
+ assert.equal(s.shots,1);
+ assert.equal(s.missileCharges,8,'gun does not fire a missile');
+ const gun=w.drain().shots[0],grow=S.powerGrowth(s.hullMax,t);
+ assert.equal(gun.side,1,'recoil is on the right gun only');
+ assert(Math.abs(gun.x-s.x-S.MISSILE_CRUISER_GUN.forward*grow)<1e-8);
+ assert(Math.abs(gun.y-s.y-S.MISSILE_CRUISER_GUN.right*grow)<1e-8);
+ assert.equal([...w.bullets][0].damage,t.weapon.damage);
+ for(let n=0;n<90;n++)S.stepShip(s,{...idle,missile:true,fire:true},dt,t);
+ assert.equal(s.missileShots,8);
+ assert.equal(s.missileCharges,0);
+ assert(s.shots>1,'the gun works during missile cooldown');
+ const copy=S.decodeServer(S.encodeSnapshot(1,0,[{id:1,...s,missileFireCd:7}]));
+ assert.equal(copy.ships[0].missileFireCd,7);
+ const replay={...s};
+ for(let n=0;n<30;n++){S.stepShip(s,idle,dt,t);S.stepShip(replay,idle,dt,t);}
+ assert.deepEqual(s,replay);
+}
 {const w=world(),s=ship(w,1),enemy=ship(w,2,2000,1500,0);w.stepShip(1,{...idle,missile:true});const m=[...w.ordnance.values()][0];assert(m.heavy);assert.equal(m.damage,t.missile.damage*t.missileCruiser.damageFactor);assert(Math.cos(m.heading-s.heading)<-.99);const start=m.heading;for(let i=0;i<Math.ceil(t.missileCruiser.reverseSeconds*t.net.tickHz)-1;i++)w.step();assert.equal(m.heading,start);w.step();assert.notEqual(m.heading,start);assert(S.decodeServer(S.encodeOrdnance([{id:1,kind:2,owner:1,x:m.x,y:m.y,heading:m.heading,hp:1,armed:true,target:2}])).items[0].kind===2);}
 for(const chassis of[2,4]){const w=world(),s=ship(w,1,1500,1500,chassis),target=ship(w,2,1750,1500,0);s.turrets=chassis===4?2:0;target.shield=10000;let ticks=[];for(let n=0;n<55;n++){w.step();if(w.drain().shots.some(s=>s.owner===1&&s.side===10))ticks.push(n);}assert(ticks.length>=7);assert(ticks.slice(1,7).every((v,i)=>v-ticks[i]===2),'fixed-step seven-shot burst');assert(ticks.length===7||ticks[7]-ticks[6]>=35,'pause before reacquire');}
 {const w=world();w.setPlanet('warzone');w.startWar();const at=w.layout.turrets[0],s=ship(w,1,at.x+400,at.y,3);w.clanOf.set(1,w.attackerClan);s.shield=10000;let ticks=[];for(let n=0;n<150;n++){w.step();if(w.drain().shots.some(s=>s.side===40))ticks.push(n);}assert(ticks.length>=2,'tower fires');assert.equal(ticks[1]-ticks[0],6,'heavy doublet');assert(ticks[2]-ticks[1]>=45,'reload and warning');}
@@ -59,4 +78,4 @@ for (const cause of ['late', 'overflow']) {
  assert.equal(pilot.ship.mineShots,1,cause+' mine must not repeat');
  room.stop();
 }
-console.log('PASS capital evolution authority, capacity/hold/replay/no primary, backward delayed missiles, chassis/heavy wire identity, seven-shot CIWS, heavy tower doublet and bounded config upgrade.');
+console.log('PASS capital evolution authority, independent gun/missile cooldown and replay, backward delayed missiles, chassis/heavy wire identity, seven-shot CIWS, heavy tower doublet and bounded config upgrade.');
