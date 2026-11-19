@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-19 claude run economy redesign (headless review, NOT live)
+DID: Owner decisions 19 Nov. Minerals are the only run currency; ordinary planets drop no salvage cargo. Carried minerals bank on warp-out at salvage.bankRate (home planets 0, so no safe farming). The shop is replaced by run levels: collected minerals are XP and are never spent. Each level offers 3 perk cards (the 5 existing tracks, already flat at about +3% each). Owned evolutions are a guaranteed card once requirements are met, and tracks they need are 3x likelier. Hold 50+40 per level, weight slows up to 30%. Deaths drop the whole wallet; bots carry minerals and prefer loaded targets. Warp lock 90 s. Hot zone x2 minerals. Proposed hangar prices: evolution 400, ship 800, cosmetics 150-300 (5800 total).
+FILES: sim/levels.ts (new), sim/world.ts (cards/pick/stepLevels, xp on collect, death drop), sim/ship.ts (xp/picks, walletCap, bankedMinerals), sim/bots.ts (loaded preference), server/src/room.ts (bank by planet rate), sim/liveConfig.ts (epoch 5), tune.json, scripts/measure-steroids-run-economy.mjs.
+SEAM: xp/picks are NOT on the wire yet (protocol decode fills 0). World.buy refuses while shop.levelUp is 1; World.pick(id, card) applies cards 0-4 or 10+build. World.evolutionsOwned is set by the room from the bank. Not yet: card UI, protocol fields, tutorial and HUD text, test gates.
+CROSS: Typecheck passes. Test gates (sim, pickups, progression-balance, bank, live-config) still assert the old economy and fail. Branch ccr-9c88eb84-gwiuel only; nothing merged or deployed.
+FOR codex: Please don't touch the economy files above until the owner approves numbers. Card art and UI come later as a separate brief. Owned-evolution cards make the pre-mission equip slot unnecessary; owner to confirm.
+
 ## 2026-11-19 codex combined LIVE release PR588
 DID: Itch r0109/Worker protocol33/Pages deployed. Bat now has Falcon primary damage and its existing shields and agility. Also shipped pickups, tutorial, missile fixes, economy and fighter shields.
 FILES: Pickup art manifest/render/HUD, local tutorial, room/sim/net, tune/live config and lab. Release proof in ../steroids-alpha-lab/combined-release-proof.json.
@@ -97,11 +104,4 @@ FILES: unlock catalogue/tune, Room auth/buy guard, NetClient frozen look, Hangar
 SEAM: Look.evolution is owned/slot-cleaned at initial auth before controls/within3s; queued BUY5 must match. Reconnect retains equipment; old Save.evolution ignored. Protocol29 same wire layout.
 CROSS: user requested price1500 and loadout gate; real SQLite bank/Room tests reject forged/unowned/unequipped/late/alternate/duplicate purchases;6 headless PC/touch layouts pass buy/equip/status/bounds with no capture.
 FOR claude: deferred only. No new DB migration/assets/dependencies; existing bank atomicity reused. Paired client/Worker release required; lab remains a free isolated design sandbox.
-
-## 2026-11-18 codex Missile Cruiser correction LIVE181126r0102
-DID: PR564 74dd2ced live; client44251753113 attempt2 + Worker44251753080 success. MC zero free turrets, bought upgrades retained, min90/cruise170/top225. Public lab matches.
-FILES: tune/protocol28, lab settings/model/preview, capital/lab regressions; artillery-release-proof.json and deferred docs.
-SEAM:28 has identical layout; refresh cached27 clients. Existing legacy hosted record omits MC, so defaults90/base0 apply to new client and Worker.
-CROSS: authority tests cover0/1/2/4 bought turrets, actual braking floor90, BC base2/min140 and bought CIWS bursts. Type/build/sim/lab/config pass;49 public snapshots and heads0/BC2 verified, no capture.
-FOR claude: deferred only. Client retry cleared randomized bot-spacing fixture failure; Pages deploy succeeded but Operation C counter push raced main. Future deterministic fixture/counter retry housekeeping; no live block.
 
