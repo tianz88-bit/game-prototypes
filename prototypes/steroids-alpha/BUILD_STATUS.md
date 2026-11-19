@@ -1,25 +1,32 @@
 ## Current milestone
 
-LIVE itch r0109, Worker protocol 33 and calibration lab. PR588 merge 97f6ca80c3312db0531e87846f63b43941c429f2. Itch 44475904101, Worker 44475903983 and Pages 44475904099 succeeded.
+LIVE itch r0109, Worker protocol 33 (unchanged). Run-economy redesign in headless review on branch proto/steroids-alpha/run-economy (pushed to ccr-9c88eb84-gwiuel). Not merged or deployed.
 
 ## What was implemented
 
-Bat matches Falcon primary gun damage. It retains 52.5 shield, 5.44 rad/s turn rate and its existing speed/acceleration. Sparrow and Falcon start with 75 shield. All fighters have 50 hull. Upgrade prices 1/2/3/4, either cruiser 10 in-run, earlier permanent 500-credit unlocks. Scaled ore and hull spills, plus visible fractional minerals.
+Live, by Codex: see CLAUDE_BACKLOG.md (combined release PR588).
 
-Separate ore/salvage/fuel objects, pooled sprites and HUD icons, authoritative short-range magnetism. Tutorial gates require braking, thrust, aimed rock shots, its ore, one purchase, both rings and an actual ram in one dash, then extraction. Fighter missiles preserve late presses and accept desktop HUD clicks. Missile Cruiser has a shorter rear arc and 12-second reload.
+Headless review (owner decisions, 19 November 2026):
+- Minerals are the only run currency. Ordinary planets no longer spawn salvage cargo; minerals carried out on warp bank as credits at salvage.bankRate (1). Clan home planets bank at salvage.homeBankRate (0), so they cannot be farmed. Home fuel and the treasury are unchanged (parked).
+- Escalating tiers: 10/25/50/80 per track (825 for all 20), carry floors 10/40/100/180. Each upgrade owned adds shop.yieldPerUpgrade (8%) to minerals mined.
+- Mineral hold grows with upgrades: shop.holdBase 50 + shop.holdPerUpgrade 30 each (650 at a full build). Carried weight slows the ship up to 30% at ship.powerCap 700.
+- Deaths drop the whole wallet (deathSpillFraction 1); hull hits spill 0.5 per hull point. No extra kill payout. Bots carry and drop minerals like players and prefer loaded targets (bots.loadedPreference 200).
+- Hot zone multiplies minerals (hotZone.mineralMultiplier 2). Warp lockdown 180 -> 90 s. Evolutions cost 100 in-run (floor 100).
+- Economy epoch 5 migration in sim/liveConfig.ts (balanceVersion 5).
+- Probe script: scripts/measure-steroids-run-economy.mjs (PROFILE=quiet|bots, BUY=n).
 
 ## Key technical decisions
 
-Protocol 33 is deployed for the client and Worker. Pickup messages can include fuel/mined metadata and interpolated movement. Economy epoch 4 migrates prior records. Shared authorities and display read the same chassis values. Type/build/full sim/live config/bank/rig/evolution gates passed. Headless Bat and Falcon sustained primary output matched with stock and max gun tiers. Local browser checks cover PC/mobile tutorial and missile buttons, split pickup collection and render pool bounds.
+The wallet stays in the legacy hullMax field, so there is no wire layout change. The salvage ShipState field stays (always 0 off home planets) so protocol 33 decodes unchanged. Bank amount = floor(wallet x planet rate), computed by sim bankedMinerals.
 
 ## Open questions
 
-No blocking questions. Claude's deferred backlog is current.
+Owner to review the probe numbers, and the growing-hold mechanic, which Claude added after the probe showed hoarding beat building. BRIEF.md needs an economy section once approved.
 
 ## Known issues
 
-Scripted combat and mining timings do not measure human advantage in a duel. Review public evidence in combined-release-proof.json for the scope of the browser smoke test.
+Test gates (sim, pickups, progression-balance, bank, live-config) still assert the old economy and fail. To update once numbers are approved. The client HUD still shows salvage cargo and old prices. The scripted miner never fights back, so bot-profile deaths overstate risk for a real pilot.
 
 ## Next proposed step
 
-Use human duel feedback to compare Bat's close turning advantage against Falcon's shields and top speed.
+Owner approves or adjusts the numbers, then: update the gates, HUD/shop/tutorial text, BRIEF, protocol bump and a paired client/Worker release.

@@ -834,7 +834,7 @@ export class FlightScene extends Phaser.Scene {
     // Warzone: power only, so it is the mineral zone where rich rocks spawn, for both sides.
     const war = isWarPlanet(this.planet);
     if (!war && this.net.layout && this.net.clan !== this.net.layout.clan) return;
-    const zoneOf = war ? 'MINERAL ZONE' : `${this.net.layout ? 'FUEL' : 'SALVAGE'} ZONE ×${TUNE.hotZone.salvageMultiplier}`;
+    const zoneOf = war ? 'MINERAL ZONE' : `MINERAL ZONE ×${TUNE.hotZone.mineralMultiplier}`;
     const label = `${zoneOf}  ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`;
     const centre = this.toScreen(z.x, z.y);
     const dx = wrapDelta(z.x, p.x, W);
@@ -856,7 +856,7 @@ export class FlightScene extends Phaser.Scene {
     // Ground-only boundary retains the exact server radius and projection.
     drawSalvageZoneRing(this.world,z,(x,y)=>this.toScreen(x,y),inside,now);
     if (intents.touch) {
-      if(inside){this.hotZoneText.setVisible(true).setText('ZONE ×'+TUNE.hotZone.salvageMultiplier).setPosition(w<600?280:304,90);return;}
+      if(inside){this.hotZoneText.setVisible(true).setText('ZONE ×'+TUNE.hotZone.mineralMultiplier).setPosition(w<600?280:304,90);return;}
       if(centre.visible && centre.x>40 && centre.x<w-40 && centre.y>94 && centre.y<h-60)return;
       const a=Math.atan2(dy,dx),c=Math.cos(a),s=Math.sin(a);
       const x=w/2+c*w*.3,y=Math.max(100,Math.min(h-110,h/2+s*h*.25));

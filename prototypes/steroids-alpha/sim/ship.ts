@@ -151,6 +151,17 @@ export function damageScale(s: ShipState, tune: Tune): number {
 /** Shield maximum: the base shield plus shieldPerTier for each shield upgrade bought. */
 /** The legacy wire hullMax field stores baseline + unspent minerals; it no longer grants health. */
 export function mineralBalance(s:Pick<ShipState,'hullMax'>,tune:Tune):number{return Math.round(Math.max(0,s.hullMax-tune.ship.maxHp)*10)/10;}
+/**
+ * Mineral hold (owner redesign, 19 November 2026): how many minerals this ship can carry. It grows
+ * with every upgrade owned (shop.holdBase + shop.holdPerUpgrade each, never past ship.powerCap), so
+ * carrying out the most means building up first. Returned in the legacy hullMax units (with ship.maxHp).
+ */
+export function walletCap(s:Pick<ShipState,'turrets'|'shieldTier'|'damageTier'|'missileTier'|'mineTier'>,tune:Tune):number{
+  const ups=s.turrets+s.shieldTier+s.damageTier+s.missileTier+s.mineTier;
+  return Math.min(tune.ship.powerCap,tune.ship.maxHp+tune.shop.holdBase+tune.shop.holdPerUpgrade*ups);
+}
+/** Credits banked by warping out with this wallet: whole minerals times the planet's bank rate. */
+export function bankedMinerals(s:Pick<ShipState,'hullMax'>,tune:Tune,home:boolean):number{return Math.floor(mineralBalance(s,tune)*(home?tune.salvage.homeBankRate:tune.salvage.bankRate)+1e-8);}
 /** Actual hull capacity is independent of the carried wallet. */
 export function hullCapacity(_s:Pick<ShipState,'chassis'>,tune:Tune):number{return tune.ship.maxHp;}
 

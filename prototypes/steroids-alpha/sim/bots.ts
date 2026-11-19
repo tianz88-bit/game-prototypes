@@ -9,7 +9,7 @@
 // that respect overheat; a badly hurt bot runs.
 import type { Tune } from './tune';
 import type { ShipInput, ShipState } from './ship';
-import { topSpeed, shipVelocity, hullCapacity } from './ship';
+import { topSpeed, shipVelocity, hullCapacity, mineralBalance } from './ship';
 import { asteroidPos } from './asteroids';
 import type { World } from './world';
 import type { BaseLayout } from './clanBase';
@@ -82,15 +82,17 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
   const tick = world.tick;
   const hz = tune.net.tickHz;
   const hunted = (oid: number): number => others.filter((b) => b !== brain && b.target === oid).length;
-  let enemy: { id: number; s: ShipState; dx: number; dy: number; d: number } | null = null;
+  let enemy: { id: number; s: ShipState; dx: number; dy: number; d: number; score: number } | null = null;
   if (tick >= brain.distractedUntil) {
     for (const [oid, o] of world.ships) {
       if (oid === id || o.hp <= 0) continue;
       if (war && (world.clanOf.get(oid) ?? 0) === myClan) continue;
       const r = rel(o.x, o.y);
       if (r.d > t.sightRange || (oid !== brain.target && hunted(oid) >= t.maxBotsPerTarget)) continue;
-      // Stick with the current target while it stays in sight.
-      if (!enemy || oid === brain.target || (enemy.id !== brain.target && r.d < enemy.d)) enemy = { id: oid, s: o, ...r };
+      // Stick with the current target while it stays in sight. Otherwise go for the best prize:
+      // a ship carrying more minerals counts as closer (bots.loadedPreference minerals halve it).
+      const score = r.d / (1 + mineralBalance(o, tune) / Math.max(1, t.loadedPreference));
+      if (!enemy || oid === brain.target || (enemy.id !== brain.target && score < enemy.score)) enemy = { id: oid, s: o, ...r, score };
     }
   }
   if (!enemy) {
