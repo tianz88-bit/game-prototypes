@@ -38,6 +38,8 @@ function frames(scene: Phaser.Scene,key:string,boxes:number[][]): void {
 /** Shared atlases; peach-only livery replacement keeps teal paint and glass consistent. */
 export function registerArt(scene: Phaser.Scene): void {
   registerEyes(scene);
+  frames(scene,'dd_counter',[[0,0,256,256],[256,0,256,256],[0,256,256,256],[256,256,256,256]]);
+  frames(scene,'dd_tableware',[[0,0,256,256],[256,0,256,256],[0,256,256,256],[256,256,256,256]]);
   for(const [key,boxes]of [['dd_family',BODY_BOXES],['dd_food',FOOD_BOXES],['dd_props',PROP_BOXES],['dd_tunnels',TUNNEL_BOXES]] as const)frames(scene,key,boxes);
   registerTunnelLayers(scene);
   if(!hasArt(scene,'dd_family'))return;

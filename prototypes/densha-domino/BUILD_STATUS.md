@@ -1,17 +1,18 @@
 ## Current milestone
-Local cab and livery review after public Kaiten Express release 12.
+Local music and sushi-bar art review after public release 15.
 
 ## What was implemented
-Multi-car trains use the standard middle section for every trailing carriage. Heads have continuous paint across the deck. Single cars have dedicated one-windshield artwork in all directions. The orange signal is registered to the head lamp. Ten liveries use TrainDef.color. The original full-colour sushi is served one variety per train on compact plates. The HUD counts remaining trains and the first tutorial explains the goal.
+Gemini generated separate title and gameplay instrumentals. Edited loop exports are 24.00 and 20.76 seconds. A music control remembers the player's preference. Plays switch to the gameplay arrangement when the title closes.
+Plates and sushi are 50% larger in both dimensions, with the cargo centered over the available deck. Four pastel counter props occupy existing obstacle cells. Up to two faint wave decals decorate tiles outside active lanes.
 
 ## Key technical decisions
-The two five-colour sheets are precomputed from the shaded family. Window glass, the teal head stripe and the existing warm-plum outline keep their original treatment. Runtime derives socket frames from the base sheet and uses the existing batched shine. Art files are supplied through the loose asset pipeline. This is a presentation update.
+One looping audio player switches cues, pauses while hidden, and uses a local Ogg or MP3 file. All four decorative objects share a single texture. Floor decals are baked with the existing floor drawing.
 
 ## Open questions
-Owner review of the new liveries and cargo balance on a phone.
+Owner review of the music mix, prop palette and cargo placement.
 
 ## Known issues
-Physical device performance has not been measured for this revision.
+Mobile layout and playback were checked at phone size in Brave. Physical-phone playback remains unverified.
 
 ## Next proposed step
-Review the Kyoto Crossing capture before authorizing a new public release.
+Review the two local loops and Level 5 board before publishing.

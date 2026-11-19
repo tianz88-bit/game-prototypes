@@ -19,9 +19,33 @@ export function drawYard(g:Phaser.GameObjects.Graphics,level:Level,geo:YardGeo):
   }
   for(let r=0;r<=level.rows;r++){g.lineStyle(.85,0xdbb292,.5);g.lineBetween(ox,oy+r*cs,ox+w,oy+r*cs);g.lineStyle(.6,0xfffaf0,.8);g.lineBetween(ox,oy+r*cs+1,ox+w,oy+r*cs+1);}
   for(let c=0;c<=level.cols;c++){g.lineStyle(.85,0xdbb292,.5);g.lineBetween(ox+c*cs,oy,ox+c*cs,oy+h);g.lineStyle(.6,0xfffaf0,.8);g.lineBetween(ox+c*cs+1,oy,ox+c*cs+1,oy+h);}
+  const lanes = channelRuns(level);
+  let decals = 0;
+  const motifSeed = Array.from(level.name).reduce((sum, letter) => sum + letter.charCodeAt(0), 0);
+  for (let cell = 0; cell < level.cols * level.rows && decals < 2; cell++) {
+    if ((cell * 7 + motifSeed) % 5 !== 0 || level.obstacles.has(cell)) continue;
+    const r = Math.floor(cell / level.cols), c = cell % level.cols;
+    if (lanes.some(run => run.axis === 'h'
+      ? run.line === r && run.start <= c && c < run.end
+      : run.line === c && run.start <= r && r < run.end)) continue;
+    const x = ox + (c + .5) * cs, y = oy + (r + .55) * cs;
+    g.lineStyle(cs * .018, 0xc89d9c, .30);
+    for (const radius of [.08, .14, .2]) {
+      g.beginPath(); g.arc(x, y, cs * radius, Math.PI, 2 * Math.PI); g.strokePath();
+    }
+    decals++;
+  }
   const cols=new Set(level.trains.filter(t=>t.axis==='v').map(t=>t.line));
   objects.push(channelSurface(scene,level,cs).setPosition(ox,oy));
+  const tableware=(frame: number, x: number, y: number, size: number) => {
+    const sprite = scene.add.image(x,y,'dd_tableware',String(frame));
+    objects.push(sprite.setDisplaySize(size,size).setDepth(5).setName('tableware-'+frame));
+  };
   const prop=(frame:number,x:number,y:number,size=1)=>{
+    if(hasArt(scene,'dd_tableware') && (frame===4 || frame===5)){
+      tableware(frame===4?0:2,x,y,(frame===4?132:60)*cs/92*size);
+      return;
+    }
     const boxes=[[132,46,278,288],[602,35,338,295],[1159,44,232,283],[163,366,221,299],[549,423,441,205],[1135,429,268,191],[1182,693,176,300]],widths=[68,75,57,49,132,60,36];
     if(!hasArt(scene,'dd_props'))return;
     const box=boxes[frame],pw=widths[frame],ph=pw*box[3]/box[2],scale=cs/92*size;
@@ -40,12 +64,20 @@ export function drawYard(g:Phaser.GameObjects.Graphics,level:Level,geo:YardGeo):
       g.fillStyle(0xe9cdb6);g.fillRoundedRect(left+lip,top+lip,size-2*lip,size-2*lip,cs*.07);
       g.fillStyle(0xfff7e8);g.fillRoundedRect(left+lip,top+lip*.55,size-2*lip,size-2*lip,cs*.07);
     }
+    else if (hasArt(scene, 'dd_tableware') && (kind==='buffer' || kind==='tree')) {
+      tableware(kind==='buffer'?1:3,x,y,cs*.79);
+    }
+    else if (hasArt(scene, 'dd_counter')) {
+      const variant = {kiosk:3,signal:1,tree:0,machine:2,buffer:2}[kind];
+      const size = cs * .79;
+      objects.push(scene.add.image(x,y,'dd_counter',String(variant)).setDisplaySize(size,size).setDepth(5));
+    }
     else if(hasArt(scene,'dd_props'))prop(frame,x,y);
     else{g.fillStyle(0x8e708e);g.fillRoundedRect(x-cs*.3,y-cs*.28,cs*.6,cs*.56,8);g.fillStyle(0xfff5dd);g.fillEllipse(x,y-cs*.18,cs*.6,cs*.24);}
   }
   // Flush caps end only at fixed blocked boundaries, never at exits.
   const stops=scene.add.graphics().setDepth(2);objects.push(stops);
-  for(const run of channelRuns(level))for(const end of [run.start,run.end]){
+  for(const run of lanes)for(const end of [run.start,run.end]){
     const length=run.axis==='h'?level.cols:level.rows;if(end===0||end===length)continue;
     const x=ox+(run.axis==='h'?end:run.line+.5)*cs,y=oy+(run.axis==='v'?end:run.line+.5)*cs;
     stops.fillStyle(0xfff4df);stops.lineStyle(1,0xc3a2a7,.7);
@@ -113,7 +145,7 @@ export function drawYard(g:Phaser.GameObjects.Graphics,level:Level,geo:YardGeo):
       const geometry=mask.createGeometryMask();front.setMask(geometry);objects.push(back,front,mask);front.once('destroy',()=>geometry.destroy());
     }else {cover.fillStyle(0xffefd6);cover.fillRoundedRect(x-cs*.2,y-cs*.5,cs*.4,cs,8);}
   };
-  for(const run of channelRuns(level)){
+  for(const run of lanes){
     if(run.axis==='h'){if(run.start===0)portal(ox,oy+(run.line+.5)*cs,'left');if(run.end===level.cols)portal(ox+w,oy+(run.line+.5)*cs,'right');}
     else{if(run.start===0)portal(ox+(run.line+.5)*cs,oy,'up');if(run.end===level.rows)portal(ox+(run.line+.5)*cs,oy+h,'down');}
   }

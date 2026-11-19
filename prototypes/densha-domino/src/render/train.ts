@@ -37,17 +37,20 @@ export class TrainView {
       if(hasArt(scene,'dd_outline')){const box=BODY_BOXES[cell];holder.add(scene.add.image(0,vertical?-8:4,'dd_outline',String(cell)).setDisplaySize((vertical?64:116)*(box[2]+16)/box[2],(vertical?124:64)*(box[3]+16)/box[3]));}
       if(hasArt(scene,key))holder.add(scene.add.image(0,vertical?-8:4,key,palette+'-'+cell).setDisplaySize(vertical?64:116,vertical?124:64));
       else holder.add(this.fallback(i));
-      const inward=def.len===1?0:i===0?10:i===def.len-1?-10:0,px=vertical?0:inward,py=vertical?-9+inward:-7;
-      const food=scene.add.container(px,py+9);
+      const headIndex = def.headDir < 0 ? 0 : def.len - 1;
+      const deckOffset = i === headIndex ? -def.headDir * (vertical ? 16 : 13) : 0;
+      const px = vertical ? 0 : deckOffset;
+      const py = vertical ? -10 + deckOffset : -10;
+      const food=scene.add.container(px,py+11);
       if(hasArt(scene,'dd_food')){
-        holder.add(scene.add.image(px,py+3,'dd_food','0').setDisplaySize(49,35));
-        const f=1+def.id%6,fw=(f===4?32:f===5?34:38),fh=(f===4?34:f===5?36:28);
+        holder.add(scene.add.image(px,py+3,'dd_food','0').setDisplaySize(73.5,52.5));
+        const f=1+def.id%6,fw=(f===4?32:f===5?34:38)*1.5,fh=(f===4?34:f===5?36:28)*1.5;
         food.add(scene.add.image(0,-fh/2,'dd_food',String(f)).setDisplaySize(fw,fh));
       }else{
-        const p=scene.add.graphics();p.fillStyle(0xe4d5bc);p.fillEllipse(px,py+6,44,28);p.fillStyle(0xfffaf0);p.fillEllipse(px,py+2,42,25);holder.add(p);
-        const f=scene.add.graphics();f.fillStyle(0xfff9e9);f.fillRoundedRect(-19,-24,38,23,9);f.fillStyle([0xff9160,0xffd54e,0xf46f96][this.def.id%3]);f.fillRoundedRect(-21,-31,42,17,7);f.lineStyle(2,0xffedd5);for(let n=-13;n<16;n+=8)f.lineBetween(n,-30,n+6,-16);f.setRotation(-.3).setScale(.72);food.add(f);
+        const p=scene.add.graphics();p.fillStyle(0xe4d5bc);p.fillEllipse(px,py+7.5,66,42);p.fillStyle(0xfffaf0);p.fillEllipse(px,py+2,63,37.5);holder.add(p);
+        const f=scene.add.graphics();f.fillStyle(0xfff9e9);f.fillRoundedRect(-19,-24,38,23,9);f.fillStyle([0xff9160,0xffd54e,0xf46f96][this.def.id%3]);f.fillRoundedRect(-21,-31,42,17,7);f.lineStyle(2,0xffedd5);for(let n=-13;n<16;n+=8)f.lineBetween(n,-30,n+6,-16);f.setRotation(-.3).setScale(1.08);food.add(f);
       }
-      const shadow=scene.add.graphics();shadow.fillStyle(0x8b6952,.14);shadow.fillEllipse(px,py+5,29,11);holder.add(shadow);holder.add(food);
+      const shadow=scene.add.graphics();shadow.fillStyle(0x8b6952,.14);shadow.fillEllipse(px,py+6,43.5,16.5);holder.add(shadow);holder.add(food);
       const lamps=scene.add.graphics();holder.add(lamps);this.container.add(holder);
       const cabs:Car['cabs']=[];
       for(const end of [-1,1] as Dir[])if(end===def.headDir && (end<0?i===0:i===def.len-1)){

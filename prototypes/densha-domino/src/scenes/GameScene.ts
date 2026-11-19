@@ -1,3 +1,4 @@
+import { startMusic } from '../music';
 import { createTitleArt } from '../render/titleArt';
 import { GAME_FONT } from '../gameFont';
 import Phaser from 'phaser';
@@ -60,6 +61,7 @@ export class GameScene extends Phaser.Scene {
   private par = 0;
   private limit = 0;
   private titleOpen=false;
+  private playBoardMusic = () => {};
   private longestChain=0;
   private taps = 0;
   private phase: Phase = 'play';
@@ -166,7 +168,9 @@ export class GameScene extends Phaser.Scene {
 
     this.loadSave();
     this.startLevel(this.save.level);
-    if(new URLSearchParams(location.search).get('test')!=='1')this.showTitle();
+    const title = new URLSearchParams(location.search).get('test') !== '1';
+    this.playBoardMusic = startMusic(this, title);
+    if(title)this.showTitle();
 
     if (new URLSearchParams(location.search).get('test') === '1') {
       const timings:number[]=[];let frameStart=0;
@@ -216,7 +220,7 @@ export class GameScene extends Phaser.Scene {
     const title = createTitleArt(this, WIDTH / 2, 335, WIDTH - 32)
       ?? this.hudText(WIDTH / 2, 335, 40, '#74374a').setText('Kaiten Express');
     const start=new Button(this,WIDTH/2,525,210,58,this.save.level?'Continue':'Play',null,{fill:0x387d68,edge:0x92dac3},()=>{
-      this.titleOpen=false;cover.destroy();
+      this.titleOpen=false;cover.destroy();this.playBoardMusic();
     },23);
     const cover=this.add.container(0,0,[background,title,start.container]).setDepth(450);
   }
