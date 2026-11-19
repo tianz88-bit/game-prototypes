@@ -72,7 +72,7 @@ export function drawYard(g:Phaser.GameObjects.Graphics,level:Level,geo:YardGeo):
       badge.lineStyle(cs*.041,colour);badge.beginPath();badge.moveTo(-cs*.053,-cs*.085+offset);badge.lineTo(cs*.045,offset);badge.lineTo(-cs*.053,cs*.085+offset);badge.strokePath();
     }
     const glow=scene.add.graphics().setPosition(x,y).setRotation(angle).setDepth(91).setAlpha(0).setName('goal-'+dir+'-'+(vertical?Math.floor((x-ox)/cs):Math.floor((y-oy)/cs)));
-    for(const [width,color,alpha] of [[.18,0x68dfcf,.28],[.09,0x8bfff0,.85],[.035,0xfffae0,1]]){
+    for(const [width,color,alpha] of [[.18,0xff7826,.28],[.09,0xffb15f,.85],[.035,0xfffae0,1]]){
       glow.lineStyle(cs*width,color,alpha);glow.beginPath();glow.moveTo(cs*.14,-cs*.39);glow.lineTo(0,-cs*.32);glow.lineTo(0,cs*.32);glow.lineTo(cs*.14,cs*.39);glow.strokePath();
     }
     glow.once('destroy',()=>scene.tweens.killTweensOf(glow));objects.push(badge,glow);

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { Sfx } from 'dig-kit';
 import {GameButton as Button} from '../uiButton';
+import { PUZZLE_CONTRACTS } from '../game/puzzle-contracts';
 import { LEVELS } from '../game/levels';
 import { type RuleOptions, applyTap, canRun, initialState, isCleared, trainAt, trainsLeft } from '../game/rules';
 import { solve } from '../game/solver';
@@ -48,6 +49,7 @@ export class GameScene extends Phaser.Scene {
   private trainLayer:Phaser.GameObjects.Container|null=null;
   private readyStateKey='';
   private exitAudit:object[]|null=null;
+  private alternatePars=new Map<Level,number>();
   private levelIndex = 0;
   private level!: Level;
   private state: State = [];
@@ -227,6 +229,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private startLevel(index: number): void {
+    const previousLevel=this.level;
     this.levelIndex = Phaser.Math.Clamp(index, 0, LEVELS.length - 1);
     this.level = LEVELS[this.levelIndex];
     // Drop anything still scheduled from the previous round so it cannot move the new trains.
@@ -235,9 +238,14 @@ export class GameScene extends Phaser.Scene {
     this.timers = [];
     for (const v of this.views.values()) v.destroy();
     this.views.clear();
+    const reuseYard=previousLevel===this.level && this.trainLayer!==null;
+    if(!reuseYard){
     this.trainLayer?.destroy();this.trainLayer=null;
     this.yardArt.forEach(o=>o.destroy());this.yardArt=[];
     this.trainMasks.forEach(m=>m.destroy());this.trainMasks=[];
+    } else {
+      for(const obj of this.yardArt)if(obj.name?.startsWith('goal-')){this.tweens.killTweensOf(obj);(obj as Phaser.GameObjects.Graphics).setAlpha(0);}
+    }
     this.clearOverlay();
     this.closeMenu();
     this.pending = null;
@@ -249,7 +257,9 @@ export class GameScene extends Phaser.Scene {
     this.phase = 'play';
     // Rules come from tune.json; par is solved under the same rules so stars stay honest.
     this.rules = { followAfterSide: !!tune.rules.followAfterSide };
-    this.par = solve(this.level, initialState(this.level), 400000, this.rules).par;
+    const proven=this.rules.followAfterSide?PUZZLE_CONTRACTS.find(c=>c.name===this.level.name)?.par:undefined;
+    this.par=proven??this.alternatePars.get(this.level)??solve(this.level,this.state,400000,this.rules).par;
+    if(!this.rules.followAfterSide)this.alternatePars.set(this.level,this.par);
     this.limit = this.par + tune.rules.limitSlack;
     this.save.level = this.levelIndex;
     this.persist();
@@ -257,16 +267,18 @@ export class GameScene extends Phaser.Scene {
     this.cs = Math.floor(Math.min(BOARD_W / this.level.cols, (BOARD_BOTTOM - BOARD_TOP) / this.level.rows));
     this.ox = Math.round((WIDTH - this.cs * this.level.cols) / 2);
     this.oy = Math.round(BOARD_TOP + (BOARD_BOTTOM - BOARD_TOP - this.cs * this.level.rows) / 2);
+    if(!reuseYard){
     this.yard.clear();
     this.yardArt=drawYard(this.yard, this.level, { cs: this.cs, ox: this.ox, oy: this.oy });
     this.trainLayer=this.add.container(0,0).setDepth(10);
     const mask=this.make.graphics({x:0,y:0},false);mask.fillStyle(0xffffff).fillRect(this.ox-this.cs*.12,this.oy-this.cs*.12,this.cs*(this.level.cols+.24),this.cs*(this.level.rows+.24));
     const geometry=mask.createGeometryMask();this.trainLayer.setMask(geometry);this.trainMasks.push(geometry);this.yardArt.push(mask);
+    }
     for (const t of this.level.trains) {
       const v = new TrainView(this, t, this.cs);
       const c = v.centre(t.start, this.ox, this.oy);
       v.container.setPosition(c.x, c.y).setDepth(10 + t.id);
-      this.trainLayer.add(v.container);
+      this.trainLayer!.add(v.container);
       this.views.set(t.id, v);
     }
     this.cursor = { c: 0, r: 0 };
@@ -329,7 +341,7 @@ export class GameScene extends Phaser.Scene {
       const key='dd_restart_frame';
       this.textures.addImage(key,frame);
       const old=this.add.image(0,0,key).setOrigin(0).setDisplaySize(WIDTH,HEIGHT).setDepth(500);
-      this.tweens.add({targets:old,alpha:0,duration:260,ease:'Sine.InOut',onComplete:()=>{
+      this.tweens.add({targets:old,alpha:0,duration:150,ease:'Sine.InOut',onComplete:()=>{
         old.destroy();this.textures.remove(key);this.restarting=false;
       }});
     });
@@ -608,10 +620,10 @@ export class GameScene extends Phaser.Scene {
     ring.once('destroy',()=>this.tweens.killTweensOf(ring));
     if(hasArt(this,'dd_glove')){
       const startX=v.container.x,startY=v.container.y;
-      const hand=this.add.image(startX,startY,'dd_glove').setOrigin(.5,.05);
+      const hand=this.add.image(startX,startY,'dd_glove').setOrigin(.5,.97);
       hand.setScale(this.cs*.59/hand.height);ring.add(hand);
-      const distance=m.dir*this.cs*.72;
-      this.tweens.add({targets:hand,x:startX+(t.axis==='h'?distance:0),y:startY+(t.axis==='v'?distance:0),alpha:{from:1,to:.24},duration:640,repeatDelay:350,repeat:-1,ease:'Quad.InOut'});
+      const distance=m.dir*this.cs*.94;
+      this.tweens.add({targets:hand,x:startX+(t.axis==='h'?distance:0),y:startY+(t.axis==='v'?distance:0),alpha:{from:1,to:.75},duration:690,repeatDelay:350,repeat:-1,ease:'Quad.InOut'});
       hand.once('destroy',()=>this.tweens.killTweensOf(hand));
     }
   }
@@ -830,4 +842,5 @@ export class GameScene extends Phaser.Scene {
     this.time.timeScale = speed;
   }
 }
+
 

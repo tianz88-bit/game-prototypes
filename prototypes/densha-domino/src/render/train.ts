@@ -34,7 +34,7 @@ export class TrainView {
       const ctx=texture.context,pixels=ctx.createImageData(96,80);
       for(let x=0;x<96;x++)for(let y=0;y<80;y++){
         const distance=x/96,across=Math.abs(y-40)/(8+31*distance),i=(y*96+x)*4;
-        pixels.data.set([30,224,213,210*(1-distance)**1.3*Math.max(0,1-across*across)],i);
+        pixels.data.set([255,118,20,210*(1-distance)**1.3*Math.max(0,1-across*across)],i);
       }
       ctx.putImageData(pixels,0,0);texture.refresh();
     }
@@ -93,7 +93,7 @@ export class TrainView {
   pose(k:number,_stretch:number,_squash:number,_skew:number,_tilt:number):void {if(k>0)this.react('ack',this.gaze,tune.feel.spookMs);}
   rest():void {this.dirty=true;this.travel=null;this.awake=false;this.reaction=null;this.history=[];}
   private band(g:Phaser.GameObjects.Graphics,end:Dir,head:boolean,lit:boolean):void {
-    const v=this.def.axis==='v';g.lineStyle(lit?3.5:2.8,lit?0xc6f7ff:0xf5e4c4,1);g.beginPath();
+    const v=this.def.axis==='v';g.lineStyle(lit?3.5:2.8,lit?0xff8327:0xf5e4c4,1);g.beginPath();
     if(v){for(let i=0;i<=12;i++){const t=i/6-1,x=t*(head?23:21),y=end<0?(head?-52-17*(1-t*t):-60-6*(1-t*t)):38+10*(1-t*t);if(i===0)g.moveTo(x,y);else g.lineTo(x,y);}}
     else {const y=head?24:25;g.moveTo(end*55,head?9:16);g.lineTo(end*51,y-2);g.lineTo(end*40,y);g.lineTo(end*30,y);}
     g.strokePath();

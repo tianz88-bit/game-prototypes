@@ -5,7 +5,7 @@ const sockets=new WeakMap<Phaser.GameObjects.Image,{shine:Phaser.GameObjects.Ima
 /** Both layers use the normal sprite batch; no per-cab shader flush. */
 export function attachSocketLight(image:Phaser.GameObjects.Image,vertical:boolean,end:Dir):Phaser.GameObjects.Image {
  const shine=image.scene.add.image(image.x,image.y,image.texture.key,image.frame.name).setDisplaySize(image.displayWidth,image.displayHeight).setVisible(false);
- image.setTint(0x25c8ff);sockets.set(image,{shine,vertical,end});return shine;
+ shine.setTint(0xffc480);image.setTint(0xff791a);sockets.set(image,{shine,vertical,end});return shine;
 }
 export function updateSocketLight(image:Phaser.GameObjects.Image,active:boolean,moving:boolean,clock:number):void {
  const socket=sockets.get(image);
