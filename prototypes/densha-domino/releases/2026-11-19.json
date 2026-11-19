@@ -1,0 +1,35 @@
+{
+  "edition": "Sushi Trains (Codex)",
+  "branch": "codex/densha-domino-sushi",
+  "game_source_commit": "cedb81551e775485e9bb58640db1a575cb13f98a",
+  "release_counter": 1,
+  "public_url": "https://densha-domino-sushi.lw-community-1973.chatgpt.site/",
+  "site_project_id": "appgprj_6afe5d73f0f08191bbf218a71655d2f9",
+  "site_version_id": "appgprj_6afe5d73f0f08191bbf218a71655d2f9~appgver_bafd877360b881918e2b623f825ed381",
+  "site_version_number": 1,
+  "site_deployment_id": "appgdep_6afe5f628a488191b784e346c53e7910",
+  "hosted_source_commit": "be6b4b867d3715a8ae22cacaf9ba014c8bb29bff",
+  "archive_sha256": "ef4b34eb797cd31ad6a45e45446ee9fac4fd9356acf67267b0c69f667c5ae90d",
+  "claude_backup_branch": "codex/densha-domino-claude-backup-2026-11-19",
+  "claude_backup_commit": "d622721a1208c40b4ec4f1436dcbb580fdec4947",
+  "claude_prototype_tree": "12e711b2c962dc0e85c219dcfc4abfa1f4479d5c",
+  "claude_url": "https://tianz88-bit.github.io/game-prototypes/prototypes/densha-domino/",
+  "hub_pull_request": "https://github.com/tianz88-bit/game-prototypes/pull/579",
+  "hub_merge_commit": "e9ae64f779115f534188dcf3f3e165b9c715a099",
+  "verification": [
+    "standalone production-format Brave fidelity check",
+    "anonymous public Brave fidelity check",
+    "Claude prototype tree unchanged from backup",
+    "live hub adjacent shortcuts and both anonymous game boots",
+    "public GPU performance preserved near 60 fps"
+  ],
+  "hub_deployment_run": "https://github.com/tianz88-bit/game-prototypes/actions/runs/44445288696",
+  "hub_deployment": "success",
+  "public_gpu": {
+    "idle_fps": 59.95,
+    "chain_fps": 59.95,
+    "draw_calls": 4,
+    "cpu_idle_p95_ms": 1.9,
+    "cpu_chain_p95_ms": 1.7
+  }
+}

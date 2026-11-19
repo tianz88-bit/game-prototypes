@@ -1,24 +1,26 @@
 ## Current milestone
-All four tunnel exits audited and the north cover overlap fixed in the real game. Local game: http://127.0.0.1:5199/game-prototypes/prototypes/densha-domino/?review=exit-audit . About 60 fps confirmed by the owner in their play browser and by the final normal-GPU benchmark. No lab or deployment.
+The sushi edition is publicly deployed as release 1 on its permanent independent branch, with a shortcut beside the preserved Claude game on the live prototypes page.
 
 ## What was implemented
-- Tested 17 real level/train/direction combinations with one- through five-car trains across north, south, east and west exits. Tests use real canvas swipes and existing game rules, not a separate scene or fixture board.
-- Found a north-only overlap: the roof was behind the train, exposing carriage pixels over the mouth just before the shared clip plane. Moved the existing north cover into the foreground, matching the south cover. All tunnel art and the matching original four-view set are retained.
-- Existing exit continuation was verified: trains keep moving at full size under their cover until every carriage's complete world bounds, including food and lights, are offscreen. The display root is destroyed only afterward. No change to rules, travel speed, head preference, reaction timing or carriage cascade.
-- Added test-only geometry/despawn audit hooks and scripts/verify-densha-exits.mjs. No bounds sampling, screenshot work or audit-array allocation runs during normal play; the despawn callback only checks a null audit flag. The visible fix is one existing sprite's draw order, with no new masks/effects.
+- Sushi game: https://densha-domino-sushi.lw-community-1973.chatgpt.site/ . Public audience; anonymous access and approved artwork verified.
+- Permanent source branch: codex/densha-domino-sushi. Game source committed as cedb81551e775485e9bb58640db1a575cb13f98a; successful release counter 1 persisted afterward. The sushi gameplay changes were not merged over main's Claude game.
+- Claude backup: codex/densha-domino-claude-backup-2026-11-19 at d622721a1208c40b4ec4f1436dcbb580fdec4947. A local full source ZIP is also retained in Gamedev/outputs/densha-publication/claude-source-backup-2026-11-19.zip. Original game URL: https://tianz88-bit.github.io/game-prototypes/prototypes/densha-domino/ . Its entire prototype tree matches the backup: 12e711b2c962dc0e85c219dcfc4abfa1f4479d5c.
+- Hub: https://tianz88-bit.github.io/game-prototypes/ . PR #579 merged only the index shortcut/labels, with Claude immediately followed by Sushi Trains (Codex). GitHub Pages run 44445288696 succeeded and the live DOM was checked.
+- Added the standalone public build script and publication/release provenance. The independent Sites checkout is Gamedev/publication/densha-domino-sushi. Artwork is excluded from Git source commits and included in the deployment archive.
 
 ## Key technical decisions
-- Baseline audit reproduced 151 train pixels drawing over the north mouth. Final audit reports zero leakage at all four three-car mouth captures. Full audit: 17 cases, 2,139 sampled animation frames, no early carriage culling, complete offscreen bounds at every destruction callback, monotonic root travel, and no runtime/console errors.
-- Final normal Brave GPU benchmark on NVIDIA/D3D11: empty tab 59.95 fps, dense idle game 59.95 fps, chain 59.95 fps. Four draw calls per frame remain. Idle CPU p50/p95 1.8/2.4 ms; chain 1.6/2.1 ms. This matches the owner's reported approximately 60 fps in the actual play browser. Renderer target stays 60 with no artificial limiter or resolution reduction.
-- npm run typecheck and npm run build passed. All four final real-game tail-entering screenshots were inspected. Existing unrelated Vite chunk-size and Punchies locale warnings remain.
-- Evidence: Gamedev/outputs/densha-exit-audit/exit-audit.json, performance.json and north/south/east/west-3-tail-entering.png. The before-fix north screenshot/audit are retained for comparison. Isolated Brave contexts were closed; user tabs were preserved.
+- Reused the complete verified Phaser game, fixed-head puzzle pack and original matching tunnel set. No game mechanics, art, tuned movement, rendering resolution or dependencies changed for publication. The Current WIP itch slot was not retargeted.
+- Public Site project appgprj_6afe5d73f0f08191bbf218a71655d2f9, saved version 1, deployment appgdep_6afe5f628a488191b784e346c53e7910 succeeded. Hosted source: be6b4b867d3715a8ae22cacaf9ba014c8bb29bff. Exact provenance is in releases/2026-11-19.json and PUBLICATION.md.
+- Standalone-format and anonymous public Brave fidelity checks passed: four approved art sheets, 120 eye frames, registered light bands, honk, manual reverse, restored head preference, independent carriage poses and level-5 three-tap chain. Both hub links booted anonymously; original Claude was independently identified. No browser errors.
+- Public GPU benchmark: approximately 59.95 fps idle and chain, four draw calls, CPU p95 1.9 ms idle / 1.7 ms chain. Previous four-exit audit remains valid: 17 cases, one- through five-car trains, all carriages fully offscreen before despawn, no clipping/cover leakage after the north layer fix.
+- Final npm run typecheck and npm run build passed. Public and hub tab-only screenshots were inspected. Evidence is in Gamedev/outputs/densha-publication/. Isolated Brave contexts were closed; user tabs preserved.
 
 ## Open questions
-- No remaining exit-test blocker. Owner visual review remains available in the actual game.
+- None required for this publication.
 
 ## Known issues
-- Physical-phone performance was not measured. Headless scheduling/GPU selection varied in earlier runs, so individual benchmark rates should not be treated as a universal device guarantee.
-- Public asset publication/fetch wiring remains separate; no upload, release, version-counter change or save-key change was made.
+- Existing unrelated Vite chunk-size/Punchies locale warnings remain. Physical-phone GPU performance is not measured. The GitHub connector lacks mutation permission for this repository; authorized Git/GitHub credential-manager operations handled pushes and the hub PR.
+- Future sushi releases use its separate branch/publication checkout. Main still hosts the original Claude edition; do not overwrite it or retarget the shared itch slot inadvertently.
 
 ## Next proposed step
-Owner playtest the four exits in the real game. Keep the current matching tunnel set, movement tuning and 60 fps rendering configuration. Publish only when requested.
+Playtest the public sushi URL through the new hub shortcut. Future updates should preserve the independent branch, Site identity and Claude backup, and increment the existing release counter only for a successful publication.
