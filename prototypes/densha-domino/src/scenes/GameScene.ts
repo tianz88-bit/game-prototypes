@@ -445,6 +445,10 @@ export class GameScene extends Phaser.Scene {
         const start = e.resume && lastRunDur ? lastRunStart + lastRunDur * f.resumeOverlap : cursor;
         at(start, () => {
           v.setTravel(e.dir);
+          let scored=false;
+          const horizontal=t.axis==='h';
+          const mouth=(horizontal?this.ox:this.oy)+(e.dir>0?(horizontal?this.level.cols:this.level.rows)*this.cs:0);
+          const side=horizontal?(e.dir>0?'right':'left'):(e.dir>0?'down':'up');
           this.sfx.noise(0.1, 0.18, 1800);
           this.tweens.add({
             targets: v.container,
@@ -452,11 +456,22 @@ export class GameScene extends Phaser.Scene {
             y: to.y,
             duration: dur,
             ease: e.exited ? 'Sine.In' : 'Cubic.Out',
-            onUpdate: undefined,
+            onUpdate: e.exited?()=>{
+              const nose=(horizontal?v.container.x:v.container.y)+e.dir*t.len*this.cs/2;
+              if(scored||(nose-mouth)*e.dir<0)return;
+              scored=true;
+              const glow=this.children.getByName('goal-'+side+'-'+t.line) as Phaser.GameObjects.Graphics|null;
+              if(glow){
+                this.tweens.killTweensOf(glow);glow.setAlpha(1).setScale(.8);
+                this.tweens.add({targets:glow,scaleX:1.5,scaleY:1.12,alpha:0,duration:340,ease:'Quad.Out'});
+              }
+              this.sfx.tone(440,.09,'triangle',.17,690);
+              this.sfx.tone(880,.16,'sine',.16,undefined,.065);
+            }:undefined,
             onComplete: () => {
               if (e.exited) {
                 this.visualState[e.train]=-1;
-                this.sfx.treasure();
+
                 // Continue at full size under the cover until every carriage is offscreen.
                 this.tweens.add({targets:v.container,x:outside.x,y:outside.y,duration:tailMs,ease:'Linear',onComplete:()=>{if(this.exitAudit)this.exitAudit.push({train:e.train,dir:e.dir,geometry:v.geometry()});v.destroy();this.views.delete(e.train);}});
               } else {this.visualState[e.train]=e.to;v.setTravel(null);}

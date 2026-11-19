@@ -30,7 +30,16 @@ export function drawYard(g:Phaser.GameObjects.Graphics,level:Level,geo:YardGeo):
   for(const [cell,kind]of level.obstacles){
     const x=ox+(cell%level.cols+.5)*cs,y=oy+(Math.floor(cell/level.cols)+.5)*cs;
     const frame={concrete:1,kiosk:0,signal:3,tree:2,machine:3,buffer:0}[kind];
-    if(kind==='concrete'&&hasArt(scene,'dd_pillar'))objects.push(scene.add.image(x,y+cs*.34,'dd_pillar').setOrigin(.5,1).setDisplaySize(cs*.94,cs*.94*940/420).setDepth(5).setName('restaurant-pillar-blocker'));
+    if(kind==='concrete'){
+      // Overhead projection: a broad square section with only its south lip visible.
+      const size=cs*.84,left=x-size/2,top=y-size/2,lip=cs*.075;
+      g.fillStyle(0xb79f97);g.fillRoundedRect(left,top+lip,size,size,cs*.09);
+      g.fillStyle(0xc4d4bd);g.fillRoundedRect(left,top+lip*.45,size,size,cs*.09);
+      g.fillStyle(0xffefd7);g.fillRoundedRect(left,top,size,size,cs*.09);
+      g.lineStyle(1,0xc4a49b);g.strokeRoundedRect(left,top,size,size,cs*.09);
+      g.fillStyle(0xe9cdb6);g.fillRoundedRect(left+lip,top+lip,size-2*lip,size-2*lip,cs*.07);
+      g.fillStyle(0xfff7e8);g.fillRoundedRect(left+lip,top+lip*.55,size-2*lip,size-2*lip,cs*.07);
+    }
     else if(hasArt(scene,'dd_props'))prop(frame,x,y);
     else{g.fillStyle(0x8e708e);g.fillRoundedRect(x-cs*.3,y-cs*.28,cs*.6,cs*.56,8);g.fillStyle(0xfff5dd);g.fillEllipse(x,y-cs*.18,cs*.6,cs*.24);}
   }
@@ -56,6 +65,15 @@ export function drawYard(g:Phaser.GameObjects.Graphics,level:Level,geo:YardGeo):
   if(dishGap&&bothFit)prop(5,shared?dishGap[0]+space*.7:(dishGap[0]+dishGap[1])/2,oy+h+34,.65);
   const portal=(x:number,y:number,dir:'up'|'down'|'left'|'right')=>{
     const vertical=dir==='up'||dir==='down',sign=dir==='up'||dir==='left'?-1:1,s=cs/116*.94;
+    const angle=vertical?sign*Math.PI/2:sign<0?Math.PI:0;
+    const badge=scene.add.graphics().setPosition(x+(vertical?0:sign)*cs*.17,y+(vertical?sign:0)*cs*.17).setRotation(angle).setDepth(92);
+    badge.fillStyle(0x695269,.88);badge.fillRoundedRect(-cs*.115,-cs*.115,cs*.23,cs*.23,cs*.055);
+    badge.lineStyle(cs*.036,0xfff6de,1);badge.beginPath();badge.moveTo(-cs*.035,-cs*.06);badge.lineTo(cs*.038,0);badge.lineTo(-cs*.035,cs*.06);badge.strokePath();
+    const glow=scene.add.graphics().setPosition(x,y).setRotation(angle).setDepth(91).setAlpha(0).setName('goal-'+dir+'-'+(vertical?Math.floor((x-ox)/cs):Math.floor((y-oy)/cs)));
+    for(const [width,color,alpha] of [[.18,0x68dfcf,.28],[.09,0x8bfff0,.85],[.035,0xfffae0,1]]){
+      glow.lineStyle(cs*width,color,alpha);glow.beginPath();glow.moveTo(cs*.14,-cs*.39);glow.lineTo(0,-cs*.32);glow.lineTo(0,cs*.32);glow.lineTo(cs*.14,cs*.39);glow.strokePath();
+    }
+    glow.once('destroy',()=>scene.tweens.killTweensOf(glow));objects.push(badge,glow);
     if(vertical){
       // Plan view: north/south covers have parallel sides and no visible arch face.
       // Render at constant width through the full fade, never tapering into depth.
