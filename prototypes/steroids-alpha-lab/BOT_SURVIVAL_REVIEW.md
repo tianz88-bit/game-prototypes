@@ -1,6 +1,6 @@
 # Bot survival candidate —19 November2026
 
-**Not live.** Candidate branch codex/steroids-bot-survival-candidate, protocol32; public game remains181126r0107/protocol31. Owner approved keeping mineral prices and reducing each permanent evolution unlock to500 credits. Bot changes are tested for review before release. [Machine proof](./bot-survival-proof.json).
+**LIVE VERIFIED191126r0108/protocol32.** Owner approved the tested changes and500-credit unlocks. PR577 merge076417e1; itch44443795181/Worker44443795129/Pages44443795169 succeeded. Public PC/portrait500 quotes/buy/equip, real home55 snapshots/ack100, Planet A80 snapshots/ack155 with4 bots, and public lab bot/mineral values pass. Account UI uses fixtures; billing/authority was separately tested with SQLite/Room. No capture/live spending. [Machine proof](./bot-survival-proof.json).
 
 ## What caused the difficulty?
 
@@ -37,7 +37,7 @@ The combat controller does not receive the candidate's better escape policy. Thi
 
 Full npm typecheck, production build, sim/progression/grip/capital/tutorial gates, real SQLite bank (499 insufficient;500 exact purchase), live config/OIDC/admin/publisher, rig/FFD/buildings and22 UI layouts pass. New gate checks committed exits/reacquisition, live firing/reaction windows, siege exception,16 occupied player spawns and migration. Two local headless Brave desktop/portrait cases confirm both500 quotes, two500 purchases and explicit equipment with mocked accounts. No live credits, writes, screenshots or recording. Temporary preview and headless browsers are stopped.
 
-Protocol32 keeps wire layout but forces a paired client/Worker refresh for correct catalogue quotes. bot behaviourVersion1 upgrades old observation tuning once while preserving later owner edits and all shop/calibration settings. Deployment-owned evolution quote is normalized to500 in effective config. No D1 schema or resident publisher change. Candidate is saved on a branch; no merge/deployment before owner review.
+Protocol32 keeps wire layout but forces a paired client/Worker refresh for correct catalogue quotes. bot behaviourVersion1 upgrades old observation tuning once while preserving later owner edits and all shop/calibration settings. Deployment-owned evolution quote is normalized to500 in effective config. No D1 schema or resident publisher change. Owner approved the tested candidate; paired release and public verification completed. Historical stored config is unchanged; effective Room/client/lab migration was verified.
 
 Reproduce current fixed sessions from repo root in PowerShell:
 

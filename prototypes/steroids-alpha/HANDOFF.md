@@ -1,11 +1,11 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
-## 2026-11-19 codex bot survival — RELEASE APPROVED
-DID: Owner chose500-credit evos, mineral prices unchanged. Tested wider/slower bot aim, committed1.2s attack exits and occupied-player spawn clearance; public remains107/31.
+## 2026-11-19 codex bot survival LIVE191126r0108
+DID: PR577076417e1 live108/32; itch44443795181/Worker44443795129/Pages44443795169 succeeded. Bot aim/passes/spawns and500-credit evos; mineral prices unchanged.
 FILES: bots/world/tune/liveConfig/protocol32, lab draft/version hiding, instrumented pace harness, bank/sim/config/new survival gates; lab BOT_SURVIVAL_REVIEW/proof.
-SEAM: pending32 same layout requires paired release; bot epoch1 migrates observations once, catalogue quote is deployment-owned500. No new wire fields, damage/HP/movement/ram/shop/art changes.
-CROSS: candidate only. Equal600s×10 seeds/policy: deaths27.5→4 mining,10.5→1 evasive,18→2.5 frozen combat. First500-credit cruiser8:23–8:34. Type/build/sim/config/bank/rig and2 headless UI cases pass; no capture.
-FOR claude: deferred. Owner19 November approved live release of this tested candidate and500-credit evos; mineral prices unchanged. Release/public proof follows.
+SEAM:32 same layout paired release complete; bot epoch1 migrates observations once, catalogue quote is deployment-owned500. No new wire fields, damage/HP/movement/ram/shop/art changes.
+CROSS: released after owner review. Equal600s×10 seeds/policy: deaths27.5→4 mining,10.5→1 evasive,18→2.5 frozen combat. First500-credit cruiser8:23–8:34. Type/build/sim/config/bank/rig and2 headless UI cases pass; no capture.
+FOR claude: deferred.2 public price/equip cases, real home55 snapshots/ack100, alpha80/155 with4 bots and public lab values pass. Proof lab/bot-survival-proof.json; no capture/live spending.
 
 ## 2026-11-19 codex progression pace study
 DID:210 seeded headless runs: quiet max2:32–2:46, owned BC/MC~1:15–1:19; zero-credit first cruiser~16:49–17:57. Before max14:01; no live changes.

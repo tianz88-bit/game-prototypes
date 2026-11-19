@@ -1,6 +1,6 @@
 {
   "date": "2026-11-19",
-  "status": "LOCAL CANDIDATE; NOT LIVE",
+  "status": "LIVE VERIFIED191126r0108/protocol32",
   "baseline": {
     "release": "181126r0107",
     "protocol": 31,
@@ -8,7 +8,7 @@
   },
   "candidate": {
     "protocol": 32,
-    "branch": "codex/steroids-bot-survival-candidate",
+    "branch": "codex/steroids-bot-survival-candidate (released via PR577)",
     "changes": {
       "aimErrorDeg": [
         7,
@@ -60,7 +60,7 @@
       "No live-account spending. Browser account responses are mocked; real billing/authorization checked by bank suite.",
       "Attack-pass behavior yields deliberately more firing/escape gaps; human difficulty and Warzone observation tuning still need review.",
       "Permanent-ownership UI/account processing is assumed successful after earnings; tutorial/sign-in/human menu time/network delay excluded.",
-      "No deployment or PR merge performed; candidate is held for owner review."
+      "Owner approved this tested candidate; PR577 and paired client/Worker/lab release completed."
     ]
   },
   "summaries": {
@@ -5203,5 +5203,170 @@
     "rig/FFD/building/22 layout cases",
     "new pass/reacquire/siege/16 spawn/migration gate",
     "headless Brave PC and portrait500 quote/buy/equip;no capture"
-  ]
+  ],
+  "release": {
+    "version": "191126r0108",
+    "protocol": 32,
+    "pr": 577,
+    "merge": "076417e1ea73c84960404a57e9941ba172c58c16",
+    "runs": {
+      "itch": 44443795181,
+      "worker": 44443795129,
+      "pages": 44443795169,
+      "conclusion": "success"
+    },
+    "publicClient": {
+      "capture": false,
+      "errors": [],
+      "cases": [
+        {
+          "width": 1280,
+          "height": 720,
+          "mobile": false,
+          "bothQuotes500": true,
+          "twoPurchasesTotal1000": true,
+          "explicitEquipment": true,
+          "remainingBalance": 0
+        },
+        {
+          "width": 390,
+          "height": 844,
+          "mobile": true,
+          "bothQuotes500": true,
+          "twoPurchasesTotal1000": true,
+          "explicitEquipment": true,
+          "remainingBalance": 0
+        }
+      ],
+      "accountFixture": true,
+      "liveWrites": false,
+      "url": "https://html-classic.itch.zone/html/20420865-2433426/prototypes/steroids-alpha/index.html",
+      "stamp": "191126r0108"
+    },
+    "publicAuthority": {
+      "capture": false,
+      "errors": [],
+      "positivePurchases": "covered by actual local Room/NetClient and SQLite bank gates; no live money fixture",
+      "authorityConfig": {
+        "version": "4f47a322b78387895ddce1bd629d86bc4b0264ee94176c71599cbc05232407ae",
+        "balanceVersion": 2,
+        "costs": [
+          5,
+          10,
+          15,
+          20
+        ],
+        "droneDamage": 0.8,
+        "evolutionCost": 50,
+        "unlockCredits": 500,
+        "botEpoch": 1,
+        "aim": 14,
+        "perception": 0.45,
+        "reaction": 1.3,
+        "allMineralPrices": {
+          "turretCosts": [
+            5,
+            10,
+            15,
+            20
+          ],
+          "shieldCosts": [
+            5,
+            10,
+            15,
+            20
+          ],
+          "damageCosts": [
+            5,
+            10,
+            15,
+            20
+          ],
+          "missileCosts": [
+            5,
+            10,
+            15,
+            20
+          ],
+          "mineCosts": [
+            5,
+            10,
+            15,
+            20
+          ]
+        }
+      },
+      "before": {
+        "status": "open",
+        "hp": 50,
+        "rawWalletField": 50,
+        "turrets": 0,
+        "rosterPower": 0,
+        "snapshots": 45,
+        "ack": 80
+      },
+      "after": {
+        "hp": 50,
+        "rawWalletField": 50,
+        "turrets": 0,
+        "snapshots": 55,
+        "ack": 100,
+        "shop": "5 MIN",
+        "header": "SPEND MINERALS · HULL 50/50"
+      },
+      "storedConfig": {
+        "version": "4f47a322b78387895ddce1bd629d86bc4b0264ee94176c71599cbc05232407ae",
+        "costs": [
+          50,
+          60,
+          70,
+          80
+        ],
+        "droneDamage": 2,
+        "evolutionCost": 120
+      }
+    },
+    "publicLawlessPlanet": {
+      "capture": false,
+      "errors": [],
+      "state": {
+        "status": "open",
+        "snapshots": 80,
+        "ack": 155,
+        "bots": 4,
+        "hp": 50,
+        "arrival": 0,
+        "shopWallet": 0
+      }
+    },
+    "publicLab": {
+      "capture": false,
+      "errors": [],
+      "writes": [],
+      "prices": [
+        {
+          "value": "5",
+          "step": "1"
+        },
+        {
+          "value": "10",
+          "step": "1"
+        },
+        {
+          "value": "15",
+          "step": "1"
+        },
+        {
+          "value": "20",
+          "step": "1"
+        }
+      ],
+      "botInputs": {
+        "Bots Aim Error Deg": 14,
+        "Bots Perception Seconds": 0.45,
+        "Bots Reaction Seconds": 1.3
+      }
+    },
+    "configNote": "Historical stored ConfigRecord is unchanged; verified effective socket data upgrades bot epoch1,500-credit quote and retains all5/10/15/20 mineral tracks. Future owner publishes retain modern epochs."
+  }
 }
