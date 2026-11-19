@@ -1,0 +1,62 @@
+{
+  "edition": "Sushi Trains (Codex)",
+  "branch": "codex/densha-domino-sushi",
+  "game_source_commit": "da7d17ee4257f2cd56d9967d9da1d2d3c9ce3649",
+  "release_counter": 3,
+  "public_url": "https://tianz88-bit.github.io/game-prototypes/prototypes/densha-domino-sushi/",
+  "claude_url": "https://tianz88-bit.github.io/game-prototypes/prototypes/densha-domino/",
+  "artifact_url": "https://github.com/tianz88-bit/game-prototypes/releases/download/densha-sushi-v3/densha-sushi-v3.zip",
+  "artifact_sha256": "e9800cdb4f97338ece0661ea189f2fd7cf20a87bbdb3d76ed23e4c1e8ac1f803",
+  "hub_pull_request": "https://github.com/tianz88-bit/game-prototypes/pull/581",
+  "hub_merge_commit": "9f87e89f41f98b651b249c899a23cbd067f41c48",
+  "pages_run": "https://github.com/tianz88-bit/game-prototypes/actions/runs/44453465379",
+  "pages_status": "success",
+  "claude_backup_branch": "codex/densha-domino-claude-backup-2026-11-19",
+  "claude_prototype_tree": "12e711b2c962dc0e85c219dcfc4abfa1f4479d5c",
+  "game_visual_changes": true,
+  "design_approval": "Owner: go ahead with the sushi changes and go live when done",
+  "public_gpu": {
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5070 (0x00002F04) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "blank": {
+      "frames": 240,
+      "fps": 59.949043313183864,
+      "p50": 16.699999999999818,
+      "p95": 16.800000000000182,
+      "draws": 0
+    },
+    "idle": {
+      "frames": 241,
+      "fps": 59.94726630515895,
+      "p50": 16.699999999999818,
+      "p95": 16.800000000000182,
+      "draws": 5,
+      "cpuP50": 2.4000000059604645,
+      "cpuP95": 2.7999999970197678,
+      "gameFps": 58.734375
+    },
+    "chain": {
+      "frames": 313,
+      "fps": 59.9502011108983,
+      "p50": 16.69999999999891,
+      "p95": 16.899999999999636,
+      "draws": 3.9936102236421727,
+      "cpuP50": 1.7000000029802322,
+      "cpuP95": 2.3999999910593033,
+      "gameFps": 59.71541976928711
+    },
+    "errors": []
+  },
+  "verification": [
+    "all 100 exact pars and chain/finale proofs",
+    "fixed head, side/centre signals, manual reverse, blocked cases and generator roundtrips",
+    "17 real exit cases across all four directions with zero cover leakage and complete offscreen clearance",
+    "actual food cascade: 0.838 to 1.124 seated scale",
+    "actual three-star win, deferred confetti, expiry and early-next timer cleanup",
+    "exact subdirectory release package and anonymous live gameplay",
+    "adjacent distinct Claude and sushi URLs, release 3 metadata and pillar manifest",
+    "all public resource origins tianz88-bit.github.io",
+    "Claude source tree unchanged after deployment",
+    "live Brave GPU frame pacing about 59.95 fps, CPU p95 2.8 ms idle / 2.4 ms chain",
+    "no browser console errors; actual captures inspected"
+  ]
+}

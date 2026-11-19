@@ -1,5 +1,5 @@
 ## Current milestone
-Approved sushi art and motion pass implemented and locally verified; release 3 publication in progress on the permanent sushi branch.
+Approved sushi art and motion pass is live as release 3 (r0003) on the owner's prototypes site, from the permanent codex/densha-domino-sushi branch.
 
 ## What was implemented
 - Regenerated ivory/mint restaurant pillar blockers on existing concrete cells; removed background ghost columns. Added flush ivory/plum caps at obstacle-ended recessed channels, keeping exits/crossings open.
@@ -15,6 +15,8 @@ Approved sushi art and motion pass implemented and locally verified; release 3 p
 - Local GPU benchmark: 59.95 fps blank/idle/chain, p95 frame CPU 2.9 ms idle and 2.5 ms chain. Dense board uses five batched draws; chain about four. No per-car shader/postFX.
 - Art stays outside Git and ships in a checksummed versioned build artifact. Pages pin is the only required main-branch change; original Claude source stays isolated.
 
+- Published via PR #581 and successful Pages run 44453465379. Anonymous live checks confirm adjacent separate URLs, release-3 provenance, new pillar art, no external hosting dependency, gameplay and reward cleanup. Public GPU frame pacing is 59.95 fps idle/chain; CPU p95 2.8 / 2.4 ms. Live screenshots inspected. Claude tree still equals 12e711b2c962dc0e85c219dcfc4abfa1f4479d5c.
+
 ## Open questions
 None required for this approved pass.
 
@@ -22,4 +24,4 @@ None required for this approved pass.
 Physical-phone GPU performance remains unmeasured. Existing unrelated Vite dynamic-import and bundle-size warnings remain. Referenced classic puzzle-game easing internals were not verified; this game's timing is authored independently.
 
 ## Next proposed step
-Publish release 3 to the existing prototypes sushi URL, verify anonymous live gameplay and separate Claude URL, and record deployment provenance.
+Owner playtest at https://tianz88-bit.github.io/game-prototypes/prototypes/densha-domino-sushi/. Further changes should remain on the sushi branch and use a new checksummed release pin.
