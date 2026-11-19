@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-19 claude run economy redesign (headless review, NOT live)
+DID: Owner decisions 19 Nov. Minerals are the only run currency; ordinary planets drop no salvage cargo. Carried minerals bank on warp-out at salvage.bankRate (home planets 0, so no safe farming). The shop is replaced by run levels: collected minerals are XP and are never spent. Each level offers 3 perk cards (the 5 existing tracks, already flat at about +3% each). Owned evolutions are a guaranteed card once requirements are met, and tracks they need are 3x likelier. Hold 50+40 per level, weight slows up to 30%. Deaths drop the whole wallet; bots carry minerals and prefer loaded targets. Warp lock 90 s. Hot zone x2 minerals. Proposed hangar prices: evolution 400, ship 800, cosmetics 150-300 (5800 total).
+FILES: sim/levels.ts (new), sim/world.ts (cards/pick/stepLevels, xp on collect, death drop), sim/ship.ts (xp/picks, walletCap, bankedMinerals), sim/bots.ts (loaded preference), server/src/room.ts (bank by planet rate), sim/liveConfig.ts (epoch 5), tune.json, scripts/measure-steroids-run-economy.mjs.
+SEAM: xp/picks are NOT on the wire yet (protocol decode fills 0). World.buy refuses while shop.levelUp is 1; World.pick(id, card) applies cards 0-4 or 10+build. World.evolutionsOwned is set by the room from the bank. Not yet: card UI, protocol fields, tutorial and HUD text, test gates.
+CROSS: Typecheck passes. Test gates (sim, pickups, progression-balance, bank, live-config) still assert the old economy and fail. Branch ccr-9c88eb84-gwiuel only; nothing merged or deployed.
+FOR codex: Please don't touch the economy files above until the owner approves numbers. Card art and UI come later as a separate brief. Owned-evolution cards make the pre-mission equip slot unnecessary; owner to confirm.
+
 ## 2026-11-20 codex Missile Cruiser cannon LIVE PR597
 DID: Centered painted cannon over white nose; Sparrow firing behavior and independent missile trigger. Itch 201126r0110, Worker protocol34 and Pages lab live.
 FILES: Shared ship/world/state, Cruiser rig art, HUD/controls, Evolution Lab and release proof.
@@ -97,11 +104,4 @@ FILES: shared ship/shop/world/liveConfig/tune, Room, HUD/Flight/tutorial, lab/ev
 SEAM: protocol31 same layout; hullMax is legacy baseline+wallet, use mineralBalance/hullCapacity. Epoch2 upgrades legacy hosted balance once, preserving art/control settings and later epoch2 edits.
 CROSS: authority/economy/UI/tests per owner; type/build/sim/config/bank/rig/evolution and3 headless purchase layouts pass. No new assets/dependencies/D1 schema/permanent-price change or capture.
 FOR claude: deferred; proof ../steroids-alpha-lab/progression-balance-proof.json.2 public UI cases/real Worker55 snapshots and public lab pass; no capture. Capital/tactics/regen/accuracy need separate playtesting.
-
-## 2026-11-18 codex cruise/home/tilt LIVE181126r0106
-DID: PR5723245a9e4 live106/30; itch44338617901/Worker44338617904/Pages44338621246 succeeded. Neutral cruise, deliberate docking, peace-home warp, compact FX, building FFD and idle heads.
-FILES: shared ship/home/world, Intents/NetClient/Flight/tutorial, buildingFFD/geometry/Rig/clanBaseArt and ship exhaust; authority/grip/building fixtures.
-SEAM: protocol30 same wire layout forces paired refresh; shared authority/prediction agree. Optional idleScan and pooled per-part building meshes preserve roots/fixed layers and Canvas/context-loss fallback.
-CROSS: owner requested movement/landing/warp; existing acceleration/braking/tuned caps unchanged. Type/build/sim/config/rig pass;3 local+2 public WebGL cases plus Canvas pass input/FFD; actual home56 snapshots verify cruise260/lock0/acknowledged warp. No capture.
-FOR claude: deferred only. Explicit brake/full-throttle now used in fixed-speed shield/ram/grip fixtures; neutral post-dash expects cruise. No new assets/dependencies/migration or hosted config changes.
 
