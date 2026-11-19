@@ -2,6 +2,10 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Simplified mineral denomination
+
+Owner requests memorable numbers. Every track costs 1, 2, 3, 4, with 50 minerals for the full shop. Either owned/equipped cruiser costs 10 during the run, including 13 in prerequisite upgrade spend for a 23-mineral route. Mining scales to .18 of original ore. The HUD shows tenths and dropped hull minerals are proportional to the new prices. The epoch 4 migration also covers older epoch 2 and 3 records. Bat's shields are 70% of Falcon's, with 70% faster turn, 20% stronger acceleration, 10% lower top speed and 15% lower shot damage. No Bat stat changes in this pass.
+
 ## Economy and starting shields candidate
 
 Owner requests less mineral income, proportional prices, and more shield than hull. Mining mineral yield factor .70 is independent of salvage and fuel. Tier prices 4/8/13/17 total 210 across twenty upgrades. Either equipped evolution costs 40 in-run, with a 94-mineral minimum route and the existing 500-credit permanent unlock. Combat spills still transfer minerals from the wallet. Progression epoch 3 migrates earlier price tables.

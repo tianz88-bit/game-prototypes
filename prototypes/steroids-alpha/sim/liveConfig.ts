@@ -50,7 +50,7 @@ export function upgradeConfig(input: unknown): unknown {
     for(const key of ['missile','mine'])if(value.tune[key])value.tune[key].damagePerTier=defaults[key as 'missile'|'mine'].damagePerTier;
     for(const key of ['battlecruiser','missileCruiser'])if(value.tune[key]){value.tune[key].cost=defaults[key as 'battlecruiser'|'missileCruiser'].cost;value.tune[key].powerFloor=defaults[key as 'battlecruiser'|'missileCruiser'].powerFloor;}
   }
-  if (value.tune?.shop?.balanceVersion === 2) {
+  if ([2, 3].includes(value.tune?.shop?.balanceVersion)) {
     const defaults = defaultConfig().tune;
     const shop = value.tune.shop;
     for (const item of ['turret', 'shield', 'damage', 'missile', 'mine'] as const) {
@@ -58,6 +58,8 @@ export function upgradeConfig(input: unknown): unknown {
       shop[`${item}Floors`] = defaults.shop[`${item}Floors`];
     }
     shop.balanceVersion = defaults.shop.balanceVersion;
+    if (value.tune.asteroid) value.tune.asteroid.miningMineralFactor = defaults.asteroid.miningMineralFactor;
+    if (value.tune.ship) value.tune.ship.hullSpillFraction = defaults.ship.hullSpillFraction;
     for (const key of ['battlecruiser', 'missileCruiser'] as const) {
       if (value.tune[key]) {
         value.tune[key].cost = defaults[key].cost;
@@ -125,7 +127,7 @@ export function validateConfig(input: unknown): ConfigData {
   {const m=value.tune.missileCruiser,c=value.tune.ciws,h=value.tune.heavyTower;if(m.capacity!==8||m.missileRefillFactor<1||m.missileRefillFactor>5||[m.minMissiles,m.minMines].some(v=>!Number.isInteger(v)||v<0||v>4)||m.damageFactor<1||m.damageFactor>3||m.rangeFactor<1||m.rangeFactor>3||m.radiusFactor<1||m.radiusFactor>3||m.repeatSeconds<.1||m.repeatSeconds>2||m.reverseSeconds<.1||m.reverseSeconds>2||m.turnRateMissile<=0||m.turnRateMissile>10||m.lifeSeconds<1||m.lifeSeconds>20||m.cost<0||m.powerFloor<m.cost||m.launchSpeed<=0)fail('Missile Cruiser settings out of range');for(const b of [c,h])if(!Number.isInteger(b.shots)||b.shots<1||b.shots>12||b.intervalSeconds<.03||b.intervalSeconds>1||b.pauseSeconds<.1||b.pauseSeconds>5||b.range<1||b.range>3000||b.speed<1||b.speed>3000||b.damage<=0||b.damage>500||b.turnRate<=0||b.turnRate>30)fail('Burst cannon settings out of range');if(h.telegraphSeconds<.1||h.telegraphSeconds>2)fail('Tower warning out of range');}
   if(value.tune.asteroid.pickupVersion!==1||value.tune.asteroid.pickupMagnetReach>160||value.tune.asteroid.pickupMagnetSpeed>800)fail('Pickup policy/range/speed requires bounded settings');
   if(value.tune.bots.behaviourVersion!==1)fail('Bot policy requires a code deployment');
-  if (value.tune.shop.balanceVersion !== 3) fail('Progression epoch requires a code deployment');
+  if (value.tune.shop.balanceVersion !== 4) fail('Progression epoch requires a code deployment');
   if (value.tune.asteroid.miningMineralFactor <= 0 || value.tune.asteroid.miningMineralFactor > 1 ||
       value.tune.ship.fighterShieldBonus > 100) fail('Mining yield or fighter shield bonus is out of range');
   const s = value.tune.ship, w = value.tune.weapon;

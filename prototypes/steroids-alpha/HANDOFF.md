@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-19 codex simplified mineral prices
+DID: All upgrade tracks use 1/2/3/4 minerals, either evolution costs 10, HUD shows fractional minerals, and hull spills scale to the smaller wallet.
+FILES: Tune, World, live config, HUD, evolution lab and focused regressions.
+SEAM: Economy epoch4 moves older shop prices, asteroid income and hull spill into the smaller denomination. Credits and cargo mining are separate.
+CROSS: Test both cruiser paths and rebuild the client/lab. Bat stats left for balance discussion.
+FOR claude: Deferred. Candidate branch includes pickup, missile, tutorial and shield changes.
+
 ## 2026-11-19 codex economy and starting shield candidate
 DID: Asteroid minerals −30%; tier prices 4/8/13/17 and in-run evolution 40. Sparrow/Falcon have 75 shield, Bat 52.5, all fighters 50 hull.
 FILES: Tune, shared World/ship/config, evolution lab and balance/pickup/sim regressions.
@@ -97,11 +104,4 @@ FILES: tune/protocol28, lab evolution settings/model/preview, capital/lab regres
 SEAM: protocol28 has identical wire layout; deployment compatibility refresh prevents cached27 clients retaining old bundled MC defaults under the unchanged legacy config hash.
 CROSS: owner requested balance correction; authority tests cover zero/1/2/4 bought turrets, braking floor, retained BC base2/min140 and bought CIWS bursts. No asset/input/aim changes.
 FOR claude: deferred backlog. Hangar → EVOLVE → Missile Cruiser; Missiles4/Mines2,300 mineral balance,120 cost. Hosted record omits MC, so bundled defaults apply; paired client/Worker release follows.
-
-## 2026-11-18 codex capital release LIVE 181126r0101
-DID: PR562 29bb41a4 live; itch44232567195, Worker44232567203, Pages44232567296 success. Thin CIWS, Hangar evolutions, Missile Cruiser and heavy towers released.
-FILES: shared sim/config/protocol27, room, Hangar/flight/HUD/art, verified R2 staging, lab and capital regression; release-proof.json.
-SEAM:107-byte ships/chassis4/ordnance kind2; BUY5 tier0=BC/1=MC validated server-side. Both client and Worker now27; refresh cached clients.
-CROSS: owner approved live. Type/build/sim/capital/config/rig/bank pass;7 local+2 public Hangar,2 public lab,2 public renderers and75 actual public snapshots pass without capture.
-FOR claude: deferred backlog only. R2 ZIP/8 parts verified via Brave Files submenu; no native input, screenshots or recording. Task tab/temporary preview/Worker/headless closed; proof in lab/evolution/release-proof.json.
 

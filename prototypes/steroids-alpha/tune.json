@@ -46,7 +46,7 @@
     "powerCap": 500,
     "speedPenaltyAtCap": 0.3,
     "radiusBonusAtCap": 0.5,
-    "hullSpillFraction": 0.5,
+    "hullSpillFraction": 0.12,
     "deathSpillFraction": 0.5,
     "spillLockSeconds": 3,
     "dashRamDamage": 30,
@@ -83,69 +83,69 @@
   },
   "shop": {
     "turretFloors": [
-      4,
-      8,
-      13,
-      17
+      1,
+      2,
+      3,
+      4
     ],
     "turretCosts": [
-      4,
-      8,
-      13,
-      17
+      1,
+      2,
+      3,
+      4
     ],
     "shieldFloors": [
-      4,
-      8,
-      13,
-      17
+      1,
+      2,
+      3,
+      4
     ],
     "shieldCosts": [
-      4,
-      8,
-      13,
-      17
+      1,
+      2,
+      3,
+      4
     ],
     "shieldPerTier": 3.75,
     "damageFloors": [
-      4,
-      8,
-      13,
-      17
+      1,
+      2,
+      3,
+      4
     ],
     "damageCosts": [
-      4,
-      8,
-      13,
-      17
+      1,
+      2,
+      3,
+      4
     ],
     "damagePerTier": 0.03,
     "gunHeatPerTier": 0.025,
     "missileFloors": [
-      4,
-      8,
-      13,
-      17
+      1,
+      2,
+      3,
+      4
     ],
     "missileCosts": [
-      4,
-      8,
-      13,
-      17
+      1,
+      2,
+      3,
+      4
     ],
     "mineFloors": [
-      4,
-      8,
-      13,
-      17
+      1,
+      2,
+      3,
+      4
     ],
     "mineCosts": [
-      4,
-      8,
-      13,
-      17
+      1,
+      2,
+      3,
+      4
     ],
-    "balanceVersion": 3
+    "balanceVersion": 4
   },
   "missile": {
     "damage": 35,
@@ -284,8 +284,8 @@
     "fireIntervalSteps": 5,
     "baseTurrets": 2,
     "minUpgrades": 6,
-    "powerFloor": 40,
-    "cost": 40,
+    "powerFloor": 10,
+    "cost": 10,
     "minTurrets": 2,
     "minGuns": 4
   },
@@ -345,7 +345,7 @@
     "pickupVersion": 1,
     "pickupMagnetReach": 64,
     "pickupMagnetSpeed": 420,
-    "miningMineralFactor": 0.7
+    "miningMineralFactor": 0.18
   },
   "sparrow": {
     "fireIntervalSteps": 5,
@@ -376,8 +376,8 @@
     "fireIntervalSteps": 5,
     "baseTurrets": 0,
     "minUpgrades": 6,
-    "powerFloor": 40,
-    "cost": 40,
+    "powerFloor": 10,
+    "cost": 10,
     "minTurrets": 0,
     "minGuns": 0,
     "minMissiles": 4,

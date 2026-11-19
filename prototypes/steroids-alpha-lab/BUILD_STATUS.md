@@ -4,7 +4,7 @@ Resource pickup candidate tested on codex/steroids-resource-pickups; not release
 
 ## What was implemented
 
-Economy and shield candidate reduces rock minerals 30%, prices upgrades at 4/8/13/17 and evolutions at 40 in-run. Fighter hull is 50 and shield is 75 for Sparrow/Falcon or 52.5 for Bat. Headless quiet mining medians: first purchase 7.5s, full shop 155s, owned cruisers ~79s.
+All upgrade tracks now cost 1/2/3/4 minerals and each equipped cruiser costs 10 during the run. Ore and hull spills scale to smaller numbers. Fighter hull is 50 and shield is 75 for Sparrow/Falcon or 52.5 for Bat.
 
 Separate gold mineral crystals and purple salvage cases (ordinary planets) or cyan fuel canisters (own home); green repair pod retained. Matching pooled HUD icons and short-range server attraction, independent wallet/cargo collection. Tutorial mineral-only and Warzone no mined cargo.
 

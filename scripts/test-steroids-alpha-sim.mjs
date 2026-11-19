@@ -1222,7 +1222,7 @@ assert.equal(S.cleanName(null), '');
   const at = S.asteroidPos(a, w.tick, tune);
   w['damageAsteroid'](a, at, 99999, 1, 0, new Map());
   const after = [...w.pickups.values()].filter((k) => k.kind === 'mineral').reduce((n, k) => n + k.value, 0);
-  near(after - before, ta.mineralYield[0] * ta.richMineralFactor * ta.miningMineralFactor, 1e-6, 'rich rocks pay more minerals');
+  near(after - before, Math.floor(ta.mineralYield[0] * ta.richMineralFactor * ta.miningMineralFactor * 10 + 1e-8)/10, 1e-6, 'rich rocks pay more minerals');
   const kids = [...w.asteroids.values()].filter((k) => k.rich && k.size === 1);
   assert(kids.length === 2 && kids.every((k) => k.hp === ta.hp[1] * ta.richHpFactor), 'fragments stay rich and tough');
   // Wire: the flag survives encoding.
@@ -1896,12 +1896,12 @@ assert.equal(S.cleanName(null), '');
     const minerals = [...w.pickups.values()].filter((k) => k.kind === 'mineral');
     const total = minerals.reduce((n, k) => n + k.value, 0);
     const cargo=[...w.pickups.values()].filter(k=>k.kind==='salvage'&&k.mined);
-    near(cargo.reduce((n,k)=>n+k.value,0),total/tune.asteroid.miningMineralFactor*sv.perMineral,1e-6,'mining drops a separate perMineral cargo reward');
+    near(cargo.reduce((n,k)=>n+k.value,0),tune.asteroid.mineralYield[r.size]*sv.perMineral,1e-6,'mining drops a separate perMineral cargo reward');
     for (const k of minerals) { k.x = a.x; k.y = a.y; }
     settle(w, 2);
     near(a.salvage,0,1e-9,'minerals alone do not pay hidden salvage');
     for(const k of cargo){k.x=a.x;k.y=a.y;}settle(w,2);
-    near(a.salvage,total/tune.asteroid.miningMineralFactor*sv.perMineral,.2,'collecting cargo adds only salvage');
+    near(a.salvage,tune.asteroid.mineralYield[r.size]*sv.perMineral,.2,'collecting cargo adds only salvage');
   }
   // Hot zone: double salvage for rock mined inside; it moves after moveSeconds.
   {
@@ -1915,7 +1915,7 @@ assert.equal(S.cleanName(null), '');
     w.drain();
     const minerals = [...w.pickups.values()].filter((k) => k.kind === 'mineral');
     const total = minerals.reduce((n, k) => n + k.value, 0);
-    near([...w.pickups.values()].filter(k=>k.kind==='salvage'&&k.mined).reduce((n,k)=>n+k.value,0),total/tune.asteroid.miningMineralFactor*sv.perMineral*hz.salvageMultiplier,1e-6,'hot zone multiplies the separate cargo reward');
+    near([...w.pickups.values()].filter(k=>k.kind==='salvage'&&k.mined).reduce((n,k)=>n+k.value,0),tune.asteroid.mineralYield[r.size]*sv.perMineral*hz.salvageMultiplier,1e-6,'hot zone multiplies the separate cargo reward');
     let ev = null;
     for (let i = 0; i < 70 && !ev; i++) { w.step(); ev = w.drain().hotZone ? w.hotZone : null; }
     ev = ev && { hotZone: ev };

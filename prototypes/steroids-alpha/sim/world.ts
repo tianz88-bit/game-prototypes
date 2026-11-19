@@ -1167,7 +1167,7 @@ export class World {
   private spillMinerals(x: number, y: number, value: number, reach: number, from = 0, salvagePer = 0, mineralFactor = 1): void {
     if(this.tutorial&&!this.tutorialMinerals)return;
     const t = this.tune;
-    if (value < 1) return;
+    if (value <= 0) return;
     const mineralUnits = Math.floor(value * mineralFactor * 10 + 1e-8);
     const cargo = salvagePer > 0 && !this.siege && !this.tutorial;
     const chunks = Math.min(t.asteroid.mineralChunksMax, Math.ceil((cargo ? value : mineralUnits / 10) / t.asteroid.mineralChunkValue));
