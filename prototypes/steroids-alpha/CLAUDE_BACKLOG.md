@@ -2,15 +2,15 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
-## Bot survival /500-credit evolution candidate — NOT LIVE
+## Bot survival /500-credit evolutions — LIVE191126r0108/protocol32
 
-Owner19 November: keep minerals; reduce both permanent evos1500→500 rather than free first choice; test survival changes before release. Candidate branch codex/steroids-bot-survival-candidate (pending protocol32); public remains107/31. No merge/deployment yet.
+Owner19 November: keep minerals; reduce both permanent evos1500→500 rather than free first choice; test survival changes before release. Owner then approved release: PR577076417e1ea73c84960404a57e9941ba172c58c16. Client44443795181/Worker44443795129/Pages44443795169 succeeded; live191126r0108/protocol32.
 
 Diagnosis: guns dominate; one-hunter cap works. Removing dash/ordnance alone insufficient. Continuous nose pursuit creates body-checks; centre-area player spawns avoided rocks but not ships. Candidate aim7→14deg/perception.25→.45/reaction.9→1.3; ordinary attack pass exits at360px for1.2s (siege committed approach retained); occupied open-player spawns reuse32-point ship/rock spread. No extra arrival immunity, HP/damage/movement/ram/shop/art changes.
 
 Equal10-minute sessions,10 seeds per policy, continuing after max: mining deaths27.5→4, evasive10.5→1, combat18→2.5. Combat pilot frozen to live AI/settings on both sides and memory reset each life; initial adaptive-pilot comparisons excluded. No lifetime inference from deceased samples. Reached all20 at least once0/10→9/10,0/10→8/10,0/10→9/10 respectively. Human playtest still needed.
 
-500-credit account route40 cases:2 successful extractions, first cruiser median8:23–8:34 versus~17–18min. ActualSQLite499/500/exact/duplicate/ownership/equipment gates pass; browser UI account responses mocked, no live spending. Full type/build/sim/config/bank/rig and2 local headless PC/portrait UI cases pass. Protocol32 paired refresh required; behaviourVersion1 upgrades only old bot observation fields, future edits preserved; effective unlock catalogue500 is deployment-owned. No D1 migration/resident publisher/assets. Review ../steroids-alpha-lab/BOT_SURVIVAL_REVIEW.md and bot-survival-proof.json before release.
+500-credit account route40 cases:2 successful extractions, first cruiser median8:23–8:34 versus~17–18min. ActualSQLite499/500/exact/duplicate/ownership/equipment gates pass; browser UI account responses mocked, no live spending. Full type/build/sim/config/bank/rig and2 local headless PC/portrait UI cases pass. Protocol32 paired refresh required; behaviourVersion1 upgrades only old bot observation fields, future edits preserved; effective unlock catalogue500 is deployment-owned. No D1 migration/resident publisher/assets. Public PC/portrait500 quote/buy/equip tests pass (mocked accounts); real home55 snapshots/ack100 verifies effective500 quote/bot epoch1 and every mineral price, alpha80 snapshots/ack155 has4 bots/HP50, public lab bot fields/mineral steps pass. No page errors/capture/live spending. Historical stored ConfigRecord remains unchanged; effective parseRecord migration verified. See ../steroids-alpha-lab/BOT_SURVIVAL_REVIEW.md and bot-survival-proof.json. Deferred only; no immediate Claude session needed.
 
 ## Progression pace measured —19 November2026; no tuning changes
 

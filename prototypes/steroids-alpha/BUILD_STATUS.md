@@ -1,27 +1,29 @@
 ## Current milestone
 
-Bot survival and500-credit evolution candidate completed19 November2026; **NOT LIVE**. Branch codex/steroids-bot-survival-candidate, pending protocol32. Public remains181126r0107/protocol31. Review ../steroids-alpha-lab/BOT_SURVIVAL_REVIEW.md and bot-survival-proof.json.
+LIVE VERIFIED191126r0108/protocol32. PR577 merge076417e1ea73c84960404a57e9941ba172c58c16; itch44443795181, Worker44443795129 and Pages44443795169 succeeded. Owner approved the tested bot survival changes and500-credit evolution unlocks.
 
 ## What was implemented
 
-Owner chose500-credit permanent evolution unlocks and unchanged mineral shop/in-run requirements. Candidate widens/slows bot aim observations, commits ordinary attack-pass exits for1.2s, and uses ship/rock-clear spread placement for occupied open-planet player arrivals/retries. Ship health/damage/fire/movement/grip, collision/ram, art/rig and+76.8% fighter benchmark retained. Siege close approach does not peel; shared bot observation tuning also applies there.
+Bot aim wobble7→14deg, perception.25→.45s, mean reaction.9→1.3s. Ordinary encounters make an attack pass then commit to a1.2s exit below360px; siege retains close-approach behavior (shared observation tuning also applies there). Occupied open-player entries/retries reuse ship/rock-clear spread placement; empty-room/home/Warzone positioning and arrival immunity unchanged.
 
-Instrumented real headless simulation:10 seeds per policy, equal full10 minutes even after reaching max. Median deaths mining27.5→4, evasive10.5→1, combat18→2.5. Combat controller held to live AI/settings on both sides with per-life memory reset. New500-credit first cruiser route40 cases completes after2 successful extractions at8:23–8:34 median.
+Both permanent evolution unlocks now500 bank credits, still bought/equipped explicitly. Mineral prices5/10/15/20 (250 all20), in-run evolution50/earliest115 path and prerequisites unchanged. Ship health/damage/fire/movement/grip/ram rules, art/rig and+76.8% fighter benchmark retained.
 
 ## Key technical decisions
 
-Candidate protocol32 retains layout but needs paired client/Worker refresh to align catalogue quotes. Bot behaviourVersion1 upgrades old aim/reaction/perception once, preserving later owner edits and mineral/calibration settings. Evolution quote500 is deployment-owned and normalized in effective config. No D1 schema/assets/dependencies/resident publisher. No main merge or deployment.
+Protocol32 keeps layout but forces paired client/Worker refresh for catalogue quotes. Bot behaviourVersion1 migrates old observations once, preserves later edits/mineral/calibration data. Evolution quote500 is deployment-owned and normalized in effective config. Historical stored record remains; effective socket/client/lab data verified. No D1 migration, asset/dependency or resident publisher changes.
 
-Full npm typecheck/build/sim/progression/grip/capital/tutorial, live-config/OIDC/admin/publisher, real SQLite bank499 insufficient/exact500/duplicate/ownership, rig/FFD/building/22 layouts and new survival gate pass. Two local headless Brave PC/portrait cases pass500 quotes/purchases/explicit equipment with mocked accounts. No capture/live spending. Temporary preview/headless stopped.
+Typecheck/build/full sim/progression/grip/capital/tutorial, live-config/OIDC/admin/publisher, SQLite499 insufficient/exact500/duplicate/ownership, rig/FFD/building/22 layouts and new survival regression pass. Equal600s×10 seeds per policy: deaths27.5→4 mining,10.5→1 evasive,18→2.5 with frozen combat pilot.40 safe500-credit account routes reach first cruiser8:23–8:34 median after2 extractions.
+
+Public headless Brave PC/portrait verify both500 quotes, purchases/equipment using mocked accounts; real home55 snapshots/ack100 confirms effective bot epoch/price/all mineral tracks and rejected empty buy. Actual Planet A80 snapshots/ack155 with4 bots,HP50 and arrival0 stays connected. Public lab shows aim14/perception.45/reaction1.3 and whole-mineral5/10/15/20 fields; hidden epochs, no writes/errors. Public stamp191126r0108. Proof ../steroids-alpha-lab/bot-survival-proof.json and BOT_SURVIVAL_REVIEW.md. No screenshots/recording/live spending; test browsers finite.
 
 ## Open questions
 
-500-credit choice is recorded in BRIEF.md. Exact bot candidate is held for owner review before release; no further clarification needed to test it. Claude handoff deferred.
+No blocking questions. Owner chose500 rather than a free starter evolution and approved release. Claude backlog updated for deferred sync.
 
 ## Known issues
 
-Scripted pilots do not measure human beginner/PvP difficulty. Raw lifetime samples exclude survivors, so no population survival median is inferred. The substantial reduction should be human-playtested for adequate challenge. Safe account route excludes tutorial/sign-in/human menu time/network delay and assumes successful ownership/equipment after earning credits. Existing large-bundle warning remains.
+Scripted pilots do not measure human beginner/PvP difficulty; human playtesting should confirm adequate challenge. Death lifetime samples exclude survivors, so no population survival median is inferred. Safe account route excludes tutorial/sign-in/human menu/network time and assumes successful unlock/equipment after earnings. Public account transactions are fixtures; real billing/authorization has separate SQLite/Room coverage. Existing large-bundle warning remains.
 
 ## Next proposed step
 
-Review the candidate; on owner go-live approval, merge and deploy paired client/Worker/lab, verify public price/connection/config and record live proof.
+Human playtest bot attack passes, escape opportunities and first-cruiser access; retain current mineral prices while observing the live results.
