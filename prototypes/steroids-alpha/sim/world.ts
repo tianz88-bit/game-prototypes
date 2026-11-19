@@ -279,7 +279,8 @@ export class World {
    */
   addShip(id: number, spread = false): ShipState {
     const t = this.tune;
-    if (spread) return this.placeNewShip(id, this.spreadPoint());
+    // Occupied open planets need the same ship/rock clearance as bot arrivals, including retries.
+    if (spread || this.ships.size > 0) return this.placeNewShip(id, this.spreadPoint());
     // Players drop in near the map centre for now; real spawn points come with loot.
     // Pick the candidate point farthest from any asteroid, so nobody arrives beside a rock.
     let best = { x: t.world.width / 2, y: t.world.height / 2, clear: -1 };

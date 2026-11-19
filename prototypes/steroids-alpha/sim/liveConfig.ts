@@ -50,6 +50,10 @@ export function upgradeConfig(input: unknown): unknown {
     for(const key of ['missile','mine'])if(value.tune[key])value.tune[key].damagePerTier=defaults[key as 'missile'|'mine'].damagePerTier;
     for(const key of ['battlecruiser','missileCruiser'])if(value.tune[key]){value.tune[key].cost=defaults[key as 'battlecruiser'|'missileCruiser'].cost;value.tune[key].powerFloor=defaults[key as 'battlecruiser'|'missileCruiser'].powerFloor;}
   }
+  // Evolution shop quotes are deployment-owned (Room/client do not apply published unlockPrices).
+  if(value.tune?.unlockPrices)value.tune.unlockPrices.evolution=defaultConfig().tune.unlockPrices.evolution;
+  // Upgrade the bot policy epoch once, preserving later owner edits and all shop prices.
+  if(value.tune?.bots&&value.tune.bots.behaviourVersion===undefined){const b=defaultConfig().tune.bots;Object.assign(value.tune.bots,{behaviourVersion:b.behaviourVersion,aimErrorDeg:b.aimErrorDeg,perceptionSeconds:b.perceptionSeconds,reactionSeconds:b.reactionSeconds});}
   const ship = value.tune?.ship;
   if (ship && typeof ship === 'object' && ship.maxShield === undefined && typeof ship.maxHp === 'number') {
     ship.maxShield = ship.maxHp / 2;
@@ -92,6 +96,7 @@ export function validateConfig(input: unknown): ConfigData {
     if (v < 0 || v > 10000) fail(`${group}.${key}: value must be 0–10000`);
   }
   {const m=value.tune.missileCruiser,c=value.tune.ciws,h=value.tune.heavyTower;if(m.capacity!==8||[m.minMissiles,m.minMines].some(v=>!Number.isInteger(v)||v<0||v>4)||m.damageFactor<1||m.damageFactor>3||m.rangeFactor<1||m.rangeFactor>3||m.radiusFactor<1||m.radiusFactor>3||m.repeatSeconds<.1||m.repeatSeconds>2||m.reverseSeconds<.1||m.reverseSeconds>2||m.turnRateMissile<=0||m.turnRateMissile>10||m.lifeSeconds<1||m.lifeSeconds>20||m.cost<0||m.powerFloor<m.cost||m.launchSpeed<=0)fail('Missile Cruiser settings out of range');for(const b of [c,h])if(!Number.isInteger(b.shots)||b.shots<1||b.shots>12||b.intervalSeconds<.03||b.intervalSeconds>1||b.pauseSeconds<.1||b.pauseSeconds>5||b.range<1||b.range>3000||b.speed<1||b.speed>3000||b.damage<=0||b.damage>500||b.turnRate<=0||b.turnRate>30)fail('Burst cannon settings out of range');if(h.telegraphSeconds<.1||h.telegraphSeconds>2)fail('Tower warning out of range');}
+  if(value.tune.bots.behaviourVersion!==1)fail('Bot policy requires a code deployment');
   if(value.tune.shop.balanceVersion!==2)fail('Progression epoch requires a code deployment');
   const s = value.tune.ship, w = value.tune.weapon;
   { const g=value.tune.grip;

@@ -38,6 +38,9 @@ export interface BotBrain {
   seen: { x: number; y: number; vx: number; vy: number; at: number } | null;
   /** World tick it dropped in (the room sets it): bots warp out after bots.warpAfterSeconds. */
   bornAt: number;
+  /** Commit to a short fly-by exit instead of steering straight into another hull. */
+  peelUntil: number;
+  peelHeading: number;
   /** Tutorial planet only: a scripted practice pilot (sim/bots.ts tutorialBotThink). */
   tutorial?: TutorialBotKind;
 }
@@ -50,7 +53,7 @@ export interface BotBrain {
 export type TutorialBotKind = 'drone' | 'chaser' | 'noob' | 'target';
 
 export function newBrain(rng: () => number): BotBrain {
-  return { aimError: 0, cooling: false, wander: rng() * Math.PI * 2, nextBuy: Math.floor(rng() * 3), target: 0, reactAt: 0, engagedSince: 0, distractedUntil: 0, seen: null, bornAt: 0 };
+  return { aimError: 0, cooling: false, wander: rng() * Math.PI * 2, nextBuy: Math.floor(rng() * 3), target: 0, reactAt: 0, engagedSince: 0, distractedUntil: 0, seen: null, bornAt: 0, peelUntil: 0, peelHeading: 0 };
 }
 
 const idleInput = (): ShipInput => ({ seq: 0, turn: 0, aim: NaN, thrust: 0, dash: false, fire: false, missile: false, mine: false, warp: false });
@@ -162,6 +165,12 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
     return { input, buy };
   }
 
+  // Ordinary encounters use readable attack passes; siege attackers keep their existing commitment.
+  if (!war && tick < brain.peelUntil) {
+    input.aim = brain.peelHeading; input.thrust = 1;
+    return { input, buy };
+  }
+
   if (enemy && !reacting && brain.seen) {
     // Lead where it last saw the target, by the bullet's flight time, plus a wobble.
     const seen = rel(brain.seen.x, brain.seen.y);
@@ -169,6 +178,12 @@ export function botThink(id: number, s: ShipState, world: World, brain: BotBrain
     const lx = seen.dx + brain.seen.vx * flight;
     const ly = seen.dy + brain.seen.vy * flight;
     const aim = Math.atan2(ly, lx) + wobble;
+    if (!war && enemy.d < t.preferredRange + 40) {
+      brain.peelHeading = aim + (id % 2 ? 1 : -1) * Math.PI * .65;
+      brain.peelUntil = tick + Math.round(1.2 * hz);
+      input.aim = brain.peelHeading; input.thrust = 1;
+      return { input, buy };
+    }
     input.aim = aim;
     input.thrust = enemy.d > t.preferredRange ? 1 : -0.5;
     const off = Math.abs(angleDelta(aim, s.heading));

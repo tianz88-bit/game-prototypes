@@ -1,0 +1,5207 @@
+{
+  "date": "2026-11-19",
+  "status": "LOCAL CANDIDATE; NOT LIVE",
+  "baseline": {
+    "release": "181126r0107",
+    "protocol": 31,
+    "source": "d622721a1208c40b4ec4f1436dcbb580fdec4947"
+  },
+  "candidate": {
+    "protocol": 32,
+    "branch": "codex/steroids-bot-survival-candidate",
+    "changes": {
+      "aimErrorDeg": [
+        7,
+        14
+      ],
+      "perceptionSeconds": [
+        0.25,
+        0.45
+      ],
+      "reactionSeconds": [
+        0.9,
+        1.3
+      ],
+      "attackPass": "outside siege, peel away below preferredRange+40 (360px) and hold heading117deg to the side for1.2sec; no primary/missile/dash trigger during exit",
+      "spawn": "occupied open-planet player joins/retries use existing32-candidate ship/rock spread selection; empty first arrival and home/war gates retained",
+      "unlockCredits": [
+        1500,
+        500
+      ]
+    },
+    "unchanged": [
+      "5/10/15/20 shop prices",
+      "250 all20 upgrade cost",
+      "50 in-run evolution cost and115 minimum path",
+      "ownership/equipped-only requirements",
+      "all hull/shield/damage/fire rates and75% fighter target",
+      "movement/aim/grip and arrival duration",
+      "art/rig/collision rules"
+    ]
+  },
+  "capture": false,
+  "liveWrites": false,
+  "filesSha256": {
+    "prototypes/steroids-alpha/sim/bots.ts": "a04b4e0671083f4ebc2312abb819831004673df2a6d9ae6eea185316140dd384",
+    "prototypes/steroids-alpha/sim/world.ts": "e645739163d198f610c03ddf960d9929eaa51945561848ad3f5be3b4b3e37157",
+    "prototypes/steroids-alpha/sim/liveConfig.ts": "59aa3ddf71d7e0965064af544f48f49bc69f75860836d74ca8b81a988966c8f0",
+    "prototypes/steroids-alpha/tune.json": "0b2120831cc02cf8e14b2bdfd83759be270e04ef50ebdfdaa0dd58d2b48be9a7",
+    "scripts/measure-steroids-progression-pace.mjs": "d4d679f030427051785de149517e5f71423984b7f76b1981c2ec56dc42941780"
+  },
+  "method": {
+    "comparison": "10 seeds per policy,30 full600s sessions per side, actual production World/movement/shots/heat/rocks/pickups/repair/loot/shop/warp, no injected minerals or invulnerability",
+    "exposure": "Fixed full10 minutes even after reaching max; death/retry loops continue. Completion means reached all20 at least once, not necessarily alive/maxed at session end.",
+    "pilotControls": "Blind miner and evasive miner unchanged. Combat-controller policy+bot decision tune frozen to live source on both sides and memory reset each death, avoiding accidental player-AI improvement.",
+    "instrumentation": "Read-only diagnostic wrapper delegates to actual damageShip and observes actual HP/shield deltas; mode/attacker/amount and stepOrdnance stack classify causes. Automatic turret/CIWS share the gun category; no precise primary-vs-drone claim.",
+    "censoring": "Death lifetime samples exclude still-living final life; no lifetime median used as a survival estimate.",
+    "banking": "Safe open-planet account route includes actual180s warp lock,400 cargo cap,2 successful extractions,500-credit ownership/equipment checkpoint and actual next-run evolution; account transaction is tested separately via real SQLite/Room.",
+    "limitations": [
+      "Scripted pilots, not measured human beginners or PvP win-rate models.",
+      "No live-account spending. Browser account responses are mocked; real billing/authorization checked by bank suite.",
+      "Attack-pass behavior yields deliberately more firing/escape gaps; human difficulty and Warzone observation tuning still need review.",
+      "Permanent-ownership UI/account processing is assumed successful after earnings; tutorial/sign-in/human menu time/network delay excluded.",
+      "No deployment or PR merge performed; candidate is held for owner review."
+    ]
+  },
+  "summaries": {
+    "baseline": [
+      {
+        "profile": "contested",
+        "n": 10,
+        "medianDeaths": 27.5,
+        "reachedMaxAtLeastOnce": 0,
+        "lifeSamples": 266,
+        "deathLifetimesUnder10s": 110,
+        "hullDamage": {
+          "gun": 9883.44633625028,
+          "rock": 424.6,
+          "dash-ram": 1380.3999999999999,
+          "ship-bump": 1050.17,
+          "ordnance": 976.3836637497163
+        },
+        "deathCauses": {
+          "gun": 194,
+          "ordnance": 30,
+          "ship-bump": 30,
+          "dash-ram": 5,
+          "rock": 7
+        },
+        "overlappingHuntersSeconds": 0
+      },
+      {
+        "profile": "cautious-contested",
+        "n": 10,
+        "medianDeaths": 10.5,
+        "reachedMaxAtLeastOnce": 0,
+        "lifeSamples": 120,
+        "deathLifetimesUnder10s": 14,
+        "hullDamage": {
+          "gun": 4631.506666666667,
+          "rock": 724.0433333333333,
+          "ship-bump": 0,
+          "ordnance": 1221.71
+        },
+        "deathCauses": {
+          "gun": 91,
+          "rock": 12,
+          "ordnance": 17
+        },
+        "overlappingHuntersSeconds": 0
+      },
+      {
+        "profile": "fighter-contested",
+        "n": 10,
+        "medianDeaths": 18,
+        "reachedMaxAtLeastOnce": 0,
+        "lifeSamples": 190,
+        "deathLifetimesUnder10s": 59,
+        "hullDamage": {
+          "rock": 945.0320833333333,
+          "gun": 5043.040000000001,
+          "ship-bump": 3083.6362499999996,
+          "ordnance": 404.4183333333333,
+          "dash-ram": 771.6000000000001,
+          "ram-reflection": 0
+        },
+        "deathCauses": {
+          "gun": 109,
+          "ordnance": 17,
+          "ship-bump": 53,
+          "rock": 11
+        },
+        "overlappingHuntersSeconds": 0
+      }
+    ],
+    "candidate": [
+      {
+        "profile": "contested",
+        "n": 10,
+        "medianDeaths": 4,
+        "reachedMaxAtLeastOnce": 9,
+        "lifeSamples": 41,
+        "deathLifetimesUnder10s": 1,
+        "hullDamage": {
+          "gun": 1004.3283333333329,
+          "rock": 710.5604166666666,
+          "ship-bump": 578.6133333333335,
+          "dash-ram": 453.28541666666666,
+          "ordnance": 159.05333333333334
+        },
+        "deathCauses": {
+          "dash-ram": 3,
+          "gun": 20,
+          "ship-bump": 8,
+          "rock": 6,
+          "ordnance": 4
+        },
+        "overlappingHuntersSeconds": 0
+      },
+      {
+        "profile": "cautious-contested",
+        "n": 10,
+        "medianDeaths": 1,
+        "reachedMaxAtLeastOnce": 8,
+        "lifeSamples": 13,
+        "deathLifetimesUnder10s": 0,
+        "hullDamage": {
+          "rock": 622.5250000000001,
+          "gun": 363.2936666666666,
+          "ordnance": 348.2916666666667
+        },
+        "deathCauses": {
+          "ordnance": 8,
+          "gun": 3,
+          "rock": 2
+        },
+        "overlappingHuntersSeconds": 0
+      },
+      {
+        "profile": "fighter-contested",
+        "n": 10,
+        "medianDeaths": 2.5,
+        "reachedMaxAtLeastOnce": 9,
+        "lifeSamples": 31,
+        "deathLifetimesUnder10s": 1,
+        "hullDamage": {
+          "rock": 1281.3634988770414,
+          "gun": 395.0191666666664,
+          "ship-bump": 240.6791666666667,
+          "ordnance": 344.92544750127774,
+          "dash-ram": 47.89999999999999,
+          "ram-reflection": 30
+        },
+        "deathCauses": {
+          "gun": 6,
+          "dash-ram": 1,
+          "rock": 16,
+          "ordnance": 6,
+          "ship-bump": 1,
+          "ram-reflection": 1
+        },
+        "overlappingHuntersSeconds": 0
+      }
+    ],
+    "access500": [
+      {
+        "profile": "coached",
+        "goal": "account-bc",
+        "n": 10,
+        "completed": 10,
+        "medianSeconds": 502.6333333333333,
+        "extractions": 2
+      },
+      {
+        "profile": "coached",
+        "goal": "account-mc",
+        "n": 10,
+        "completed": 10,
+        "medianSeconds": 503.08333333333337,
+        "extractions": 2
+      },
+      {
+        "profile": "hesitant",
+        "goal": "account-bc",
+        "n": 10,
+        "completed": 10,
+        "medianSeconds": 514.1833333333334,
+        "extractions": 2
+      },
+      {
+        "profile": "hesitant",
+        "goal": "account-mc",
+        "n": 10,
+        "completed": 10,
+        "medianSeconds": 513.5166666666667,
+        "extractions": 2
+      }
+    ],
+    "ablations": {
+      "survival-no-dash": [
+        {
+          "profile": "contested",
+          "n": 10,
+          "medianDeaths": 27,
+          "reachedMaxAtLeastOnce": 0,
+          "lifeSamples": 264,
+          "deathLifetimesUnder10s": 109,
+          "hullDamage": {
+            "gun": 10944.568156343465,
+            "rock": 259.695,
+            "ship-bump": 1273.3799999999999,
+            "ordnance": 980.2318436565315
+          },
+          "deathCauses": {
+            "gun": 210,
+            "ship-bump": 28,
+            "ordnance": 24,
+            "rock": 2
+          },
+          "overlappingHuntersSeconds": 0
+        },
+        {
+          "profile": "cautious-contested",
+          "n": 10,
+          "medianDeaths": 9,
+          "reachedMaxAtLeastOnce": 1,
+          "lifeSamples": 97,
+          "deathLifetimesUnder10s": 10,
+          "hullDamage": {
+            "gun": 3341.0353333333333,
+            "rock": 833.51,
+            "ordnance": 1306.7963333333332,
+            "ram-reflection": 0,
+            "ship-bump": 0
+          },
+          "deathCauses": {
+            "rock": 15,
+            "gun": 59,
+            "ordnance": 23
+          },
+          "overlappingHuntersSeconds": 0
+        }
+      ],
+      "survival-no-ordnance": [
+        {
+          "profile": "contested",
+          "n": 10,
+          "medianDeaths": 24.5,
+          "reachedMaxAtLeastOnce": 0,
+          "lifeSamples": 252,
+          "deathLifetimesUnder10s": 94,
+          "hullDamage": {
+            "gun": 9833.159999999996,
+            "rock": 310.24,
+            "ship-bump": 1345.82,
+            "dash-ram": 1384.0800000000002
+          },
+          "deathCauses": {
+            "gun": 211,
+            "ship-bump": 32,
+            "rock": 5,
+            "dash-ram": 4
+          },
+          "overlappingHuntersSeconds": 0
+        },
+        {
+          "profile": "cautious-contested",
+          "n": 10,
+          "medianDeaths": 11.5,
+          "reachedMaxAtLeastOnce": 0,
+          "lifeSamples": 118,
+          "deathLifetimesUnder10s": 9,
+          "hullDamage": {
+            "gun": 5928.835000000002,
+            "rock": 690.8616666666667,
+            "ship-bump": 31.919999999999998,
+            "ram-reflection": 0
+          },
+          "deathCauses": {
+            "gun": 105,
+            "rock": 12,
+            "ship-bump": 1
+          },
+          "overlappingHuntersSeconds": 0
+        }
+      ],
+      "survival-safe-spawn": [
+        {
+          "profile": "contested",
+          "n": 10,
+          "medianDeaths": 24.5,
+          "reachedMaxAtLeastOnce": 0,
+          "lifeSamples": 244,
+          "deathLifetimesUnder10s": 88,
+          "hullDamage": {
+            "gun": 9028.26633268189,
+            "ordnance": 979.1558798642934,
+            "dash-ram": 1072.5,
+            "rock": 392.9466666666667,
+            "ship-bump": 942.0311207871482
+          },
+          "deathCauses": {
+            "gun": 177,
+            "ship-bump": 27,
+            "ordnance": 30,
+            "rock": 3,
+            "dash-ram": 7
+          },
+          "overlappingHuntersSeconds": 0
+        },
+        {
+          "profile": "cautious-contested",
+          "n": 10,
+          "medianDeaths": 12,
+          "reachedMaxAtLeastOnce": 0,
+          "lifeSamples": 119,
+          "deathLifetimesUnder10s": 8,
+          "hullDamage": {
+            "gun": 4586.011583333334,
+            "rock": 598.0904166666667,
+            "ordnance": 1214.72,
+            "ship-bump": 18.559999999999995
+          },
+          "deathCauses": {
+            "gun": 85,
+            "ordnance": 27,
+            "rock": 5,
+            "ship-bump": 2
+          },
+          "overlappingHuntersSeconds": 0
+        },
+        {
+          "profile": "fighter-contested",
+          "n": 10,
+          "medianDeaths": 18,
+          "reachedMaxAtLeastOnce": 0,
+          "lifeSamples": 180,
+          "deathLifetimesUnder10s": 38,
+          "hullDamage": {
+            "rock": 1074.74875,
+            "gun": 4911.507900217954,
+            "ship-bump": 2510.267916666666,
+            "ordnance": 587.4520997820482,
+            "dash-ram": 629.6,
+            "ram-reflection": 0
+          },
+          "deathCauses": {
+            "gun": 106,
+            "ship-bump": 47,
+            "dash-ram": 2,
+            "rock": 11,
+            "ordnance": 14
+          },
+          "overlappingHuntersSeconds": 0
+        }
+      ],
+      "survival-human-aim": [
+        {
+          "profile": "contested",
+          "n": 10,
+          "medianDeaths": 20,
+          "reachedMaxAtLeastOnce": 0,
+          "lifeSamples": 201,
+          "deathLifetimesUnder10s": 51,
+          "hullDamage": {
+            "gun": 6855.1244944530445,
+            "rock": 274.14666666666665,
+            "ship-bump": 1074.2266666666665,
+            "ordnance": 1450.7621722136164,
+            "dash-ram": 774.96
+          },
+          "deathCauses": {
+            "gun": 132,
+            "ordnance": 37,
+            "dash-ram": 6,
+            "ship-bump": 24,
+            "rock": 2
+          },
+          "overlappingHuntersSeconds": 0
+        },
+        {
+          "profile": "cautious-contested",
+          "n": 10,
+          "medianDeaths": 4,
+          "reachedMaxAtLeastOnce": 5,
+          "lifeSamples": 39,
+          "deathLifetimesUnder10s": 0,
+          "hullDamage": {
+            "rock": 487.90625000000006,
+            "ordnance": 583.8916666666667,
+            "gun": 1358.2170833333334,
+            "ship-bump": 0
+          },
+          "deathCauses": {
+            "rock": 6,
+            "gun": 25,
+            "ordnance": 8
+          },
+          "overlappingHuntersSeconds": 0
+        },
+        {
+          "profile": "fighter-contested",
+          "n": 10,
+          "medianDeaths": 16.5,
+          "reachedMaxAtLeastOnce": 2,
+          "lifeSamples": 154,
+          "deathLifetimesUnder10s": 31,
+          "hullDamage": {
+            "rock": 1177.6821544337918,
+            "gun": 3887.3392111070825,
+            "ship-bump": 2343.7046576991743,
+            "ordnance": 613.8539767599525,
+            "dash-ram": 422.5,
+            "ram-reflection": 0
+          },
+          "deathCauses": {
+            "ship-bump": 42,
+            "rock": 18,
+            "gun": 77,
+            "ordnance": 15,
+            "dash-ram": 2
+          },
+          "overlappingHuntersSeconds": 0
+        }
+      ]
+    }
+  },
+  "raw": {
+    "baseline": [
+      {
+        "seed": 1,
+        "profile": "contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "gun": 659.1159200934418,
+            "rock": 42,
+            "dash-ram": 105.2,
+            "ship-bump": 88.32,
+            "ordnance": 163.36407990655837
+          },
+          "shield": {
+            "gun": 897.7400000000001,
+            "rock": 702.8333333333334,
+            "dash-ram": 0,
+            "ship-bump": 84.83000000000003,
+            "ordnance": 15.879999999999981
+          },
+          "deathCauses": {
+            "gun": 13,
+            "ordnance": 2,
+            "ship-bump": 4,
+            "dash-ram": 1
+          },
+          "lifetimes": [
+            9.266666666666667,
+            22.6,
+            56.86666666666667,
+            42.86666666666666,
+            14.166666666666686,
+            13.633333333333326,
+            30.03333333333333,
+            6.400000000000006,
+            7.166666666666657,
+            10.433333333333337,
+            4.333333333333314,
+            17.69999999999999,
+            23.633333333333383,
+            5.2666666666666515,
+            19.099999999999966,
+            104.36666666666667,
+            10.400000000000034,
+            58.5333333333333,
+            7.433333333333394,
+            13.866666666666674
+          ],
+          "botRamAttempts": 4,
+          "engagedSeconds": 55.6999999999994,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 20,
+        "bought": 55,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 811,
+        "mineralCollected": 698.2,
+        "tiers": [
+          0,
+          0,
+          3,
+          0,
+          0
+        ],
+        "wallet": 7
+      },
+      {
+        "seed": 2,
+        "profile": "contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 9.5,
+        "diagnostics": {
+          "hull": {
+            "gun": 1079.6799999999994,
+            "dash-ram": 171.54000000000002,
+            "rock": 86,
+            "ordnance": 98.36,
+            "ship-bump": 51.92
+          },
+          "shield": {
+            "gun": 1027.129999999999,
+            "dash-ram": 0,
+            "rock": 322,
+            "ordnance": 235.12,
+            "ship-bump": 100
+          },
+          "deathCauses": {
+            "gun": 25,
+            "ship-bump": 1,
+            "ordnance": 2,
+            "dash-ram": 1
+          },
+          "lifetimes": [
+            19.2,
+            41.83333333333333,
+            9.5,
+            6.666666666666671,
+            5.099999999999994,
+            4.6000000000000085,
+            8.299999999999997,
+            10.966666666666669,
+            5.600000000000023,
+            48.03333333333333,
+            35.133333333333326,
+            12.533333333333303,
+            35.30000000000001,
+            5.933333333333337,
+            27.80000000000001,
+            10.166666666666686,
+            11.399999999999977,
+            17.666666666666686,
+            22.399999999999977,
+            6.833333333333314,
+            12.03333333333336,
+            4.933333333333337,
+            28.166666666666686,
+            10,
+            5.2333333333333485,
+            7.5,
+            6.699999999999932,
+            7.5,
+            21.033333333333417
+          ],
+          "botRamAttempts": 6,
+          "engagedSeconds": 90.4666666666641,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 29,
+        "bought": 38,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 575,
+        "mineralCollected": 480.7,
+        "tiers": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wallet": 2
+      },
+      {
+        "seed": 3,
+        "profile": "contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 7.5,
+        "diagnostics": {
+          "hull": {
+            "gun": 1055.860416156841,
+            "ordnance": 67.21958384315806,
+            "rock": 8,
+            "ship-bump": 121.02,
+            "dash-ram": 155.4
+          },
+          "shield": {
+            "gun": 1068.1900000000005,
+            "ordnance": 254.99999999999997,
+            "rock": 334,
+            "ship-bump": 60.559999999999995,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "gun": 23,
+            "ordnance": 3,
+            "ship-bump": 1
+          },
+          "lifetimes": [
+            18.166666666666668,
+            28.466666666666665,
+            27.666666666666664,
+            30.13333333333334,
+            25.433333333333337,
+            17.299999999999983,
+            6.300000000000011,
+            16.366666666666674,
+            34.23333333333332,
+            10.333333333333314,
+            12.300000000000011,
+            20.69999999999999,
+            12.633333333333383,
+            5.2999999999999545,
+            5.2333333333333485,
+            6.7333333333333485,
+            5.599999999999966,
+            26.600000000000023,
+            5.166666666666686,
+            6.066666666666663,
+            5.733333333333292,
+            67.53333333333336,
+            10.866666666666674,
+            5.7333333333333485,
+            14.966666666666697,
+            8.666666666666629,
+            19.466666666666697
+          ],
+          "botRamAttempts": 5,
+          "engagedSeconds": 78.86666666666476,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 27,
+        "bought": 41,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 602,
+        "mineralCollected": 490.3,
+        "tiers": [
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "wallet": 0
+      },
+      {
+        "seed": 4,
+        "profile": "contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 7,
+        "diagnostics": {
+          "hull": {
+            "gun": 876.7499999999995,
+            "rock": 16,
+            "ship-bump": 80.21000000000001,
+            "ordnance": 104.8,
+            "dash-ram": 78.14
+          },
+          "shield": {
+            "gun": 993.3799999999999,
+            "rock": 705.2500000000001,
+            "ship-bump": 31.116666666666667,
+            "ordnance": 43.92,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "gun": 12,
+            "ordnance": 4,
+            "ship-bump": 5,
+            "dash-ram": 1
+          },
+          "lifetimes": [
+            14.5,
+            39.833333333333336,
+            8.600000000000009,
+            18.566666666666663,
+            10.5,
+            52.80000000000001,
+            16.366666666666646,
+            17.23333333333335,
+            8.900000000000006,
+            22.666666666666657,
+            7.166666666666686,
+            6.400000000000034,
+            6.199999999999989,
+            68.36666666666667,
+            10.566666666666663,
+            31.23333333333329,
+            8.866666666666674,
+            20.966666666666697,
+            10.566666666666663,
+            19.533333333333303,
+            10.133333333333326,
+            27.76666666666665
+          ],
+          "botRamAttempts": 3,
+          "engagedSeconds": 68.733333333332,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 22,
+        "bought": 49,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 707,
+        "mineralCollected": 624,
+        "tiers": [
+          0,
+          3,
+          4,
+          0,
+          0
+        ],
+        "wallet": 15
+      },
+      {
+        "seed": 5,
+        "profile": "contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 40.64,
+            "gun": 976.9199999999998,
+            "ship-bump": 94.82,
+            "ordnance": 115.99999999999999,
+            "dash-ram": 234.12000000000003
+          },
+          "shield": {
+            "rock": 367,
+            "gun": 1036.2799999999995,
+            "ship-bump": 60,
+            "ordnance": 217.12,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "gun": 18,
+            "rock": 3,
+            "ship-bump": 4,
+            "dash-ram": 1,
+            "ordnance": 3
+          },
+          "lifetimes": [
+            9.966666666666667,
+            19.83333333333333,
+            28.5,
+            43.233333333333334,
+            5.63333333333334,
+            5.366666666666674,
+            9.300000000000011,
+            6.466666666666669,
+            25.46666666666667,
+            4.633333333333326,
+            4.433333333333337,
+            4.666666666666657,
+            38.93333333333334,
+            6.46666666666664,
+            17.73333333333335,
+            5.066666666666663,
+            6.100000000000023,
+            38.19999999999999,
+            13.733333333333348,
+            12.300000000000011,
+            13.366666666666617,
+            9.800000000000011,
+            9.233333333333348,
+            6.633333333333326,
+            8.199999999999989,
+            17.466666666666697,
+            34.299999999999955,
+            6.2666666666666515,
+            5.100000000000023
+          ],
+          "botRamAttempts": 8,
+          "engagedSeconds": 80.53333333333133,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 29,
+        "bought": 35,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 492,
+        "mineralCollected": 428,
+        "tiers": [
+          0,
+          1,
+          4,
+          0,
+          0
+        ],
+        "wallet": 4.5
+      },
+      {
+        "seed": 6,
+        "profile": "contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 44,
+        "diagnostics": {
+          "hull": {
+            "gun": 1057.7799999999997,
+            "ship-bump": 95.28,
+            "rock": 74,
+            "ordnance": 35.239999999999995,
+            "dash-ram": 62.7
+          },
+          "shield": {
+            "gun": 1056.2399999999996,
+            "ship-bump": 78,
+            "rock": 365.16666666666663,
+            "ordnance": 166.01,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "gun": 23,
+            "ship-bump": 1,
+            "ordnance": 2
+          },
+          "lifetimes": [
+            5.266666666666667,
+            11.266666666666667,
+            6.899999999999995,
+            15.300000000000004,
+            13.900000000000006,
+            9.199999999999989,
+            62.93333333333335,
+            36.53333333333333,
+            5.599999999999994,
+            14.033333333333331,
+            7.166666666666657,
+            8.066666666666663,
+            54.76666666666665,
+            6.566666666666663,
+            11.600000000000023,
+            38.099999999999966,
+            12.933333333333337,
+            6.166666666666686,
+            9.300000000000011,
+            13.266666666666652,
+            34.26666666666665,
+            5.633333333333326,
+            5.833333333333371,
+            38.566666666666606,
+            27.90000000000009,
+            4.733333333333235
+          ],
+          "botRamAttempts": 2,
+          "engagedSeconds": 85.13333333333107,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 26,
+        "bought": 39,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 534,
+        "mineralCollected": 506,
+        "tiers": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wallet": 0
+      },
+      {
+        "seed": 7,
+        "profile": "contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 5.5,
+        "diagnostics": {
+          "hull": {
+            "gun": 819.4000000000001,
+            "dash-ram": 215.39999999999998,
+            "rock": 42,
+            "ship-bump": 184.72,
+            "ordnance": 163.48
+          },
+          "shield": {
+            "gun": 973.253333333333,
+            "dash-ram": 0,
+            "rock": 529.3666666666667,
+            "ship-bump": 93.03333333333336,
+            "ordnance": 141.58
+          },
+          "deathCauses": {
+            "gun": 18,
+            "ship-bump": 4,
+            "ordnance": 6
+          },
+          "lifetimes": [
+            8.033333333333333,
+            22.56666666666667,
+            7.133333333333333,
+            14.700000000000003,
+            16.86666666666666,
+            11.700000000000003,
+            17.73333333333332,
+            15.566666666666691,
+            5.2666666666666515,
+            4.633333333333326,
+            12.066666666666691,
+            29.299999999999983,
+            11.633333333333326,
+            42.06666666666666,
+            10.300000000000011,
+            28.03333333333336,
+            15.566666666666663,
+            13.766666666666652,
+            15.5,
+            9.699999999999989,
+            26.066666666666663,
+            11.600000000000023,
+            5.433333333333337,
+            11.5,
+            29.23333333333335,
+            41.96666666666658,
+            9.733333333333348,
+            7.06666666666672
+          ],
+          "botRamAttempts": 7,
+          "engagedSeconds": 73.03333333333175,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 28,
+        "bought": 41,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 692,
+        "mineralCollected": 509,
+        "tiers": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wallet": 0
+      },
+      {
+        "seed": 8,
+        "profile": "contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 5,
+        "diagnostics": {
+          "hull": {
+            "rock": 15.720000000000002,
+            "gun": 1083.3000000000002,
+            "dash-ram": 141.6,
+            "ship-bump": 123.49999999999999,
+            "ordnance": 61.68000000000001
+          },
+          "shield": {
+            "rock": 312,
+            "gun": 1181.439999999999,
+            "dash-ram": 0,
+            "ship-bump": 100,
+            "ordnance": 117.47666666666669
+          },
+          "deathCauses": {
+            "dash-ram": 1,
+            "gun": 16,
+            "ship-bump": 6,
+            "ordnance": 3,
+            "rock": 2
+          },
+          "lifetimes": [
+            7.733333333333333,
+            5.933333333333335,
+            13.63333333333333,
+            17.53333333333334,
+            7.233333333333334,
+            9.466666666666669,
+            24.5,
+            6.033333333333331,
+            37.03333333333333,
+            5.400000000000006,
+            5.933333333333337,
+            11.766666666666652,
+            17.400000000000006,
+            44.16666666666666,
+            8.800000000000011,
+            7.600000000000023,
+            10.533333333333303,
+            6.066666666666663,
+            16.30000000000001,
+            7.833333333333314,
+            39.13333333333338,
+            20.5,
+            9.833333333333314,
+            10.866666666666674,
+            16.80000000000001,
+            26.46666666666664,
+            48.0333333333333,
+            10.56666666666672
+          ],
+          "botRamAttempts": 5,
+          "engagedSeconds": 87.59999999999759,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 28,
+        "bought": 38,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 627,
+        "mineralCollected": 493.8,
+        "tiers": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wallet": 0
+      },
+      {
+        "seed": 9,
+        "profile": "contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 48.239999999999995,
+            "ship-bump": 41.099999999999994,
+            "gun": 1331.5199999999995,
+            "ordnance": 49.839999999999996,
+            "dash-ram": 91.80000000000001
+          },
+          "shield": {
+            "rock": 412.1666666666667,
+            "ship-bump": 180,
+            "gun": 1122.7166666666672,
+            "ordnance": 168.19999999999996,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "gun": 24,
+            "rock": 2,
+            "ordnance": 3,
+            "ship-bump": 2
+          },
+          "lifetimes": [
+            19.8,
+            7.133333333333333,
+            5.466666666666669,
+            8.466666666666669,
+            5.699999999999996,
+            10.5,
+            12.799999999999997,
+            32.766666666666666,
+            24.166666666666686,
+            4.666666666666657,
+            11.466666666666669,
+            21.433333333333337,
+            12.266666666666652,
+            53.53333333333336,
+            5.566666666666663,
+            14.866666666666674,
+            9.566666666666663,
+            22.633333333333326,
+            6.666666666666629,
+            5.7333333333333485,
+            5.199999999999989,
+            19.633333333333383,
+            17.93333333333328,
+            7.266666666666708,
+            5.066666666666663,
+            7.300000000000011,
+            6.366666666666617,
+            22.400000000000034,
+            19.23333333333335,
+            15.799999999999955,
+            9.666666666666742
+          ],
+          "botRamAttempts": 3,
+          "engagedSeconds": 107.83333333332978,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 31,
+        "bought": 39,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 625,
+        "mineralCollected": 436.1,
+        "tiers": [
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "wallet": 5
+      },
+      {
+        "seed": 10,
+        "profile": "contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 52,
+            "gun": 943.1199999999998,
+            "ship-bump": 169.28,
+            "ordnance": 116.4,
+            "dash-ram": 124.5
+          },
+          "shield": {
+            "rock": 440,
+            "gun": 1012.0168594188524,
+            "ship-bump": 56.64,
+            "ordnance": 218.59314058114705,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "gun": 22,
+            "ordnance": 2,
+            "ship-bump": 2
+          },
+          "lifetimes": [
+            34.9,
+            5.766666666666666,
+            5.233333333333334,
+            16.9,
+            17.866666666666674,
+            13.86666666666666,
+            6.76666666666668,
+            5.933333333333309,
+            11.76666666666668,
+            13.199999999999989,
+            31,
+            6.800000000000011,
+            5.599999999999994,
+            22.00000000000003,
+            28.566666666666663,
+            9.933333333333337,
+            79.96666666666664,
+            11.333333333333314,
+            5.7333333333333485,
+            22.633333333333326,
+            5.600000000000023,
+            5.199999999999989,
+            17.53333333333336,
+            6.033333333333303,
+            14.366666666666674,
+            14.666666666666629
+          ],
+          "botRamAttempts": 4,
+          "engagedSeconds": 88.96666666666418,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 26,
+        "bought": 41,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 538,
+        "mineralCollected": 520.1,
+        "tiers": [
+          0,
+          2,
+          4,
+          0,
+          0
+        ],
+        "wallet": 0
+      },
+      {
+        "seed": 1,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "gun": 424.9600000000001,
+            "rock": 113.12333333333332,
+            "ship-bump": 0,
+            "ordnance": 105
+          },
+          "shield": {
+            "gun": 621.9633333333331,
+            "rock": 819.2166666666666,
+            "ship-bump": 20,
+            "ordnance": 90.26858906897064
+          },
+          "deathCauses": {
+            "gun": 9,
+            "rock": 2
+          },
+          "lifetimes": [
+            11.233333333333333,
+            30.199999999999996,
+            33.70000000000001,
+            58.89999999999999,
+            20.666666666666657,
+            213.86666666666667,
+            59.06666666666666,
+            12.866666666666674,
+            12.03333333333336,
+            5,
+            37.333333333333314
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 61.13333333333242,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 11,
+        "bought": 44,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 782,
+        "mineralCollected": 584.6,
+        "tiers": [
+          0,
+          2,
+          4,
+          0,
+          0
+        ],
+        "wallet": 10.2
+      },
+      {
+        "seed": 2,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 7.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 100.41666666666667,
+            "gun": 274.0833333333333,
+            "ordnance": 105
+          },
+          "shield": {
+            "rock": 518.8733333333333,
+            "gun": 605.2764767663939,
+            "ordnance": 112.32018990027274
+          },
+          "deathCauses": {
+            "gun": 7,
+            "rock": 1
+          },
+          "lifetimes": [
+            57.93333333333333,
+            24.166666666666664,
+            181.23333333333332,
+            41.56666666666666,
+            82.86666666666667,
+            8.699999999999989,
+            49,
+            34.10000000000008
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 54.666666666666124,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 8,
+        "bought": 47,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 783,
+        "mineralCollected": 604.8,
+        "tiers": [
+          0,
+          1,
+          4,
+          0,
+          0
+        ],
+        "wallet": 9
+      },
+      {
+        "seed": 3,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 7.5,
+        "diagnostics": {
+          "hull": {
+            "gun": 343.46000000000004,
+            "ordnance": 103.03999999999999,
+            "rock": 16
+          },
+          "shield": {
+            "gun": 568.8000000000003,
+            "ordnance": 35.559999999999995,
+            "rock": 661
+          },
+          "deathCauses": {
+            "gun": 8,
+            "ordnance": 1
+          },
+          "lifetimes": [
+            21.266666666666666,
+            144.06666666666666,
+            21.96666666666667,
+            96.63333333333333,
+            21.166666666666686,
+            131.43333333333334,
+            31.366666666666617,
+            16.866666666666674,
+            23.06666666666672
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 62.43333333333235,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 9,
+        "bought": 57,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 855,
+        "mineralCollected": 681.8,
+        "tiers": [
+          0,
+          2,
+          4,
+          0,
+          0
+        ],
+        "wallet": 4
+      },
+      {
+        "seed": 4,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 7,
+        "diagnostics": {
+          "hull": {
+            "rock": 167.20000000000002,
+            "gun": 460.9666666666667,
+            "ordnance": 105
+          },
+          "shield": {
+            "rock": 869.4999999999999,
+            "gun": 638.7266666666669,
+            "ordnance": 107.88000000000001
+          },
+          "deathCauses": {
+            "gun": 12,
+            "rock": 1
+          },
+          "lifetimes": [
+            43.733333333333334,
+            6.399999999999999,
+            41.63333333333333,
+            35.13333333333334,
+            51.16666666666666,
+            36.46666666666667,
+            62.76666666666668,
+            10.833333333333314,
+            32.5,
+            18.26666666666665,
+            32.10000000000002,
+            88.73333333333335,
+            63.26666666666665
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 74.29999999999835,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 13,
+        "bought": 50,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 699,
+        "mineralCollected": 628,
+        "tiers": [
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "wallet": 2
+      },
+      {
+        "seed": 5,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 58.290000000000006,
+            "gun": 352.8833333333334,
+            "ordnance": 153.03666666666666
+          },
+          "shield": {
+            "rock": 731.3533333333334,
+            "gun": 648.9275,
+            "ordnance": 87.55999999999999
+          },
+          "deathCauses": {
+            "gun": 4,
+            "ordnance": 4,
+            "rock": 1
+          },
+          "lifetimes": [
+            56.36666666666667,
+            95.83333333333331,
+            18.366666666666674,
+            133.9666666666667,
+            24.16666666666663,
+            145.86666666666667,
+            42.43333333333334,
+            9.466666666666697,
+            25.899999999999977
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 56.299999999999365,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 9,
+        "bought": 46,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 787,
+        "mineralCollected": 630.6,
+        "tiers": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wallet": 0
+      },
+      {
+        "seed": 6,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 14,
+        "diagnostics": {
+          "hull": {
+            "gun": 712.3800000000001,
+            "rock": 56,
+            "ordnance": 269.12,
+            "ship-bump": 0
+          },
+          "shield": {
+            "gun": 860.2633333333337,
+            "rock": 628,
+            "ordnance": 172.27999999999997,
+            "ship-bump": 20
+          },
+          "deathCauses": {
+            "gun": 15,
+            "ordnance": 5
+          },
+          "lifetimes": [
+            22.166666666666668,
+            31.366666666666664,
+            15.866666666666674,
+            37.266666666666666,
+            27.033333333333317,
+            41.20000000000002,
+            32.93333333333334,
+            37.599999999999994,
+            9.433333333333337,
+            15.633333333333326,
+            6.2333333333333485,
+            45.46666666666664,
+            29.80000000000001,
+            11.733333333333348,
+            35.16666666666663,
+            43.06666666666672,
+            4.966666666666583,
+            20,
+            9.300000000000068,
+            10.833333333333371
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 83.09999999999785,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 20,
+        "bought": 35,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 499,
+        "mineralCollected": 458.7,
+        "tiers": [
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "wallet": 11
+      },
+      {
+        "seed": 7,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 5.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 87.39333333333335,
+            "gun": 536.6066666666669,
+            "ordnance": 188.5
+          },
+          "shield": {
+            "rock": 744.4166666666667,
+            "gun": 577.8633333333336,
+            "ordnance": 43.97
+          },
+          "deathCauses": {
+            "gun": 11,
+            "rock": 2,
+            "ordnance": 3
+          },
+          "lifetimes": [
+            7.533333333333333,
+            34.46666666666667,
+            10.93333333333333,
+            29.133333333333326,
+            12.600000000000009,
+            15.86666666666666,
+            81.5,
+            40.83333333333334,
+            17.899999999999977,
+            17.19999999999999,
+            36.83333333333337,
+            77.86666666666667,
+            29.433333333333337,
+            46.19999999999993,
+            8.700000000000045,
+            51.33333333333337
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 53.33333333333287,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 16,
+        "bought": 44,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 617,
+        "mineralCollected": 556.5,
+        "tiers": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wallet": 0
+      },
+      {
+        "seed": 8,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 5,
+        "diagnostics": {
+          "hull": {
+            "rock": 48.89999999999999,
+            "gun": 728.646666666667,
+            "ordnance": 57.453333333333326
+          },
+          "shield": {
+            "rock": 472.55,
+            "gun": 700.5666666666667,
+            "ordnance": 209.46
+          },
+          "deathCauses": {
+            "gun": 12,
+            "ordnance": 1,
+            "rock": 3
+          },
+          "lifetimes": [
+            10.433333333333334,
+            24.999999999999996,
+            13.900000000000006,
+            17.200000000000003,
+            5,
+            39.400000000000006,
+            51.69999999999999,
+            72.06666666666666,
+            27.26666666666665,
+            4.366666666666674,
+            8.333333333333371,
+            63.39999999999998,
+            89.93333333333334,
+            27.799999999999955,
+            24.33333333333337,
+            21.533333333333303
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 76.49999999999822,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 16,
+        "bought": 39,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 513,
+        "mineralCollected": 485.4,
+        "tiers": [
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "wallet": 2
+      },
+      {
+        "seed": 9,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 44.559999999999995,
+            "gun": 341.44,
+            "ordnance": 50
+          },
+          "shield": {
+            "rock": 766.8933333333332,
+            "gun": 501.39083333333343,
+            "ordnance": 37.30333333333328
+          },
+          "deathCauses": {
+            "gun": 6,
+            "ordnance": 1,
+            "rock": 1
+          },
+          "lifetimes": [
+            22.5,
+            67.9,
+            33.133333333333326,
+            73.66666666666666,
+            57.30000000000001,
+            137.39999999999998,
+            7.5,
+            97.80000000000007
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 49.333333333333094,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 8,
+        "bought": 50,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 696,
+        "mineralCollected": 633.6,
+        "tiers": [
+          0,
+          3,
+          4,
+          0,
+          0
+        ],
+        "wallet": 3
+      },
+      {
+        "seed": 10,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 32.16,
+            "gun": 456.0800000000001,
+            "ordnance": 85.56
+          },
+          "shield": {
+            "rock": 764.1433333333332,
+            "gun": 544.6333333333334,
+            "ordnance": 129.29
+          },
+          "deathCauses": {
+            "gun": 7,
+            "ordnance": 2,
+            "rock": 1
+          },
+          "lifetimes": [
+            26.6,
+            79.36666666666667,
+            106.43333333333334,
+            29.03333333333333,
+            53.633333333333326,
+            13.03333333333336,
+            11.033333333333303,
+            53.69999999999999,
+            55.06666666666666,
+            60.89999999999998
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 66.56666666666545,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 10,
+        "bought": 45,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 669,
+        "mineralCollected": 590.2,
+        "tiers": [
+          0,
+          0,
+          4,
+          0,
+          0
+        ],
+        "wallet": 2
+      },
+      {
+        "seed": 1,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 5.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 49.24999999999999,
+            "gun": 459.71000000000015,
+            "ship-bump": 273.9483333333333,
+            "ordnance": 0.9916666666666649,
+            "dash-ram": 153.60000000000002
+          },
+          "shield": {
+            "rock": 651.5333333333333,
+            "gun": 682.105,
+            "ship-bump": 221.20166666666668,
+            "ordnance": 147.4758222278001,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "gun": 13,
+            "ordnance": 1,
+            "ship-bump": 3,
+            "rock": 1
+          },
+          "lifetimes": [
+            14.266666666666667,
+            85.3,
+            28.53333333333333,
+            29.26666666666668,
+            68.23333333333332,
+            6.76666666666668,
+            11.199999999999989,
+            26.966666666666697,
+            10.699999999999989,
+            24.66666666666663,
+            8.400000000000034,
+            13.96666666666664,
+            65.36666666666667,
+            20,
+            45.56666666666672,
+            10.43333333333328,
+            6.06666666666672,
+            12.199999999999932
+          ],
+          "botRamAttempts": 5,
+          "engagedSeconds": 79.69999999999804,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 18,
+        "bought": 45,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 597,
+        "mineralCollected": 571.9,
+        "tiers": [
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "wallet": 7
+      },
+      {
+        "seed": 2,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 8.5,
+        "diagnostics": {
+          "hull": {
+            "gun": 529.94,
+            "ship-bump": 287.6,
+            "rock": 116.22,
+            "ordnance": 11.440000000000001,
+            "dash-ram": 91.8
+          },
+          "shield": {
+            "gun": 758.4366666666665,
+            "ship-bump": 284.64,
+            "rock": 736.7229166666666,
+            "ordnance": 157.61626847061063,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "ship-bump": 6,
+            "rock": 1,
+            "gun": 10,
+            "ordnance": 1
+          },
+          "lifetimes": [
+            51.03333333333333,
+            79.6,
+            26.166666666666686,
+            6.933333333333309,
+            5.76666666666668,
+            5.433333333333337,
+            5.066666666666663,
+            19.5,
+            4.699999999999989,
+            54.400000000000034,
+            12.899999999999977,
+            44.96666666666664,
+            12.900000000000034,
+            9.899999999999977,
+            71.93333333333334,
+            38.43333333333334,
+            6.7666666666666515,
+            11.600000000000023
+          ],
+          "botRamAttempts": 3,
+          "engagedSeconds": 72.49999999999845,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 18,
+        "bought": 49,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 816,
+        "mineralCollected": 681.1,
+        "tiers": [
+          0,
+          2,
+          4,
+          0,
+          0
+        ],
+        "wallet": 7.8
+      },
+      {
+        "seed": 3,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 144.66666666666666,
+            "gun": 325.34666666666675,
+            "ship-bump": 220.28,
+            "ordnance": 12.206666666666678,
+            "dash-ram": 61.8,
+            "ram-reflection": 0
+          },
+          "shield": {
+            "rock": 711.7041666666667,
+            "gun": 567.8900000000004,
+            "ship-bump": 262.7833333333334,
+            "ordnance": 126.93937650296752,
+            "dash-ram": 0,
+            "ram-reflection": 30
+          },
+          "deathCauses": {
+            "ship-bump": 5,
+            "rock": 1,
+            "gun": 7,
+            "ordnance": 1
+          },
+          "lifetimes": [
+            13.966666666666667,
+            34.06666666666666,
+            90.66666666666666,
+            21.133333333333354,
+            77.96666666666667,
+            7.7666666666666515,
+            22.600000000000023,
+            9.933333333333337,
+            71.19999999999999,
+            10.266666666666652,
+            25.69999999999999,
+            60.03333333333336,
+            5.199999999999989,
+            13.399999999999977
+          ],
+          "botRamAttempts": 2,
+          "engagedSeconds": 60.86666666666577,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 14,
+        "bought": 49,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 753,
+        "mineralCollected": 645,
+        "tiers": [
+          0,
+          3,
+          4,
+          0,
+          0
+        ],
+        "wallet": 19
+      },
+      {
+        "seed": 4,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 135.22,
+            "gun": 631.0000000000002,
+            "ship-bump": 398.52,
+            "ordnance": 85.55999999999999,
+            "dash-ram": 157.20000000000002
+          },
+          "shield": {
+            "rock": 611,
+            "gun": 892.2833333333333,
+            "ship-bump": 346.8233333333333,
+            "ordnance": 115.36000000000008,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "rock": 3,
+            "gun": 15,
+            "ordnance": 2,
+            "ship-bump": 7
+          },
+          "lifetimes": [
+            19.066666666666666,
+            4.233333333333334,
+            4.800000000000004,
+            4.799999999999997,
+            5.033333333333331,
+            8.800000000000004,
+            70.3,
+            25.333333333333343,
+            25.5,
+            8.933333333333337,
+            13.466666666666669,
+            28.400000000000006,
+            12.633333333333326,
+            9.766666666666652,
+            5.366666666666674,
+            9.033333333333303,
+            8.433333333333337,
+            6.666666666666686,
+            5.166666666666686,
+            44.56666666666666,
+            29.30000000000001,
+            8.699999999999989,
+            25.833333333333314,
+            18.033333333333303,
+            5.866666666666674,
+            37.76666666666665,
+            13.233333333333348
+          ],
+          "botRamAttempts": 5,
+          "engagedSeconds": 93.19999999999727,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 27,
+        "bought": 33,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 466,
+        "mineralCollected": 425.5,
+        "tiers": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wallet": 2
+      },
+      {
+        "seed": 5,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 23.619999999999987,
+            "gun": 446.16000000000014,
+            "ship-bump": 363.06,
+            "ordnance": 80.96000000000001,
+            "dash-ram": 92.7
+          },
+          "shield": {
+            "rock": 827.5999999999999,
+            "gun": 780.4950000000003,
+            "ship-bump": 338.3245833333333,
+            "ordnance": 116.07000000000009,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "gun": 11,
+            "ship-bump": 3,
+            "rock": 1,
+            "ordnance": 3
+          },
+          "lifetimes": [
+            36.46666666666667,
+            10.199999999999996,
+            30.03333333333334,
+            4.766666666666666,
+            27.833333333333343,
+            39.23333333333332,
+            20.599999999999994,
+            18.5,
+            6.76666666666668,
+            181.9,
+            4.433333333333337,
+            69.63333333333333,
+            10.766666666666652,
+            5.666666666666629,
+            21.600000000000023,
+            16.83333333333337,
+            4.7999999999999545,
+            4.7000000000000455
+          ],
+          "botRamAttempts": 3,
+          "engagedSeconds": 86.19999999999767,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 18,
+        "bought": 46,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 632,
+        "mineralCollected": 578.6,
+        "tiers": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wallet": 0
+      },
+      {
+        "seed": 6,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "gun": 544.23,
+            "ship-bump": 259.2345833333333,
+            "rock": 135.58541666666667,
+            "ordnance": 96.69999999999999
+          },
+          "shield": {
+            "gun": 835.2066666666675,
+            "ship-bump": 372.31000000000006,
+            "rock": 748.1645833333333,
+            "ordnance": 64.80000000000001
+          },
+          "deathCauses": {
+            "ship-bump": 6,
+            "gun": 9,
+            "ordnance": 4
+          },
+          "lifetimes": [
+            37.733333333333334,
+            20.46666666666667,
+            22.599999999999994,
+            12.266666666666666,
+            9.900000000000006,
+            4.933333333333337,
+            75.26666666666665,
+            16.96666666666667,
+            23.69999999999999,
+            8.100000000000023,
+            16.666666666666686,
+            5.599999999999966,
+            16.900000000000034,
+            53.0333333333333,
+            25.26666666666665,
+            69.43333333333334,
+            32.76666666666671,
+            18.966666666666697,
+            37.5
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 82.43333333333122,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 19,
+        "bought": 41,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 649,
+        "mineralCollected": 572.9,
+        "tiers": [
+          0,
+          2,
+          4,
+          0,
+          0
+        ],
+        "wallet": 0.5
+      },
+      {
+        "seed": 7,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 7.5,
+        "diagnostics": {
+          "hull": {
+            "ship-bump": 269.12,
+            "gun": 547.6800000000003,
+            "rock": 76,
+            "dash-ram": 120.9,
+            "ordnance": 15.279999999999998
+          },
+          "shield": {
+            "ship-bump": 239.34,
+            "gun": 783.5017826567142,
+            "rock": 779.25,
+            "dash-ram": 0,
+            "ordnance": 172.15488400995164
+          },
+          "deathCauses": {
+            "rock": 1,
+            "gun": 14,
+            "ship-bump": 3,
+            "ordnance": 1
+          },
+          "lifetimes": [
+            11.233333333333333,
+            5.300000000000001,
+            14.899999999999995,
+            70.86666666666667,
+            11.899999999999991,
+            46.46666666666667,
+            21.333333333333343,
+            5,
+            9.800000000000011,
+            36.06666666666666,
+            46.23333333333335,
+            70.23333333333329,
+            5.800000000000011,
+            14.733333333333348,
+            6.2666666666666515,
+            35.43333333333334,
+            52.06666666666666,
+            31.633333333333326,
+            5.7000000000000455
+          ],
+          "botRamAttempts": 4,
+          "engagedSeconds": 72.93333333333176,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 19,
+        "bought": 39,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 600,
+        "mineralCollected": 551.1,
+        "tiers": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wallet": 0
+      },
+      {
+        "seed": 8,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 8,
+        "diagnostics": {
+          "hull": {
+            "ship-bump": 224.64,
+            "gun": 371.92000000000013,
+            "rock": 82.02,
+            "ordnance": 30
+          },
+          "shield": {
+            "ship-bump": 255.84666666666666,
+            "gun": 399.56666666666695,
+            "rock": 802,
+            "ordnance": 71.02
+          },
+          "deathCauses": {
+            "rock": 2,
+            "ship-bump": 4,
+            "gun": 6,
+            "ordnance": 1
+          },
+          "lifetimes": [
+            19.266666666666666,
+            7.800000000000004,
+            43.13333333333333,
+            15.099999999999994,
+            110.93333333333332,
+            10.5,
+            89.80000000000004,
+            17.833333333333314,
+            20.46666666666664,
+            21.30000000000001,
+            23.5,
+            64.53333333333336,
+            58.36666666666662
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 40.9666666666669,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 13,
+        "bought": 46,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 636,
+        "mineralCollected": 591.6,
+        "tiers": [
+          0,
+          0,
+          3,
+          0,
+          0
+        ],
+        "wallet": 5
+      },
+      {
+        "seed": 9,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 9.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 56,
+            "gun": 707.2599999999996,
+            "ship-bump": 465.26,
+            "ordnance": 71.28,
+            "dash-ram": 62.7
+          },
+          "shield": {
+            "rock": 436,
+            "gun": 870.3166666666664,
+            "ship-bump": 223.44,
+            "ordnance": 215.0766666666667,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "ship-bump": 9,
+            "gun": 15,
+            "ordnance": 3
+          },
+          "lifetimes": [
+            16.7,
+            46.03333333333333,
+            33.733333333333334,
+            11.933333333333337,
+            29.666666666666657,
+            14.433333333333337,
+            9.566666666666663,
+            12.633333333333326,
+            7.7333333333333485,
+            5.799999999999983,
+            25.96666666666667,
+            24.566666666666663,
+            30.600000000000023,
+            24.533333333333303,
+            9.433333333333337,
+            9.600000000000023,
+            41.666666666666686,
+            4.599999999999966,
+            9.766666666666652,
+            8.06666666666672,
+            10.033333333333303,
+            21.500000000000057,
+            12.199999999999932,
+            5.06666666666672,
+            5.066666666666606,
+            30.33333333333337,
+            6.199999999999932
+          ],
+          "botRamAttempts": 2,
+          "engagedSeconds": 71.53333333333184,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 27,
+        "bought": 33,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 420,
+        "mineralCollected": 421.8,
+        "tiers": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wallet": 0
+      },
+      {
+        "seed": 10,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 5.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 126.44999999999999,
+            "ship-bump": 321.97333333333324,
+            "gun": 479.7933333333337,
+            "ordnance": 0,
+            "dash-ram": 30.900000000000002
+          },
+          "shield": {
+            "rock": 618.75,
+            "ship-bump": 258.01666666666665,
+            "gun": 742.2499999999997,
+            "ordnance": 91.4,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "gun": 9,
+            "rock": 1,
+            "ship-bump": 7
+          },
+          "lifetimes": [
+            27.233333333333334,
+            37.43333333333334,
+            8.266666666666666,
+            27.266666666666666,
+            40.63333333333334,
+            39.26666666666665,
+            5.666666666666686,
+            14.433333333333309,
+            37.30000000000001,
+            15.03333333333336,
+            15.299999999999955,
+            6.066666666666663,
+            9.966666666666697,
+            25.599999999999966,
+            18.966666666666697,
+            138.63333333333338,
+            35.86666666666656
+          ],
+          "botRamAttempts": 1,
+          "engagedSeconds": 60.699999999999115,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 17,
+        "bought": 47,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 821,
+        "mineralCollected": 646.4,
+        "tiers": [
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "wallet": 5.1
+      }
+    ],
+    "candidate": [
+      {
+        "seed": 1,
+        "profile": "contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 428.03333333333336,
+        "seconds": 600,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "gun": 61.19999999999996,
+            "rock": 43.283333333333346,
+            "ship-bump": 84.4,
+            "dash-ram": 43.999999999999986,
+            "ordnance": 35
+          },
+          "shield": {
+            "gun": 423.3600000000017,
+            "rock": 579.7083333333334,
+            "ship-bump": 291.79999999999995,
+            "dash-ram": 0,
+            "ordnance": 35.16000000000003
+          },
+          "deathCauses": {
+            "dash-ram": 1,
+            "gun": 1,
+            "ship-bump": 1,
+            "rock": 1
+          },
+          "lifetimes": [
+            153.7,
+            44,
+            12.966666666666669,
+            223.6
+          ],
+          "botRamAttempts": 2,
+          "engagedSeconds": 123.43333333332889,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 4,
+        "bought": 62,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 950,
+        "mineralCollected": 871.8,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          2
+        ],
+        "wallet": 12.6
+      },
+      {
+        "seed": 2,
+        "profile": "contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 166.53333333333333,
+        "seconds": 600,
+        "firstUpgrade": 9.5,
+        "diagnostics": {
+          "hull": {
+            "ship-bump": 30.29833333333333,
+            "rock": 79.38125,
+            "gun": 174.84166666666687,
+            "dash-ram": 89.75208333333333,
+            "ordnance": 0
+          },
+          "shield": {
+            "ship-bump": 390.51000000000005,
+            "rock": 590.6858788071266,
+            "gun": 312.1800000000009,
+            "dash-ram": 0,
+            "ordnance": 210.1609293587086
+          },
+          "deathCauses": {
+            "ship-bump": 1,
+            "gun": 2,
+            "dash-ram": 1
+          },
+          "lifetimes": [
+            220.93333333333334,
+            138.86666666666667,
+            96.59999999999997,
+            111.36666666666667
+          ],
+          "botRamAttempts": 3,
+          "engagedSeconds": 109.866666666663,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 4,
+        "bought": 56,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 1010,
+        "mineralCollected": 858.9,
+        "tiers": [
+          0,
+          0,
+          1,
+          0,
+          0
+        ],
+        "wallet": 7
+      },
+      {
+        "seed": 3,
+        "profile": "contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 7.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 153.25833333333333,
+            "gun": 111.63333333333325,
+            "ship-bump": 105.7416666666667,
+            "ordnance": 17.266666666666666,
+            "dash-ram": 31.8
+          },
+          "shield": {
+            "rock": 438.64166666666665,
+            "gun": 537.2966666666682,
+            "ship-bump": 167.67333333333332,
+            "ordnance": 92.31000000000006,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "gun": 4,
+            "ship-bump": 2,
+            "ordnance": 1
+          },
+          "lifetimes": [
+            55.03333333333333,
+            60.03333333333333,
+            90.33333333333334,
+            73.86666666666665,
+            7.199999999999989,
+            120.10000000000002,
+            80.66666666666669
+          ],
+          "botRamAttempts": 1,
+          "engagedSeconds": 97.23333333333038,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 7,
+        "bought": 51,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 681,
+        "mineralCollected": 699.8,
+        "tiers": [
+          0,
+          2,
+          4,
+          0,
+          0
+        ],
+        "wallet": 17.7
+      },
+      {
+        "seed": 4,
+        "profile": "contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 257.53333333333336,
+        "seconds": 600,
+        "firstUpgrade": 7,
+        "diagnostics": {
+          "hull": {
+            "rock": 48,
+            "gun": 85.95999999999998,
+            "ordnance": 0,
+            "ship-bump": 20,
+            "dash-ram": 32.7
+          },
+          "shield": {
+            "rock": 634,
+            "gun": 387.4166666666674,
+            "ordnance": 123.95666666666666,
+            "ship-bump": 89.21333333333328,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "gun": 3
+          },
+          "lifetimes": [
+            49.93333333333333,
+            37.13333333333333,
+            392.3666666666667
+          ],
+          "botRamAttempts": 1,
+          "engagedSeconds": 125.49999999999544,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 3,
+        "bought": 38,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 685,
+        "mineralCollected": 815.6,
+        "tiers": [
+          3,
+          4,
+          4,
+          0,
+          0
+        ],
+        "wallet": 15.2
+      },
+      {
+        "seed": 5,
+        "profile": "contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 174.03333333333333,
+        "seconds": 600,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 63.599999999999994,
+            "gun": 58.79999999999986,
+            "ship-bump": 42.800000000000026,
+            "ordnance": 0,
+            "dash-ram": 33.6
+          },
+          "shield": {
+            "rock": 592.9816666666667,
+            "gun": 397.18833333333527,
+            "ship-bump": 200,
+            "ordnance": 147.90051626016012,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "rock": 1,
+            "ship-bump": 1,
+            "gun": 1
+          },
+          "lifetimes": [
+            211.03333333333333,
+            285.1333333333333,
+            93.80000000000001
+          ],
+          "botRamAttempts": 1,
+          "engagedSeconds": 110.66666666666295,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 3,
+        "bought": 49,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 830,
+        "mineralCollected": 805,
+        "tiers": [
+          1,
+          4,
+          4,
+          0,
+          0
+        ],
+        "wallet": 0
+      },
+      {
+        "seed": 6,
+        "profile": "contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 183.03333333333333,
+        "seconds": 600,
+        "firstUpgrade": 9,
+        "diagnostics": {
+          "hull": {
+            "ship-bump": 60,
+            "gun": 127.61999999999993,
+            "rock": 52,
+            "ordnance": 0
+          },
+          "shield": {
+            "ship-bump": 244.19769287373202,
+            "gun": 450.5066666666679,
+            "rock": 610.6666666666666,
+            "ordnance": 158.20397379293468
+          },
+          "deathCauses": {
+            "gun": 3
+          },
+          "lifetimes": [
+            216.33333333333334,
+            36.33333333333334,
+            246.43333333333334
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 120.33333333332907,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 3,
+        "bought": 57,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 976,
+        "mineralCollected": 855.6,
+        "tiers": [
+          3,
+          4,
+          4,
+          0,
+          0
+        ],
+        "wallet": 1.7
+      },
+      {
+        "seed": 7,
+        "profile": "contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 183.03333333333333,
+        "seconds": 600,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 49.7,
+            "gun": 161.0399999999999,
+            "ship-bump": 27.27999999999999,
+            "ordnance": 81.28,
+            "dash-ram": 32.7
+          },
+          "shield": {
+            "rock": 510.8500000000001,
+            "gun": 426.1033333333355,
+            "ship-bump": 239.82,
+            "ordnance": 116.84,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "rock": 1,
+            "ship-bump": 1,
+            "ordnance": 2,
+            "gun": 1
+          },
+          "lifetimes": [
+            200.43333333333334,
+            127.83333333333331,
+            138.06666666666666,
+            48.333333333333314,
+            12.866666666666674
+          ],
+          "botRamAttempts": 1,
+          "engagedSeconds": 130.36666666666184,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 5,
+        "bought": 58,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 897,
+        "mineralCollected": 767.1,
+        "tiers": [
+          0,
+          1,
+          4,
+          0,
+          0
+        ],
+        "wallet": 2.6
+      },
+      {
+        "seed": 8,
+        "profile": "contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 468.53333333333336,
+        "seconds": 600,
+        "firstUpgrade": 5,
+        "diagnostics": {
+          "hull": {
+            "rock": 94.5,
+            "gun": 47.35999999999993,
+            "ordnance": 3.34,
+            "ship-bump": 22.666666666666675,
+            "dash-ram": 63.60000000000001
+          },
+          "shield": {
+            "rock": 553.28,
+            "gun": 417.66375000000147,
+            "ordnance": 77.52,
+            "ship-bump": 158.39333333333332,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "ship-bump": 1,
+            "rock": 1,
+            "ordnance": 1
+          },
+          "lifetimes": [
+            161.53333333333333,
+            17.76666666666668,
+            95.39999999999998
+          ],
+          "botRamAttempts": 2,
+          "engagedSeconds": 136.49999999999483,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 3,
+        "bought": 46,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 758,
+        "mineralCollected": 812.1,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "wallet": 181.8
+      },
+      {
+        "seed": 9,
+        "profile": "contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 216.03333333333333,
+        "seconds": 600,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 58.837500000000006,
+            "gun": 59.45666666666661,
+            "ship-bump": 112.04333333333335,
+            "ordnance": 0,
+            "dash-ram": 32.7
+          },
+          "shield": {
+            "rock": 681.3825,
+            "gun": 329.37000000000165,
+            "ship-bump": 219.89999999999998,
+            "ordnance": 102.76958333333343,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "rock": 2,
+            "gun": 1,
+            "ship-bump": 1
+          },
+          "lifetimes": [
+            39.86666666666667,
+            252.96666666666664,
+            62.23333333333335,
+            35.5
+          ],
+          "botRamAttempts": 1,
+          "engagedSeconds": 112.59999999999617,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 4,
+        "bought": 53,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 878,
+        "mineralCollected": 828.4,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "wallet": 17.8
+      },
+      {
+        "seed": 10,
+        "profile": "contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 560.0333333333333,
+        "seconds": 600,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 68,
+            "gun": 116.41666666666657,
+            "dash-ram": 92.43333333333334,
+            "ship-bump": 73.38333333333334,
+            "ordnance": 22.166666666666664
+          },
+          "shield": {
+            "rock": 574.5799999999999,
+            "gun": 428.70500000000146,
+            "dash-ram": 0,
+            "ship-bump": 203.44859372526804,
+            "ordnance": 71.71140627473197
+          },
+          "deathCauses": {
+            "gun": 4,
+            "dash-ram": 1
+          },
+          "lifetimes": [
+            116.13333333333334,
+            22.966666666666654,
+            91.63333333333333,
+            108.43333333333337,
+            36.56666666666666
+          ],
+          "botRamAttempts": 3,
+          "engagedSeconds": 114.56666666666273,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 5,
+        "bought": 56,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 878,
+        "mineralCollected": 840.5,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "wallet": 79.2
+      },
+      {
+        "seed": 1,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 419.53333333333336,
+        "seconds": 600,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 39.333333333333336,
+            "gun": 53.999999999999986,
+            "ordnance": 94.5
+          },
+          "shield": {
+            "rock": 1148.6666666666667,
+            "gun": 204.36,
+            "ordnance": 178.865
+          },
+          "deathCauses": {
+            "ordnance": 2,
+            "gun": 1
+          },
+          "lifetimes": [
+            187.3,
+            314.1333333333333,
+            47.333333333333314
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 49.43333333333309,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 3,
+        "bought": 41,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 624,
+        "mineralCollected": 623.2,
+        "tiers": [
+          0,
+          0,
+          3,
+          0,
+          0
+        ],
+        "wallet": 2
+      },
+      {
+        "seed": 2,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 218.53333333333333,
+        "seconds": 600,
+        "firstUpgrade": 7.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 46,
+            "ordnance": 34.24166666666667,
+            "gun": 22.958333333333307
+          },
+          "shield": {
+            "rock": 671.25,
+            "ordnance": 309.65833333333336,
+            "gun": 267.19500000000005
+          },
+          "deathCauses": {
+            "gun": 1
+          },
+          "lifetimes": [
+            468.7
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 39.10000000000034,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 1,
+        "bought": 30,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 519,
+        "mineralCollected": 631,
+        "tiers": [
+          2,
+          4,
+          4,
+          0,
+          0
+        ],
+        "wallet": 4
+      },
+      {
+        "seed": 3,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 344.53333333333336,
+        "seconds": 600,
+        "firstUpgrade": 7.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 42.891666666666666,
+            "gun": 37.27999999999999,
+            "ordnance": 50.120000000000005
+          },
+          "shield": {
+            "rock": 784.4745833333332,
+            "gun": 77.92,
+            "ordnance": 201.40833333333333
+          },
+          "deathCauses": {
+            "ordnance": 1,
+            "rock": 1
+          },
+          "lifetimes": [
+            118.3,
+            414.40000000000003
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 20.266666666666833,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 2,
+        "bought": 36,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 637,
+        "mineralCollected": 653,
+        "tiers": [
+          0,
+          1,
+          4,
+          0,
+          0
+        ],
+        "wallet": 4
+      },
+      {
+        "seed": 4,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 7,
+        "diagnostics": {
+          "hull": {
+            "rock": 93.95000000000002,
+            "ordnance": 15.849999999999994,
+            "gun": 81.792
+          },
+          "shield": {
+            "rock": 1239.7229166666666,
+            "ordnance": 171.43500000000006,
+            "gun": 127.35999999999999
+          },
+          "deathCauses": {
+            "ordnance": 2
+          },
+          "lifetimes": [
+            209.93333333333334,
+            205.26666666666665
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 34.533333333333935,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 2,
+        "bought": 52,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 841,
+        "mineralCollected": 680.5,
+        "tiers": [
+          4,
+          4,
+          4,
+          3,
+          0
+        ],
+        "wallet": 10
+      },
+      {
+        "seed": 5,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 265.03333333333336,
+        "seconds": 600,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 92.85,
+            "gun": 13.59999999999997,
+            "ordnance": 0
+          },
+          "shield": {
+            "rock": 975.68,
+            "gun": 240.3200000000001,
+            "ordnance": 201.6216666666666
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 37.60000000000043,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 20,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 400,
+        "mineralCollected": 672.8,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "wallet": 390.8
+      },
+      {
+        "seed": 6,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 210.03333333333333,
+        "seconds": 600,
+        "firstUpgrade": 8.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 72,
+            "ordnance": 0,
+            "gun": 11.99999999999999
+          },
+          "shield": {
+            "rock": 871.9750000000001,
+            "ordnance": 150.82166666666666,
+            "gun": 175.64
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 36.56666666666715,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 20,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 400,
+        "mineralCollected": 707,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "wallet": 443.2
+      },
+      {
+        "seed": 7,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 232.53333333333333,
+        "seconds": 600,
+        "firstUpgrade": 9.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 30,
+            "ordnance": 32.08,
+            "gun": 38.39999999999999
+          },
+          "shield": {
+            "rock": 1067,
+            "ordnance": 21.83333333333333,
+            "gun": 102.59999999999998
+          },
+          "deathCauses": {
+            "ordnance": 1
+          },
+          "lifetimes": [
+            350.9
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 26.833333333333826,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 1,
+        "bought": 40,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 776,
+        "mineralCollected": 743.3,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "wallet": 79.8
+      },
+      {
+        "seed": 8,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 251.53333333333333,
+        "seconds": 600,
+        "firstUpgrade": 5,
+        "diagnostics": {
+          "hull": {
+            "rock": 84.94166666666668,
+            "gun": 0,
+            "ordnance": 0
+          },
+          "shield": {
+            "rock": 771.1249999999999,
+            "gun": 185.48000000000002,
+            "ordnance": 149.13
+          },
+          "deathCauses": {
+            "rock": 1
+          },
+          "lifetimes": [
+            379.9
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 26.566666666667146,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 1,
+        "bought": 40,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 711,
+        "mineralCollected": 701.9,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "wallet": 4.1
+      },
+      {
+        "seed": 9,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 360.53333333333336,
+        "seconds": 600,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 94.55833333333334,
+            "gun": 70.02333333333334,
+            "ordnance": 0
+          },
+          "shield": {
+            "rock": 839.3,
+            "gun": 455.61366666666675,
+            "ordnance": 254.568
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 46.96666666666656,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 20,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 400,
+        "mineralCollected": 657.2,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "wallet": 330.7
+      },
+      {
+        "seed": 10,
+        "profile": "cautious-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 26,
+            "gun": 33.239999999999995,
+            "ordnance": 121.5
+          },
+          "shield": {
+            "rock": 870.6791666666667,
+            "gun": 316.26333333333343,
+            "ordnance": 173.94499999999996
+          },
+          "deathCauses": {
+            "gun": 1,
+            "ordnance": 2
+          },
+          "lifetimes": [
+            33.56666666666667,
+            172.83333333333334,
+            203.36666666666665
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 34.10000000000063,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 3,
+        "bought": 56,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 815,
+        "mineralCollected": 712.6,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          1
+        ],
+        "wallet": 7
+      },
+      {
+        "seed": 1,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 179.53333333333333,
+        "seconds": 600,
+        "firstUpgrade": 5.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 86.80000000000001,
+            "gun": 30.06666666666665,
+            "ship-bump": 40,
+            "ordnance": 10.733333333333345,
+            "dash-ram": 16.09999999999999
+          },
+          "shield": {
+            "rock": 960.9548295636812,
+            "gun": 249.25293572669096,
+            "ship-bump": 239,
+            "ordnance": 145.4665279995272,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "gun": 1,
+            "dash-ram": 1
+          },
+          "lifetimes": [
+            278,
+            126.23333333333335
+          ],
+          "botRamAttempts": 1,
+          "engagedSeconds": 89.26666666666416,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 2,
+        "bought": 48,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 829,
+        "mineralCollected": 786,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          2
+        ],
+        "wallet": 9
+      },
+      {
+        "seed": 2,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": false,
+        "completionSeconds": null,
+        "seconds": 600,
+        "firstUpgrade": 37,
+        "diagnostics": {
+          "hull": {
+            "gun": 109.59999999999994,
+            "ordnance": 75.5,
+            "rock": 219.7375,
+            "ship-bump": 51.96666666666667
+          },
+          "shield": {
+            "gun": 221.81666666666683,
+            "ordnance": 136.03120046389932,
+            "rock": 901.7685602736805,
+            "ship-bump": 247.38333333333333
+          },
+          "deathCauses": {
+            "rock": 2,
+            "ordnance": 2,
+            "ship-bump": 1,
+            "gun": 2
+          },
+          "lifetimes": [
+            57.2,
+            138.5333333333333,
+            167.00000000000003,
+            16.566666666666663,
+            25.80000000000001,
+            44.5,
+            110.86666666666667
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 91.96666666666401,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 7,
+        "bought": 50,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 849,
+        "mineralCollected": 673.7,
+        "tiers": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wallet": 0
+      },
+      {
+        "seed": 3,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 299.03333333333336,
+        "seconds": 600,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 113.84761277359318,
+            "ship-bump": 0,
+            "gun": 25.992499999999993,
+            "ordnance": 63.99113722640682
+          },
+          "shield": {
+            "rock": 814.6312500000001,
+            "ship-bump": 316.83333333333337,
+            "gun": 200.7875000000002,
+            "ordnance": 125.8
+          },
+          "deathCauses": {
+            "rock": 2,
+            "ordnance": 1
+          },
+          "lifetimes": [
+            80.8,
+            35.3,
+            414.1
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 77.69999999999816,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 3,
+        "bought": 36,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 642,
+        "mineralCollected": 707.1,
+        "tiers": [
+          0,
+          3,
+          4,
+          0,
+          0
+        ],
+        "wallet": 16.3
+      },
+      {
+        "seed": 4,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 214.53333333333333,
+        "seconds": 600,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 16,
+            "gun": 0.8000000000000007,
+            "ordnance": 35,
+            "ship-bump": 0,
+            "ram-reflection": 0
+          },
+          "shield": {
+            "rock": 764.9933333333333,
+            "gun": 192.08000000000015,
+            "ordnance": 144.06053003454227,
+            "ship-bump": 260,
+            "ram-reflection": 26.516666666666666
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 84.36666666666444,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 20,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 381,
+        "mineralCollected": 446.9,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "wallet": 171.1
+      },
+      {
+        "seed": 5,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 448.53333333333336,
+        "seconds": 600,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 142.85066550336154,
+            "gun": 46.07999999999994,
+            "ordnance": 29.994334496638444,
+            "ship-bump": 96.775,
+            "dash-ram": 31.8
+          },
+          "shield": {
+            "rock": 985.7748634427398,
+            "gun": 332.30000000000075,
+            "ordnance": 68.53513655726016,
+            "ship-bump": 143.225,
+            "dash-ram": 0
+          },
+          "deathCauses": {
+            "rock": 5
+          },
+          "lifetimes": [
+            16.033333333333335,
+            45.96666666666667,
+            56.599999999999994,
+            56.20000000000002,
+            32.39999999999998
+          ],
+          "botRamAttempts": 1,
+          "engagedSeconds": 87.76666666666425,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 5,
+        "bought": 37,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 647,
+        "mineralCollected": 674.8,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "wallet": 142.6
+      },
+      {
+        "seed": 6,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 162.53333333333333,
+        "seconds": 600,
+        "firstUpgrade": 8,
+        "diagnostics": {
+          "hull": {
+            "gun": 26.07999999999997,
+            "rock": 72,
+            "ordnance": 33.519999999999996,
+            "ship-bump": 0
+          },
+          "shield": {
+            "gun": 313.7600000000007,
+            "rock": 903.6035990949597,
+            "ordnance": 83.27140090504052,
+            "ship-bump": 221
+          },
+          "deathCauses": {
+            "ordnance": 1
+          },
+          "lifetimes": [
+            428.8
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 102.7666666666634,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 1,
+        "bought": 37,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 629,
+        "mineralCollected": 721.1,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          1
+        ],
+        "wallet": 0.6
+      },
+      {
+        "seed": 7,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 317.53333333333336,
+        "seconds": 600,
+        "firstUpgrade": 12,
+        "diagnostics": {
+          "hull": {
+            "rock": 193.2625,
+            "gun": 12.79999999999998,
+            "ordnance": 17.899999999999995,
+            "ship-bump": 0
+          },
+          "shield": {
+            "rock": 1155.7875000000001,
+            "gun": 120.79999999999957,
+            "ordnance": 132.02416645932817,
+            "ship-bump": 108.60000000000001
+          },
+          "deathCauses": {
+            "rock": 1,
+            "ordnance": 1
+          },
+          "lifetimes": [
+            171.3,
+            193.5333333333333
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 88.96666666666418,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 2,
+        "bought": 54,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 954,
+        "mineralCollected": 871.2,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "wallet": 57.9
+      },
+      {
+        "seed": 8,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 520.0333333333333,
+        "seconds": 600,
+        "firstUpgrade": 10.5,
+        "diagnostics": {
+          "hull": {
+            "ship-bump": 31.93750000000002,
+            "rock": 191.6652206000866,
+            "gun": 31.999999999999964,
+            "ordnance": 49.89727939991342
+          },
+          "shield": {
+            "ship-bump": 271.4225,
+            "rock": 833.6500000000001,
+            "gun": 219.52000000000083,
+            "ordnance": 197.9972115162678
+          },
+          "deathCauses": {
+            "rock": 3,
+            "ordnance": 1
+          },
+          "lifetimes": [
+            88.4,
+            109.26666666666665,
+            80.73333333333332,
+            21.566666666666663
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 97.09999999999705,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 4,
+        "bought": 46,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 1038,
+        "mineralCollected": 764.9,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "wallet": 135.7
+      },
+      {
+        "seed": 9,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 207.53333333333333,
+        "seconds": 600,
+        "firstUpgrade": 9.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 49.2,
+            "ship-bump": 0,
+            "gun": 8.799999999999969,
+            "ordnance": 28.389363044985743
+          },
+          "shield": {
+            "rock": 885.2683333333333,
+            "ship-bump": 167.30000000000004,
+            "gun": 144.31999999999988,
+            "ordnance": 98.86540728845777
+          },
+          "deathCauses": {
+            "rock": 1
+          },
+          "lifetimes": [
+            446.1
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 77.56666666666483,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 1,
+        "bought": 38,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 672,
+        "mineralCollected": 636.2,
+        "tiers": [
+          4,
+          4,
+          4,
+          4,
+          2
+        ],
+        "wallet": 6
+      },
+      {
+        "seed": 10,
+        "profile": "fighter-contested",
+        "goal": "max",
+        "completed": true,
+        "completionSeconds": 183.03333333333333,
+        "seconds": 600,
+        "firstUpgrade": 5.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 196,
+            "gun": 102.8,
+            "ordnance": 0,
+            "ship-bump": 20,
+            "ram-reflection": 30
+          },
+          "shield": {
+            "rock": 944.4333333333334,
+            "gun": 336.40000000000094,
+            "ordnance": 137.8694898476945,
+            "ship-bump": 140,
+            "ram-reflection": 0
+          },
+          "deathCauses": {
+            "gun": 3,
+            "rock": 2,
+            "ram-reflection": 1
+          },
+          "lifetimes": [
+            317.23333333333335,
+            33.73333333333329,
+            87.9666666666667,
+            22.23333333333335,
+            6.7999999999999545,
+            95.43333333333334
+          ],
+          "botRamAttempts": 0,
+          "engagedSeconds": 94.93333333333051,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 6,
+        "bought": 41,
+        "bank": 0,
+        "runs": 0,
+        "unlockedAt": null,
+        "salvageCollected": 782,
+        "mineralCollected": 679.4,
+        "tiers": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "wallet": 0
+      }
+    ],
+    "access500": [
+      {
+        "seed": 1,
+        "profile": "coached",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 489.5666666666667,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 18
+          },
+          "shield": {
+            "rock": 786.9166666666667
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 45,
+        "bank": 686,
+        "runs": 2,
+        "unlockedAt": 421.6,
+        "salvageCollected": 801,
+        "mineralCollected": 750,
+        "evolved": true
+      },
+      {
+        "seed": 2,
+        "profile": "coached",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 516.6333333333333,
+        "firstUpgrade": 9.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 8
+          },
+          "shield": {
+            "rock": 839
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 676,
+        "runs": 2,
+        "unlockedAt": 437.1333333333333,
+        "salvageCollected": 795,
+        "mineralCollected": 777,
+        "evolved": true
+      },
+      {
+        "seed": 3,
+        "profile": "coached",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 496.6666666666667,
+        "firstUpgrade": 7.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 501
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 738,
+        "runs": 2,
+        "unlockedAt": 401.96666666666664,
+        "salvageCollected": 858,
+        "mineralCollected": 770,
+        "evolved": true
+      },
+      {
+        "seed": 4,
+        "profile": "coached",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 547.3666666666667,
+        "firstUpgrade": 7,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 606
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 740,
+        "runs": 2,
+        "unlockedAt": 469.3666666666667,
+        "salvageCollected": 882,
+        "mineralCollected": 844,
+        "evolved": true
+      },
+      {
+        "seed": 5,
+        "profile": "coached",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 497.1,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 36
+          },
+          "shield": {
+            "rock": 728.08125
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 723,
+        "runs": 2,
+        "unlockedAt": 413.73333333333335,
+        "salvageCollected": 849,
+        "mineralCollected": 775.5,
+        "evolved": true
+      },
+      {
+        "seed": 6,
+        "profile": "coached",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 498.7666666666667,
+        "firstUpgrade": 13,
+        "diagnostics": {
+          "hull": {
+            "rock": 8
+          },
+          "shield": {
+            "rock": 725
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 796,
+        "runs": 2,
+        "unlockedAt": 411.43333333333334,
+        "salvageCollected": 931,
+        "mineralCollected": 831,
+        "evolved": true
+      },
+      {
+        "seed": 7,
+        "profile": "coached",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 524.6999999999999,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 673.6666666666666
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 706,
+        "runs": 2,
+        "unlockedAt": 437.3666666666667,
+        "salvageCollected": 843,
+        "mineralCollected": 825,
+        "evolved": true
+      },
+      {
+        "seed": 8,
+        "profile": "coached",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 502.90000000000003,
+        "firstUpgrade": 5,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 488
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 665,
+        "runs": 2,
+        "unlockedAt": 433.93333333333334,
+        "salvageCollected": 781,
+        "mineralCollected": 760,
+        "evolved": true
+      },
+      {
+        "seed": 9,
+        "profile": "coached",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 502.3666666666667,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 546.25
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 710,
+        "runs": 2,
+        "unlockedAt": 407.76666666666665,
+        "salvageCollected": 828,
+        "mineralCollected": 725,
+        "evolved": true
+      },
+      {
+        "seed": 10,
+        "profile": "coached",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 504.5666666666667,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 546.0833333333334
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 45,
+        "bank": 679,
+        "runs": 2,
+        "unlockedAt": 433.23333333333335,
+        "salvageCollected": 805,
+        "mineralCollected": 732,
+        "evolved": true
+      },
+      {
+        "seed": 1,
+        "profile": "coached",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 502.70000000000005,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 18
+          },
+          "shield": {
+            "rock": 714.5
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 45,
+        "bank": 686,
+        "runs": 2,
+        "unlockedAt": 421.6,
+        "salvageCollected": 810,
+        "mineralCollected": 754,
+        "evolved": true
+      },
+      {
+        "seed": 2,
+        "profile": "coached",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 516.4,
+        "firstUpgrade": 9.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 871
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 676,
+        "runs": 2,
+        "unlockedAt": 437.1333333333333,
+        "salvageCollected": 809,
+        "mineralCollected": 776,
+        "evolved": true
+      },
+      {
+        "seed": 3,
+        "profile": "coached",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 476.23333333333335,
+        "firstUpgrade": 7.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 503
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 738,
+        "runs": 2,
+        "unlockedAt": 401.96666666666664,
+        "salvageCollected": 854,
+        "mineralCollected": 771,
+        "evolved": true
+      },
+      {
+        "seed": 4,
+        "profile": "coached",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 567.8,
+        "firstUpgrade": 7,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 608
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 740,
+        "runs": 2,
+        "unlockedAt": 469.3666666666667,
+        "salvageCollected": 872,
+        "mineralCollected": 842,
+        "evolved": true
+      },
+      {
+        "seed": 5,
+        "profile": "coached",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 506.73333333333335,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 36
+          },
+          "shield": {
+            "rock": 768.08125
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 723,
+        "runs": 2,
+        "unlockedAt": 413.73333333333335,
+        "salvageCollected": 843,
+        "mineralCollected": 774.5,
+        "evolved": true
+      },
+      {
+        "seed": 6,
+        "profile": "coached",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 497.2666666666667,
+        "firstUpgrade": 13,
+        "diagnostics": {
+          "hull": {
+            "rock": 8
+          },
+          "shield": {
+            "rock": 739
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 796,
+        "runs": 2,
+        "unlockedAt": 411.43333333333334,
+        "salvageCollected": 959,
+        "mineralCollected": 830,
+        "evolved": true
+      },
+      {
+        "seed": 7,
+        "profile": "coached",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 518.0666666666666,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 713.6666666666666
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 706,
+        "runs": 2,
+        "unlockedAt": 437.3666666666667,
+        "salvageCollected": 824,
+        "mineralCollected": 823,
+        "evolved": true
+      },
+      {
+        "seed": 8,
+        "profile": "coached",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 496.33333333333337,
+        "firstUpgrade": 5,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 538
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 665,
+        "runs": 2,
+        "unlockedAt": 433.93333333333334,
+        "salvageCollected": 819,
+        "mineralCollected": 761,
+        "evolved": true
+      },
+      {
+        "seed": 9,
+        "profile": "coached",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 501,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 558.25
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 710,
+        "runs": 2,
+        "unlockedAt": 407.76666666666665,
+        "salvageCollected": 839,
+        "mineralCollected": 722,
+        "evolved": true
+      },
+      {
+        "seed": 10,
+        "profile": "coached",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 503.4666666666667,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 602
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 45,
+        "bank": 679,
+        "runs": 2,
+        "unlockedAt": 433.23333333333335,
+        "salvageCollected": 818,
+        "mineralCollected": 734,
+        "evolved": true
+      },
+      {
+        "seed": 1,
+        "profile": "hesitant",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 525.4333333333333,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 48
+          },
+          "shield": {
+            "rock": 899.3333333333333
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 718,
+        "runs": 2,
+        "unlockedAt": 426.1,
+        "salvageCollected": 840,
+        "mineralCollected": 769,
+        "evolved": true
+      },
+      {
+        "seed": 2,
+        "profile": "hesitant",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 583.5666666666666,
+        "firstUpgrade": 9.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 26
+          },
+          "shield": {
+            "rock": 897.3375
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 45,
+        "bank": 657,
+        "runs": 2,
+        "unlockedAt": 456.6666666666667,
+        "salvageCollected": 790,
+        "mineralCollected": 770,
+        "evolved": true
+      },
+      {
+        "seed": 3,
+        "profile": "hesitant",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 542.4666666666666,
+        "firstUpgrade": 7.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 708
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 721,
+        "runs": 2,
+        "unlockedAt": 449.2,
+        "salvageCollected": 853,
+        "mineralCollected": 835,
+        "evolved": true
+      },
+      {
+        "seed": 4,
+        "profile": "hesitant",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 507.70000000000005,
+        "firstUpgrade": 7,
+        "diagnostics": {
+          "hull": {
+            "rock": 18
+          },
+          "shield": {
+            "rock": 774.75
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 681,
+        "runs": 2,
+        "unlockedAt": 426.96666666666664,
+        "salvageCollected": 836,
+        "mineralCollected": 765,
+        "evolved": true
+      },
+      {
+        "seed": 5,
+        "profile": "hesitant",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 509.83333333333337,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 768.375
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 677,
+        "runs": 2,
+        "unlockedAt": 423.5,
+        "salvageCollected": 796,
+        "mineralCollected": 721,
+        "evolved": true
+      },
+      {
+        "seed": 6,
+        "profile": "hesitant",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 508.1,
+        "firstUpgrade": 8.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 18
+          },
+          "shield": {
+            "rock": 562.3333333333334
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 45,
+        "bank": 647,
+        "runs": 2,
+        "unlockedAt": 418.6666666666667,
+        "salvageCollected": 772,
+        "mineralCollected": 721,
+        "evolved": true
+      },
+      {
+        "seed": 7,
+        "profile": "hesitant",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 518.5333333333333,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 856
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 710,
+        "runs": 2,
+        "unlockedAt": 437.1666666666667,
+        "salvageCollected": 849,
+        "mineralCollected": 776,
+        "evolved": true
+      },
+      {
+        "seed": 8,
+        "profile": "hesitant",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 503.5,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 750
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 678,
+        "runs": 2,
+        "unlockedAt": 421.6,
+        "salvageCollected": 804,
+        "mineralCollected": 741,
+        "evolved": true
+      },
+      {
+        "seed": 9,
+        "profile": "hesitant",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 482.90000000000003,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 778
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 45,
+        "bank": 648,
+        "runs": 2,
+        "unlockedAt": 404.96666666666664,
+        "salvageCollected": 794,
+        "mineralCollected": 662,
+        "evolved": true
+      },
+      {
+        "seed": 10,
+        "profile": "hesitant",
+        "goal": "account-bc",
+        "completed": true,
+        "seconds": 537.1666666666666,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 18.33333333333333
+          },
+          "shield": {
+            "rock": 765.6666666666666
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 695,
+        "runs": 2,
+        "unlockedAt": 461.3,
+        "salvageCollected": 812,
+        "mineralCollected": 802.1,
+        "evolved": true
+      },
+      {
+        "seed": 1,
+        "profile": "hesitant",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 526.9666666666666,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 48
+          },
+          "shield": {
+            "rock": 947.3333333333333
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 718,
+        "runs": 2,
+        "unlockedAt": 426.1,
+        "salvageCollected": 834,
+        "mineralCollected": 769,
+        "evolved": true
+      },
+      {
+        "seed": 2,
+        "profile": "hesitant",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 568.0333333333333,
+        "firstUpgrade": 9.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 26
+          },
+          "shield": {
+            "rock": 921.3375
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 45,
+        "bank": 657,
+        "runs": 2,
+        "unlockedAt": 456.6666666666667,
+        "salvageCollected": 776,
+        "mineralCollected": 772,
+        "evolved": true
+      },
+      {
+        "seed": 3,
+        "profile": "hesitant",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 543.6,
+        "firstUpgrade": 7.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 682
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 721,
+        "runs": 2,
+        "unlockedAt": 449.2,
+        "salvageCollected": 836,
+        "mineralCollected": 835,
+        "evolved": true
+      },
+      {
+        "seed": 4,
+        "profile": "hesitant",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 506.7666666666667,
+        "firstUpgrade": 7,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 721
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 681,
+        "runs": 2,
+        "unlockedAt": 426.96666666666664,
+        "salvageCollected": 800,
+        "mineralCollected": 764,
+        "evolved": true
+      },
+      {
+        "seed": 5,
+        "profile": "hesitant",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 511.8,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 808.375
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 677,
+        "runs": 2,
+        "unlockedAt": 423.5,
+        "salvageCollected": 793,
+        "mineralCollected": 721,
+        "evolved": true
+      },
+      {
+        "seed": 6,
+        "profile": "hesitant",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 497.53333333333336,
+        "firstUpgrade": 8.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 18
+          },
+          "shield": {
+            "rock": 544.3333333333334
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 45,
+        "bank": 647,
+        "runs": 2,
+        "unlockedAt": 418.6666666666667,
+        "salvageCollected": 763,
+        "mineralCollected": 721,
+        "evolved": true
+      },
+      {
+        "seed": 7,
+        "profile": "hesitant",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 515.2333333333333,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 820
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 710,
+        "runs": 2,
+        "unlockedAt": 437.1666666666667,
+        "salvageCollected": 863,
+        "mineralCollected": 774,
+        "evolved": true
+      },
+      {
+        "seed": 8,
+        "profile": "hesitant",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 507.23333333333335,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 8
+          },
+          "shield": {
+            "rock": 719.0833333333334
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 678,
+        "runs": 2,
+        "unlockedAt": 421.6,
+        "salvageCollected": 794,
+        "mineralCollected": 745,
+        "evolved": true
+      },
+      {
+        "seed": 9,
+        "profile": "hesitant",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 505.1,
+        "firstUpgrade": 6.5,
+        "diagnostics": {
+          "hull": {
+            "rock": 0
+          },
+          "shield": {
+            "rock": 748
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 45,
+        "bank": 648,
+        "runs": 2,
+        "unlockedAt": 404.96666666666664,
+        "salvageCollected": 775,
+        "mineralCollected": 660,
+        "evolved": true
+      },
+      {
+        "seed": 10,
+        "profile": "hesitant",
+        "goal": "account-mc",
+        "completed": true,
+        "seconds": 536.6666666666666,
+        "firstUpgrade": 6,
+        "diagnostics": {
+          "hull": {
+            "rock": 20.083333333333332
+          },
+          "shield": {
+            "rock": 789.9166666666666
+          },
+          "deathCauses": {},
+          "lifetimes": [],
+          "botRamAttempts": 0,
+          "engagedSeconds": 0,
+          "multipleHuntersSeconds": 0
+        },
+        "deaths": 0,
+        "bought": 46,
+        "bank": 695,
+        "runs": 2,
+        "unlockedAt": 461.3,
+        "salvageCollected": 811,
+        "mineralCollected": 802,
+        "evolved": true
+      }
+    ]
+  },
+  "ui": {
+    "capture": false,
+    "errors": [],
+    "cases": [
+      {
+        "width": 1280,
+        "height": 720,
+        "mobile": false,
+        "bothQuotes500": true,
+        "twoPurchasesTotal1000": true,
+        "explicitEquipment": true,
+        "remainingBalance": 0
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "mobile": true,
+        "bothQuotes500": true,
+        "twoPurchasesTotal1000": true,
+        "explicitEquipment": true,
+        "remainingBalance": 0
+      }
+    ],
+    "accountFixture": true,
+    "liveWrites": false
+  },
+  "checks": [
+    "TypeScript strict check",
+    "production build",
+    "full sim/progression/capital/grip/tutorial gate",
+    "live config/OIDC/admin/publisher regression",
+    "real SQLite bank,499 insufficient and exact500 purchase",
+    "rig/FFD/building/22 layout cases",
+    "new pass/reacquire/siege/16 spawn/migration gate",
+    "headless Brave PC and portrait500 quote/buy/equip;no capture"
+  ]
+}

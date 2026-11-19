@@ -2,6 +2,16 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Bot survival /500-credit evolution candidate — NOT LIVE
+
+Owner19 November: keep minerals; reduce both permanent evos1500→500 rather than free first choice; test survival changes before release. Candidate branch codex/steroids-bot-survival-candidate (pending protocol32); public remains107/31. No merge/deployment yet.
+
+Diagnosis: guns dominate; one-hunter cap works. Removing dash/ordnance alone insufficient. Continuous nose pursuit creates body-checks; centre-area player spawns avoided rocks but not ships. Candidate aim7→14deg/perception.25→.45/reaction.9→1.3; ordinary attack pass exits at360px for1.2s (siege committed approach retained); occupied open-player spawns reuse32-point ship/rock spread. No extra arrival immunity, HP/damage/movement/ram/shop/art changes.
+
+Equal10-minute sessions,10 seeds per policy, continuing after max: mining deaths27.5→4, evasive10.5→1, combat18→2.5. Combat pilot frozen to live AI/settings on both sides and memory reset each life; initial adaptive-pilot comparisons excluded. No lifetime inference from deceased samples. Reached all20 at least once0/10→9/10,0/10→8/10,0/10→9/10 respectively. Human playtest still needed.
+
+500-credit account route40 cases:2 successful extractions, first cruiser median8:23–8:34 versus~17–18min. ActualSQLite499/500/exact/duplicate/ownership/equipment gates pass; browser UI account responses mocked, no live spending. Full type/build/sim/config/bank/rig and2 local headless PC/portrait UI cases pass. Protocol32 paired refresh required; behaviourVersion1 upgrades only old bot observation fields, future edits preserved; effective unlock catalogue500 is deployment-owned. No D1 migration/resident publisher/assets. Review ../steroids-alpha-lab/BOT_SURVIVAL_REVIEW.md and bot-survival-proof.json before release.
+
 ## Progression pace measured —19 November2026; no tuning changes
 
 210 seeded production-simulation runs,10 per condition. Quiet median max20 upgrades2:32 focused/2:46 delayed; owned BC1:15/1:18, MC1:17/1:19. Matched before max14:01/BC6:31/MC6:43. Shop spend−79.8%, safe-max elapsed−81.9%. First account banks1500 via4 successful extractions, then evolves at16:49–17:57 median depending controller/build; human account/tutorial/menu time excluded.

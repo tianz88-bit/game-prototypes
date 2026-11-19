@@ -679,7 +679,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   {
     const w = emptyWorld();
     const bot = placeShip(w, 1, 1000, 1000, 0);
-    placeShip(w, 2, 1300, 1000, Math.PI / 2).speed = 0;
+    placeShip(w, 2, 1500, 1000, Math.PI / 2).speed = 0;
     const brain = S.newBrain(fixed);
     const first = S.botThink(1, bot, w, brain, tune, fixed).input;
     assert(!first.fire, 'a newcomer is not shot at instantly (reaction time)');
@@ -711,7 +711,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   {
     const w = emptyWorld();
     const bot = placeShip(w, 1, 1000, 1000, 0);
-    placeShip(w, 2, 1300, 1000, 0);
+    placeShip(w, 2, 1500, 1000, 0);
     bot.heat = bt.burstHeat + 0.01;
     const brain = Object.assign(S.newBrain(fixed), { target: 2, reactAt: 0, engagedSince: w.tick }); // already in the fight
     assert(!S.botThink(1, bot, w, brain, tune, fixed).input.fire, 'stops at the burst heat');
@@ -2147,3 +2147,5 @@ await import('./test-steroids-live-grip.mjs');
 await import('./test-steroids-capital-evolution.mjs');
 
 await import('./test-steroids-progression-balance.mjs');
+
+await import('./test-steroids-bot-survival.mjs');

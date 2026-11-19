@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-19 codex bot survival candidate — NOT LIVE
+DID: Owner chose500-credit evos, mineral prices unchanged. Tested wider/slower bot aim, committed1.2s attack exits and occupied-player spawn clearance; public remains107/31.
+FILES: bots/world/tune/liveConfig/protocol32, lab draft/version hiding, instrumented pace harness, bank/sim/config/new survival gates; lab BOT_SURVIVAL_REVIEW/proof.
+SEAM: pending32 same layout requires paired release; bot epoch1 migrates observations once, catalogue quote is deployment-owned500. No new wire fields, damage/HP/movement/ram/shop/art changes.
+CROSS: candidate only. Equal600s×10 seeds/policy: deaths27.5→4 mining,10.5→1 evasive,18→2.5 frozen combat. First500-credit cruiser8:23–8:34. Type/build/sim/config/bank/rig and2 headless UI cases pass; no capture.
+FOR claude: deferred; do not merge/deploy without owner review. Branch codex/steroids-bot-survival-candidate. Human difficulty unmeasured; account UI mocked but billing/authority tested with SQLite/Room.
+
 ## 2026-11-19 codex progression pace study
 DID:210 seeded headless runs: quiet max2:32–2:46, owned BC/MC~1:15–1:19; zero-credit first cruiser~16:49–17:57. Before max14:01; no live changes.
 FILES: scripts/measure-steroids-progression-pace.mjs; lab/PROGRESSION_PACE.md and progression-pace-proof.json; status/backlog.
@@ -97,11 +104,4 @@ FILES: render/landingLayout,hudLayout; scenes/menu,flight; landing layout regres
 SEAM: optional touch argument/desktop credit anchors; flight header shares PC nav/Warp geometry; existing drawer/input intents unchanged.
 CROSS: menu/input behaviour minimally touched to repair missing PC controls; no simulation/tune/Worker/config or live Speed Grip port.
 FOR claude: backlog ready, no immediate action.12 local menus/8 HUD/7 final menu and7 public menus/8 HUD pass without page errors/capture. Pages post-deploy Operation C counter push race logged.
-
-## 2026-11-17 codex speed-dependent grip PUBLIC LAB
-DID: Speed Grip / No Drift / Live Baseline, held Thrust/Brake and bounded speed-dependent travel drift public via PR554 cc1fc0b7; Pages44074248828 success.
-FILES: lab-only grip/model/layout/input/UI/preset and standalone tests/comparison scripts; deferred docs. Live combat171126r0098/Worker25 unchanged; no client/server deploy.
-SEAM: separate travel state, corrected new main-shot origin/lead and actual ram velocity; production port requires shared authority/prediction/state integration after approval, not the lab private-field bridge.
-CROSS: type/build/rig/sim/config/duel/grip pass;48 scripted cases mixed,6 local+6 public Brave DPR2 layouts pass for all profiles/ships/controls/direct links/disposal. No page errors/sockets/writes/captures; processes stopped.
-FOR claude: owner now playtests public ?duel=tail&grip=1 or ?duel=circle&grip=1; backlog ready, no immediate execution/review. Evidence outputs/steroids-alpha/speed-grip-lab/.
 
