@@ -31,5 +31,7 @@
     "draw_calls": 4,
     "cpu_idle_p95_ms": 1.9,
     "cpu_chain_p95_ms": 1.7
-  }
+  },
+  "status": "superseded",
+  "superseded_by": "2026-11-19-pages.json"
 }

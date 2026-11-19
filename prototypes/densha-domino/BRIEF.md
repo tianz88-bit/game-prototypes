@@ -1,5 +1,7 @@
 # Densha Domino
 
+Latest review (19 November): the active sushi deployment is `/game-prototypes/prototypes/densha-domino-sushi/`, with Claude retained at its original path and on its backup branch. The owner clarified that replacement pillars must be decorative blockers on existing blocked board cells. Pillar/end-cap art, train-outline direction, larger plates/food and revised food/reward motion are proposed in `DESIGN_REVIEW.md`; those visual changes are pending discussion and are not part of the hosting migration.
+
 ## Approved sushi-train integration (18 November 2026)
 
 The restaurant art direction supersedes the railway placeholders below: dimensional sushi on plates, complete peach/lilac/mint/butter head/middle/tail/single cars, a high overhead camera with visible side volume, two expressive windshield eyes per cab, simple recessed guide channels, restaurant obstacles and off-white serving tunnels. Bodies remain grounded and carriage reactions cascade; food stays seated and only springs at braking/startup. Honking uses cream-rimmed coral/mango tapered rays and a soft sound arc, never black collision marks, damage or a megaphone.

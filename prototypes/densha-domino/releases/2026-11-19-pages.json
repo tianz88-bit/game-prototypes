@@ -1,0 +1,33 @@
+{
+  "edition": "Sushi Trains (Codex)",
+  "branch": "codex/densha-domino-sushi",
+  "game_source_commit": "72083b853f50316d6a76f5fee7dd5022863472c3",
+  "release_counter": 2,
+  "public_url": "https://tianz88-bit.github.io/game-prototypes/prototypes/densha-domino-sushi/",
+  "claude_url": "https://tianz88-bit.github.io/game-prototypes/prototypes/densha-domino/",
+  "artifact_url": "https://github.com/tianz88-bit/game-prototypes/releases/download/densha-sushi-v2/densha-sushi-v2.zip",
+  "artifact_sha256": "543fe651defc4a90b418a04360105c8eba898d05c6936a868863716c3262ab0f",
+  "hub_pull_request": "https://github.com/tianz88-bit/game-prototypes/pull/580",
+  "hub_merge_commit": "fd87b831ad23286da54e550f03d2e8af1daba705",
+  "pages_run": "https://github.com/tianz88-bit/game-prototypes/actions/runs/44449640933",
+  "pages_status": "success",
+  "claude_backup_branch": "codex/densha-domino-claude-backup-2026-11-19",
+  "claude_prototype_tree": "12e711b2c962dc0e85c219dcfc4abfa1f4479d5c",
+  "game_visual_changes": false,
+  "design_proposals": "DESIGN_REVIEW.md",
+  "public_gpu": {
+    "idle_fps": 59.95,
+    "chain_fps": 59.95,
+    "draw_calls": 4,
+    "cpu_idle_p95_ms": 2.6,
+    "cpu_chain_p95_ms": 1.9
+  },
+  "verification": [
+    "adjacent distinct prototypes-site URLs",
+    "both games boot anonymously",
+    "public gameplay and art fidelity",
+    "all resource origins are tianz88-bit.github.io",
+    "Claude prototype tree unchanged",
+    "checksum mismatch rejected before replacement"
+  ]
+}
