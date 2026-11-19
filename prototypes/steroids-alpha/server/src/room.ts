@@ -4,7 +4,7 @@ import type { ConfigRecord } from '../../sim/liveConfig';
 // One running planet room: the authority for every ship on that planet.
 // Players drop in and out at any time; the tick loop runs only while someone is connected.
 import { TUNE, stepSeconds } from '../../sim/tune';
-import { copyShip, maxShield, hullCapacity, mineralBalance } from '../../sim/ship';
+import { bankedMinerals, copyShip, maxShield, hullCapacity, mineralBalance } from '../../sim/ship';
 import {EVOLVE_ITEM} from '../../sim/shop';
 import { SPARROW } from '../../sim/chassis';
 import type { ShipInput, ShipState } from '../../sim/ship';
@@ -838,7 +838,9 @@ export class Room {
     }
     for (const x of out) {
       const p = this.players.get(x.id)!;
-      const salvage = Math.floor(p.ship.salvage);
+      // One currency (owner, 19 November 2026): the minerals carried out bank as credits, at this
+      // planet's bank rate (none from the safe clan home planets, so they cannot be farmed).
+      const salvage = bankedMinerals(p.ship, this.tune, !!this.world.layout && !this.world.siege);
       this.send(p, JSON.stringify({ type: 'extracted', power: Math.floor(mineralBalance(p.ship,this.tune)), kills: p.kills, salvage }));
       this.leave(x.id);
       void this.bankRun(p, salvage).then((result) => {
