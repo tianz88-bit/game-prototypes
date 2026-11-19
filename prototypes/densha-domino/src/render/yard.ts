@@ -17,8 +17,8 @@ export function drawYard(g:Phaser.GameObjects.Graphics,level:Level,geo:YardGeo):
     const noise=((r+3)*73856093^(c+7)*19349663^(level.rows*level.cols*83492791))>>>0;
     if(noise%7<2){g.fillStyle([0xfbedda,0xfff3e0,0xf9ebd8][noise%3]);g.fillRect(ox+c*cs,oy+r*cs,cs,cs);}
   }
-  for(let r=0;r<=level.rows;r++){g.lineStyle(.85,0xdbb292,.8);g.lineBetween(ox,oy+r*cs,ox+w,oy+r*cs);g.lineStyle(.6,0xfffaf0,.8);g.lineBetween(ox,oy+r*cs+1,ox+w,oy+r*cs+1);}
-  for(let c=0;c<=level.cols;c++){g.lineStyle(.85,0xdbb292,.8);g.lineBetween(ox+c*cs,oy,ox+c*cs,oy+h);g.lineStyle(.6,0xfffaf0,.8);g.lineBetween(ox+c*cs+1,oy,ox+c*cs+1,oy+h);}
+  for(let r=0;r<=level.rows;r++){g.lineStyle(.85,0xdbb292,.5);g.lineBetween(ox,oy+r*cs,ox+w,oy+r*cs);g.lineStyle(.6,0xfffaf0,.8);g.lineBetween(ox,oy+r*cs+1,ox+w,oy+r*cs+1);}
+  for(let c=0;c<=level.cols;c++){g.lineStyle(.85,0xdbb292,.5);g.lineBetween(ox+c*cs,oy,ox+c*cs,oy+h);g.lineStyle(.6,0xfffaf0,.8);g.lineBetween(ox+c*cs+1,oy,ox+c*cs+1,oy+h);}
   const cols=new Set(level.trains.filter(t=>t.axis==='v').map(t=>t.line));
   objects.push(channelSurface(scene,level,cs).setPosition(ox,oy));
   const prop=(frame:number,x:number,y:number,size=1)=>{
@@ -30,23 +30,25 @@ export function drawYard(g:Phaser.GameObjects.Graphics,level:Level,geo:YardGeo):
   for(const [cell,kind]of level.obstacles){
     const x=ox+(cell%level.cols+.5)*cs,y=oy+(Math.floor(cell/level.cols)+.5)*cs;
     const frame={concrete:1,kiosk:0,signal:3,tree:2,machine:3,buffer:0}[kind];
-    if(hasArt(scene,'dd_props'))prop(frame,x,y);
+    if(kind==='concrete'&&hasArt(scene,'dd_pillar'))objects.push(scene.add.image(x,y+cs*.34,'dd_pillar').setOrigin(.5,1).setDisplaySize(cs*.94,cs*.94*940/420).setDepth(5).setName('restaurant-pillar-blocker'));
+    else if(hasArt(scene,'dd_props'))prop(frame,x,y);
     else{g.fillStyle(0x8e708e);g.fillRoundedRect(x-cs*.3,y-cs*.28,cs*.6,cs*.56,8);g.fillStyle(0xfff5dd);g.fillEllipse(x,y-cs*.18,cs*.6,cs*.24);}
+  }
+  // Flush caps end only at fixed blocked boundaries, never at exits.
+  const stops=scene.add.graphics().setDepth(2);objects.push(stops);
+  for(const run of channelRuns(level))for(const end of [run.start,run.end]){
+    const length=run.axis==='h'?level.cols:level.rows;if(end===0||end===length)continue;
+    const x=ox+(run.axis==='h'?end:run.line+.5)*cs,y=oy+(run.axis==='v'?end:run.line+.5)*cs;
+    stops.fillStyle(0xfff4df);stops.lineStyle(1,0xc3a2a7,.7);
+    const rw=cs*(run.axis==='h'?.12:.55),rh=cs*(run.axis==='h'?.55:.12);
+    stops.fillRoundedRect(x-rw/2,y-rh/2,rw,rh,2);stops.strokeRoundedRect(x-rw/2,y-rh/2,rw,rh,2);
+    stops.fillStyle(0x9c7a8e);stops.fillRect(x-rw*.26,y-rh*.26,rw*.52,rh*.52);
   }
   // Quiet restaurant details are outside the legal cell field and never block input.
   g.fillStyle(0xf8e2c7);g.fillRect(ox,oy-23,w,14);g.lineStyle(1,0xd4ac85,.7);g.lineBetween(ox,oy-9,ox+w,oy-9);
   for(let x=ox+12;x<ox+w;x+=12){g.lineStyle(.7,0xfff6e6,.8);g.lineBetween(x,oy-22,x,oy-11);}
   const gaps:[number,number][]=[];let edge=ox;
   for(const col of [...cols].sort((a,b)=>a-b)){const left=ox+(col+.5)*cs-cs*.55;if(left>edge)gaps.push([edge,left]);edge=ox+(col+.5)*cs+cs*.55;}if(edge<ox+w)gaps.push([edge,ox+w]);
-  // One-floor-tile columns with their upper shaft fading into implied height.
-  const pillarKey='dd_pillar_fade';
-  if(!scene.textures.exists(pillarKey)){
-    const t=scene.textures.createCanvas(pillarKey,128,256)!,ctx=t.context;
-    ctx.fillStyle='#d5bcbd';ctx.fillRect(4,0,116,238);ctx.fillStyle='#f8e8db';ctx.fillRect(4,0,91,238);ctx.fillStyle='#e9d3c8';ctx.fillRect(95,0,25,238);
-    ctx.fillStyle='#bda4a9';ctx.fillRect(0,232,128,24);ctx.fillStyle='#f0ded0';ctx.fillRect(3,233,120,14);
-    ctx.globalCompositeOperation='destination-in';const fade=ctx.createLinearGradient(0,0,0,256);fade.addColorStop(0,'transparent');fade.addColorStop(.55,'#ffffff');ctx.fillStyle=fade;ctx.fillRect(0,0,128,256);t.refresh();
-  }
-  for(const x of [ox+cs*.45,ox+w-cs*.45])objects.push(scene.add.image(x,oy-cs*.55,pillarKey).setOrigin(.5,1).setDisplaySize(cs,cs*2).setDepth(4).setName('restaurant-pillar'));
   const stickGap=gaps.find(([a,b])=>b-a>132*cs/92*.72+8),dishGap=[...gaps].reverse().find(([a,b])=>b-a>60*cs/92*.65+8);
   const shared=stickGap&&dishGap&&stickGap===dishGap,space=shared?stickGap[1]-stickGap[0]:0;
   const bothFit=!shared||space>(132*.72+60*.65)*cs/92+14;

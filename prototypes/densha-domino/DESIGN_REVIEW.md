@@ -1,6 +1,6 @@
-# Visual and game-feel proposal — pending owner review
+# Approved visual and game-feel pass — 19 November 2026
 
-This is a proposal, not an implementation record. Hosting migration does not change game artwork or animation. Discuss these directions before generating replacement pillar/end-cap artwork or altering the train silhouette.
+The owner approved this pass with “go ahead with the sushi changes and go live when done”. Implemented on the permanent sushi branch, preserving puzzle rules and the separate Claude edition. The points below record the approved targets; publication and measured results are recorded in BUILD_STATUS.md and the release provenance.
 
 - **Pillars:** regenerate warm ivory restaurant/service-counter columns as decorative blockers on existing blocked board cells. A clearly solid base occupies one cell; fade only the upper shaft to imply height. Remove the outside-board background columns. Preserve puzzle occupancy and solutions.
 - **Dead-end tracks:** a low, flush ivory conveyor stop cap with a muted plum rubber strip at the existing blocked boundary. No extra clutter at crossings and no stop cap at tunnel exits. Do not introduce a new collider or block a currently usable tile.

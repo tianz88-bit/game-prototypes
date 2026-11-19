@@ -10,6 +10,7 @@ export function mountDebugPanelIfRequested(): void {
     tune,
     defaults: tuneDefaults,
     extras: (pane) => {
+      pane.addBinding(tune.feel,'uiEase',{options:{Quad:'Quad.Out',Cubic:'Cubic.Out',Sine:'Sine.Out'}});
       pane.addBinding(runtime,'fps',{readonly:true,label:'render fps'});
       pane.addBinding(runtime, 'goto', { min: 1, max: LEVELS.length, step: 1, label: 'level' });
       pane.addButton({ title: 'Go to level' }).on('click', () => {

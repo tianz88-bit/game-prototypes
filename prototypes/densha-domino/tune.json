@@ -9,13 +9,13 @@
   },
   "feel": {
     "travelSpeed": 0.67,
-    "uiBounceMs": 420,
-    "starStaggerMs": 140,
+    "uiBounceMs": 220,
+    "starStaggerMs": 170,
     "confettiCount": 72,
     "confettiMs": 1700,
     "carriageDelayMs": 100,
     "lightFlashMs": 650,
-    "sushiSpring": 0.1,
+    "sushiSpring": 0.18,
     "artBrakeSquash": 0.22,
     "acknowledgementSquash": 0.15,
     "runBaseMs": 140,
@@ -49,6 +49,18 @@
     "vibrate": 1,
     "swipePx": 14,
     "carLengthFrac": 0.92,
-    "carWidthFrac": 0.7
+    "carWidthFrac": 0.7,
+    "foodSpringMs": 480,
+    "starArrivalMs": 140,
+    "starSettleMs": 180,
+    "starHoldMs": 120,
+    "starPeakScale": 1.18,
+    "starStartScale": 0.18,
+    "buttonReleaseMs": 160,
+    "buttonIntroScale": 0.95,
+    "buttonPressX": 0.96,
+    "buttonPressY": 0.91,
+    "uiEase": "Quad.Out",
+    "foodDamping": 0.55
   }
 }

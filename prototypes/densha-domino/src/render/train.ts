@@ -21,6 +21,7 @@ export class TrainView {
   private gaze:Dir;
   private reaction:{kind:Reaction;dir:Dir;start:number;duration:number}|null=null;
   private history:{kind:Reaction;dir:Dir;start:number;duration:number}[]=[];
+  private foodHistory:{kind:Reaction;dir:Dir;start:number;duration:number}[]=[];
   private alive=true;
   private clock=0;
   private dirty=true;
@@ -31,13 +32,14 @@ export class TrainView {
     for(let i=0;i<def.len;i++){
       const holder=scene.add.container(0,0),cell=bodyCell(vertical,def.headDir,def.len,i);
       const contact=scene.add.graphics();contact.fillStyle(0x75505a,.14);if(vertical)contact.fillRoundedRect(-30,-61,62,118,22);else contact.fillEllipse(2,31,112,17);holder.add(contact);
+      if(hasArt(scene,'dd_outline')){const box=BODY_BOXES[cell];holder.add(scene.add.image(0,vertical?-8:4,'dd_outline',String(cell)).setDisplaySize((vertical?64:116)*(box[2]+16)/box[2],(vertical?124:64)*(box[3]+16)/box[3]));}
       if(hasArt(scene,key))holder.add(scene.add.image(0,vertical?-8:4,key,String(cell)).setDisplaySize(vertical?64:116,vertical?124:64));
       else holder.add(this.fallback(i));
       const inward=def.len===1?0:i===0?10:i===def.len-1?-10:0,px=vertical?0:inward,py=vertical?-9+inward:-7;
       const food=scene.add.container(px,py+9);
       if(hasArt(scene,'dd_food')){
-        holder.add(scene.add.image(px,py+3,'dd_food','0').setDisplaySize(58,42));
-        const f=1+(i+def.id)%6,fw=f===4?37:f===5?40:47,fh=f===4?40:f===5?43:34;
+        holder.add(scene.add.image(px,py+3,'dd_food','0').setDisplaySize(66.7,48.3));
+        const f=1+(i+def.id)%6,fw=(f===4?37:f===5?40:47)*1.2,fh=(f===4?40:f===5?43:34)*1.2;
         food.add(scene.add.image(0,-fh/2,'dd_food',String(f)).setDisplaySize(fw,fh));
       }else{
         const p=scene.add.graphics();p.fillStyle(0xe4d5bc);p.fillEllipse(px,py+6,51,31);p.fillStyle(0xfffaf0);p.fillEllipse(px,py+2,48,28);holder.add(p);
@@ -72,7 +74,7 @@ export class TrainView {
   setReady(ready:boolean):void {this.ready=ready;}
   setAwake(awake:boolean,dir:Dir=this.def.headDir):void {this.dirty=true;this.awake=awake;this.gaze=dir;}
   setTravel(dir:Dir|null):void {this.dirty=true;this.travel=dir;if(dir!==null){this.gaze=dir;this.react('startup',dir,tune.feel.spookMs+tune.feel.spookReleaseMs);}}
-  react(kind:Reaction,dir:Dir,duration:number):void {this.dirty=true;this.gaze=dir;if(kind!=='blocked')this.awake=true;this.reaction={kind,dir,start:this.clock,duration};this.history.push(this.reaction);}
+  react(kind:Reaction,dir:Dir,duration:number):void {this.dirty=true;this.gaze=dir;if(kind!=='blocked')this.awake=true;this.reaction={kind,dir,start:this.clock,duration};this.history.push(this.reaction);if(kind==='brake'||kind==='startup')this.foodHistory.push(this.reaction);}
   brake(dir:Dir=this.gaze):void {this.travel=null;this.react('brake',dir,tune.feel.brakeMs*2);}
   /** Compatibility for externally driven anticipation; no whole-train tilt or hopping. */
   pose(k:number,_stretch:number,_squash:number,_skew:number,_tilt:number):void {if(k>0)this.react('ack',this.gaze,tune.feel.spookMs);}
@@ -85,7 +87,7 @@ export class TrainView {
   }
   update(delta=0):void {
     if(!this.alive)return;this.clock+=delta;const now=this.clock,v=this.def.axis==='v',factor=this.cs/116*.94,r=this.reaction;
-    if(!this.dirty&&!this.history.length&&this.travel===null){
+    if(!this.dirty&&!this.history.length&&!this.foodHistory.length&&this.travel===null){
       // Parked geometry, expression frames, couplings and food are unchanged.
       // Animate only the live signal bands; do not allocate/rebuild every car.
       for(const car of this.cars){if(!hasArt(this.scene,'dd_signals'))car.lamps.clear();for(const cab of car.cabs){const active=cab.head&&this.ready;if(cab.signal)updateSocketLight(cab.signal,active,false,now);else this.band(car.lamps,cab.end,cab.head,active&&Math.cos(now/tune.feel.lightFlashMs*Math.PI*2)>0);}}
@@ -107,9 +109,16 @@ export class TrainView {
       const a=scales[i],sx=factor*(v?a.cross:a.along),sy=factor*(v?a.along:a.cross),base=v?54:36;
       c.holder.setPosition(v?0:centers[i],(v?centers[i]:-SIDE_BODY_LIFT*factor)+base*(factor-sy)).setScale(sx,sy);
       const shear=shearTransform(a.skew);c.shear.setRotation(shear.u).setScale(shear.s1,shear.s2);c.turn.setRotation(-shear.v);
-      const spring=Math.min(tune.feel.sushiSpring*1.2,a.spring*tune.feel.sushiSpring*.25);c.food.setScale(1-spring*.45,1+spring).setAngle(a.lean*.15);
+      // A separate seated food envelope outlasts the shorter body reaction.
+      let spring=0;
+      for(const event of this.foodHistory){
+        if(event.kind!=='brake'&&event.kind!=='startup')continue;
+        const lead=event.dir>0?this.def.len-1:0,t=(now-event.start-Math.abs(i-lead)*tune.feel.carriageDelayMs)/tune.feel.foodSpringMs;
+        if(t>=0&&t<1)spring=-tune.feel.sushiSpring*Math.sin(t*Math.PI*3)*Math.pow(1-t,tune.feel.foodDamping);
+      }
+      c.food.setScale(1-spring*.45,1+spring).setAngle(0);
       c.holder.setVisible(this.container.x+(v?0:centers[i])+this.cs>0&&this.container.x+(v?0:centers[i])-this.cs<WIDTH&&this.container.y+(v?centers[i]:0)+this.cs>0&&this.container.y+(v?centers[i]:0)-this.cs<HEIGHT);
-      c.lamps.clear();c.pose={index:i,expression:a.expression,phase:a.eyePhase,scale:a.along,gaze:a.gaze};
+      c.lamps.clear();c.pose={index:i,expression:a.expression,phase:a.eyePhase,scale:a.along,foodScale:1+spring,gaze:a.gaze};
       for(const cab of c.cabs){
         const active=this.travel!==null?cab.end===this.travel:cab.head&&this.ready;
         if(cab.signal)updateSocketLight(cab.signal,active,this.travel!==null,now);else this.band(c.lamps,cab.end,cab.head,active&&(this.travel!==null||Math.cos(now/tune.feel.lightFlashMs*Math.PI*2)>0));
@@ -117,6 +126,7 @@ export class TrainView {
       }
     });
     this.history=this.history.filter(event=>now-event.start<event.duration+(this.def.len-1)*tune.feel.carriageDelayMs);if(!this.history.length)this.reaction=null;
+    this.foodHistory=this.foodHistory.filter(event=>now-event.start<tune.feel.foodSpringMs+(this.def.len-1)*tune.feel.carriageDelayMs);
     this.dirty=false;
   }
   inspect():object {return {headDir:this.def.headDir,travel:this.travel,light:this.travel!==null?'solid':this.ready?'flashing':'off',carriages:this.cars.length,reaction:this.reaction?.kind??null,carriagePoses:this.cars.map(c=>c.pose),socketArt:hasArt(this.scene,'dd_signals')};}

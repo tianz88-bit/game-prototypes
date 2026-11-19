@@ -7,7 +7,7 @@ export const BODY_BOXES = [[40,34,310,160],[432,34,289,161],[807,34,298,160],[11
 export const FOOD_BOXES = [[31,109,390,282],[513,120,318,243],[956,120,317,242],[1401,120,317,246],[111,555,223,241],[550,539,234,258],[952,529,343,267]];
 export const PROP_BOXES = [[132,46,278,288],[602,35,338,295],[1159,44,232,283],[163,366,221,299],[549,423,441,205],[1135,429,268,191],[1182,693,176,300]];
 export const TUNNEL_BOXES = [[204,46,414,508],[915,46,416,508],[60,637,644,326],[829,637,648,326]];
-const KEYS: Record<string,string> = {'train-family-atlas':'dd_family','sushi-plate-atlas':'dd_food','restaurant-atlas':'dd_props','plastic-tunnel-atlas':'dd_tunnels'};
+const KEYS: Record<string,string> = {'train-family-atlas':'dd_family','sushi-plate-atlas':'dd_food','restaurant-atlas':'dd_props','plastic-tunnel-atlas':'dd_tunnels','restaurant-pillar':'dd_pillar'};
 
 /** Optional manifest/loose-art loader. Missing art never prevents starting a game. */
 export function preloadArt(scene: Phaser.Scene): void {
@@ -38,6 +38,21 @@ export function registerArt(scene: Phaser.Scene): void {
   if(!hasArt(scene,'dd_family'))return;
   const source=scene.textures.get('dd_family').getSourceImage() as HTMLImageElement;
   registerSignalArt(scene,source);
+  // Bake an alpha-threshold silhouette once; no per-car postprocessing.
+  if(!hasArt(scene,'dd_outline')){
+    const atlas=scene.textures.createCanvas('dd_outline',source.width,source.height)!;
+    for(const [i,[x,y,w,h]] of BODY_BOXES.entries()){
+      const mask=document.createElement('canvas');mask.width=w+16;mask.height=h+16;
+      const ctx=mask.getContext('2d')!;ctx.drawImage(source,x,y,w,h,8,8,w,h);
+      const pixels=ctx.getImageData(0,0,w+16,h+16);
+      for(let n=0;n<pixels.data.length;n+=4){pixels.data[n]=100;pixels.data[n+1]=64;pixels.data[n+2]=88;pixels.data[n+3]=pixels.data[n+3]>160?255:0;}
+      ctx.putImageData(pixels,0,0);
+      for(let a=0;a<16;a++){const angle=a*Math.PI/8;atlas.context.drawImage(mask,x-8+Math.cos(angle)*4,y-8+Math.sin(angle)*4);}
+      atlas.add(String(i),0,x-8,y-8,w+16,h+16);
+    }
+    atlas.refresh();
+  }
+
   [[-32,-10,82],[-70,45,35],[0,45,-12]].forEach((delta,index)=>{
     const key='dd_family_'+index;if(hasArt(scene,key))return;
     const canvas=scene.textures.createCanvas(key,source.width,source.height);if(!canvas)return;

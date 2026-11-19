@@ -6,11 +6,11 @@ import {tune} from './tune';
 export class GameButton extends Button {
   constructor(...args:ConstructorParameters<typeof Button>){super(...args);
     const scene=args[0],onTap=args[8],c=this.container;
-    c.setScale(.86);scene.tweens.add({targets:c,scale:1,duration:tune.feel.uiBounceMs,ease:'Back.Out'});
+    c.setScale(tune.feel.buttonIntroScale);scene.tweens.add({targets:c,scale:1,duration:tune.feel.uiBounceMs,ease:tune.feel.uiEase});
     c.removeAllListeners('pointerdown');
     c.on('pointerdown',()=>{
-      scene.tweens.killTweensOf(c);c.setScale(.94,.88);
-      scene.tweens.add({targets:c,scaleX:1,scaleY:1,duration:tune.feel.uiBounceMs,ease:'Elastic.Out'});
+      scene.tweens.killTweensOf(c);c.setScale(tune.feel.buttonPressX,tune.feel.buttonPressY);
+      scene.tweens.add({targets:c,scaleX:1,scaleY:1,duration:tune.feel.buttonReleaseMs,ease:tune.feel.uiEase});
       onTap();
     });
     c.once('destroy',()=>scene.tweens.killTweensOf(c));

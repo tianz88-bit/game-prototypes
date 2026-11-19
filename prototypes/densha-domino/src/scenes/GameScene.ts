@@ -608,19 +608,24 @@ export class GameScene extends Phaser.Scene {
     const decorations:Phaser.GameObjects.GameObject[]=[];
     if (stars > 0) for (let i = 0; i < 3; i++){
       const x=WIDTH/2+(i-1)*62,star=this.add.graphics({x,y:390});this.drawStar(star,0,0,26,i<stars?0xffd04a:0xc9c2b0);decorations.push(star);
-      star.setScale(.05).setAngle(-18);
-      this.tweens.add({targets:star,scale:1,angle:0,delay:i*tune.feel.starStaggerMs,duration:tune.feel.uiBounceMs*1.35,ease:'Elastic.Out'});
-      if(i<stars){const glint=this.add.graphics({x,y:390});glint.lineStyle(2,0xffdc80,.9);for(let n=0;n<8;n++){const a=n*Math.PI/4;glint.lineBetween(Math.cos(a)*30,Math.sin(a)*30,Math.cos(a)*37,Math.sin(a)*37);}glint.setScale(.6).setAlpha(0);decorations.push(glint);this.tweens.add({targets:glint,scale:1.45,alpha:{from:1,to:0},delay:i*tune.feel.starStaggerMs,duration:tune.feel.uiBounceMs,ease:'Sine.Out'});}
+      if(i<stars){
+        star.setScale(tune.feel.starStartScale).setY(378).setAlpha(0);
+        this.tweens.add({targets:star,scale:tune.feel.starPeakScale,y:390,alpha:1,delay:i*tune.feel.starStaggerMs,duration:tune.feel.starArrivalMs,ease:tune.feel.uiEase,onComplete:()=>{
+          this.sfx.tone([523,659,784][i],.13,'sine',i===2?.23:.16);
+          this.tweens.add({targets:star,scale:1,duration:tune.feel.starSettleMs,ease:tune.feel.uiEase});
+        }});
+      }
+      if(i<stars){const glint=this.add.graphics({x,y:390});glint.lineStyle(2,0xffdc80,.9);for(let n=0;n<8;n++){const a=n*Math.PI/4;glint.lineBetween(Math.cos(a)*30,Math.sin(a)*30,Math.cos(a)*37,Math.sin(a)*37);}glint.setScale(.6).setAlpha(0);decorations.push(glint);this.tweens.add({targets:glint,scale:1.45,alpha:{from:1,to:0},delay:i*tune.feel.starStaggerMs+tune.feel.starArrivalMs,duration:tune.feel.uiBounceMs,ease:'Sine.Out'});}
     }
     else decorations.push(this.hudText(WIDTH / 2, 390, 15, '#795a68').setText(`Par is ${this.par} taps. You used ${this.taps}.`));
     const b = new Button(this, WIDTH / 2, 480, 220, 60, label, null, { fill: 0x2f9e5b, edge: 0x6dffa8 }, onTap, 22);
     const body=this.add.container(0,0,[panel,t,...decorations,b.container]).setDepth(310).setY(22);
-    this.tweens.add({targets:body,y:0,duration:tune.feel.uiBounceMs,ease:'Back.Out'});
+    this.tweens.add({targets:body,y:0,duration:tune.feel.uiBounceMs,ease:tune.feel.uiEase});
     this.overlay.push(dim,body);
     for(const o of [body,...decorations])o.once('destroy',()=>this.tweens.killTweensOf(o));
     if(stars===3){
       const confetti=this.add.particles(0,0,'px',{emitting:false,maxParticles:tune.feel.confettiCount,lifespan:tune.feel.confettiMs,speedX:{min:-150,max:150},speedY:{min:-260,max:-90},gravityY:230,scaleX:{start:1.7,end:.9},scaleY:{start:.65,end:.35},rotate:{start:0,end:540},alpha:{start:1,end:0},tint:[0xf18d9e,0xf5c854,0x78b9c3,0xb6a0d8,0xfff5dc]}).setDepth(330).setName('three-star-confetti');
-      const timer=this.time.delayedCall(tune.feel.starStaggerMs*2,()=>{confetti.explode(tune.feel.confettiCount/2,65,420);confetti.explode(tune.feel.confettiCount/2,WIDTH-65,420);});
+      const timer=this.time.delayedCall(tune.feel.starStaggerMs*2+tune.feel.starArrivalMs+tune.feel.starSettleMs+tune.feel.starHoldMs,()=>{confetti.explode(tune.feel.confettiCount/2,65,420);confetti.explode(tune.feel.confettiCount/2,WIDTH-65,420);});
       confetti.once('destroy',()=>timer.remove(false));this.overlay.push(confetti);
     }
   }
@@ -734,7 +739,7 @@ export class GameScene extends Phaser.Scene {
     close.container.setDepth(310);
     this.menu.push(close.container);
     const content=this.menu.filter(o=>o!==dim&&o!==zone),body=this.add.container(0,22,content).setDepth(310);
-    this.tweens.add({targets:body,y:0,duration:tune.feel.uiBounceMs,ease:'Back.Out'});body.once('destroy',()=>this.tweens.killTweensOf(body));this.menu.push(body);
+    this.tweens.add({targets:body,y:0,duration:tune.feel.uiBounceMs,ease:tune.feel.uiEase});body.once('destroy',()=>this.tweens.killTweensOf(body));this.menu.push(body);
   }
 
   // -------------------------------------------------------------------- fx
