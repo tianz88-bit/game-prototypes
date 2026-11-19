@@ -2,6 +2,14 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Progression pace measured —19 November2026; no tuning changes
+
+210 seeded production-simulation runs,10 per condition. Quiet median max20 upgrades2:32 focused/2:46 delayed; owned BC1:15/1:18, MC1:17/1:19. Matched before max14:01/BC6:31/MC6:43. Shop spend−79.8%, safe-max elapsed−81.9%. First account banks1500 via4 successful extractions, then evolves at16:49–17:57 median depending controller/build; human account/tutorial/menu time excluded.
+
+Four-bot mining stress with normal damage/death reset: all20 completes0/10 without evasion,1/10 with flight/dash by20min. Evaders reach each cruiser9/10. This mining controller cannot represent skilled combat or a measured human novice; retain censored failures and never average finishers alone. Permanent unlock/survival dominate beyond the short safe grind. Do not cut minerals again on percentage arguments; discuss unlock/onboarding goals separately.
+
+Reusable scripts/measure-steroids-progression-pace.mjs; ../steroids-alpha-lab/PROGRESSION_PACE.md and progression-pace-proof.json include raw cases, provenance, assumptions and exact replay proof. Owner requested measurement/discussion; no runtime/deploy/config/account changes or capture.
+
 ## Flat combat progression — LIVE181126r0107/protocol31
 
 PR574d43bdd7e8dba3d315055fea50640932fcd9fa6bf; itch44357659530/Worker44357659566/Pages44357659573 succeeded.2 public PC/portrait purchase cases, real home Worker55 snapshots/ack92 (zero wallet rejection, roster0, HP50/50), effective socket epoch2 and public lab5/10/15/20 integer inputs pass. Historical public stored ConfigRecord remains unchanged; parseRecord upgrades its effective data in Room/client/lab. No publisher/credential operation.

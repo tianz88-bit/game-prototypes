@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-19 codex progression pace study
+DID:210 seeded headless runs: quiet max2:32–2:46, owned BC/MC~1:15–1:19; zero-credit first cruiser~16:49–17:57. Before max14:01; no live changes.
+FILES: scripts/measure-steroids-progression-pace.mjs; lab/PROGRESSION_PACE.md and progression-pace-proof.json; status/backlog.
+SEAM: none; real World/ship/shop/ordnance/loot/warp reused without tuning changes. Bank route models validated extraction credits, not live account operations.
+CROSS: research harness only;10 seeds/condition, historical snapshot and exact seed1 replays. Four-bot stress: max0/10 mining or1/10 fleeing by20min; censored failures retained. No capture.
+FOR claude: deferred. Cost−79.8% and safe max time−81.9% align; power index reduction is separate (wallet HP removed). First permanent unlock and survival are bottlenecks; discuss before retuning.
+
 ## 2026-11-19 codex flat progression LIVE181126r0107
 DID: PR574d43bdd7e LIVE107/31; itch44357659530/Worker44357659566/Pages44357659573 succeeded. Fighter benchmark+76.8%; shop250/evolution50; wallet independent of HP.
 FILES: shared ship/shop/world/liveConfig/tune, Room, HUD/Flight/tutorial, lab/evolution and progression/config/bank/sim gates.
@@ -97,11 +104,4 @@ FILES: lab-only grip/model/layout/input/UI/preset and standalone tests/compariso
 SEAM: separate travel state, corrected new main-shot origin/lead and actual ram velocity; production port requires shared authority/prediction/state integration after approval, not the lab private-field bridge.
 CROSS: type/build/rig/sim/config/duel/grip pass;48 scripted cases mixed,6 local+6 public Brave DPR2 layouts pass for all profiles/ships/controls/direct links/disposal. No page errors/sockets/writes/captures; processes stopped.
 FOR claude: owner now playtests public ?duel=tail&grip=1 or ?duel=circle&grip=1; backlog ready, no immediate execution/review. Evidence outputs/steroids-alpha/speed-grip-lab/.
-
-## 2026-11-17 codex speed-dependent grip PREVIEW
-DID: lab-only speed-dependent bounded side-slip, rapid grip when slowing, unchanged nose aiming. Three-way comparison, mobile/PC held THRUST/BRAKE and compact non-overlapping targets.
-FILES: lab speed-grip/model/controls/layout/preset/index, standalone unit/comparison scripts, deferred docs. Production runtime/tune untouched.
-SEAM: optional travel state, corrected forward displacement/main-shot mount/lead and ram travel velocity. Existing World damage/grace retained; production port requires authority/prediction/travel-state work after approval.
-CROSS: type/build/rig/sim/config and speed-grip/duel tests pass;48 scripted scenarios show mixed outcomes, no human-fun claim. Six built-preview Brave layouts pass, no page errors/game sockets/writes/captures; public proof follows.
-FOR claude: backlog only; owner must try public lab before any live release. Evidence outputs/steroids-alpha/speed-grip-lab/.
 

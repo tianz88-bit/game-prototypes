@@ -1,8 +1,12 @@
 ## Current milestone
 
+Progression pace study completed19 November2026; live107/31 unchanged.210 seeded headless simulation runs saved in ../steroids-alpha-lab/PROGRESSION_PACE.md and progression-pace-proof.json.
+
 LIVE VERIFIED181126r0107/protocol31. PR574 merge d43bdd7e8dba3d315055fea50640932fcd9fa6bf; itch44357659530, Worker44357659566 and Pages44357659573 succeeded. Flat fighter progression and cheaper mineral shop released.
 
 ## What was implemented
+
+Measurement only: safe max20 upgrades median2:32–2:46; owned cruiser~1:15–1:19. Zero-credit account → first evolution~16:49–17:57 with4 successful extractions; permanent unlock remains1500. Cost−79.8% matches safe elapsed−81.9%, not a linear combat-power reduction. Runtime/tuning unchanged.
 
 Owner-selected about+75% fighter power target measures+76.8% strongest max Falcon versus fresh Sparrow on60-second main+ideal automatic-drone DPS × hull/shield. All5 upgrade tracks5/10/15/20 minerals,250 for20 upgrades (was1240). Both owned/equipped evolutions50 cost/floor,115 earliest mineral route including existing BC Turrets2/Guns4 or MC Missiles4/Mines2.1500-credit permanent unlocks unchanged.
 
@@ -20,8 +24,8 @@ Owner's benchmark choice is recorded in BRIEF.md. No blocking questions. Measure
 
 ## Known issues
 
-Power index excludes accuracy, shield recovery, tactical ordnance and capital roles; it is not a win-rate guarantee. Browser account ownership is a fixture; real billing/positive authority are covered separately by Room/SQLite tests. Mineral requirements are measured, no minutes-to-max claim. Existing Vite large-bundle warning remains.
+Power index excludes accuracy, shield recovery, tactical ordnance and capital roles; it is not a win-rate guarantee. Browser account ownership is a fixture; real billing/positive authority are covered separately by Room/SQLite tests. Headless pace now measured under documented scripts; human beginner completion time remains unmeasured. Existing Vite large-bundle warning remains.
 
 ## Next proposed step
 
-Playtest early upgrade cadence and fresh-versus-max fighter encounters; measure cruiser siege roles separately before further tuning.
+Review the measured safe pace, permanent-unlock grind and interrupted progression with the owner. Human playtest survival and combat; discuss an earlier first-cruiser unlock if desired. No further tuning approved by this measurement request.
