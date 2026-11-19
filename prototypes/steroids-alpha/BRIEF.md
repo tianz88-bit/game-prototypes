@@ -930,3 +930,7 @@ Separate combat HP from the mineral wallet: picking up/spending minerals cannot 
 ## Bot survival and evolution access — owner19 November2026
 
 Keep mineral prices unchanged. Owner chose reducing both permanent evolution unlocks from1500 to500 banked credits instead of a free first evolution. Ownership, pre-mission equipment and in-run upgrade/mineral requirements remain. Investigate bot survival and test candidate changes headlessly before going live. Current candidate uses less precise/slower bot observations, committed ordinary attack-pass exits and ship-clear occupied-room player spawns; see ../steroids-alpha-lab/BOT_SURVIVAL_REVIEW.md. Owner subsequently approved going live with the tested bot changes and500-credit unlocks, keeping mineral prices unchanged. Released191126r0108/protocol32 via PR577; see BUILD_STATUS.
+
+
+### 19 November 2026 — separate resource pickups
+Owner requests readable mineral/salvage/fuel icons and gentle magnetism; explicitly chooses separate mineral and cargo objects. Use painted gold crystals, purple salvage cargo case and cyan fuel canister; preserve green repair. Candidate protocol33 tested; not released. See art/resource-pickups-v1 and lab/resource-pickups-proof.json.

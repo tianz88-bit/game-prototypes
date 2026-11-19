@@ -11,6 +11,7 @@ import type { ShipInput, ShipState } from '../../sim/ship';
 import { selectedFighter, cleanLook, evolutionBuild } from '../../sim/unlocks';
 import type { Look } from '../../sim/unlocks';
 import { World } from '../../sim/world';
+import type { WorldEvents } from '../../sim/world';
 import { TURRET_SIDE } from '../../sim/turrets';
 import { BOT_NAMES, botThink, newBrain, tutorialBotThink } from '../../sim/bots';
 import type { TutorialBotKind } from '../../sim/bots';
@@ -47,6 +48,8 @@ interface Player {
   deficit: number;
   /** A dash from a dropped late input, applied on the next step. */
   owedDash: boolean;
+  owedMissile: boolean;
+  owedMine: boolean;
   /** A warp press from a dropped (late) input, applied on the next step. */
   owedWarp: boolean;
   /** Keeps incoming messages in arrival order when any must be read asynchronously. */
@@ -125,7 +128,7 @@ export class Room {
     ships.forEach((s,i)=>{s.hullMax=this.tune.ship.maxHp+Math.min(wallets[i],Math.max(0,this.tune.ship.powerCap-this.tune.ship.maxHp));s.hp=Math.min(hullCapacity(s,this.tune),s.hp);s.shield=Math.min(maxShield(s,this.tune),s.shield);});
     for(const p of this.players.values()){
       p.ship.speed=Math.max(this.tune.ship.minSpeed,Math.min(this.tune.ship.maxSpeed,p.ship.speed));
-      if(p.queue.length)p.last=p.queue[p.queue.length-1];p.queue=[];p.deficit=0;p.deficitTicks=0;p.owedDash=false;p.owedWarp=false;p.started=false;
+      if(p.queue.length)p.last=p.queue[p.queue.length-1];p.queue=[];p.deficit=0;p.deficitTicks=0;p.owedDash=false;p.owedMissile=false;p.owedMine=false;p.owedWarp=false;p.started=false;
       this.send(p,JSON.stringify({type:'config',record}));this.send(p,this.snapshotFor(p));
     }
   }
@@ -362,6 +365,7 @@ export class Room {
    */
   private manualBots = false;
   private tutorial=false;
+  onTutorialTick?: (id: number, ship: ShipState, events: WorldEvents) => void;
   private tutorialShop=false;
   private tutorialFire=true;
   private tutorialWarp=false;
@@ -378,6 +382,8 @@ export class Room {
     if(!rules.shop)this.buys=[];
     if(!rules.fire){
       for(const p of this.players.values()){
+        p.owedMissile = false;
+        p.owedMine = false;
         p.last={...p.last,fire:false,missile:false,mine:false};
         p.queue=p.queue.map(i=>({...i,fire:false,missile:false,mine:false}));
       }
@@ -507,7 +513,7 @@ export class Room {
     const base = this.world.layout;
     const spawn = !base ? this.world.addShip(id) : clan === base.clan ? this.world.addShipNear(id, base.treasury.x, base.treasury.y, this.tune.base.padRing) : this.world.addShipNear(id, base.gate.x, base.gate.y, 120);
     this.world.clanOf.set(id, clan);
-    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null, look: {},loadoutOpen:true, joinedAt: this.tick, resume: crypto.randomUUID(), awayUntil: -1, clan, down: -1 };
+    const player: Player = { id, ws, ship: spawn, queue: [], last: { ...IDLE_INPUT }, deficit: 0, owedDash: false, owedMissile: false, owedMine: false, owedWarp: false, reading: Promise.resolve(), started: false, deficitTicks: 0, budgetAt:Date.now(), packets:0, name: cleanName(requestedName) || `Pilot ${id}`, kills: 0, runId: crypto.randomUUID(), secret: null, look: {},loadoutOpen:true, joinedAt: this.tick, resume: crypto.randomUUID(), awayUntil: -1, clan, down: -1 };
     this.players.set(id, player);
     this.lingerUntil = -1;
     this.attach(player, ws);
@@ -539,7 +545,7 @@ export class Room {
     this.send(player,JSON.stringify({type:'config',record:this.config}));
     this.send(player, encodeWelcome(player.id, this.tick));
     this.send(player, encodeAsteroids([...this.world.asteroids.values()]));
-    this.send(player, JSON.stringify({ type: 'pickups', add: [...this.world.pickups.values()].map(({ id, x, y, kind, value }) => ({ id, x, y, kind, value })), remove: [] }));
+    this.send(player, JSON.stringify({ type: 'pickups', add: [...this.world.pickups.values()].map(({ id, x, y, kind, value, mined }) => ({ id, x, y, kind, value, mined })), remove: [] }));
     this.send(player, this.hotZoneFrame());
     this.send(player, this.snapshotFor(player));
     this.send(player, JSON.stringify({ type: 'resume', token: player.resume, seconds: this.tune.net.reconnectGraceSeconds }));
@@ -559,6 +565,8 @@ export class Room {
     player.last = { ...IDLE_INPUT, seq: player.last.seq };
     player.deficit = 0;
     player.owedDash = false;
+    player.owedMissile = false;
+    player.owedMine = false;
     player.owedWarp = false;
   }
 
@@ -674,7 +682,11 @@ export class Room {
     if(this.tutorial&&!this.tutorialFire)input={...input,fire:false,missile:false,mine:false};
     if(this.tutorial&&!this.tutorialWarp)input={...input,warp:false};
     player.queue.push(input);
-    while(player.queue.length > TUNE.net.maxQueuedInputs) player.queue.shift();
+    while (player.queue.length > TUNE.net.maxQueuedInputs) {
+      const dropped = player.queue.shift()!;
+      player.owedMissile ||= dropped.missile;
+      player.owedMine ||= dropped.mine;
+    }
     if (this.lockstep) this.step();
   }
 
@@ -720,6 +732,7 @@ export class Room {
   }
 
   private buys: { id: number; item: number; tier: number }[] = [];
+  private pickupMoves=new Map<number,{id:number;x:number;y:number;value:number}>();
   private step(): void {
     for (const b of this.buys.splice(0)){const p=this.players.get(b.id);if(p&&(b.item!==EVOLVE_ITEM||evolutionBuild(p.look)===b.tier))this.world.buy(b.id,b.item,b.tier);}
     // Pilots away longer than the grace period lose their ship.
@@ -733,6 +746,9 @@ export class Room {
     }
     this.world.step();
     const ev = this.world.drain();
+    if (this.tutorial && this.onTutorialTick) {
+      for (const p of this.players.values()) this.onTutorialTick(p.id, p.ship, ev);
+    }
     if (ev.asteroids.length) this.broadcast(encodeAsteroids(ev.asteroids));
     if (ev.gone.length) this.broadcast(encodeGone(ev.gone));
     if (ev.shots.length) {
@@ -757,7 +773,12 @@ export class Room {
     if (ev.rams.length) this.broadcast(JSON.stringify({ type: 'rams', rams: ev.rams }));
     if (ev.hotZone) this.broadcast(this.hotZoneFrame());
     if (ev.blasts.length) this.broadcast(JSON.stringify({ type: 'blasts', blasts: ev.blasts }));
-    if (ev.pickups.length || ev.pickupsGone.length) this.broadcast(JSON.stringify({ type: 'pickups', add: ev.pickups, remove: ev.pickupsGone }));
+    for(const p of ev.pickupsMoved)this.pickupMoves.set(p.id,p);
+    for(const p of ev.pickupsGone)this.pickupMoves.delete(p.id);
+    const moveTick=this.tick%Math.max(1,Math.round(this.tune.net.tickHz/this.tune.net.snapshotHz))===0;
+    if(ev.pickups.length||ev.pickupsGone.length||(moveTick&&this.pickupMoves.size)){
+      this.broadcast(JSON.stringify({type:'pickups',add:ev.pickups,remove:ev.pickupsGone,move:[...this.pickupMoves.values()]}));this.pickupMoves.clear();
+    }
     const dead = new Set(ev.deaths.map((d) => d.id));
     if (ev.deaths.length) {
       // Everyone sees the explosion; whoever fired the killing shot scores.
@@ -894,6 +915,8 @@ export class Room {
     while (p.deficit > 0 && p.queue.length) {
       const late = p.queue.shift() as ShipInput;
       p.owedDash ||= late.dash;
+      p.owedMissile ||= late.missile;
+      p.owedMine ||= late.mine;
       p.owedWarp = p.owedWarp !== late.warp; // two dropped presses cancel out
       p.last = late;
       p.deficit--;
@@ -918,7 +941,11 @@ export class Room {
       const warp = (input ? input.warp : false) !== p.owedWarp;
       p.owedDash = false;
       p.owedWarp = false;
-      this.world.stepShip(p.id, input ? { ...input, dash, warp } : { ...p.last, dash, warp, missile: false, mine: false });
+      const missile = (input?.missile ?? false) || p.owedMissile;
+      const mine = (input?.mine ?? false) || p.owedMine;
+      p.owedMissile = false;
+      p.owedMine = false;
+      this.world.stepShip(p.id, { ...p.last, dash, warp, missile, mine });
     }
   }
 

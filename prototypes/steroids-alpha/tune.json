@@ -46,14 +46,15 @@
     "powerCap": 500,
     "speedPenaltyAtCap": 0.3,
     "radiusBonusAtCap": 0.5,
-    "hullSpillFraction": 0.5,
+    "hullSpillFraction": 0.12,
     "deathSpillFraction": 0.5,
     "spillLockSeconds": 3,
     "dashRamDamage": 30,
     "dashRamHullFraction": 0.15,
     "bumpDamage": 20,
     "bumpKnockbackSpeed": 380,
-    "shieldRegenCapPerSecond": 25
+    "shieldRegenCapPerSecond": 25,
+    "fighterShieldBonus": 25
   },
   "weapon": {
     "fireIntervalSteps": 4,
@@ -82,69 +83,69 @@
   },
   "shop": {
     "turretFloors": [
-      5,
-      10,
-      15,
-      20
+      1,
+      2,
+      3,
+      4
     ],
     "turretCosts": [
-      5,
-      10,
-      15,
-      20
+      1,
+      2,
+      3,
+      4
     ],
     "shieldFloors": [
-      5,
-      10,
-      15,
-      20
+      1,
+      2,
+      3,
+      4
     ],
     "shieldCosts": [
-      5,
-      10,
-      15,
-      20
+      1,
+      2,
+      3,
+      4
     ],
     "shieldPerTier": 3.75,
     "damageFloors": [
-      5,
-      10,
-      15,
-      20
+      1,
+      2,
+      3,
+      4
     ],
     "damageCosts": [
-      5,
-      10,
-      15,
-      20
+      1,
+      2,
+      3,
+      4
     ],
     "damagePerTier": 0.03,
     "gunHeatPerTier": 0.025,
     "missileFloors": [
-      5,
-      10,
-      15,
-      20
+      1,
+      2,
+      3,
+      4
     ],
     "missileCosts": [
-      5,
-      10,
-      15,
-      20
+      1,
+      2,
+      3,
+      4
     ],
     "mineFloors": [
-      5,
-      10,
-      15,
-      20
+      1,
+      2,
+      3,
+      4
     ],
     "mineCosts": [
-      5,
-      10,
-      15,
-      20
+      1,
+      2,
+      3,
+      4
     ],
-    "balanceVersion": 2
+    "balanceVersion": 4
   },
   "missile": {
     "damage": 35,
@@ -266,7 +267,7 @@
     "braking": 600,
     "turnRate": 5.44,
     "shieldFactor": 0.7,
-    "damageFactor": 0.85,
+    "damageFactor": 1,
     "fireIntervalSteps": 4,
     "baseTurrets": 0
   },
@@ -283,8 +284,8 @@
     "fireIntervalSteps": 5,
     "baseTurrets": 2,
     "minUpgrades": 6,
-    "powerFloor": 50,
-    "cost": 50,
+    "powerFloor": 10,
+    "cost": 10,
     "minTurrets": 2,
     "minGuns": 4
   },
@@ -336,11 +337,15 @@
     ],
     "mineralChunkValue": 5,
     "mineralChunksMax": 12,
-    "pickupsMax": 200,
+    "pickupsMax": 400,
     "richMax": 2,
     "richMineralFactor": 3,
     "richHpFactor": 2,
-    "richRespawnSeconds": 20
+    "richRespawnSeconds": 20,
+    "pickupVersion": 1,
+    "pickupMagnetReach": 64,
+    "pickupMagnetSpeed": 420,
+    "miningMineralFactor": 0.18
   },
   "sparrow": {
     "fireIntervalSteps": 5,
@@ -371,8 +376,8 @@
     "fireIntervalSteps": 5,
     "baseTurrets": 0,
     "minUpgrades": 6,
-    "powerFloor": 50,
-    "cost": 50,
+    "powerFloor": 10,
+    "cost": 10,
     "minTurrets": 0,
     "minGuns": 0,
     "minMissiles": 4,
@@ -381,8 +386,9 @@
     "rangeFactor": 1.5,
     "radiusFactor": 1.5,
     "launchSpeed": 220,
-    "reverseSeconds": 0.45,
-    "turnRateMissile": 1.9,
+    "reverseSeconds": 0.18,
+    "turnRateMissile": 4.2,
+    "missileRefillFactor": 2,
     "lifeSeconds": 7,
     "repeatSeconds": 0.3
   },

@@ -2,7 +2,7 @@
 // ship and the server runs it as the authority, so both must call it the same way.
 import type { Tune } from './tune';
 import { angleDelta, wrap, wrapDelta } from './wrap';
-import { GUNS, SCRAPPY, SPARROW, MISSILE_CRUISER, chassisStats, shipMotion } from './chassis';
+import { GUNS, SCRAPPY, SPARROW, MISSILE_CRUISER, chassisStats, isCapital, shipMotion } from './chassis';
 
 export interface ShipState {
   /** Server-authoritative arrival time remaining. Absent only in older local visual fixtures. */
@@ -123,6 +123,10 @@ export function dashSpeed(hp: number, tune: Tune, chassis = SCRAPPY): number {
 }
 
 /** How much heat the guns hold: gun upgrades add shop.gunHeatPerTier each (more shots before locking). */
+export function missileRefillSeconds(s: Pick<ShipState, 'chassis'>, tune: Tune): number {
+  return tune.missile.refillSeconds * (s.chassis === MISSILE_CRUISER ? tune.missileCruiser.missileRefillFactor : 1);
+}
+
 export function missileCapacity(s:ShipState,tune:Tune):number{return s.chassis===MISSILE_CRUISER?tune.missileCruiser.capacity:s.missileTier;}
 
 export function heatCapacity(s: ShipState, tune: Tune): number {
@@ -151,7 +155,9 @@ export function mineralBalance(s:Pick<ShipState,'hullMax'>,tune:Tune):number{ret
 export function hullCapacity(_s:Pick<ShipState,'chassis'>,tune:Tune):number{return tune.ship.maxHp;}
 
 export function maxShield(s: ShipState, tune: Tune): number {
-  return (tune.ship.maxShield + s.shieldTier * tune.shop.shieldPerTier) * chassisStats(s.chassis ?? SCRAPPY, tune).shield;
+  const chassis = s.chassis ?? SCRAPPY;
+  const fighterBonus = isCapital(chassis) ? 0 : tune.ship.fighterShieldBonus;
+  return (tune.ship.maxShield + fighterBonus + s.shieldTier * tune.shop.shieldPerTier) * chassisStats(chassis, tune).shield;
 }
 
 /** Capacity-scaled recovery with an absolute ceiling, after the existing quiet delay. */
@@ -309,12 +315,13 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune,
     }
     return [charges, cd];
   };
-  [s.missileCharges, s.missileCd] = refill(s.missileCharges, s.missileCd, missileCapacity(s,tune), tune.missile.refillSeconds);
+  const missileRefill = missileRefillSeconds(s, tune);
+  [s.missileCharges, s.missileCd] = refill(s.missileCharges, s.missileCd, missileCapacity(s,tune), missileRefill);
   [s.mineCharges, s.mineCd] = refill(s.mineCharges, s.mineCd, s.mineTier, tune.mine.refillSeconds);
   if ((input.missile || s.chassis===MISSILE_CRUISER&&input.fire) && s.missileCharges > 0 && (s.chassis!==MISSILE_CRUISER||s.fireCd===0)) {
     if(s.chassis===MISSILE_CRUISER)s.fireCd=Math.max(1,Math.ceil(tune.missileCruiser.repeatSeconds*tune.net.tickHz));
     s.missileCharges--;
-    if (s.missileCd <= 0) s.missileCd = tune.missile.refillSeconds;
+    if (s.missileCd <= 0) s.missileCd = missileRefill;
     s.missileShots = (s.missileShots + 1) & 0xffff;
   }
   if (input.mine && s.mineCharges > 0) {

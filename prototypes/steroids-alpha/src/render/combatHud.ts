@@ -1,3 +1,5 @@
+import {RESOURCE_ART,resourceGlyph} from './resources';
+import type {PickupKind} from '../../sim/pickups';
 import type Phaser from 'phaser';
 import type { ShipState } from '../../sim/ship';
 import { maxShield, hullCapacity, mineralBalance } from '../../sim/ship';
@@ -14,11 +16,13 @@ const clamp=(v:number):number=>Math.max(0,Math.min(1,v));
 /** Two quiet instrument halves around the pilot; informational only, with no touch hit area. */
 export class CombatHud {
   private labels: Phaser.GameObjects.Text[];
+  private icons:Phaser.GameObjects.Image[];
   constructor(scene: Phaser.Scene){
+    this.icons=Array.from({length:2},()=>scene.add.image(0,0,'__WHITE').setDepth(953).setVisible(false));
     this.labels=Array.from({length:4},()=>text(scene,0,0,'',11).setDepth(953).setVisible(false));
   }
   draw(g:Phaser.GameObjects.Graphics,p:ShipState|null,w:number,h:number,touch:boolean,now:number,anchor?:CombatHudAnchor,hold:'salvage'|'fuel'|'none'='salvage'):void{
-    this.labels.forEach(t=>t.setVisible(false));if(!p)return;
+    this.labels.forEach(t=>t.setVisible(false));this.icons.forEach(i=>i.setVisible(false));if(!p)return;
     const label=(i:number,x:number,y:number,s:string,c=UI.uiText,size=10,origin=.5)=>{
       this.labels[i].setVisible(true).setPosition(x,y).setOrigin(origin,0).setFontSize(size).setText(s).setColor(css(c)).setStroke('#071321',3);
     };
@@ -83,12 +87,14 @@ export class CombatHud {
       if(charging||active){arc(dashRadius-2*k,rightStart,rightEnd,.8*k,0xf0dfba,.25+.18*Math.sin(now/95));}
 
     }
+    const icon=(slot:number,kind:PickupKind,x:number,y:number,height:number)=>{const i=this.icons[slot],key='combat-'+RESOURCE_ART[kind].asset;if(i.scene.textures.exists(key)){i.setTexture(key,'body').setPosition(x,y).setDisplaySize(height*i.frame.width/i.frame.height,height).setVisible(true);}else resourceGlyph(g,kind,x,y,height);};
     // Minerals are spendable; salvage/fuel is a separate carry-out balance.
     const home=hold==='fuel',held=home?p.fuel:p.salvage,cargo=TUNE.salvage.cargoMax,full=held>=cargo-.5;
     panel(g,12,12,196,36,UI.uiBorder);
-    label(0,22,16,`MIN ${Math.floor(mineralBalance(p,TUNE))}`,UI.uiGold,touch?13:14,0);
+    icon(0,'mineral',25,24,18);
+    label(0,40,16,`MIN ${mineralBalance(p,TUNE)}`,UI.uiGold,touch?13:14,0);
     label(1,198,18,`Lv.${upgradeTotal(p)}`,UI.uiText,11,1);
-    if(hold!=='none')label(2,22,34,`${home?'FUEL':'SALVAGE'} ${Math.floor(held)}/${cargo} · ${home?'UNLOAD AT HOME':'BANK ON WARP'}`,full?0xffb394:0xcfc8b7,9,0);
+    if(hold!=='none'){icon(1,home?'fuel':'salvage',25,40,13);label(2,38,34,`${home?'FUEL':'SALVAGE'} ${Math.floor(held)}/${cargo} · ${home?'UNLOAD AT HOME':'BANK ON WARP'}`,full?0xffb394:0xcfc8b7,9,0);}
     if(full&&hold!=='none')label(3,22,52,home?'FULL · DOCK TO UNLOAD':'FULL · WARP TO BANK',0xffbd91,10,0);
   }
 }

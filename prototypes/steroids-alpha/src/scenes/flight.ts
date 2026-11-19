@@ -1,3 +1,5 @@
+import { missileRefillSeconds } from '../../sim/ship';
+import {resourceGlyph} from '../render/resources';
 import { rankPilots, mineralCount } from '../../sim/leaderboard';
 import { drawCombatImpact, drawShieldShatter,drawRamAttack } from '../render/combatEffects';
 import { shipDestructionPose,SHIP_SMALL_BLASTS,SHIP_DESTRUCTION_MS } from '../render/shipDestruction';
@@ -56,7 +58,7 @@ import { missileLock,missileStructureLock } from '../../sim/ordnance';
 import { UI, css, panel, controlFace, controlClearRight } from '../render/ui';
 import { unlockById } from '../../sim/unlocks';
 import type { Look } from '../../sim/unlocks';
-import { drawPickup, drawOrdnance, drawExplosionCore, drawBullet, drawDrone, drawHitSpark } from '../render/worldArt';
+import { drawOrdnance, drawExplosionCore, drawBullet, drawDrone, drawHitSpark } from '../render/worldArt';
 import { PixelRocks } from '../render/rockPixels';
 import { PaintedRocks, paintedRocksReady } from '../render/rockPainted';
 
@@ -284,7 +286,7 @@ export class FlightScene extends Phaser.Scene {
 
   private lastConfigVersion='';
   update(): void {
-    if(this.planet===TUTORIAL){guide.syncRules();if(!guide.policy.shop&&this.mobilePanel==='shop')this.mobilePanel=null;}
+    if(this.planet===TUTORIAL&&!guide.policy.shop&&this.mobilePanel==='shop')this.mobilePanel=null;
     if(this.lastConfigVersion!==configVersion){for(const ship of this.ships.values())ship.destroy();this.ships.clear();if(shipArtStatus==='ready')buildShadow(this);this.lastConfigVersion=configVersion;}
     const dead = !!this.net.death || this.net.status === 'destroyed';
     const dash = intents.consume('secondary');
@@ -418,7 +420,7 @@ export class FlightScene extends Phaser.Scene {
           this.shieldHitCount++;
         }
       }
-      else if (f.kind === 'gold') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 30, ms: 450, colour: 0xffd23a, chips: 10 });
+      else if (f.kind === 'gold') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 30, ms: 450, colour: 0xbd7cf6, chips: 6 });
       else if (f.kind === 'warpout') {
         // A ship launching off the planet: a bright cyan flash and a wide ring.
         this.effects.push({ x:f.x,y:f.y,at:this.time.now,r:150,ms:WARP_LAUNCH_ART_MS,colour:0x7fe9ff,progression:'warp' });
@@ -432,6 +434,7 @@ export class FlightScene extends Phaser.Scene {
         this.ramCount++;
         this.effects.push({ x:f.x,y:f.y,at:this.time.now,r:100,ms:440,colour:0xffa04a,combat:'ram' });
       } else if (f.kind === 'mineral') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: 24, ms: 420, colour: 0xffc14a, chips: 8 });
+      else if(f.kind==='fuel')this.effects.push({x:f.x,y:f.y,at:this.time.now,r:24,ms:360,colour:0x4de0ed,chips:5});
       else if (f.kind === 'heal') this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: TUNE.asteroid.pickupRadius, ms: 500, colour: 0x7dff9a, heal: true });
       else this.effects.push({ x: f.x, y: f.y, at: this.time.now, r: f.kind === 'burst' ? TUNE.asteroid.radius[f.size] : 9, ms: f.kind === 'burst' ? 420 : 180, colour: 0xffc78a, chips: f.kind === 'burst' ? 10 : 4, combat:f.kind==='burst'?'asteroid':undefined });
     }
@@ -1088,7 +1091,7 @@ export class FlightScene extends Phaser.Scene {
     const dr = clientTune.touch.dashButtonRadius;
     const fr = clientTune.touch.fireButtonRadius;
     const slots = [
-      { kind: 'missile' as const, tier: p.chassis===MISSILE_CRUISER?TUNE.missileCruiser.capacity:p.missileTier, charges: p.missileCharges, cd: p.missileCd, refill: TUNE.missile.refillSeconds, key: 'Q' },
+      { kind: 'missile' as const, tier: p.chassis===MISSILE_CRUISER?TUNE.missileCruiser.capacity:p.missileTier, charges: p.missileCharges, cd: p.missileCd, refill: missileRefillSeconds(p, TUNE), key: 'Q' },
       { kind: 'mine' as const, tier: p.mineTier, charges: p.mineCharges, cd: p.mineCd, refill: TUNE.mine.refillSeconds, key: 'E' },
     ];
     slots.forEach((sl, i) => {
@@ -1129,10 +1132,8 @@ export class FlightScene extends Phaser.Scene {
         .setText(touch ? `${sl.charges}` : `${sl.charges} [${sl.key}]`)
         .setColor(ready ? '#ffd27a' : '#8f7f6a');
       const zone = { x, y, hw: r * 1.25, hh: r * 1.25 };
-      if (touch) {
-        if (sl.kind === 'missile') intents.missileButton = zone;
-        else intents.mineButton = zone;
-      }
+      if (sl.kind === 'missile') intents.missileButton = zone;
+      else intents.mineButton = zone;
     });
   }
 
@@ -1234,14 +1235,14 @@ export class FlightScene extends Phaser.Scene {
     this.drawHotZone(p, w, h);
     this.drawBaseMarkers(p, w, h);
     this.drawSiege(w, h);
-    const tip=this.contextTips?.update(g,p,w,h,this.time.now,!!p&&!intents.helpHeld&&!this.urgentMessage&&!p.warping&&!this.net.warDown&&!this.net.death&&!this.net.extracted&&this.net.status==='open'&&!(p.arrival??0)&&(this.planet!==TUTORIAL||guide.tipsAllowed),this.planet===TUTORIAL,this.net.equippedEvolution);
+    const tip=this.contextTips?.update(g,p,w,h,this.time.now,!!p&&!intents.helpHeld&&!this.urgentMessage&&!p.warping&&!this.net.warDown&&!this.net.death&&!this.net.extracted&&this.net.status==='open'&&!(p.arrival??0)&&this.planet!==TUTORIAL,this.planet===TUTORIAL,this.net.equippedEvolution);
     this.tipActive=!!tip;
     if (this.planet === TUTORIAL && (this.net.death || this.net.extracted)) guide.hide();
     else if(this.planet===TUTORIAL){
       const offers=intents.shopZones.filter(z=>z.item<SHOP_ITEMS.length&&!!p&&canBuy(p,SHOP_ITEMS[z.item],TUNE));
       const first=intents.touch?offers.sort((a,b)=>b.item%3-a.item%3)[0]:offers[0];
       const header=flightHeader(w,intents.touch);
-      guide.update({myId:this.net.myId,predicted:this.net.predicted,g:this.overlay,w,h,tip,toScreen:(x,y)=>this.toScreen(x,y),targets:{shop:guide.policy.shop?header.shop:null,upgrade:this.mobilePanel==='shop'&&first?{x:first.zone.x+(intents.touch?first.zone.hw+8:-first.zone.hw-8),y:first.zone.y,dir:intents.touch?'left':'right'}:null,warp:intents.warpButton}});
+      guide.update({myId:this.net.myId,predicted:this.net.predicted,g:this.overlay,w,h,toScreen:(x,y)=>this.toScreen(x,y),targets:{shop:guide.policy.shop?header.shop:null,upgrade:this.mobilePanel==='shop'&&first?{x:first.zone.x+(intents.touch?first.zone.hw+8:-first.zone.hw-8),y:first.zone.y,dir:intents.touch?'left':'right'}:null,warp:intents.warpButton}});
     }
     this.buildingRigs.begin();
     this.drawBase(p, w, h);
@@ -1549,30 +1550,14 @@ export class FlightScene extends Phaser.Scene {
     this.rocks.end();
     this.crystalChips.draw(this.time.now,(x,y)=>this.toScreen(x,y),light);
     this.combatSprites.begin();
-    // Cosmetic bob and sparkle never alter the server's pickup position or collection radius.
-    for (const item of this.net.pickups.values()) {
-      const at = this.toScreen(item.x, item.y);
-      if (!at.visible) continue;
-      {
-        // Repair pods are drawn near their collection size (owner, 16 November 2026: readable).
-        const radius=(item.kind==='salvage'?8+Math.sqrt(item.value)*1.6:item.kind==='heal'?TUNE.asteroid.pickupRadius*clientTune.render.healDropScale:7+Math.sqrt(item.value)*3)*at.scale;
-        if(this.combatSprites.pickup(at,radius,item.kind,item.id,now))continue;
-      }
-      if (item.kind === 'salvage') {
-        // Gold salvage (placeholder): a spinning gold coin with a glow.
-        const r = (8 + Math.sqrt(item.value) * 1.6) * at.scale;
-        const spin = Math.abs(Math.cos(now / 260 + item.id));
-        g.fillStyle(0xffd23a, 0.25 + 0.15 * Math.sin(now / 180 + item.id));
-        g.fillCircle(at.x, at.y, r * 1.8);
-        g.fillStyle(0xb8860b, 1);
-        g.fillEllipse(at.x, at.y, r * 2 * Math.max(0.2, spin), r * 2);
-        g.fillStyle(0xffe27a, 1);
-        g.fillEllipse(at.x, at.y, r * 1.5 * Math.max(0.15, spin), r * 1.5);
-        continue;
-      }
-      const mineral = item.kind === 'mineral';
-      const r = (mineral ? 7 + Math.sqrt(item.value) * 3 : TUNE.asteroid.pickupRadius * clientTune.render.healDropScale) * at.scale;
-      drawPickup(g, at, r, mineral, item.id, now);
+    // Each actual resource has a distinct painted silhouette; server movement is interpolated once.
+    const pickupNow=performance.now();
+    for(const item of this.net.pickups.values()){
+      const pos=this.net.pickupPosition(item,pickupNow),at=this.toScreen(pos.x,pos.y);if(!at.visible)continue;
+      const height=item.kind==='heal'?Math.max(24,TUNE.asteroid.pickupRadius*clientTune.render.healDropScale*2*at.scale):Math.max(20,Math.min(40,24+Math.sqrt(item.value)*2)*at.scale);
+      const collectible=item.kind!=='fuel'||this.net.clan===this.net.layout?.clan;
+      if(this.combatSprites.pickup(at,height/2,item.kind,item.id,now,collectible))continue;
+      resourceGlyph(g,item.kind,at.x,at.y,height);
     }
     // Ship explosions.
     const dt = Math.min(0.05, this.game.loop.delta / 1000);

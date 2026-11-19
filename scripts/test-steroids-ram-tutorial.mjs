@@ -27,6 +27,27 @@ for(const planet of ['tutorial','alpha']){
  room.setTutorialRules({shop:true,fire:true,minerals:true});room.sim.spillMinerals(100,100,20,10);assert(room.sim.pickups.size>0);
  room.handleBuffer(p,S.protocol.encodeBuy(3,0));assert.equal(room.buys.length,1,'buy message allowed after the upgrade lesson');
 }
+// A collision still bounces the pilot, but only a gun hit mines the authored practice rock.
+{
+ const room=new S.room.Room();
+ room.setPlanet('tutorial');
+ const w=room.sim;
+ const pilot=w.addShipNear(1,1000,1000,0);
+ Object.assign(pilot,{heading:0,travelHeading:0,arrival:0,speed:220});
+ const rockId=w.setTutorialRock(1050,1000,5);
+ w.step();
+ assert(w.asteroids.has(rockId),'collision cannot mine the practice rock');
+ assert.equal(w.pickups.size,0);
+ Object.assign(pilot,{x:750,y:1000,kx:0,ky:0});
+ w.drain();
+ for(let tick=0;tick<18&&w.asteroids.has(rockId);tick++){
+  w.stepShip(1,{seq:tick,turn:0,aim:0,thrust:-1,dash:false,fire:true,missile:false,mine:false,warp:false});
+  w.step();
+ }
+ assert(!w.asteroids.has(rockId),'a real gun shot mines the practice rock');
+ assert.deepEqual([...w.pickups.values()].map(p=>[p.kind,p.value,p.x,p.y]),[['mineral',5,1050,1000]]);
+ assert.equal(w.asteroids.size,0,'practice rock has no stray fragments');
+}
 const model=new S.tips.TipState(),state={hp:50,hullMax:50,shieldCd:0,overheated:false,missileTier:0,mineTier:0};
 assert.equal(model.update(state,0,false),null);
 assert.equal(model.update({...state,overheated:true},10,false,false),null,'hidden hints are not consumed');

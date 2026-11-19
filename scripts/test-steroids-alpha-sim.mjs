@@ -229,7 +229,7 @@ function shootDown(damage, parentV = { vx: 0, vy: 0 }) {
   assert(s.kx < 0 && Math.abs(s.ky) < 1e-9, 'the ship is pushed back the other way (-x)');
   near(s.kx, -tune.ship.knockbackSpeed, 1e-9, 'knockback speed');
   // Contact damage goes to the shield first.
-  assert.equal(s.shield, tune.ship.maxShield - tune.asteroid.contactDamage[0], 'shield takes the contact damage');
+  assert.equal(s.shield, S.maxShield(s, tune) - tune.asteroid.contactDamage[0], 'shield takes the contact damage');
   assert.equal(s.hp, tune.ship.maxHp, 'hull untouched while the shield holds');
   // The knockback fades and the ship flies on.
   for (let i = 0; i < tune.net.tickHz * 2; i++) w.stepShip(1, idle);
@@ -285,16 +285,16 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   assert.equal(b.shield, 0, 'no recharge within the delay');
   assert(b.shieldCd > 0, 'cooldown still running');
   for (let i = 0; i < 2 + tune.net.tickHz; i++) w.step();
-  near(b.shield, sh.maxShield * sh.shieldRegenPerSecond, sh.maxShield * 0.04, 'recharge rate after the delay');
+  near(b.shield, S.shieldRegen(b,tune), S.shieldRegen(b,tune) / tune.net.tickHz + 1e-8, 'recharge rate after the delay');
   assert.equal(b.hp, hpAfter, 'the hull does not regenerate');
   // Once per cycle: break again before it recharges past half and the overflow reaches the hull.
   w.drain();
-  assert(b.shield < sh.maxShield * sh.shieldGraceRechargeFraction);
+  assert(b.shield < S.maxShield(b,tune) * sh.shieldGraceRechargeFraction);
   const sBefore = b.shield;
   w['damageShip'](2, b, sBefore + 10, 1, b.x, b.y);
   near(hpAfter - b.hp, 10, 1e-6, 'no second save until the shield recharges past half');
   // Recharged past half: the shield saves again.
-  b.shield = sh.maxShield * 0.6;
+  b.shield = S.maxShield(b,tune) * 0.6;
   w.step();
   const hp2 = b.hp;
   w['damageShip'](2, b, b.shield + 30, 1, b.x, b.y);
@@ -342,11 +342,11 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   const heals = pickups.filter((k) => k.kind === 'heal');
   const minerals = pickups.filter((k) => k.kind === 'mineral');
   assert.equal(heals.length, 1, 'a destroyed asteroid dropped a health boost');
-  near(minerals.reduce((m, k) => m + k.value, 0), tune.asteroid.mineralYield[2], 0.2, 'and its size of minerals');
+  near(minerals.reduce((m, k) => m + k.value, 0), tune.asteroid.mineralYield[2] * tune.asteroid.miningMineralFactor, 0.2, 'and its size of minerals');
   // A health boost heals 25% of the starting hull.
   s.hp = 10;
   s.x = heals[0].x; s.y = heals[0].y;
-  for (const k of minerals) w.pickups.delete(k.id);
+  for (const k of pickups) if(k.kind!=='heal') w.pickups.delete(k.id);
   w.step();
   const ev = w.drain();
   near(s.hp, 10 + tune.ship.maxHp * tune.asteroid.healthHealFraction, 1e-9, 'heals 25% of the starting hull');
@@ -367,7 +367,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   w.pickups.set(1, { id: 1, x: s.x, y: s.y, kind: 'mineral', value: 40, from: 0, lockedUntil: 0, expires: w.tick + 100 });
   w.step();
   assert.equal(s.hp, sh.maxHp, 'mining does not increase combat hull');assert.equal(S.mineralBalance(s,tune),40,'mining credits the wallet');
-  assert.equal(S.maxShield(s, tune), sh.maxShield, 'but do not raise the shield maximum');
+  assert.equal(S.maxShield(s, tune), sh.maxShield + sh.fighterShieldBonus, 'but do not raise the shield maximum');
   w.pickups.set(2, { id: 2, x: s.x, y: s.y, kind: 'mineral', value: 100000, from: 0, lockedUntil: 0, expires: w.tick + 100 });
   w.step();
   assert.equal(s.hp,sh.maxHp,'carried money never grants health');assert.equal(s.hullMax,sh.powerCap,'wallet storage remains capped');
@@ -380,7 +380,7 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   near(S.damageScale(s, tune), 1, 1e-9, 'power alone does not raise damage');
   s.shieldTier = 2;
   s.damageTier = 3;
-  assert.equal(S.maxShield(s, tune), sh.maxShield + 2 * tune.shop.shieldPerTier, 'shield tiers raise the maximum');
+  assert.equal(S.maxShield(s, tune), sh.maxShield + sh.fighterShieldBonus + 2 * tune.shop.shieldPerTier, 'shield tiers raise the maximum');
   near(S.damageScale(s, tune), 1 + 3 * tune.shop.damagePerTier, 1e-9, 'damage tiers raise damage');
   // A capped ship cannot reach the old top speed.
   const fast = falcon(0, 0, 0, sh.maxSpeed);
@@ -632,8 +632,8 @@ for(const [shield,damage,invulnerable,want] of [[10,3,false,false],[3,3,false,fa
   // the rammer takes the same on its shield with no overflow (its hull untouched). The rammer may
   // pick up the minerals the target spills, so its own totals are not compared exactly.
   near(tune.ship.maxHp - b.hp, tune.ship.dashRamDamage, 1e-6, 'ram damage goes straight to the target hull');
-  near(b.shield, tune.ship.maxShield, 1e-6, 'the target shield is skipped');
-  assert(a.hp >= tune.ship.maxHp && a.shield < tune.ship.maxShield, 'the rammer takes it on its shield only');
+  near(b.shield, S.maxShield(b, tune), 1e-6, 'the target shield is skipped');
+  assert(a.hp >= tune.ship.maxHp && a.shield < S.maxShield(a, tune), 'the rammer takes it on its shield only');
   void bFull; void aFull;
   {
     // A rammer whose shield is down takes it on the hull; a partial shield takes what it can, no overflow.
@@ -1001,14 +1001,16 @@ assert.equal(S.cleanName(null), '');
   const miner = placeShip(mine, 1, far.x, far.y, 0);
   mine.clanOf.set(1, 1);
   miner.speed = 0;
-  mine.pickups.set(903, { id: 903, x: far.x, y: far.y, kind: 'mineral', value: 5, from: 0, lockedUntil: 0, expires: mine.tick + 100, salvage: 5 });
+  mine.pickups.set(903, { id: 903, x: far.x, y: far.y, kind: 'mineral', value: 5, from: 0, lockedUntil: 0, expires: mine.tick + 100 });
+  mine.pickups.set(1903,{id:1903,x:far.x,y:far.y,kind:'fuel',value:5,from:0,lockedUntil:0,expires:mine.tick+100,mined:true});
   mine.stepShip(1, idle);
   mine.step();
   assert(miner.fuel === 5 && miner.salvage === 0, `a member mines fuel, not salvage (fuel ${miner.fuel}, salvage ${miner.salvage})`);
   const guest = placeShip(mine, 2, far.x + 600, far.y, 0);
   mine.clanOf.set(2, 2);
   guest.speed = 0;
-  mine.pickups.set(904, { id: 904, x: far.x + 600, y: far.y, kind: 'mineral', value: 5, from: 0, lockedUntil: 0, expires: mine.tick + 100, salvage: 5 });
+  mine.pickups.set(904, { id: 904, x: far.x + 600, y: far.y, kind: 'mineral', value: 5, from: 0, lockedUntil: 0, expires: mine.tick + 100 });
+  mine.pickups.set(1904,{id:1904,x:far.x+600,y:far.y,kind:'fuel',value:5,from:0,lockedUntil:0,expires:mine.tick+100,mined:true});
   mine.stepShip(1, idle); mine.stepShip(2, idle);
   mine.step();
   assert(guest.fuel === 0 && guest.salvage === 0, 'a non-member mines neither fuel nor salvage on a home planet');
@@ -1220,7 +1222,7 @@ assert.equal(S.cleanName(null), '');
   const at = S.asteroidPos(a, w.tick, tune);
   w['damageAsteroid'](a, at, 99999, 1, 0, new Map());
   const after = [...w.pickups.values()].filter((k) => k.kind === 'mineral').reduce((n, k) => n + k.value, 0);
-  near(after - before, ta.mineralYield[0] * ta.richMineralFactor, 1e-6, 'rich rocks pay more minerals');
+  near(after - before, Math.floor(ta.mineralYield[0] * ta.richMineralFactor * ta.miningMineralFactor * 10 + 1e-8)/10, 1e-6, 'rich rocks pay more minerals');
   const kids = [...w.asteroids.values()].filter((k) => k.rich && k.size === 1);
   assert(kids.length === 2 && kids.every((k) => k.hp === ta.hp[1] * ta.richHpFactor), 'fragments stay rich and tough');
   // Wire: the flag survives encoding.
@@ -1893,10 +1895,13 @@ assert.equal(S.cleanName(null), '');
     assert(!w.asteroids.has(r.id), 'rock mined');
     const minerals = [...w.pickups.values()].filter((k) => k.kind === 'mineral');
     const total = minerals.reduce((n, k) => n + k.value, 0);
-    near(minerals.reduce((n, k) => n + k.salvage, 0), total * sv.perMineral, 1e-6, 'mined minerals carry perMineral salvage');
+    const cargo=[...w.pickups.values()].filter(k=>k.kind==='salvage'&&k.mined);
+    near(cargo.reduce((n,k)=>n+k.value,0),tune.asteroid.mineralYield[r.size]*sv.perMineral,1e-6,'mining drops a separate perMineral cargo reward');
     for (const k of minerals) { k.x = a.x; k.y = a.y; }
     settle(w, 2);
-    near(a.salvage, total * sv.perMineral, 0.2, 'collecting them adds salvage');
+    near(a.salvage,0,1e-9,'minerals alone do not pay hidden salvage');
+    for(const k of cargo){k.x=a.x;k.y=a.y;}settle(w,2);
+    near(a.salvage,tune.asteroid.mineralYield[r.size]*sv.perMineral,.2,'collecting cargo adds only salvage');
   }
   // Hot zone: double salvage for rock mined inside; it moves after moveSeconds.
   {
@@ -1910,7 +1915,7 @@ assert.equal(S.cleanName(null), '');
     w.drain();
     const minerals = [...w.pickups.values()].filter((k) => k.kind === 'mineral');
     const total = minerals.reduce((n, k) => n + k.value, 0);
-    near(minerals.reduce((n, k) => n + k.salvage, 0), total * sv.perMineral * hz.salvageMultiplier, 1e-6, 'hot zone multiplies mined salvage');
+    near([...w.pickups.values()].filter(k=>k.kind==='salvage'&&k.mined).reduce((n,k)=>n+k.value,0),tune.asteroid.mineralYield[r.size]*sv.perMineral*hz.salvageMultiplier,1e-6,'hot zone multiplies the separate cargo reward');
     let ev = null;
     for (let i = 0; i < 70 && !ev; i++) { w.step(); ev = w.drain().hotZone ? w.hotZone : null; }
     ev = ev && { hotZone: ev };
@@ -1933,7 +1938,7 @@ assert.equal(S.cleanName(null), '');
     for (let i = 0; i < 30 && !hitOnce; i++) { b.x = 1300; b.y = 1000; w.stepShip(1, { ...idle, thrust: -1, fire: true }); w.step(); hitOnce = b.hp < 250; }
     w.drain();
     assert(hitOnce, 'b was hit');
-    assert([...w.pickups.values()].filter((k) => k.kind === 'mineral').every((k) => k.salvage === 0), 'minerals spilled by a hit carry no salvage');
+    assert([...w.pickups.values()].filter((k) => k.kind === 'mineral').every((k) => !('salvage' in k)), 'minerals spilled by a hit carry no salvage');
     const powerAbove = b.hullMax - tune.ship.maxHp;
     b.hp = 1; b.shield = 0;
     for (let i = 0; i < 30 && b.hp > 0; i++) { b.x = 1300; b.y = 1000; w.stepShip(1, { ...idle, thrust: -1, fire: true }); w.step(); }
@@ -2015,7 +2020,7 @@ assert.equal(S.cleanName(null), '');
   near(S.topSpeed(it.hullMax, tune, 1), ti.maxSpeed, 1e-9, 'interceptor has its own top speed');
   near(S.topSpeed(bc.hullMax, tune, 2), tb.maxSpeed, 1e-9, 'battlecruiser has its own top speed');
   assert.deepEqual([0, 1, 2].map((c) => S.shipRadius(50, tune, c)), [tune.ship.radius, ti.radius, tb.radius], 'radius per ship');
-  near(S.maxShield(it, tune), tune.ship.maxShield * ti.shieldFactor, 1e-9, 'interceptor shield');
+  near(S.maxShield(it, tune), (tune.ship.maxShield + tune.ship.fighterShieldBonus) * ti.shieldFactor, 1e-9, 'interceptor shield');
   near(S.maxShield(bc, tune), tune.ship.maxShield * tb.shieldFactor, 1e-9, 'battlecruiser shield');
   near(S.damageScale(bc, tune), tb.damageFactor, 1e-9, 'battlecruiser damage');
   // Turning: one step of full turn input.
@@ -2149,3 +2154,5 @@ await import('./test-steroids-capital-evolution.mjs');
 await import('./test-steroids-progression-balance.mjs');
 
 await import('./test-steroids-bot-survival.mjs');
+
+await import('./test-steroids-pickups.mjs');

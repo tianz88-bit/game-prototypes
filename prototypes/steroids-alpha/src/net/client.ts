@@ -1,3 +1,4 @@
+import type {PickupKind} from '../../sim/pickups';
 import {applyServerConfig} from '../liveConfig';
 import { BASE_TURRET_SIDE, baseLayout, isDocked, speedFloor, freeHomeWarp } from '../../sim/clanBase';
 import type { BaseLayout } from '../../sim/clanBase';
@@ -95,6 +96,7 @@ export type NetFx =
   /** A missile or mine went off (r = blast radius); shot: it was shot down. */
   | { kind: 'warpout'; x: number; y: number }
   | { kind: 'gold'; x: number; y: number }
+  | { kind: 'fuel'; x: number; y: number }
   | { kind: 'blast'; x: number; y: number; r: number; ordnance: 'missile' | 'mine'; shot: boolean }
   | { kind: 'mineral'; x: number; y: number }
   | { kind: 'shield'; id: number; x: number; y: number }
@@ -158,7 +160,7 @@ export class NetClient {
   /** Names and kills of everyone on the planet, by id. */
   roster = new Map<number, RosterEntry>();
   /** Health boosts lying on the planet. */
-  readonly pickups = new Map<number, { id: number; x: number; y: number; kind: 'heal' | 'mineral' | 'salvage'; value: number }>();
+  readonly pickups = new Map<number, { id: number; x: number; y: number; kind: PickupKind; value: number;mined?:boolean;fromX?:number;fromY?:number;movedAt?:number }>();
   /** The hot zone (server): centre, radius, and when it moves (performance.now() ms). */
   hotZone: { x: number; y: number; r: number; movesAt: number } | null = null;
   /** Set when our own ship is destroyed: where, and who did it (0 = an asteroid). */
@@ -309,7 +311,14 @@ export class NetClient {
   }
 
   /** Roster, deaths and pickups arrive as JSON text frames. */
-  private handleText(msg: { type?: string; id?: number; power?: number; kills?: number; ships?: { id: number; x: number; y: number }[]; x?: number; y?: number; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean; hull?: boolean; broke?: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: 'heal' | 'mineral' | 'salvage'; value: number }[]; r?: number; seconds?: number; salvage?: number; amount?: number; balance?: number | null; error?: string; remove?: { id: number; by: number }[] }): void {
+  /** Smooth authoritative pickup movement over one snapshot interval; no client reward simulation. */
+  pickupPosition(k:{x:number;y:number;fromX?:number;fromY?:number;movedAt?:number},now=performance.now()):{x:number;y:number}{
+    if(k.movedAt===undefined)return{x:k.x,y:k.y};
+    const f=Math.max(0,Math.min(1,(now-k.movedAt)/(1000/TUNE.net.snapshotHz)));
+    return{x:wrap((k.fromX??k.x)+wrapDelta(k.x,k.fromX??k.x,TUNE.world.width)*f,TUNE.world.width),y:wrap((k.fromY??k.y)+wrapDelta(k.y,k.fromY??k.y,TUNE.world.height)*f,TUNE.world.height)};
+  }
+
+  private handleText(msg: { type?: string; id?: number; power?: number; kills?: number; ships?: { id: number; x: number; y: number }[]; x?: number; y?: number; blasts?: { x: number; y: number; r: number; kind: 'missile' | 'mine'; shot: boolean }[]; rams?: { id: number; target: number; x: number; y: number }[]; hits?: { id: number; x: number; y: number; shielded: boolean; hull?: boolean; broke?: boolean }[]; players?: RosterEntry[]; deaths?: { id: number; x: number; y: number; killer: number }[]; add?: { id: number; x: number; y: number; kind: PickupKind; value: number;mined?:boolean }[];move?:{id:number;x:number;y:number;value:number}[]; r?: number; seconds?: number; salvage?: number; amount?: number; balance?: number | null; error?: string; remove?: { id: number; by: number }[] }): void {
     if (msg.type === 'siege') {
       this.siege = msg as unknown as SiegeView;
       return;
@@ -373,10 +382,11 @@ export class NetClient {
       for (const r of msg.rams) this.fx.push({ kind: 'ram', x: r.x, y: r.y });
     } else if (msg.type === 'pickups') {
       for (const k of msg.add ?? []) this.pickups.set(k.id, k);
+      for(const m of msg.move??[]){const k=this.pickups.get(m.id);if(!k)continue;const now=performance.now(),p=this.pickupPosition(k,now);k.fromX=p.x;k.fromY=p.y;k.movedAt=now;k.x=m.x;k.y=m.y;k.value=m.value;}
       for (const g of msg.remove ?? []) {
         const k = this.pickups.get(g.id);
         this.pickups.delete(g.id);
-        if (k && g.by) this.fx.push({ kind: k.kind === 'mineral' ? 'mineral' : k.kind === 'salvage' ? 'gold' : 'heal', x: k.x, y: k.y });
+        if (k && g.by) this.fx.push({ kind: k.kind === 'mineral' ? 'mineral' : k.kind === 'salvage' ? 'gold' : k.kind==='fuel'?'fuel':'heal', x: k.x, y: k.y });
       }
     }
   }

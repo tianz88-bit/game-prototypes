@@ -1,5 +1,40 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-19 codex simplified mineral prices
+DID: All upgrade tracks use 1/2/3/4 minerals, either evolution costs 10, HUD shows fractional minerals, and hull spills scale to the smaller wallet.
+FILES: Tune, World, live config, HUD, evolution lab and focused regressions.
+SEAM: Economy epoch4 moves older shop prices, asteroid income and hull spill into the smaller denomination. Credits and cargo mining are separate.
+CROSS: Test both cruiser paths and rebuild the client/lab. Bat stats left for balance discussion.
+FOR claude: Deferred. Candidate branch includes pickup, missile, tutorial and shield changes.
+
+## 2026-11-19 codex economy and starting shield candidate
+DID: Asteroid minerals −30%; tier prices 4/8/13/17 and in-run evolution 40. Sparrow/Falcon have 75 shield, Bat 52.5, all fighters 50 hull.
+FILES: Tune, shared World/ship/config, evolution lab and balance/pickup/sim regressions.
+SEAM: Economy epoch3 migrates epoch2 buy prices and evolution entry; fighter shield bonus uses shared maxShield and current regen cap. Mining factor scales minerals independently of resource cargo.
+CROSS: Type/build, sim/config/bank/evolution and 10 matched seeds per goal. Median first purchase 6.25→7.5s, full shop 139→155s, owned cruisers ~70→79s.
+FOR claude: Deferred. Perfect-hit max Falcon vs fresh Sparrow 1.07→1.33s. Candidate only; included in paired release branch.
+
+## 2026-11-19 codex missile fixes
+DID: Fighters launch from desktop/touch HUD or keyboard even when a late input is discarded. Artillery turns sooner after launch and returns forward with no lock. Cruiser reload is 12s per missile.
+FILES: Room, ship/world/live config, intents/Flight, evolution lab and capital regression.
+SEAM: Shared chassis-dependent refill for prediction/authority/HUD. New config factor upgrades earlier artillery records once. Wire layout is unchanged.
+CROSS: Build/typecheck, full simulation, live config, evolution lab and real browser controls pass.
+FOR claude: Deferred. Progression and fighter base stats are discussion only. Candidate includes the prior tutorial and pickup work.
+
+## 2026-11-19 codex tutorial revision
+DID: Four short lessons now require braking and accelerating through gates, shooting the marked rock, taking its ore, buying an upgrade, ramming after both gates in one dash, and completing warp out.
+FILES: TutorialGuide, Room, World practice rock, Flight guidance, and tutorial simulation regression.
+SEAM: Local Room exposes a per-tick tutorial observer with real World events. Tutorial progress no longer depends on render frames.
+CROSS: Tutorial-only world and room changes plus regression coverage. No additional wire fields.
+FOR claude: Deferred. Tutorial is on the resource pickups candidate branch. See CLAUDE_BACKLOG.md.
+
+## 2026-11-19 codex resource pickup candidate
+DID: Separate mineral/cargo drops, painted purple salvage and cyan fuel, matching icons and bounded authoritative magnet. Tested candidate, not live; unchanged mineral prices/generated totals.
+FILES: sim/pickups/world/liveConfig/protocol33, room/client, combat render/HUD/Flight, resource manifest/prep, lab draft/proof and pickup gate.
+SEAM: fuel PickupKind, mined metadata and optional pickups.move payload; snapshot-coalesced authority, wrapped interpolation. Paired client/Worker release required; no D1 migration.
+CROSS: minimal sim/net/server/tune/tests for explicit separate-drop choice. Type/build/sim/config/bank/rig pass;3 DPR2 headless layouts,400 pooled sprites, stable textures. No capture/live writes.
+FOR claude: deferred; read CLAUDE_BACKLOG pickup section. Preserve ownership/capacity/spill locks and prices. Prior bundled-cargo pace results are historical.
+
 ## 2026-11-19 codex bot survival LIVE191126r0108
 DID: PR577076417e1 live108/32; itch44443795181/Worker44443795129/Pages44443795169 succeeded. Bot aim/passes/spawns and500-credit evos; mineral prices unchanged.
 FILES: bots/world/tune/liveConfig/protocol32, lab draft/version hiding, instrumented pace harness, bank/sim/config/new survival gates; lab BOT_SURVIVAL_REVIEW/proof.
@@ -69,39 +104,4 @@ FILES: tune/protocol28, lab evolution settings/model/preview, capital/lab regres
 SEAM: protocol28 has identical wire layout; deployment compatibility refresh prevents cached27 clients retaining old bundled MC defaults under the unchanged legacy config hash.
 CROSS: owner requested balance correction; authority tests cover zero/1/2/4 bought turrets, braking floor, retained BC base2/min140 and bought CIWS bursts. No asset/input/aim changes.
 FOR claude: deferred backlog. Hangar → EVOLVE → Missile Cruiser; Missiles4/Mines2,300 mineral balance,120 cost. Hosted record omits MC, so bundled defaults apply; paired client/Worker release follows.
-
-## 2026-11-18 codex capital release LIVE 181126r0101
-DID: PR562 29bb41a4 live; itch44232567195, Worker44232567203, Pages44232567296 success. Thin CIWS, Hangar evolutions, Missile Cruiser and heavy towers released.
-FILES: shared sim/config/protocol27, room, Hangar/flight/HUD/art, verified R2 staging, lab and capital regression; release-proof.json.
-SEAM:107-byte ships/chassis4/ordnance kind2; BUY5 tier0=BC/1=MC validated server-side. Both client and Worker now27; refresh cached clients.
-CROSS: owner approved live. Type/build/sim/capital/config/rig/bank pass;7 local+2 public Hangar,2 public lab,2 public renderers and75 actual public snapshots pass without capture.
-FOR claude: deferred backlog only. R2 ZIP/8 parts verified via Brave Files submenu; no native input, screenshots or recording. Task tab/temporary preview/Worker/headless closed; proof in lab/evolution/release-proof.json.
-
-## 2026-11-18 codex capital release candidate — art verified
-DID: owner approved live release; thinner painted CIWS tracers, selectable Hangar evolutions, production Missile Cruiser, common capital bursts and heavy tower doublets prepared. R2 upload completed and hashes verified; paired release queued.
-FILES: shared chassis/shop/ship/ordnance/world/config/protocol; room, Hangar/flight/HUD/art profiles, R2 staging, lab comparison and release regression.
-SEAM: protocol27 keeps107-byte ships, accepts chassis4 and ordnance kind2; BUY item5 tier0=Battlecruiser/1=Missile Cruiser. Server validates criteria/cost. Client+Worker must release together.
-CROSS: explicit owner release authorized shared gameplay/input/save/test changes. Sim/config/rig/bank/type/build and verified production art packing pass;7 Hangar and two-client Worker checks, WebGL/Canvas render checks, no capture.
-FOR claude: deferred backlog only. New R2 ZIP and8 parts verified after Brave upload; task tab closed, no native input/capture. Release authorized. Local artifacts outputs/steroids-alpha/missile-cruiser-lab/.
-
-## 2026-11-18 codex evolution & siege LOCAL PREVIEW
-DID: isolated ?evolution=1 Hangar/build selection, new18-part Missile Cruiser, eight rear-launch missiles/hold-repeat, common7-shot CIWS and heavy tower doublets. Owner gate LAB FIRST.
-FILES: steroids-alpha-lab/evolution*, entry/index; prepare-steroids-lab; standalone evolution test and deferred backlog.
-SEAM: none in production. Sandbox clones shared motion; live chassis/save/authority/burst/missile port requires approval and implementation, not copying the local model.
-CROSS: new isolated test/asset staging. Type/build/model/rig +7 headless Brave DPR2 PC/touch/Canvas layouts pass, no captures/sockets/writes. R2 upload URL still404; no push/merge/deploy.
-FOR claude: deferred backlog only. R2 ZIP prepared; owner manual upload tab retained. README records mechanics, tuning, asset hashes and live-port boundaries.
-
-## 2026-11-18 codex live speed grip and ship balance
-DID: LIVE171126r0100/protocol26 via PR5591eccd9e0; itch44129275449 + Worker44129275517 + Pages44129275338 success. Responsive grip, stat Hangar,2T/Guns4 and25/s regen cap.
-FILES: shared sim/protocol/tune/config, client replay/lead, Hangar/shop UI, lab isolation/stat fields, regressions and both release gates.
-SEAM: Protocol26,107-byte ships with travelHeading103; shared movement precedes gun mounts, no lab bridge. Client+Worker must deploy together. Other lab handling stays gated.
-CROSS: sim/server/net/menu/test/CI changed within owner's explicit live request. Unit/config/rig/bank and no-capture PC/mobile/two-client proof recorded in BUILD_STATUS.
-FOR claude: deferred backlog only.7 public Hangar/5 evolution layouts, live beta drift/brake72 snapshots and lab three modes pass, no page errors/capture. Evidence outputs/steroids-alpha/live-speed-grip/.
-
-## 2026-11-17 codex desktop/mobile UI correction
-DID: LIVE171126r0099 via PR557 ec5ef477; itch44119747544 success. Bounded desktop title; clickable PC Upgrades[B]/Scoreboard[Tab], aligned Warp/header.
-FILES: render/landingLayout,hudLayout; scenes/menu,flight; landing layout regression and deferred docs.
-SEAM: optional touch argument/desktop credit anchors; flight header shares PC nav/Warp geometry; existing drawer/input intents unchanged.
-CROSS: menu/input behaviour minimally touched to repair missing PC controls; no simulation/tune/Worker/config or live Speed Grip port.
-FOR claude: backlog ready, no immediate action.12 local menus/8 HUD/7 final menu and7 public menus/8 HUD pass without page errors/capture. Pages post-deploy Operation C counter push race logged.
 

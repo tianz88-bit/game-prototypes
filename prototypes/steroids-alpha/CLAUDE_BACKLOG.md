@@ -2,6 +2,38 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Approved combined release
+
+Owner approved Bat primary damage parity and the combined pickup, tutorial, missile and economy candidate. Bat uses Falcon's shot damage and cadence. Bat's 52.5 shield, turning, acceleration and speeds retain their previous tune. Legacy hosted balance records adopt damage parity during upgrade to the current epoch. Test both stock and max gun tiers for equal sustained primary output.
+
+Deployment and public verification details will be added once the three release workflows finish.
+
+## Simplified mineral denomination
+
+Owner requests memorable numbers. Every track costs 1, 2, 3, 4, with 50 minerals for the full shop. Either owned/equipped cruiser costs 10 during the run, including 13 in prerequisite upgrade spend for a 23-mineral route. Mining scales to .18 of original ore. The HUD shows tenths and dropped hull minerals are proportional to the new prices. The epoch 4 migration also covers older epoch 2 and 3 records. Bat's shields are 70% of Falcon's, with 70% faster turn, 20% stronger acceleration, 10% lower top speed and 15% lower shot damage. No Bat stat changes in this pass.
+
+## Economy and starting shields candidate
+
+Owner requests less mineral income, proportional prices, and more shield than hull. Mining mineral yield factor .70 is independent of salvage and fuel. Tier prices 4/8/13/17 total 210 across twenty upgrades. Either equipped evolution costs 40 in-run, with a 94-mineral minimum route and the existing 500-credit permanent unlock. Combat spills still transfer minerals from the wallet. Progression epoch 3 migrates earlier price tables.
+
+Fighters have 50 hull, with 75 shield for Sparrow/Falcon and 52.5 for Bat. Current regen cap applies. Ten matched seeds per route found median first upgrade 6.25→7.5s, max 139→155s and evolutions ~70→79s in quiet scripted mining. Perfect hit max Falcon vs fresh Sparrow: 9→11 bullets, 1.07→1.33s from first hit. These fixtures measure controlled scenarios.
+
+## Missile control and artillery handling candidate
+
+Fighter missile HUD now accepts desktop clicks. Late and queue-overflow input preserves a single missile and mine press. Cruiser rear delay .45→.18s, turn 1.9→4.2rad/s and reload 6→12s per missile. Unlocked rear launch curves forward. Locked fixed-target fixture 491→137px rear excursion and 1.27→.57s before moving forward. Base fighter stats and progression are pending balance discussion.
+
+## Tutorial lesson gates
+
+Tutorial progress observes local simulation ticks. Brake and accelerate through separate gates. The marked rock yields its ore at the impact site only when shot, and the shop opens only after that pickup is collected. The ram lesson has a launch marker and requires both gates and an actual ram in a single dash. A missed attempt lays out a new course. Warp still completes through the existing extraction path. Contextual prompts outside the tutorial remain separate.
+
+## Separate resources — tested candidate, not live
+
+Owner chose separate mineral/cargo physical objects. Gold crystals buy upgrades; new purple salvage cases bank on warp; new cyan fuel canisters unload at own home Nexus. Existing green repair retained. R2 resource-pickups-v1 manifest verifies uploaded original ZIP and sources; runtime192px. HUD uses the same body frames.
+
+Protocol33 adds fuel/mined pickup metadata and optional JSON move array; no binary layout/D1 changes. Actual server chooses nearest eligible collector within old radius+64px, attracts420px/s, coalesces movement at snapshot cadence. Preserve spill locks, full/partial capacity, bot mined-cargo exclusion and home ownership. Pool200→400 for split objects, strict even for death salvage. pickupVersion1 migrates once and retains future edits. Tutorial mineral-only/Warzone no mined cargo. Prices/generated nominal totals unchanged; collection pace may differ from historical bundled rewards.
+
+All required gates plus3 actual Room/NetClient headless layouts atDPR2 pass;400-object pool/texture plateau, no capture/live spending. Evidence ../steroids-alpha-lab/resource-pickups-proof.json, original prompts/art/readability outside checkout outputs/steroids-alpha/resource-pickups-v01. No immediate Claude session requested; paired release pending.
+
 ## Bot survival /500-credit evolutions — LIVE191126r0108/protocol32
 
 Owner19 November: keep minerals; reduce both permanent evos1500→500 rather than free first choice; test survival changes before release. Owner then approved release: PR577076417e1ea73c84960404a57e9941ba172c58c16. Client44443795181/Worker44443795129/Pages44443795169 succeeded; live191126r0108/protocol32.

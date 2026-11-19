@@ -1,8 +1,11 @@
+import pickups from '../../art/resource-pickups-v1/assets.json';
+import type {PickupKind} from '../../sim/pickups';
+import {RESOURCE_ART} from './resources';
 import Phaser from 'phaser';
 import manifest from '../../art/combat-title-v1/assets.json';
 import backlog from '../../art/combat-backlog-v1/assets.json';
 import type { OrdnanceView } from '../../sim/protocol';
-const assets=[...manifest.assets,...backlog.assets];
+const assets=[...manifest.assets,...backlog.assets,...pickups.assets];
 
 export const combatKey = (name:string):string => `combat-${name}`;
 export function queueCombatArt(scene:Phaser.Scene):void {
@@ -38,15 +41,10 @@ export class CombatSprites {
     if(image.depth!==depth)image.setDepth(depth);
     return image;
   }
-  pickup(at:{x:number;y:number;scale:number},radius:number,kind:'mineral'|'salvage'|'heal',id:number,now:number):boolean {
-    const phase=now/280+id;
-    const name=kind==='heal'?'health-pod':kind==='salvage'?(Math.cos(phase)>.25?'salvage-coin-face':'salvage-coin-tilted'):['mineral-shard','mineral-cluster','mineral-nugget'][id%3];
+  pickup(at:{x:number;y:number;scale:number},radius:number,kind:PickupKind,id:number,now:number,collectible=true):boolean {
+    const name=kind==='mineral'?['mineral-shard','mineral-cluster','mineral-nugget'][id%3]:RESOURCE_ART[kind].asset;
     const image=this.image(name,at.x,at.y+Math.sin(now/460+id)*2*at.scale,radius*2,18);
-    if(image && kind==='salvage'){
-      // Both painted views share a fixed height as the token turns edge-on.
-      image.setDisplaySize(radius*2*image.frame.width/image.frame.height,radius*2);
-      image.setScale(image.scaleX*(.85+.15*Math.abs(Math.cos(phase))),image.scaleY);
-    }
+    if(image){image.setDisplaySize(radius*2*image.frame.width/image.frame.height,radius*2).setAlpha(collectible?1:.42);if(kind==='salvage')image.setRotation(Math.sin(now/1200+id)*.035);}
     return !!image;
   }
   bullet(head:{x:number;y:number;scale:number},tail:{x:number;y:number},own:boolean,small:boolean,look:number):boolean {
