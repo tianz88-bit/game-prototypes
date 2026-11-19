@@ -7,7 +7,7 @@ export const BODY_BOXES = [[40,34,310,160],[432,34,289,161],[807,34,298,160],[11
 export const FOOD_BOXES = [[31,109,390,282],[513,120,318,243],[956,120,317,242],[1401,120,317,246],[111,555,223,241],[550,539,234,258],[952,529,343,267]];
 export const PROP_BOXES = [[132,46,278,288],[602,35,338,295],[1159,44,232,283],[163,366,221,299],[549,423,441,205],[1135,429,268,191],[1182,693,176,300]];
 export const TUNNEL_BOXES = [[204,46,414,508],[915,46,416,508],[60,637,644,326],[829,637,648,326]];
-const KEYS: Record<string,string> = {'train-family-atlas':'dd_family','sushi-plate-atlas':'dd_food','restaurant-atlas':'dd_props','plastic-tunnel-atlas':'dd_tunnels','restaurant-pillar':'dd_pillar'};
+const KEYS: Record<string,string> = {'train-family-atlas':'dd_family','sushi-plate-atlas':'dd_food','restaurant-atlas':'dd_props','plastic-tunnel-atlas':'dd_tunnels','restaurant-pillar':'dd_pillar','tutorial-glove':'dd_glove'};
 
 /** Optional manifest/loose-art loader. Missing art never prevents starting a game. */
 export function preloadArt(scene: Phaser.Scene): void {

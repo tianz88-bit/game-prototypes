@@ -14,6 +14,7 @@ interface Car {holder:Phaser.GameObjects.Container; shear:Phaser.GameObjects.Con
 export class TrainView {
   readonly container:Phaser.GameObjects.Container;
   private cars:Car[]=[];
+  private underglow:Phaser.GameObjects.Image;
   private coupling:Phaser.GameObjects.Graphics;
   private travel:Dir|null=null;
   private ready=false;
@@ -27,6 +28,18 @@ export class TrainView {
   private dirty=true;
   constructor(private scene:Phaser.Scene,readonly def:TrainDef,private cs:number){
     this.container=scene.add.container(0,0);this.gaze=def.headDir;
+    const beamKey='dd_floor_beam';
+    if(!scene.textures.exists(beamKey)){
+      const texture=scene.textures.createCanvas(beamKey,96,80)!;
+      const ctx=texture.context,pixels=ctx.createImageData(96,80);
+      for(let x=0;x<96;x++)for(let y=0;y<80;y++){
+        const distance=x/96,across=Math.abs(y-40)/(8+31*distance),i=(y*96+x)*4;
+        pixels.data.set([30,224,213,210*(1-distance)**1.3*Math.max(0,1-across*across)],i);
+      }
+      ctx.putImageData(pixels,0,0);texture.refresh();
+    }
+    this.underglow=scene.add.image(0,0,beamKey).setOrigin(0,.5).setDisplaySize(cs*.76,cs*.62);
+    this.container.add(this.underglow);
     this.coupling=scene.add.graphics();this.container.add(this.coupling);
     const vertical=def.axis==='v',palette=def.id%4,key=palette===0?'dd_family':'dd_family_'+(palette-1);
     for(let i=0;i<def.len;i++){
@@ -87,6 +100,10 @@ export class TrainView {
   }
   update(delta=0):void {
     if(!this.alive)return;this.clock+=delta;const now=this.clock,v=this.def.axis==='v',factor=this.cs/116*.94,r=this.reaction;
+    const end=this.travel??this.def.headDir;
+    const nose=end*(this.def.len/2-.045)*this.cs;
+    this.underglow.setPosition(v?0:nose,v?nose:this.cs*.035).setRotation(v?end*Math.PI/2:end<0?Math.PI:0)
+      .setVisible(this.travel!==null||this.ready).setAlpha(this.travel!==null?.95:.55+.35*Math.cos(now/tune.feel.lightFlashMs*Math.PI*2));
     if(!this.dirty&&!this.history.length&&!this.foodHistory.length&&this.travel===null){
       // Parked geometry, expression frames, couplings and food are unchanged.
       // Animate only the live signal bands; do not allocate/rebuild every car.

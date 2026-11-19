@@ -20,11 +20,12 @@ interface Save {
   v: 2;
   level: number;
   stars: number[];
+  unlockAll?: boolean;
 }
 
 /** Tutorial captions by level (index 0 to 2), then by tap number. Later levels have none. */
 const COACH: Record<number, string[]> = {
-  0: ['Tap to serve! The teal stripe marks the head. A flashing band means its route is open.'],
+  0: ['Swipe to serve! The teal stripe marks the head. A flashing band means its route is open.'],
   1: ['Brake, honk, then follow. A signalled train always goes toward its striped head.'],
   2: ['Side signals also follow the striped head. If that end is blocked, no light and no chain departure.', 'Swipe either way to move manually. A solid band marks travel; stopping restores the preferred head.'],
 };
@@ -308,8 +309,25 @@ export class GameScene extends Phaser.Scene {
     return { x: c.x + (t.axis === 'h' ? d * half : 0), y: c.y + (t.axis === 'v' ? d * half : 0) };
   }
 
+  private restarting=false;
+  private restartWithFade():void {
+    if(this.restarting)return;
+    this.restarting=true;
+    this.game.renderer.snapshot(frame=>{
+      this.startLevel(this.levelIndex);
+      if(!(frame instanceof HTMLImageElement)){this.restarting=false;return;}
+      const key='dd_restart_frame';
+      this.textures.addImage(key,frame);
+      const old=this.add.image(0,0,key).setOrigin(0).setDisplaySize(WIDTH,HEIGHT).setDepth(500);
+      this.tweens.add({targets:old,alpha:0,duration:260,ease:'Sine.InOut',onComplete:()=>{
+        old.destroy();this.textures.remove(key);this.restarting=false;
+      }});
+    });
+  }
+
   private onIntent(intent: Intent): void {
-    if (intent.type === 'restart') return this.startLevel(this.levelIndex);
+    if(this.restarting)return;
+    if (intent.type === 'restart') return this.restartWithFade();
     if (intent.type === 'next') return this.isUnlocked(this.levelIndex + 1) ? this.startLevel(this.levelIndex + 1) : this.startLevel(this.levelIndex);
     if (intent.type === 'levels') return this.phase === 'menu' ? (this.closeMenu(), this.updateCoach()) : this.phase === 'play' ? ((this.menuPage = -1), this.openMenu()) : undefined;
     if (intent.type === 'select') return this.selectLevel(intent.level);
@@ -325,6 +343,8 @@ export class GameScene extends Phaser.Scene {
       const t = this.locate(intent.x, intent.y);
       if (t < 0) return;
       const along = this.level.trains[t].axis === 'h' ? intent.dx : intent.dy;
+      const across=this.level.trains[t].axis==='h'?intent.dy:intent.dx;
+      if(Math.abs(across)>Math.abs(along))return this.restartWithFade();
       return this.runTrain(t, along > 0 ? 1 : -1);
     }
     if (intent.type === 'tapTrain') return this.tapTrain(intent.train);
@@ -363,14 +383,7 @@ export class GameScene extends Phaser.Scene {
     const dirs = ([-1, 1] as Dir[]).filter((d) => canRun(this.level, this.state, train, d));
     this.pending = null;
     this.arrows.clear();
-    if (dirs.length === 0) {
-      this.sfx.tone(170, 0.07, 'square', 0.14, 120);
-      const v = this.views.get(train)!;
-      const x = v.container.x;
-      const y = v.container.y;
-      this.tweens.add({ targets: v.container, x: x + 3, duration: 40, yoyo: true, repeat: 2, onComplete: () => v.container.setPosition(x, y) });
-      return;
-    }
+    if (dirs.length === 0) return this.restartWithFade();
     if (dirs.length === 1) return this.runTrain(train, dirs[0]);
     this.sfx.uiTap();
     this.pending = { train, dirs };
@@ -577,6 +590,15 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(0x543044,.16);g.fillRect(bx,by,Math.max(0,l-bx),bh);g.fillRect(r,by,Math.max(0,bx+bw-r),bh);g.fillRect(l,by,Math.max(0,r-l),Math.max(0,focusTop-by));g.fillRect(l,bottom,Math.max(0,r-l),Math.max(0,by+bh-bottom));
     g.lineStyle(5,0xfffcf3,1);g.strokeRoundedRect(x,y,w,h,11);g.lineStyle(2,0x853e68,1);g.strokeRoundedRect(x,y,w,h,11);
     const ring=this.add.container(0,0,[g]).setDepth(220);this.tweens.add({targets:ring,alpha:.78,duration:450,yoyo:true,repeat:-1});this.hint=ring;
+    ring.once('destroy',()=>this.tweens.killTweensOf(ring));
+    if(hasArt(this,'dd_glove')){
+      const startX=v.container.x,startY=v.container.y;
+      const hand=this.add.image(startX,startY,'dd_glove').setOrigin(.5,.05);
+      hand.setScale(this.cs*.59/hand.height);ring.add(hand);
+      const distance=m.dir*this.cs*.72;
+      this.tweens.add({targets:hand,x:startX+(t.axis==='h'?distance:0),y:startY+(t.axis==='v'?distance:0),alpha:{from:1,to:.24},duration:640,repeatDelay:350,repeat:-1,ease:'Quad.InOut'});
+      hand.once('destroy',()=>this.tweens.killTweensOf(hand));
+    }
   }
 
   // ---------------------------------------------------------------- results
@@ -648,7 +670,7 @@ export class GameScene extends Phaser.Scene {
   // ------------------------------------------------------------ level selector
 
   private isUnlocked(i: number): boolean {
-    if (tune.rules.unlockAll) return true;
+    if (tune.rules.unlockAll || this.save.unlockAll) return true;
     const cleared = this.save.stars.reduce((best, st, idx) => (st > 0 ? Math.max(best, idx) : best), -1);
     return i <= cleared + 1 && this.totalStars() >= this.gateNeed(i);
   }
@@ -720,6 +742,11 @@ export class GameScene extends Phaser.Scene {
     const nextGate = this.gateNeed(Math.min(LEVELS.length - 1, this.firstLocked()));
     const gateText = tune.rules.unlockAll || nextGate <= this.totalStars() ? `Stars ${this.totalStars()}` : `Stars ${this.totalStars()} / ${nextGate} to open more`;
     this.menu.push(this.hudText(WIDTH / 2, py + 68, 13, '#6a5a3a').setDepth(310).setText(gateText));
+    let taps=0,lastTap=0;
+    title.setInteractive().on('pointerdown',()=>{
+      const now=this.time.now;taps=now-lastTap<750?taps+1:1;lastTap=now;
+      if(taps===5){this.save.unlockAll=true;this.persist();this.openMenu();this.sfx.treasure();}
+    });
     title.setText(pages > 1 ? `Select level (${this.menuPage + 1}/${pages})` : 'Select level');
     const stars = this.add.graphics().setDepth(311);
     this.menu.push(zone, dim, title, stars);
@@ -788,3 +815,4 @@ export class GameScene extends Phaser.Scene {
     this.time.timeScale = speed;
   }
 }
+

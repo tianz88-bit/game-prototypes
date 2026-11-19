@@ -66,9 +66,11 @@ export function drawYard(g:Phaser.GameObjects.Graphics,level:Level,geo:YardGeo):
   const portal=(x:number,y:number,dir:'up'|'down'|'left'|'right')=>{
     const vertical=dir==='up'||dir==='down',sign=dir==='up'||dir==='left'?-1:1,s=cs/116*.94;
     const angle=vertical?sign*Math.PI/2:sign<0?Math.PI:0;
-    const badge=scene.add.graphics().setPosition(x+(vertical?0:sign)*cs*.17,y+(vertical?sign:0)*cs*.17).setRotation(angle).setDepth(92);
-    badge.fillStyle(0x695269,.88);badge.fillRoundedRect(-cs*.115,-cs*.115,cs*.23,cs*.23,cs*.055);
-    badge.lineStyle(cs*.036,0xfff6de,1);badge.beginPath();badge.moveTo(-cs*.035,-cs*.06);badge.lineTo(cs*.038,0);badge.lineTo(-cs*.035,cs*.06);badge.strokePath();
+    const badge=scene.add.graphics().setPosition(vertical?x:Phaser.Math.Clamp(x+sign*cs*.33,7,WIDTH-7),vertical?y+sign*cs*.52:y-cs*.34).setRotation(angle).setDepth(92);
+    // Recessed chevron stamped into the roof plastic.
+    for(const [offset,colour] of [[1,0xfffaf0],[0,0xb4978d]]){
+      badge.lineStyle(cs*.041,colour);badge.beginPath();badge.moveTo(-cs*.053,-cs*.085+offset);badge.lineTo(cs*.045,offset);badge.lineTo(-cs*.053,cs*.085+offset);badge.strokePath();
+    }
     const glow=scene.add.graphics().setPosition(x,y).setRotation(angle).setDepth(91).setAlpha(0).setName('goal-'+dir+'-'+(vertical?Math.floor((x-ox)/cs):Math.floor((y-oy)/cs)));
     for(const [width,color,alpha] of [[.18,0x68dfcf,.28],[.09,0x8bfff0,.85],[.035,0xfffae0,1]]){
       glow.lineStyle(cs*width,color,alpha);glow.beginPath();glow.moveTo(cs*.14,-cs*.39);glow.lineTo(0,-cs*.32);glow.lineTo(0,cs*.32);glow.lineTo(cs*.14,cs*.39);glow.strokePath();
