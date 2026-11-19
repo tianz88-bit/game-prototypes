@@ -1,3 +1,4 @@
+import {LIVERIES} from '../game/levels';
 import Phaser from 'phaser';
 import type {Dir, TrainDef} from '../game/types';
 import {tune} from '../tune';
@@ -29,28 +30,28 @@ export class TrainView {
     this.container=scene.add.container(0,0);this.gaze=def.headDir;
 
     this.coupling=scene.add.graphics();this.container.add(this.coupling);
-    const vertical=def.axis==='v',palette=def.id%4,key=palette===0?'dd_family':'dd_family_'+(palette-1);
+    const vertical=def.axis==='v',palette=LIVERIES.indexOf(def.color),key='dd_liveries_'+Math.floor(palette/5);
     for(let i=0;i<def.len;i++){
       const holder=scene.add.container(0,0),cell=bodyCell(vertical,def.headDir,def.len,i);
       const contact=scene.add.graphics();contact.fillStyle(0x75505a,.14);if(vertical)contact.fillRoundedRect(-30,-61,62,118,22);else contact.fillEllipse(2,31,112,17);holder.add(contact);
       if(hasArt(scene,'dd_outline')){const box=BODY_BOXES[cell];holder.add(scene.add.image(0,vertical?-8:4,'dd_outline',String(cell)).setDisplaySize((vertical?64:116)*(box[2]+16)/box[2],(vertical?124:64)*(box[3]+16)/box[3]));}
-      if(hasArt(scene,key))holder.add(scene.add.image(0,vertical?-8:4,key,String(cell)).setDisplaySize(vertical?64:116,vertical?124:64));
+      if(hasArt(scene,key))holder.add(scene.add.image(0,vertical?-8:4,key,palette+'-'+cell).setDisplaySize(vertical?64:116,vertical?124:64));
       else holder.add(this.fallback(i));
-      const inward=def.len===1?0:i===0?10:i===def.len-1?-10:0,px=vertical?0:inward,py=vertical?-14+inward:-16;
+      const inward=def.len===1?0:i===0?10:i===def.len-1?-10:0,px=vertical?0:inward,py=vertical?-9+inward:-7;
       const food=scene.add.container(px,py+9);
       if(hasArt(scene,'dd_food')){
-        holder.add(scene.add.image(px,py+3,'dd_food','0').setDisplaySize(66.7,48.3));
-        const f=1+(i+def.id)%6,fw=(f===4?37:f===5?40:47)*1.2,fh=(f===4?40:f===5?43:34)*1.2;
+        holder.add(scene.add.image(px,py+3,'dd_food','0').setDisplaySize(49,35));
+        const f=1+def.id%6,fw=(f===4?28:f===5?29:32),fh=(f===4?29:f===5?30:24);
         food.add(scene.add.image(0,-fh/2,'dd_food',String(f)).setDisplaySize(fw,fh));
       }else{
-        const p=scene.add.graphics();p.fillStyle(0xe4d5bc);p.fillEllipse(px,py+6,51,31);p.fillStyle(0xfffaf0);p.fillEllipse(px,py+2,48,28);holder.add(p);
-        const f=scene.add.graphics();f.fillStyle(0xfff9e9);f.fillRoundedRect(-19,-24,38,23,9);f.fillStyle([0xff9160,0xffd54e,0xf46f96][i%3]);f.fillRoundedRect(-21,-31,42,17,7);f.lineStyle(2,0xffedd5);for(let n=-13;n<16;n+=8)f.lineBetween(n,-30,n+6,-16);f.setRotation(-.3);food.add(f);
+        const p=scene.add.graphics();p.fillStyle(0xe4d5bc);p.fillEllipse(px,py+6,44,28);p.fillStyle(0xfffaf0);p.fillEllipse(px,py+2,42,25);holder.add(p);
+        const f=scene.add.graphics();f.fillStyle(0xfff9e9);f.fillRoundedRect(-19,-24,38,23,9);f.fillStyle([0xff9160,0xffd54e,0xf46f96][this.def.id%3]);f.fillRoundedRect(-21,-31,42,17,7);f.lineStyle(2,0xffedd5);for(let n=-13;n<16;n+=8)f.lineBetween(n,-30,n+6,-16);f.setRotation(-.3).setScale(.72);food.add(f);
       }
-      const shadow=scene.add.graphics();shadow.fillStyle(0x8b6952,.14);shadow.fillEllipse(px,py+5,38,14);holder.add(shadow);holder.add(food);
+      const shadow=scene.add.graphics();shadow.fillStyle(0x8b6952,.14);shadow.fillEllipse(px,py+5,29,11);holder.add(shadow);holder.add(food);
       const lamps=scene.add.graphics();holder.add(lamps);this.container.add(holder);
       const cabs:Car['cabs']=[];
       for(const end of [-1,1] as Dir[])if(end===def.headDir&&(end<0?i===0:i===def.len-1)){
-        const head=end===def.headDir,ex=vertical?0:end*(head?40:43),ey=vertical?(end<0?(head?-44:-57):25):(head?5:7),scale=vertical?(head?.95:.6):(head?.85:.63);
+        const head=end===def.headDir,ex=vertical?0:end*(head?40:43),ey=vertical?(end<0?(head?-44:-57):25):(head?5:7),scale=vertical?1.03:.94;
         let signal:Phaser.GameObjects.Image|null=null;
         if(hasArt(scene,'dd_signals')){signal=scene.add.image(0,vertical?-8:4,'dd_signals',String(cell)).setDisplaySize(vertical?64:116,vertical?124:64).setVisible(false);const box=BODY_BOXES[cell],half=Math.floor(box[vertical?3:2]/2);if(vertical)signal.setCrop(0,end<0?0:half,box[2],end<0?half:box[3]-half);else signal.setCrop(end<0?0:half,0,end<0?half:box[2]-half,box[3]);holder.add(signal);}
         if(signal)holder.add(attachSocketLight(signal,vertical,end));

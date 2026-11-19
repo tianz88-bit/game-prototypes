@@ -58,14 +58,18 @@ export function registerArt(scene: Phaser.Scene): void {
     atlas.refresh();
   }
 
-  [[-32,-10,82],[-70,45,35],[0,45,-12]].forEach((delta,index)=>{
-    const key='dd_family_'+index;if(hasArt(scene,key))return;
-    const canvas=scene.textures.createCanvas(key,source.width,source.height);if(!canvas)return;
-    const ctx=canvas.context;ctx.drawImage(source,0,0);
-    const pixels=ctx.getImageData(0,0,source.width,source.height);
-    for(let p=0;p<pixels.data.length;p+=4){const d=pixels.data,k=Math.max(0,Math.min(1,(d[p]-d[p+1])/255*10-1.5));for(let c=0;c<3;c++)d[p+c]=Math.max(0,Math.min(255,d[p+c]+delta[c]*k));}
-    ctx.putImageData(pixels,0,0);canvas.refresh();frames(scene,key,BODY_BOXES);
-  });
+  // The two livery sheets hold five colours each, with sixteen registered car frames per colour.
+  for (let colour = 0; colour < 10; colour++) {
+    const key = 'dd_liveries_' + Math.floor(colour / 5);
+    if (!hasArt(scene, key)) continue;
+    const atlas = scene.textures.get(key);
+    BODY_BOXES.forEach((box, cell) => {
+      const frame = colour + '-' + cell;
+      if (!atlas.has(frame)) atlas.add(frame, 0, 2 + cell % 8 * 176,
+        2 + ((colour % 5) * 2 + Math.floor(cell / 8)) * 140,
+        Math.ceil(box[2] / 2), Math.ceil(box[3] / 2));
+    });
+  }
 }
 
 export function bodyCell(vertical:boolean,headDir:number,count:number,i:number):number {

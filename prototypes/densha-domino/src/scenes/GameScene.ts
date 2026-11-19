@@ -30,7 +30,7 @@ interface Save {
 
 /** Tutorial captions by level (index 0 to 2), then by tap number. Later levels have none. */
 const COACH: Record<number, string[]> = {
-  0: ['Swipe the train right to send it through the tunnel.'],
+  0: ['Send every train out through a tunnel. Swipe this one right.'],
   1: ['Swipe the back train right. It honks, the train ahead leaves, and yours follows.'],
   2: ['Swipe right. Watch the middle train go up when it hears the honk. Honked trains drive forward, toward their face.'],
   3: ['Swipe the highlighted train left to make room. You can swipe either way along its track.', 'Now swipe the highlighted train down. Watch how many trains leave from one swipe!'],
@@ -327,7 +327,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private refreshHud(): void {
-    this.hudLevel.setText(`LEVEL ${this.levelIndex + 1}`);
+    this.hudLevel.setText(`LEVEL ${this.levelIndex + 1}   ·   Trains left ${trainsLeft(this.state)}`);
     this.hudTaps.setText(`${this.level.name}   |   Moves ${this.taps}   ·   Target ${this.par}`);
     if(this.limit-this.taps<=2)this.hudTaps.setText('Moves '+this.taps+'   ·   Target '+this.par+'   ·   '+Math.max(0,this.limit-this.taps)+' left');
     const g = this.starsG;
