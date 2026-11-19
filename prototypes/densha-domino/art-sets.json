@@ -1,16 +1,19 @@
 {
   "defaultSet": "classic",
   "shared": {
-    "dd_glove": "loose/tutorial-glove.png"
+    "dd_glove": "loose/tutorial-glove.png",
+    "title_name": "loose/title-name.webp",
+    "title_salmon": "loose/title-salmon.webp",
+    "title_mint": "loose/title-mint.webp",
+    "title_honk": "loose/title-honk.webp",
+    "title_express": "loose/title-express.webp"
   },
   "sets": {
     "classic": {
-      "dd_family": "loose/train-family-atlas.png",
+      "dd_family": "loose/train-family-shaded.webp",
       "dd_food": "loose/sushi-plate-atlas.png",
       "dd_props": "loose/restaurant-atlas.png",
       "dd_tunnels": "loose/plastic-tunnel-atlas.png"
     }
   }
 }
-
-

@@ -48,7 +48,7 @@ export class TrainView {
       if(hasArt(scene,'dd_outline')){const box=BODY_BOXES[cell];holder.add(scene.add.image(0,vertical?-8:4,'dd_outline',String(cell)).setDisplaySize((vertical?64:116)*(box[2]+16)/box[2],(vertical?124:64)*(box[3]+16)/box[3]));}
       if(hasArt(scene,key))holder.add(scene.add.image(0,vertical?-8:4,key,String(cell)).setDisplaySize(vertical?64:116,vertical?124:64));
       else holder.add(this.fallback(i));
-      const inward=def.len===1?0:i===0?10:i===def.len-1?-10:0,px=vertical?0:inward,py=vertical?-9+inward:-7;
+      const inward=def.len===1?0:i===0?10:i===def.len-1?-10:0,px=vertical?0:inward,py=vertical?-14+inward:-16;
       const food=scene.add.container(px,py+9);
       if(hasArt(scene,'dd_food')){
         holder.add(scene.add.image(px,py+3,'dd_food','0').setDisplaySize(66.7,48.3));

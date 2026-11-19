@@ -1,3 +1,4 @@
+import { GAME_FONT } from './gameFont';
 import Phaser from 'phaser';
 import {Button} from 'dig-kit';
 import {PIXEL_RATIO} from './pixelRatio';
@@ -14,6 +15,6 @@ export class GameButton extends Button {
       onTap();
     });
     c.once('destroy',()=>scene.tweens.killTweensOf(c));
-    for(const child of this.container.list)if(child instanceof Phaser.GameObjects.Text)child.setStyle({fontFamily:'Trebuchet MS, Segoe UI, sans-serif',strokeThickness:0,color:'#fffaf0',resolution:PIXEL_RATIO});
+    for(const child of this.container.list)if(child instanceof Phaser.GameObjects.Text)child.setStyle({fontFamily:GAME_FONT, fontStyle:'bold',strokeThickness:0,color:'#fffaf0',resolution:PIXEL_RATIO});
   }
 }

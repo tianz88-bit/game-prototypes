@@ -86,7 +86,9 @@ export function drawYard(g:Phaser.GameObjects.Graphics,level:Level,geo:YardGeo):
       const key=planTunnelTexture(scene,dir,cs,extent);
       // Both covers must occlude an entering carriage. A north roof behind the
       // train exposed its final pixels on top of the mouth before the clip plane.
-      const roof=scene.add.image(x,sign<0?0:y,key).setOrigin(.5,0).setDisplaySize(halfWidth*2,extent).setDepth(90).setName('serving-tunnel-'+dir);
+      // The north roof hides northbound traffic. First-row lateral traffic
+      // passes in front of the mouth, including food above the carriage roof.
+      const roof=scene.add.image(x,sign<0?0:y,key).setOrigin(.5,0).setDisplaySize(halfWidth*2,extent).setDepth(sign<0?11:90).setName('serving-tunnel-'+dir);
       roof.setData({projection:'orthographic-plan',direction:dir,width:halfWidth*2,sourceSet:'plastic-tunnel-atlas',entrance:sign<0});objects.push(roof);
       return;
     }

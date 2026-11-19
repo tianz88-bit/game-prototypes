@@ -1,3 +1,5 @@
+import { createTitleArt } from '../render/titleArt';
+import { GAME_FONT } from '../gameFont';
 import Phaser from 'phaser';
 import { Sfx } from 'dig-kit';
 import {GameButton as Button} from '../uiButton';
@@ -48,6 +50,7 @@ export class GameScene extends Phaser.Scene {
   private yardArt:Phaser.GameObjects.GameObject[]=[];
   private trainMasks:Phaser.Display.Masks.GeometryMask[]=[];
   private trainLayer:Phaser.GameObjects.Container|null=null;
+  private frontRowLayer:Phaser.GameObjects.Container|null=null;
   private readyStateKey='';
   private exitAudit:object[]|null=null;
   private alternatePars=new Map<Level,number>();
@@ -210,7 +213,8 @@ export class GameScene extends Phaser.Scene {
   private showTitle():void {
     this.titleOpen=true;
     const background=this.add.rectangle(WIDTH/2,HEIGHT/2,WIDTH,HEIGHT,0xffefdb).setInteractive();
-    const title=this.hudText(WIDTH/2,335,40,'#74374a').setText('Sushi Trains');
+    const title = createTitleArt(this, WIDTH / 2, 335, WIDTH - 32)
+      ?? this.hudText(WIDTH / 2, 335, 40, '#74374a').setText('Kaiten Express');
     const start=new Button(this,WIDTH/2,525,210,58,this.save.level?'Continue':'Play',null,{fill:0x387d68,edge:0x92dac3},()=>{
       this.titleOpen=false;cover.destroy();
     },23);
@@ -249,7 +253,7 @@ export class GameScene extends Phaser.Scene {
 
   private hudText(x: number, y: number, size: number, color: string): Phaser.GameObjects.Text {
     return this.add
-      .text(x, y, '', { fontFamily: 'Trebuchet MS, Segoe UI, sans-serif', fontStyle: 'bold', fontSize: `${size}px`, color:color==='#ffffff'?'#74435c':color, strokeThickness:0, align: 'center', resolution: PIXEL_RATIO })
+      .text(x, y, '', { fontFamily: GAME_FONT, fontStyle: 'bold', fontSize: `${size}px`, color:color==='#ffffff'?'#74435c':color, strokeThickness:0, align: 'center', resolution: PIXEL_RATIO })
       .setOrigin(0.5)
       .setDepth(240);
   }
@@ -269,6 +273,7 @@ export class GameScene extends Phaser.Scene {
     const reuseYard=previousLevel===this.level && this.trainLayer!==null;
     if(!reuseYard){
     this.trainLayer?.destroy();this.trainLayer=null;
+    this.frontRowLayer?.destroy();this.frontRowLayer=null;
     this.yardArt.forEach(o=>o.destroy());this.yardArt=[];
     this.trainMasks.forEach(m=>m.destroy());this.trainMasks=[];
     } else {
@@ -302,12 +307,18 @@ export class GameScene extends Phaser.Scene {
     this.trainLayer=this.add.container(0,0).setDepth(10);
     const mask=this.make.graphics({x:0,y:0},false);mask.fillStyle(0xffffff).fillRect(this.ox-this.cs*.12,this.oy-this.cs*.12,this.cs*(this.level.cols+.24),this.cs*(this.level.rows+.24));
     const geometry=mask.createGeometryMask();this.trainLayer.setMask(geometry);this.trainMasks.push(geometry);this.yardArt.push(mask);
+    this.frontRowLayer=this.add.container(0,0).setDepth(12);
+    const frontMask=this.make.graphics({x:0,y:0},false);
+    frontMask.fillStyle(0xffffff).fillRect(this.ox-this.cs*.12,0,this.cs*(this.level.cols+.24),this.oy+this.cs*(this.level.rows+.12));
+    const frontGeometry=frontMask.createGeometryMask();
+    this.frontRowLayer.setMask(frontGeometry);this.trainMasks.push(frontGeometry);this.yardArt.push(frontMask);
     }
     for (const t of this.level.trains) {
       const v = new TrainView(this, t, this.cs);
       const c = v.centre(t.start, this.ox, this.oy);
       v.container.setPosition(c.x, c.y).setDepth(10 + t.id);
-      this.trainLayer!.add(v.container);
+      const layer=t.axis==='h'&&t.line===0?this.frontRowLayer:this.trainLayer;
+      layer!.add(v.container);
       this.views.set(t.id, v);
     }
     this.cursor = { c: 0, r: 0 };
@@ -645,11 +656,8 @@ export class GameScene extends Phaser.Scene {
     this.visualState=this.state.slice();for(const v of this.views.values())v.rest();
     void exits;
     if (links >= tune.feel.bigChainTrains) {
-      this.sfx.cleared();
-      this.cameras.main.shake(tune.feel.shakeMs, tune.feel.shakeIntensity);
-      this.punchZoom(tune.feel.punchZoom);
-
-      if (navigator.vibrate && tune.feel.vibrate) navigator.vibrate(15);
+      if (!isCleared(this.state)) this.sfx.cleared();
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) this.celebrateChain();
     }
     if (isCleared(this.state)) return this.win();
     if (this.taps >= this.limit) return this.fail();
@@ -890,11 +898,16 @@ export class GameScene extends Phaser.Scene {
 
   // -------------------------------------------------------------------- fx
 
-  private punchZoom(mult: number): void {
-    const cam = this.cameras.main;
-    this.tweens.killTweensOf(cam);
-    cam.setZoom(PIXEL_RATIO);
-    this.tweens.add({ targets: cam, zoom: PIXEL_RATIO * mult, duration: 70, yoyo: true, ease: 'Sine.Out' });
+  private celebrateChain(): void {
+    const camera = this.cameras.main;
+    if (this.tweens.isTweening(camera)) return;
+    this.tweens.add({
+      targets: camera,
+      zoom: PIXEL_RATIO * tune.feel.chainSwellZoom,
+      duration: tune.feel.chainSwellMs,
+      ease: 'Sine.InOut',
+      yoyo: true
+    });
   }
 
   private say(text: string): void {
