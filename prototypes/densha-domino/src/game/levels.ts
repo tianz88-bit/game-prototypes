@@ -50,7 +50,7 @@ export interface LevelSource {
   quality?: {par:number;minChain:number;minFinal:number;plan:Move[]};
 }
 
-/** Hand-authored levels. Each is checked by the solver in scripts/check-densha-levels. */
+/** Hand-authored levels 1 to 6. Each has a proof in puzzle-contracts.ts, checked by scripts/check-densha-quality.mjs. */
 export const LEVEL_SOURCES: LevelSource[] = [
   // 1. One train, one way out: tap it.
   { name: 'First Departure', rows: ['.....', '.....', 'bAA..', '.....', '.....'] },
@@ -58,25 +58,21 @@ export const LEVEL_SOURCES: LevelSource[] = [
   { name: 'Follow the Leader', rows: ['.....', '.....', 'bA.B.', '.....', '.....'], axis: { A: 'h', B: 'h' } },
   // One swipe starts a three-train relay around a corner.
   { name: 'Round the Corner', rows: ['.....','...CC','.....','bA.B.','.....'], axis: { A:'h', B:'v' }, head: { A:1, B:-1, C:1 } },
-  // 4 to 11 were found by a search under the current rules (any bump sets the other train off and the
-  // bumper follows once its way is clear) and proved solvable by the solver; see
-  // scripts/check-densha-levels.mjs. They are tuned for `rules.followAfterSide` = 1.
-  { name: 'Shibuya Siding', rows: ['.A..b', '.A...', '.....', 'DDs..', 's.BBC'], axis: { C: 'h' } },
-  { name: 'Ueno Yard', rows: ['m.DD.', 'BEA.b', '.E..m', '...C.', '...C.', 'k..C.'], axis: { A: 'h', B: 'h' } },
-  { name: 'Kyoto Crossing', rows: ['##D...', '..D..C', '..D..t', '.A..Fb', 'sAEEFB', '....F.'], axis: { B: 'h', C: 'h' } },
-  { name: 'Nagoya Junction', rows: ['....F.', '...bD.', '.Bt...', 'stb...', '....G.', 'EAA..s', '....CC'], axis: { B: 'v', D: 'v', E: 'h', F: 'v', G: 'h' } },
-  { name: 'Sapporo Sidings', rows: ['.b...#.', '.b.b.A.', '...EFA.', '.DDE.AB', '.CCE...', '#.H.m..', '.GH...k'], axis: { B: 'h', F: 'v', G: 'v' } },
-  { name: 'Osaka Loop', rows: ['b.E..H.', '.bE.bDG', 'C.EmsDG', 'C....D.', 'CIII.D#', 'CABB#..', '.k.FFFF'], axis: { A: 'h', H: 'v' } },
-  { name: 'Hakata Depot', rows: ['.FFF.B.', 'H.b.mB.', 'HDDD.Bs', 'H#A..Bm', '.#ACCCG', '..A..sG', '..AbI.G', '.E.JJJJ'], axis: { E: 'h', I: 'v' } },
-  { name: 'Tokyo Terminal', rows: ['HCCCCJJ', '..bs.tK', '......K', 'BBBB#.K', 'A..##Dk', 'A..k.Ds', 'AGFFFFF', 'A.EIII.'], axis: { E: 'v', G: 'h', H: 'v' } },
+  // 4. Mind the Gap: a honked train needs room in front of its face. Train B faces up into C, so swiping A
+  // first stalls (and A then shows "No room!"). Move C out to open a gap, then A's honk sends B off.
+  { name: 'Mind the Gap', rows: ['.....', '.CC..', '.B...', '.B.AA', '.b...'], head: { A: -1, B: -1, C: -1 } },
+  // 5. Double Departure: two chains. A's chain clears B, which opens a gap in front of C's face for D's chain.
+  { name: 'Double Departure', rows: ['......', '.AA.B.', '....C.', 'DD..C.', '......'], axis: { B: 'h' }, head: { A: 1, B: 1, C: -1, D: 1 } },
+  // 6. Kyoto Crossing, rebuilt (owner request, 20 November 2026) to meet the level 6+ rules: two setup moves,
+  // a 3-train chain, then the original six-train finale. 9 trains, so clearing them one by one runs out of moves.
+  { name: 'Kyoto Crossing', rows: ['II..G..', '..#DG..', '...DG.C', '...D...', '..A..F.', 'HsAEEFB', 'H....F.'],
+    axis: { B: 'h', C: 'h', G: 'v', H: 'v', I: 'h' }, head: { A: 1, B: 1, C: 1, D: -1, E: 1, F: -1, G: -1, H: -1, I: 1 } },
 ];
 
-/** Levels 1 to 6 (tutorial and Kyoto Crossing) stay fixed; everything after comes from the pack, which is
- * ordered by difficulty and also holds the hand-made levels 7 to 11 (see scripts/build-densha-pack.mjs). */
+/** Levels 1 to 5 teach one concept each (swipe, honk, head facing, gap needed, two chains); level 6 is Kyoto
+ * Crossing. Levels 7 to 101 come from the generated pack (scripts/build-densha-pack.mjs), ordered by difficulty. */
 export const FIXED_LEVELS = 6;
-export const ALL_SOURCES: LevelSource[] = PACK.some((p) => p.name === LEVEL_SOURCES[FIXED_LEVELS].name)
-  ? [...LEVEL_SOURCES.slice(0, FIXED_LEVELS), ...PACK]
-  : [...LEVEL_SOURCES, ...PACK]; // an older pack without the hand levels
+export const ALL_SOURCES: LevelSource[] = [...LEVEL_SOURCES.slice(0, FIXED_LEVELS), ...PACK];
 
 export const LEVELS: Level[] = ALL_SOURCES.map((s) => {
   const repair=s.quality?undefined:LEVEL_REPAIRS[s.name];

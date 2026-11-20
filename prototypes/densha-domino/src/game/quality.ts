@@ -1,6 +1,7 @@
 import { parseLevel } from './levels';
 import { DEFAULT_RULES, type RuleOptions, applyTap, canRun, initialState, isCleared, legalMoves } from './rules';
 import { solve } from './solver';
+import { tune } from '../tune';
 import type { Axis, Dir, Level, Move, ObstacleKind, State } from './types';
 
 /**
@@ -15,6 +16,9 @@ import type { Axis, Dir, Level, Move, ObstacleKind, State } from './types';
  *  5. Bigger finale: the last move of the solution is its biggest chain and sends off at
  *     least `finaleShare` of all trains (minimum 3).
  *  6. Smooth ramp: `difficulty` scores each board; the pack builder orders boards by it.
+ *  7. Two chains (owner, 20 November 2026): the solution has at least `minChains` moves that send two or
+ *     more trains off, and there are more trains than the move limit (par + tune.rules.limitSlack), so
+ *     clearing trains one at a time always runs out of moves.
  * Decor taste: obstacles that are not load-bearing are removed, the rest never touch
  * (not even diagonally) and use a small, consistent set of props per board.
  */
@@ -24,9 +28,10 @@ export interface TightRules {
   minDensity: number;
   finaleShare: number;
   maxStates: number;
+  minChains: number;
 }
 
-export const TIGHT_RULES: TightRules = { maxFirstOptimal: 2, trapMargin: 2, minDensity: 0.36, finaleShare: 0.4, maxStates: 160000 };
+export const TIGHT_RULES: TightRules = { maxFirstOptimal: 2, trapMargin: 2, minDensity: 0.36, finaleShare: 0.4, maxStates: 160000, minChains: 2 };
 
 export interface Board {
   rows: string[];
@@ -163,6 +168,8 @@ export function tighten(board: Board, seed: number, rules: RuleOptions = DEFAULT
   const finale = run.exits[run.exits.length - 1];
   if (finale < Math.max(...run.exits) || finale < Math.max(3, Math.ceil(tight.finaleShare * n))) return { reject: 'finale' };
   if (run.bumped.size < n) return { reject: 'dead-train' };
+  if (run.exits.filter((e) => e >= 2).length < tight.minChains) return { reject: 'one-chain' };
+  if (n <= first.par + tune.rules.limitSlack) return { reject: 'singles-pass' };
   if (first.firstOptimal > tight.maxFirstOptimal) return { reject: 'many-solutions' };
   if (!first.greedyStuck && first.greedySteps < first.par + tight.trapMargin) return { reject: 'no-trap' };
 
@@ -268,6 +275,8 @@ export function violations(board: Board, minPar: number, rules: RuleOptions = DE
   const finale = run.exits[run.exits.length - 1];
   v += Math.max(0, Math.max(3, Math.ceil(tight.finaleShare * n)) - finale) * 2 + (finale < Math.max(...run.exits) ? 2 : 0);
   v += (n - run.bumped.size) * 1.5;
+  v += Math.max(0, tight.minChains - run.exits.filter((e) => e >= 2).length) * 2;
+  v += Math.max(0, a.par + tune.rules.limitSlack + 1 - n) * 1.5;
   v += Math.max(0, a.firstOptimal - tight.maxFirstOptimal);
   v += a.greedyStuck ? 0 : Math.max(0, a.par + tight.trapMargin - a.greedySteps);
   v += Math.max(0, minPar - a.par);
