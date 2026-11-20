@@ -217,6 +217,7 @@ export class GameScene extends Phaser.Scene {
         slow: (s: number) => (this.testSlow = s),
         levels: () => LEVELS.length,
         layout: () => ({ w: WIDTH, h: HEIGHT }),
+        noRooms: () => this.noRoomCount,
         art:()=>hasArt(this,'dd_family'),
         renderInfo:()=>({pixelRatio:PIXEL_RATIO,eyeFrames:this.textures.get('dd_eyes').getFrameNames().length,signalFrames:hasArt(this,'dd_signals')?this.textures.get('dd_signals').getFrameNames().length:0}),
         trains:()=>[...this.views.values()].map(v=>({id:v.def.id,...v.inspect()})),
@@ -546,7 +547,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** "No room!" pop and shake over a train swiped toward a train right in its way. No move is used. */
+  private noRoomCount = 0;
+
   private noRoom(train: number): void {
+    this.noRoomCount++;
     this.pending = null;
     this.arrows.clear();
     const v = this.views.get(train);
@@ -768,8 +772,25 @@ export class GameScene extends Phaser.Scene {
     const t=this.level.trains[m.train];
     const direction=t.axis==='h'?(m.dir<0?'left':'right'):(m.dir<0?'up':'down');
     // Mind the Gap (level 4) and Double Departure (level 5): name the swipe for the highlighted train.
-    if(this.levelIndex===3)this.coach.setText(this.taps===0?'A honked train needs a gap in front of its face. Swipe the highlighted train '+direction+' to open one.':'Gap open! Now swipe '+direction+' to honk it out.');
-    if(this.levelIndex===4)this.coach.setText(this.taps===0?'Two chains this time. Swipe '+direction+': this chain opens a gap for the next one.':'Now swipe '+direction+' for the second chain.');
+    // Captions follow the board, not the move count, so a wrong move never gets a misleading caption.
+    // Off the intended path (a honk that had no gap), say what went wrong and offer Restart instead of
+    // steering with the solver's arbitrary repair; the highlight is hidden so it cannot contradict the caption.
+    const byLetter=(letter:string)=>this.level.trains.find(x=>x.letter===letter);
+    const moved=(letter:string)=>{const t=byLetter(letter);return !!t&&this.state[t.id]!==t.start;};
+    let offPath=false;
+    if(this.levelIndex===3){
+      const b=byLetter('B');
+      const gapOpen=!!b&&this.state[b.id]!==GONE&&canRun(this.level,this.state,b.id,b.headDir);
+      offPath=!gapOpen&&moved('A');
+      this.coach.setText(offPath?'No gap, so the honk could not move it. Tap Restart and open the gap first.':gapOpen?'Gap open! Now swipe '+direction+' to honk it out.':'A honked train needs a gap in front of its face. Swipe the highlighted train '+direction+' to open one.');
+    }
+    if(this.levelIndex===4){
+      const a=byLetter('A');
+      const firstChainDone=!a||this.state[a.id]===GONE;
+      offPath=!firstChainDone&&moved('D');
+      this.coach.setText(offPath?'That honk had no gap yet. Tap Restart and start the other chain first.':firstChainDone?'Now swipe '+direction+' for the second chain.':'Two chains this time. Swipe '+direction+': this chain opens a gap for the next one.');
+    }
+    if(offPath)return;
     const g=this.add.graphics(),x=v.container.x-(t.axis==='h'?t.len:1)*this.cs/2-4,y=v.container.y-(t.axis==='v'?t.len:1)*this.cs/2-4,w=(t.axis==='h'?t.len:1)*this.cs+8,h=(t.axis==='v'?t.len:1)*this.cs+8;
     const bx=this.ox,by=this.oy,bw=this.level.cols*this.cs,bh=this.level.rows*this.cs,l=Math.max(bx,x),focusTop=Math.max(by,y),r=Math.min(bx+bw,x+w),bottom=Math.min(by+bh,y+h);
     g.fillStyle(0x543044,.16);g.fillRect(bx,by,Math.max(0,l-bx),bh);g.fillRect(r,by,Math.max(0,bx+bw-r),bh);g.fillRect(l,by,Math.max(0,r-l),Math.max(0,focusTop-by));g.fillRect(l,bottom,Math.max(0,r-l),Math.max(0,by+bh-bottom));

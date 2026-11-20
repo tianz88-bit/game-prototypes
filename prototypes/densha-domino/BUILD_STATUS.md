@@ -1,5 +1,5 @@
 ## Current milestone
-Board-framed layout: tunnels capped at 1.6 cells past the board, HUD anchored above the board, block centred below the corner buttons. Full-screen adaptive layout: the canvas fills any screen shape (phones, foldable cover and inner screens, tablets, desktop) with no bars, and a fold, unfold or rotate rebuilds the game at the new size while keeping the level, board and moves. Local music and sushi-bar art review after public release 15.
+Tighter levels on branch ccr-1e26354f-01jcy9 (not released): tutorial levels 4 to 6 rebuilt, "No room!" cue, and a regenerated 95-level pack (levels 7 to 101) under the new rules. All 101 pass check-densha-quality.mjs. Board-framed layout: tunnels capped at 1.6 cells past the board, HUD anchored above the board, block centred below the corner buttons. Full-screen adaptive layout: the canvas fills any screen shape (phones, foldable cover and inner screens, tablets, desktop) with no bars, and a fold, unfold or rotate rebuilds the game at the new size while keeping the level, board and moves. Local music and sushi-bar art review after public release 15.
 
 ## What was implemented
 Gemini generated separate title and gameplay instrumentals. Edited loop exports are 24.00 and 20.76 seconds. A music control remembers the player's preference. Plays switch to the gameplay arrangement when the title closes.
@@ -12,6 +12,7 @@ One looping audio player switches cues, pauses while hidden, and uses a local Og
 Owner review of the music mix, prop palette and cargo placement.
 
 ## Known issues
+- Generated levels have par 4 to 6 only; longer late levels need bigger boards with 14+ trains, which the builder generates slowly. Saves keep stars by level number, so earned stars attach to whatever level now has that number; best-move records start fresh (new names).
 - Layout: real fullscreen is requested on Play only on touch devices that support it (not iPhone Safari). Dual-screen devices with a visible hinge (viewport segments) are not handled specially. A rebuild after a fold restarts any background music and drops an open menu or result panel. Not tested on a physical foldable.
 Mobile layout and playback were checked at phone size in Brave. Physical-phone playback remains unverified.
 
