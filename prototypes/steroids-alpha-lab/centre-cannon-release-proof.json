@@ -1,0 +1,50 @@
+{
+  "release": "201126r0110",
+  "protocol": 34,
+  "releasePr": 597,
+  "releaseCommit": "fa22b5d354c82becfc3a0ff917dfeb322ca720b6",
+  "actions": {
+    "itch": 44662655440,
+    "worker": 44662655259,
+    "pages": 44662655472
+  },
+  "checks": [
+    "production build and types",
+    "full simulation",
+    "rig",
+    "live config",
+    "bank",
+    "evolution lab",
+    "local headless desktop and touch cannon/missile checks"
+  ],
+  "public": {
+    "capture": false,
+    "errors": [],
+    "protocol": 34,
+    "itch": "https://html-classic.itch.zone/html/20420865-2443480/prototypes/steroids-alpha/index.html",
+    "version": "201126r0110",
+    "liveRoom": {
+      "snapshots": 43,
+      "ack": 72,
+      "shield": 75,
+      "hull": 50,
+      "cannon": true,
+      "bay": false
+    },
+    "labUrl": "https://tianz88-bit.github.io/game-prototypes/prototypes/steroids-alpha-lab/?evolution=1",
+    "mount": [
+      {
+        "id": "gunCentre",
+        "x": 0,
+        "y": -446,
+        "side": 0,
+        "parent": "chassis"
+      }
+    ],
+    "labWeapons": {
+      "gun": 2,
+      "ammo": 6,
+      "missiles": 2
+    }
+  }
+}
