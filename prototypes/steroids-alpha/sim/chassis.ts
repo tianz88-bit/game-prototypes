@@ -60,8 +60,8 @@ export interface Mount {
  * side: which gun, for recoil and bullet look: -1/1 inner pair, -2/2 the Battlecruiser's outer pair.
  * Guns fire in this order, one per shot.
  */
-// Right-bow cannon muzzle in world units. Its bay mount uses .18 world units per rig pixel.
-export const MISSILE_CRUISER_GUN = { forward: 86.1, right: 26.64, side: 1 } as const;
+// Centreline cannon muzzle in world units. The rig uses .18 world units per art pixel.
+export const MISSILE_CRUISER_GUN = { forward: 93.3, right: 0, side: 0 } as const;
 
 export const GUNS: Record<number, readonly (Mount & { side: number })[]> = {
   [INTERCEPTOR]: [

@@ -8,7 +8,7 @@ function world(){const w=new S.World(t,()=>.5);w.asteroids.clear();return w;}fun
  assert.equal(s.shots,1);
  assert.equal(s.missileCharges,8,'gun does not fire a missile');
  const gun=w.drain().shots[0],grow=S.powerGrowth(s.hullMax,t);
- assert.equal(gun.side,1,'recoil is on the right gun only');
+ assert.equal(gun.side,0,'recoil drives the centreline gun');
  assert(Math.abs(gun.x-s.x-S.MISSILE_CRUISER_GUN.forward*grow)<1e-8);
  assert(Math.abs(gun.y-s.y-S.MISSILE_CRUISER_GUN.right*grow)<1e-8);
  assert.equal([...w.bullets][0].damage,t.weapon.damage);

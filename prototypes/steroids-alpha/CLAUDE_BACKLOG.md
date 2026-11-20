@@ -4,7 +4,7 @@ Owner direction,17 November2026: Codex completes and deploys the approved work. 
 
 ## Missile Cruiser bow gun candidate
 
-Owner requested a lopsided right-front Sparrow-style cannon. The final rig mounts a separate painted deck cannon using a new hash-verified cruiser asset pack. Its broad ivory muzzle, cobalt jacket and orange mounting foot replace the reused Sparrow sprite. The right hull now has a recessed cannon bay, parented to the right armor, with a separately recoiling gun. Muzzle coordinates follow the inset mount. The gun handles like Sparrow and gets right-side recoil, standard primary Fire input and a heat ring. Q/right click or the touch missile button handles missiles with independent hold-to-repeat and the existing refill. Evolution lab uses the same production rig. Protocol 34 adds the separate missile spacing timer and requires a paired release.
+Owner moved the cruiser-specific deck cannon onto the centreline over the white nose armor and dropped the bay. The previously uploaded deck-cannon-v2 art pack supplies the sprite with no bay part. The gun recoils at side 0 and uses the standard primary Fire input with Sparrow cadence, heat and drift. Missiles retain a separate hold-to-repeat control and their existing refill. Evolution lab uses the production rig. Protocol 34 adds the separate missile spacing timer and requires a paired release.
 
 ## Combined release — LIVE r0109 / protocol 33
 

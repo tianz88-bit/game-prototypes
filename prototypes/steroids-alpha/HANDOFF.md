@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-20 codex centreline Missile Cruiser cannon
+DID: Removed the right bow bay. The custom cannon sits over the white nose plating on the centreline.
+FILES: Cruiser modules, calibration, manifest, shared muzzle and lab recoil.
+SEAM: Side 0 drives the centre gun. Firing behavior, controls and protocol remain as in the candidate.
+CROSS: Centreline muzzle coordinates and recoil check.
+FOR claude: Latest candidate supersedes the right-sided and bay placements. It stages the earlier deck cannon asset pack.
+
 ## 2026-11-20 codex recessed Missile Cruiser bow bay
 DID: Added a blue armored recess to the right bow. Its cheeks frame the gun and the rear plate meets the right hull panel.
 FILES: Cruiser module stack, calibration and versioned asset pack, plus the muzzle offset in sim/chassis.ts.
@@ -97,11 +104,4 @@ FILES: buildingGeometry/Rig, clanBaseArt, rigReview, Flight draw and NetClient v
 SEAM: optional stackLean/viewport/barrel plus local tower bullet origin/parity; existing SHOTS retained. Visual180ms launch blend converges to server path; no simulation/wire/tune/assets changes.
 CROSS: net tags and Flight rendering only. Type/build/sim/config/rig pass;3 local+2 public headless layouts pass50 transforms/muzzle checks each; isolated actual-flight parity/launch/size/convergence and public embedded lab pass. No capture.
 FOR claude: deferred only; owner approved live after checks. Nexus position presets/sweep and separate turret aim in lab. No new publishers, emitters, dependencies or server deploy.
-
-## 2026-11-18 codex main-menu evolution slot LIVE181126r0104
-DID: PR568983a497d live104; itch44295327666/Pages44295327839 success. Main menu owned evolution or Choose evolution opens Hangar EVOLVE; shares secondary row with Learn to fly.
-FILES: landingLayout, MenuScene, HangarScene explicit tab option, layout bounds gate and brief.
-SEAM: none; existing selectedEvolution ownership check and saved look reused. No account/gameplay/protocol/config changes.
-CROSS: minimal menu flow/layout test. Type/build/rig+22 layout gates pass;8 local+2 public PC/touch cases pass labels, ownership, direct tab, refresh, bounds and utility isolation. No capture.
-FOR claude: deferred only; normal Hangar entry retains remembered tab, explicit evolution shortcut overrides it. No immediate action.
 

@@ -1,7 +1,7 @@
 {
-  "r2Object": "steroids-alpha_missile-cruiser-v1_recessed-bow-bay_assets.zip",
-  "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_missile-cruiser-v1_recessed-bow-bay_assets.zip",
-  "zipSha256": "5530a75c821bf73280dad7da4e62fc59b48afbdc1ea45b464117ac8e7467ca5e",
+  "r2Object": "steroids-alpha_missile-cruiser-v1_deck-cannon-v2_assets.zip",
+  "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_missile-cruiser-v1_deck-cannon-v2_assets.zip",
+  "zipSha256": "8e7443023ef44f4fba55790ced2081ffff6b2a423b1e197cea51c3d5a0e376e8",
   "assets": [
     {
       "asset": "chassis",
@@ -59,11 +59,6 @@
       "asset": "gun",
       "deliveryPath": "loose/gun.png",
       "sha256": "54e61906b89963461617c39e79e9eeb9449c98a93505de14c8b4810531b2671d"
-    },
-    {
-      "asset": "cannon-bay",
-      "deliveryPath": "loose/cannon-bay.png",
-      "sha256": "9afcb6a08f016cb99037a46c5859cf2e9d907c39ac8021f30eb4f23bc60110bb"
     }
   ]
 }
