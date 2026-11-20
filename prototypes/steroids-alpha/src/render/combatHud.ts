@@ -2,7 +2,7 @@ import {RESOURCE_ART,resourceGlyph} from './resources';
 import type {PickupKind} from '../../sim/pickups';
 import type Phaser from 'phaser';
 import type { ShipState } from '../../sim/ship';
-import { maxShield, hullCapacity, mineralBalance, walletCap } from '../../sim/ship';
+import { maxShield, hullCapacity, mineralBalance, walletCap, bankedMinerals, haulBonus, haulBonusNext } from '../../sim/ship';
 import { levelsEarned, xpForLevel } from '../../sim/levels';
 import { TUNE } from '../../sim/tune';
 import { text } from '../scenes/common';
@@ -21,7 +21,7 @@ export class CombatHud {
     this.icons=Array.from({length:2},()=>scene.add.image(0,0,'__WHITE').setDepth(953).setVisible(false));
     this.labels=Array.from({length:4},()=>text(scene,0,0,'',11).setDepth(953).setVisible(false));
   }
-  draw(g:Phaser.GameObjects.Graphics,p:ShipState|null,w:number,h:number,touch:boolean,now:number,anchor?:CombatHudAnchor,hold:'salvage'|'fuel'|'none'='salvage'):void{
+  draw(g:Phaser.GameObjects.Graphics,p:ShipState|null,w:number,h:number,touch:boolean,now:number,anchor?:CombatHudAnchor,hold:'salvage'|'fuel'|'none'='salvage',runSeconds=0):void{
     this.labels.forEach(t=>t.setVisible(false));this.icons.forEach(i=>i.setVisible(false));if(!p)return;
     const label=(i:number,x:number,y:number,s:string,c=UI.uiText,size=10,origin=.5)=>{
       this.labels[i].setVisible(true).setPosition(x,y).setOrigin(origin,0).setFontSize(size).setText(s).setColor(css(c)).setStroke('#071321',3);
@@ -96,7 +96,14 @@ export class CombatHud {
     icon(0,'mineral',25,24,18);
     label(0,40,16,`MIN ${Math.floor(carried)}/${cap}`,full?0xffb394:UI.uiGold,touch?13:14,0);
     label(1,198,18,`Lv.${lv} ${Math.max(0,xp)}/${step}`,UI.uiText,10,1);
-    if(hold!=='none'){icon(1,home?'fuel':'mineral',25,40,13);label(2,38,34,home?`FUEL ${Math.floor(p.fuel)} · HOME: MINERALS DON'T BANK`:'BANKS ON WARP',home?0xffc9a3:0xcfc8b7,9,0);}
+    if(hold!=='none'){icon(1,home?'fuel':'mineral',25,40,13);label(2,38,34,home?`FUEL ${Math.floor(p.fuel)} · HOME: MINERALS DON'T BANK`:haulLine(p,runSeconds),home?0xffc9a3:haulBonus(runSeconds,TUNE)>0?0xffd98a:0xcfc8b7,9,0);}
     if(full&&hold!=='none')label(3,22,52,home?'HOLD FULL':'HOLD FULL · WARP TO BANK',0xffbd91,10,0);
   }
+}
+
+/** What warping out banks now, with the haul bonus and when it next rises (owner, 20 November 2026). */
+function haulLine(p:ShipState,seconds:number):string{
+  const bonus=haulBonus(seconds,TUNE),next=haulBonusNext(seconds,TUNE),started=seconds>=TUNE.salvage.haulBonusStartSeconds;
+  const clock=(s:number)=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+  return `BANKS ${bankedMinerals(p,TUNE,false,seconds)}${bonus>0?` (+${Math.round(bonus*100)}%)`:''}${started&&next>0?` · +${Math.round(TUNE.salvage.haulBonusPerMinute*100)}% IN ${clock(next)}`:''}`;
 }

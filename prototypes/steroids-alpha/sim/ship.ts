@@ -169,8 +169,23 @@ export function mineralBalance(s:Pick<ShipState,'hullMax'>,tune:Tune):number{ret
 export function walletCap(s:Pick<ShipState,'picks'>,tune:Tune):number{
   return Math.min(tune.ship.powerCap,tune.ship.maxHp+tune.shop.holdBase+tune.shop.holdPerUpgrade*(s.picks??0));
 }
-/** Credits banked by warping out with this wallet: whole minerals times the planet's bank rate. */
-export function bankedMinerals(s:Pick<ShipState,'hullMax'>,tune:Tune,home:boolean):number{return Math.floor(mineralBalance(s,tune)*(home?tune.salvage.homeBankRate:tune.salvage.bankRate)+1e-8);}
+/**
+ * Haul bonus (owner, 20 November 2026): staying longer pays. From salvage.haulBonusStartSeconds into
+ * a run, every full minute adds salvage.haulBonusPerMinute to what banks, up to salvage.haulBonusMax.
+ * Only the bank sees it; a destroyed ship drops its raw minerals.
+ */
+export function haulBonus(seconds:number,tune:Tune):number{
+  const s=tune.salvage;if(seconds<s.haulBonusStartSeconds)return 0;
+  return Math.min(s.haulBonusMax,Math.floor((seconds-s.haulBonusStartSeconds)/60+1e-9)*s.haulBonusPerMinute);
+}
+/** Seconds until the haul bonus next rises (0 once it is capped). */
+export function haulBonusNext(seconds:number,tune:Tune):number{
+  const s=tune.salvage;if(haulBonus(seconds,tune)>=s.haulBonusMax-1e-9)return 0;
+  if(seconds<s.haulBonusStartSeconds)return s.haulBonusStartSeconds+60-seconds;
+  return 60-((seconds-s.haulBonusStartSeconds)%60);
+}
+/** Credits banked by warping out with this wallet: whole minerals times the planet's bank rate and the haul bonus. */
+export function bankedMinerals(s:Pick<ShipState,'hullMax'>,tune:Tune,home:boolean,seconds=0):number{return Math.floor(mineralBalance(s,tune)*(home?tune.salvage.homeBankRate:tune.salvage.bankRate)*(1+haulBonus(seconds,tune))+1e-8);}
 /** Actual hull capacity is independent of the carried wallet. */
 export function hullCapacity(_s:Pick<ShipState,'chassis'>,tune:Tune):number{return tune.ship.maxHp;}
 

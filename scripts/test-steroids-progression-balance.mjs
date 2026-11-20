@@ -47,6 +47,11 @@ for(let n=0;n<20;n++)assert(S.walletCap({picks:n},t)-t.ship.maxHp>S.xpForLevel(n
 }
 assert.equal(S.bankedMinerals({hullMax:t.ship.maxHp+123.7},t,false),123,'whole minerals bank from ordinary planets');
 assert.equal(S.bankedMinerals({hullMax:t.ship.maxHp+123.7},t,true),0,'clan home planets bank nothing');
+// Haul bonus (owner, 20 November 2026): +10% of the bank per full minute after 3:00, up to +50%.
+assert.deepEqual([0,179,180,239,240,300,480,9999].map(x=>Math.round(S.haulBonus(x,t)*100)),[0,0,0,0,10,20,50,50]);
+assert.equal(S.bankedMinerals({hullMax:t.ship.maxHp+100},t,false,300),120,'staying 5 minutes banks +20%');
+assert.equal(S.bankedMinerals({hullMax:t.ship.maxHp+100},t,true,600),0,'home planets still bank nothing');
+assert.deepEqual([100,180,200,470,480].map(x=>Math.round(S.haulBonusNext(x,t))),[140,60,40,10,0],'countdown to the next step, none once capped');
 {
  const w=new S.World(t,()=>.5);w.asteroids.clear();const s=w.addShip(1);Object.assign(s,{x:1000,y:1000,arrival:0,hp:50,hullMax:80,shield:0,picks:20});w.drain();
  w.damageShip(1,s,10,2,s.x,s.y);assert.equal(s.hp,40);assert.equal(S.mineralBalance(s,t),30-10*t.ship.hullSpillFraction,'hull hits spill minerals');

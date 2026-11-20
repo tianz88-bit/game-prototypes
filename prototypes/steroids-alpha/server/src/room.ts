@@ -859,7 +859,7 @@ export class Room {
       const p = this.players.get(x.id)!;
       // One currency (owner, 19 November 2026): the minerals carried out bank as credits, at this
       // planet's bank rate (none from the safe clan home planets, so they cannot be farmed).
-      const salvage = bankedMinerals(p.ship, this.tune, !!this.world.layout && !this.world.siege);
+      const salvage = bankedMinerals(p.ship, this.tune, !!this.world.layout && !this.world.siege, this.world.runSeconds(p.id));
       this.send(p, JSON.stringify({ type: 'extracted', power: Math.floor(mineralBalance(p.ship,this.tune)), kills: p.kills, salvage }));
       this.leave(x.id);
       void this.bankRun(p, salvage).then((result) => {
