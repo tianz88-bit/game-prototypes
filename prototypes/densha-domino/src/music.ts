@@ -27,10 +27,16 @@ export function startMusic(scene: Phaser.Scene, title: boolean): MusicControls |
   };
   const visibility = () => { if (document.hidden) audio.pause(); else play(); };
   document.addEventListener('visibilitychange', visibility);
-  scene.events.once('shutdown', () => {
+  let stopped = false;
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
     document.removeEventListener('visibilitychange', visibility);
     audio.pause(); audio.removeAttribute('src'); audio.load();
-  });
+  };
+  // Also stop when the whole game is destroyed (rebuilt for a new screen shape).
+  scene.events.once('shutdown', stop);
+  scene.events.once('destroy', stop);
   cue(title ? titleTrack : gameplayTrack);
   return {
     enabled: () => enabled && !audio.paused,

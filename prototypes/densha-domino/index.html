@@ -2,7 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#fff0dc" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>Kaiten Express</title>
     <link rel="icon" href="data:," />
     <style>
@@ -17,11 +21,22 @@
         -webkit-user-select: none;
         -webkit-touch-callout: none;
       }
-      #app { width: 100%; height: 100%; }
+      /* Fill the whole screen. The shell pads by the device safe areas (notches, camera cutouts,
+         rounded corners); its background matches the game so the edges look continuous. */
+      #shell {
+        position: fixed;
+        inset: 0;
+        height: 100vh;
+        height: 100dvh;
+        box-sizing: border-box;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        background: #fff0dc;
+      }
+      #app { width: 100%; height: 100%; overflow: hidden; }
     </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="shell"><div id="app"></div></div>
     <script type="module" src="./src/main.ts"></script>
   </body>
 </html>

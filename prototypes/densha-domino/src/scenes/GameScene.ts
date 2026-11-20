@@ -7,14 +7,25 @@ import { PUZZLE_CONTRACTS } from '../game/puzzle-contracts';
 import { LEVELS } from '../game/levels';
 import { type RuleOptions, applyTap, canRun, initialState, isCleared, trainAt, trainsLeft } from '../game/rules';
 import { solve } from '../game/solver';
-import { type Dir, type Level, type State, type TapEvent } from '../game/types';
+import { type Dir, GONE, type Level, type State, type TapEvent } from '../game/types';
 import { type Intent, IntentBus, bindKeyboard, bindPointer } from '../input/intents';
-import { HEIGHT, WIDTH, PIXEL_RATIO } from '../pixelRatio';
+import { BASE_W, HEIGHT, WIDTH, PIXEL_RATIO, colX, colY, takeResume, type Resume } from '../pixelRatio';
 import { TrainView,SIDE_BODY_LIFT } from '../render/train';
 import { drawYard } from '../render/yard';
 import {preloadArt,registerArt,hasArt} from '../render/art';
 import { tune } from '../tune';
 import { VERSION_STAMP } from '../version.generated';
+
+/** On phones and tablets, ask for real fullscreen when the player starts. Unsupported (iPhone Safari) or refused requests are ignored. */
+function requestFullscreenOnTouch(): void {
+  try {
+    const el = document.documentElement;
+    if (document.fullscreenElement || !el.requestFullscreen || !matchMedia('(pointer: coarse)').matches) return;
+    void el.requestFullscreen({ navigationUI: 'hide' }).catch(() => undefined);
+  } catch {
+    /* not available here: play on in the page */
+  }
+}
 
 export const SAVE_KEY = 'densha-domino:save:v2';
 export const runtime = { goto: 1, apply: false, fps:60 };
@@ -36,9 +47,11 @@ const COACH: Record<number, string[]> = {
   3: ['Swipe the highlighted train left to make room. You can swipe either way along its track.', 'Now swipe the highlighted train down. Watch how many trains leave from one swipe!'],
 };
 
+// Board area. Top is fixed under the HUD; the bottom and width follow the live screen size,
+// so the board grows on foldables, tablets and tall phones.
 const BOARD_TOP = 120;
-const BOARD_BOTTOM = 690;
-const BOARD_W = WIDTH - 40;
+const boardBottom = (): number => HEIGHT - 154;
+const boardW = (): number => WIDTH - 40;
 
 type Phase = 'play' | 'animating' | 'won' | 'failed' | 'menu';
 
@@ -117,7 +130,7 @@ export class GameScene extends Phaser.Scene {
     this.gBackdrop.fillGradientStyle(0xfff3e1, 0xfff3e1, 0xf6dfc5, 0xf6dfc5, 1);
     this.gBackdrop.fillRect(0, 0, WIDTH, HEIGHT);
     this.gBackdrop.fillStyle(0xffffff, 0.35);
-    for (const [x, y, r] of [[70, 70, 30], [320, 50, 22], [330, 760, 36], [50, 780, 26]]) this.gBackdrop.fillCircle(x, y, r);
+    for (const [x, y, r] of [[70, 70, 30], [320, 50, 22], [330, 760, 36], [50, 780, 26]]) this.gBackdrop.fillCircle(x * WIDTH / BASE_W, y * HEIGHT / 844, r);
 
     const px = this.make.graphics({ x: 0, y: 0 }, false);
     px.fillStyle(0xffffff, 1);
@@ -150,8 +163,8 @@ export class GameScene extends Phaser.Scene {
     this.hudLevel = this.hudText(WIDTH / 2, 62, 23, '#74435c');
     this.hudTaps = this.hudText(WIDTH / 2, 87, 15, '#795a68');
     this.starsG = this.add.graphics().setDepth(240);
-    this.banner = this.hudText(WIDTH / 2, 400, 34, '#ffe27a').setDepth(230).setAlpha(0);
-    this.coach = this.hudText(WIDTH / 2, 172, 16, '#74435c').setDepth(230).setAlign('center').setWordWrapWidth(WIDTH - 50);
+    this.banner = this.hudText(WIDTH / 2, HEIGHT / 2 - 22, 34, '#ffe27a').setDepth(230).setAlpha(0);
+    this.coach = this.hudText(WIDTH / 2, 172, 16, '#74435c').setDepth(230).setAlign('center').setWordWrapWidth(Math.min(WIDTH, 560) - 50);
     this.yard = this.add.graphics().setDepth(0);
     this.arrows = this.add.graphics().setDepth(60);
     this.cursorG = this.add.graphics().setDepth(70);
@@ -168,8 +181,10 @@ export class GameScene extends Phaser.Scene {
     this.input.on('pointerupoutside', () => (this.hold = false));
 
     this.loadSave();
-    this.startLevel(this.save.level);
-    const title = new URLSearchParams(location.search).get('test') !== '1';
+    const resume = takeResume();
+    this.startLevel(resume ? resume.level : this.save.level);
+    if (resume) this.applyResume(resume);
+    const title = resume ? resume.title : new URLSearchParams(location.search).get('test') !== '1';
     if(title)this.showTitle();
 
     if (new URLSearchParams(location.search).get('test') === '1') {
@@ -198,6 +213,7 @@ export class GameScene extends Phaser.Scene {
         hintShown: () => !!this.hint,
         slow: (s: number) => (this.testSlow = s),
         levels: () => LEVELS.length,
+        layout: () => ({ w: WIDTH, h: HEIGHT }),
         art:()=>hasArt(this,'dd_family'),
         renderInfo:()=>({pixelRatio:PIXEL_RATIO,eyeFrames:this.textures.get('dd_eyes').getFrameNames().length,signalFrames:hasArt(this,'dd_signals')?this.textures.get('dd_signals').getFrameNames().length:0}),
         trains:()=>[...this.views.values()].map(v=>({id:v.def.id,...v.inspect()})),
@@ -217,10 +233,10 @@ export class GameScene extends Phaser.Scene {
   private showTitle():void {
     this.titleOpen=true;
     const background=this.add.rectangle(WIDTH/2,HEIGHT/2,WIDTH,HEIGHT,0xffefdb).setInteractive();
-    const title = createTitleArt(this, WIDTH / 2, 335, WIDTH - 32)
-      ?? this.hudText(WIDTH / 2, 335, 40, '#74374a').setText('Kaiten Express');
-    const start=new Button(this,WIDTH/2,525,210,58,this.save.level?'Continue':'Play',null,{fill:0x387d68,edge:0x92dac3},()=>{
-      this.titleOpen=false;cover.destroy();
+    const title = createTitleArt(this, WIDTH / 2, colY(335), BASE_W - 32)
+      ?? this.hudText(WIDTH / 2, colY(335), 40, '#74374a').setText('Kaiten Express');
+    const start=new Button(this,WIDTH/2,colY(525),210,58,this.save.level?'Continue':'Play',null,{fill:0x387d68,edge:0x92dac3},()=>{
+      this.titleOpen=false;cover.destroy();requestFullscreenOnTouch();
     },23);
     const menu = new Button(this,56,30,94,38,'Menu',null,{fill:0x508067,edge:0x9fc49c},()=>this.openTitleMenu(),16);
     const cover=this.add.container(0,0,[background,title,start.container,menu.container]).setDepth(450);
@@ -303,9 +319,14 @@ export class GameScene extends Phaser.Scene {
     this.save.level = this.levelIndex;
     this.persist();
 
-    this.cs = Math.floor(Math.min(BOARD_W / this.level.cols, (BOARD_BOTTOM - BOARD_TOP) / this.level.rows));
+    // Phones keep the original board area. Wider screens (unfolded foldables, tablets, desktop) make
+    // the board height-limited, so leave clear room under the stars, plus a caption gap on tutorial levels.
+    const wide = WIDTH > BASE_W;
+    const top = wide ? (COACH[this.levelIndex] ? 190 : 150) : BOARD_TOP;
+    const bottom = wide ? HEIGHT - 124 : boardBottom();
+    this.cs = Math.floor(Math.min(boardW() / this.level.cols, (bottom - top) / this.level.rows));
     this.ox = Math.round((WIDTH - this.cs * this.level.cols) / 2);
-    this.oy = Math.round(BOARD_TOP + (BOARD_BOTTOM - BOARD_TOP - this.cs * this.level.rows) / 2);
+    this.oy = Math.round(top + (bottom - top - this.cs * this.level.rows) / 2);
     if(!reuseYard){
     this.yard.clear();
     this.yardArt=drawYard(this.yard, this.level, { cs: this.cs, ox: this.ox, oy: this.oy });
@@ -329,6 +350,32 @@ export class GameScene extends Phaser.Scene {
     this.cursor = { c: 0, r: 0 };
     this.refreshHud();
     this.updateCoach();
+  }
+
+  /** Puts the board back where the player was before the screen changed shape (fold, unfold, rotate). */
+  private applyResume(r: Resume): void {
+    if (r.level !== this.levelIndex || r.state.length !== this.state.length || isCleared(r.state)) return;
+    this.state = r.state.slice();
+    this.visualState = this.state.slice();
+    this.taps = r.taps;
+    this.longestChain = r.longestChain;
+    for (const [id, v] of [...this.views]) {
+      if (this.state[id] === GONE) {
+        v.destroy();
+        this.views.delete(id);
+      } else {
+        const c = v.centre(this.state[id], this.ox, this.oy);
+        v.container.setPosition(c.x, c.y);
+      }
+    }
+    this.readyStateKey = '';
+    this.refreshHud();
+    this.updateCoach();
+  }
+
+  /** What to carry over when the game is rebuilt for a new screen shape. */
+  snapshot(): Resume {
+    return { level: this.levelIndex, state: this.state.slice(), taps: this.taps, longestChain: this.longestChain, title: this.titleOpen };
   }
 
   private refreshHud(): void {
@@ -746,40 +793,40 @@ export class GameScene extends Phaser.Scene {
     const dim=this.add.graphics().setDepth(300);dim.fillStyle(0x61485e,.38);dim.fillRect(0,0,WIDTH,HEIGHT);
     const panel = this.add.graphics().setDepth(310);
     panel.fillStyle(0x000000, 0.25);
-    panel.fillRoundedRect(46, 268, WIDTH - 92, 280, 26);
+    panel.fillRoundedRect(colX(46), colY(268), BASE_W - 92, 280, 26);
     panel.fillStyle(0xfff8e6, 1);
-    panel.fillRoundedRect(46, 260, WIDTH - 92, 280, 26);
-    const t = this.hudText(WIDTH / 2, 310, 28, '#74435c').setDepth(310);
+    panel.fillRoundedRect(colX(46), colY(260), BASE_W - 92, 280, 26);
+    const t = this.hudText(WIDTH / 2, colY(310), 28, '#74435c').setDepth(310);
     t.setText(title);
     const decorations:Phaser.GameObjects.GameObject[]=[];
     if (stars > 0) for (let i = 0; i < 3; i++){
-      const x=WIDTH/2+(i-1)*62,star=this.add.graphics({x,y:390});this.drawStar(star,0,0,26,i<stars?0xffd04a:0xc9c2b0);decorations.push(star);
+      const x=WIDTH/2+(i-1)*62,star=this.add.graphics({x,y:colY(390)});this.drawStar(star,0,0,26,i<stars?0xffd04a:0xc9c2b0);decorations.push(star);
       if(i<stars){
-        star.setScale(tune.feel.starStartScale).setY(378).setAlpha(0);
-        this.tweens.add({targets:star,scale:tune.feel.starPeakScale,y:390,alpha:1,delay:i*tune.feel.starStaggerMs,duration:tune.feel.starArrivalMs,ease:tune.feel.uiEase,onComplete:()=>{
+        star.setScale(tune.feel.starStartScale).setY(colY(378)).setAlpha(0);
+        this.tweens.add({targets:star,scale:tune.feel.starPeakScale,y:colY(390),alpha:1,delay:i*tune.feel.starStaggerMs,duration:tune.feel.starArrivalMs,ease:tune.feel.uiEase,onComplete:()=>{
           this.sfx.tone([523,659,784][i],.13,'sine',i===2?.23:.16);
           this.tweens.add({targets:star,scale:1,duration:tune.feel.starSettleMs,ease:tune.feel.uiEase});
         }});
       }
-      if(i<stars){const glint=this.add.graphics({x,y:390});glint.lineStyle(2,0xffdc80,.9);for(let n=0;n<8;n++){const a=n*Math.PI/4;glint.lineBetween(Math.cos(a)*30,Math.sin(a)*30,Math.cos(a)*37,Math.sin(a)*37);}glint.setScale(.6).setAlpha(0);decorations.push(glint);this.tweens.add({targets:glint,scale:1.45,alpha:{from:1,to:0},delay:i*tune.feel.starStaggerMs+tune.feel.starArrivalMs,duration:tune.feel.uiBounceMs,ease:'Sine.Out'});}
+      if(i<stars){const glint=this.add.graphics({x,y:colY(390)});glint.lineStyle(2,0xffdc80,.9);for(let n=0;n<8;n++){const a=n*Math.PI/4;glint.lineBetween(Math.cos(a)*30,Math.sin(a)*30,Math.cos(a)*37,Math.sin(a)*37);}glint.setScale(.6).setAlpha(0);decorations.push(glint);this.tweens.add({targets:glint,scale:1.45,alpha:{from:1,to:0},delay:i*tune.feel.starStaggerMs+tune.feel.starArrivalMs,duration:tune.feel.uiBounceMs,ease:'Sine.Out'});}
     }
-    else decorations.push(this.hudText(WIDTH / 2, 390, 15, '#795a68').setText(`Moves ${this.taps}   ·   Target ${this.par}`));
+    else decorations.push(this.hudText(WIDTH / 2, colY(390), 15, '#795a68').setText(`Moves ${this.taps}   ·   Target ${this.par}`));
     if(stars){
       const record=this.save.records![this.level.name];
-      decorations.push(this.hudText(WIDTH/2,344,16,'#74435c').setText('Moves '+this.taps+'   ·   Target '+this.par));
-      decorations.push(this.hudText(WIDTH/2,430,16,'#74435c').setText('Best moves '+record.moves+'   ·   Longest chain '+record.chain));
-      if(label==='Levels'&&this.levelIndex<LEVELS.length-1)decorations.push(this.hudText(WIDTH/2,451,12,'#74435c').setText('Next opens at '+this.gateNeed(this.levelIndex+1)+' stars'));
-      const replay=new Button(this,129,490,119,50,'Replay',null,{fill:0x8b416d,edge:0xba7b9f},()=>this.bus.emit({type:'restart'}),18);
+      decorations.push(this.hudText(WIDTH/2,colY(344),16,'#74435c').setText('Moves '+this.taps+'   ·   Target '+this.par));
+      decorations.push(this.hudText(WIDTH/2,colY(430),16,'#74435c').setText('Best moves '+record.moves+'   ·   Longest chain '+record.chain));
+      if(label==='Levels'&&this.levelIndex<LEVELS.length-1)decorations.push(this.hudText(WIDTH/2,colY(451),12,'#74435c').setText('Next opens at '+this.gateNeed(this.levelIndex+1)+' stars'));
+      const replay=new Button(this,colX(129),colY(490),119,50,'Replay',null,{fill:0x8b416d,edge:0xba7b9f},()=>this.bus.emit({type:'restart'}),18);
       decorations.push(replay.container);
     }
-    const b = new Button(this, stars?261:WIDTH/2, stars?490:480, stars?119:220, stars?50:60, label, null, { fill: 0x2f9e5b, edge: 0x6dffa8 }, onTap, 22);
+    const b = new Button(this, stars?colX(261):WIDTH/2, colY(stars?490:480), stars?119:220, stars?50:60, label, null, { fill: 0x2f9e5b, edge: 0x6dffa8 }, onTap, 22);
     const body=this.add.container(0,0,[panel,t,...decorations,b.container]).setDepth(310).setY(22);
     this.tweens.add({targets:body,y:0,duration:tune.feel.uiBounceMs,ease:tune.feel.uiEase});
     this.overlay.push(dim,body);
     for(const o of [body,...decorations])o.once('destroy',()=>this.tweens.killTweensOf(o));
     if(stars===3){
       const confetti=this.add.particles(0,0,'px',{emitting:false,maxParticles:tune.feel.confettiCount,lifespan:tune.feel.confettiMs,speedX:{min:-150,max:150},speedY:{min:-260,max:-90},gravityY:230,scaleX:{start:1.7,end:.9},scaleY:{start:.65,end:.35},rotate:{start:0,end:540},alpha:{start:1,end:0},tint:[0xf18d9e,0xf5c854,0x78b9c3,0xb6a0d8,0xfff5dc]}).setDepth(330).setName('three-star-confetti');
-      const timer=this.time.delayedCall(tune.feel.starStaggerMs*2+tune.feel.starArrivalMs+tune.feel.starSettleMs+tune.feel.starHoldMs,()=>{confetti.explode(tune.feel.confettiCount/2,65,420);confetti.explode(tune.feel.confettiCount/2,WIDTH-65,420);});
+      const timer=this.time.delayedCall(tune.feel.starStaggerMs*2+tune.feel.starArrivalMs+tune.feel.starSettleMs+tune.feel.starHoldMs,()=>{confetti.explode(tune.feel.confettiCount/2,colX(65),colY(420));confetti.explode(tune.feel.confettiCount/2,colX(BASE_W-65),colY(420));});
       confetti.once('destroy',()=>timer.remove(false));this.overlay.push(confetti);
     }
   }
@@ -839,8 +886,8 @@ export class GameScene extends Phaser.Scene {
     this.closeMenu();
     this.dialogOpen = true;
     const shade = this.add.rectangle(WIDTH/2,HEIGHT/2,WIDTH,HEIGHT,0x61485e,.46).setInteractive();
-    const panel = this.add.graphics().fillStyle(0xfff8e6).fillRoundedRect(29,315,WIDTH-58,202,22);
-    const heading = this.hudText(WIDTH/2,352,24,'#74435c').setText(title);
+    const panel = this.add.graphics().fillStyle(0xfff8e6).fillRoundedRect(colX(29),colY(315),BASE_W-58,202,22);
+    const heading = this.hudText(WIDTH/2,colY(352),24,'#74435c').setText(title);
     const layer = this.add.container(0,0,[shade,panel,heading]).setDepth(500);
     this.menu.push(layer);
     return layer;
@@ -848,19 +895,19 @@ export class GameScene extends Phaser.Scene {
 
   private openTitleMenu(): void {
     const layer = this.dialog('Sound');
-    const close = new Button(this,WIDTH/2,479,138,42,'Close',null,{fill:0x508067,edge:0x9fc49c},()=>this.closeMenu(),16);
-    layer.add([this.effectsButton(408),close.container]);
+    const close = new Button(this,WIDTH/2,colY(479),138,42,'Close',null,{fill:0x508067,edge:0x9fc49c},()=>this.closeMenu(),16);
+    layer.add([this.effectsButton(colY(408)),close.container]);
   }
 
   private confirmRestart(): void {
     if (this.phase !== 'play' || this.restarting || this.dialogOpen) return;
     const layer = this.dialog('Restart this level?');
-    const cancel = new Button(this,WIDTH/2-76,470,138,44,'Cancel',null,{fill:0x508067,edge:0x9fc49c},()=>this.closeMenu(),16);
-    const restart = new Button(this,WIDTH/2+76,470,138,44,'Restart',null,{fill:0x8b416d,edge:0xba7b9f},()=>{
+    const cancel = new Button(this,WIDTH/2-76,colY(470),138,44,'Cancel',null,{fill:0x508067,edge:0x9fc49c},()=>this.closeMenu(),16);
+    const restart = new Button(this,WIDTH/2+76,colY(470),138,44,'Restart',null,{fill:0x8b416d,edge:0xba7b9f},()=>{
       this.closeMenu();
       this.restartWithFade();
     },16);
-    layer.add([this.hudText(WIDTH/2,400,15,'#795a68').setText('Your moves on this board will reset.'),cancel.container,restart.container]);
+    layer.add([this.hudText(WIDTH/2,colY(400),15,'#795a68').setText('Your moves on this board will reset.'),cancel.container,restart.container]);
   }
 
   /** A grid of levels with the stars earned so far. */
@@ -883,7 +930,7 @@ export class GameScene extends Phaser.Scene {
     const rows = Math.ceil(Math.min(perPage, LEVELS.length - first) / cols);
     const gridW = cols * cell + (cols - 1) * gap;
     const rowH = cell + 30;
-    const panelW = WIDTH - 50;
+    const panelW = BASE_W - 50;
     const panelH = 170 + rows * rowH + 70;
     const px = (WIDTH - panelW) / 2;
     const py = Math.round((HEIGHT - panelH) / 2) - 30;
