@@ -290,7 +290,7 @@ export class FlightScene extends Phaser.Scene {
     if(this.lastConfigVersion!==configVersion){for(const ship of this.ships.values())ship.destroy();this.ships.clear();if(shipArtStatus==='ready')buildShadow(this);this.lastConfigVersion=configVersion;}
     const dead = !!this.net.death || this.net.status === 'destroyed';
     const dash = intents.consume('secondary');
-    const missile = intents.consume('missile');
+    const missile = intents.consume('missile') || (this.net.predicted?.chassis === MISSILE_CRUISER && intents.missileHeld);
     const mine = intents.consume('mine');
     const over = dead || !!this.net.extracted || this.net.status === 'extracted' || this.net.status === 'lost';
     // R is Warp in flight and Respawn on the death screen, which reads it itself.

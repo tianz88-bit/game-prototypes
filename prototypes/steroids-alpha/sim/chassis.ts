@@ -30,7 +30,7 @@ export interface ChassisStats {
 export function chassisStats(chassis: number, tune: Tune): ChassisStats {
   if (chassis === INTERCEPTOR || isCapital(chassis)) {
     const c = chassis === INTERCEPTOR ? tune.interceptor : chassis===MISSILE_CRUISER?tune.missileCruiser:tune.battlecruiser;
-    return { radius: c.radius, shield: c.shieldFactor, damage: c.damageFactor, fireIntervalSteps: c.fireIntervalSteps, baseTurrets: c.baseTurrets };
+    return { radius: c.radius, shield: c.shieldFactor, damage: c.damageFactor, fireIntervalSteps: chassis === MISSILE_CRUISER ? tune.sparrow.fireIntervalSteps : c.fireIntervalSteps, baseTurrets: c.baseTurrets };
   }
   return { radius: tune.ship.radius, shield: 1, damage: 1, fireIntervalSteps: chassis === SPARROW ? tune.sparrow.fireIntervalSteps : tune.weapon.fireIntervalSteps, baseTurrets: 0 };
 }
@@ -60,6 +60,9 @@ export interface Mount {
  * side: which gun, for recoil and bullet look: -1/1 inner pair, -2/2 the Battlecruiser's outer pair.
  * Guns fire in this order, one per shot.
  */
+// Centreline cannon muzzle in world units. The rig uses .18 world units per art pixel.
+export const MISSILE_CRUISER_GUN = { forward: 93.3, right: 0, side: 0 } as const;
+
 export const GUNS: Record<number, readonly (Mount & { side: number })[]> = {
   [INTERCEPTOR]: [
     { forward: 10.93, right: -16.38, side: -1 },

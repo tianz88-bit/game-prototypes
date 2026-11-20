@@ -1,7 +1,7 @@
 {
-  "r2Object": "steroids-alpha_missile-cruiser-v1_assets.zip",
-  "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_missile-cruiser-v1_assets.zip",
-  "zipSha256": "e190813542aea9f17afc3bcc5743368789f4e6b40143112db1977a9be9d3c3e7",
+  "r2Object": "steroids-alpha_missile-cruiser-v1_deck-cannon-v2_assets.zip",
+  "url": "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/steroids-alpha_missile-cruiser-v1_deck-cannon-v2_assets.zip",
+  "zipSha256": "8e7443023ef44f4fba55790ced2081ffff6b2a423b1e197cea51c3d5a0e376e8",
   "assets": [
     {
       "asset": "chassis",
@@ -54,6 +54,11 @@
       "deliveryPath": "loose/turret-platform.png",
       "sha256": "c094c4106d30b195c2afa9ee20305d10163dcbf60f31fd2eda941ea4e3d115a0",
       "sourceShip": "human-nomad-battlecruiser-v3"
+    },
+    {
+      "asset": "gun",
+      "deliveryPath": "loose/gun.png",
+      "sha256": "54e61906b89963461617c39e79e9eeb9449c98a93505de14c8b4810531b2671d"
     }
   ]
 }

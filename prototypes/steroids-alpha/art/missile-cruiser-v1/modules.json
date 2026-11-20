@@ -150,5 +150,14 @@
     "y": -241.66666666666669,
     "band": 63,
     "parent": "platform3"
+  },
+  {
+    "id": "gunCentre",
+    "asset": "gun",
+    "x": 0,
+    "y": -446,
+    "band": 64,
+    "side": 0,
+    "parent": "chassis"
   }
 ]

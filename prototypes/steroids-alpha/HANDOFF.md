@@ -1,5 +1,33 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-20 codex centreline Missile Cruiser cannon
+DID: Removed the right bow bay. The custom cannon sits over the white nose plating on the centreline.
+FILES: Cruiser modules, calibration, manifest, shared muzzle and lab recoil.
+SEAM: Side 0 drives the centre gun. Firing behavior, controls and protocol remain as in the candidate.
+CROSS: Centreline muzzle coordinates and recoil check.
+FOR claude: Latest candidate supersedes the right-sided and bay placements. It stages the earlier deck cannon asset pack.
+
+## 2026-11-20 codex recessed Missile Cruiser bow bay
+DID: Added a blue armored recess to the right bow. Its cheeks frame the gun and the rear plate meets the right hull panel.
+FILES: Cruiser module stack, calibration and versioned asset pack, plus the muzzle offset in sim/chassis.ts.
+SEAM: Gun recoils separately above the bay. Its muzzle moved with the art by 6.3 world units aft and 1.44 outward. Sparrow-style gun behavior retained.
+CROSS: Shared muzzle location only. Art pack published to game-assets and verified by hash.
+FOR claude: Candidate awaits release. Use manifest to stage the new bay automatically.
+
+## 2026-11-20 codex Missile Cruiser deck cannon art
+DID: Replaced the reused Sparrow sprite with a cruiser-specific deck cannon. Broad ivory muzzle, cobalt casing and orange mounting foot on the same right bow.
+FILES: Missile Cruiser rig module, calibration and hash-verified asset manifest.
+SEAM: Art only. The widened sprite keeps the existing muzzle position. Sparrow cadence, heat, drift and missile controls are unchanged.
+CROSS: None.
+FOR claude: Bow-gun candidate remains pending release. Revised source pack stored in game-assets. No gameplay changes in this pass.
+
+## 2026-11-19 codex Missile Cruiser bow gun candidate
+DID: One Sparrow-style cannon on the right bow. Gun uses normal Fire, missiles use their own button and retain hold-to-repeat. Evolution lab draws the production rig.
+FILES: Cruiser asset manifest, mount and calibration, shared ship/world/protocol, controls/HUD, evolution lab and tests.
+SEAM: Protocol34 appends missileFireCd to keep gun cooldown independent of missile spacing and ammo reload. Paired client/Worker release required.
+CROSS: Ship input, sim/world, wire, and lab. Sparrow source PNG reused via the existing hash-verified asset staging. No new upload.
+FOR claude: Pending release. Gun has Sparrow cadence, heat and drift. Missile payload, refill, and cruiser ram damage preserve their own tuning.
+
 ## 2026-11-19 codex combined LIVE release PR588
 DID: Itch r0109/Worker protocol33/Pages deployed. Bat now has Falcon primary damage and its existing shields and agility. Also shipped pickups, tutorial, missile fixes, economy and fighter shields.
 FILES: Pickup art manifest/render/HUD, local tutorial, room/sim/net, tune/live config and lab. Release proof in ../steroids-alpha-lab/combined-release-proof.json.
@@ -76,32 +104,4 @@ FILES: buildingGeometry/Rig, clanBaseArt, rigReview, Flight draw and NetClient v
 SEAM: optional stackLean/viewport/barrel plus local tower bullet origin/parity; existing SHOTS retained. Visual180ms launch blend converges to server path; no simulation/wire/tune/assets changes.
 CROSS: net tags and Flight rendering only. Type/build/sim/config/rig pass;3 local+2 public headless layouts pass50 transforms/muzzle checks each; isolated actual-flight parity/launch/size/convergence and public embedded lab pass. No capture.
 FOR claude: deferred only; owner approved live after checks. Nexus position presets/sweep and separate turret aim in lab. No new publishers, emitters, dependencies or server deploy.
-
-## 2026-11-18 codex main-menu evolution slot LIVE181126r0104
-DID: PR568983a497d live104; itch44295327666/Pages44295327839 success. Main menu owned evolution or Choose evolution opens Hangar EVOLVE; shares secondary row with Learn to fly.
-FILES: landingLayout, MenuScene, HangarScene explicit tab option, layout bounds gate and brief.
-SEAM: none; existing selectedEvolution ownership check and saved look reused. No account/gameplay/protocol/config changes.
-CROSS: minimal menu flow/layout test. Type/build/rig+22 layout gates pass;8 local+2 public PC/touch cases pass labels, ownership, direct tab, refresh, bounds and utility isolation. No capture.
-FOR claude: deferred only; normal Hangar entry retains remembered tab, explicit evolution shortcut overrides it. No immediate action.
-
-## 2026-11-18 codex evolution loadouts LIVE181126r0103
-DID: PR566 2c0ee7a9 live; itch44292583012/Worker44292583031/Pages44292583010 success.1500-credit permanent unlock each, separate equip, compact missing-upgrade/resource status.
-FILES: catalogue/tune, Room auth/buy gate, client frozen look/Hangar/shop/tips, bank regression; loadout-release-proof.json and deferred docs.
-SEAM:29 same layout; owned Look.evolution captured before controls/within3s; BUY5 must match. Roster drives UI, resume retains equipment, old numeric preference ignored; lab stays isolated/free.
-CROSS: type/build/sim/config/bank pass.6 local+2 public layouts pass full buy/equip/status; real Worker rejects forged selection with51 healthy snapshots. Browser purchases mocked, SQLite/Room tests cover actual billing/positive authority; no capture.
-FOR claude: deferred only. No migration/assets/dependencies; no live credits spent. Temporary preview/headless stopped. Existing random bot-spacing/Pages counter housekeeping remains future work; this release all first-attempt success.
-
-## 2026-11-18 codex owned pre-mission evolution loadouts
-DID: permanent BC/MC unlocks1500 bank credits each; buy then explicitly equip one in Hangar. Match shop shows both upgrade counters/mineral progress; no equipped build means no evolve.
-FILES: unlock catalogue/tune, Room auth/buy guard, NetClient frozen look, Hangar/shop/tips, bank authority regression and deferred docs.
-SEAM: Look.evolution is owned/slot-cleaned at initial auth before controls/within3s; queued BUY5 must match. Reconnect retains equipment; old Save.evolution ignored. Protocol29 same wire layout.
-CROSS: user requested price1500 and loadout gate; real SQLite bank/Room tests reject forged/unowned/unequipped/late/alternate/duplicate purchases;6 headless PC/touch layouts pass buy/equip/status/bounds with no capture.
-FOR claude: deferred only. No new DB migration/assets/dependencies; existing bank atomicity reused. Paired client/Worker release required; lab remains a free isolated design sandbox.
-
-## 2026-11-18 codex Missile Cruiser correction LIVE181126r0102
-DID: PR564 74dd2ced live; client44251753113 attempt2 + Worker44251753080 success. MC zero free turrets, bought upgrades retained, min90/cruise170/top225. Public lab matches.
-FILES: tune/protocol28, lab settings/model/preview, capital/lab regressions; artillery-release-proof.json and deferred docs.
-SEAM:28 has identical layout; refresh cached27 clients. Existing legacy hosted record omits MC, so defaults90/base0 apply to new client and Worker.
-CROSS: authority tests cover0/1/2/4 bought turrets, actual braking floor90, BC base2/min140 and bought CIWS bursts. Type/build/sim/lab/config pass;49 public snapshots and heads0/BC2 verified, no capture.
-FOR claude: deferred only. Client retry cleared randomized bot-spacing fixture failure; Pages deploy succeeded but Operation C counter push raced main. Future deterministic fixture/counter retry housekeeping; no live block.
 

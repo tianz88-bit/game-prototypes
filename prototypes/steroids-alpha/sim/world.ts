@@ -4,7 +4,7 @@ import type {PickupKind} from './pickups';
 // Pure game rules with no networking, so it runs in the Cloudflare room and in Node tests alike.
 // The room steps each ship with its input, then calls step() once per tick and sends out the events.
 import type { Tune } from './tune';
-import { damageScale, maxShield, mineralBalance, hullCapacity, shieldRegen, shipVelocity, muzzleShot, newShip, shipRadius, stepShip } from './ship';
+import { damageScale, primaryDamageScale, maxShield, mineralBalance, hullCapacity, shieldRegen, shipVelocity, muzzleShot, newShip, shipRadius, stepShip } from './ship';
 import type { AssistTarget, ShipInput, ShipState } from './ship';
 import { asteroidMass, asteroidPos, splitAsteroid } from './asteroids';
 import type { Asteroid } from './asteroids';
@@ -428,7 +428,7 @@ export class World {
     if (s.shots !== before) {
       // Bots aim for themselves (sim/bots.ts); the guns' lock-on assist is a pilot aid (owner).
       const shot = muzzleShot(s, this.tune, this.botIds.has(id) ? [] : this.assistTargets(id));
-      this.bullets.push({ owner: id, damage: this.tune.weapon.damage * damageScale(s, this.tune), x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: this.tune.weapon.bulletLifeSteps });
+      this.bullets.push({ owner: id, damage: this.tune.weapon.damage * primaryDamageScale(s, this.tune), x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, life: this.tune.weapon.bulletLifeSteps });
       this.events.shots.push({ owner: id, ...shot });
     }
   }

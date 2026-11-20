@@ -2,7 +2,7 @@
 // ship and the server runs it as the authority, so both must call it the same way.
 import type { Tune } from './tune';
 import { angleDelta, wrap, wrapDelta } from './wrap';
-import { GUNS, SCRAPPY, SPARROW, MISSILE_CRUISER, chassisStats, isCapital, shipMotion } from './chassis';
+import { GUNS, MISSILE_CRUISER_GUN, SCRAPPY, SPARROW, MISSILE_CRUISER, chassisStats, isCapital, shipMotion } from './chassis';
 
 export interface ShipState {
   /** Server-authoritative arrival time remaining. Absent only in older local visual fixtures. */
@@ -49,6 +49,8 @@ export interface ShipState {
   missileCharges: number;
   mineCharges: number;
   missileCd: number;
+  /** Weapon spacing in fixed steps, independent of charge regeneration. */
+  missileFireCd: number;
   mineCd: number;
   /** Missiles launched and mines dropped so far (wrap at 65536); the world spawns one per step. */
   missileShots: number;
@@ -148,6 +150,10 @@ export function damageScale(s: ShipState, tune: Tune): number {
   return (1 + s.damageTier * tune.shop.damagePerTier) * chassisStats(s.chassis ?? SCRAPPY, tune).damage;
 }
 
+/** The Missile Cruiser carries a fighter gun. Its heavy ordnance and ram keep their own tuning. */
+export function primaryDamageScale(s: ShipState, tune: Tune): number {
+  return s.chassis === MISSILE_CRUISER ? 1 + s.damageTier * tune.shop.damagePerTier : damageScale(s, tune);
+}
 /** Shield maximum: the base shield plus shieldPerTier for each shield upgrade bought. */
 /** The legacy wire hullMax field stores baseline + unspent minerals; it no longer grants health. */
 export function mineralBalance(s:Pick<ShipState,'hullMax'>,tune:Tune):number{return Math.round(Math.max(0,s.hullMax-tune.ship.maxHp)*10)/10;}
@@ -187,7 +193,7 @@ export function gripHeading(s:ShipState,previousSpeed:number,dt:number,tune:Tune
 }
 
 export function newShip(x: number, y: number, heading: number, speed: number): ShipState {
-  return { x, y, heading, travelHeading:heading, speed, arrival: 0, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0, salvage: 0, fuel: 0, chassis: SPARROW, shieldCd: 0 };
+  return { x, y, heading, travelHeading:heading, speed, arrival: 0, dashCharge: 0, dashTime: 0, dashCd: 0, hp: 0, hullMax: 0, shield: 0, kx: 0, ky: 0, fireCd: 0, shots: 0, heat: 0, overheated: false, turrets: 0, shieldTier: 0, damageTier: 0, missileTier: 0, mineTier: 0, missileCharges: 0, mineCharges: 0, missileCd: 0, missileFireCd: 0, mineCd: 0, missileShots: 0, mineShots: 0, lockdown: 0, warping: false, warpDist: 0, salvage: 0, fuel: 0, chassis: SPARROW, shieldCd: 0 };
 }
 
 /** Warp top speed: warp.topSpeedFactor times this ship's top speed (only slightly faster, so pursuit is possible). */
@@ -196,7 +202,7 @@ export function warpSpeed(hp: number, tune: Tune, chassis = SCRAPPY): number {
 }
 
 export function copyShip(s: ShipState): ShipState {
-  return { x: s.x, y: s.y, heading: s.heading, travelHeading:s.travelHeading??s.heading, speed: s.speed, arrival: s.arrival ?? 0, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist, salvage: s.salvage, fuel: s.fuel, chassis: s.chassis, shieldCd: s.shieldCd };
+  return { x: s.x, y: s.y, heading: s.heading, travelHeading:s.travelHeading??s.heading, speed: s.speed, arrival: s.arrival ?? 0, dashCharge: s.dashCharge, dashTime: s.dashTime, dashCd: s.dashCd, hp: s.hp, hullMax: s.hullMax, shield: s.shield, kx: s.kx, ky: s.ky, fireCd: s.fireCd, shots: s.shots, heat: s.heat, overheated: s.overheated, turrets: s.turrets, shieldTier: s.shieldTier, damageTier: s.damageTier, missileTier: s.missileTier, mineTier: s.mineTier, missileCharges: s.missileCharges, mineCharges: s.mineCharges, missileCd: s.missileCd, missileFireCd: s.missileFireCd, mineCd: s.mineCd, missileShots: s.missileShots, mineShots: s.mineShots, lockdown: s.lockdown, warping: s.warping, warpDist: s.warpDist, salvage: s.salvage, fuel: s.fuel, chassis: s.chassis, shieldCd: s.shieldCd };
 }
 
 /**
@@ -302,6 +308,7 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune,
   // Heat: firing adds it, it always cools; at full the guns lock until it drops to unlockHeat.
   const w = tune.weapon;
   if (s.fireCd > 0) s.fireCd--;
+  if (s.missileFireCd > 0) s.missileFireCd--;
   s.heat = Math.max(0, s.heat - w.coolPerSecond * dt);
   if (s.overheated && s.heat <= w.unlockHeat) s.overheated = false;
   // Missiles and mines: charges refill one at a time (refillSeconds each) up to the tier, and are
@@ -318,8 +325,10 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune,
   const missileRefill = missileRefillSeconds(s, tune);
   [s.missileCharges, s.missileCd] = refill(s.missileCharges, s.missileCd, missileCapacity(s,tune), missileRefill);
   [s.mineCharges, s.mineCd] = refill(s.mineCharges, s.mineCd, s.mineTier, tune.mine.refillSeconds);
-  if ((input.missile || s.chassis===MISSILE_CRUISER&&input.fire) && s.missileCharges > 0 && (s.chassis!==MISSILE_CRUISER||s.fireCd===0)) {
-    if(s.chassis===MISSILE_CRUISER)s.fireCd=Math.max(1,Math.ceil(tune.missileCruiser.repeatSeconds*tune.net.tickHz));
+  if (input.missile && s.missileCharges > 0 && s.missileFireCd === 0) {
+    if (s.chassis === MISSILE_CRUISER) {
+      s.missileFireCd = Math.max(1, Math.ceil(tune.missileCruiser.repeatSeconds * tune.net.tickHz));
+    }
     s.missileCharges--;
     if (s.missileCd <= 0) s.missileCd = missileRefill;
     s.missileShots = (s.missileShots + 1) & 0xffff;
@@ -329,7 +338,7 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune,
     if (s.mineCd <= 0) s.mineCd = tune.mine.refillSeconds;
     s.mineShots = (s.mineShots + 1) & 0xffff;
   }
-  if (s.chassis!==MISSILE_CRUISER && input.fire && s.fireCd === 0 && !s.overheated) {
+  if (input.fire && s.fireCd === 0 && !s.overheated) {
     s.fireCd = chassisStats(s.chassis, tune).fireIntervalSteps;
     s.shots = (s.shots + 1) & 0xffff;
     s.heat = Math.min(1, s.heat + shotHeat(s, tune));
@@ -344,7 +353,7 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune,
  * If Falcon's upgraded gun cools faster than it heats, both remain sustainable. */
 export function shotHeat(s: ShipState, tune: Tune): number {
   const heat = tune.weapon.heatPerShot / heatCapacity(s, tune);
-  if (s.chassis !== SPARROW) return heat;
+  if (s.chassis !== SPARROW && s.chassis !== MISSILE_CRUISER) return heat;
   const cool = tune.weapon.coolPerSecond / tune.net.tickHz;
   const falconCool = cool * tune.weapon.fireIntervalSteps;
   const sparrowCool = cool * tune.sparrow.fireIntervalSteps;
@@ -437,16 +446,18 @@ export function assistDirection(x: number, y: number, dir: number, targets: read
 }
 
 export function muzzleShot(s: ShipState, tune: Tune, targets: readonly AssistTarget[] = []): Shot {
-  if (s.chassis === SPARROW) {
-    const grow = powerGrowth(s.hullMax, tune), f = tune.sparrow.muzzleForward * grow;
-    const x = wrap(s.x + Math.cos(s.heading) * f, tune.world.width);
-    const y = wrap(s.y + Math.sin(s.heading) * f, tune.world.height);
+  if (s.chassis === SPARROW || s.chassis === MISSILE_CRUISER) {
+    const mount = s.chassis === MISSILE_CRUISER ? MISSILE_CRUISER_GUN : { forward: tune.sparrow.muzzleForward, right: 0, side: 0 };
+    const grow = powerGrowth(s.hullMax, tune);
+    const c = Math.cos(s.heading), sn = Math.sin(s.heading);
+    const x = wrap(s.x + (c * mount.forward - sn * mount.right) * grow, tune.world.width);
+    const y = wrap(s.y + (sn * mount.forward + c * mount.right) * grow, tune.world.height);
     const v = tune.weapon.bulletSpeed + s.speed;
     // Shared deterministic launch drift, applied AFTER assist so distant targets cannot erase it.
     const wave = Math.sin(s.shots * 2.399963229728653);
     const dir = convergeOn(x, y, s.heading, v, assistPick(s.x, s.y, s.heading, targets, tune), tune)
       + wave * tune.sparrow.driftDeg * Math.PI / 180;
-    return { x, y, vx: Math.cos(dir) * v, vy: Math.sin(dir) * v, side: 0 };
+    return { x, y, vx: Math.cos(dir) * v, vy: Math.sin(dir) * v, side: mount.side };
   }
   const guns = GUNS[s.chassis];
   if (guns) {
