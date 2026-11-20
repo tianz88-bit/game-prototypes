@@ -46,9 +46,12 @@ function onResize(): void {
     if (change < 0.06) return;
     const scene = game.scene.getScene('game') as GameScene | null;
     setResume(scene && scene.sys.isActive() ? scene.snapshot() : null);
-    game.destroy(true);
+    const previous = game;
     game = null;
-    createGame();
+    // Phaser defers destruction until the next frame. Start the replacement
+    // after it has removed its canvas and detached its input managers.
+    previous.events.once(Phaser.Core.Events.DESTROY, () => window.requestAnimationFrame(createGame));
+    previous.destroy(true);
   }, 200);
 }
 
