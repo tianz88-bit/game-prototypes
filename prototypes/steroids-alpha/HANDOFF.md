@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-20 codex Missile Cruiser cannon LIVE PR597
+DID: Centered painted cannon over white nose; Sparrow firing behavior and independent missile trigger. Itch 201126r0110, Worker protocol34 and Pages lab live.
+FILES: Shared ship/world/state, Cruiser rig art, HUD/controls, Evolution Lab and release proof.
+SEAM: Protocol34 appends missile fire spacing independently of gun heat and ammo reload. Side 0 drives recoil at the center mount.
+CROSS: Type/build/sim/config/bank/rig/lab, public Crimson and lab weapon smoke pass. Itch 44662655440, Worker 44662655259, Pages 44662655472.
+FOR claude: Deferred. Current release in CLAUDE_BACKLOG and ../steroids-alpha-lab/centre-cannon-release-proof.json.
+
 ## 2026-11-20 codex centreline Missile Cruiser cannon
 DID: Removed the right bow bay. The custom cannon sits over the white nose plating on the centreline.
 FILES: Cruiser modules, calibration, manifest, shared muzzle and lab recoil.
@@ -97,11 +104,4 @@ FILES: shared ship/home/world, Intents/NetClient/Flight/tutorial, buildingFFD/ge
 SEAM: protocol30 same wire layout forces paired refresh; shared authority/prediction agree. Optional idleScan and pooled per-part building meshes preserve roots/fixed layers and Canvas/context-loss fallback.
 CROSS: owner requested movement/landing/warp; existing acceleration/braking/tuned caps unchanged. Type/build/sim/config/rig pass;3 local+2 public WebGL cases plus Canvas pass input/FFD; actual home56 snapshots verify cruise260/lock0/acknowledged warp. No capture.
 FOR claude: deferred only. Explicit brake/full-throttle now used in fixed-speed shield/ram/grip fixtures; neutral post-dash expects cruise. No new assets/dependencies/migration or hosted config changes.
-
-## 2026-11-18 codex fixed building stacks LIVE181126r0105
-DID: PR570 e648baa2 live105; itch44321872467/Pages44321872344 succeeded. Fixed buildings, bounded outward stack offsets, connected columns, smaller alternating barrel-tip bolts.
-FILES: buildingGeometry/Rig, clanBaseArt, rigReview, Flight draw and NetClient visual tags, building regression and brief.
-SEAM: optional stackLean/viewport/barrel plus local tower bullet origin/parity; existing SHOTS retained. Visual180ms launch blend converges to server path; no simulation/wire/tune/assets changes.
-CROSS: net tags and Flight rendering only. Type/build/sim/config/rig pass;3 local+2 public headless layouts pass50 transforms/muzzle checks each; isolated actual-flight parity/launch/size/convergence and public embedded lab pass. No capture.
-FOR claude: deferred only; owner approved live after checks. Nexus position presets/sweep and separate turret aim in lab. No new publishers, emitters, dependencies or server deploy.
 

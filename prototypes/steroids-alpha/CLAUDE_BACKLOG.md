@@ -2,9 +2,11 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
-## Missile Cruiser bow gun candidate
+## Missile Cruiser centerline cannon — LIVE 201126r0110 / protocol 34
 
 Owner moved the cruiser-specific deck cannon onto the centreline over the white nose armor and dropped the bay. The previously uploaded deck-cannon-v2 art pack supplies the sprite with no bay part. The gun recoils at side 0 and uses the standard primary Fire input with Sparrow cadence, heat and drift. Missiles retain a separate hold-to-repeat control and their existing refill. Evolution lab uses the production rig. Protocol 34 adds the separate missile spacing timer and requires a paired release.
+
+Approved and shipped in PR597. Itch 44662655440, Worker 44662655259 and Pages 44662655472 passed. Public Brave joined Crimson with 43 snapshots and input ack 72, and the Evolution Lab showed the center gun and fired it independently of missiles. Proof in ../steroids-alpha-lab/centre-cannon-release-proof.json. Deferred sync.
 
 ## Combined release — LIVE r0109 / protocol 33
 
