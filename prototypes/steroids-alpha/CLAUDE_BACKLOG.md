@@ -2,6 +2,10 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
+## Foldable support and level card faces — review candidate
+
+Agent Comms thread 4131cbcf. Existing painted weapon/ship parts supply five track icons and the two gold evolution faces, with procedural fallback. A small opening flash and server-confirmed pick flash preserve the tap zones and live flight. A portrait foldable layout stays upright starting at 500 CSS px wide; narrow cover portrait keeps the quarter turn. Resize reapplies menu/HUD geometry and releases stale touches in the same run. Headless Brave checked desktop number-key and folded-to-unfolded touch picks. Await owner release approval.
+
 ## Missile Cruiser centerline cannon — LIVE 201126r0110 / protocol 34
 
 Owner moved the cruiser-specific deck cannon onto the centreline over the white nose armor and dropped the bay. The previously uploaded deck-cannon-v2 art pack supplies the sprite with no bay part. The gun recoils at side 0 and uses the standard primary Fire input with Sparrow cadence, heat and drift. Missiles retain a separate hold-to-repeat control and their existing refill. Evolution lab uses the production rig. Protocol 34 adds the separate missile spacing timer and requires a paired release.

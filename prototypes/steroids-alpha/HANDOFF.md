@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-20 codex foldable layout and level card review
+DID: Level cards use painted game-part badges, four tier pips, gold evolutions and input-safe appearance/pick flashes. Open foldables reflow upright and retain the same run through a resize.
+FILES: viewport/base/input resize, landing/HUD/card art, Flight and landing layout regression.
+SEAM: LevelCardArt only draws. Existing card IDs, text effects, on-offer tap zones, multiplayer state and sim contracts stay intact.
+CROSS: Flight UI/input reset and resize only. Full sim/config/rig and desktop/touch headless accept card picks; fold/open in one room at 344x848, 514x882, 673x881 and 740x670.
+FOR claude: Preview delivered in Agent Comms 4131cbcf. Await owner review to release.
+
 ## 2026-11-20 claude run economy, level cards and stick throttle (release PR)
 DID: Owner approved going live 20 Nov. Minerals are the only run currency: salvage cargo is gone off home planets. Minerals carried out on warp bank at salvage.bankRate (home 0). Collected minerals are XP (never spent); each level offers 3 cards in a non-blocking top-left strip (tap or 1-3). Owned evolutions are guaranteed cards once ready, and evolving is free. Hold 50+40/level, weight slows up to 30%. Death drops the whole wallet; no kill payout; bots prefer loaded ships. Warp lock 90 s. Hangar prices unchanged. Mobile speed is back on the stick: centre brakes, middle cruises, edge accelerates; the +/- buttons are removed.
 FILES: sim/levels.ts, world/ship/bots/protocol/liveConfig, server/src/room.ts, src/net/client.ts, src/scenes/flight.ts (card strip, nav, hints, results), src/render/combatHud.ts, src/input/intents.ts, src/tutorial/*, tune.json, client.tune.json, test gates.
@@ -97,11 +104,4 @@ FILES: scripts/measure-steroids-progression-pace.mjs; lab/PROGRESSION_PACE.md an
 SEAM: none; real World/ship/shop/ordnance/loot/warp reused without tuning changes. Bank route models validated extraction credits, not live account operations.
 CROSS: research harness only;10 seeds/condition, historical snapshot and exact seed1 replays. Four-bot stress: max0/10 mining or1/10 fleeing by20min; censored failures retained. No capture.
 FOR claude: deferred. Cost−79.8% and safe max time−81.9% align; power index reduction is separate (wallet HP removed). First permanent unlock and survival are bottlenecks; discuss before retuning.
-
-## 2026-11-19 codex flat progression LIVE181126r0107
-DID: PR574d43bdd7e LIVE107/31; itch44357659530/Worker44357659566/Pages44357659573 succeeded. Fighter benchmark+76.8%; shop250/evolution50; wallet independent of HP.
-FILES: shared ship/shop/world/liveConfig/tune, Room, HUD/Flight/tutorial, lab/evolution and progression/config/bank/sim gates.
-SEAM: protocol31 same layout; hullMax is legacy baseline+wallet, use mineralBalance/hullCapacity. Epoch2 upgrades legacy hosted balance once, preserving art/control settings and later epoch2 edits.
-CROSS: authority/economy/UI/tests per owner; type/build/sim/config/bank/rig/evolution and3 headless purchase layouts pass. No new assets/dependencies/D1 schema/permanent-price change or capture.
-FOR claude: deferred; proof ../steroids-alpha-lab/progression-balance-proof.json.2 public UI cases/real Worker55 snapshots and public lab pass; no capture. Capital/tactics/regen/accuracy need separate playtesting.
 

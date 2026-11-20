@@ -22,3 +22,12 @@ export function flightControls(w:number,h:number,m:number,dr:number,fr:number){
  const at=(x:number,y:number,r:number,hit:number)=>({x,y,r,hw:r*hit,hh:r*hit});
  return{fire:at(column?right:right-gap,base,fr*.74,1.2),dash:at(right,column?base-90:base,dr*.74,1.3),missile:at(column?right:right-gap,column?base-180:base-90,30,1.25),mine:at(right,column?base-270:base-90,30,1.25)};
 }
+
+/** Keep touch cards and the right-side board apart on the narrower unfolded layouts. */
+export function levelStrip(w: number, h: number, touch: boolean) {
+ const compactTouch = touch && (w < 660 || h > w * 1.08);
+ const width = compactTouch ? Math.min(330, w - Math.min(224, w * .34) - 36)
+   : Math.min(touch ? 330 : 360, w * .5 - 32);
+ return { x: 12, y: touch ? flightHeader(w, touch).drawer.y : 86,
+   width, cardWidth: (width - 12) / 3, cardHeight: 46, gap: 6 };
+}
