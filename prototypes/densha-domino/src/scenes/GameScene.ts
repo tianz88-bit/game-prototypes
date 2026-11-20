@@ -1,4 +1,3 @@
-import { startMusic, type MusicControls } from '../music';
 import { createTitleArt } from '../render/titleArt';
 import { GAME_FONT } from '../gameFont';
 import Phaser from 'phaser';
@@ -61,7 +60,6 @@ export class GameScene extends Phaser.Scene {
   private par = 0;
   private limit = 0;
   private titleOpen=false;
-  private music?: MusicControls;
   private effectsOn = true;
   private dialogOpen = false;
   private longestChain=0;
@@ -172,7 +170,6 @@ export class GameScene extends Phaser.Scene {
     this.loadSave();
     this.startLevel(this.save.level);
     const title = new URLSearchParams(location.search).get('test') !== '1';
-    this.music = startMusic(this, title);
     if(title)this.showTitle();
 
     if (new URLSearchParams(location.search).get('test') === '1') {
@@ -223,7 +220,7 @@ export class GameScene extends Phaser.Scene {
     const title = createTitleArt(this, WIDTH / 2, 335, WIDTH - 32)
       ?? this.hudText(WIDTH / 2, 335, 40, '#74374a').setText('Kaiten Express');
     const start=new Button(this,WIDTH/2,525,210,58,this.save.level?'Continue':'Play',null,{fill:0x387d68,edge:0x92dac3},()=>{
-      this.titleOpen=false;cover.destroy();this.music?.playGameplay();
+      this.titleOpen=false;cover.destroy();
     },23);
     const menu = new Button(this,56,30,94,38,'Menu',null,{fill:0x508067,edge:0x9fc49c},()=>this.openTitleMenu(),16);
     const cover=this.add.container(0,0,[background,title,start.container,menu.container]).setDepth(450);
@@ -827,22 +824,15 @@ export class GameScene extends Phaser.Scene {
     if (this.phase === 'menu') this.phase = 'play';
   }
 
-  private soundButtons(y: number): Phaser.GameObjects.Container[] {
-    const options = [{name:'Effects', enabled:()=>this.effectsOn, toggle:()=>{
+  private effectsButton(y: number): Phaser.GameObjects.Container {
+    const label = () => this.effectsOn ? 'Effects on' : 'Effects off';
+    const button = new Button(this,WIDTH/2,y,138,40,label(),null,{fill:0x508067,edge:0x9fc49c},()=>{
       this.effectsOn = !this.effectsOn;
       localStorage.setItem('kaiten-express:effects', this.effectsOn ? 'on' : 'off');
-    }}];
-    if (this.music) options.unshift({name:'Music', enabled:this.music.enabled, toggle:this.music.toggle});
-    return options.map((option, i) => {
-      const label = () => option.name + (option.enabled() ? ' on' : ' off');
-      const x = options.length === 1 ? WIDTH / 2 : WIDTH / 2 + (i === 0 ? -76 : 76);
-      const button = new Button(this,x,y,138,40,label(),null,{fill:0x508067,edge:0x9fc49c},()=>{
-        option.toggle();
-        const text = button.container.list.find(child=>child instanceof Phaser.GameObjects.Text);
-        if (text instanceof Phaser.GameObjects.Text) text.setText(label());
-      },16);
-      return button.container;
-    });
+      const text = button.container.list.find(child=>child instanceof Phaser.GameObjects.Text);
+      if (text instanceof Phaser.GameObjects.Text) text.setText(label());
+    },16);
+    return button.container;
   }
 
   private dialog(title: string): Phaser.GameObjects.Container {
@@ -859,7 +849,7 @@ export class GameScene extends Phaser.Scene {
   private openTitleMenu(): void {
     const layer = this.dialog('Sound');
     const close = new Button(this,WIDTH/2,479,138,42,'Close',null,{fill:0x508067,edge:0x9fc49c},()=>this.closeMenu(),16);
-    layer.add([...this.soundButtons(408),close.container]);
+    layer.add([this.effectsButton(408),close.container]);
   }
 
   private confirmRestart(): void {
@@ -909,7 +899,7 @@ export class GameScene extends Phaser.Scene {
     const nextGate = this.gateNeed(Math.min(LEVELS.length - 1, this.firstLocked()));
     const gateText = tune.rules.unlockAll || nextGate <= this.totalStars() ? `Stars ${this.totalStars()}` : `Stars ${this.totalStars()} / ${nextGate} to open more`;
     this.menu.push(this.hudText(WIDTH / 2, py + 68, 13, '#6a5a3a').setDepth(310).setText(gateText));
-    this.menu.push(...this.soundButtons(py + 107));
+    this.menu.push(this.effectsButton(py + 107));
     let taps=0,lastTap=0;
     title.setInteractive().on('pointerdown',()=>{
       const now=this.time.now;taps=now-lastTap<750?taps+1:1;lastTap=now;
