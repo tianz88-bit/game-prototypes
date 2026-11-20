@@ -30,7 +30,7 @@ import { CLOSE } from '../../sim/protocol';
 import { guide } from '../tutorial/guide';
 import { ContextTips } from '../tutorial/contextTips';
 import { localTransport } from '../tutorial/localServer';
-import { maxShield, hullCapacity, shipRadius, powerGrowth, topSpeed } from '../../sim/ship';
+import { maxShield, hullCapacity, shipRadius, powerGrowth, topSpeed, haulBonus } from '../../sim/ship';
 import { TURRET_MOUNTS, turretCount } from '../../sim/turrets';
 import { BATTLECRUISER, MISSILE_CRUISER, isCapital, TURRET_MOUNTS_BY_CHASSIS, chassisStats, upgradeTotal,GUNS } from '../../sim/chassis';
 import { SHOP_ITEMS, SHOP_TIERS, shopTier } from '../../sim/shop';
@@ -590,6 +590,18 @@ export class FlightScene extends Phaser.Scene {
     return this.net.clan === home ? `${owner} HOME\nMine fuel for the Nexus; hold Down over a landing pad to dock and unload it` : `${owner} TERRITORY\nTheir turrets fire on sight. Their shield keeps you out`;
   }
 
+  /** Seconds into this run (client clock from drop-in; the server's own count decides the bank). */
+  private runSeconds(): number {
+    return this.runStartedAt ? (Date.now() - this.runStartedAt) / 1000 : 0;
+  }
+
+  /** " ×1.2" on the warp button while the haul bonus is up, where minerals bank. */
+  private warpBonusLabel(): string {
+    if (this.net.layout || this.planet === TUTORIAL) return '';
+    const bonus = haulBonus(this.runSeconds(), TUNE);
+    return bonus > 0 ? ` ×${(1 + bonus).toFixed(1)}` : '';
+  }
+
   /**
    * Clan home planet: the shield
    * dome over the treasury and pads, the landing pads, the treasury with the clan's total, the base
@@ -601,6 +613,9 @@ export class FlightScene extends Phaser.Scene {
     // Banner: arrival note for 6 s, then docking status at home.
     let note = '';
     if (performance.now() - this.arrivedAt < 6000) note = this.arrivalNote();
+    // Haul bonus starts (owner, 20 November 2026): a short note where minerals bank; play continues.
+    const run = this.runSeconds(), start = TUNE.salvage.haulBonusStartSeconds;
+    if (!this.net.layout && this.planet !== TUTORIAL && run >= start && run < start + 6) note = `HAUL BONUS\n+${Math.round(TUNE.salvage.haulBonusPerMinute * 100)}% to your bank every minute you stay (up to +${Math.round(TUNE.salvage.haulBonusMax * 100)}%)`;
     if (this.net.docked) {
       const d = this.net.deposited;
       note = 'DOCKED · REPAIRING' + (d && performance.now() - d.at < 3000 ? `\n+${d.amount} fuel to the ${clanName(this.net.clan)} Nexus` : '');
@@ -974,7 +989,7 @@ export class FlightScene extends Phaser.Scene {
       ? `${Math.floor((100 * p.warpDist) / TUNE.warp.distance)}% · CANCEL${key}`
       : warLocked?'WAR LOCK': locked
         ? `LOCKED ${sec === 60 ? m + 1 : m}:${String(sec === 60 ? 0 : sec).padStart(2, '0')}`
-        : `WARP${key}`;
+        : `WARP${this.warpBonusLabel()}${key}`;
     this.warpText.setFontSize(intents.touch ? (header.tight ? 9 : 11) : 12).setText(intents.touch ? label.replace('LOCKED','WARP').replace(' · CANCEL',' ×') : label).setPosition(x, y).setColor(locked && !p.warping ? '#8fa2c8' : '#ffffff');
     if (!locked || p.warping) intents.warpButton = { x, y, hw: bw / 2, hh: intents.touch ? 22 : bh / 2 };
   }
@@ -1249,7 +1264,7 @@ export class FlightScene extends Phaser.Scene {
     g.clear();
     intents.uiZones = [];
     const p = this.net.predicted;
-    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now,this.hudAnchor, this.planet === TUTORIAL || isWarPlanet(this.planet) ? 'none' : !this.net.layout ? 'salvage' : this.net.clan === this.net.layout.clan ? 'fuel' : 'none');
+    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now,this.hudAnchor, this.planet === TUTORIAL || isWarPlanet(this.planet) ? 'none' : !this.net.layout ? 'salvage' : this.net.clan === this.net.layout.clan ? 'fuel' : 'none', this.runSeconds());
     this.drawMobileNav(p,w);
     this.drawShop(p);
     this.drawKeyHints(p, w, h);

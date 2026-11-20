@@ -1999,9 +1999,11 @@ assert.equal(S.cleanName(null), '');
 
     // One currency: the minerals carried out bank (whole minerals, ordinary planet rate 1).
     Object.assign(p.ship, { lockdown: 0, warping: true, warpDist: tune.warp.distance - 1, hullMax: tune.ship.maxHp + 123.7, salvage: 0 });
+    // Five minutes into the run: the haul bonus adds 20% to what banks.
+    room.world.spawnedAt.set(p.id, room.world.tick - 300 * tune.net.tickHz);
     for (let i = 0; i < 3 && !sock.closed; i++) room.step();
     const res = sock.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).find((m) => m.type === 'extracted');
-    assert.equal(res.salvage, 123, 'minerals carried out are reported for banking');
+    assert.equal(res.salvage, 148, 'minerals carried out bank with the haul bonus (123.7 x 1.2)');
     const hz0 = sock.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).find((m) => m.type === 'hotzone');
     assert(hz0 && hz0.r === hz.radius, 'joiners hear where the hot zone is');
   }
