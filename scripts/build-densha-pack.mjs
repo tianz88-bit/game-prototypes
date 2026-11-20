@@ -20,7 +20,7 @@ function specFor(i) {
   const t = i / (SLOTS - 1);
   if (i < 30) return { cols: 6, rows: 7, trains: 9 + Math.round(t * 3), minPar: 4 };
   if (i < 60) return { cols: 7, rows: 7, trains: 10 + Math.round(((i - 30) / 29) * 2), minPar: 5 };
-  return i % 2 ? { cols: 7, rows: 8, trains: 12, minPar: 5 } : { cols: 7, rows: 7, trains: 12, minPar: 5 };
+  return { cols: 7, rows: 7, trains: 12, minPar: 5 };
 }
 
 async function bundle() {
@@ -40,7 +40,7 @@ if (!isMainThread) {
       const seed = 50000 + slot * 1000 + attempt;
       const g = generate({ ...spec, maxLen: 3, obstacles: 5, climax: Math.max(3, Math.ceil(spec.trains * 0.4)), seed }, undefined, 20);
       if (!g) continue;
-      const p = polish({ rows: g.rows, axis: g.axis, head: g.head }, seed, spec.minPar, 150);
+      const p = polish({ rows: g.rows, axis: g.axis, head: g.head }, seed, spec.minPar, 400);
       if (!p) continue;
       const r = tighten(p, seed);
       if (!('reject' in r) && r.par >= spec.minPar) result = { ...r, slot, attempt };
