@@ -27,7 +27,7 @@ export function flightControls(w:number,h:number,m:number,dr:number,fr:number){
 export function levelStrip(w: number, h: number, touch: boolean) {
  const compactTouch = touch && (w < 660 || h > w * 1.08);
  const width = compactTouch ? Math.min(330, w - Math.min(224, w * .34) - 36)
-   : Math.min(touch ? 330 : 360, w * .5 - 32);
+   : Math.min(touch ? 330 : 408, w * .5 - 32);
  return { x: 12, y: touch ? flightHeader(w, touch).drawer.y : 86,
-   width, cardWidth: (width - 12) / 3, cardHeight: 46, gap: 6 };
+   width, cardWidth: (width - 12) / 3, cardHeight: 52, gap: 6 };
 }

@@ -154,9 +154,10 @@ export class FlightScene extends Phaser.Scene {
   private lockText!: Phaser.GameObjects.Text;
   private shopKeys: Phaser.GameObjects.Text[] = [];
   private levelCardArt!: LevelCardArt;
+  private levelCardGraphics!: Phaser.GameObjects.Graphics;
   private cardFaces: CardFace[] = [];
   private lastCardPick = -1;
-  private pendingCardFace: { face: CardFace; pick: number } | null = null;
+  private pendingCardFace: { face: CardFace; pick: number; evolution: boolean } | null = null;
   private shopTexts: { title: Phaser.GameObjects.Text; sub: Phaser.GameObjects.Text }[] = [];
   /** Turrets, drawn over the ships. Aim per ship and turret comes from the shots the server reports. */
   private turretGfx!: Phaser.GameObjects.Graphics;
@@ -280,14 +281,15 @@ export class FlightScene extends Phaser.Scene {
     this.mobileNavLabels = [0,1].map(() => text(this,0,0,'',11).setOrigin(.5).setDepth(954).setVisible(false));
     this.evolvePreview = shipPreview(this,this.net.equippedEvolution===1?4:2,0,0,0,18,16).setDepth(952).setVisible(false);
     this.evolvePreviewBuild=this.net.equippedEvolution??-1;
+    this.levelCardGraphics = this.add.graphics().setDepth(953.5);
     this.levelCardArt = new LevelCardArt(this);
-    this.shopKeys = Array.from({ length: 3 }, () => text(this, 0, 0, '', 8).setOrigin(.5).setDepth(953));
+    this.shopKeys = Array.from({ length: 3 }, () => text(this, 0, 0, '', 8).setOrigin(.5).setDepth(954));
     this.pendingCardFace = null;
     this.lastCardPick = -1;
     this.cardFaces = [];
     this.shopTexts = Array.from({ length: 3 }, () => ({
-      title: text(this, 0, 0, '', 12, '#ffffff').setOrigin(0, 0.5).setDepth(951).setVisible(false),
-      sub: text(this, 0, 0, '', 10, '#c9d6f2').setOrigin(0, 0.5).setDepth(951).setVisible(false),
+      title: text(this, 0, 0, '', 12, '#ffffff').setOrigin(0, 0.5).setDepth(954).setVisible(false),
+      sub: text(this, 0, 0, '', 10, '#c9d6f2').setOrigin(0, 0.5).setDepth(954).setVisible(false),
     }));
     versionStamp(this);
     for(const [id,d] of falling){
@@ -333,7 +335,8 @@ export class FlightScene extends Phaser.Scene {
       if(this.planet===TUTORIAL&&!guide.policy.shop)continue;
       if (i >= 0 && i < 3) {
         const face = this.cardFaces[i], pilot = this.net.predicted;
-        if (pilot && face && this.net.shownCards[i] !== undefined) this.pendingCardFace = { face, pick: pilot.picks };
+        const card = this.net.shownCards[i];
+        if (pilot && face && card !== undefined) this.pendingCardFace = { face, pick: pilot.picks, evolution: card >= 10 };
         this.net.pickCard(i);
       }
     }
@@ -1154,7 +1157,7 @@ export class FlightScene extends Phaser.Scene {
    * itself; unpicked level-ups wait. An owned evolution shows as a gold card once it is ready.
    */
   private drawShop(p: ShipState | null): void {
-    const g = this.overlay;
+    const g = this.levelCardGraphics.clear();
     const cards = this.net.shownCards;
     const show = !!p && p.hp > 0 && !this.net.death && !this.net.extracted && cards.length > 0 && (this.planet!==TUTORIAL||guide.policy.shop);
     this.evolvePreview.setVisible(false);this.shopHeader.setVisible(show);
@@ -1168,7 +1171,7 @@ export class FlightScene extends Phaser.Scene {
     const now = this.time.now;
     const picks = p?.picks ?? -1;
     if (this.pendingCardFace && picks > this.pendingCardFace.pick) {
-      this.levelCardArt.confirm(this.pendingCardFace.face, now);
+      this.levelCardArt.confirm(this.pendingCardFace.face, now, this.pendingCardFace.evolution);
       this.pendingCardFace = null;
     }
     if (picks < this.lastCardPick) this.pendingCardFace = null;
@@ -1178,10 +1181,10 @@ export class FlightScene extends Phaser.Scene {
       const { w, h } = logicalSize(), mobile = intents.touch;
       const { x, y, width, cardWidth, cardHeight, gap } = levelStrip(w, h, mobile);
       const waiting = pendingPicks(p, TUNE);
-      panel(g, x, y - 22, width, cardHeight + 28, UI.uiGold);
-      this.shopHeader.setPosition(x + 8, y - 17)
-        .setText(`LEVEL UP · LV ${p.picks + 1}${waiting > 1 ? ` · ${waiting} WAITING` : ''} · PICK ONE`);
-      intents.uiZones.push({ x: x + width / 2, y: y - 22 + (cardHeight + 28) / 2, hw: width / 2, hh: (cardHeight + 28) / 2 });
+      this.levelCardArt.tray(g, x - 4, y - 23, width + 8, cardHeight + 28);
+      this.shopHeader.setPosition(x + 4, y - 20).setColor('#d4dde4')
+        .setText(`LEVEL ${p.picks + 1} · PICK ONE${waiting > 1 ? ` · ${waiting} READY` : ''}`);
+      intents.uiZones.push({ x: x + width / 2, y: y - 23 + (cardHeight + 28) / 2, hw: (width + 8) / 2, hh: (cardHeight + 28) / 2 });
       cards.slice(0, 3).forEach((card, i) => {
         const face = { x: x + i * (cardWidth + gap), y, w: cardWidth, h: cardHeight };
         this.cardFaces.push(face);
@@ -1191,15 +1194,17 @@ export class FlightScene extends Phaser.Scene {
         const title = c.evolve
           ? card === 11 ? 'MISSILE\nCRUISER' : narrow ? 'BATTLE\nCRUISER' : c.title
           : c.title.replace(/ \d+\/\d+$/, '');
-        const t = this.shopTexts[i], tx = face.x + 31;
-        t.title.setVisible(true).setFontSize(c.evolve || narrow ? 8 : 10)
-          .setPosition(tx, y + (title.includes('\n') ? 15 : 12)).setText(title).setColor(c.evolve ? '#ffda77' : css(UI.uiText));
+        const t = this.shopTexts[i], tx = face.x + 37;
+        t.title.setVisible(true).setFontSize(c.evolve || narrow ? 9 : 12)
+          .setPosition(tx, y + (title.includes('\n') ? 19 : 15)).setText(title).setColor(c.evolve ? '#f1ce8d' : '#f0f3f5');
         const effect = c.sub.replace(' gun damage', ' damage').replace(' auto drone', ' drone');
-        t.sub.setVisible(true).setFontSize(narrow ? 8 : 9)
-          .setPosition(tx, y + 36).setText(effect).setColor(c.evolve ? '#ffe9a8' : '#c7f1dd');
+        t.sub.setVisible(true).setFontSize(narrow ? 9 : 10)
+          .setPosition(tx, y + (c.evolve ? 39 : 30)).setText(effect).setColor(c.evolve ? '#ddbf8b' : '#c5d2dc');
         if (!mobile) {
-          g.fillStyle(0x091522, .8).fillRoundedRect(face.x + 5, y + 31, 15, 10, 2);
-          this.shopKeys[i].setVisible(true).setPosition(face.x + 12.5, y + 36).setText(String(i + 1));
+          const keyX = face.x + face.w - 10;
+          g.fillStyle(0x151b21, 1).fillRoundedRect(keyX - 6, y + 35, 12, 12, 2);
+          g.lineStyle(1, 0x66717a, .8).strokeRoundedRect(keyX - 6, y + 35, 12, 12, 2);
+          this.shopKeys[i].setVisible(true).setPosition(keyX, y + 41).setText(String(i + 1));
         }
         intents.shopZones.push({ item: i, zone: { x: face.x + face.w / 2, y: y + face.h / 2, hw: face.w / 2, hh: face.h / 2 } });
       });
