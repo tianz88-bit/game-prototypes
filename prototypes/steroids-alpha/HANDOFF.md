@@ -1,5 +1,11 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-20 codex graphite menu preview
+DID: Main menu, Hangar and planet chart share graphite surfaces and steel edges. Ship and Warp lead the landing screen. Hangar holds gold for evolutions and enlarges fighter previews in short cards.
+FILES: Menu, Hangar, StellarMap, shared UI and ship preview rendering.
+CROSS: Added a Warp In hit region that sends the same action as selecting the same globe again. Warzone join and auto-join rules are preserved.
+FOR claude: Local preview for owner approval.
+
 ## 2026-11-20 codex neutral upgrade UI and foldable layout
 DID: Graphite upgrade cards use faction-neutral equipment symbols, four tier pips and gold evolution faces. Flight buttons use the same palette, and the hold has one mineral total plus haul bonus and banking context. Open foldables can reflow upright during a run.
 FILES: viewport/base/input resize, landing/HUD/card art, Flight and landing layout regression.
@@ -97,11 +103,4 @@ FILES: bots/world/tune/liveConfig/protocol32, lab draft/version hiding, instrume
 SEAM:32 same layout paired release complete; bot epoch1 migrates observations once, catalogue quote is deployment-owned500. No new wire fields, damage/HP/movement/ram/shop/art changes.
 CROSS: released after owner review. Equal600s×10 seeds/policy: deaths27.5→4 mining,10.5→1 evasive,18→2.5 frozen combat. First500-credit cruiser8:23–8:34. Type/build/sim/config/bank/rig and2 headless UI cases pass; no capture.
 FOR claude: deferred.2 public price/equip cases, real home55 snapshots/ack100, alpha80/155 with4 bots and public lab values pass. Proof lab/bot-survival-proof.json; no capture/live spending.
-
-## 2026-11-19 codex progression pace study
-DID:210 seeded headless runs: quiet max2:32–2:46, owned BC/MC~1:15–1:19; zero-credit first cruiser~16:49–17:57. Before max14:01; no live changes.
-FILES: scripts/measure-steroids-progression-pace.mjs; lab/PROGRESSION_PACE.md and progression-pace-proof.json; status/backlog.
-SEAM: none; real World/ship/shop/ordnance/loot/warp reused without tuning changes. Bank route models validated extraction credits, not live account operations.
-CROSS: research harness only;10 seeds/condition, historical snapshot and exact seed1 replays. Four-bot stress: max0/10 mining or1/10 fleeing by20min; censored failures retained. No capture.
-FOR claude: deferred. Cost−79.8% and safe max time−81.9% align; power index reduction is separate (wallet HP removed). First permanent unlock and survival are bottlenecks; discuss before retuning.
 

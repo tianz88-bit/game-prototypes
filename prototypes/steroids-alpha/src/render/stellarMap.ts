@@ -4,7 +4,7 @@ import type { PlanetId } from '../../sim/planets';
 import { clientTune } from '../clientTune';
 import { text } from '../scenes/common';
 import { PlanetGround } from './planetGround';
-import { panel, UI, css } from './ui';
+import { metal, metalPanel, UI, css } from './ui';
 
 interface Rect { x: number; y: number; w: number; h: number; }
 interface Globe extends Rect { id: PlanetId; radius: number; ground: PlanetGround; }
@@ -36,8 +36,8 @@ export function planetIntel(id: PlanetId, clan: number): { relation: string; col
       resources: own?'Minerals + fuel':'No mining for visitors',
       note: own ? 'Collect fuel, then dock at a Nexus pad to unload it.' : `${CLANS.find(c => c.id === p.clan)?.name} defence towers. Visitors cannot mine.` };
   }
-  return { relation: p.bots ? 'DRONES + PVP' : 'OPEN PVP', colour: p.bots ? UI.uiDanger : UI.uiAccent,
-    resources: 'Minerals + salvage · bank salvage by warping out',
+  return { relation: p.bots ? 'DRONES + PVP' : 'OPEN PVP', colour: p.bots ? UI.uiDanger : metal.steel,
+    resources: 'Minerals · bank on warp out',
     note: p.bots ? 'Enemy drones and rival pilots can attack you.' : 'No defence towers or drones. Other pilots can still attack you.' };
 }
 
@@ -65,32 +65,33 @@ export class StellarMap {
     public selected: PlanetId | null, private counts: Record<string, number> | null, private war: WarStatus | null = null, public notify = false) {
     const width = Math.min(960, w - 24), height = Math.min(610, h - 24);
     const left = (w - width) / 2, top = (h - height) / 2;
+    const compact=height<420,narrow=width<560&&!compact;
+    const short=this.short=height<300,detailHeight=narrow?160:short?104:136;
     this.bounds = { x: w / 2, y: h / 2, w: width, h: height };
     const g = scene.add.graphics().setDepth(200);
-    g.fillStyle(0x020710, .88); g.fillRect(0, 0, w, h);
-    panel(g, left, top, width, height, UI.uiAccent);
+    g.fillStyle(0x080b10, .88); g.fillRect(0, 0, w, h);
+    metalPanel(g, left, top, width, height, 'standard');
+    g.fillStyle(0x11161d,1).fillRect(left+8,top+53,width-16,height-53-detailHeight);
     // A chart, rather than a physically scaled solar system: destinations remain easy to tap.
     for (let i = 0; i < 48; i++) {
       const x = left + 18 + ((i * 113.7) % (width - 36));
       const y = top + 54 + ((i * 47.3) % Math.max(1, height - 174));
-      g.fillStyle(i % 3 ? 0x5e7995 : 0xc7d9df, i % 3 ? .25 : .5); g.fillRect(x, y, i % 5 ? 1 : 2, 1);
+      g.fillStyle(metal.steel, i % 3 ? .18 : .45); g.fillRect(x, y, i % 5 ? 1 : 2, 1);
     }
-    text(scene, left + 20, top + 17, 'Choose a planet', 16, css(UI.uiText)).setDepth(204);
+    text(scene, left + 20, top + 17, 'Warp map', 18, css(metal.light)).setDepth(204);
     this.closeButton = { x: left + width - 31, y: top + 28, w: 44, h: 40 };
-    panel(g, this.closeButton.x - 22, top + 8, 44, 40, UI.uiBorder);
+    metalPanel(g, this.closeButton.x - 22, top + 8, 44, 40,'recess');
     text(scene, this.closeButton.x, top + 27, '×', 24).setOrigin(.5).setDepth(204);
     this.orbit = scene.add.graphics().setDepth(201);
     this.selection = scene.add.graphics().setDepth(203);
-    const compact=height<420,narrow=width<560&&!compact;
-    const short=this.short=height<280,detailHeight=narrow?160:short?104:136;
     const bodyTop = top + 56, bodyHeight = height - 56 - detailHeight;
     const radius=Math.max(14,Math.min(compact?34:48,bodyHeight/(narrow?8:3.2),width/14));
-    this.orbit.lineStyle(1, UI.uiBorder, .5);
+    this.orbit.lineStyle(1, metal.steel, .24);
     this.orbit.strokeEllipse(w / 2, bodyTop + bodyHeight * .48, width * .85, bodyHeight * .55);
     PLANETS.forEach((p, i) => {
       // Five destinations (Warzone added 16 November 2026): a row of five, or a 2-2-1 grid when narrow.
       const x = narrow ? left + width * (i === 4 ? .5 : i % 2 ? .73 : .27) : left + width * [.11, .3, .5, .7, .89][i];
-      const y = narrow ? bodyTop + bodyHeight * [.1,.1,.42,.42,.74][i] : bodyTop+bodyHeight*(compact?.22:[.48,.29,.56,.36,.5][i]);
+      const y = narrow ? bodyTop + bodyHeight * [.1,.1,.42,.42,.74][i] : bodyTop+bodyHeight*(compact?.35:[.48,.29,.56,.36,.5][i]);
       const tint: [number, number, number] = p.id === 'warzone' ? [1.4, .78, .5] : p.clan === 1 ? [1.35, .72, .74] : p.clan === 2 ? [.55, .82, 1.55] : p.id === 'alpha' ? [.8, .95, 1.08] : [1, .84, 1];
       const ground = new PlanetGround(scene, 202, tint, p.id==='warzone'?'warzone':undefined);
       const globe = { id: p.id, x, y, w: radius * 2 + 22, h: radius * 2 + 42, radius, ground };
@@ -99,13 +100,13 @@ export class StellarMap {
       this.populations.set(p.id, text(scene, x, y + radius + 24, '', 10, '#a5bdcf').setOrigin(.5, 0).setDepth(204).setVisible(!short));
     });
     const dy=this.detailTop=top+height-detailHeight;
-    g.lineStyle(1,UI.uiBorder,.7).lineBetween(left+16,dy,left+width-16,dy);
+    g.lineStyle(1,metal.steel,.4).lineBetween(left+8,dy,left+width-8,dy);
     this.detail=text(scene,left+16,dy+(short?6:8),'',short?16:compact?18:20).setWordWrapWidth(width-100).setDepth(204);
     this.meta=text(scene,left+16,dy+(short?26:32),'',short?10:11,'#a5bdcf').setDepth(204);
-    this.resource=text(scene,left+16,dy+(short?40:51),'',short?10:11,'#ebc17c').setWordWrapWidth(width-32).setDepth(204);
+    this.resource=text(scene,left+16,dy+(short?40:51),'',short?10:11,css(metal.light)).setWordWrapWidth(width-32).setDepth(204);
     this.note=text(scene,left+16,dy+68,'',11,'#9fb5c7').setWordWrapWidth(width-32).setDepth(204).setVisible(!short);
-    this.prompt=text(scene,w/2,top+height-15,'',11,css(UI.uiAccent)).setOrigin(.5,1).setDepth(204);
-    this.infoButton={x:left+width-42,y:dy+22,w:52,h:40};panel(g,this.infoButton.x-26,dy+2,52,40,UI.uiBorder);text(scene,this.infoButton.x,dy+22,'Info',11).setOrigin(.5).setDepth(204);
+    this.prompt=text(scene,left+16,top+height-15,'',11,metal.muted).setOrigin(0,1).setDepth(204);
+    this.infoButton={x:left+width-42,y:dy+22,w:52,h:40};metalPanel(g,this.infoButton.x-26,dy+2,52,40,'recess');text(scene,this.infoButton.x,dy+22,'Info',11).setOrigin(.5).setDepth(204);
     this.showDetails(); this.setCounts(counts); this.update(0);
   }
 
@@ -129,30 +130,40 @@ export class StellarMap {
 
   private drawButtons():void{
     this.buttonGfx?.destroy();this.buttonTexts.forEach(t=>t.destroy());this.buttonTexts=[];this.buttons=[];
-    if(this.selected!=='warzone')return;
+    if(!this.selected)return;
     const b=this.bounds,y=b.y+b.h/2-30,g=this.buttonGfx=this.scene.add.graphics().setDepth(205),open=warLabel(this.war).open;
-    const add=(label:string,x:number,w:number,colour:number,action:MapAction,on=false)=>{panel(g,x-w/2,y-22,w,44,colour,on);this.buttonTexts.push(text(this.scene,x,y,label,11,on?'#ffffff':css(colour)).setOrigin(.5).setDepth(206));this.buttons.push({action,x,y,w,h:44});};
-    if(!this.clan){const bw=Math.min(170,(b.w-48)/2);add('CRIMSON · ATTACK',b.x-bw/2-5,bw,CLANS[0].colour,{kind:open?'joinAs':'chooseSide',clan:1});add('AZURE · DEFEND',b.x+bw/2+5,bw,CLANS[1].colour,{kind:open?'joinAs':'chooseSide',clan:2});}
-    else if(!open)add(this.notify?'CANCEL AUTO-JOIN':'AUTO-JOIN WHEN OPEN',b.x,Math.min(240,b.w-32),UI.uiGold,{kind:'notify'},this.notify);
+    const add=(label:string,x:number,w:number,action:MapAction,primary=false,colour=metal.light)=>{
+      metalPanel(g,x-w/2,y-22,w,44,primary?'primary':'standard');
+      this.buttonTexts.push(text(this.scene,x,y,label,primary?13:11,css(colour)).setOrigin(.5).setDepth(206));
+      this.buttons.push({action,x,y,w,h:44});
+    };
+    if(this.selected!=='warzone'||(this.clan&&open)){
+      const width=Math.min(164,b.w*.34);
+      add('WARP IN',b.x+b.w/2-16-width/2,width,{kind:'warp',planet:this.selected},true);
+    }else if(!this.clan){
+      const bw=Math.min(170,(b.w-48)/2);
+      add('CRIMSON · ATTACK',b.x-bw/2-5,bw,{kind:open?'joinAs':'chooseSide',clan:1},false,CLANS[0].colour);
+      add('AZURE · DEFEND',b.x+bw/2+5,bw,{kind:open?'joinAs':'chooseSide',clan:2},false,CLANS[1].colour);
+    }else add(this.notify?'CANCEL AUTO-JOIN':'AUTO-JOIN WHEN OPEN',b.x,Math.min(240,b.w-32),{kind:'notify'},this.notify);
   }
   private showDetails():void{
-    if(!this.selected){this.detail.setText('Where to?').setColor(css(UI.uiText));this.meta.setText('Tap a planet to see its details.');this.resource.setText('');this.note.setText('');this.prompt.setText('Tap a planet to select');this.drawButtons();return;}
+    if(!this.selected){this.detail.setText('Choose a planet');this.meta.setText('');this.resource.setText('');this.note.setText('');this.prompt.setText('');this.drawButtons();return;}
     const p=PLANETS.find(p=>p.id===this.selected)!,intel=planetIntel(p.id,this.clan),war=p.id==='warzone'?warLabel(this.war):null;
     this.detail.setText(p.label).setColor(css(UI.uiText));this.meta.setText(`${intel.relation} · ${this.population(p.id).split('\n')[0]}`).setColor(css(intel.colour));if(this.short&&war)this.meta.setText(`${war.open?'OPEN':'CLOSED'} · ${this.population(p.id).split('\n')[0]}`);this.resource.setText(intel.resources);
     this.note.setText(war?war.text:'');
-    this.prompt.setText(war&&(!this.clan||!war.open)?'':`Tap ${p.label} again to warp`);
+    this.prompt.setText(war&&(!this.clan||!war.open)?'':'Select the planet again to warp');
     this.drawButtons();if(this.infoOpen)this.drawInfo();
   }
   private drawInfo():void{
     this.infoObjects.forEach(o=>o.destroy());this.infoObjects=[];
     const b=this.bounds,left=b.x-b.w/2+12,top=b.y-b.h/2+54,w=b.w-24,h=b.h-66,g=this.scene.add.graphics().setDepth(208);
-    panel(g,left,top,w,h,UI.uiBorder);this.infoObjects.push(g);
+    metalPanel(g,left,top,w,h,'standard');this.infoObjects.push(g);
     const add=(x:number,y:number,s:string,size=12)=>{const t=text(this.scene,x,y,s,size,'#dfe8ff').setDepth(209);this.infoObjects.push(t);return t;};
     add(left+16,top+14,this.selected?PLANETS.find(p=>p.id===this.selected)!.label:'Planet map',18);
     const message=this.selected?planetIntel(this.selected,this.clan).note:'Choose a planet to inspect its danger, players and resources. Tap it again to warp in.';
     const rules=add(left+16,top+48,message,this.short?10:12).setWordWrapWidth(w-32);
     if(this.selected==='warzone'&&!this.short)add(left+16,top+56+rules.height,'No banked rewards. Auto-join waits here until it opens.',11).setWordWrapWidth(w-32);
-    this.infoClose={x:left+w/2,y:top+h-28,w:Math.min(180,w-32),h:44};panel(g,this.infoClose.x-this.infoClose.w/2,this.infoClose.y-22,this.infoClose.w,44,UI.uiBorder);add(this.infoClose.x,this.infoClose.y,'Back to map',12).setOrigin(.5);
+    this.infoClose={x:left+w/2,y:top+h-28,w:Math.min(180,w-32),h:44};metalPanel(g,this.infoClose.x-this.infoClose.w/2,this.infoClose.y-22,this.infoClose.w,44);add(this.infoClose.x,this.infoClose.y,'Back to map',12).setOrigin(.5);
   }
   tap(x:number,y:number):MapAction|null{
     const hit=(r:Rect)=>Math.abs(x-r.x)<=r.w/2&&Math.abs(y-r.y)<=r.h/2;
@@ -189,9 +200,9 @@ export class StellarMap {
         this.selection.fillStyle(0x020710, .48); this.selection.fillPoints(shade, true);
       }
       if (p.id === this.selected) {
-        this.selection.lineStyle(2, UI.uiGold, .8 + Math.sin(time / 250) * .18);
+        this.selection.lineStyle(2, metal.light, .8 + Math.sin(time / 250) * .14);
         this.selection.strokeCircle(p.x, p.y, p.radius + 7);
-        this.selection.lineStyle(1, UI.uiGold, .22); this.selection.strokeCircle(p.x, p.y, p.radius + 11);
+        this.selection.lineStyle(1, metal.steel, .32); this.selection.strokeCircle(p.x, p.y, p.radius + 10);
       }
     });
   }
