@@ -106,7 +106,8 @@ function d1() {
     const [p] = [...room.players.values()];
     p.started = true; p.ship.arrival = 0; // Post-arrival gameplay fixture.
 
-    Object.assign(p.ship, { lockdown: 0, warping: true, warpDist: tune.warp.distance - 1, salvage });
+    // One currency (owner, 19 November 2026): the minerals carried out are what banks.
+    Object.assign(p.ship, { lockdown: 0, warping: true, warpDist: tune.warp.distance - 1, hullMax: tune.ship.maxHp + salvage, salvage: 0 });
     for (let i = 0; i < 3 && !frames(sock).some((m) => m.type === 'extracted'); i++) room.step();
     for (let i = 0; i < 20 && !sock.closed; i++) await new Promise((r) => setTimeout(r, 5));
     return { p, banked: frames(sock).find((m) => m.type === 'banked') };
@@ -126,7 +127,7 @@ function d1() {
   assert.equal(player.secret, acct.secret, 'auth message stores the secret');
   assert.equal(sock.closed, 0, 'auth message accepted');
   const { p, banked } = await extract(room, sock, 57.8);
-  assert.deepEqual(calls.map((c) => c.amount), [57], 'the room banks its own whole salvage count');
+  assert.deepEqual(calls.map((c) => c.amount), [57], 'the room banks the whole minerals carried out');
   assert.equal(calls[0].runId, p.runId, 'keyed by this run');
   assert.deepEqual(banked, { type: 'banked', amount: 57, balance: 57 }, 'pilot hears the new balance');
   assert.equal(sock.closed, B.CLOSE.EXTRACTED, 'closed as extracted after banking');
@@ -376,10 +377,17 @@ console.log('Steroids-Alpha bank: codes, hashed accounts, idempotent capped cred
  class Sock extends EventTarget{sent=[];closed=0;send(v){this.sent.push(v);}close(c){this.closed=c;}}
  const flush=()=>new Promise(r=>setImmediate(r));
  async function player(owned,look,late=false){const room=new B.Room(undefined,()=>{},undefined,async()=>owned);room.setBots(false);const ws=new Sock();room.join(ws,'Loadout');room.stop();const p=[...room.players.values()][0];if(late===true)room.onMessage(p,B.encodePing(0));if(late==='silent')room.world.tick+=4*tune.net.tickHz;room.onMessage(p,JSON.stringify({type:'auth',secret:acct.secret,look}));await flush();Object.assign(p.ship,{hp:500,hullMax:500,arrival:0,damageTier:4,turrets:2,missileTier:4,mineTier:2});return{room,p,ws};}
- async function buyEvo(fixture,build){const{room,p}=fixture;room.onMessage(p,B.encodeBuy(5,build));await p.reading;room.step();}
- for(const [owned,look,late]of [[[],{evolution:'evolution.missile-cruiser'},false],[second.unlocks,{},false],[second.unlocks,{evolution:'evolution.missile-cruiser'},true],[second.unlocks,{evolution:'evolution.missile-cruiser'},'silent']]){const f=await player(owned,look,late);await buyEvo(f,1);assert.equal(f.p.ship.chassis,3,'unowned/unequipped/late loadout rejected');assert.equal(f.p.ship.hullMax,500);f.room.stop();}
- const f=await player(second.unlocks,{evolution:'evolution.missile-cruiser'});await buyEvo(f,0);assert.equal(f.p.ship.chassis,3,'cannot buy another owned evolution mid-mission');await buyEvo(f,1);assert.equal(f.p.ship.chassis,4);assert.equal(f.p.ship.hullMax,500-tune.missileCruiser.cost);await buyEvo(f,1);assert.equal(f.p.ship.hullMax,500-tune.missileCruiser.cost,'duplicate evolve cannot charge twice');
- const replacement=new Sock();assert(f.room.join(replacement,'Resumed',f.p.resume));f.room.stop();assert.equal(f.p.look.evolution,'evolution.missile-cruiser','resume retains mission equipment');
- f.room.onMessage(f.p,JSON.stringify({type:'auth',secret:acct.secret,look:{evolution:'evolution.battlecruiser'}}));assert.equal(f.p.look.evolution,'evolution.missile-cruiser');assert.equal(replacement.closed,B.CLOSE.BAD_PROTOCOL,'second auth cannot switch loadout');f.room.stop();
- console.log('PASS evolution unlocks:500 credits each, permanent/insufficient/idempotent purchases, owned clean look, equipped-only authority, late/forged/alternate loadouts rejected, resume fixed and duplicate evolution harmless.');
+ // Run levels (owner, 19-20 November 2026): every owned evolution becomes a level card once its
+ // requirements are met; a BUY carries the card and the pick count it answers; evolving costs nothing.
+ const cardsOf=ws=>ws.sent.filter(m=>typeof m==='string').map(m=>JSON.parse(m)).filter(m=>m.type==='cards').pop();
+ async function pick(fixture,card,picks=fixture.p.ship.picks){const{room,p}=fixture;room.onMessage(p,B.encodeBuy(card,picks));await p.reading;room.step();}
+ async function ready(owned){const f=await player(owned,{});Object.assign(f.p.ship,{xp:1000,picks:6});f.room.step();return f;}
+ {const f=await ready([]);assert(!cardsOf(f.ws).cards.some(c=>c>=10),'no evolution card without owning one');await pick(f,11);assert.equal(f.p.ship.chassis,3,'an unowned evolution cannot be picked');f.room.stop();}
+ {const f=await ready(second.unlocks);const c=cardsOf(f.ws);assert(c.cards.includes(10)&&c.cards.includes(11),'both owned evolutions are guaranteed cards');assert.equal(c.picks,6);
+  await pick(f,11,5);assert.equal(f.p.ship.chassis,3,'a stale pick count is ignored');
+  await pick(f,11);assert.equal(f.p.ship.chassis,4);assert.equal(f.p.ship.hullMax,500,'evolving costs no minerals');assert.equal(f.p.ship.picks,7);
+  await pick(f,10);assert.equal(f.p.ship.chassis,4,'one evolution per run');
+  const replacement=new Sock();assert(f.room.join(replacement,'Resumed',f.p.resume));f.room.stop();assert.equal(f.p.ship.chassis,4,'resume keeps the evolved ship');
+  f.room.onMessage(f.p,JSON.stringify({type:'auth',secret:acct.secret,look:{}}));assert.equal(replacement.closed,B.CLOSE.BAD_PROTOCOL,'a second auth is refused');f.room.stop();}
+ console.log('PASS evolution unlocks: 500 credits each, permanent/insufficient/idempotent purchases, owned clean look, owned evolutions offered as level cards, stale/unowned/second picks refused, free evolving and resume kept.');
 }

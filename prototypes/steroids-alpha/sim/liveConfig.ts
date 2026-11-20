@@ -54,6 +54,21 @@ export function upgradeConfig(input: unknown): unknown {
     for(const key of ['missile','mine'])if(value.tune[key])value.tune[key].damagePerTier=defaults[key as 'missile'|'mine'].damagePerTier;
     for(const key of ['battlecruiser','missileCruiser'])if(value.tune[key]){value.tune[key].cost=defaults[key as 'battlecruiser'|'missileCruiser'].cost;value.tune[key].powerFloor=defaults[key as 'battlecruiser'|'missileCruiser'].powerFloor;}
   }
+  // Run economy epoch 5 (owner, 19 November 2026): minerals are the only run currency, banked on
+  // warp-out. Older records take the whole approved economy once; later owner edits survive.
+  if (value.tune && [undefined, 2, 3, 4].includes(oldBalance)) {
+    const d = defaultConfig().tune, v = value.tune;
+    const take = (group: string, keys: string[]) => { if (v[group]) for (const k of keys) v[group][k] = structuredClone((d as any)[group][k]); };
+    take('shop', ['turretCosts','turretFloors','shieldCosts','shieldFloors','damageCosts','damageFloors','missileCosts','missileFloors','mineCosts','mineFloors','holdBase','holdPerUpgrade','levelUp','levelXpBase','levelXpGrowth','levelEvolutionWeight','balanceVersion']);
+    take('asteroid', ['miningMineralFactor']);
+    take('ship', ['powerCap','hullSpillFraction','deathSpillFraction']);
+    take('salvage', ['killPowerShare','botDropFactor','bankRate','homeBankRate']);
+    take('warp', ['lockdownSeconds']);
+    take('bots', ['loadedPreference','warpPower']);
+    take('battlecruiser', ['cost','powerFloor']);
+    take('missileCruiser', ['cost','powerFloor']);
+    if (v.hotZone) v.hotZone.mineralMultiplier = v.hotZone.salvageMultiplier ?? d.hotZone.mineralMultiplier;
+  }
   if ([2, 3].includes(value.tune?.shop?.balanceVersion)) {
     const defaults = defaultConfig().tune;
     const shop = value.tune.shop;
@@ -131,7 +146,7 @@ export function validateConfig(input: unknown): ConfigData {
   {const m=value.tune.missileCruiser,c=value.tune.ciws,h=value.tune.heavyTower;if(m.capacity!==8||m.missileRefillFactor<1||m.missileRefillFactor>5||[m.minMissiles,m.minMines].some(v=>!Number.isInteger(v)||v<0||v>4)||m.damageFactor<1||m.damageFactor>3||m.rangeFactor<1||m.rangeFactor>3||m.radiusFactor<1||m.radiusFactor>3||m.repeatSeconds<.1||m.repeatSeconds>2||m.reverseSeconds<.1||m.reverseSeconds>2||m.turnRateMissile<=0||m.turnRateMissile>10||m.lifeSeconds<1||m.lifeSeconds>20||m.cost<0||m.powerFloor<m.cost||m.launchSpeed<=0)fail('Missile Cruiser settings out of range');for(const b of [c,h])if(!Number.isInteger(b.shots)||b.shots<1||b.shots>12||b.intervalSeconds<.03||b.intervalSeconds>1||b.pauseSeconds<.1||b.pauseSeconds>5||b.range<1||b.range>3000||b.speed<1||b.speed>3000||b.damage<=0||b.damage>500||b.turnRate<=0||b.turnRate>30)fail('Burst cannon settings out of range');if(h.telegraphSeconds<.1||h.telegraphSeconds>2)fail('Tower warning out of range');}
   if(value.tune.asteroid.pickupVersion!==1||value.tune.asteroid.pickupMagnetReach>160||value.tune.asteroid.pickupMagnetSpeed>800)fail('Pickup policy/range/speed requires bounded settings');
   if(value.tune.bots.behaviourVersion!==1)fail('Bot policy requires a code deployment');
-  if (value.tune.shop.balanceVersion !== 4) fail('Progression epoch requires a code deployment');
+  if (value.tune.shop.balanceVersion !== base.tune.shop.balanceVersion) fail('Progression epoch requires a code deployment');
   if (value.tune.asteroid.miningMineralFactor <= 0 || value.tune.asteroid.miningMineralFactor > 1 ||
       value.tune.ship.fighterShieldBonus > 100) fail('Mining yield or fighter shield bonus is out of range');
   const s = value.tune.ship, w = value.tune.weapon;
@@ -154,10 +169,10 @@ export function validateConfig(input: unknown): ConfigData {
   { const m = value.tune.missile, n = value.tune.mine; if (!(m.hp > 0) || !(m.launchSpeed > 0) || !(m.maxSpeed >= m.launchSpeed) || !(m.lifeSeconds > 0) || !(m.refillSeconds > 0) || !(m.lockConeDeg > 0 && m.lockConeDeg <= 90) || !(n.hp > 0) || !(n.blastRadius > 0) || !(n.lifeSeconds > 0) || !(n.refillSeconds > 0) || !Number.isInteger(n.maxActive) || n.maxActive < 1) fail('Missile and mine settings out of range'); }
   for (const c of [value.tune.interceptor, value.tune.battlecruiser,value.tune.missileCruiser]) if (!(c.radius >= 8 && c.radius <= 200) || !(c.minSpeed > 0 && c.minSpeed <= c.cruiseSpeed && c.cruiseSpeed <= c.maxSpeed) || !(c.acceleration > 0) || !(c.braking > 0) || !(c.turnRate > 0) || !(c.shieldFactor > 0 && c.shieldFactor <= 10) || !(c.damageFactor > 0 && c.damageFactor <= 10) || !Number.isInteger(c.fireIntervalSteps) || c.fireIntervalSteps < 1 || !Number.isInteger(c.baseTurrets) || c.baseTurrets < 0 || c.baseTurrets > 4) fail('Ships: radius 8-200, minimum ≤ cruise ≤ top speed, positive acceleration, braking and turn rate, factors above 0 (up to 3, shield/damage up to 10), whole fire interval 1+, 0-4 base turrets');
   { const b = value.tune.battlecruiser; if (!Number.isInteger(b.minUpgrades) || b.minUpgrades < 0 || b.minUpgrades > 20 || [b.minTurrets,b.minGuns].some(v=>!Number.isInteger(v)||v<0||v>4) || !(b.powerFloor >= 0) || !(b.cost >= 0)) fail('Battlecruiser: 0-20 total upgrades, turret/gun requirements 0-4, floor and cost 0 or more'); }
-  { const v = value.tune.salvage; if (!(v.perMineral >= 0) || !(v.killPowerShare >= 0 && v.killPowerShare <= 2) || !(v.repeatKillWindowSeconds >= 0) || !(v.botDropFactor >= 0 && v.botDropFactor <= 1) || !(v.goldChunkValue > 0) || !Number.isInteger(v.goldChunksMax) || v.goldChunksMax < 1 || !(v.goldLifeSeconds > 0) || !(v.cargoMax >= 1)) fail('Salvage: cargo hold at least 1, rates 0 or more, kill share 0-2, bot factor 0..1, gold chunk value above 0, 1+ chunks, gold life above 0'); }
+  { const v = value.tune.salvage; if (!(v.perMineral >= 0) || !(v.killPowerShare >= 0 && v.killPowerShare <= 2) || !(v.repeatKillWindowSeconds >= 0) || !(v.botDropFactor >= 0 && v.botDropFactor <= 1) || !(v.goldChunkValue > 0) || !Number.isInteger(v.goldChunksMax) || v.goldChunksMax < 1 || !(v.goldLifeSeconds > 0) || !(v.cargoMax >= 1) || !(v.bankRate >= 0 && v.bankRate <= 10) || !(v.homeBankRate >= 0 && v.homeBankRate <= 10)) fail('Salvage: cargo hold at least 1, bank rates 0-10, rates 0 or more, kill share 0-2, bot factor 0..1, gold chunk value above 0, 1+ chunks, gold life above 0'); }
   { const b = value.tune.base; if (!Number.isInteger(b.pads) || b.pads < 1 || b.pads > 12 || !Number.isInteger(b.turrets) || b.turrets < 0 || b.turrets > 12 || !Number.isInteger(b.turretFireIntervalSteps) || b.turretFireIntervalSteps < 1 || !(b.padRadius > 0) || !(b.domeRadius > b.padRing) || !(b.turretBulletSpeed > 0) || !(b.dockRepairPerSecond >= 0 && b.dockRepairPerSecond <= 1)) fail('Clan base: 1-12 pads, 0-12 turrets, whole fire interval 1+, dome wider than the pad ring, repair 0..1 per second'); }
   { const a = value.tune.asteroid; if (!Number.isInteger(a.richMax) || a.richMax < 0 || a.richMax > 10 || !(a.richMineralFactor >= 1 && a.richMineralFactor <= 10) || !(a.richHpFactor >= 0.5 && a.richHpFactor <= 10) || !(a.richRespawnSeconds >= 1)) fail('Rich asteroids: 0-10 alive, minerals 1-10x, health 0.5-10x, respawn 1 s or more'); }
-  { const z = value.tune.hotZone; if (!(z.radius >= 0) || !(z.moveSeconds > 0) || !(z.salvageMultiplier >= 1) || !(z.spawnShare >= 0 && z.spawnShare <= 1)) fail('Hot zone: radius 0 or more, move time above 0, multiplier 1 or more, spawn share 0..1'); }
+  { const z = value.tune.hotZone; if (!(z.radius >= 0) || !(z.moveSeconds > 0) || !(z.mineralMultiplier >= 1) || !(z.spawnShare >= 0 && z.spawnShare <= 1)) fail('Hot zone: radius 0 or more, move time above 0, multiplier 1 or more, spawn share 0..1'); }
   { const v = value.tune.warp; if (!(v.lockdownSeconds >= 0 && v.lockdownSeconds <= 1800) || !(v.acceleration > 0) || !(v.topSpeedFactor >= 1 && v.topSpeedFactor <= 3) || !(v.distance > 0) || !(v.steerFactor >= 0 && v.steerFactor <= 1)) fail('Warp: lockdown 0-1800 s, acceleration and distance above 0, top speed x1-3, steering 0..1'); }
   { const b = value.tune.bots; if (!Number.isInteger(b.count) || b.count < 0 || b.count > 8 || !(b.respawnSeconds >= 0) || !(b.lingerSeconds >= 0 && b.lingerSeconds <= 600) || !(b.fleeHullFraction >= 0 && b.fleeHullFraction <= 1) || !(b.burstHeat > b.resumeHeat && b.burstHeat <= 1)) fail('Bots: 0-8 bots, flee fraction 0..1, burst heat above resume heat'); }
   if (!(w.assistConvergeMaxDeg >= 0 && w.assistConvergeMaxDeg <= 45) || !(w.assistConeDeg >= 0 && w.assistConeDeg <= 45) || w.assistRange < 0 || !(w.assistMaxDeg >= 0 && w.assistMaxDeg <= 30)) fail('Aim assist out of range');

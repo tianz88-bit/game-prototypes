@@ -183,7 +183,7 @@ export class Intents {
       if (k === ' ' || k === 'j') this.presses.add('primary');
       if (k === 'escape') this.presses.add('pause');
       if (k === 'shift' || k === 'k') this.presses.add('secondary');
-      if (k >= '1' && k <= '6' && k.length === 1) this.buys.push(Number(k) - 1); // 6: evolve
+      if (k >= '1' && k <= '3' && k.length === 1) this.buys.push(Number(k) - 1); // level card 1-3
       if (k === 'q') this.presses.add('missile');
       if (k === 'e') this.presses.add('mine');
       if (k === 'r') this.presses.add('warp');
@@ -238,12 +238,13 @@ export class Intents {
       const axis = (v: number): number => (Math.abs(v) < dead ? 0 : (Math.sign(v) * (Math.abs(v) - dead)) / (1 - dead));
       return { turn: axis(nx), aim: NaN, thrust: this.heldThrottle||axis(-ny) };
     }
-    // Direction marker (owner decision): with the stick at rest the ship eases back to cruise speed.
-    // The marker only aims; Faster/Slower holds control speed independently.
+    // Direction marker with speed on the stick (owner, 20 November 2026): the stick aims, and how far
+    // it is pushed sets speed. Near the centre brakes (down to the pad to dock), the middle band holds
+    // cruise speed, and the outer band accelerates, at full strength at the edge. No finger: cruise.
     const mag = Math.min(1, Math.hypot(nx, ny));
-    if (mag < dead) return { turn: 0, aim: NaN, thrust: this.heldThrottle };
-
-    return { turn: 0, aim: Math.atan2(ny, nx), thrust: this.heldThrottle };
+    const t = clientTune.touch, aim = mag < dead ? NaN : Math.atan2(ny, nx);
+    const thrust = mag < t.markerBrakeBelow ? -1 : mag > t.markerBoostAbove ? Math.min(1, (mag - t.markerBoostAbove) / Math.max(0.01, 1 - t.markerBoostAbove) * 1.25) : 0;
+    return { turn: 0, aim, thrust: this.heldThrottle || thrust };
   }
 
   private onDown(e: PointerEvent): void {

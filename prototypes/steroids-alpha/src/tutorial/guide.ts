@@ -3,7 +3,7 @@ import type Phaser from 'phaser';
 import type { ShipState } from '../../sim/ship';
 import { dashSpeed, maxShield, topSpeed } from '../../sim/ship';
 import { BATTLECRUISER, shipMotion, upgradeTotal } from '../../sim/chassis';
-import { SHOP_ITEMS } from '../../sim/shop';
+import { xpForLevel } from '../../sim/levels';
 import { TUNE } from '../../sim/tune';
 import type { WorldEvents } from '../../sim/world';
 import { wrap, wrapDelta } from '../../sim/wrap';
@@ -24,9 +24,9 @@ export interface GuideView {
 const ahead=(s:ShipState,d:number,turn=0):Point=>({x:wrap(s.x+Math.cos(s.heading+turn)*d,W),y:wrap(s.y+Math.sin(s.heading+turn)*d,H)});
 const dist=(a:Point,b:Point)=>Math.hypot(wrapDelta(a.x,b.x,W),wrapDelta(a.y,b.y,H));
 function controls() {
- if (intents.touch) return { steer: 'Drag on the left to steer', brake: 'Hold −', thrust: 'Hold +', fire: 'Hold FIRE', dash: 'Tap DASH', buy: 'Open UPGRADES and tap a row', warp: 'Tap WARP' };
+ if (intents.touch) return { steer: 'Drag on the left to steer', brake: 'Hold the stick near its centre', thrust: 'Push the stick to its edge', fire: 'Hold FIRE', dash: 'Tap DASH', buy: 'Tap a level card', warp: 'Tap WARP' };
  const marker = intents.scheme === 'marker';
- return { steer: marker ? 'Point the mouse to steer' : 'Use A/D to steer', brake: 'Hold S', thrust: 'Hold W', fire: 'Hold SPACE or left click', dash: 'Press SHIFT', buy: 'Press B and pick an upgrade, or press 1–5', warp: 'Press R' };
+ return { steer: marker ? 'Point the mouse to steer' : 'Use A/D to steer', brake: 'Hold S', thrust: 'Hold W', fire: 'Hold SPACE or left click', dash: 'Press SHIFT', buy: 'Click a level card, or press 1–3', warp: 'Press R' };
 }
 
 export class TutorialGuide {
@@ -114,7 +114,7 @@ export class TutorialGuide {
  }
 
  private oreReward() {
-  return Math.max(...SHOP_ITEMS.flatMap(item => [TUNE.shop[`${item}Floors`][0], TUNE.shop[`${item}Costs`][0]]));
+  return xpForLevel(1, TUNE);
  }
 
  private placeRock(s: ShipState) {
@@ -215,13 +215,13 @@ export class TutorialGuide {
   if (!s || s.hp <= 0 || this.pilot !== v.myId) return;
   const k = controls();
   const nearLaunch = this.dashLaunch && dist(s, this.dashLaunch) < 70;
-  const titles = ['FLIGHT CONTROLS', 'MINE & UPGRADE', 'DASH & RAM', 'WARP OUT'];
+  const titles = ['FLIGHT CONTROLS', 'MINE & LEVEL UP', 'DASH & RAM', 'WARP OUT'];
   const prompt = this.step === 0
    ? this.count ? `${k.thrust} to accelerate through the ring.` : `${k.steer}. ${k.brake} to brake through the ring.`
    : this.step === 1
     ? this.fightPhase === 0 ? `Aim at the marked rock. ${k.fire} to shoot it.`
       : this.fightPhase === 1 ? 'Fly to the gold crystals to collect minerals.'
-      : `${k.buy}. Minerals pay for this run’s upgrades.`
+      : `Minerals level you up. ${k.buy}.`
     : this.step === 2
      ? this.ramConfirmed ? 'Ram landed. A dash hits the hull through shields.'
        : s.dashTime > 0 || s.dashCharge > 0 ? 'Stay lined up through both rings.'

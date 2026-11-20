@@ -18,7 +18,9 @@
     "schemeButtonHeight": 30,
     "dashButtonRadius": 46,
     "dashButtonMargin": 34,
-    "fireButtonRadius": 46
+    "fireButtonRadius": 46,
+    "markerBrakeBelow": 0.35,
+    "markerBoostAbove": 0.75
   },
   "mouse": {
     "deadZone": 40
