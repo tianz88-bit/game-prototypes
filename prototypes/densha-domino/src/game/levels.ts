@@ -71,7 +71,14 @@ export const LEVEL_SOURCES: LevelSource[] = [
   { name: 'Tokyo Terminal', rows: ['HCCCCJJ', '..bs.tK', '......K', 'BBBB#.K', 'A..##Dk', 'A..k.Ds', 'AGFFFFF', 'A.EIII.'], axis: { E: 'v', G: 'h', H: 'v' } },
 ];
 
-export const LEVELS: Level[] = [...LEVEL_SOURCES, ...PACK].map((s) => {
+/** Levels 1 to 6 (tutorial and Kyoto Crossing) stay fixed; everything after comes from the pack, which is
+ * ordered by difficulty and also holds the hand-made levels 7 to 11 (see scripts/build-densha-pack.mjs). */
+export const FIXED_LEVELS = 6;
+export const ALL_SOURCES: LevelSource[] = PACK.some((p) => p.name === LEVEL_SOURCES[FIXED_LEVELS].name)
+  ? [...LEVEL_SOURCES.slice(0, FIXED_LEVELS), ...PACK]
+  : [...LEVEL_SOURCES, ...PACK]; // an older pack without the hand levels
+
+export const LEVELS: Level[] = ALL_SOURCES.map((s) => {
   const repair=s.quality?undefined:LEVEL_REPAIRS[s.name];
   return parseLevel(s.name, repair?.rows??s.rows, repair?.axis??s.axis, repair?.head??s.head);
 });

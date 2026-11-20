@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';import {build} from 'esbuild';
-const b=await build({stdin:{contents:"export {LEVELS,LEVEL_SOURCES} from './prototypes/densha-domino/src/game/levels';export {PACK} from './prototypes/densha-domino/src/game/pack';export {PUZZLE_CONTRACTS} from './prototypes/densha-domino/src/game/puzzle-contracts';export {solve} from './prototypes/densha-domino/src/game/solver';export * from './prototypes/densha-domino/src/game/rules';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',write:false,tsconfig:'tsconfig.json'});
+const b=await build({stdin:{contents:"export {LEVELS,LEVEL_SOURCES,ALL_SOURCES} from './prototypes/densha-domino/src/game/levels';export {PACK} from './prototypes/densha-domino/src/game/pack';export {PUZZLE_CONTRACTS} from './prototypes/densha-domino/src/game/puzzle-contracts';export {solve} from './prototypes/densha-domino/src/game/solver';export * from './prototypes/densha-domino/src/game/rules';",resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',write:false,tsconfig:'tsconfig.json'});
 const R=await import('data:text/javascript;base64,'+Buffer.from(b.outputFiles[0].text).toString('base64'));
-assert.equal(R.PUZZLE_CONTRACTS.length,101);const sources=[...R.LEVEL_SOURCES,...R.PACK];
+assert.equal(R.PUZZLE_CONTRACTS.length,101);const sources=R.ALL_SOURCES;
 for(const [i,l]of R.LEVELS.entries()){
  const contract=sources[i].quality??R.PUZZLE_CONTRACTS.find(c=>c.name===l.name);assert.ok(contract,l.name+' has no quality contract');
  const sol=R.solve(l);assert.ok(!sol.truncated,l.name+' needs an exact par');assert.equal(sol.par,contract.par,l.name+' has a new shortcut or lost setup');
