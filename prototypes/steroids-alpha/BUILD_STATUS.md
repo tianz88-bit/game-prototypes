@@ -1,6 +1,6 @@
 ## Current milestone
 
-Run economy, level cards and mobile stick throttle: released through this session's PR (protocol 35, paired client and Worker). Previous live: itch 201126r0110 (Codex's Missile Cruiser centerline cannon, PR597).
+LIVE itch 201126r0111, Worker protocol 35: run economy, level cards and mobile stick throttle (PR601, merge f04b6cbf). Worker run 44700209725 and itch run 44700209816 succeeded. Live check 20 November 2026: a test client on the public Worker received 108 snapshots with xp/picks and a cards frame. The published settings record migrates to epoch 5 on parse (levels on, warp lock 90 s, hold 50+40, no kill payout, evolution unlock 500). No live account spending. No public browser playtest of the itch page yet.
 
 ## What was implemented
 
