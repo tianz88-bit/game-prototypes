@@ -2,9 +2,9 @@
 
 Owner direction,17 November2026: Codex completes and deploys the approved work. Claude will sync later; this file records the handoff without requesting an immediate session or review.
 
-## Foldable support and level card faces — review candidate
+## Foldable support and neutral upgrade UI — approved for release
 
-Agent Comms thread 4131cbcf. Existing painted weapon/ship parts supply five track icons and the two gold evolution faces, with procedural fallback. A small opening flash and server-confirmed pick flash preserve the tap zones and live flight. A portrait foldable layout stays upright starting at 500 CSS px wide; narrow cover portrait keeps the quarter turn. Resize reapplies menu/HUD geometry and releases stale touches in the same run. Headless Brave checked desktop number-key and folded-to-unfolded touch picks. Await owner release approval.
+Agent Comms thread 4131cbcf. Graphite card frames use five monochrome equipment symbols. Gold identifies evolution cards and their confirmation flash. The in-match Fire, Dash, Missile, Mine, Warp and Stats controls share the darker metal palette. The cargo HUD shows one mineral total and retains the haul bonus and next-increase timer. A portrait foldable layout stays upright starting at 500 CSS px wide. Narrow cover portrait keeps the quarter turn. Resize reapplies menu and HUD geometry and releases stale touches in the same run.
 
 ## Missile Cruiser centerline cannon — LIVE 201126r0110 / protocol 34
 

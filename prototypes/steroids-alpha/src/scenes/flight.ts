@@ -58,7 +58,7 @@ import { Explosion } from '../render/explosion';
 import { loadSave, recordRun } from '../save';
 import type { ShipPlacement } from '../render/shipView';
 import { missileLock,missileStructureLock } from '../../sim/ordnance';
-import { UI, css, panel, controlFace, controlClearRight } from '../render/ui';
+import { UI, css, panel, flightButton, flightControlFace, controlClearRight } from '../render/ui';
 import { unlockById } from '../../sim/unlocks';
 import type { Look } from '../../sim/unlocks';
 import { drawOrdnance, drawExplosionCore, drawBullet, drawDrone, drawHitSpark } from '../render/worldArt';
@@ -975,8 +975,7 @@ export class FlightScene extends Phaser.Scene {
     if(this.planet===TUTORIAL&&!guide.policy.warp){this.warpText.setVisible(false);return;}
     const warLocked=this.net.siege?.phase==='war'||this.net.siege?.phase==='release';
     const locked = (p.arrival??0)>0||(!this.net.freeWarp&&p.lockdown>0)||warLocked;
-    const accent = p.warping ? 0x7fe9ff : locked ? UI.uiBorder : UI.uiAccent;
-    panel(g, x - bw / 2, y - bh / 2, bw, bh, accent, !locked);
+    flightButton(g, x - bw / 2, y - bh / 2, bw, bh, !locked || p.warping, locked && !p.warping);
     if (p.warping) {
       const f = Math.min(1, p.warpDist / TUNE.warp.distance);
       g.fillStyle(0x7fe9ff, 0.35);
@@ -1130,7 +1129,7 @@ export class FlightScene extends Phaser.Scene {
       const x = touch ? c.x : 42+i*140;
       const y = touch ? c.y : h-(this.keyHints.visible?this.keyHints.displayHeight+52:46);
       const ready = sl.charges > 0;
-      controlFace(g,x,y,r,sl.kind==='missile'?UI.uiAccent:UI.uiGold,ready);
+      flightControlFace(g,x,y,r,ready);
       if (sl.charges < sl.tier && sl.cd > 0) {
         g.lineStyle(3, 0x7fd6ff, 0.9);
         g.beginPath();
@@ -1139,7 +1138,7 @@ export class FlightScene extends Phaser.Scene {
       }
       // Symbol: a rocket (missile) or a spiked ball (mine).
       const k = r / 30;
-      g.fillStyle(ready ? 0xffffff : 0x9a8f80, 1);
+      g.fillStyle(ready ? 0xeaf0f4 : 0x8c98a3, 1);
       if (sl.kind === 'missile') {
         g.fillTriangle(x + 13 * k, y - 4 * k, x + 13 * k, y + 4 * k, x + 20 * k, y);
         g.fillRect(x - 12 * k, y - 4 * k, 25 * k, 8 * k);
@@ -1152,14 +1151,13 @@ export class FlightScene extends Phaser.Scene {
           g.fillCircle(x + Math.cos(a) * 11 * k, y - 2 * k + Math.sin(a) * 11 * k, 2.4 * k);
         }
       }
-      if(touch){g.fillStyle(0x071425,.95).fillCircle(x+r*.63,y+r*.62,11);}
       this.weaponTexts[i]
         .setVisible(true)
         .setFontSize(touch ? 18 : 22)
         .setOrigin(0, 0.5)
         .setPosition(x + r + 4, y)
         .setText(touch ? `${sl.charges}` : `${sl.charges} [${sl.key}]`)
-        .setColor(ready ? '#ffd27a' : '#8f7f6a');
+        .setColor(ready ? '#eaf0f4' : '#8c98a3');
       const zone = { x, y, hw: r * 1.25, hh: r * 1.25 };
       if (sl.kind === 'missile') intents.missileButton = zone;
       else intents.mineButton = zone;
@@ -1238,7 +1236,7 @@ export class FlightScene extends Phaser.Scene {
     ];
     entries.forEach(({action,rect,label},i)=>{
       const open=this.mobilePanel===action;
-      panel(this.overlay,rect.x-rect.w/2,rect.y-18,rect.w,36,open?UI.uiAccent:UI.uiBorder,open);
+      flightButton(this.overlay,rect.x-rect.w/2,rect.y-18,rect.w,36,open);
       this.mobileNavLabels[i].setVisible(true).setPosition(rect.x,rect.y).setFontSize(header.tight?10:11).setText(open?'CLOSE':label);
       this.mobileButtons.push({action,x:rect.x,y:rect.y,w:rect.w});
       intents.uiZones.push({x:rect.x,y:rect.y,hw:rect.w/2,hh:22});
@@ -1308,14 +1306,14 @@ export class FlightScene extends Phaser.Scene {
     const b=controls.dash,fb=controls.fire,r=b.r,fr=fb.r;
     intents.dashButton={x:b.x,y:b.y,hw:b.hw,hh:b.hh};
     intents.fireButton={x:fb.x,y:fb.y,hw:fb.hw,hh:fb.hh};
-    controlFace(g,fb.x,fb.y,fr,UI.uiDanger,intents.fire);
-    g.lineStyle(2,UI.uiDanger,.9);g.strokeCircle(fb.x,fb.y,fr*.22);
+    flightControlFace(g,fb.x,fb.y,fr,intents.fire);
+    g.lineStyle(2,intents.fire?UI.uiDanger:0xeaf0f4,.9);g.strokeCircle(fb.x,fb.y,fr*.22);
     for(let i=0;i<4;i++){const a=i*Math.PI/2;g.lineBetween(fb.x+Math.cos(a)*fr*.32,fb.y+Math.sin(a)*fr*.32,fb.x+Math.cos(a)*fr*.48,fb.y+Math.sin(a)*fr*.48);}
     // No steering toggle on phones (owner, 14 November 2026): the stick is always the direction marker.
     const cd = this.net.predicted?.dashCd ?? 0;
     const ready = cd <= 0;
-    controlFace(g,b.x,b.y,r,UI.uiAccent,ready);
-    g.lineStyle(3,UI.uiAccent,ready?.95:.4);
+    flightControlFace(g,b.x,b.y,r,ready);
+    g.lineStyle(3,0xeaf0f4,ready?.95:.4);
     for(let i=0;i<3;i++){const x=b.x-12+i*10;g.lineBetween(x,b.y-10,x+8,b.y);g.lineBetween(x+8,b.y,x,b.y+10);}
     // Speed is on the stick again (owner, 20 November 2026): no separate + / − buttons.
     intents.clearThrottle();

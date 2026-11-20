@@ -1,11 +1,11 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
-## 2026-11-20 codex foldable layout and level card review
-DID: Level cards use painted game-part badges, four tier pips, gold evolutions and input-safe appearance/pick flashes. Open foldables reflow upright and retain the same run through a resize.
+## 2026-11-20 codex neutral upgrade UI and foldable layout
+DID: Graphite upgrade cards use faction-neutral equipment symbols, four tier pips and gold evolution faces. Flight buttons use the same palette, and the hold has one mineral total plus haul bonus and banking context. Open foldables can reflow upright during a run.
 FILES: viewport/base/input resize, landing/HUD/card art, Flight and landing layout regression.
 SEAM: LevelCardArt only draws. Existing card IDs, text effects, on-offer tap zones, multiplayer state and sim contracts stay intact.
 CROSS: Flight UI/input reset and resize only. Full sim/config/rig and desktop/touch headless accept card picks; fold/open in one room at 344x848, 514x882, 673x881 and 740x670.
-FOR claude: Preview delivered in Agent Comms 4131cbcf. Await owner review to release.
+FOR claude: Owner approved release. Integrated PR604 before release so the new header and warp styling preserve the haul bonus and countdown.
 
 ## 2026-11-20 claude run economy, level cards and stick throttle (release PR)
 DID: Owner approved going live 20 Nov. Minerals are the only run currency: salvage cargo is gone off home planets. Minerals carried out on warp bank at salvage.bankRate (home 0). Collected minerals are XP (never spent); each level offers 3 cards in a non-blocking top-left strip (tap or 1-3). Owned evolutions are guaranteed cards once ready, and evolving is free. Hold 50+40/level, weight slows up to 30%. Death drops the whole wallet; no kill payout; bots prefer loaded ships. Warp lock 90 s. Hangar prices unchanged. Mobile speed is back on the stick: centre brakes, middle cruises, edge accelerates; the +/- buttons are removed.

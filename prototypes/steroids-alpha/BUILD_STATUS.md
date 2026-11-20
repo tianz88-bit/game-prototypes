@@ -1,6 +1,6 @@
 ## Current milestone
 
-Local review of the neutral dark-metal level-up cards on desktop and a folded phone. Release awaits art approval.
+Owner approved release of the neutral dark-metal level-up cards, in-match buttons and foldable layout.
 
 LIVE itch 201126r0111, Worker protocol 35: run economy, level cards and mobile stick throttle (PR601, merge f04b6cbf). Worker run 44700209725 and itch run 44700209816 succeeded. Live check 20 November 2026: a test client on the public Worker received 108 snapshots with xp/picks and a cards frame. The published settings record migrates to epoch 5 on parse (levels on, warp lock 90 s, hold 50+40, no kill payout, evolution unlock 500). No live account spending. No public browser playtest of the itch page yet.
 
@@ -18,6 +18,7 @@ LIVE itch 201126r0111, Worker protocol 35: run economy, level cards and mobile s
 - Tutorial: "Mine & level up" lesson teaches picking a card.
 - Evolution equip slot removed (owner, 20 November 2026). The menu has a full-width Learn to fly button. Hangar EVOLVE shows owned evolutions as "OWNED · OFFERED IN RUNS"; tapping an owned one only explains it. The Ships tab card shows how many are owned. The menu tagline now reads "Mine. Level up. Fight. Warp out with minerals."
 - The preview uses shared graphite frames, monochrome equipment glyphs and tier pips. Gold identifies evolution offers and their confirmation flash. The same three standard cards are shown in a staged fight at 1280×720 and 848×344.
+- In-match buttons share the graphite palette. The cargo HUD shows one mineral total with a text-only banking or haul bonus line. The haul bonus remains +10% per full minute starting at 3:00, capped at +50% (PR604).
 
 ## Key technical decisions
 
@@ -34,10 +35,10 @@ LIVE itch 201126r0111, Worker protocol 35: run economy, level cards and mobile s
 
 ## Known issues
 
-- The neutral card art is a local candidate. The broader HUD still uses the existing chrome.
+- The broader HUD and main menu still use the existing chrome.
 - Headless pace numbers come from scripted pilots, not human playtests.
 - Local browser checks staged the card offer client-side. The real server pick path is covered by the bank and sim gates.
 
 ## Next proposed step
 
-Review the neutral card art on desktop and folded phone. Playtest the run progression and bot pressure after review.
+Verify the public client release. Playtest progression and bot pressure on PC and a folded phone.
