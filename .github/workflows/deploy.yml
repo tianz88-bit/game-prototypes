@@ -106,8 +106,48 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Kaiten Express (the sushi edition) builds from a pinned source commit
+      # (.github/kaiten-express-ref) with its art fetched from R2 as
+      # kaiten-express_assets.zip, like the other prototypes. The object name
+      # differs from the folder name (densha-domino) because the original
+      # railway game on main uses that folder too. Until the zip is in R2, the
+      # deploy falls back to the checksum-pinned release archive in
+      # .github/densha-sushi-release.json, so nothing breaks before the upload.
+      # No art cache: the zip is fetched fresh each deploy, so it can never be stale.
+      - name: Choose Kaiten Express art source
+        id: kaiten
+        run: |
+          echo "sha=$(cat .github/kaiten-express-ref)" >> "$GITHUB_OUTPUT"
+          if curl -fsSI "https://pub-415572b047994ab8807f76b8462eda45.r2.dev/kaiten-express_assets.zip" -o /dev/null; then
+            echo "art=r2" >> "$GITHUB_OUTPUT"
+          else
+            echo "art=release" >> "$GITHUB_OUTPUT"
+            echo "kaiten-express_assets.zip is not in R2 yet; using the pinned release archive."
+          fi
+
       - name: Install pinned independent Sushi Trains release
+        if: steps.kaiten.outputs.art != 'r2'
         run: node scripts/install-densha-sushi-release.mjs
+
+      - name: Checkout pinned Kaiten Express source
+        if: steps.kaiten.outputs.art == 'r2'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.kaiten.outputs.sha }}
+          path: .kaiten-source
+
+      - name: Build Kaiten Express with R2 art
+        if: steps.kaiten.outputs.art == 'r2'
+        working-directory: .kaiten-source
+        run: |
+          npm ci
+          npm run build:packages
+          node scripts/fetch-assets.js densha-domino kaiten-express_assets.zip
+          node scripts/pack-assets.js densha-domino
+          node scripts/build-densha-public.mjs dist/densha-sushi
+          rm -rf ../dist/prototypes/densha-domino-sushi
+          mkdir -p ../dist/prototypes
+          cp -r dist/densha-sushi ../dist/prototypes/densha-domino-sushi
 
       # Pin the reviewed gameplay source independently of staging infrastructure.
       - name: Read pinned Punchies staging commit
