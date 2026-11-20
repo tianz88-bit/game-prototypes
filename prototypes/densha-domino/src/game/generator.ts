@@ -72,18 +72,20 @@ function occupied(level: Level): Set<number> {
 }
 
 /** Replays a plan with the real rules. Returns the moves that did something and their link counts. */
-function replay(level: Level, plan: Move[], rules: RuleOptions): { state: State; moves: Move[]; links: number[] } {
+function replay(level: Level, plan: Move[], rules: RuleOptions): { state: State; moves: Move[]; links: number[]; bumped: Set<number> } {
   let state = initialState(level);
   const moves: Move[] = [];
   const links: number[] = [];
+  const bumped = new Set<number>();
   for (const m of plan) {
     if (!canRun(level, state, m.train, m.dir)) continue;
     const r = applyTap(level, state, m, rules);
+    for (const e of r.events) if (e.type === 'hit') { bumped.add(e.runner); bumped.add(e.target); }
     state = r.state;
     moves.push(m);
     links.push(r.exited);
   }
-  return { state, moves, links };
+  return { state, moves, links, bumped };
 }
 
 export function generate(spec: GenSpec, rules: RuleOptions = DEFAULT_RULES, maxAttempts = 60): GenResult | null {
@@ -97,9 +99,21 @@ export function generate(spec: GenSpec, rules: RuleOptions = DEFAULT_RULES, maxA
 function tryGenerate(spec: GenSpec, rules: RuleOptions): GenResult | null {
   const rand = rng(spec.seed);
   const pick = <T,>(a: T[]): T => a[Math.floor(rand() * a.length)];
+  // Obstacles are placed with some taste: never in a corner, never touching another
+  // (not even diagonally), at most two per row or column. tighten() later removes any
+  // that turn out not to matter, so only load-bearing ones remain.
   const obstacles = new Map<number, ObstacleKind>();
-  for (let i = 0; i < spec.obstacles; i++) {
-    const cell = Math.floor(rand() * spec.cols * spec.rows);
+  for (let tries = 0; obstacles.size < spec.obstacles && tries < 300; tries++) {
+    const c = Math.floor(rand() * spec.cols), r = Math.floor(rand() * spec.rows), cell = r * spec.cols + c;
+    if (obstacles.has(cell) || ((c === 0 || c === spec.cols - 1) && (r === 0 || r === spec.rows - 1))) continue;
+    let touching = false, inRow = 0, inCol = 0;
+    for (const other of obstacles.keys()) {
+      const oc = other % spec.cols, or = Math.floor(other / spec.cols);
+      if (Math.abs(oc - c) <= 1 && Math.abs(or - r) <= 1) touching = true;
+      if (or === r) inRow++;
+      if (oc === c) inCol++;
+    }
+    if (touching || inRow >= 2 || inCol >= 2) continue;
     obstacles.set(cell, pick(OBSTACLE_KINDS));
   }
   let trains: TrainDef[] = [];
@@ -157,7 +171,8 @@ function tryGenerate(spec: GenSpec, rules: RuleOptions): GenResult | null {
     }
     for (const m of first) {
       const r = replay(lv, [m, ...plan], rules);
-      if (isCleared(r.state) && r.moves.length > plan.length) {
+      // Every blocker must take part in a bump (no dead pieces that just drive off alone).
+      if (isCleared(r.state) && r.moves.length > plan.length && r.bumped.has(t.id)) {
         trains = next;
         plan = r.moves;
         break;
