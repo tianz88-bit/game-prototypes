@@ -1,4 +1,4 @@
-import { selectedEvolution, selectedFighter } from '../../sim/unlocks';
+import { selectedFighter } from '../../sim/unlocks';
 import { combatKey } from '../render/combatSprites';
 import { shipPreview } from '../render/shipPreview';
 import { PALETTES } from '../render/palette';
@@ -172,7 +172,7 @@ export class MenuScene extends Phaser.Scene {
     g.lineStyle(1,UI.uiBorder,.14);for(let i=0;i<12;i++)g.lineBetween(i*w/8-h*.3,0,i*w/8+h*.3,h);
     if(this.textures.exists(combatKey('title-portals')))this.add.image(l.logo.x,l.logo.y,combatKey('title-portals')).setDisplaySize(l.logo.w,l.logo.h);
     else text(this,16,12,'STEROIDS–α',Math.min(30,w/13),css(UI.uiText));
-    if(!l.compact)text(this,l.desktop?l.logo.x-l.logo.w/2:16,l.pitchY,'Mine. Upgrade. Fight. Warp out with salvage.',l.desktop?14:11,'#9fb5c7');
+    if(!l.compact)text(this,l.desktop?l.logo.x-l.logo.w/2:16,l.pitchY,'Mine. Level up. Fight. Warp out with minerals.',l.desktop?14:11,'#9fb5c7');
     text(this,l.creditX,l.creditY,'BANKED CREDITS',l.desktop?12:10,'#9fb5c7').setOrigin(1,0);
     text(this,l.creditX,l.creditY+18,this.credits===null?'—':String(this.credits),l.desktop?24:18,'#ffd27a').setOrigin(1,0);
     g.lineStyle(1,UI.uiAccent,.18);g.strokeEllipse(l.hero.x,l.hero.y+12,l.hero.w*.78,Math.max(24,l.hero.h*.55));
@@ -189,11 +189,6 @@ export class MenuScene extends Phaser.Scene {
     this.warpButton=l.warp;panel(g,l.warp.x-l.warp.w/2,l.warp.y-l.warp.h/2,l.warp.w,l.warp.h,UI.uiAccent,true);
     this.warpPulse=this.add.graphics();text(this,l.warp.x,l.warp.y-7,'WARP',l.desktop?32:24,css(UI.uiText)).setOrigin(.5);text(this,l.warp.x,l.warp.y+(l.desktop?21:15),'Choose a planet',l.desktop?13:11,css(UI.uiAccent)).setOrigin(.5);
     this.tutorialButton=l.tutorial;panel(g,l.tutorial.x-l.tutorial.w/2,l.tutorial.y-22,l.tutorial.w,44,UI.uiBorder);text(this,l.tutorial.x,l.tutorial.y,'Learn to fly',l.desktop?16:13,'#b5ccdc').setOrigin(.5);
-    this.evolutionButton=l.evolution;
-    const evo=selectedEvolution(look,this.unlocks),eb=l.evolution;
-    panel(g,eb.x-eb.w/2,eb.y-eb.h/2,eb.w,eb.h,evo?UI.uiGold:UI.uiBorder);
-    text(this,eb.x,eb.y-10,evo?'EQUIPPED EVO':'EVOLUTION',9,'#9fb5c7').setOrigin(.5);
-    text(this,eb.x,eb.y+8,evo?.name??'Choose evolution',Math.min(l.desktop?13:12,(eb.w-12)/9.5),evo?'#e7c587':'#b5ccdc').setOrigin(.5);
     this.utilityButtons=l.utilities;
     for(const b of l.utilities){panel(g,b.x-b.w/2,b.y-b.h/2,b.w,b.h,UI.uiBorder);text(this,b.x,b.y,b.id.toUpperCase(),l.desktop?13:11,'#9fb5c7').setOrigin(.5);if(b.id==='account')this.accountButton=b;}
     versionStamp(this);this.showCounts();
@@ -355,11 +350,6 @@ export class MenuScene extends Phaser.Scene {
       const n = this.nameBox;
       // Taps on the name box belong to the text field over it.
       if (Math.abs(t.x - n.x) <= n.w / 2 && Math.abs(t.y - n.y) <= n.h / 2) continue;
-      if (!this.codeMode && hit(this.evolutionButton)) {
-        writeSave({ name });
-        this.scene.start('hangar', { credits: this.credits, unlocks: this.unlocks, tab: 'evolution' });
-        return;
-      }
       const hb = this.hangarButton;
       if (hb && !this.codeMode && Math.abs(t.x - hb.x) <= hb.w / 2 && Math.abs(t.y - hb.y) <= hb.h / 2) {
         writeSave({ name });
