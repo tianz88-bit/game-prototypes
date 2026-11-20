@@ -155,7 +155,7 @@
     "id": "gunR",
     "asset": "gun",
     "x": 140,
-    "y": -434,
+    "y": -441,
     "band": 64,
     "side": 1,
     "parent": "sideR"

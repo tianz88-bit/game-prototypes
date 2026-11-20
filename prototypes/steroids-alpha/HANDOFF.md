@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-20 codex Missile Cruiser deck cannon art
+DID: Replaced the reused Sparrow sprite with a cruiser-specific deck cannon. Broad ivory muzzle, cobalt casing and orange mounting foot on the same right bow.
+FILES: Missile Cruiser rig module, calibration and hash-verified asset manifest.
+SEAM: Art only. The widened sprite keeps the existing muzzle position. Sparrow cadence, heat, drift and missile controls are unchanged.
+CROSS: None.
+FOR claude: Bow-gun candidate remains pending release. Revised source pack stored in game-assets. No gameplay changes in this pass.
+
 ## 2026-11-19 codex Missile Cruiser bow gun candidate
 DID: One Sparrow-style cannon on the right bow. Gun uses normal Fire, missiles use their own button and retain hold-to-repeat. Evolution lab draws the production rig.
 FILES: Cruiser asset manifest, mount and calibration, shared ship/world/protocol, controls/HUD, evolution lab and tests.
@@ -97,11 +104,4 @@ FILES: catalogue/tune, Room auth/buy gate, client frozen look/Hangar/shop/tips, 
 SEAM:29 same layout; owned Look.evolution captured before controls/within3s; BUY5 must match. Roster drives UI, resume retains equipment, old numeric preference ignored; lab stays isolated/free.
 CROSS: type/build/sim/config/bank pass.6 local+2 public layouts pass full buy/equip/status; real Worker rejects forged selection with51 healthy snapshots. Browser purchases mocked, SQLite/Room tests cover actual billing/positive authority; no capture.
 FOR claude: deferred only. No migration/assets/dependencies; no live credits spent. Temporary preview/headless stopped. Existing random bot-spacing/Pages counter housekeeping remains future work; this release all first-attempt success.
-
-## 2026-11-18 codex owned pre-mission evolution loadouts
-DID: permanent BC/MC unlocks1500 bank credits each; buy then explicitly equip one in Hangar. Match shop shows both upgrade counters/mineral progress; no equipped build means no evolve.
-FILES: unlock catalogue/tune, Room auth/buy guard, NetClient frozen look, Hangar/shop/tips, bank authority regression and deferred docs.
-SEAM: Look.evolution is owned/slot-cleaned at initial auth before controls/within3s; queued BUY5 must match. Reconnect retains equipment; old Save.evolution ignored. Protocol29 same wire layout.
-CROSS: user requested price1500 and loadout gate; real SQLite bank/Room tests reject forged/unowned/unequipped/late/alternate/duplicate purchases;6 headless PC/touch layouts pass buy/equip/status/bounds with no capture.
-FOR claude: deferred only. No new DB migration/assets/dependencies; existing bank atomicity reused. Paired client/Worker release required; lab remains a free isolated design sandbox.
 
