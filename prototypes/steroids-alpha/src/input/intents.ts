@@ -347,6 +347,21 @@ export class Intents {
     }
   }
 
+  /** A fold or resize invalidates touch origins and hit zones from the previous viewport. */
+  resetViewport(): void {
+    this.endStick();
+    this.firePointer = this.missilePointer = this.copyPointer = this.mouseFire = null;
+    this.mouseButtons = 0;
+    this.presses.clear();
+    this.mouse = null;
+    this.taps = [];
+    this.buys = [];
+    this.uiZones = [];
+    this.shopZones = [];
+    this.warpButton = this.fireButton = this.missileButton = this.mineButton = this.dashButton = this.schemeButton = null;
+    this.clearThrottle();
+  }
+
   private endStick(): void {
     this.stickPointer = null;
     this.stick = null;

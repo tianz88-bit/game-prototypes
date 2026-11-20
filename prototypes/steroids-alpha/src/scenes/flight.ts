@@ -14,7 +14,7 @@ import { BuildingRigs } from '../render/buildingRig';
 import { OrbitalTransition, remoteArrivalPose } from '../render/orbitalTransition';
 import type { OrbitalPose } from '../render/orbitalTransition';
 import { drawOrbitalEffects, drawArrivalTrail, drawLandingSpark, LANDING_SPARK_MS } from '../render/orbitalEffects';
-import {flightHeader,flightControls,objectiveBox,combatNotice,hintBox} from '../render/hudLayout';
+import {flightHeader,flightControls,objectiveBox,combatNotice,hintBox,levelStrip} from '../render/hudLayout';
 import { shipPreview } from '../render/shipPreview';
 import type { FFDControl } from '../render/shipTilt';
 import {configVersion} from '../liveConfig';
@@ -33,7 +33,9 @@ import { localTransport } from '../tutorial/localServer';
 import { maxShield, hullCapacity, shipRadius, powerGrowth, topSpeed, haulBonus } from '../../sim/ship';
 import { TURRET_MOUNTS, turretCount } from '../../sim/turrets';
 import { BATTLECRUISER, MISSILE_CRUISER, isCapital, TURRET_MOUNTS_BY_CHASSIS, chassisStats, upgradeTotal,GUNS } from '../../sim/chassis';
-import { SHOP_ITEMS } from '../../sim/shop';
+import { SHOP_ITEMS, SHOP_TIERS, shopTier } from '../../sim/shop';
+import { LevelCardArt } from '../render/levelCardArt';
+import type { CardFace } from '../render/levelCardArt';
 import { cardText, pendingPicks } from '../../sim/levels';
 import type { ShipState } from '../../sim/ship';
 import { wrapDelta } from '../../sim/wrap';
@@ -56,7 +58,7 @@ import { Explosion } from '../render/explosion';
 import { loadSave, recordRun } from '../save';
 import type { ShipPlacement } from '../render/shipView';
 import { missileLock,missileStructureLock } from '../../sim/ordnance';
-import { UI, css, panel, controlFace, controlClearRight } from '../render/ui';
+import { UI, css, panel, flightButton, flightControlFace, controlClearRight } from '../render/ui';
 import { unlockById } from '../../sim/unlocks';
 import type { Look } from '../../sim/unlocks';
 import { drawOrdnance, drawExplosionCore, drawBullet, drawDrone, drawHitSpark } from '../render/worldArt';
@@ -150,6 +152,12 @@ export class FlightScene extends Phaser.Scene {
   private lockedOnMe = false;
   /** Shown to a pilot with a missile locked on them in flight. */
   private lockText!: Phaser.GameObjects.Text;
+  private shopKeys: Phaser.GameObjects.Text[] = [];
+  private levelCardArt!: LevelCardArt;
+  private levelCardGraphics!: Phaser.GameObjects.Graphics;
+  private cardFaces: CardFace[] = [];
+  private lastCardPick = -1;
+  private pendingCardFace: { face: CardFace; pick: number; evolution: boolean } | null = null;
   private shopTexts: { title: Phaser.GameObjects.Text; sub: Phaser.GameObjects.Text }[] = [];
   /** Turrets, drawn over the ships. Aim per ship and turret comes from the shots the server reports. */
   private turretGfx!: Phaser.GameObjects.Graphics;
@@ -273,9 +281,15 @@ export class FlightScene extends Phaser.Scene {
     this.mobileNavLabels = [0,1].map(() => text(this,0,0,'',11).setOrigin(.5).setDepth(954).setVisible(false));
     this.evolvePreview = shipPreview(this,this.net.equippedEvolution===1?4:2,0,0,0,18,16).setDepth(952).setVisible(false);
     this.evolvePreviewBuild=this.net.equippedEvolution??-1;
-    this.shopTexts = [...SHOP_ITEMS, 'evolve'].map(() => ({
-      title: text(this, 0, 0, '', 12, '#ffffff').setOrigin(0, 0.5).setDepth(951).setVisible(false),
-      sub: text(this, 0, 0, '', 10, '#c9d6f2').setOrigin(0, 0.5).setDepth(951).setVisible(false),
+    this.levelCardGraphics = this.add.graphics().setDepth(953.5);
+    this.levelCardArt = new LevelCardArt(this);
+    this.shopKeys = Array.from({ length: 3 }, () => text(this, 0, 0, '', 8).setOrigin(.5).setDepth(954));
+    this.pendingCardFace = null;
+    this.lastCardPick = -1;
+    this.cardFaces = [];
+    this.shopTexts = Array.from({ length: 3 }, () => ({
+      title: text(this, 0, 0, '', 12, '#ffffff').setOrigin(0, 0.5).setDepth(954).setVisible(false),
+      sub: text(this, 0, 0, '', 10, '#c9d6f2').setOrigin(0, 0.5).setDepth(954).setVisible(false),
     }));
     versionStamp(this);
     for(const [id,d] of falling){
@@ -319,7 +333,12 @@ export class FlightScene extends Phaser.Scene {
     // Level cards: a tap or 1/2/3 picks that card; the server checks it is still on offer.
     for (const i of intents.consumeBuys()) {
       if(this.planet===TUTORIAL&&!guide.policy.shop)continue;
-      if (i < 3) this.net.pickCard(i);
+      if (i >= 0 && i < 3) {
+        const face = this.cardFaces[i], pilot = this.net.predicted;
+        const card = this.net.shownCards[i];
+        if (pilot && face && card !== undefined) this.pendingCardFace = { face, pick: pilot.picks, evolution: card >= 10 };
+        this.net.pickCard(i);
+      }
     }
 
     const { w, h } = logicalSize();
@@ -342,7 +361,7 @@ export class FlightScene extends Phaser.Scene {
     const rotationDeg = DEBUG_ROTATION ?? (this.net.asteroidTick() / TUNE.net.tickHz) * TUNE.planet.rotationDegPerSec;
     this.rotationDeg = rotationDeg;
     this.frame = planetFrame(cx - W / 2, cy - H / 2, rotationDeg, lightingRadius(W), sunState(TUNE.planet.sunAzimuthDeg, TUNE.planet.sunElevationDeg));
-    this.view = { cx, cy, w, h, k: h / clientTune.render.referenceHeight * this.orbit.zoom };
+    this.view = { cx, cy, w, h, k: (intents.touch ? Math.min(h, w * 1.05) : h) / clientTune.render.referenceHeight * this.orbit.zoom };
     this.ground.update(w, h, this.view.k, this.frame);
 
     this.turretGfx.clear();
@@ -956,8 +975,7 @@ export class FlightScene extends Phaser.Scene {
     if(this.planet===TUTORIAL&&!guide.policy.warp){this.warpText.setVisible(false);return;}
     const warLocked=this.net.siege?.phase==='war'||this.net.siege?.phase==='release';
     const locked = (p.arrival??0)>0||(!this.net.freeWarp&&p.lockdown>0)||warLocked;
-    const accent = p.warping ? 0x7fe9ff : locked ? UI.uiBorder : UI.uiAccent;
-    panel(g, x - bw / 2, y - bh / 2, bw, bh, accent, !locked);
+    flightButton(g, x - bw / 2, y - bh / 2, bw, bh, !locked || p.warping, locked && !p.warping);
     if (p.warping) {
       const f = Math.min(1, p.warpDist / TUNE.warp.distance);
       g.fillStyle(0x7fe9ff, 0.35);
@@ -1111,7 +1129,7 @@ export class FlightScene extends Phaser.Scene {
       const x = touch ? c.x : 42+i*140;
       const y = touch ? c.y : h-(this.keyHints.visible?this.keyHints.displayHeight+52:46);
       const ready = sl.charges > 0;
-      controlFace(g,x,y,r,sl.kind==='missile'?UI.uiAccent:UI.uiGold,ready);
+      flightControlFace(g,x,y,r,ready);
       if (sl.charges < sl.tier && sl.cd > 0) {
         g.lineStyle(3, 0x7fd6ff, 0.9);
         g.beginPath();
@@ -1120,7 +1138,7 @@ export class FlightScene extends Phaser.Scene {
       }
       // Symbol: a rocket (missile) or a spiked ball (mine).
       const k = r / 30;
-      g.fillStyle(ready ? 0xffffff : 0x9a8f80, 1);
+      g.fillStyle(ready ? 0xeaf0f4 : 0x8c98a3, 1);
       if (sl.kind === 'missile') {
         g.fillTriangle(x + 13 * k, y - 4 * k, x + 13 * k, y + 4 * k, x + 20 * k, y);
         g.fillRect(x - 12 * k, y - 4 * k, 25 * k, 8 * k);
@@ -1133,14 +1151,13 @@ export class FlightScene extends Phaser.Scene {
           g.fillCircle(x + Math.cos(a) * 11 * k, y - 2 * k + Math.sin(a) * 11 * k, 2.4 * k);
         }
       }
-      if(touch){g.fillStyle(0x071425,.95).fillCircle(x+r*.63,y+r*.62,11);}
       this.weaponTexts[i]
         .setVisible(true)
         .setFontSize(touch ? 18 : 22)
         .setOrigin(0, 0.5)
         .setPosition(x + r + 4, y)
         .setText(touch ? `${sl.charges}` : `${sl.charges} [${sl.key}]`)
-        .setColor(ready ? '#ffd27a' : '#8f7f6a');
+        .setColor(ready ? '#eaf0f4' : '#8c98a3');
       const zone = { x, y, hw: r * 1.25, hh: r * 1.25 };
       if (sl.kind === 'missile') intents.missileButton = zone;
       else intents.mineButton = zone;
@@ -1153,7 +1170,7 @@ export class FlightScene extends Phaser.Scene {
    * itself; unpicked level-ups wait. An owned evolution shows as a gold card once it is ready.
    */
   private drawShop(p: ShipState | null): void {
-    const g = this.overlay;
+    const g = this.levelCardGraphics.clear();
     const cards = this.net.shownCards;
     const show = !!p && p.hp > 0 && !this.net.death && !this.net.extracted && cards.length > 0 && (this.planet!==TUTORIAL||guide.policy.shop);
     this.evolvePreview.setVisible(false);this.shopHeader.setVisible(show);
@@ -1162,25 +1179,50 @@ export class FlightScene extends Phaser.Scene {
       t.sub.setVisible(false);
     }
     intents.shopZones = [];
-    if (!p || !show) return;
-    // Top left under the minerals panel on every device, clear of the leaderboard (top right).
-    const mobile=intents.touch,drawer={y:mobile?flightHeader(logicalSize().w,mobile).drawer.y:86};
-    const width=Math.min(mobile?330:360,logicalSize().w*.5-32);
-    const x=12,bw=(width-12)/3,bh=46;
-    const waiting=pendingPicks(p,TUNE);
-    panel(g,x,drawer.y-22,width,bh+28,UI.uiGold);
-    this.shopHeader.setPosition(x+8,drawer.y-17).setText(`LEVEL UP · LV ${p.picks + 1}${waiting>1?` · ${waiting} WAITING`:''} · PICK ONE`);
-    intents.uiZones.push({x:x+width/2,y:drawer.y-22+(bh+28)/2,hw:width/2,hh:(bh+28)/2});
-    cards.forEach((card, i) => {
-      const bx = x + i * (bw + 6), y = drawer.y;
-      const c = cardText(card, p, TUNE);
-      panel(g,bx,y,bw,bh,c.evolve?UI.uiGold:UI.uiAccent,true);
-      const key = intents.touch ? '' : `[${i + 1}] `;
-      const t = this.shopTexts[i];
-      t.title.setVisible(true).setFontSize(c.evolve ? 9 : mobile ? 10 : 11).setPosition(bx + 5, y + 12).setText(`${key}${c.title}`).setColor(c.evolve ? '#ffd23a' : css(UI.uiText));
-      t.sub.setVisible(true).setFontSize(9).setPosition(bx + 5, y + 30).setText(c.sub).setColor(c.evolve ? '#ffe9a8' : '#c7f1dd');
-      intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
-    });
+    this.cardFaces = [];
+    this.shopKeys.forEach(key => key.setVisible(false));
+    const now = this.time.now;
+    const picks = p?.picks ?? -1;
+    if (this.pendingCardFace && picks > this.pendingCardFace.pick) {
+      this.levelCardArt.confirm(this.pendingCardFace.face, now, this.pendingCardFace.evolution);
+      this.pendingCardFace = null;
+    }
+    if (picks < this.lastCardPick) this.pendingCardFace = null;
+    this.lastCardPick = picks;
+    this.levelCardArt.begin(now, show);
+    if (p && show) {
+      const { w, h } = logicalSize(), mobile = intents.touch;
+      const { x, y, width, cardWidth, cardHeight, gap } = levelStrip(w, h, mobile);
+      const waiting = pendingPicks(p, TUNE);
+      this.levelCardArt.tray(g, x - 4, y - 23, width + 8, cardHeight + 28);
+      this.shopHeader.setPosition(x + 4, y - 20).setColor('#d4dde4')
+        .setText(`LEVEL ${p.picks + 1} · PICK ONE${waiting > 1 ? ` · ${waiting} READY` : ''}`);
+      intents.uiZones.push({ x: x + width / 2, y: y - 23 + (cardHeight + 28) / 2, hw: (width + 8) / 2, hh: (cardHeight + 28) / 2 });
+      cards.slice(0, 3).forEach((card, i) => {
+        const face = { x: x + i * (cardWidth + gap), y, w: cardWidth, h: cardHeight };
+        this.cardFaces.push(face);
+        const c = cardText(card, p, TUNE), track = SHOP_ITEMS[card], narrow = cardWidth < 97;
+        const tier = track ? shopTier(p, track) + 1 : 0;
+        this.levelCardArt.draw(g, i, card, face, tier, SHOP_TIERS, now);
+        const title = c.evolve
+          ? card === 11 ? 'MISSILE\nCRUISER' : narrow ? 'BATTLE\nCRUISER' : c.title
+          : c.title.replace(/ \d+\/\d+$/, '');
+        const t = this.shopTexts[i], tx = face.x + 37;
+        t.title.setVisible(true).setFontSize(c.evolve || narrow ? 9 : 12)
+          .setPosition(tx, y + (title.includes('\n') ? 19 : 15)).setText(title).setColor(c.evolve ? '#f1ce8d' : '#f0f3f5');
+        const effect = c.sub.replace(' gun damage', ' damage').replace(' auto drone', ' drone');
+        t.sub.setVisible(true).setFontSize(narrow ? 9 : 10)
+          .setPosition(tx, y + (c.evolve ? 39 : 30)).setText(effect).setColor(c.evolve ? '#ddbf8b' : '#c5d2dc');
+        if (!mobile) {
+          const keyX = face.x + face.w - 10;
+          g.fillStyle(0x151b21, 1).fillRoundedRect(keyX - 6, y + 35, 12, 12, 2);
+          g.lineStyle(1, 0x66717a, .8).strokeRoundedRect(keyX - 6, y + 35, 12, 12, 2);
+          this.shopKeys[i].setVisible(true).setPosition(keyX, y + 41).setText(String(i + 1));
+        }
+        intents.shopZones.push({ item: i, zone: { x: face.x + face.w / 2, y: y + face.h / 2, hw: face.w / 2, hh: face.h / 2 } });
+      });
+    }
+    this.levelCardArt.finish(g, now);
   }
 
   /** Both devices can open the compact upgrade and scoreboard drawers. */
@@ -1194,7 +1236,7 @@ export class FlightScene extends Phaser.Scene {
     ];
     entries.forEach(({action,rect,label},i)=>{
       const open=this.mobilePanel===action;
-      panel(this.overlay,rect.x-rect.w/2,rect.y-18,rect.w,36,open?UI.uiAccent:UI.uiBorder,open);
+      flightButton(this.overlay,rect.x-rect.w/2,rect.y-18,rect.w,36,open);
       this.mobileNavLabels[i].setVisible(true).setPosition(rect.x,rect.y).setFontSize(header.tight?10:11).setText(open?'CLOSE':label);
       this.mobileButtons.push({action,x:rect.x,y:rect.y,w:rect.w});
       intents.uiZones.push({x:rect.x,y:rect.y,hw:rect.w/2,hh:22});
@@ -1264,14 +1306,14 @@ export class FlightScene extends Phaser.Scene {
     const b=controls.dash,fb=controls.fire,r=b.r,fr=fb.r;
     intents.dashButton={x:b.x,y:b.y,hw:b.hw,hh:b.hh};
     intents.fireButton={x:fb.x,y:fb.y,hw:fb.hw,hh:fb.hh};
-    controlFace(g,fb.x,fb.y,fr,UI.uiDanger,intents.fire);
-    g.lineStyle(2,UI.uiDanger,.9);g.strokeCircle(fb.x,fb.y,fr*.22);
+    flightControlFace(g,fb.x,fb.y,fr,intents.fire);
+    g.lineStyle(2,intents.fire?UI.uiDanger:0xeaf0f4,.9);g.strokeCircle(fb.x,fb.y,fr*.22);
     for(let i=0;i<4;i++){const a=i*Math.PI/2;g.lineBetween(fb.x+Math.cos(a)*fr*.32,fb.y+Math.sin(a)*fr*.32,fb.x+Math.cos(a)*fr*.48,fb.y+Math.sin(a)*fr*.48);}
     // No steering toggle on phones (owner, 14 November 2026): the stick is always the direction marker.
     const cd = this.net.predicted?.dashCd ?? 0;
     const ready = cd <= 0;
-    controlFace(g,b.x,b.y,r,UI.uiAccent,ready);
-    g.lineStyle(3,UI.uiAccent,ready?.95:.4);
+    flightControlFace(g,b.x,b.y,r,ready);
+    g.lineStyle(3,0xeaf0f4,ready?.95:.4);
     for(let i=0;i<3;i++){const x=b.x-12+i*10;g.lineBetween(x,b.y-10,x+8,b.y);g.lineBetween(x+8,b.y,x,b.y+10);}
     // Speed is on the stick again (owner, 20 November 2026): no separate + / − buttons.
     intents.clearThrottle();

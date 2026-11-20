@@ -2,7 +2,7 @@ import {RESOURCE_ART,resourceGlyph} from './resources';
 import type {PickupKind} from '../../sim/pickups';
 import type Phaser from 'phaser';
 import type { ShipState } from '../../sim/ship';
-import { maxShield, hullCapacity, mineralBalance, walletCap, bankedMinerals, haulBonus, haulBonusNext } from '../../sim/ship';
+import { maxShield, hullCapacity, mineralBalance, walletCap, haulBonus, haulBonusNext } from '../../sim/ship';
 import { levelsEarned, xpForLevel } from '../../sim/levels';
 import { TUNE } from '../../sim/tune';
 import { text } from '../scenes/common';
@@ -96,14 +96,19 @@ export class CombatHud {
     icon(0,'mineral',25,24,18);
     label(0,40,16,`MIN ${Math.floor(carried)}/${cap}`,full?0xffb394:UI.uiGold,touch?13:14,0);
     label(1,198,18,`Lv.${lv} ${Math.max(0,xp)}/${step}`,UI.uiText,10,1);
-    if(hold!=='none'){icon(1,home?'fuel':'mineral',25,40,13);label(2,38,34,home?`FUEL ${Math.floor(p.fuel)} · HOME: MINERALS DON'T BANK`:haulLine(p,runSeconds),home?0xffc9a3:haulBonus(runSeconds,TUNE)>0?0xffd98a:0xcfc8b7,9,0);}
+    if(home){
+      icon(1,'fuel',25,40,13);
+      label(2,38,34,`FUEL ${Math.floor(p.fuel)} · HOME: MINERALS DON'T BANK`,0xffc9a3,9,0);
+    }else if(hold!=='none'){
+      label(2,40,34,haulLine(runSeconds),0xc5d2dc,9,0);
+    }
     if(full&&hold!=='none')label(3,22,52,home?'HOLD FULL':'HOLD FULL · WARP TO BANK',0xffbd91,10,0);
   }
 }
 
-/** What warping out banks now, with the haul bonus and when it next rises (owner, 20 November 2026). */
-function haulLine(p:ShipState,seconds:number):string{
+/** Haul bonus and time until it rises again. The cargo total is shown above. */
+function haulLine(seconds:number):string{
   const bonus=haulBonus(seconds,TUNE),next=haulBonusNext(seconds,TUNE),started=seconds>=TUNE.salvage.haulBonusStartSeconds;
   const clock=(s:number)=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
-  return `BANKS ${bankedMinerals(p,TUNE,false,seconds)}${bonus>0?` (+${Math.round(bonus*100)}%)`:''}${started&&next>0?` · +${Math.round(TUNE.salvage.haulBonusPerMinute*100)}% IN ${clock(next)}`:''}`;
+  return `${bonus>0?`HAUL BONUS +${Math.round(bonus*100)}%`:'BANKS ON WARP'}${started&&next>0?` · +${Math.round(TUNE.salvage.haulBonusPerMinute*100)}% IN ${clock(next)}`:''}`;
 }

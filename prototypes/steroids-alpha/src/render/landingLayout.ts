@@ -12,7 +12,7 @@ export function landingLayout(w:number,h:number,touch=false){
    utilities:['settings','account','share'].map((id,i)=>({id,x:w/2+(i-1)*140,y:top+fh-26,w:128,h:44}))};
  }
  const compact=h<300,logoH=Math.min(100,h*.15,w/6),top=logoH+(compact?20:38),bottom=h-64;
- const bodyH=Math.max(94,bottom-top),stack=w<520&&h>=480,actionH=compact?104:168;
+ const bodyH=Math.max(94,bottom-top),stack=h>=480&&(w<520||(touch&&w<800&&h>w*1.08)),actionH=compact?104:168;
  const actionW=stack?w-32:Math.min(340,(w-48)*.52),actionX=stack?w/2:w-16-actionW/2;
  const heroH=stack?Math.max(100,bodyH-actionH-8):bodyH,heroW=stack?w-32:w-actionW-48,heroX=stack?w/2:16+heroW/2;
  const actionTop=stack?top+heroH+8:top+Math.max(0,(bodyH-actionH)/2);
