@@ -111,3 +111,18 @@ export function applyCard(s: ShipState, card: number, tune: Tune): boolean {
   if (name === 'mine') s.mineCharges++;
   return true;
 }
+
+/** What a card shows: a short title and what it gives (values from tune, so they stay in step). */
+export function cardText(card: number, s: ShipState, tune: Tune): { title: string; sub: string; evolve: boolean } {
+  if (card >= EVOLVE_CARD) return { title: card - EVOLVE_CARD === 1 ? 'MISSILE CRUISER' : 'BATTLECRUISER', sub: 'EVOLVE NOW', evolve: true };
+  const name = SHOP_ITEMS[card], next = (name ? shopTier(s, name) : 0) + 1;
+  const sub: Record<string, string> = {
+    turret: '+1 auto drone',
+    shield: `+${tune.shop.shieldPerTier} shield`,
+    damage: `+${Math.round(tune.shop.damagePerTier * 100)}% gun damage`,
+    missile: '+1 missile',
+    mine: '+1 mine',
+  };
+  const title: Record<string, string> = { turret: 'DRONE', shield: 'SHIELD', damage: 'GUNS', missile: 'MISSILES', mine: 'MINES' };
+  return { title: `${title[name] ?? '?'} ${next}/${SHOP_TIERS}`, sub: sub[name] ?? '', evolve: false };
+}

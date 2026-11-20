@@ -72,6 +72,10 @@ interface Player {
   look: Look;
   /** Only an auth initiated before the first binary intent may equip this run. */
   loadoutOpen:boolean;
+  /** Evolutions the account owns (0 Battlecruiser, 1 Missile Cruiser): offered as level cards once ready. */
+  evolutions?: number[];
+  /** The level card offer last sent to this pilot, so it is resent only when it changes. */
+  cardsKey?: string;
   /** Room tick at drop-in: the chosen ship type applies only within its first moments. */
   joinedAt: number;
   /** Clan chosen in the menu (0: none). Trusted from the client in the Clan planets v0 demo. */
@@ -615,11 +619,14 @@ export class Room {
           const preMission=player.loadoutOpen&&this.tick-player.joinedAt<=3*this.tune.net.tickHz;player.loadoutOpen=false;
           player.secret = m.secret;
           // Cosmetics: worn only once the bank confirms they are owned; everyone hears via the roster.
-          if (this.owned && m.look) {
+          if (this.owned) {
             this.owned(m.secret)
               .then((ids) => {
                 if (this.players.get(player.id)!==player) return;
                 player.look = cleanLook(m.look, ids ?? []);
+                // Run levels (owner, 19 November 2026): every owned evolution is offered as a card.
+                const have = new Set(ids ?? []);
+                player.evolutions = [have.has('evolution.battlecruiser') ? 0 : -1, have.has('evolution.missile-cruiser') ? 1 : -1].filter((b) => b >= 0);
                 if(!preMission)delete player.look.evolution;
                 // Ship chosen in the menu (owner design): an owned fighter replaces the starter,
                 // only right after drop-in so nobody swaps ship mid-run.
@@ -734,7 +741,12 @@ export class Room {
   private buys: { id: number; item: number; tier: number }[] = [];
   private pickupMoves=new Map<number,{id:number;x:number;y:number;value:number}>();
   private step(): void {
-    for (const b of this.buys.splice(0)){const p=this.players.get(b.id);if(p&&(b.item!==EVOLVE_ITEM||evolutionBuild(p.look)===b.tier))this.world.buy(b.id,b.item,b.tier);}
+    for (const b of this.buys.splice(0)){const p=this.players.get(b.id);if(!p)continue;
+      // Run levels: BUY carries a level card, and tier must equal the pilot's pick count, so a
+      // repeated tap cannot pick twice. The old shop path stays for levelUp 0.
+      if(this.tune.shop.levelUp){if(b.tier===p.ship.picks)this.world.pick(b.id,b.item);continue;}
+      if(b.item!==EVOLVE_ITEM||evolutionBuild(p.look)===b.tier)this.world.buy(b.id,b.item,b.tier);}
+    for (const p of this.players.values()) this.world.evolutionsOwned.set(p.id, p.evolutions ?? []);
     // Pilots away longer than the grace period lose their ship.
     for (const p of [...this.players.values()]) if (p.awayUntil >= 0 && this.tick >= p.awayUntil) this.leave(p.id);
     this.stepSiege();
@@ -745,6 +757,13 @@ export class Room {
       if (this.tick >= this.lingerUntil) return this.empty();
     }
     this.world.step();
+    // Level cards on offer go to their pilot as a small text frame, only when the offer changes.
+    if (this.tune.shop.levelUp) for (const p of this.players.values()) {
+      const cards = this.world.cards.get(p.id) ?? [], key = cards.join(',') + '/' + p.ship.picks;
+      if (key === p.cardsKey) continue;
+      p.cardsKey = key;
+      this.send(p, JSON.stringify({ type: 'cards', cards, picks: p.ship.picks }));
+    }
     const ev = this.world.drain();
     if (this.tutorial && this.onTutorialTick) {
       for (const p of this.players.values()) this.onTutorialTick(p.id, p.ship, ev);

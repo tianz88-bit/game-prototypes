@@ -299,16 +299,16 @@
     "minGuns": 4
   },
   "unlockPrices": {
-    "ship": 800,
-    "palette": 200,
+    "ship": 1500,
+    "palette": 400,
     "tint": 300,
-    "flame": 200,
-    "shield": 200,
-    "killfx": 300,
-    "badge": 150,
-    "tag": 150,
-    "runlog": 200,
-    "evolution": 400
+    "flame": 400,
+    "shield": 400,
+    "killfx": 600,
+    "badge": 250,
+    "tag": 250,
+    "runlog": 500,
+    "evolution": 500
   },
   "asteroid": {
     "radius": [

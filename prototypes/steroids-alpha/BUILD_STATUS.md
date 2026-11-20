@@ -1,35 +1,40 @@
 ## Current milestone
 
-LIVE itch r0109, Worker protocol 33 (unchanged). Run-economy and run-level redesign in headless review on ccr-9c88eb84-gwiuel. Not merged or deployed.
+Run economy, level cards and mobile stick throttle: released through this session's PR (protocol 35, paired client and Worker). Previous live: itch 201126r0110 (Codex's Missile Cruiser centerline cannon, PR597).
 
 ## What was implemented
 
-Live, by Codex: see CLAUDE_BACKLOG.md (combined release PR588).
-
-Headless review (owner decisions, 19 November 2026):
-- One currency: minerals. Ordinary planets no longer spawn salvage cargo. Minerals carried out on warp bank as credits at salvage.bankRate (1); clan home planets at salvage.homeBankRate (0). Home fuel and the treasury are unchanged (parked).
-- Run levels replace the shop (shop.levelUp 1). Minerals collected this run are XP and are never spent. Level n needs levelXpBase 6 + levelXpGrowth 3.5 x (n-1) more XP (785 for level 20). Each level offers 3 cards drawn from the 5 existing tracks (sim/levels.ts); the player picks one. Perk values are kept as Codex flattened them on 18 November (about +3% each).
-- Evolutions: any owned evolution is a guaranteed card once its requirements are met; tracks it still needs are shop.levelEvolutionWeight (3) times likelier. Evolving is free (it uses the level pick).
-- Hold: shop.holdBase 50 + holdPerUpgrade 40 per level picked (850 at level 20), always ahead of the level curve. Carried weight slows the ship up to 30% at ship.powerCap 900.
-- Deaths drop the whole wallet; hull hits spill 0.5 per hull point; no separate kill payout. Bots carry and drop minerals and prefer loaded targets (bots.loadedPreference 200). Hot zone x2 minerals (hotZone.mineralMultiplier). Warp lockdown 90 s.
-- Proposed hangar prices: evolution 400, ship 800, palette/flame/shield 200, kill effect 300, badge/tag 150, run history 200 (5800 for everything).
-- Economy epoch 5 migration (sim/liveConfig.ts). Probe: scripts/measure-steroids-run-economy.mjs (per run, or ACCOUNT=cautious|mid|allin with PILOT=miner|flee|fight and PROFILE=quiet|bots).
+- One currency: minerals. Ordinary planets no longer spawn salvage cargo. Minerals carried out on warp bank as credits at salvage.bankRate (1); clan home planets at salvage.homeBankRate (0). Home fuel and the treasury are unchanged.
+- Run levels replace the mineral shop (shop.levelUp 1). Collected minerals are XP and are never spent. Level n needs levelXpBase 6 + levelXpGrowth 3.5 x (n-1) more XP (785 for level 20).
+- Each level offers 3 cards from the 5 existing tracks (perk values unchanged, about +3% each), in a non-blocking strip top left. Tap a card or press 1/2/3. Play never pauses and unpicked levels queue.
+- Any owned evolution is a guaranteed gold card once its requirements are met. Tracks it still needs are 3x likelier. Evolving uses the pick and costs nothing.
+- Hold: 50 + 40 per level picked (850 at level 20). Carried weight slows the ship up to 30% (ship.powerCap 900).
+- Deaths drop the whole wallet; hull hits spill 0.5 minerals per hull point; no separate kill payout. Bots carry and drop minerals and prefer loaded targets.
+- Hot zone x2 minerals. Warp lockdown 90 s. Hangar prices unchanged (evolution 500, ship 1500).
+- HUD: MIN carried/hold, level and XP to next, "BANKS ON WARP" or "HOME: MINERALS DON'T BANK", "HOLD FULL · WARP TO BANK". Results show minerals banked.
+- Mobile speed back on the stick (owner, 20 November 2026): near the centre brakes (also lands on your pad), the middle band holds cruise, the outer band accelerates. The + / − buttons are gone.
+- Tutorial: "Mine & level up" lesson teaches picking a card.
 
 ## Key technical decisions
 
-The wallet stays in the legacy hullMax field. xp/picks are on ShipState but not yet on the wire (decode fills 0). World.pick(id, card) is the authority path; World.buy refuses while levels are on. Bots pick instantly (an evolution when offered). Bank = floor(wallet x planet rate) via sim bankedMinerals.
+- Protocol 35: ship records gain xp (f32) and picks (u8). The server sends {type:'cards'} to the pilot when the offer changes. BUY(card, picks) is a pick, and the pick count stops double taps.
+- The room fills World.evolutionsOwned from the account's unlocks. The old pre-mission equip slot no longer gates evolutions.
+- Economy epoch 5 (shop.balanceVersion 5): older live records adopt the economy on parse, so no settings publish is needed.
+- Stick bands live in client.tune.json touch.markerBrakeBelow (0.35) and markerBoostAbove (0.75).
 
 ## Open questions
 
-- Hangar prices may need raising again: with nothing spent, a cautious pilot carries about 355 at 3:00 (was 130). Career sims are running.
-- Owned-evolution cards make the pre-mission evolution equip slot (18 November) unnecessary. Owner to confirm removing it.
-- With 4 bots, long runs die often (about 70% for all-in in earlier sims). Possibly a bot-pressure change later, separate from the economy.
-- BRIEF.md needs updating to cover the run economy and levels (owner-written brief, not edited by Claude).
+- The hangar's evolution equip slot is now redundant. Remove it, or keep it for show?
+- With 4 bots, long runs die often (about 50% of all-in runs in the headless sims). A bot-pressure pass may be needed after playtesting.
+- Should pushing past 3:00 pay clearly more than bailing early (for example a visible haul bonus)? Undecided.
+- BRIEF.md needs a section on the run economy and levels (owner-written brief, not edited by Claude).
 
 ## Known issues
 
-Test gates (sim, pickups, progression-balance, bank, live-config) still assert the old economy and fail. Client: no card UI, HUD still shows salvage/shop, tutorial teaches the shop. The scripted pilots are approximations, not human playtests.
+- The card strip uses plain panels (no card art yet).
+- Headless pace numbers come from scripted pilots, not human playtests.
+- Local browser checks staged the card offer client-side. The real server pick path is covered by the bank and sim gates.
 
 ## Next proposed step
 
-Owner settles hangar prices and the equip-slot question. Then: protocol fields for xp/picks/cards, the non-blocking card strip (tap or 1/2/3, queued picks), HUD/tutorial text, test gates, Codex card art brief, and a paired client/Worker release on approval.
+Playtest on phone and PC. Then decide the equip slot, a possible haul bonus and bot pressure, and brief Codex on card art.
