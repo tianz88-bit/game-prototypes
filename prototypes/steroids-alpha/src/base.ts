@@ -1,4 +1,5 @@
 import { clientTune } from './clientTune';
+import { turnCoverScreen } from './render/viewportLayout';
 
 const params = new URLSearchParams(location.search);
 export const DEBUG = params.get('debug') === '1';
@@ -25,7 +26,7 @@ const SIDEWAYS_ASPECT = 1.4;
 const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 let sidewaysNow = false;
 
-/** True while the game is drawn turned a quarter (see SIDEWAYS_ASPECT). */
+/** True while the game is drawn turned a quarter on a narrow cover screen. */
 export const sideways = (): boolean => sidewaysNow;
 
 /**
@@ -34,7 +35,8 @@ export const sideways = (): boolean => sidewaysNow;
  */
 export function refreshSideways(): void {
   if (document.activeElement instanceof HTMLInputElement) return;
-  sidewaysNow = coarse && window.innerHeight > window.innerWidth * SIDEWAYS_ASPECT;
+  const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  sidewaysNow = turnCoverScreen(window.innerWidth, window.innerHeight, coarse);
 }
 refreshSideways();
 

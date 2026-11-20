@@ -15,6 +15,8 @@ export interface PreviewOptions {
    * fills the slot and smaller ships shrink by their hit radius.
    */
   relative?: boolean;
+  /** Keep small rigs legible inside compact comparison cards. */
+  relativeFloor?: number;
 }
 
 /** Real rig parts, fitted to a menu slot; no ground effects or gameplay objects. */
@@ -46,7 +48,7 @@ export function shipPreview(scene: Phaser.Scene, chassis: number, palette: numbe
   // Turning or sized against other ships: fit a circle that holds the ship at any heading.
   const reach=Math.max(...parts.map(({img})=>Math.hypot(Math.abs(img.x)+img.displayWidth/2,Math.abs(img.y)+img.displayHeight/2)));
   const radius=(c:number)=>chassisStats(c,TUNE).radius;
-  const share=opts.relative?radius(chassis)/Math.max(radius(0),radius(1),radius(2)):1;
+  const share=opts.relative?Math.max(opts.relativeFloor??0,radius(chassis)/Math.max(radius(0),radius(1),radius(2))):1;
   box.setScale((Math.min(w,h)/2)*share/reach);
   if(opts.spin){
     const turn=(time:number)=>{

@@ -14,7 +14,7 @@ import { BuildingRigs } from '../render/buildingRig';
 import { OrbitalTransition, remoteArrivalPose } from '../render/orbitalTransition';
 import type { OrbitalPose } from '../render/orbitalTransition';
 import { drawOrbitalEffects, drawArrivalTrail, drawLandingSpark, LANDING_SPARK_MS } from '../render/orbitalEffects';
-import {flightHeader,flightControls,objectiveBox,combatNotice,hintBox} from '../render/hudLayout';
+import {flightHeader,flightControls,objectiveBox,combatNotice,hintBox,levelStrip} from '../render/hudLayout';
 import { shipPreview } from '../render/shipPreview';
 import type { FFDControl } from '../render/shipTilt';
 import {configVersion} from '../liveConfig';
@@ -30,10 +30,13 @@ import { CLOSE } from '../../sim/protocol';
 import { guide } from '../tutorial/guide';
 import { ContextTips } from '../tutorial/contextTips';
 import { localTransport } from '../tutorial/localServer';
-import { maxShield, hullCapacity, shipRadius, powerGrowth, topSpeed } from '../../sim/ship';
+import { maxShield, hullCapacity, shipRadius, powerGrowth, topSpeed, haulBonus } from '../../sim/ship';
 import { TURRET_MOUNTS, turretCount } from '../../sim/turrets';
 import { BATTLECRUISER, MISSILE_CRUISER, isCapital, TURRET_MOUNTS_BY_CHASSIS, chassisStats, upgradeTotal,GUNS } from '../../sim/chassis';
-import { SHOP_ITEMS, canBuy, shopOffer, shopTier, EVOLVE_ITEM, canEvolve,evolutionProgress } from '../../sim/shop';
+import { SHOP_ITEMS, SHOP_TIERS, shopTier } from '../../sim/shop';
+import { LevelCardArt } from '../render/levelCardArt';
+import type { CardFace } from '../render/levelCardArt';
+import { cardText, pendingPicks } from '../../sim/levels';
 import type { ShipState } from '../../sim/ship';
 import { wrapDelta } from '../../sim/wrap';
 import { DEBUG, DEBUG_ROTATION, logicalSize } from '../base';
@@ -55,7 +58,7 @@ import { Explosion } from '../render/explosion';
 import { loadSave, recordRun } from '../save';
 import type { ShipPlacement } from '../render/shipView';
 import { missileLock,missileStructureLock } from '../../sim/ordnance';
-import { UI, css, panel, controlFace, controlClearRight } from '../render/ui';
+import { UI, css, panel, flightButton, flightControlFace, controlClearRight } from '../render/ui';
 import { unlockById } from '../../sim/unlocks';
 import type { Look } from '../../sim/unlocks';
 import { drawOrdnance, drawExplosionCore, drawBullet, drawDrone, drawHitSpark } from '../render/worldArt';
@@ -149,6 +152,12 @@ export class FlightScene extends Phaser.Scene {
   private lockedOnMe = false;
   /** Shown to a pilot with a missile locked on them in flight. */
   private lockText!: Phaser.GameObjects.Text;
+  private shopKeys: Phaser.GameObjects.Text[] = [];
+  private levelCardArt!: LevelCardArt;
+  private levelCardGraphics!: Phaser.GameObjects.Graphics;
+  private cardFaces: CardFace[] = [];
+  private lastCardPick = -1;
+  private pendingCardFace: { face: CardFace; pick: number; evolution: boolean } | null = null;
   private shopTexts: { title: Phaser.GameObjects.Text; sub: Phaser.GameObjects.Text }[] = [];
   /** Turrets, drawn over the ships. Aim per ship and turret comes from the shots the server reports. */
   private turretGfx!: Phaser.GameObjects.Graphics;
@@ -272,9 +281,15 @@ export class FlightScene extends Phaser.Scene {
     this.mobileNavLabels = [0,1].map(() => text(this,0,0,'',11).setOrigin(.5).setDepth(954).setVisible(false));
     this.evolvePreview = shipPreview(this,this.net.equippedEvolution===1?4:2,0,0,0,18,16).setDepth(952).setVisible(false);
     this.evolvePreviewBuild=this.net.equippedEvolution??-1;
-    this.shopTexts = [...SHOP_ITEMS, 'evolve'].map(() => ({
-      title: text(this, 0, 0, '', 12, '#ffffff').setOrigin(0, 0.5).setDepth(951).setVisible(false),
-      sub: text(this, 0, 0, '', 10, '#c9d6f2').setOrigin(0, 0.5).setDepth(951).setVisible(false),
+    this.levelCardGraphics = this.add.graphics().setDepth(953.5);
+    this.levelCardArt = new LevelCardArt(this);
+    this.shopKeys = Array.from({ length: 3 }, () => text(this, 0, 0, '', 8).setOrigin(.5).setDepth(954));
+    this.pendingCardFace = null;
+    this.lastCardPick = -1;
+    this.cardFaces = [];
+    this.shopTexts = Array.from({ length: 3 }, () => ({
+      title: text(this, 0, 0, '', 12, '#ffffff').setOrigin(0, 0.5).setDepth(954).setVisible(false),
+      sub: text(this, 0, 0, '', 10, '#c9d6f2').setOrigin(0, 0.5).setDepth(954).setVisible(false),
     }));
     versionStamp(this);
     for(const [id,d] of falling){
@@ -306,7 +321,7 @@ export class FlightScene extends Phaser.Scene {
       }
     }
     if (intents.consume('scheme')) intents.toggleScheme();
-    if(intents.consume('shop')&&(this.planet!==TUTORIAL||guide.policy.shop))this.mobilePanel=this.mobilePanel==='shop'?null:'shop';
+    intents.consume('shop');
     if(intents.consume('board'))this.mobilePanel=this.mobilePanel==='board'?null:'board';
     const heading = this.net.predicted?.heading ?? 0;
     // The mouse marker steers from where our ship is on screen (last frame's projection).
@@ -315,16 +330,15 @@ export class FlightScene extends Phaser.Scene {
     const move = intents.flight(this.net.predicted?.speed ?? TUNE.ship.cruiseSpeed, this.net.speedFloorNow);
     const lessonFire=(this.planet!==TUTORIAL||guide.policy.fire)&&!this.shieldBlocksFire(this.net.predicted);
     this.net.update({ ...move, dash, fire: lessonFire&&intents.fire, missile:lessonFire&&missile, mine:lessonFire&&mine, warp });
-    // Shop: each tap asks the server for the tier on offer now; the server checks power and price.
-    for (const item of intents.consumeBuys()) {
+    // Level cards: a tap or 1/2/3 picks that card; the server checks it is still on offer.
+    for (const i of intents.consumeBuys()) {
       if(this.planet===TUTORIAL&&!guide.policy.shop)continue;
-      const p = this.net.predicted;
-      if (p && item === EVOLVE_ITEM) {
-        const build=this.net.equippedEvolution;if(build!==null&&canEvolve(p,TUNE,build))this.net.buy(EVOLVE_ITEM,build);
-        continue;
+      if (i >= 0 && i < 3) {
+        const face = this.cardFaces[i], pilot = this.net.predicted;
+        const card = this.net.shownCards[i];
+        if (pilot && face && card !== undefined) this.pendingCardFace = { face, pick: pilot.picks, evolution: card >= 10 };
+        this.net.pickCard(i);
       }
-      const name = SHOP_ITEMS[item];
-      if (p && name && shopOffer(p, name, TUNE)) this.net.buy(item, shopTier(p, name));
     }
 
     const { w, h } = logicalSize();
@@ -347,7 +361,7 @@ export class FlightScene extends Phaser.Scene {
     const rotationDeg = DEBUG_ROTATION ?? (this.net.asteroidTick() / TUNE.net.tickHz) * TUNE.planet.rotationDegPerSec;
     this.rotationDeg = rotationDeg;
     this.frame = planetFrame(cx - W / 2, cy - H / 2, rotationDeg, lightingRadius(W), sunState(TUNE.planet.sunAzimuthDeg, TUNE.planet.sunElevationDeg));
-    this.view = { cx, cy, w, h, k: h / clientTune.render.referenceHeight * this.orbit.zoom };
+    this.view = { cx, cy, w, h, k: (intents.touch ? Math.min(h, w * 1.05) : h) / clientTune.render.referenceHeight * this.orbit.zoom };
     this.ground.update(w, h, this.view.k, this.frame);
 
     this.turretGfx.clear();
@@ -576,6 +590,18 @@ export class FlightScene extends Phaser.Scene {
     return this.net.clan === home ? `${owner} HOME\nMine fuel for the Nexus; hold Down over a landing pad to dock and unload it` : `${owner} TERRITORY\nTheir turrets fire on sight. Their shield keeps you out`;
   }
 
+  /** Seconds into this run (client clock from drop-in; the server's own count decides the bank). */
+  private runSeconds(): number {
+    return this.runStartedAt ? (Date.now() - this.runStartedAt) / 1000 : 0;
+  }
+
+  /** " ×1.2" on the warp button while the haul bonus is up, where minerals bank. */
+  private warpBonusLabel(): string {
+    if (this.net.layout || this.planet === TUTORIAL) return '';
+    const bonus = haulBonus(this.runSeconds(), TUNE);
+    return bonus > 0 ? ` ×${(1 + bonus).toFixed(1)}` : '';
+  }
+
   /**
    * Clan home planet: the shield
    * dome over the treasury and pads, the landing pads, the treasury with the clan's total, the base
@@ -587,6 +613,9 @@ export class FlightScene extends Phaser.Scene {
     // Banner: arrival note for 6 s, then docking status at home.
     let note = '';
     if (performance.now() - this.arrivedAt < 6000) note = this.arrivalNote();
+    // Haul bonus starts (owner, 20 November 2026): a short note where minerals bank; play continues.
+    const run = this.runSeconds(), start = TUNE.salvage.haulBonusStartSeconds;
+    if (!this.net.layout && this.planet !== TUTORIAL && run >= start && run < start + 6) note = `HAUL BONUS\n+${Math.round(TUNE.salvage.haulBonusPerMinute * 100)}% to your bank every minute you stay (up to +${Math.round(TUNE.salvage.haulBonusMax * 100)}%)`;
     if (this.net.docked) {
       const d = this.net.deposited;
       note = 'DOCKED · REPAIRING' + (d && performance.now() - d.at < 3000 ? `\n+${d.amount} fuel to the ${clanName(this.net.clan)} Nexus` : '');
@@ -834,7 +863,7 @@ export class FlightScene extends Phaser.Scene {
     // Warzone: power only, so it is the mineral zone where rich rocks spawn, for both sides.
     const war = isWarPlanet(this.planet);
     if (!war && this.net.layout && this.net.clan !== this.net.layout.clan) return;
-    const zoneOf = war ? 'MINERAL ZONE' : `${this.net.layout ? 'FUEL' : 'SALVAGE'} ZONE ×${TUNE.hotZone.salvageMultiplier}`;
+    const zoneOf = war ? 'MINERAL ZONE' : `MINERAL ZONE ×${TUNE.hotZone.mineralMultiplier}`;
     const label = `${zoneOf}  ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}`;
     const centre = this.toScreen(z.x, z.y);
     const dx = wrapDelta(z.x, p.x, W);
@@ -856,7 +885,7 @@ export class FlightScene extends Phaser.Scene {
     // Ground-only boundary retains the exact server radius and projection.
     drawSalvageZoneRing(this.world,z,(x,y)=>this.toScreen(x,y),inside,now);
     if (intents.touch) {
-      if(inside){this.hotZoneText.setVisible(true).setText('ZONE ×'+TUNE.hotZone.salvageMultiplier).setPosition(w<600?280:304,90);return;}
+      if(inside){this.hotZoneText.setVisible(true).setText('ZONE ×'+TUNE.hotZone.mineralMultiplier).setPosition(w<600?280:304,90);return;}
       if(centre.visible && centre.x>40 && centre.x<w-40 && centre.y>94 && centre.y<h-60)return;
       const a=Math.atan2(dy,dx),c=Math.cos(a),s=Math.sin(a);
       const x=w/2+c*w*.3,y=Math.max(100,Math.min(h-110,h/2+s*h*.25));
@@ -884,8 +913,8 @@ export class FlightScene extends Phaser.Scene {
   private drawKeyHints(p:ShipState|null,_w:number,h:number):void{
     const full=intents.helpHeld,show=!intents.touch&&!!p&&!this.net.death&&!this.net.extracted&&(full||(this.keyHintsOn&&this.planet!==TUTORIAL));
     this.keyHints.setVisible(show);if(!show)return;
-    const lines=intents.scheme==='marker'?['MOUSE steer · W faster · S brake','LEFT CLICK fire · RIGHT CLICK / Q missile','SHIFT dash · E mine · R warp','1–6 quick buy · B upgrades · TAB pilots']:['A/D steer · W/S throttle','SPACE fire · SHIFT dash','Q missile · E mine · R warp','1–6 quick buy · B upgrades · TAB pilots'];
-    this.keyHints.setText(full?lines.join('\n'):'B upgrades · TAB pilots · H controls').setPosition(12,h-12);
+    const lines=intents.scheme==='marker'?['MOUSE steer · W faster · S brake','LEFT CLICK fire · RIGHT CLICK / Q missile','SHIFT dash · E mine · R warp','1–3 pick level card · TAB pilots']:['A/D steer · W/S throttle','SPACE fire · SHIFT dash','Q missile · E mine · R warp','1–3 pick level card · TAB pilots'];
+    this.keyHints.setText(full?lines.join('\n'):'1–3 level cards · TAB pilots · H controls').setPosition(12,h-12);
   }
 
   /**
@@ -946,8 +975,7 @@ export class FlightScene extends Phaser.Scene {
     if(this.planet===TUTORIAL&&!guide.policy.warp){this.warpText.setVisible(false);return;}
     const warLocked=this.net.siege?.phase==='war'||this.net.siege?.phase==='release';
     const locked = (p.arrival??0)>0||(!this.net.freeWarp&&p.lockdown>0)||warLocked;
-    const accent = p.warping ? 0x7fe9ff : locked ? UI.uiBorder : UI.uiAccent;
-    panel(g, x - bw / 2, y - bh / 2, bw, bh, accent, !locked);
+    flightButton(g, x - bw / 2, y - bh / 2, bw, bh, !locked || p.warping, locked && !p.warping);
     if (p.warping) {
       const f = Math.min(1, p.warpDist / TUNE.warp.distance);
       g.fillStyle(0x7fe9ff, 0.35);
@@ -960,7 +988,7 @@ export class FlightScene extends Phaser.Scene {
       ? `${Math.floor((100 * p.warpDist) / TUNE.warp.distance)}% · CANCEL${key}`
       : warLocked?'WAR LOCK': locked
         ? `LOCKED ${sec === 60 ? m + 1 : m}:${String(sec === 60 ? 0 : sec).padStart(2, '0')}`
-        : `WARP${key}`;
+        : `WARP${this.warpBonusLabel()}${key}`;
     this.warpText.setFontSize(intents.touch ? (header.tight ? 9 : 11) : 12).setText(intents.touch ? label.replace('LOCKED','WARP').replace(' · CANCEL',' ×') : label).setPosition(x, y).setColor(locked && !p.warping ? '#8fa2c8' : '#ffffff');
     if (!locked || p.warping) intents.warpButton = { x, y, hw: bw / 2, hh: intents.touch ? 22 : bh / 2 };
   }
@@ -1101,7 +1129,7 @@ export class FlightScene extends Phaser.Scene {
       const x = touch ? c.x : 42+i*140;
       const y = touch ? c.y : h-(this.keyHints.visible?this.keyHints.displayHeight+52:46);
       const ready = sl.charges > 0;
-      controlFace(g,x,y,r,sl.kind==='missile'?UI.uiAccent:UI.uiGold,ready);
+      flightControlFace(g,x,y,r,ready);
       if (sl.charges < sl.tier && sl.cd > 0) {
         g.lineStyle(3, 0x7fd6ff, 0.9);
         g.beginPath();
@@ -1110,7 +1138,7 @@ export class FlightScene extends Phaser.Scene {
       }
       // Symbol: a rocket (missile) or a spiked ball (mine).
       const k = r / 30;
-      g.fillStyle(ready ? 0xffffff : 0x9a8f80, 1);
+      g.fillStyle(ready ? 0xeaf0f4 : 0x8c98a3, 1);
       if (sl.kind === 'missile') {
         g.fillTriangle(x + 13 * k, y - 4 * k, x + 13 * k, y + 4 * k, x + 20 * k, y);
         g.fillRect(x - 12 * k, y - 4 * k, 25 * k, 8 * k);
@@ -1123,14 +1151,13 @@ export class FlightScene extends Phaser.Scene {
           g.fillCircle(x + Math.cos(a) * 11 * k, y - 2 * k + Math.sin(a) * 11 * k, 2.4 * k);
         }
       }
-      if(touch){g.fillStyle(0x071425,.95).fillCircle(x+r*.63,y+r*.62,11);}
       this.weaponTexts[i]
         .setVisible(true)
         .setFontSize(touch ? 18 : 22)
         .setOrigin(0, 0.5)
         .setPosition(x + r + 4, y)
         .setText(touch ? `${sl.charges}` : `${sl.charges} [${sl.key}]`)
-        .setColor(ready ? '#ffd27a' : '#8f7f6a');
+        .setColor(ready ? '#eaf0f4' : '#8c98a3');
       const zone = { x, y, hw: r * 1.25, hh: r * 1.25 };
       if (sl.kind === 'missile') intents.missileButton = zone;
       else intents.mineButton = zone;
@@ -1138,52 +1165,64 @@ export class FlightScene extends Phaser.Scene {
   }
 
   /**
-   * Shop, top left: one-tap buttons (keyboard 1/2/3) for the next tier of each upgrade: its tier n/4,
-   * the power it needs and its price in minerals. Bright when you can buy it, dim when you can't.
+   * Level cards, top left (owner, 19 November 2026): when a level-up is waiting, three cards appear
+   * and the pilot taps one (or presses 1/2/3). Play never pauses and the strip only takes taps on
+   * itself; unpicked level-ups wait. An owned evolution shows as a gold card once it is ready.
    */
   private drawShop(p: ShipState | null): void {
-    const g = this.overlay;
-    const show = !!p && !this.net.death && !this.net.extracted && (this.planet!==TUTORIAL||guide.policy.shop) && this.mobilePanel === 'shop';
+    const g = this.levelCardGraphics.clear();
+    const cards = this.net.shownCards;
+    const show = !!p && p.hp > 0 && !this.net.death && !this.net.extracted && cards.length > 0 && (this.planet!==TUTORIAL||guide.policy.shop);
     this.evolvePreview.setVisible(false);this.shopHeader.setVisible(show);
     for (const t of this.shopTexts) {
-      t.title.setVisible(show);
-      t.sub.setVisible(show);
+      t.title.setVisible(false);
+      t.sub.setVisible(false);
     }
     intents.shopZones = [];
-    if (!p || !show) return;
-    const labels: Record<string, string> = { turret: 'TURRET', shield: 'SHIELD', damage: 'GUNS', missile: 'MISSILE', mine: 'MINES' };
-    const mobile=intents.touch,drawer=flightHeader(logicalSize().w,mobile).drawer;
-    const width=mobile?Math.min(330,logicalSize().w*.5-32):drawer.w;
-    const x=mobile?12:drawer.x,cols=3,bw=(width-12)/3,bh=42;
-    panel(g,x,drawer.y-22,width,118,UI.uiBorder);
-    this.shopHeader.setPosition(x+8,drawer.y-17).setText(`SPEND MINERALS · HULL ${Math.round(p.hp)}/${Math.round(hullCapacity(p,TUNE))}`);
-    intents.uiZones.push({x:x+width/2,y:drawer.y+37,hw:width/2,hh:59});
-    SHOP_ITEMS.forEach((item, i) => {
-      const bx = x + (i % cols) * (bw + 6);
-      const y = drawer.y + Math.floor(i / cols) * (bh + 6);
-      const offer = shopOffer(p, item, TUNE);
-      const can = canBuy(p, item, TUNE);
-      panel(g,bx,y,bw,bh,can?UI.uiAccent:UI.uiBorder,can);
-      const key = intents.touch ? '' : `[${i + 1}] `;
-      const t = this.shopTexts[i];
-      t.title.setFontSize(mobile ? 10 : 11).setPosition(bx + 5, y + 12).setText(`${key}${labels[item]} ${shopTier(p, item)}/4`).setColor(css(can?UI.uiText:0x91a5bb));
-      t.sub
-        .setFontSize(mobile ? 9 : 9)
-        .setPosition(bx + 5, y + 29)
-        .setText(offer ? `${offer.cost} MIN${offer.floor>offer.cost?' · carry '+offer.floor:''}` : 'MAXED')
-        .setColor(can ? '#c7f1dd' : '#a1afbf');
-      intents.shopZones.push({ item: i, zone: { x: bx + bw / 2, y: y + bh / 2, hw: bw / 2, hh: bh / 2 } });
-    });
-    // The server-validated pre-mission loadout owns this slot; local preferences cannot swap it.
-    const t=this.shopTexts[EVOLVE_ITEM],i=EVOLVE_ITEM,bx=x+(i%cols)*(bw+6),y=drawer.y+Math.floor(i/cols)*(bh+6),build=this.net.equippedEvolution;
-    panel(g,bx,y,bw,bh,UI.uiBorder);
-    if(build===null){t.title.setPosition(bx+5,y+10).setFontSize(9).setText('NO EVO').setColor('#a1afbf');t.sub.setPosition(bx+5,y+29).setFontSize(8).setText('Buy + equip\nin HANGAR').setColor('#9fb7c8');return;}
-    const progress=evolutionProgress(p,TUNE,build),done=isCapital(p.chassis),can=progress.ready&&!done;
-    if(this.evolvePreviewBuild!==build){this.evolvePreview.destroy(true);this.evolvePreview=shipPreview(this,build===1?4:2,0,0,0,16,14).setDepth(952);this.evolvePreviewBuild=build;}
-    // Text gets the compact card's full width. The ship preview is shown in Hangar.
-    t.title.setFontSize(9).setPosition(bx+5,y+9).setText((can&&!mobile?'[6] ':'')+(build===1?'MISSILE EVO':'BATTLE EVO')).setColor(can?'#ffd23a':css(UI.uiText));
-    t.sub.setFontSize(8).setPosition(bx+5,y+29).setText(done?'EVOLVED':progress.upgradeText+'\n'+progress.resourceText).setColor(can?'#ffe9a8':'#adc0cf');
-    if(can){panel(g,bx,y,bw,bh,UI.uiGold,true);intents.shopZones.push({item:i,zone:{x:bx+bw/2,y:y+bh/2,hw:bw/2,hh:bh/2}});}
+    this.cardFaces = [];
+    this.shopKeys.forEach(key => key.setVisible(false));
+    const now = this.time.now;
+    const picks = p?.picks ?? -1;
+    if (this.pendingCardFace && picks > this.pendingCardFace.pick) {
+      this.levelCardArt.confirm(this.pendingCardFace.face, now, this.pendingCardFace.evolution);
+      this.pendingCardFace = null;
+    }
+    if (picks < this.lastCardPick) this.pendingCardFace = null;
+    this.lastCardPick = picks;
+    this.levelCardArt.begin(now, show);
+    if (p && show) {
+      const { w, h } = logicalSize(), mobile = intents.touch;
+      const { x, y, width, cardWidth, cardHeight, gap } = levelStrip(w, h, mobile);
+      const waiting = pendingPicks(p, TUNE);
+      this.levelCardArt.tray(g, x - 4, y - 23, width + 8, cardHeight + 28);
+      this.shopHeader.setPosition(x + 4, y - 20).setColor('#d4dde4')
+        .setText(`LEVEL ${p.picks + 1} · PICK ONE${waiting > 1 ? ` · ${waiting} READY` : ''}`);
+      intents.uiZones.push({ x: x + width / 2, y: y - 23 + (cardHeight + 28) / 2, hw: (width + 8) / 2, hh: (cardHeight + 28) / 2 });
+      cards.slice(0, 3).forEach((card, i) => {
+        const face = { x: x + i * (cardWidth + gap), y, w: cardWidth, h: cardHeight };
+        this.cardFaces.push(face);
+        const c = cardText(card, p, TUNE), track = SHOP_ITEMS[card], narrow = cardWidth < 97;
+        const tier = track ? shopTier(p, track) + 1 : 0;
+        this.levelCardArt.draw(g, i, card, face, tier, SHOP_TIERS, now);
+        const title = c.evolve
+          ? card === 11 ? 'MISSILE\nCRUISER' : narrow ? 'BATTLE\nCRUISER' : c.title
+          : c.title.replace(/ \d+\/\d+$/, '');
+        const t = this.shopTexts[i], tx = face.x + 37;
+        t.title.setVisible(true).setFontSize(c.evolve || narrow ? 9 : 12)
+          .setPosition(tx, y + (title.includes('\n') ? 19 : 15)).setText(title).setColor(c.evolve ? '#f1ce8d' : '#f0f3f5');
+        const effect = c.sub.replace(' gun damage', ' damage').replace(' auto drone', ' drone');
+        t.sub.setVisible(true).setFontSize(narrow ? 9 : 10)
+          .setPosition(tx, y + (c.evolve ? 39 : 30)).setText(effect).setColor(c.evolve ? '#ddbf8b' : '#c5d2dc');
+        if (!mobile) {
+          const keyX = face.x + face.w - 10;
+          g.fillStyle(0x151b21, 1).fillRoundedRect(keyX - 6, y + 35, 12, 12, 2);
+          g.lineStyle(1, 0x66717a, .8).strokeRoundedRect(keyX - 6, y + 35, 12, 12, 2);
+          this.shopKeys[i].setVisible(true).setPosition(keyX, y + 41).setText(String(i + 1));
+        }
+        intents.shopZones.push({ item: i, zone: { x: face.x + face.w / 2, y: y + face.h / 2, hw: face.w / 2, hh: face.h / 2 } });
+      });
+    }
+    this.levelCardArt.finish(g, now);
   }
 
   /** Both devices can open the compact upgrade and scoreboard drawers. */
@@ -1191,14 +1230,13 @@ export class FlightScene extends Phaser.Scene {
     this.mobileButtons=[];this.mobileNavLabels.forEach(t=>t.setVisible(false));
     if(!p || this.net.death || this.net.extracted)return;
     const header=flightHeader(w,intents.touch);
-    const offers=SHOP_ITEMS.filter(item=>canBuy(p,item,TUNE)).length+((this.net.equippedEvolution!==null&&canEvolve(p,TUNE,this.net.equippedEvolution))?1:0);
+    // Level cards replaced the upgrade drawer; only the scoreboard toggle remains.
     const entries = [
-      {action:'shop' as const,rect:header.shop,label:`${intents.touch?'UPG':header.tight?'UPG [B]':'UPGRADES [B]'}${offers?' +'+offers:''}`},
       {action:'board' as const,rect:header.board,label:intents.touch?'STATS':header.tight?'TAB':'SCOREBOARD [TAB]'},
-    ].filter(e=>e.action!=='shop'||this.planet!==TUTORIAL||guide.policy.shop);
+    ];
     entries.forEach(({action,rect,label},i)=>{
       const open=this.mobilePanel===action;
-      panel(this.overlay,rect.x-rect.w/2,rect.y-18,rect.w,36,open?UI.uiAccent:UI.uiBorder,open);
+      flightButton(this.overlay,rect.x-rect.w/2,rect.y-18,rect.w,36,open);
       this.mobileNavLabels[i].setVisible(true).setPosition(rect.x,rect.y).setFontSize(header.tight?10:11).setText(open?'CLOSE':label);
       this.mobileButtons.push({action,x:rect.x,y:rect.y,w:rect.w});
       intents.uiZones.push({x:rect.x,y:rect.y,hw:rect.w/2,hh:22});
@@ -1224,7 +1262,7 @@ export class FlightScene extends Phaser.Scene {
     g.clear();
     intents.uiZones = [];
     const p = this.net.predicted;
-    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now,this.hudAnchor, this.planet === TUTORIAL || isWarPlanet(this.planet) ? 'none' : !this.net.layout ? 'salvage' : this.net.clan === this.net.layout.clan ? 'fuel' : 'none');
+    this.combatHud.draw(g, this.net.death || this.net.extracted ? null : p, w, h, intents.touch, this.time.now,this.hudAnchor, this.planet === TUTORIAL || isWarPlanet(this.planet) ? 'none' : !this.net.layout ? 'salvage' : this.net.clan === this.net.layout.clan ? 'fuel' : 'none', this.runSeconds());
     this.drawMobileNav(p,w);
     this.drawShop(p);
     this.drawKeyHints(p, w, h);
@@ -1239,10 +1277,9 @@ export class FlightScene extends Phaser.Scene {
     this.tipActive=!!tip;
     if (this.planet === TUTORIAL && (this.net.death || this.net.extracted)) guide.hide();
     else if(this.planet===TUTORIAL){
-      const offers=intents.shopZones.filter(z=>z.item<SHOP_ITEMS.length&&!!p&&canBuy(p,SHOP_ITEMS[z.item],TUNE));
-      const first=intents.touch?offers.sort((a,b)=>b.item%3-a.item%3)[0]:offers[0];
+      const first=intents.shopZones[0];
       const header=flightHeader(w,intents.touch);
-      guide.update({myId:this.net.myId,predicted:this.net.predicted,g:this.overlay,w,h,toScreen:(x,y)=>this.toScreen(x,y),targets:{shop:guide.policy.shop?header.shop:null,upgrade:this.mobilePanel==='shop'&&first?{x:first.zone.x+(intents.touch?first.zone.hw+8:-first.zone.hw-8),y:first.zone.y,dir:intents.touch?'left':'right'}:null,warp:intents.warpButton}});
+      guide.update({myId:this.net.myId,predicted:this.net.predicted,g:this.overlay,w,h,toScreen:(x,y)=>this.toScreen(x,y),targets:{shop:null,upgrade:first?{x:first.zone.x+(intents.touch?first.zone.hw+8:-first.zone.hw-8),y:first.zone.y,dir:intents.touch?'left':'right'}:null,warp:intents.warpButton}});
     }
     this.buildingRigs.begin();
     this.drawBase(p, w, h);
@@ -1269,20 +1306,17 @@ export class FlightScene extends Phaser.Scene {
     const b=controls.dash,fb=controls.fire,r=b.r,fr=fb.r;
     intents.dashButton={x:b.x,y:b.y,hw:b.hw,hh:b.hh};
     intents.fireButton={x:fb.x,y:fb.y,hw:fb.hw,hh:fb.hh};
-    controlFace(g,fb.x,fb.y,fr,UI.uiDanger,intents.fire);
-    g.lineStyle(2,UI.uiDanger,.9);g.strokeCircle(fb.x,fb.y,fr*.22);
+    flightControlFace(g,fb.x,fb.y,fr,intents.fire);
+    g.lineStyle(2,intents.fire?UI.uiDanger:0xeaf0f4,.9);g.strokeCircle(fb.x,fb.y,fr*.22);
     for(let i=0;i<4;i++){const a=i*Math.PI/2;g.lineBetween(fb.x+Math.cos(a)*fr*.32,fb.y+Math.sin(a)*fr*.32,fb.x+Math.cos(a)*fr*.48,fb.y+Math.sin(a)*fr*.48);}
     // No steering toggle on phones (owner, 14 November 2026): the stick is always the direction marker.
     const cd = this.net.predicted?.dashCd ?? 0;
     const ready = cd <= 0;
-    controlFace(g,b.x,b.y,r,UI.uiAccent,ready);
-    g.lineStyle(3,UI.uiAccent,ready?.95:.4);
+    flightControlFace(g,b.x,b.y,r,ready);
+    g.lineStyle(3,0xeaf0f4,ready?.95:.4);
     for(let i=0;i<3;i++){const x=b.x-12+i*10;g.lineBetween(x,b.y-10,x+8,b.y);g.lineBetween(x+8,b.y,x,b.y+10);}
-    if(p&&!this.net.death&&!this.net.extracted){
-      const budget=Math.min(w*.43,controlClearRight(w,h)-12),bw=Math.max(36,Math.min(80,(budget-32)/2));
-      intents.throttleButtons=[-1,1].map((thrust,i)=>({thrust,x:12+bw/2+i*(bw+8),y:h-28,hw:bw/2,hh:22}));
-      for(const b of intents.throttleButtons){panel(g,b.x-b.hw,b.y-22,b.hw*2,44,UI.uiAccent,intents.heldThrottle===b.thrust);g.lineStyle(2,UI.uiAccent,.8);g.lineBetween(b.x-10,b.y,b.x+10,b.y);if(b.thrust>0)g.lineBetween(b.x,b.y-10,b.x,b.y+10);}
-    }else intents.clearThrottle();
+    // Speed is on the stick again (owner, 20 November 2026): no separate + / − buttons.
+    intents.clearThrottle();
     const st = intents.stick;
     if (st) {
       g.lineStyle(2, 0xffffff, 0.35);
@@ -1463,14 +1497,14 @@ export class FlightScene extends Phaser.Scene {
         at: Date.now(),
         planet: this.planet,
         outcome: extracted ? 'extracted' : 'destroyed',
-        salvage: extracted ? this.net.extracted?.salvage ?? 0 : Math.floor(this.net.predicted?.salvage ?? 0),
+        salvage: extracted ? this.net.extracted?.salvage ?? 0 : 0,
         kills: extracted ? this.net.extracted?.kills ?? 0 : this.net.roster.get(this.net.myId)?.kills ?? 0,
         seconds: Math.round((Date.now() - this.runStartedAt) / 1000),
       });
       const by = this.net.death?.killer ? `Destroyed by ${this.net.death.killerName || 'another pilot'}` : 'Your ship was destroyed';
       const x = this.net.extracted;
       // Extracted: the run's result. Banking the haul as currency comes with the bank milestone.
-      this.message.setAlign('center').setText(extracted && this.planet === TUTORIAL ? 'TUTORIAL COMPLETE\nPick a planet from the menu' : extracted ? `EXTRACTED\nSalvage ${x?.salvage ?? 0}  ·  Power ${x?.power ?? 0}  ·  ${x?.kills ?? 0} KO` : by);
+      this.message.setAlign('center').setText(extracted && this.planet === TUTORIAL ? 'TUTORIAL COMPLETE\nPick a planet from the menu' : extracted ? `EXTRACTED\nMinerals ${x?.salvage ?? 0}  ·  ${x?.kills ?? 0} KO` : by);
       this.message.setFontSize(18).setWordWrapWidth(0);
       const bw = 140;
       const bh = 44;
@@ -1488,7 +1522,7 @@ export class FlightScene extends Phaser.Scene {
     if (extracted && this.planet !== TUTORIAL) {
       const x = this.net.extracted;
       const b = this.net.banked;
-      const line = !b ? `Salvage ${x?.salvage ?? 0}  ·  banking…` : b.error ? `Salvage ${x?.salvage ?? 0} not banked (${b.error})` : `Banked +${b.amount}  ·  Credits ${b.balance}`;
+      const line = !b ? `Minerals ${x?.salvage ?? 0}  ·  banking…` : b.error ? `Minerals ${x?.salvage ?? 0} not banked (${b.error})` : `Banked +${b.amount}  ·  Credits ${b.balance}`;
       const want = `EXTRACTED\n${line}`;
       if (this.message.text !== want) this.message.setText(want);
     }

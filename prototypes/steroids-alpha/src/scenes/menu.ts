@@ -1,4 +1,4 @@
-import { selectedEvolution, selectedFighter } from '../../sim/unlocks';
+import { selectedFighter } from '../../sim/unlocks';
 import { combatKey } from '../render/combatSprites';
 import { shipPreview } from '../render/shipPreview';
 import { PALETTES } from '../render/palette';
@@ -16,7 +16,7 @@ import { fitCamera, text, versionStamp } from './common';
 import { cleanName } from '../../sim/protocol';
 import { loadSave, writeSave } from '../save';
 import { clientTune } from '../clientTune';
-import { UI, css, panel } from '../render/ui';
+import { css, metal, metalPanel } from '../render/ui';
 import { ensureAccount, recoverAccount } from '../net/account';
 import {landingLayout,menuDialog} from '../render/landingLayout';
 import { StellarMap, warLabel } from '../render/stellarMap';
@@ -152,8 +152,7 @@ export class MenuScene extends Phaser.Scene {
   private drawName(x:number,y:number,w:number,label:string,depth=0):void{
     const f=nameField();this.nameBox={x,y,w,h:40};
     text(this,x-w/2,y-31,label,10,'#9fb3c7').setDepth(depth);
-    panel(this.add.graphics().setDepth(depth),x-w/2,y-20,w,40,UI.uiBorder);
-    this.nameFrame=this.add.rectangle(x,y,w,40,UI.uiPanel,1).setStrokeStyle(1,UI.uiBorder).setDepth(depth);
+    this.nameFrame=this.add.rectangle(x,y,w,40,metal.well,1).setStrokeStyle(1,metal.seam).setDepth(depth);
     this.nameText=text(this,x-w/2+10,y,'',16).setOrigin(0,.5).setDepth(depth+1);
     if(document.activeElement!==f&&!this.codeMode)f.value=loadSave().name??'';
     f.maxLength=this.codeMode?64:16;f.setAttribute('aria-label',this.codeMode?'Recovery code':'Pilot name');
@@ -168,34 +167,32 @@ export class MenuScene extends Phaser.Scene {
     this.buttons=[];this.clanButtons=[];this.controlButtons=[];this.hintButtons=[];this.settingsTabs=[];this.panelClose=null;this.restoreButton=null;this.shareBox=null;this.accountButton=null;this.hangarButton=null;this.evolutionButton=null;this.heroPreview=null;
     intents.copyZone=null;intents.textBox=null;
     if(document.activeElement!==nameField()||this.mapOpen||this.utility==='settings'||this.utility==='share')nameField().style.display='none';
-    this.add.rectangle(w/2,h/2,w,h,0x07101c).setDepth(-1);
-    g.lineStyle(1,UI.uiBorder,.14);for(let i=0;i<12;i++)g.lineBetween(i*w/8-h*.3,0,i*w/8+h*.3,h);
+    this.add.rectangle(w/2,h/2,w,h,metal.backdrop).setDepth(-1);
+    g.lineStyle(1,metal.seam,.8).lineBetween(16,h-58,w-16,h-58);
     if(this.textures.exists(combatKey('title-portals')))this.add.image(l.logo.x,l.logo.y,combatKey('title-portals')).setDisplaySize(l.logo.w,l.logo.h);
-    else text(this,16,12,'STEROIDS–α',Math.min(30,w/13),css(UI.uiText));
-    if(!l.compact)text(this,l.desktop?l.logo.x-l.logo.w/2:16,l.pitchY,'Mine. Upgrade. Fight. Warp out with salvage.',l.desktop?14:11,'#9fb5c7');
+    else text(this,16,12,'STEROIDS–α',Math.min(30,w/13),css(metal.light));
+    if(!l.compact)text(this,l.desktop?l.logo.x-l.logo.w/2:16,l.pitchY,'Mine. Level up. Fight. Warp out with minerals.',l.desktop?14:11,'#9fb5c7');
     text(this,l.creditX,l.creditY,'BANKED CREDITS',l.desktop?12:10,'#9fb5c7').setOrigin(1,0);
-    text(this,l.creditX,l.creditY+18,this.credits===null?'—':String(this.credits),l.desktop?24:18,'#ffd27a').setOrigin(1,0);
-    g.lineStyle(1,UI.uiAccent,.18);g.strokeEllipse(l.hero.x,l.hero.y+12,l.hero.w*.78,Math.max(24,l.hero.h*.55));
+    text(this,l.creditX,l.creditY+18,this.credits===null?'—':String(this.credits),l.desktop?24:18,css(metal.light)).setOrigin(1,0);
+    const hero=l.hero,wellW=Math.min(hero.w,hero.h*1.9);
+    metalPanel(g,hero.x-wellW/2,hero.y-hero.h/2,wellW,hero.h,'recess');
+    g.lineStyle(1,metal.steel,.24).strokeEllipse(hero.x,hero.y+hero.h*.22,wellW*.77,hero.h*.30);
+    g.lineStyle(1,metal.steel,.13).strokeEllipse(hero.x,hero.y+hero.h*.22,wellW*.89,hero.h*.37);
     const look=loadSave().look??{},ship=selectedFighter(look,this.unlocks),palette=Number((look.palette??'palette.0').split('.')[1]);
     this.heroPreview=shipPreview(this,ship.index!,palette,l.hero.x,l.hero.y,l.hero.w*.9,l.hero.h,{spin:true});
-    text(this,l.hero.x,l.shipY,ship.name.toUpperCase(),l.desktop?22:l.compact?12:18,css(UI.uiText)).setOrigin(.5);
+    text(this,l.hero.x,l.shipY,ship.name.toUpperCase(),l.desktop?22:l.compact?12:18,css(metal.light)).setOrigin(.5);
     if(!l.compact)text(this,l.hero.x,l.paletteY,PALETTES[palette]?.name.split(' / ')[0]??'Cobalt',l.desktop?13:11,'#b5ccdc').setOrigin(.5);
-    this.hangarButton=l.hangar;panel(g,l.hangar.x-l.hangar.w/2,l.hangar.y-22,l.hangar.w,44,UI.uiGold);
-    text(this,l.hangar.x,l.hangar.y,'HANGAR · ship & colour',l.desktop?14:l.hero.w<180?10:12,'#e7c587').setOrigin(.5);
+    this.hangarButton=l.hangar;metalPanel(g,l.hangar.x-l.hangar.w/2,l.hangar.y-22,l.hangar.w,44);
+    text(this,l.hangar.x,l.hangar.y,'Hangar · Ship & palette',l.desktop?14:l.hero.w<180?10:12,css(metal.light)).setOrigin(.5);
     // A compact layout may move the editable pilot field into Account; it never removes access.
     this.nameBox={x:-1000,y:-1000,w:0,h:0};
     this.nameFrame=this.add.rectangle(-1000,-1000,1,1,0,0);this.nameText=text(this,-1000,-1000,'',16).setVisible(false);
     if(l.name)this.drawName(l.name.x,l.name.y,l.name.w,'PILOT');
-    this.warpButton=l.warp;panel(g,l.warp.x-l.warp.w/2,l.warp.y-l.warp.h/2,l.warp.w,l.warp.h,UI.uiAccent,true);
-    this.warpPulse=this.add.graphics();text(this,l.warp.x,l.warp.y-7,'WARP',l.desktop?32:24,css(UI.uiText)).setOrigin(.5);text(this,l.warp.x,l.warp.y+(l.desktop?21:15),'Choose a planet',l.desktop?13:11,css(UI.uiAccent)).setOrigin(.5);
-    this.tutorialButton=l.tutorial;panel(g,l.tutorial.x-l.tutorial.w/2,l.tutorial.y-22,l.tutorial.w,44,UI.uiBorder);text(this,l.tutorial.x,l.tutorial.y,'Learn to fly',l.desktop?16:13,'#b5ccdc').setOrigin(.5);
-    this.evolutionButton=l.evolution;
-    const evo=selectedEvolution(look,this.unlocks),eb=l.evolution;
-    panel(g,eb.x-eb.w/2,eb.y-eb.h/2,eb.w,eb.h,evo?UI.uiGold:UI.uiBorder);
-    text(this,eb.x,eb.y-10,evo?'EQUIPPED EVO':'EVOLUTION',9,'#9fb5c7').setOrigin(.5);
-    text(this,eb.x,eb.y+8,evo?.name??'Choose evolution',Math.min(l.desktop?13:12,(eb.w-12)/9.5),evo?'#e7c587':'#b5ccdc').setOrigin(.5);
+    this.warpButton=l.warp;metalPanel(g,l.warp.x-l.warp.w/2,l.warp.y-l.warp.h/2,l.warp.w,l.warp.h,'primary');
+    this.warpPulse=this.add.graphics();text(this,l.warp.x,l.warp.y-7,'WARP',l.desktop?32:24,css(metal.light)).setOrigin(.5);text(this,l.warp.x,l.warp.y+(l.desktop?21:15),'Choose a planet',l.desktop?13:11,'#c7d4de').setOrigin(.5);
+    this.tutorialButton=l.tutorial;metalPanel(g,l.tutorial.x-l.tutorial.w/2,l.tutorial.y-22,l.tutorial.w,44,'recess');text(this,l.tutorial.x,l.tutorial.y,'Learn to fly',l.desktop?16:13,metal.muted).setOrigin(.5);
     this.utilityButtons=l.utilities;
-    for(const b of l.utilities){panel(g,b.x-b.w/2,b.y-b.h/2,b.w,b.h,UI.uiBorder);text(this,b.x,b.y,b.id.toUpperCase(),l.desktop?13:11,'#9fb5c7').setOrigin(.5);if(b.id==='account')this.accountButton=b;}
+    for(const b of l.utilities){metalPanel(g,b.x-b.w/2,b.y-b.h/2,b.w,b.h,'recess');text(this,b.x,b.y,b.id.toUpperCase(),l.desktop?13:11,metal.muted).setOrigin(.5);if(b.id==='account')this.accountButton=b;}
     versionStamp(this);this.showCounts();
     if(this.utility)this.drawUtility(w,h);
     if(this.mapOpen){nameField().blur();nameField().style.display='none';intents.textBox=null;intents.copyZone=null;this.stellarMap=new StellarMap(this,w,h,loadSave().clan??0,this.selectedPlanet,this.counts,this.war,this.notifyWar);this.buttons=this.stellarMap.planets.map(({id,x,y,w,h})=>({id,x,y,w,h}));}
@@ -204,10 +201,10 @@ export class MenuScene extends Phaser.Scene {
   private drawUtility(w:number,h:number):void{
     const b=menuDialog(w,h),left=b.x-b.w/2,top=b.y-b.h/2,g=this.add.graphics().setDepth(100);
     if(this.utility!=='account'){nameField().blur();nameField().style.display='none';intents.textBox=null;}
-    g.fillStyle(0x020710,.86).fillRect(0,0,w,h);panel(g,left,top,b.w,b.h,UI.uiBorder);
-    this.panelClose={x:left+b.w-26,y:top+24,w:44,h:40};panel(g,this.panelClose.x-22,top+4,44,40,UI.uiBorder);text(this,this.panelClose.x,top+24,'×',23).setOrigin(.5).setDepth(102);
+    g.fillStyle(0x080b10,.88).fillRect(0,0,w,h);metalPanel(g,left,top,b.w,b.h,'recess');
+    this.panelClose={x:left+b.w-26,y:top+24,w:44,h:40};metalPanel(g,this.panelClose.x-22,top+4,44,40);text(this,this.panelClose.x,top+24,'×',23).setOrigin(.5).setDepth(102);
     const label=(x:number,y:number,s:string,size=12,c='#dfe8ff')=>text(this,x,y,s,size,c).setOrigin(.5).setDepth(102);
-    const button=(x:number,y:number,w:number,s:string,on=false)=>{panel(g,x-w/2,y-22,w,44,on?UI.uiAccent:UI.uiBorder,on);label(x,y,s,11);return{x,y,w,h:44};};
+    const button=(x:number,y:number,w:number,s:string,on=false)=>{metalPanel(g,x-w/2,y-22,w,44,on?'selected':'standard');label(x,y,s,11);return{x,y,w,h:44};};
     label(left+18,top+23,this.utility==='settings'?'Settings':this.utility==='share'?'Share':this.codeMode?'Recover account':'Account',18).setOrigin(0,.5);
     if(this.utility==='settings'){
       this.settingsTabs=(['clan','controls'] as const).map((id,i)=>({id,...button(b.x+(i?1:-1)*b.w*.22,top+65,b.w*.4,id==='clan'?'CLAN':'CONTROLS',this.settingsTab===id)}));
@@ -223,7 +220,7 @@ export class MenuScene extends Phaser.Scene {
     }else if(this.utility==='account'){
       if(this.codeMode){
         label(b.x,top+56,'Enter your recovery code.',11,'#9fb5c7');this.drawName(b.x,top+107,b.w-40,'RECOVERY CODE',101);
-        this.nameText.setDepth(102);this.nameFrame.setDepth(101).setFillStyle(UI.uiPanel,1);this.restoreButton=button(b.x,top+158,b.w-40,this.recoveryPending?'CHECKING…':'RECOVER');
+        this.nameText.setDepth(102);this.nameFrame.setDepth(101);this.restoreButton=button(b.x,top+158,b.w-40,this.recoveryPending?'CHECKING…':'RECOVER');
         if(this.accountNote)label(b.x,top+194,this.accountNote,11,'#ffd98a').setWordWrapWidth(b.w-32);
       }else{
         this.drawName(b.x,top+88,b.w-40,'PILOT',101);this.nameText.setDepth(102);this.nameFrame.setDepth(101);
@@ -287,9 +284,9 @@ export class MenuScene extends Phaser.Scene {
     this.stellarMap?.update(time);
     if (!this.mapOpen && !this.utility && this.warpButton) {
       const b = this.warpButton, pulse = .5 + .5 * Math.sin(time / 330);
-      this.warpPulse.clear().lineStyle(1.5, UI.uiAccent, .25 + pulse * .65);
+      this.warpPulse.clear().lineStyle(1.5, metal.light, .12 + pulse * .45);
       this.warpPulse.strokeRoundedRect(b.x - b.w / 2 - 3 - pulse * 3, b.y - b.h / 2 - 3 - pulse * 3,
-        b.w + 6 + pulse * 6, b.h + 6 + pulse * 6, UI.uiRadius + 3);
+        b.w + 6 + pulse * 6, b.h + 6 + pulse * 6, 7);
     }
     const closeMap = intents.consume('pause');
     if (this.mapOpen && closeMap) {if(this.stellarMap?.dismissInfo())return;this.mapOpen = false;this.notifyWar=false; this.layout(); return; }
@@ -318,7 +315,7 @@ export class MenuScene extends Phaser.Scene {
     const name = this.codeMode ? loadSave().name ?? '' : cleanName(input.value);
     if (!this.codeMode) this.nameText.setText(name || editing ? name + caret : 'Tap to enter a name').setColor(name || editing ? '#e8f0ff' : '#6d7a96');
     let shown=this.nameText.text;while(this.nameText.width>this.nameBox.w-20&&shown.length>1){shown=shown.slice(1);this.nameText.setText('…'+shown);}
-    this.nameFrame.setStrokeStyle(1, editing ? UI.uiAccent : UI.uiBorder);
+    this.nameFrame.setStrokeStyle(1, editing ? metal.steel : metal.seam);
     for (const t of intents.drainTaps()) {
       if (this.stellarMap) {
         const action = this.stellarMap.tap(t.x, t.y);
@@ -355,11 +352,6 @@ export class MenuScene extends Phaser.Scene {
       const n = this.nameBox;
       // Taps on the name box belong to the text field over it.
       if (Math.abs(t.x - n.x) <= n.w / 2 && Math.abs(t.y - n.y) <= n.h / 2) continue;
-      if (!this.codeMode && hit(this.evolutionButton)) {
-        writeSave({ name });
-        this.scene.start('hangar', { credits: this.credits, unlocks: this.unlocks, tab: 'evolution' });
-        return;
-      }
       const hb = this.hangarButton;
       if (hb && !this.codeMode && Math.abs(t.x - hb.x) <= hb.w / 2 && Math.abs(t.y - hb.y) <= hb.h / 2) {
         writeSave({ name });

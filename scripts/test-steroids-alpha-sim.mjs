@@ -31,6 +31,12 @@ await build({ stdin: { contents: entry, resolveDir: sim, loader: 'ts' }, bundle:
 const S = await import(pathToFileURL(path.join(tmp, 'sim.mjs')).href);
 rmSync(tmp, { recursive: true, force: true });
 const tune = JSON.parse(readFileSync(path.join(root, 'prototypes/steroids-alpha/tune.json'), 'utf8'));
+// Run levels replace the shop live (owner, 19 November 2026); levelTune keeps those rules for the
+// level tests below. The older fixtures here exercise the shop module directly, so they switch the
+// level system off and give the hold the full wallet cap.
+const levelTune = structuredClone(tune);
+tune.shop.levelUp = 0;
+tune.shop.holdBase = tune.ship.powerCap;
 const arrivalTune = structuredClone(tune);
 // Most combat fixtures begin after arrival; dedicated arrival tests below keep the real countdown.
 tune.warp.arrivalSeconds = 0;
@@ -1265,7 +1271,7 @@ assert.equal(S.cleanName(null), '');
   // The old dash-aim float is still on the wire (reserved): whatever an old client puts there is ignored.
   { const buf = S.encodeInput(input); new DataView(buf).setFloat32(18, 1.5, true); assert(!('dashAim' in S.decodeClient(buf).input), 'dash aim is no longer read'); }
   assert.deepEqual(S.decodeClient(S.encodeBuy(0, 2)), { type: S.MSG.BUY, item: 0, tier: 2 });
-  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, travelHeading:1.25, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, missileFireCd: 7, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5, salvage: 87.5, chassis: 2, shieldCd: 1.5, fuel: 33.5, arrival: 1.25 };
+  const ship = { id: 9, x: 12.5, y: 300.25, heading: 1.5, travelHeading:1.25, speed: 260, dashCharge: 0.25, dashTime: 0, dashCd: 0.5, hp: 40, hullMax: 120, shield: 12.5, kx: -80, ky: 30.5, fireCd: 3, shots: 41, heat: 0.5, overheated: true, turrets: 3, shieldTier: 2, damageTier: 1, missileTier: 2, mineTier: 1, missileCharges: 1, mineCharges: 0, missileCd: 2.5, missileFireCd: 7, mineCd: 7.75, missileShots: 5, mineShots: 3, lockdown: 42.5, warping: true, warpDist: 1234.5, salvage: 87.5, chassis: 2, shieldCd: 1.5, fuel: 33.5, arrival: 1.25 , xp: 37.5, picks: 4 };
   assert.deepEqual(S.decodeServer(S.encodeSnapshot(1234, 55, [ship])), { type: S.MSG.SNAPSHOT, tick: 1234, ackSeq: 55, ships: [ship] });
   const rockRec = { id: 3, size: 1, x: 10.5, y: 20.25, vx: -30, vy: 12.5, t0: 900, hp: 30, family: 2 };
   assert.deepEqual(S.decodeServer(S.encodeAsteroids([rockRec])).asteroids, [rockRec]);
@@ -1895,13 +1901,12 @@ assert.equal(S.cleanName(null), '');
     assert(!w.asteroids.has(r.id), 'rock mined');
     const minerals = [...w.pickups.values()].filter((k) => k.kind === 'mineral');
     const total = minerals.reduce((n, k) => n + k.value, 0);
-    const cargo=[...w.pickups.values()].filter(k=>k.kind==='salvage'&&k.mined);
-    near(cargo.reduce((n,k)=>n+k.value,0),tune.asteroid.mineralYield[r.size]*sv.perMineral,1e-6,'mining drops a separate perMineral cargo reward');
+    // One currency (owner, 19 November 2026): off clan home planets mining leaves minerals only.
+    assert.equal([...w.pickups.values()].filter(k=>k.kind==='salvage'||k.kind==='fuel').length,0,'no separate cargo off home planets');
+    near(total,tune.asteroid.mineralYield[r.size]*tune.asteroid.miningMineralFactor,1e-6,'the rock yields its minerals');
     for (const k of minerals) { k.x = a.x; k.y = a.y; }
     settle(w, 2);
-    near(a.salvage,0,1e-9,'minerals alone do not pay hidden salvage');
-    for(const k of cargo){k.x=a.x;k.y=a.y;}settle(w,2);
-    near(a.salvage,tune.asteroid.mineralYield[r.size]*sv.perMineral,.2,'collecting cargo adds only salvage');
+    near(a.salvage,0,1e-9,'minerals pay no hidden salvage');
   }
   // Hot zone: double salvage for rock mined inside; it moves after moveSeconds.
   {
@@ -1915,7 +1920,7 @@ assert.equal(S.cleanName(null), '');
     w.drain();
     const minerals = [...w.pickups.values()].filter((k) => k.kind === 'mineral');
     const total = minerals.reduce((n, k) => n + k.value, 0);
-    near([...w.pickups.values()].filter(k=>k.kind==='salvage'&&k.mined).reduce((n,k)=>n+k.value,0),tune.asteroid.mineralYield[r.size]*sv.perMineral*hz.salvageMultiplier,1e-6,'hot zone multiplies the separate cargo reward');
+    near(total,tune.asteroid.mineralYield[r.size]*tune.asteroid.miningMineralFactor*hz.mineralMultiplier,1e-6,'hot zone multiplies the minerals');
     let ev = null;
     for (let i = 0; i < 70 && !ev; i++) { w.step(); ev = w.drain().hotZone ? w.hotZone : null; }
     ev = ev && { hotZone: ev };
@@ -1992,10 +1997,13 @@ assert.equal(S.cleanName(null), '');
     const [p] = [...room.players.values()];
     p.started = true; p.ship.arrival = 0; // Post-arrival gameplay fixture.
 
-    Object.assign(p.ship, { lockdown: 0, warping: true, warpDist: tune.warp.distance - 1, salvage: 123.7 });
+    // One currency: the minerals carried out bank (whole minerals, ordinary planet rate 1).
+    Object.assign(p.ship, { lockdown: 0, warping: true, warpDist: tune.warp.distance - 1, hullMax: tune.ship.maxHp + 123.7, salvage: 0 });
+    // Five minutes into the run: the haul bonus adds 20% to what banks.
+    room.world.spawnedAt.set(p.id, room.world.tick - 300 * tune.net.tickHz);
     for (let i = 0; i < 3 && !sock.closed; i++) room.step();
     const res = sock.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).find((m) => m.type === 'extracted');
-    assert.equal(res.salvage, 123, 'salvage carried out is reported');
+    assert.equal(res.salvage, 148, 'minerals carried out bank with the haul bonus (123.7 x 1.2)');
     const hz0 = sock.sent.filter((m) => typeof m === 'string').map((m) => JSON.parse(m)).find((m) => m.type === 'hotzone');
     assert(hz0 && hz0.r === hz.radius, 'joiners hear where the hot zone is');
   }

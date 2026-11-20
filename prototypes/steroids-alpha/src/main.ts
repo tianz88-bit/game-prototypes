@@ -34,12 +34,17 @@ game.events.once(Phaser.Core.Events.READY, () => {
   intents.attach(game.canvas);
 });
 
+let lastLayout = { ...logicalSize(), sideways: sideways() };
 function fit(): void {
   const dprChanged = refreshDpr();
   if (dprChanged) game.scale.setZoom(1 / DPR);
   refreshSideways();
-  placeContainer(app);
   const { w, h } = logicalSize();
+  const turned = sideways();
+  if (w === lastLayout.w && h === lastLayout.h && turned === lastLayout.sideways && !dprChanged) return;
+  if (w !== lastLayout.w || h !== lastLayout.h || turned !== lastLayout.sideways) intents.resetViewport();
+  lastLayout = { w, h, sideways: turned };
+  placeContainer(app);
   game.scale.resize(Math.round(w * DPR), Math.round(h * DPR));
   game.events.emit('dpr');
 }

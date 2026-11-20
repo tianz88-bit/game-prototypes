@@ -24,6 +24,43 @@ export function panel(g:Phaser.GameObjects.Graphics,x:number,y:number,w:number,h
   g.fillStyle(accent,active?1:.65);g.fillRoundedRect(x+3,y+5,3,Math.max(2,h-10),1);
 }
 
+export function flightButton(g:Phaser.GameObjects.Graphics,x:number,y:number,w:number,h:number,active=false,locked=false):void {
+  g.fillStyle(locked?0x181d22:active?0x34404a:0x272e35,.97).fillRoundedRect(x,y,w,h,4);
+  g.lineStyle(1,active?0xc5d2dc:0x9caab5,locked?.3:.65).strokeRoundedRect(x+.5,y+.5,w-1,h-1,4);
+  g.lineStyle(1,0xc5d2dc,locked?.13:.42).lineBetween(x+6,y+3,x+w-6,y+3);
+}
+
+export const metal = {
+  backdrop: 0x101419,
+  well: 0x151a20,
+  seam: 0x3c454e,
+  steel: 0x9caab5,
+  light: 0xe6edf2,
+  muted: '#aab6c0',
+  gold: 0xeac47b,
+};
+
+/** Recessed or raised menu surfaces built from the flight UI's graphite and steel palette. */
+export function metalPanel(g:Phaser.GameObjects.Graphics,x:number,y:number,w:number,h:number,
+  style:'recess'|'standard'|'selected'|'primary'|'evolution'='standard'):void {
+  const primary=style==='primary', selected=style==='selected', evolution=style==='evolution', recess=style==='recess';
+  const edge=primary?0xd2e0e9:evolution?metal.gold:metal.steel;
+  const fill=primary?0x364450:selected?0x303a43:evolution?0x2b251e:recess?metal.well:0x272e35;
+  g.fillStyle(0x090c10,.75).fillRoundedRect(x,y+3,w,h,4);
+  g.fillStyle(fill,1).fillRoundedRect(x,y,w,h,4);
+  g.lineStyle(1,edge,primary?.95:selected?.82:evolution?.65:recess?.24:.53)
+    .strokeRoundedRect(x+.5,y+.5,w-1,h-1,4);
+  g.lineStyle(1,edge,primary?.63:recess?.16:.3).lineBetween(x+6,y+3,x+w-6,y+3);
+  if(primary||selected)g.fillStyle(edge,primary?.85:.7).fillRect(x+4,y+8,2,h-16);
+}
+
+export function flightControlFace(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number,active:boolean):void {
+  g.fillStyle(0x14191e,.9).fillCircle(x,y+2,r+1);
+  g.fillStyle(active?0x303942:0x20262c,.95).fillCircle(x,y,r);
+  g.lineStyle(1.5,active?0xc5d2dc:0x88949f,active?.9:.55).strokeCircle(x,y,r-1);
+  g.lineStyle(1,0xc5d2dc,active?.5:.22);g.beginPath();g.arc(x,y,r-4,Math.PI*1.18,Math.PI*1.82);g.strokePath();
+}
+
 export function controlFace(g:Phaser.GameObjects.Graphics,x:number,y:number,r:number,accent:number,active:boolean):void {
   g.fillStyle(0x071425,.9);g.fillCircle(x,y+3,r+1);
   g.fillStyle(active?0x254463:UI.uiPanel,active?.96:.87);g.fillCircle(x,y,r);

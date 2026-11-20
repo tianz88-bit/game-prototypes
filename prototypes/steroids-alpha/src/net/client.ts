@@ -345,6 +345,10 @@ export class NetClient {
       this.graceSeconds = Number(msg.seconds) || 0;
     } else if (msg.type === 'roster' && Array.isArray(msg.players)) {
       this.roster = new Map(msg.players.map((p) => [p.id, p]));
+    } else if (msg.type === 'cards' && Array.isArray((msg as { cards?: unknown }).cards)) {
+      // Run levels: the level cards on offer now (empty when none), and the pick count they answer.
+      this.cards = ((msg as { cards: unknown[] }).cards).map(Number).filter((c) => Number.isInteger(c)).slice(0, 3);
+      this.cardPicks = Number((msg as { picks?: unknown }).picks) || 0;
     } else if (msg.type === 'extracted') {
       this.extracted = { power: Number(msg.power) || 0, kills: Number(msg.kills) || 0, salvage: Number(msg.salvage) || 0 };
     } else if (msg.type === 'banked') {
@@ -577,6 +581,26 @@ export class NetClient {
   ordnance = new Map<number, OrdnanceView & { at: number }>();
   /** The strongest real player carries the bounty (server, twice a second); null when nobody does. */
   bounty: { id: number; x: number; y: number } | null = null;
+
+  /** Level cards offered by the server (sim/levels.ts card numbers) and the pick count they answer. */
+  cards: number[] = [];
+  cardPicks = 0;
+
+  private pickedAt = -Infinity;
+  private pickedFor = -1;
+  /** Cards to show: hidden briefly after a pick until the server's answer (a new offer) arrives. */
+  get shownCards(): number[] {
+    return this.pickedFor === this.cardPicks && performance.now() - this.pickedAt < 1500 ? [] : this.cards;
+  }
+
+  /** Pick level card index i (sent once per offer; the pick count stops a double tap picking twice). */
+  pickCard(i: number): void {
+    const card = this.shownCards[i];
+    if (card === undefined) return;
+    this.buy(card, this.cardPicks);
+    this.pickedFor = this.cardPicks;
+    this.pickedAt = performance.now();
+  }
 
   /** Ask the server for a shop purchase (it decides); tier is the one on offer, so a double tap buys once. */
   buy(item: number, tier: number): void {

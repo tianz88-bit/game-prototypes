@@ -2,7 +2,8 @@ import {RESOURCE_ART,resourceGlyph} from './resources';
 import type {PickupKind} from '../../sim/pickups';
 import type Phaser from 'phaser';
 import type { ShipState } from '../../sim/ship';
-import { maxShield, hullCapacity, mineralBalance } from '../../sim/ship';
+import { maxShield, hullCapacity, mineralBalance, walletCap, haulBonus, haulBonusNext } from '../../sim/ship';
+import { levelsEarned, xpForLevel } from '../../sim/levels';
 import { TUNE } from '../../sim/tune';
 import { text } from '../scenes/common';
 import { panel, css, UI } from './ui';
@@ -20,7 +21,7 @@ export class CombatHud {
     this.icons=Array.from({length:2},()=>scene.add.image(0,0,'__WHITE').setDepth(953).setVisible(false));
     this.labels=Array.from({length:4},()=>text(scene,0,0,'',11).setDepth(953).setVisible(false));
   }
-  draw(g:Phaser.GameObjects.Graphics,p:ShipState|null,w:number,h:number,touch:boolean,now:number,anchor?:CombatHudAnchor,hold:'salvage'|'fuel'|'none'='salvage'):void{
+  draw(g:Phaser.GameObjects.Graphics,p:ShipState|null,w:number,h:number,touch:boolean,now:number,anchor?:CombatHudAnchor,hold:'salvage'|'fuel'|'none'='salvage',runSeconds=0):void{
     this.labels.forEach(t=>t.setVisible(false));this.icons.forEach(i=>i.setVisible(false));if(!p)return;
     const label=(i:number,x:number,y:number,s:string,c=UI.uiText,size=10,origin=.5)=>{
       this.labels[i].setVisible(true).setPosition(x,y).setOrigin(origin,0).setFontSize(size).setText(s).setColor(css(c)).setStroke('#071321',3);
@@ -87,13 +88,27 @@ export class CombatHud {
 
     }
     const icon=(slot:number,kind:PickupKind,x:number,y:number,height:number)=>{const i=this.icons[slot],key='combat-'+RESOURCE_ART[kind].asset;if(i.scene.textures.exists(key)){i.setTexture(key,'body').setPosition(x,y).setDisplaySize(height*i.frame.width/i.frame.height,height).setVisible(true);}else resourceGlyph(g,kind,x,y,height);};
-    // Minerals are spendable; salvage/fuel is a separate carry-out balance.
-    const home=hold==='fuel',held=home?p.fuel:p.salvage,cargo=TUNE.salvage.cargoMax,full=held>=cargo-.5;
+    // One currency (owner, 19 November 2026): minerals carried, the hold, and the run level. They bank
+    // on warp-out from ordinary planets; clan home planets bank nothing (members still carry fuel).
+    const home=hold==='fuel',cap=walletCap(p,TUNE)-TUNE.ship.maxHp,carried=mineralBalance(p,TUNE),full=carried>=cap-.5;
+    const lv=levelsEarned(p.xp,TUNE),need=xpForLevel(lv+1,TUNE),from=xpForLevel(lv,TUNE),xp=Math.floor(p.xp-from),step=Math.round(need-from);
     panel(g,12,12,196,36,UI.uiBorder);
     icon(0,'mineral',25,24,18);
-    label(0,40,16,`MIN ${mineralBalance(p,TUNE)}`,UI.uiGold,touch?13:14,0);
-    label(1,198,18,`Lv.${upgradeTotal(p)}`,UI.uiText,11,1);
-    if(hold!=='none'){icon(1,home?'fuel':'salvage',25,40,13);label(2,38,34,`${home?'FUEL':'SALVAGE'} ${Math.floor(held)}/${cargo} · ${home?'UNLOAD AT HOME':'BANK ON WARP'}`,full?0xffb394:0xcfc8b7,9,0);}
-    if(full&&hold!=='none')label(3,22,52,home?'FULL · DOCK TO UNLOAD':'FULL · WARP TO BANK',0xffbd91,10,0);
+    label(0,40,16,`MIN ${Math.floor(carried)}/${cap}`,full?0xffb394:UI.uiGold,touch?13:14,0);
+    label(1,198,18,`Lv.${lv} ${Math.max(0,xp)}/${step}`,UI.uiText,10,1);
+    if(home){
+      icon(1,'fuel',25,40,13);
+      label(2,38,34,`FUEL ${Math.floor(p.fuel)} · HOME: MINERALS DON'T BANK`,0xffc9a3,9,0);
+    }else if(hold!=='none'){
+      label(2,40,34,haulLine(runSeconds),0xc5d2dc,9,0);
+    }
+    if(full&&hold!=='none')label(3,22,52,home?'HOLD FULL':'HOLD FULL · WARP TO BANK',0xffbd91,10,0);
   }
+}
+
+/** Haul bonus and time until it rises again. The cargo total is shown above. */
+function haulLine(seconds:number):string{
+  const bonus=haulBonus(seconds,TUNE),next=haulBonusNext(seconds,TUNE),started=seconds>=TUNE.salvage.haulBonusStartSeconds;
+  const clock=(s:number)=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+  return `${bonus>0?`HAUL BONUS +${Math.round(bonus*100)}%`:'BANKS ON WARP'}${started&&next>0?` · +${Math.round(TUNE.salvage.haulBonusPerMinute*100)}% IN ${clock(next)}`:''}`;
 }

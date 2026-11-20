@@ -4,14 +4,15 @@ import type {PickupKind} from './pickups';
 // Pure game rules with no networking, so it runs in the Cloudflare room and in Node tests alike.
 // The room steps each ship with its input, then calls step() once per tick and sends out the events.
 import type { Tune } from './tune';
-import { damageScale, primaryDamageScale, maxShield, mineralBalance, hullCapacity, shieldRegen, shipVelocity, muzzleShot, newShip, shipRadius, stepShip } from './ship';
+import { walletCap, damageScale, primaryDamageScale, maxShield, mineralBalance, hullCapacity, shieldRegen, shipVelocity, muzzleShot, newShip, shipRadius, stepShip } from './ship';
 import type { AssistTarget, ShipInput, ShipState } from './ship';
 import { asteroidMass, asteroidPos, splitAsteroid } from './asteroids';
 import type { Asteroid } from './asteroids';
 import { wrap, wrapDelta, angleDelta } from './wrap';
 import { TURRET_SIDE, turretCount, turretPosition } from './turrets';
 import { SHOP_ITEMS, buy, EVOLVE_ITEM, evolve } from './shop';
-import {MISSILE_CRUISER,isCapital} from './chassis';
+import { applyCard, drawCards, pendingPicks } from './levels';
+import {MISSILE_CRUISER,isCapital,upgradeTotal} from './chassis';
 import { missileLock,missileStructureLock } from './ordnance';
 import { BASE_OWNER, BASE_TURRET_SIDE, baseLayout, insideDome, isDocked, speedFloor, freeHomeWarp } from './clanBase';
 import type { BaseLayout } from './clanBase';
@@ -52,7 +53,7 @@ export interface Pickup {
   value: number;
 }
 
-/** The moving hot zone (BRIEF.md): asteroid minerals mined inside it pay hotZone.salvageMultiplier. */
+/** The moving hot zone (BRIEF.md): asteroid minerals mined inside it pay hotZone.mineralMultiplier. */
 export interface HotZone {
   x: number;
   y: number;
@@ -165,6 +166,11 @@ export class World {
   readonly quiet = new Set<number>();
   /** Tick each ship dropped in, for fresh-spawn kill payout tracking. */
   private spawnedAt = new Map<number, number>();
+  /** Seconds since ship id spawned on this planet (its run time, for the haul bonus). */
+  runSeconds(id: number): number {
+    const at = this.spawnedAt.get(id);
+    return at === undefined ? 0 : (this.tick - at) / this.tune.net.tickHz;
+  }
   /**
    * Share of the kill payout (power gold) a kill earns: the room lowers it for repeat kills of the
    * same pilot by the same killer. Default: full.
@@ -383,13 +389,49 @@ export class World {
     return out;
   }
 
-  /** A shop purchase from ship id (item: index in SHOP_ITEMS). Returns true if it went through. */
+  /**
+   * The old mineral shop. Run levels replace it when shop.levelUp is on (owner, 19 November 2026):
+   * then this refuses everything and upgrades come only from picked level cards (pick).
+   */
   buy(id: number, item: number, tier: number): boolean {
+    if (this.tune.shop.levelUp) return false;
     const s = this.ships.get(id);
     if (s && item === EVOLVE_ITEM) return evolve(s, this.tune,tier);
     const name = SHOP_ITEMS[item];
     if (!s || !name) return false;
     return buy(s, name, tier, this.tune);
+  }
+
+  /** Level cards on offer to each ship (sim/levels.ts), drawn when it has a level-up to pick. */
+  readonly cards = new Map<number, number[]>();
+  /** Evolutions each pilot owns (0 Battlecruiser, 1 Missile Cruiser), set by the room from the bank. */
+  readonly evolutionsOwned = new Map<number, number[]>();
+
+  /** Pick one of the offered level cards. Returns true if it applied. */
+  pick(id: number, card: number): boolean {
+    const s = this.ships.get(id), offer = this.cards.get(id);
+    if (!s || !offer || !offer.includes(card) || pendingPicks(s, this.tune) <= 0 || s.hp <= 0) return false;
+    if (!applyCard(s, card, this.tune)) return false;
+    s.picks++;
+    this.cards.delete(id);
+    return true;
+  }
+
+  /** Draw cards for ships with a level-up waiting; bots pick at once (an evolution if offered). */
+  private stepLevels(): void {
+    if (!this.tune.shop.levelUp) return;
+    for (const [id, s] of this.ships) {
+      if (s.hp <= 0 || pendingPicks(s, this.tune) <= 0) continue;
+      if (!this.cards.has(id)) {
+        const cards = drawCards(s, this.evolutionsOwned.get(id) ?? [], this.tune, this.rng);
+        if (!cards.length) continue;
+        this.cards.set(id, cards);
+      }
+      if (this.botIds.has(id)) {
+        const offer = this.cards.get(id)!;
+        this.pick(id, offer.find((c) => c >= 10) ?? offer[Math.floor(this.rng() * offer.length)]);
+      }
+    }
   }
 
   removeShip(id: number): void {
@@ -405,6 +447,8 @@ export class World {
     this.turrets.delete(id);
     this.rammed.delete(id);
     this.prev.delete(id);
+    this.cards.delete(id);
+    this.evolutionsOwned.delete(id);
   }
 
   /** Advance one ship by one step with the given input, spawning its bullet if it fired. */
@@ -439,6 +483,7 @@ export class World {
     const W = t.world.width;
     const H = t.world.height;
     this.tick++;
+    this.stepLevels();
     // One authoritative countdown per world tick, even before the pilot's input buffer starts.
     for (const s of this.ships.values()) s.arrival = Math.max(0, (s.arrival ?? 0) - this.dt);
     const pos = new Map<number, { x: number; y: number }>();
@@ -463,7 +508,7 @@ export class World {
         for (const a of this.asteroids.values()) {
           const p = pos.get(a.id);
           if (!p || !hits(b.x, b.y, p.x, p.y, t.asteroid.radius[a.size] + t.weapon.bulletRadius)) continue;
-          this.damageAsteroid(a, p, b.damage, b.vx, b.vy, pos, true);
+          this.damageAsteroid(a, p, b.damage, b.vx, b.vy, pos, true, b.owner);
           spent = true;
           break;
         }
@@ -603,13 +648,13 @@ export class World {
         // A warping ship plows through (owner): the rock is smashed, the ship takes nothing and
         // keeps its course and warp distance.
         if (s.warping) {
-          this.destroyAsteroid(a, p, t.asteroid.ramDamage, dx, dy, pos);
+          this.destroyAsteroid(a, p, t.asteroid.ramDamage, dx, dy, pos, id);
           break;
         }
         this.damageShip(id, s, t.asteroid.contactDamage[a.size], 0, wrap(s.x + dx * sr, W), wrap(s.y + dy * sr, H));
         s.kx = -dx * t.ship.knockbackSpeed;
         s.ky = -dy * t.ship.knockbackSpeed;
-        this.destroyAsteroid(a, p, t.asteroid.ramDamage, dx, dy, pos);
+        this.destroyAsteroid(a, p, t.asteroid.ramDamage, dx, dy, pos, id);
         this.grace.set(id, Math.round(t.ship.contactGraceSeconds * t.net.tickHz));
         break;
       }
@@ -635,7 +680,7 @@ export class World {
       }
       if(d<=radius){
         if(k.kind==='heal')s.hp=Math.min(hullCapacity(s,t),s.hp+t.ship.maxHp*t.asteroid.healthHealFraction);
-        else if(k.kind==='mineral')s.hullMax=Math.min(t.ship.powerCap,s.hullMax+k.value);
+        else if(k.kind==='mineral'){const before=s.hullMax;s.hullMax=Math.min(walletCap(s,t),s.hullMax+k.value);s.xp=(s.xp??0)+(s.hullMax-before);}
         else{
           const held=k.kind==='fuel'?'fuel':'salvage',taken=Math.min(k.value,Math.max(0,t.salvage.cargoMax-s[held]));
           s[held]+=taken;k.value=Math.round((k.value-taken)*10)/10;
@@ -940,7 +985,7 @@ export class World {
           for (const a of this.asteroids.values()) {
             const p = pos.get(a.id);
             if (!p || rel(o, p.x, p.y).d > t.asteroid.radius[a.size] + t.missile.radius*(o.heavy?t.missileCruiser.radiusFactor:1)) continue;
-            this.damageAsteroid(a, p, o.damage, Math.cos(o.heading), Math.sin(o.heading), pos);
+            this.damageAsteroid(a, p, o.damage, Math.cos(o.heading), Math.sin(o.heading), pos, false, o.owner);
             hit = true;
             break;
           }
@@ -1209,13 +1254,13 @@ export class World {
   }
 
   /** Smash an asteroid outright (a ship flew into it): it splits as if this hit had destroyed it. */
-  private destroyAsteroid(a: Asteroid, at: { x: number; y: number }, splitDamage: number, dirX: number, dirY: number, pos: Map<number, { x: number; y: number }>): void {
+  private destroyAsteroid(a: Asteroid, at: { x: number; y: number }, splitDamage: number, dirX: number, dirY: number, pos: Map<number, { x: number; y: number }>, by = 0): void {
     if (a.id === this.tutorialRock?.id) return;
     a.hp = 0;
-    this.damageAsteroid(a, at, splitDamage, dirX, dirY, pos);
+    this.damageAsteroid(a, at, splitDamage, dirX, dirY, pos, false, by);
   }
 
-  private damageAsteroid(a: Asteroid, at: { x: number; y: number }, damage: number, dirX: number, dirY: number, pos: Map<number, { x: number; y: number }>, mainShot = false): void {
+  private damageAsteroid(a: Asteroid, at: { x: number; y: number }, damage: number, dirX: number, dirY: number, pos: Map<number, { x: number; y: number }>, mainShot = false, by = 0): void {
     const practice = this.tutorialRock?.id === a.id ? this.tutorialRock : null;
     if (practice && !mainShot) return;
     a.hp -= damage;
@@ -1231,10 +1276,12 @@ export class World {
       this.spawnPickup('mineral', at.x, at.y, practice.reward);
       return;
     }
-    // Every destroyed asteroid leaves minerals; sometimes a health boost as well.
-    // The unscaled rock yield sets the separate cargo reward, boosted inside the hot zone.
-    const per = this.tune.salvage.perMineral * (this.inHotZone(at.x, at.y) ? this.tune.hotZone.salvageMultiplier : 1);
-    this.spillMinerals(at.x, at.y, this.tune.asteroid.mineralYield[a.size] * (a.rich ? this.tune.asteroid.richMineralFactor : 1), this.tune.asteroid.radius[a.size] * 0.5, 0, per, this.tune.asteroid.miningMineralFactor);
+    // Every destroyed asteroid leaves minerals, the one run currency (owner, 19 November 2026);
+    // sometimes a health boost as well. More inside the hot zone. Clan home planets
+    // also leave fuel for the clan treasury; nowhere else leaves a second cargo.
+    const hot = this.inHotZone(at.x, at.y) ? this.tune.hotZone.mineralMultiplier : 1;
+    const fuel = this.layout && !this.siege ? this.tune.salvage.perMineral : 0;
+    this.spillMinerals(at.x, at.y, this.tune.asteroid.mineralYield[a.size] * (a.rich ? this.tune.asteroid.richMineralFactor : 1), this.tune.asteroid.radius[a.size] * 0.5, 0, fuel, this.tune.asteroid.miningMineralFactor * hot);
     if ((!this.tutorial||this.tutorialMinerals)&&this.rng() < this.tune.asteroid.healthDropChance) this.addPickup(at.x, at.y, 'heal', 0);
     for (const child of splitAsteroid(a, at, dirX, dirY, damage, this.tick, () => this.newAsteroidId(), this.rng, this.tune)) {
       this.asteroids.set(child.id, child);

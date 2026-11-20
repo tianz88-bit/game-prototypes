@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 import type {ShipState} from '../../sim/ship';
-import {canEvolve} from '../../sim/shop';
+import {evolutionReady} from '../../sim/levels';
 import {TUNE} from '../../sim/tune';
 import {intents} from '../input/intents';
 import {loadSave,writeSave} from '../save';
@@ -20,9 +20,9 @@ export class ContextTips {
  }
  update(g:Phaser.GameObjects.Graphics,s:ShipState|null,w:number,h:number,now:number,enabled:boolean,inline=false,evolution:0|1|null=null):string|null{
   this.label.setVisible(false);if(!s||s.hp<=0)return null;
-  const id=this.model.update(s,now,evolution!==null&&canEvolve(s,TUNE,evolution),enabled);if(!id)return null;
+  const id=this.model.update(s,now,evolution!==null&&evolutionReady(s,evolution,TUNE),enabled);if(!id)return null;
   const missile=intents.touch?'MISSILE':intents.scheme==='marker'?'RIGHT CLICK / Q':'Q',mine=intents.touch?'MINE':'E';
-  const messages:Record<TipId,string>={hull:'Hull damaged: collect a green repair pod.',overheat:'Guns overheated: release fire to cool.',shield:'Avoid hits to recharge shields; the thin arc is hull.',missile:`${missile}: face a target until it locks, then launch.`,mine:`${mine}: drop a mine for enemies on your tail.`,evolve:'Evolution ready: evolve in UPGRADES.'};
+  const messages:Record<TipId,string>={hull:'Hull damaged: collect a green repair pod.',overheat:'Guns overheated: release fire to cool.',shield:'Avoid hits to recharge shields; the thin arc is hull.',missile:`${missile}: face a target until it locks, then launch.`,mine:`${mine}: drop a mine for enemies on your tail.`,evolve:'Evolution ready: pick its gold card when you level up.'};
   const message=messages[id];if(inline)return message;
   const touch=intents.touch,box=hintBox(w,h,touch),pw=box.w;
   this.label.setFontSize(touch?10:12).setWordWrapWidth(pw-20).setText(message).setVisible(true);
