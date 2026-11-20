@@ -1,5 +1,5 @@
 ## Current milestone
-Full-screen adaptive layout: the canvas fills any screen shape (phones, foldable cover and inner screens, tablets, desktop) with no bars, and a fold, unfold or rotate rebuilds the game at the new size while keeping the level, board and moves. Local music and sushi-bar art review after public release 15.
+Board-framed layout: tunnels capped at 1.6 cells past the board, HUD anchored above the board, block centred below the corner buttons. Full-screen adaptive layout: the canvas fills any screen shape (phones, foldable cover and inner screens, tablets, desktop) with no bars, and a fold, unfold or rotate rebuilds the game at the new size while keeping the level, board and moves. Local music and sushi-bar art review after public release 15.
 
 ## What was implemented
 Gemini generated separate title and gameplay instrumentals. Edited loop exports are 24.00 and 20.76 seconds. A music control remembers the player's preference. Plays switch to the gameplay arrangement when the title closes.

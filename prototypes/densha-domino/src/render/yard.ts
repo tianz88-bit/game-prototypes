@@ -2,6 +2,9 @@ import Phaser from 'phaser';
 import type {Level} from '../game/types';
 import {hasArt} from './art';
 import {WIDTH,HEIGHT} from '../pixelRatio';
+
+/** How far a serving tunnel reaches past the board edge, in cells, before it has fully faded out. */
+const TUNNEL_CELLS=1.6;
 import {channelSurface} from './channels';
 import {channelRuns} from './channelRuns';
 import {TUNNEL_FRAME,planTunnelTexture} from './tunnelArt';
@@ -114,18 +117,18 @@ export function drawYard(g:Phaser.GameObjects.Graphics,level:Level,geo:YardGeo):
     if(vertical){
       // Plan view: north/south covers have parallel sides and no visible arch face.
       // Render at constant width through the full fade, never tapering into depth.
-      const extent=sign<0?y:HEIGHT-y,halfWidth=cs*.51;
+      const extent=Math.min(sign<0?y:HEIGHT-y,cs*TUNNEL_CELLS),halfWidth=cs*.51;
       const key=planTunnelTexture(scene,dir,cs,extent);
       // Both covers must occlude an entering carriage. A north roof behind the
       // train exposed its final pixels on top of the mouth before the clip plane.
       // The north roof hides northbound traffic. First-row lateral traffic
       // passes in front of the mouth, including food above the carriage roof.
-      const roof=scene.add.image(x,sign<0?0:y,key).setOrigin(.5,0).setDisplaySize(halfWidth*2,extent).setDepth(sign<0?11:90).setName('serving-tunnel-'+dir);
+      const roof=scene.add.image(x,sign<0?y-extent:y,key).setOrigin(.5,0).setDisplaySize(halfWidth*2,extent).setDepth(sign<0?11:90).setName('serving-tunnel-'+dir);
       roof.setData({projection:'orthographic-plan',direction:dir,width:halfWidth*2,sourceSet:'plastic-tunnel-atlas',entrance:sign<0});objects.push(roof);
       return;
     }
-    const extent=sign<0?x:WIDTH-x;
-    // Extend to the screen edge with a soft plastic fade; trains are separately occluded.
+    const extent=Math.min(sign<0?x:WIDTH-x,cs*TUNNEL_CELLS);
+    // Extend a short way past the board with a soft plastic fade; trains are separately occluded (clipped at the board edge).
     const cover=scene.add.graphics().setDepth(85);objects.push(cover);
     for(let i=0;i<16;i++){
       const start=extent*i/16,len=extent/16+1;cover.fillStyle(0xfff1de,1-i/16);

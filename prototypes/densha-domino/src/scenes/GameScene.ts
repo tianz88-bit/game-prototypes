@@ -65,6 +65,8 @@ export class GameScene extends Phaser.Scene {
   private trainLayer:Phaser.GameObjects.Container|null=null;
   private frontRowLayer:Phaser.GameObjects.Container|null=null;
   private readyStateKey='';
+  /** Y of the HUD star row; the HUD sits just above the board. */
+  private hudStarsY=113;
   private exitAudit:object[]|null=null;
   private alternatePars=new Map<Level,number>();
   private levelIndex = 0;
@@ -326,7 +328,15 @@ export class GameScene extends Phaser.Scene {
     const bottom = wide ? HEIGHT - 124 : boardBottom();
     this.cs = Math.floor(Math.min(boardW() / this.level.cols, (bottom - top) / this.level.rows));
     this.ox = Math.round((WIDTH - this.cs * this.level.cols) / 2);
-    this.oy = Math.round(top + (bottom - top - this.cs * this.level.rows) / 2);
+    // Centre the HUD-plus-board block in the space below the corner buttons, so the screen frames the
+    // board instead of long stretches of tunnel. The HUD (title, moves, stars, any tutorial caption)
+    // sits just above the board.
+    const coachRoom = COACH[this.levelIndex] ? 46 : 0, boardH = this.cs * this.level.rows, above = 105 + coachRoom, below = 23;
+    const centred = Math.round((50 + HEIGHT) / 2 - (boardH + below - above) / 2);
+    this.oy = Math.max(153 + coachRoom, Math.min(centred, HEIGHT - 10 - boardH - below));
+    this.hudStarsY = Math.max(113, this.oy - 40 - coachRoom);
+    this.hudLevel.setY(this.hudStarsY - 51);
+    this.hudTaps.setY(this.hudStarsY - 26);
     if(!reuseYard){
     this.yard.clear();
     this.yardArt=drawYard(this.yard, this.level, { cs: this.cs, ox: this.ox, oy: this.oy });
@@ -385,7 +395,7 @@ export class GameScene extends Phaser.Scene {
     const g = this.starsG;
     g.clear();
     const stars = this.starsFor(this.taps);
-    for (let i = 0; i < 3; i++) this.drawStar(g, WIDTH / 2 + (i - 1) * 34, 113, 11, i < stars ? 0xffd04a : 0x6f8db5);
+    for (let i = 0; i < 3; i++) this.drawStar(g, WIDTH / 2 + (i - 1) * 34, this.hudStarsY, 11, i < stars ? 0xffd04a : 0x6f8db5);
   }
 
   private starsFor(taps: number): number {
@@ -732,7 +742,7 @@ export class GameScene extends Phaser.Scene {
     this.clearHint();const lines=COACH[this.levelIndex];
     if(!lines||this.phase!=='play'){this.coach.setText('');return;}
     this.coach.setFontSize(14).setLineSpacing(4).setText(lines[Math.min(this.taps,lines.length-1)]);
-    const top=118,gap=this.oy-8-top;if(this.coach.height>gap)this.coach.setFontSize(12);this.coach.setY(top+gap/2);
+    const top=this.hudStarsY+5,gap=this.oy-8-top;if(this.coach.height>gap)this.coach.setFontSize(12);this.coach.setY(top+gap/2);
     const m=solve(this.level,this.state,400000,this.rules).moves[0],v=m?this.views.get(m.train):undefined;if(!m||!v)return;
     v.setAwake(true,m.dir);
     const t=this.level.trains[m.train];
