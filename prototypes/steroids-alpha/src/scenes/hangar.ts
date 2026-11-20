@@ -11,7 +11,7 @@ import { fitCamera, text, versionStamp } from './common';
 import { loadSave, writeSave } from '../save';
 import { UI, css, panel } from '../render/ui';
 import { TUNE } from '../../sim/tune';
-import { UNLOCKS, selectedFighter, selectedEvolution, evolutionBuild, effectiveOwned, unclaimedLegacy, unlockPrice } from '../../sim/unlocks';
+import { UNLOCKS, selectedFighter, evolutionBuild, effectiveOwned, unclaimedLegacy, unlockPrice } from '../../sim/unlocks';
 import type { Unlock } from '../../sim/unlocks';
 import { buyUnlock, ensureAccount } from '../net/account';
 
@@ -167,9 +167,9 @@ export class HangarScene extends Phaser.Scene {
       const x = left + 3*(cw+gap)+cw/2, y = top+ch/2;
       const g=this.add.graphics();
       panel(g,x-cw/2,y-ch/2,cw,ch,0x937249);
-      const evo=selectedEvolution(look,this.unlocks);this.evolutionShortcut={x,y,w:cw,h:ch};
-      this.drawShipStats(evo?.index===1?4:2,evo?.name??'Evolution slot',evo?'EQUIPPED · EVOLVE':'BUY/EQUIP → EVOLVE',x,y,cw,ch,Number((look.palette??'palette.0').split('.')[1]),UI.uiGold);
-      text(this,w/2,h-34,'Pre-mission loadout · choose your evolution in EVOLVE',w<650?10:12,'#acbdce').setOrigin(.5);
+      const ownedEvos=UNLOCKS.filter(u=>u.slot==='evolution'&&this.owned(u.id)).length;this.evolutionShortcut={x,y,w:cw,h:ch};
+      this.drawShipStats(2,'Evolutions',`${ownedEvos}/2 OWNED → EVOLVE`,x,y,cw,ch,Number((look.palette??'palette.0').split('.')[1]),UI.uiGold);
+      text(this,w/2,h-34,'Owned evolutions appear as level-up cards in runs',w<650?10:12,'#acbdce').setOrigin(.5);
     }
     if (this.note) text(this, w / 2, h - 16, this.note, 12, '#ffd98a').setOrigin(0.5);
     if (this.showRuns) this.drawRuns(w, h);
@@ -177,20 +177,21 @@ export class HangarScene extends Phaser.Scene {
   }
 
   private drawEvolution(w:number,h:number):void{
-    const gap=12,cw=Math.min(400,(w-40-gap)/2),ch=h-154,y=104+ch/2,selected=selectedEvolution(loadSave().look,this.unlocks);
+    const gap=12,cw=Math.min(400,(w-40-gap)/2),ch=h-154,y=104+ch/2;
     for(const build of[0,1] as const){
-      const u=UNLOCKS.find(u=>u.slot==='evolution'&&u.index===build)!,owned=this.owned(u.id),on=selected?.id===u.id,armed=this.armed===u.id;
+      const u=UNLOCKS.find(u=>u.slot==='evolution'&&u.index===build)!,owned=this.owned(u.id),on=owned,armed=this.armed===u.id;
       const x=w/2+(build===0?-1:1)*(cw+gap)/2,g=this.add.graphics(),b=build?TUNE.missileCruiser:TUNE.battlecruiser;
       panel(g,x-cw/2,y-ch/2,cw,ch,on?UI.uiAccent:armed?UI.uiGold:UI.uiBorder,on||armed);
-      const status=this.busy?'WORKING…':on?'EQUIPPED · TAP TO REMOVE':owned?'UNLOCKED · TAP TO EQUIP':armed?'TAP AGAIN TO BUY':String(this.priceOf(u))+' BANK CREDITS';
+      const status=this.busy?'WORKING…':owned?'OWNED · OFFERED IN RUNS':armed?'TAP AGAIN TO BUY':String(this.priceOf(u))+' BANK CREDITS';
       this.drawShipStats(build?4:2,u.name,status,x,y-18,cw,ch-36,Number((loadSave().look?.palette??'palette.0').split('.')[1]),on?UI.uiAccent:UI.uiGold);
       const req=build?[['MISSILES',TUNE.missileCruiser.minMissiles],['MINES',TUNE.missileCruiser.minMines]]:[['TURRETS',TUNE.battlecruiser.minTurrets],['GUNS',TUNE.battlecruiser.minGuns]];
       req.forEach(([label,count],i)=>{const sx=x-cw/2+12+i*cw/2,sy=y+ch/2-35;text(this,sx,sy,String(label)+' '+count,cw<200?8:10,'#a8c3cf');for(let n=0;n<Number(count);n++)g.fillStyle(UI.uiGold,.85).fillRect(sx+n*11,sy+13,7,4);});
       this.builds.push({u,x,y,w:cw,h:ch});
     }
-    const b=selected?.index===1?TUNE.missileCruiser:TUNE.battlecruiser;
-    text(this,w/2,h-35,'IN MATCH · '+b.powerFloor+' MIN BALANCE · '+b.cost+' MIN TO EVOLVE',w<650?9:11,'#d5c197').setOrigin(.5);
-    text(this,w/2,h-17,this.note||(selected?'Equipped for your next mission':'Unlock permanently, then tap to equip'),w<650?9:11,this.note?'#ffd98a':'#adc2d0').setOrigin(.5);
+    // Run levels (owner, 19-20 November 2026): every owned evolution is offered as a gold level-up
+    // card once its requirements are met; there is nothing to equip.
+    text(this,w/2,h-35,'IN MATCH · A GOLD LEVEL-UP CARD ONCE THE REQUIREMENTS ARE MET',w<650?9:11,'#d5c197').setOrigin(.5);
+    text(this,w/2,h-17,this.note||'Unlock permanently; owned evolutions are offered automatically',w<650?9:11,this.note?'#ffd98a':'#adc2d0').setOrigin(.5);
   }
 
   private drawShipStats(chassis:number,name:string,status:string,x:number,y:number,w:number,h:number,palette:number,colour:number):void{
@@ -234,7 +235,9 @@ export class HangarScene extends Phaser.Scene {
   private async tapCard(u: Unlock): Promise<void> {
     if (this.owned(u.id)) {
       this.armed = null;
-      if (u.slot === 'qol') {
+      if (u.slot === 'evolution') {
+        this.note = `${u.name} is yours: it appears as a level-up card in runs`;
+      } else if (u.slot === 'qol') {
         this.showRuns = true;
       } else {
         const look = { ...(loadSave().look ?? {}) };

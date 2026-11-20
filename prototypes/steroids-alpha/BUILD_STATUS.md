@@ -14,6 +14,7 @@ LIVE itch 201126r0111, Worker protocol 35: run economy, level cards and mobile s
 - HUD: MIN carried/hold, level and XP to next, "BANKS ON WARP" or "HOME: MINERALS DON'T BANK", "HOLD FULL · WARP TO BANK". Results show minerals banked.
 - Mobile speed back on the stick (owner, 20 November 2026): near the centre brakes (also lands on your pad), the middle band holds cruise, the outer band accelerates. The + / − buttons are gone.
 - Tutorial: "Mine & level up" lesson teaches picking a card.
+- Evolution equip slot removed (owner, 20 November 2026). The menu has a full-width Learn to fly button. Hangar EVOLVE shows owned evolutions as "OWNED · OFFERED IN RUNS"; tapping an owned one only explains it. The Ships tab card shows how many are owned. The menu tagline now reads "Mine. Level up. Fight. Warp out with minerals."
 
 ## Key technical decisions
 
@@ -24,7 +25,6 @@ LIVE itch 201126r0111, Worker protocol 35: run economy, level cards and mobile s
 
 ## Open questions
 
-- The hangar's evolution equip slot is now redundant. Remove it, or keep it for show?
 - With 4 bots, long runs die often (about 50% of all-in runs in the headless sims). A bot-pressure pass may be needed after playtesting.
 - Should pushing past 3:00 pay clearly more than bailing early (for example a visible haul bonus)? Undecided.
 - BRIEF.md needs a section on the run economy and levels (owner-written brief, not edited by Claude).
