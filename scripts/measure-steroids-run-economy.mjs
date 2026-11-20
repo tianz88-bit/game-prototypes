@@ -85,7 +85,7 @@ if (process.env.ACCOUNT) {
           if (d.id === 1) outcome = { died: true };
           else { w.removeShip(d.id); brains.delete(d.id); const nid = 100 + k; w.addShip(nid, true); w.botIds.add(nid); brains.set(nid, { ...S.newBrain(r), bornAt: w.tick }); }
         }
-        for (const x of ev.extracted ?? []) { const id = typeof x === 'number' ? x : x.id; if (id === 1) outcome = { banked: S.bankedMinerals(s, t, false) }; else if (w.ships.has(id)) { w.removeShip(id); brains.delete(id); } }
+        for (const x of ev.extracted ?? []) { const id = typeof x === 'number' ? x : x.id; if (id === 1) outcome = { banked: S.bankedMinerals(s, t, false, k / hz) }; else if (w.ships.has(id)) { w.removeShip(id); brains.delete(id); } }
       }
       runs++; clock += k / hz + overhead;
       if (outcome?.died) { deaths++; clock += 5; } else if (outcome) { bank += outcome.banked; banked.push(outcome.banked); }

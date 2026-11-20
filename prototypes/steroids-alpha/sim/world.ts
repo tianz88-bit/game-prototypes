@@ -166,6 +166,11 @@ export class World {
   readonly quiet = new Set<number>();
   /** Tick each ship dropped in, for fresh-spawn kill payout tracking. */
   private spawnedAt = new Map<number, number>();
+  /** Seconds since ship id spawned on this planet (its run time, for the haul bonus). */
+  runSeconds(id: number): number {
+    const at = this.spawnedAt.get(id);
+    return at === undefined ? 0 : (this.tick - at) / this.tune.net.tickHz;
+  }
   /**
    * Share of the kill payout (power gold) a kill earns: the room lowers it for repeat kills of the
    * same pilot by the same killer. Default: full.

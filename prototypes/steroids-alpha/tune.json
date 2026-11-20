@@ -228,7 +228,10 @@
     "goldLifeSeconds": 30,
     "cargoMax": 400,
     "bankRate": 1,
-    "homeBankRate": 0
+    "homeBankRate": 0,
+    "haulBonusStartSeconds": 180,
+    "haulBonusPerMinute": 0.1,
+    "haulBonusMax": 0.5
   },
   "hotZone": {
     "radius": 600,
