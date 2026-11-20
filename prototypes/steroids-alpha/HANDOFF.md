@@ -1,5 +1,12 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-20 codex recessed Missile Cruiser bow bay
+DID: Added a blue armored recess to the right bow. Its cheeks frame the gun and the rear plate meets the right hull panel.
+FILES: Cruiser module stack, calibration and versioned asset pack, plus the muzzle offset in sim/chassis.ts.
+SEAM: Gun recoils separately above the bay. Its muzzle moved with the art by 6.3 world units aft and 1.44 outward. Sparrow-style gun behavior retained.
+CROSS: Shared muzzle location only. Art pack published to game-assets and verified by hash.
+FOR claude: Candidate awaits release. Use manifest to stage the new bay automatically.
+
 ## 2026-11-20 codex Missile Cruiser deck cannon art
 DID: Replaced the reused Sparrow sprite with a cruiser-specific deck cannon. Broad ivory muzzle, cobalt casing and orange mounting foot on the same right bow.
 FILES: Missile Cruiser rig module, calibration and hash-verified asset manifest.
@@ -97,11 +104,4 @@ FILES: landingLayout, MenuScene, HangarScene explicit tab option, layout bounds 
 SEAM: none; existing selectedEvolution ownership check and saved look reused. No account/gameplay/protocol/config changes.
 CROSS: minimal menu flow/layout test. Type/build/rig+22 layout gates pass;8 local+2 public PC/touch cases pass labels, ownership, direct tab, refresh, bounds and utility isolation. No capture.
 FOR claude: deferred only; normal Hangar entry retains remembered tab, explicit evolution shortcut overrides it. No immediate action.
-
-## 2026-11-18 codex evolution loadouts LIVE181126r0103
-DID: PR566 2c0ee7a9 live; itch44292583012/Worker44292583031/Pages44292583010 success.1500-credit permanent unlock each, separate equip, compact missing-upgrade/resource status.
-FILES: catalogue/tune, Room auth/buy gate, client frozen look/Hangar/shop/tips, bank regression; loadout-release-proof.json and deferred docs.
-SEAM:29 same layout; owned Look.evolution captured before controls/within3s; BUY5 must match. Roster drives UI, resume retains equipment, old numeric preference ignored; lab stays isolated/free.
-CROSS: type/build/sim/config/bank pass.6 local+2 public layouts pass full buy/equip/status; real Worker rejects forged selection with51 healthy snapshots. Browser purchases mocked, SQLite/Room tests cover actual billing/positive authority; no capture.
-FOR claude: deferred only. No migration/assets/dependencies; no live credits spent. Temporary preview/headless stopped. Existing random bot-spacing/Pages counter housekeeping remains future work; this release all first-attempt success.
 

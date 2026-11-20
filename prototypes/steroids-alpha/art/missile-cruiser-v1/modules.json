@@ -152,12 +152,20 @@
     "parent": "platform3"
   },
   {
+    "id": "cannonBayR",
+    "asset": "cannon-bay",
+    "x": 152,
+    "y": -396,
+    "band": 26,
+    "parent": "sideR"
+  },
+  {
     "id": "gunR",
     "asset": "gun",
-    "x": 140,
-    "y": -441,
+    "x": 148,
+    "y": -406,
     "band": 64,
     "side": 1,
-    "parent": "sideR"
+    "parent": "cannonBayR"
   }
 ]
