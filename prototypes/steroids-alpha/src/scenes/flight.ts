@@ -138,6 +138,8 @@ export class FlightScene extends Phaser.Scene {
   private bountyText!: Phaser.GameObjects.Text;
   /** Label on the warp button: lockdown countdown, WARP, or warp progress and CANCEL. */
   private warpText!: Phaser.GameObjects.Text;
+  /** "MAX" under the held max-speed button (touch only). */
+  private maxLabel!: Phaser.GameObjects.Text;
   /** Hot zone label: on the zone when in view, else on its edge tracker. */
   private hotZoneText!: Phaser.GameObjects.Text;
   /** Edge markers for clan base landmarks (treasury, gate). */
@@ -214,7 +216,7 @@ export class FlightScene extends Phaser.Scene {
       intents.schemeButton = null;
       intents.fireButton = null;
       intents.missileButton = null;
-      intents.mineButton = null;intents.clearThrottle();
+      intents.mineButton = null;intents.clearThrottle();this.maxLabel?.setVisible(false);
       intents.warpButton = null;
       intents.shopZones = [];
       intents.uiZones = [];
@@ -268,6 +270,7 @@ export class FlightScene extends Phaser.Scene {
     this.keyHints = text(this, 0, 0, '', 10, '#8fa2c8').setOrigin(0, 1).setDepth(950).setAlpha(0.75).setVisible(false);
     this.baseMarkerTexts = [0, 1].map(() => text(this, 0, 0, '', 10, '#ffffff').setOrigin(0.5).setDepth(953).setVisible(false));
     this.warpText = text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(953).setVisible(false);
+    this.maxLabel = text(this, 0, 0, 'MAX', 10, '#c9d6e2').setOrigin(0.5).setDepth(953).setVisible(false);
     this.bountyText = text(this, 0, 0, '', 11, '#ffd23a').setOrigin(0.5).setDepth(953).setVisible(false);
     this.lockText = text(this, 0, 0, 'INCOMING MISSILE', 12, '#ff5a3a').setOrigin(0.5).setDepth(953).setVisible(false);
     this.weaponTexts = [0, 1].map(() => text(this, 0, 0, '', 12, '#ffffff').setOrigin(0.5).setDepth(952).setVisible(false));
@@ -1295,7 +1298,7 @@ export class FlightScene extends Phaser.Scene {
       if (intents.fire) { g.fillStyle(UI.uiDanger, 0.6); g.fillCircle(m.x, m.y, 4); }
     }
     if (!intents.touch) {
-      intents.clearThrottle();
+      intents.clearThrottle();this.maxLabel.setVisible(false);
       intents.dashButton = null;
       intents.schemeButton = null;
       intents.fireButton = null;
@@ -1315,12 +1318,20 @@ export class FlightScene extends Phaser.Scene {
     flightControlFace(g,b.x,b.y,r,ready);
     g.lineStyle(3,0xeaf0f4,ready?.95:.4);
     for(let i=0;i<3;i++){const x=b.x-12+i*10;g.lineBetween(x,b.y-10,x+8,b.y);g.lineBetween(x+8,b.y,x,b.y+10);}
-    // Speed is on the stick again (owner, 20 November 2026): no separate + / − buttons.
-    intents.clearThrottle();
+    // Max speed (owner, 21 November 2026): held, beside Dash. The stick handles brake and cruise.
+    const mx=controls.boost,held=intents.heldThrottle>0;
+    intents.throttleButtons=[{thrust:1,x:mx.x,y:mx.y,hw:mx.hw,hh:mx.hh}];
+    flightControlFace(g,mx.x,mx.y,mx.r,held);
+    g.lineStyle(3,held?0x7fe9ff:0xeaf0f4,.95);
+    for(let i=0;i<2;i++){const y=mx.y+4-i*9;g.lineBetween(mx.x-10,y+5,mx.x,y-4);g.lineBetween(mx.x,y-4,mx.x+10,y+5);}
+    this.maxLabel.setVisible(true).setPosition(mx.x,mx.y+mx.r+9);
     const st = intents.stick;
     if (st) {
       g.lineStyle(2, 0xffffff, 0.35);
       g.strokeCircle(st.ox, st.oy, clientTune.touch.joystickRadius);
+      // Inside this ring the stick brakes; outside it holds cruise speed.
+      g.lineStyle(1, 0xffb394, 0.45);
+      g.strokeCircle(st.ox, st.oy, clientTune.touch.joystickRadius * clientTune.touch.markerBrakeBelow);
       g.fillStyle(0xffffff, 0.45);
       g.fillCircle(st.ox + st.dx, st.oy + st.dy, 22);
     }

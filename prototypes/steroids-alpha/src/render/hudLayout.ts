@@ -20,7 +20,9 @@ export function combatNotice(w:number,h:number,touch:boolean,anchor:{x:number;y:
 export function flightControls(w:number,h:number,m:number,dr:number,fr:number){
  const right=w-m-dr,base=h-m-Math.max(dr,fr),column=w<600&&h>=500,gap=w<600?88:104;
  const at=(x:number,y:number,r:number,hit:number)=>({x,y,r,hw:r*hit,hh:r*hit});
- return{fire:at(column?right:right-gap,base,fr*.74,1.2),dash:at(right,column?base-90:base,dr*.74,1.3),missile:at(column?right:right-gap,column?base-180:base-90,30,1.25),mine:at(right,column?base-270:base-90,30,1.25)};
+ return{fire:at(column?right:right-gap,base,fr*.74,1.2),dash:at(right,column?base-90:base,dr*.74,1.3),missile:at(column?right:right-gap,column?base-180:base-90,30,1.25),mine:at(right,column?base-270:base-180,30,1.25),
+  // Max speed (owner, 21 November 2026): held, right beside Dash.
+  boost:at(column?right-gap:right,base-90,32,1.25)};
 }
 
 /** Keep touch cards and the right-side board apart on the narrower unfolded layouts. */

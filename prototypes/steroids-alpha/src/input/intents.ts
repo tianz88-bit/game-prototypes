@@ -39,6 +39,8 @@ export interface Zone {
 }
 
 export interface Stick {
+  /** When the finger went down (performance.now), so a fresh touch does not brake while it moves out. */
+  at?: number;
   /** Where the finger went down, logical pixels. */
   ox: number;
   oy: number;
@@ -238,12 +240,14 @@ export class Intents {
       const axis = (v: number): number => (Math.abs(v) < dead ? 0 : (Math.sign(v) * (Math.abs(v) - dead)) / (1 - dead));
       return { turn: axis(nx), aim: NaN, thrust: this.heldThrottle||axis(-ny) };
     }
-    // Direction marker with speed on the stick (owner, 20 November 2026): the stick aims, and how far
-    // it is pushed sets speed. Near the centre brakes (down to the pad to dock), the middle band holds
-    // cruise speed, and the outer band accelerates, at full strength at the edge. No finger: cruise.
+    // Direction marker (owner, 21 November 2026): the stick aims. A half push brakes to minimum speed
+    // (down to the pad to dock), a fuller push holds cruise speed, and no finger is cruise too. Max
+    // speed is the held button beside Dash (heldThrottle). A fresh touch gets touchStartGraceMs to
+    // move out before the brake zone counts.
     const mag = Math.min(1, Math.hypot(nx, ny));
     const t = clientTune.touch, aim = mag < dead ? NaN : Math.atan2(ny, nx);
-    const thrust = mag < t.markerBrakeBelow ? -1 : mag > t.markerBoostAbove ? Math.min(1, (mag - t.markerBoostAbove) / Math.max(0.01, 1 - t.markerBoostAbove) * 1.25) : 0;
+    const settling = performance.now() - (st.at ?? -Infinity) < t.touchStartGraceMs;
+    const thrust = mag < t.markerBrakeBelow && !settling ? -1 : 0;
     return { turn: 0, aim, thrust: this.heldThrottle || thrust };
   }
 
@@ -300,7 +304,7 @@ export class Intents {
     }
     if (this.touch && x < logicalSize().w / 2 && this.stickPointer === null) {
       this.stickPointer = e.pointerId;
-      this.stick = { ox: x, oy: y, dx: 0, dy: 0 };
+      this.stick = { ox: x, oy: y, dx: 0, dy: 0, at: performance.now() };
     }
   }
 

@@ -19,8 +19,9 @@
     "dashButtonRadius": 46,
     "dashButtonMargin": 34,
     "fireButtonRadius": 46,
-    "markerBrakeBelow": 0.35,
-    "markerBoostAbove": 0.75
+    "markerBrakeBelow": 0.55,
+    "touchStartGraceMs": 150,
+    "boostButtonRadius": 32
   },
   "mouse": {
     "deadZone": 40
