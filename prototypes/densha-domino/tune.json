@@ -7,8 +7,12 @@
     "mint":    { "x": -12, "y": 4,  "delay": 350, "duration": 230 }
   },
   "rules": {
-    "limitSlack": 4,
-    "starSlack": 2,
+    "limitSlack": 2,
+    "starSlack": 1,
+    "heartsMax": 5,
+    "heartRefillMinutes": 25,
+    "heartFreeLevels": 5,
+    "heartAdsPerDay": 5,
     "unlockAll": 0,
     "gateEvery": 10,
     "gateStars": 20,

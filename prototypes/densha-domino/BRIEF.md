@@ -1,3 +1,15 @@
+# Monetisation (21 November 2026, owner decisions)
+
+- Platforms: App Store, Google Play and Facebook Instant Games first; an itch.io demo ends with store links (the end of its content, not a wall).
+- Ads: rewarded and opt-in only. No forced ads between levels, ever.
+- Hearts: 5 maximum, one back every 25 minutes (tune.json rules.heartsMax / heartRefillMinutes), refilled from saved timestamps so they also refill while the game is closed. A clock moved backwards grants nothing.
+- An attempt that does not end in a win costs one heart: running out of moves, a deliberate restart, leaving a level mid-way, or reloading the page mid-attempt. Winning costs nothing. Free: the tutorial (levels 1 to 5, rules.heartFreeLevels), its guided rewind, and fold/rotate rebuilds. Accidental restarts were removed: a swipe across the track shows "Along the track" and a tap on a train that cannot move shows "Stuck!"; neither uses a move.
+- Move limit tightened to par + 2 (rules.limitSlack 2); stars: 3 at par, 2 at par + 1, 1 at par + 2 (rules.starSlack 1).
+- Out of hearts (or tapping the hearts pill): next-heart countdown, "Watch ad +1" (rewarded, rules.heartAdsPerDay per day), and the Pass.
+- Kaiten Express Pass, $2.99 one-time: unlimited hearts, a few free hints a day (hints not built yet), and new skins. Covers all current and future levels; new level packs are free updates.
+- Star gates still control progression (20 stars per 10 levels).
+- Prototype status: ads and purchases are mocks (a 3-second "Ad placeholder"; the Pass unlocks only with ?test=1 or ?debug=1 and reads "Pass soon" otherwise). Real SDKs come with the store builds (AdMob and Apple/Google purchases via Capacitor; Meta Audience Network and the Facebook Instant SDK), each needing owner approval as new dependencies.
+
 # Show, don't tell, and a framed play area (21 November 2026, owner decisions)
 
 Nobody reads tutorial sentences, so labels are two or three words ("Swipe it out", "Bump to honk", "Follow the face", "Try this", "Open a gap", "Now honk!", "Other chain first", "Second chain!"). Levels 4 and 5 start with a guided wrong move: the glove offers the move that fails, the failure is marked on the board, then the board rewinds for free and the glove shows the right move (once per visit). In every level, a honk that cannot move a train because its face is blocked shows a cross on the cell in front of its face and a "No gap!" pop; swiping straight into a train shows "No room!" and uses no move.

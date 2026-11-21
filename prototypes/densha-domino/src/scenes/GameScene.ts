@@ -37,6 +37,15 @@ interface Save {
   tutorialEdition?: number;
   unlockAll?: boolean;
   records?: Record<string,{moves:number;chain:number}>;
+  /** Hearts (owner, 21 November 2026): count, and the time the next heart started refilling. */
+  hearts?: number;
+  heartsAt?: number;
+  /** A non-tutorial attempt with moves made and not yet won; charged on reload so reloading is not a free retry. */
+  attemptLevel?: number;
+  /** Kaiten Express Pass: unlimited hearts. */
+  pass?: boolean;
+  /** Rewarded ads watched today, for the daily cap. */
+  ads?: { day: string; count: number };
 }
 
 /** Tutorial captions by level (index 0 to 2), then by tap number. Later levels have none. */
@@ -90,6 +99,14 @@ export class GameScene extends Phaser.Scene {
   private hudRowY = 0;
   private coachAt = { x: 0, y: 0, w: 300, top: false };
   private lastTrainsLeft = -1;
+  /** Hearts pill at the top centre. */
+  private heartsPill!: Phaser.GameObjects.Container;
+  private heartsText!: Phaser.GameObjects.Text;
+  private heartsShown = '';
+  /** True from the first move of a heart-costing attempt until it is won or charged. */
+  private attemptLive = false;
+  /** The next startLevel is a free rewind (tutorial guided wrong move). */
+  private freeRestart = false;
   /** Y of the HUD star row; the HUD sits just above the board. */
   private exitAudit:object[]|null=null;
   private alternatePars=new Map<Level,number>();
@@ -203,6 +220,13 @@ export class GameScene extends Phaser.Scene {
     this.cardLevel = this.add.container(0, 0, [this.plateLevel, this.hudLevel, this.hudName]).setDepth(236);
     this.cardScore = this.add.container(0, 0, [this.plateScore, this.hudTaps, this.starsG]).setDepth(236);
     this.cardTrains = this.add.container(0, 0, [this.plateTrains, this.cabIcon, this.trainsText]).setDepth(236);
+    const heart = this.add.graphics();
+    heart.fillStyle(0xe8435f).fillCircle(-5, -3, 6).fillCircle(5, -3, 6).fillTriangle(-10.5, -0.5, 10.5, -0.5, 0, 11);
+    heart.setX(-30);
+    this.heartsText = this.hudText(-16, 0, 15, '#74435c').setOrigin(0, 0.5);
+    const pillBg = this.add.graphics().fillStyle(0x74435c, 0.08).fillRoundedRect(-52, -14, 104, 32, 16).fillStyle(0xfff9ee, 0.96).fillRoundedRect(-52, -16, 104, 32, 16);
+    this.heartsPill = this.add.container(WIDTH / 2, 30, [pillBg, heart, this.heartsText]).setDepth(240);
+    this.heartsPill.setSize(104, 32).setInteractive().on('pointerdown', () => { if (!this.heartsFree() && this.heartsNow() < tune.rules.heartsMax) this.showOutOfHearts(false); });
     this.banner = this.hudText(WIDTH / 2, HEIGHT / 2 - 22, 34, '#ffe27a').setDepth(230).setAlpha(0);
     this.coach = this.hudText(WIDTH / 2, 172, 16, '#74435c').setDepth(230).setPadding(12, 5, 12, 5).setBackgroundColor('rgba(255,249,238,0.94)').setAlign('center').setWordWrapWidth(Math.min(WIDTH, 560) - 50);
     this.yard = this.add.graphics().setDepth(0);
@@ -222,8 +246,17 @@ export class GameScene extends Phaser.Scene {
 
     this.loadSave();
     const resume = takeResume();
+    // A fold/rotate rebuild keeps the attempt going (restored below, after the level is rebuilt).
+    const keepAttempt = !!resume && resume.taps > 0 && this.save.attemptLevel === resume.level;
+    if (!resume && this.save.attemptLevel !== undefined) {
+      // The page was reloaded or closed mid-attempt: that attempt counts as lost.
+      if (!this.save.pass) this.takeHeart();
+      delete this.save.attemptLevel;
+      this.persist();
+    }
     this.startLevel(resume ? resume.level : this.save.level);
     if (resume) this.applyResume(resume);
+    if (keepAttempt) { this.attemptLive = true; this.save.attemptLevel = this.levelIndex; this.persist(); }
     const title = resume ? resume.title : new URLSearchParams(location.search).get('test') !== '1';
     if(title)this.showTitle();
 
@@ -255,6 +288,8 @@ export class GameScene extends Phaser.Scene {
         levels: () => LEVELS.length,
         layout: () => ({ w: WIDTH, h: HEIGHT }),
         noRooms: () => this.noRoomCount,
+        hearts: () => ({ hearts: this.save.pass ? Infinity : this.heartsNow(), free: this.heartsFree(), attempt: this.attemptLive, next: this.nextHeartIn() }),
+        setHearts: (n: number) => { this.save.hearts = n; this.save.heartsAt = Date.now(); this.persist(); this.heartsShown = ''; },
         art:()=>hasArt(this,'dd_family'),
         renderInfo:()=>({pixelRatio:PIXEL_RATIO,eyeFrames:this.textures.get('dd_eyes').getFrameNames().length,signalFrames:hasArt(this,'dd_signals')?this.textures.get('dd_signals').getFrameNames().length:0}),
         trains:()=>[...this.views.values()].map(v=>({id:v.def.id,...v.inspect()})),
@@ -321,6 +356,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private startLevel(index: number): void {
+    if (this.attemptLive && !this.freeRestart) this.endAttempt(true);
+    else this.endAttempt(false);
+    this.freeRestart = false;
     if (index !== this.levelIndex) this.trapLevel = -1;
     const previousLevel=this.level;
     this.levelIndex = Phaser.Math.Clamp(index, 0, LEVELS.length - 1);
@@ -563,7 +601,7 @@ export class GameScene extends Phaser.Scene {
       if (t < 0) return;
       const along = this.level.trains[t].axis === 'h' ? intent.dx : intent.dy;
       const across=this.level.trains[t].axis==='h'?intent.dy:intent.dx;
-      if(Math.abs(across)>Math.abs(along))return this.restartWithFade();
+      if(Math.abs(across)>Math.abs(along))return this.stuckCue(t,'Along the track');
       return this.runTrain(t, along > 0 ? 1 : -1);
     }
     if (intent.type === 'tapTrain') return this.tapTrain(intent.train);
@@ -602,7 +640,7 @@ export class GameScene extends Phaser.Scene {
     const dirs = ([-1, 1] as Dir[]).filter((d) => canRun(this.level, this.state, train, d));
     this.pending = null;
     this.arrows.clear();
-    if (dirs.length === 0) return this.restartWithFade();
+    if (dirs.length === 0) return this.stuckCue(train,'Stuck!');
     if (dirs.length === 1) return this.runTrain(train, dirs[0]);
     this.sfx.uiTap();
     this.pending = { train, dirs };
@@ -627,6 +665,8 @@ export class GameScene extends Phaser.Scene {
     this.pending = null;
     this.arrows.clear();
     this.clearHint();
+    if (this.taps === 0 && !this.heartsFree() && this.heartsNow() <= 0) return this.showOutOfHearts(true);
+    if (!this.heartsFree() && !this.attemptLive) { this.attemptLive = true; this.save.attemptLevel = this.levelIndex; this.persist(); }
     this.lastMove={train,dir};
     const before=this.state.slice();this.visualState=before.slice();
     const res = applyTap(this.level, this.state, { train, dir }, this.rules);
@@ -636,6 +676,132 @@ export class GameScene extends Phaser.Scene {
     this.refreshHud();
     this.longestChain=Math.max(this.longestChain,res.links);
     this.play(res.events, res.links,before);
+  }
+
+  // ---------------------------------------------------------------- hearts
+  // Owner, 21 November 2026: an attempt that does not end in a win costs one heart (fail, deliberate
+  // restart, leaving mid-level, reloading mid-attempt). Winning costs nothing. The tutorial, its guided
+  // rewind, fold/rotate rebuilds and Pass holders are free. Hearts refill one every heartRefillMinutes,
+  // computed from saved timestamps so they also refill while the game is closed.
+
+  private heartsFree(): boolean {
+    return !!this.save.pass || this.levelIndex < tune.rules.heartFreeLevels;
+  }
+
+  /** Current hearts after refilling from the saved timestamp. A clock moved backwards grants nothing. */
+  private heartsNow(): number {
+    const max = tune.rules.heartsMax, step = tune.rules.heartRefillMinutes * 60000, now = Date.now();
+    let h = this.save.hearts ?? max, at = this.save.heartsAt ?? now;
+    if (now < at) at = now;
+    if (h >= max) { h = max; at = now; }
+    else {
+      const gained = Math.floor((now - at) / step);
+      if (gained > 0) { h = Math.min(max, h + gained); at = h >= max ? now : at + gained * step; }
+    }
+    if (h !== this.save.hearts || at !== this.save.heartsAt) { this.save.hearts = h; this.save.heartsAt = at; this.persist(); }
+    return h;
+  }
+
+  private takeHeart(): void {
+    const h = this.heartsNow();
+    if (h >= tune.rules.heartsMax) this.save.heartsAt = Date.now();
+    this.save.hearts = Math.max(0, h - 1);
+    this.persist();
+    this.heartsShown = '';
+  }
+
+  private addHeart(): void {
+    this.save.hearts = Math.min(tune.rules.heartsMax, this.heartsNow() + 1);
+    this.persist();
+    this.heartsShown = '';
+  }
+
+  /** Ends the current attempt; `lost` charges a heart (unless free). */
+  private endAttempt(lost: boolean): void {
+    if (lost && this.attemptLive && !this.save.pass) this.takeHeart();
+    this.attemptLive = false;
+    if (this.save.attemptLevel !== undefined) { delete this.save.attemptLevel; this.persist(); }
+  }
+
+  private nextHeartIn(): number {
+    const h = this.heartsNow();
+    if (h >= tune.rules.heartsMax) return 0;
+    return Math.max(0, (this.save.heartsAt ?? Date.now()) + tune.rules.heartRefillMinutes * 60000 - Date.now());
+  }
+
+  private static clock(ms: number): string {
+    const s = Math.ceil(ms / 1000), m = Math.floor(s / 60);
+    return m + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  /** Updates the hearts pill when its text changes (called every frame; cheap). */
+  private refreshHearts(): void {
+    let text: string;
+    if (this.save.pass) text = '∞';
+    else {
+      const h = this.heartsNow(), wait = this.nextHeartIn();
+      text = wait > 0 ? `${h}  ${GameScene.clock(wait)}` : `${h}`;
+    }
+    if (text === this.heartsShown) return;
+    this.heartsShown = text;
+    this.heartsText.setText(text);
+  }
+
+  private adsToday(): number {
+    const day = new Date().toISOString().slice(0, 10);
+    if (this.save.ads?.day !== day) this.save.ads = { day, count: 0 };
+    return this.save.ads.count;
+  }
+
+  /** Out of hearts (or asked from the pill): wait, watch an ad for a heart, or get the Pass. */
+  private showOutOfHearts(blocked: boolean): void {
+    const layer = this.dialog(blocked ? 'Out of hearts' : 'Hearts');
+    const info = this.hudText(WIDTH / 2, colY(392), 15, '#795a68');
+    const tick = () => { const w = this.nextHeartIn(); info.setText(w > 0 ? 'Next heart in ' + GameScene.clock(w) : 'Hearts are full'); };
+    tick();
+    const timer = this.time.addEvent({ delay: 500, loop: true, callback: tick });
+    layer.once('destroy', () => timer.remove(false));
+    const canAd = this.adsToday() < tune.rules.heartAdsPerDay && this.heartsNow() < tune.rules.heartsMax;
+    const ad = new Button(this, WIDTH / 2 - 76, colY(440), 138, 42, canAd ? 'Watch ad +1' : 'No more ads', null, { fill: 0x387d68, edge: 0x92dac3 }, () => {
+      if (!canAd) return;
+      this.closeMenu();
+      this.mockRewardedAd(() => { this.save.ads!.count++; this.addHeart(); });
+    }, 15);
+    if (!canAd) ad.container.setAlpha(0.55);
+    const test = new URLSearchParams(location.search);
+    const purchasable = test.get('test') === '1' || test.get('debug') === '1';
+    const pass = new Button(this, WIDTH / 2 + 76, colY(440), 138, 42, purchasable ? 'Pass (test)' : 'Pass soon', null, { fill: 0x8b416d, edge: 0xba7b9f }, () => {
+      if (!purchasable) return;
+      this.save.pass = true; this.persist(); this.heartsShown = ''; this.closeMenu();
+    }, 15);
+    if (!purchasable) pass.container.setAlpha(0.55);
+    const close = new Button(this, WIDTH / 2, colY(490), 110, 34, 'Close', null, { fill: 0x508067, edge: 0x9fc49c }, () => this.closeMenu(), 14);
+    layer.add([info, ad.container, pass.container, close.container]);
+  }
+
+  /**
+   * Placeholder for a rewarded ad until the real ad SDKs (AdMob, Meta Audience Network) are wired in.
+   * Shows a short labelled screen and calls `reward` when it completes. Never forced.
+   */
+  private mockRewardedAd(reward: () => void): void {
+    this.dialogOpen = true;
+    const shade = this.add.rectangle(WIDTH / 2, HEIGHT / 2, WIDTH, HEIGHT, 0x2c2230, 0.92).setInteractive();
+    const label = this.hudText(WIDTH / 2, HEIGHT / 2, 20, '#fff9ee').setText('Ad placeholder (3)');
+    const layer = this.add.container(0, 0, [shade, label]).setDepth(600);
+    // Counted with a tween: a clock event created inside this button callback never fired here.
+    const count = this.tweens.addCounter({ from: 3, to: 0, duration: 3000, onUpdate: (tw) => {
+      label.setText(`Ad placeholder (${Math.ceil(tw.getValue() ?? 0)})`);
+    }, onComplete: () => { layer.destroy(); this.dialogOpen = false; reward(); } });
+    layer.once('destroy', () => count.stop());
+  }
+
+  /** A short cue instead of a restart, for a swipe across the track or a tap on a train that cannot move. */
+  private stuckCue(train: number, text: string): void {
+    const v = this.views.get(train);
+    if (!v) return;
+    this.bonk(v);
+    const t = this.level.trains[train];
+    this.popLabel(v.container.x, v.container.y - (t.axis === 'v' ? t.len : 1) * this.cs / 2 - 14, text);
   }
 
   /** "No room!" pop and shake over a train swiped toward a train right in its way. No move is used. */
@@ -872,7 +1038,7 @@ export class GameScene extends Phaser.Scene {
         this.clearHint();
         this.coach.setFontSize(20).setText('No gap! Again');
         this.fitCoach();
-        this.timers.push(this.time.delayedCall(1500, () => this.restartWithFade()));
+        this.timers.push(this.time.delayedCall(1500, () => { this.freeRestart = true; this.restartWithFade(); }));
         return; // input stays paused until the rewind
       }
     }
@@ -981,6 +1147,7 @@ export class GameScene extends Phaser.Scene {
 
   private win(): void {
     this.phase = 'won';
+    this.endAttempt(false);
     const stars = this.starsFor(this.taps);
     this.save.stars[this.levelIndex] = Math.max(this.save.stars[this.levelIndex] ?? 0, stars);
     const records=this.save.records??={};
@@ -998,6 +1165,7 @@ export class GameScene extends Phaser.Scene {
 
   private fail(): void {
     this.phase = 'failed';
+    this.endAttempt(true);
     this.sfx.miss();
     this.showOverlay('Out of moves', 0, 'Try again', () => this.bus.emit({ type: 'restart' }));
   }
@@ -1128,7 +1296,7 @@ export class GameScene extends Phaser.Scene {
       this.closeMenu();
       this.restartWithFade();
     },16);
-    layer.add([this.hudText(WIDTH/2,colY(400),15,'#795a68').setText('Your moves on this board will reset.'),cancel.container,restart.container]);
+    layer.add([this.hudText(WIDTH/2,colY(400),15,'#795a68').setText(this.attemptLive?'Your moves reset. Uses 1 heart.':'Your moves on this board will reset.'),cancel.container,restart.container]);
   }
 
   /** A grid of levels with the stars earned so far. */
@@ -1233,6 +1401,7 @@ export class GameScene extends Phaser.Scene {
 
   update(_time:number,delta:number): void {
     this.coach.setVisible(this.coach.text.length>0);
+    this.refreshHearts();
     runtime.fps=Math.round(this.game.loop.actualFps);
     const readyKey=this.visualState.join(',');
     if(readyKey!==this.readyStateKey){for(const [id,v]of this.views)v.setReady(canRun(this.level,this.visualState,id,v.def.headDir));this.readyStateKey=readyKey;}
