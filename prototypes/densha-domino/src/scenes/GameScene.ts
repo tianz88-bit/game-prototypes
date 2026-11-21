@@ -430,12 +430,13 @@ export class GameScene extends Phaser.Scene {
     if (this.hudSide) {
       this.oy = Math.round(BUTTONS_H + rim + (HEIGHT - BUTTONS_H - rim - 30 - h) / 2);
     } else {
-      // The row of cards sits right above the board; the whole block is centred below the corner buttons.
-      const block = CARD_H + gap + coachH + rim + h;
-      const top = Math.max(BUTTONS_H, Math.round((BUTTONS_H + HEIGHT) / 2 - block / 2));
-      this.oy = top + CARD_H + gap + coachH + rim;
-      this.hudRowY = top + CARD_H / 2;
-      this.coachAt = { x: WIDTH / 2, y: top + CARD_H + gap + coachH / 2, w: WIDTH - 50, top: false };
+      // Portrait (owner, 21 November 2026): the board is centred on the screen and the card row sits in the
+      // middle of the empty space above it, not hugging the board. A tutorial label goes between the two.
+      const need = BUTTONS_H + CARD_H + 2 * gap + coachH + rim;
+      this.oy = Math.max(need, Math.min(Math.round((HEIGHT - h) / 2), HEIGHT - 30 - h));
+      const spaceBottom = this.oy - rim - coachH;
+      this.hudRowY = Math.round((BUTTONS_H + spaceBottom) / 2);
+      this.coachAt = { x: WIDTH / 2, y: Math.round((this.hudRowY + CARD_H / 2 + this.oy - rim) / 2), w: WIDTH - 50, top: false };
     }
   }
 
