@@ -56,11 +56,9 @@ const TRAPS: Record<number, { letter: string; dir: Dir }> = {
   4: { letter: 'D', dir: 1 },
 };
 
-// Board area. Top is fixed under the HUD; the bottom and width follow the live screen size,
-// so the board grows on foldables, tablets and tall phones.
-const BOARD_TOP = 120;
-const boardBottom = (): number => HEIGHT - 154;
-const boardW = (): number => WIDTH - 40;
+/** HUD card height and the space kept for the Menu and Restart corner buttons. */
+const CARD_H = 56;
+const BUTTONS_H = 52;
 
 type Phase = 'play' | 'animating' | 'won' | 'failed' | 'menu';
 
@@ -74,10 +72,25 @@ export class GameScene extends Phaser.Scene {
   private trainLayer:Phaser.GameObjects.Container|null=null;
   private frontRowLayer:Phaser.GameObjects.Container|null=null;
   private readyStateKey='';
-  /** Light card behind the HUD text so it never sits directly on game art. */
-  private hudPlate!: Phaser.GameObjects.Graphics;
+  /**
+   * HUD in three groups (owner, 21 November 2026): level and name; moves, target and stars; trains left
+   * with a cab icon. layoutBoard() puts them in a row above the board (portrait) or in side columns
+   * (wide screens), whichever leaves the bigger board.
+   */
+  private cardLevel!: Phaser.GameObjects.Container;
+  private cardScore!: Phaser.GameObjects.Container;
+  private cardTrains!: Phaser.GameObjects.Container;
+  private plateLevel!: Phaser.GameObjects.Graphics;
+  private plateScore!: Phaser.GameObjects.Graphics;
+  private plateTrains!: Phaser.GameObjects.Graphics;
+  private hudName!: Phaser.GameObjects.Text;
+  private trainsText!: Phaser.GameObjects.Text;
+  private cabIcon!: Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
+  private hudSide = false;
+  private hudRowY = 0;
+  private coachAt = { x: 0, y: 0, w: 300, top: false };
+  private lastTrainsLeft = -1;
   /** Y of the HUD star row; the HUD sits just above the board. */
-  private hudStarsY=113;
   private exitAudit:object[]|null=null;
   private alternatePars=new Map<Level,number>();
   private levelIndex = 0;
@@ -173,10 +186,23 @@ export class GameScene extends Phaser.Scene {
       .setDepth(220);
 
     this.add.text(5, 4, VERSION_STAMP, { fontFamily: 'monospace', fontSize: '8px', color: '#1f4f8f', resolution: PIXEL_RATIO }).setAlpha(0.35).setDepth(250);
-    this.hudLevel = this.hudText(WIDTH / 2, 62, 23, '#74435c');
-    this.hudTaps = this.hudText(WIDTH / 2, 87, 15, '#795a68');
-    this.hudPlate = this.add.graphics().setDepth(236);
-    this.starsG = this.add.graphics().setDepth(240);
+    this.hudLevel = this.hudText(0, -9, 18, '#74435c');
+    this.hudName = this.hudText(0, 13, 12, '#795a68');
+    this.hudTaps = this.hudText(0, -9, 15, '#74435c');
+    this.starsG = this.add.graphics();
+    this.trainsText = this.hudText(0, 1, 19, '#74435c');
+    this.plateLevel = this.add.graphics();
+    this.plateScore = this.add.graphics();
+    this.plateTrains = this.add.graphics();
+    if (hasArt(this, 'dd_liveries_0')) this.cabIcon = this.add.image(0, 2, 'dd_liveries_0', '0-7').setDisplaySize(42, 23);
+    else {
+      const g = this.add.graphics();
+      g.fillStyle(0x5b3e5e).fillRoundedRect(-20, -9, 40, 21, 8).fillStyle(0xff7a59).fillRoundedRect(-20, -11, 40, 19, 9).fillStyle(0x543451).fillRoundedRect(6, -7, 10, 10, 4);
+      this.cabIcon = g;
+    }
+    this.cardLevel = this.add.container(0, 0, [this.plateLevel, this.hudLevel, this.hudName]).setDepth(236);
+    this.cardScore = this.add.container(0, 0, [this.plateScore, this.hudTaps, this.starsG]).setDepth(236);
+    this.cardTrains = this.add.container(0, 0, [this.plateTrains, this.cabIcon, this.trainsText]).setDepth(236);
     this.banner = this.hudText(WIDTH / 2, HEIGHT / 2 - 22, 34, '#ffe27a').setDepth(230).setAlpha(0);
     this.coach = this.hudText(WIDTH / 2, 172, 16, '#74435c').setDepth(230).setPadding(12, 5, 12, 5).setBackgroundColor('rgba(255,249,238,0.94)').setAlign('center').setWordWrapWidth(Math.min(WIDTH, 560) - 50);
     this.yard = this.add.graphics().setDepth(0);
@@ -335,22 +361,7 @@ export class GameScene extends Phaser.Scene {
     this.save.level = this.levelIndex;
     this.persist();
 
-    // Phones keep the original board area. Wider screens (unfolded foldables, tablets, desktop) make
-    // the board height-limited, so leave clear room under the stars, plus a caption gap on tutorial levels.
-    const wide = WIDTH > BASE_W;
-    const top = wide ? (COACH[this.levelIndex] ? 190 : 150) : BOARD_TOP;
-    const bottom = wide ? HEIGHT - 124 : boardBottom();
-    this.cs = Math.floor(Math.min(boardW() / this.level.cols, (bottom - top) / this.level.rows));
-    this.ox = Math.round((WIDTH - this.cs * this.level.cols) / 2);
-    // Centre the HUD-plus-board block in the space below the corner buttons, so the screen frames the
-    // board instead of long stretches of tunnel. The HUD (title, moves, stars, any tutorial caption)
-    // sits just above the board.
-    const coachRoom = COACH[this.levelIndex] ? 46 : 0, boardH = this.cs * this.level.rows, above = 105 + coachRoom, below = 23;
-    const centred = Math.round((50 + HEIGHT) / 2 - (boardH + below - above) / 2);
-    this.oy = Math.max(153 + coachRoom, Math.min(centred, HEIGHT - 10 - boardH - below));
-    this.hudStarsY = Math.max(113, this.oy - 40 - coachRoom);
-    this.hudLevel.setY(this.hudStarsY - 51);
-    this.hudTaps.setY(this.hudStarsY - 26);
+    this.layoutBoard();
     if(!reuseYard){
     this.yard.clear();
     this.yardArt=drawYard(this.yard, this.level, { cs: this.cs, ox: this.ox, oy: this.oy });
@@ -403,18 +414,80 @@ export class GameScene extends Phaser.Scene {
     return { level: this.levelIndex, state: this.state.slice(), taps: this.taps, longestChain: this.longestChain, title: this.titleOpen };
   }
 
+  /**
+   * Board size and position plus the HUD mode. Tries the cards in a row above the board and in columns
+   * beside it, and keeps whichever gives the bigger board (portrait phones: row; wide screens: columns).
+   */
+  private layoutBoard(): void {
+    const cols = this.level.cols, rows = this.level.rows, coachH = COACH[this.levelIndex] ? 40 : 0, rim = 23, gap = 10;
+    const csTop = Math.floor(Math.min((WIDTH - 40) / cols, (HEIGHT - BUTTONS_H - CARD_H - gap - coachH - rim - 36) / rows));
+    const sideW = 150;
+    const csSide = WIDTH >= 2 * sideW + 300 ? Math.floor(Math.min((WIDTH - 2 * sideW - 40) / cols, (HEIGHT - BUTTONS_H - rim - 30) / rows)) : 0;
+    this.hudSide = csSide > csTop * 1.05;
+    this.cs = this.hudSide ? csSide : csTop;
+    const w = this.cs * cols, h = this.cs * rows;
+    this.ox = Math.round((WIDTH - w) / 2);
+    if (this.hudSide) {
+      this.oy = Math.round(BUTTONS_H + rim + (HEIGHT - BUTTONS_H - rim - 30 - h) / 2);
+    } else {
+      // The row of cards sits right above the board; the whole block is centred below the corner buttons.
+      const block = CARD_H + gap + coachH + rim + h;
+      const top = Math.max(BUTTONS_H, Math.round((BUTTONS_H + HEIGHT) / 2 - block / 2));
+      this.oy = top + CARD_H + gap + coachH + rim;
+      this.hudRowY = top + CARD_H / 2;
+      this.coachAt = { x: WIDTH / 2, y: top + CARD_H + gap + coachH / 2, w: WIDTH - 50, top: false };
+    }
+  }
+
   private refreshHud(): void {
-    this.hudLevel.setText(`LEVEL ${this.levelIndex + 1}   ·   Trains left ${trainsLeft(this.state)}`);
-    this.hudTaps.setText(`${this.level.name}   |   Moves ${this.taps}   ·   Target ${this.par}`);
-    if(this.limit-this.taps<=2)this.hudTaps.setText('Moves '+this.taps+'   ·   Target '+this.par+'   ·   '+Math.max(0,this.limit-this.taps)+' left');
-    const plateW = Math.min(WIDTH - 24, Math.max(this.hudLevel.width, this.hudTaps.width) + 40);
-    const plateTop = this.hudLevel.y - 20, plateBottom = this.hudStarsY + 17;
-    this.hudPlate.clear().fillStyle(0x74435c, 0.06).fillRoundedRect(WIDTH / 2 - plateW / 2, plateTop + 3, plateW, plateBottom - plateTop, 18)
-      .fillStyle(0xfff9ee, 0.95).fillRoundedRect(WIDTH / 2 - plateW / 2, plateTop, plateW, plateBottom - plateTop, 18);
+    const left = trainsLeft(this.state);
+    this.hudLevel.setText(`LEVEL ${this.levelIndex + 1}`);
+    this.hudName.setText(this.level.name);
+    const near = this.limit - this.taps <= 2;
+    this.hudTaps.setText(`Moves ${this.taps} / ${this.par}` + (near ? `  ·  ${Math.max(0, this.limit - this.taps)} left` : '')).setColor(near ? '#c0405e' : '#74435c');
+    this.trainsText.setText(`× ${left}`);
     const g = this.starsG;
     g.clear();
     const stars = this.starsFor(this.taps);
-    for (let i = 0; i < 3; i++) this.drawStar(g, WIDTH / 2 + (i - 1) * 34, this.hudStarsY, 11, i < stars ? 0xffd04a : 0x6f8db5);
+    for (let i = 0; i < 3; i++) this.drawStar(g, (i - 1) * 24, 13, 9, i < stars ? 0xffd04a : 0x6f8db5);
+    if (this.lastTrainsLeft >= 0 && left < this.lastTrainsLeft) {
+      for (const o of [this.cabIcon, this.trainsText]) { this.tweens.killTweensOf(o); this.tweens.add({ targets: o, y: o.y - 5, duration: 110, yoyo: true, ease: 'Quad.Out' }); }
+    }
+    this.lastTrainsLeft = left;
+    this.placeCards();
+  }
+
+  /** Sizes the card plates to their text and places the cards for the current HUD mode. */
+  private placeCards(): void {
+    const plate = (g: Phaser.GameObjects.Graphics, w: number) => g.clear()
+      .fillStyle(0x74435c, 0.08).fillRoundedRect(-w / 2, -CARD_H / 2 + 3, w, CARD_H, 16)
+      .fillStyle(0xfff9ee, 0.96).fillRoundedRect(-w / 2, -CARD_H / 2, w, CARD_H, 16);
+    const levelW = Math.max(this.hudLevel.width, this.hudName.width) + 28;
+    const scoreW = Math.max(this.hudTaps.width, 72) + 28;
+    const trainsW = 42 + 10 + this.trainsText.width + 28;
+    this.cabIcon.setX(-trainsW / 2 + 14 + 21);
+    this.trainsText.setX(-trainsW / 2 + 14 + 42 + 10 + this.trainsText.width / 2);
+    plate(this.plateLevel, levelW); plate(this.plateScore, scoreW); plate(this.plateTrains, trainsW);
+    if (!this.hudSide) {
+      const gap = 8, total = levelW + scoreW + trainsW + 2 * gap, scale = Math.min(1, (WIDTH - 24) / total);
+      let x = WIDTH / 2 - (total * scale) / 2;
+      for (const [card, w] of [[this.cardLevel, levelW], [this.cardScore, scoreW], [this.cardTrains, trainsW]] as const) {
+        card.setScale(scale).setPosition(x + (w * scale) / 2, this.hudRowY);
+        x += (w + gap) * scale;
+      }
+      return;
+    }
+    // Side columns, aligned with the top of the board and kept clear of the tunnel mouths.
+    const colR = Math.max(scoreW, trainsW);
+    // Beyond the faded tunnel stubs when there is room, else against the screen edge.
+    const clear = this.cs * 1.75;
+    const leftX = Math.max(levelW / 2 + 10, this.ox - clear - levelW / 2);
+    const rightX = Math.min(WIDTH - colR / 2 - 10, this.ox + this.cs * this.level.cols + clear + colR / 2);
+    const y0 = this.oy + CARD_H / 2;
+    this.cardLevel.setScale(1).setPosition(leftX, y0);
+    this.cardScore.setScale(1).setPosition(rightX, y0);
+    this.cardTrains.setScale(1).setPosition(rightX, y0 + CARD_H + 12);
+    this.coachAt = { x: leftX, y: y0 + CARD_H / 2 + 14, w: Math.max(150, levelW), top: true };
   }
 
   private starsFor(taps: number): number {
@@ -850,9 +923,9 @@ export class GameScene extends Phaser.Scene {
 
   /** Centre the label in the gap between the stars and the board, shrinking it if it does not fit. */
   private fitCoach():void {
-    const top=this.hudStarsY+5,gap=this.oy-8-top;
-    if(this.coach.height>gap)this.coach.setFontSize(15);
-    this.coach.setY(top+gap/2);
+    this.coach.setWordWrapWidth(this.coachAt.w);
+    if(this.coach.width>this.coachAt.w+24)this.coach.setFontSize(15);
+    this.coach.setPosition(this.coachAt.x,this.coachAt.top?this.coachAt.y+this.coach.height/2:this.coachAt.y);
   }
 
   /** Level index whose guided wrong move has been shown (or skipped) on this visit. */
