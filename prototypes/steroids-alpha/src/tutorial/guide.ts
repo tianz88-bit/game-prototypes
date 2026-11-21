@@ -24,7 +24,7 @@ export interface GuideView {
 const ahead=(s:ShipState,d:number,turn=0):Point=>({x:wrap(s.x+Math.cos(s.heading+turn)*d,W),y:wrap(s.y+Math.sin(s.heading+turn)*d,H)});
 const dist=(a:Point,b:Point)=>Math.hypot(wrapDelta(a.x,b.x,W),wrapDelta(a.y,b.y,H));
 function controls() {
- if (intents.touch) return { steer: 'Drag on the left to steer', brake: 'Hold the stick near its centre', thrust: 'Push the stick to its edge', fire: 'Hold FIRE', dash: 'Tap DASH', buy: 'Tap a level card', warp: 'Tap WARP' };
+ if (intents.touch) return { steer: 'Drag on the left to steer', brake: 'Push the stick only halfway', thrust: 'Hold MAX', fire: 'Hold FIRE', dash: 'Tap DASH', buy: 'Tap a level card', warp: 'Tap WARP' };
  const marker = intents.scheme === 'marker';
  return { steer: marker ? 'Point the mouse to steer' : 'Use A/D to steer', brake: 'Hold S', thrust: 'Hold W', fire: 'Hold SPACE or left click', dash: 'Press SHIFT', buy: 'Click a level card, or press 1–3', warp: 'Press R' };
 }

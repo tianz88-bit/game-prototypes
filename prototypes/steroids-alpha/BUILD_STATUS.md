@@ -12,7 +12,7 @@ Local preview of graphite main menu, Hangar, and Warp map for owner review. Live
 - Deaths drop the whole wallet; hull hits spill 0.5 minerals per hull point; no separate kill payout. Bots carry and drop minerals and prefer loaded targets.
 - Hot zone x2 minerals. Warp lockdown 90 s. Hangar prices unchanged (evolution 500, ship 1500).
 - HUD: MIN carried/hold, level and XP to next, "BANKS ON WARP" or "HOME: MINERALS DON'T BANK", "HOLD FULL · WARP TO BANK". Results show minerals banked.
-- Mobile speed back on the stick (owner, 20 November 2026): near the centre brakes (also lands on your pad), the middle band holds cruise, the outer band accelerates. The + / − buttons are gone.
+- Mobile speed (owner, 21 November 2026): the stick steers. A half push (inside the faint ring, under 55% of the radius) brakes to minimum speed and lands on your pad. A fuller push, or no finger, holds cruise. Hold MAX (right above Dash) for top speed. A new touch gets 150 ms to move out before braking counts.
 - Tutorial: "Mine & level up" lesson teaches picking a card.
 - Evolution equip slot removed (owner, 20 November 2026). The menu has a full-width Learn to fly button. Hangar EVOLVE shows owned evolutions as "OWNED · OFFERED IN RUNS"; tapping an owned one only explains it. The Ships tab card shows how many are owned. The menu tagline now reads "Mine. Level up. Fight. Warp out with minerals."
 - The preview uses shared graphite frames, monochrome equipment glyphs and tier pips. Gold identifies evolution offers and their confirmation flash. The same three standard cards are shown in a staged fight at 1280×720 and 848×344.
