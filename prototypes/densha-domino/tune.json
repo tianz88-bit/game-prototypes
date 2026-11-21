@@ -11,7 +11,7 @@
     "starSlack": 1,
     "heartsMax": 5,
     "heartRefillMinutes": 25,
-    "heartFreeLevels": 5,
+    "heartFreeLevels": 10,
     "heartAdsPerDay": 5,
     "unlockAll": 0,
     "gateEvery": 10,
