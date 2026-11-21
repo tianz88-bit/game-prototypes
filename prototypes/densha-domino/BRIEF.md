@@ -1,3 +1,9 @@
+# Show, don't tell, and a framed play area (21 November 2026, owner decisions)
+
+Nobody reads tutorial sentences, so labels are two or three words ("Swipe it out", "Bump to honk", "Follow the face", "Try this", "Open a gap", "Now honk!", "Other chain first", "Second chain!"). Levels 4 and 5 start with a guided wrong move: the glove offers the move that fails, the failure is marked on the board, then the board rewinds for free and the glove shows the right move (once per visit). In every level, a honk that cannot move a train because its face is blocked shows a cross on the cell in front of its face and a "No gap!" pop; swiping straight into a train shows "No room!" and uses no move.
+
+The play area is emphasised: a layer matching the background covers everything outside the board with a soft-edged hole, so tunnel stubs and outside decor fade out while tunnel mouths stay visible. The HUD (title, moves, stars), tutorial labels and pops sit on a light card so text never sits directly on game art.
+
 # Tighter levels and a clearer tutorial (20 November 2026, owner decisions)
 
 Tutorial, one concept per level: 1 swipe, 2 honk, 3 head facing (a honked train always drives the way its face points), 4 Mind the Gap (a honked train needs a gap in front of its face; open one first), 5 Double Departure (two chains, the first opens a gap for the second). Captions follow the board: after a wrong move on levels 4 and 5 they explain what went wrong and suggest Restart, with the highlight hidden. Level 6 is Kyoto Crossing, rebuilt: 9 trains, par 4, two setup moves, a 3-train chain, then the original six-train finale.

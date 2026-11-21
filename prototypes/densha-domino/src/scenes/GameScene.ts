@@ -40,12 +40,20 @@ interface Save {
 }
 
 /** Tutorial captions by level (index 0 to 2), then by tap number. Later levels have none. */
+// Owner, 21 November 2026: nobody reads sentences, so the tutorial uses two- or three-word labels and
+// teaches with the glove, board cues and a guided wrong move (TRAPS) instead.
 const COACH: Record<number, string[]> = {
-  0: ['Send every train out through a tunnel. Swipe this one right.'],
-  1: ['Swipe the back train right. It honks, the train ahead leaves, and yours follows.'],
-  2: ['Swipe right. A honked train always drives the way its face points, even when it is bumped from the side.'],
-  3: ['A honked train needs a gap in front of its face. Open one first.', 'Gap open! Now honk it out.'],
-  4: ['Two chains this time: the first one opens a gap for the second.', 'Now start the second chain.'],
+  0: ['Swipe it out'],
+  1: ['Bump to honk'],
+  2: ['Follow the face'],
+  3: ['Open a gap'],
+  4: ['Other chain first'],
+};
+
+/** Guided wrong move: on these levels the glove first points at a move that fails; the board then rewinds for free. */
+const TRAPS: Record<number, { letter: string; dir: Dir }> = {
+  3: { letter: 'A', dir: -1 },
+  4: { letter: 'D', dir: 1 },
 };
 
 // Board area. Top is fixed under the HUD; the bottom and width follow the live screen size,
@@ -66,6 +74,8 @@ export class GameScene extends Phaser.Scene {
   private trainLayer:Phaser.GameObjects.Container|null=null;
   private frontRowLayer:Phaser.GameObjects.Container|null=null;
   private readyStateKey='';
+  /** Light card behind the HUD text so it never sits directly on game art. */
+  private hudPlate!: Phaser.GameObjects.Graphics;
   /** Y of the HUD star row; the HUD sits just above the board. */
   private hudStarsY=113;
   private exitAudit:object[]|null=null;
@@ -165,9 +175,10 @@ export class GameScene extends Phaser.Scene {
     this.add.text(5, 4, VERSION_STAMP, { fontFamily: 'monospace', fontSize: '8px', color: '#1f4f8f', resolution: PIXEL_RATIO }).setAlpha(0.35).setDepth(250);
     this.hudLevel = this.hudText(WIDTH / 2, 62, 23, '#74435c');
     this.hudTaps = this.hudText(WIDTH / 2, 87, 15, '#795a68');
+    this.hudPlate = this.add.graphics().setDepth(236);
     this.starsG = this.add.graphics().setDepth(240);
     this.banner = this.hudText(WIDTH / 2, HEIGHT / 2 - 22, 34, '#ffe27a').setDepth(230).setAlpha(0);
-    this.coach = this.hudText(WIDTH / 2, 172, 16, '#74435c').setDepth(230).setAlign('center').setWordWrapWidth(Math.min(WIDTH, 560) - 50);
+    this.coach = this.hudText(WIDTH / 2, 172, 16, '#74435c').setDepth(230).setPadding(12, 5, 12, 5).setBackgroundColor('rgba(255,249,238,0.94)').setAlign('center').setWordWrapWidth(Math.min(WIDTH, 560) - 50);
     this.yard = this.add.graphics().setDepth(0);
     this.arrows = this.add.graphics().setDepth(60);
     this.cursorG = this.add.graphics().setDepth(70);
@@ -284,6 +295,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private startLevel(index: number): void {
+    if (index !== this.levelIndex) this.trapLevel = -1;
     const previousLevel=this.level;
     this.levelIndex = Phaser.Math.Clamp(index, 0, LEVELS.length - 1);
     this.level = LEVELS[this.levelIndex];
@@ -342,6 +354,7 @@ export class GameScene extends Phaser.Scene {
     if(!reuseYard){
     this.yard.clear();
     this.yardArt=drawYard(this.yard, this.level, { cs: this.cs, ox: this.ox, oy: this.oy });
+    this.yardArt.push(this.drawVeil());
     this.trainLayer=this.add.container(0,0).setDepth(10);
     const mask=this.make.graphics({x:0,y:0},false);mask.fillStyle(0xffffff).fillRect(this.ox-this.cs*.12,this.oy-this.cs*.12,this.cs*(this.level.cols+.24),this.cs*(this.level.rows+.24));
     const geometry=mask.createGeometryMask();this.trainLayer.setMask(geometry);this.trainMasks.push(geometry);this.yardArt.push(mask);
@@ -394,6 +407,10 @@ export class GameScene extends Phaser.Scene {
     this.hudLevel.setText(`LEVEL ${this.levelIndex + 1}   ·   Trains left ${trainsLeft(this.state)}`);
     this.hudTaps.setText(`${this.level.name}   |   Moves ${this.taps}   ·   Target ${this.par}`);
     if(this.limit-this.taps<=2)this.hudTaps.setText('Moves '+this.taps+'   ·   Target '+this.par+'   ·   '+Math.max(0,this.limit-this.taps)+' left');
+    const plateW = Math.min(WIDTH - 24, Math.max(this.hudLevel.width, this.hudTaps.width) + 40);
+    const plateTop = this.hudLevel.y - 20, plateBottom = this.hudStarsY + 17;
+    this.hudPlate.clear().fillStyle(0x74435c, 0.06).fillRoundedRect(WIDTH / 2 - plateW / 2, plateTop + 3, plateW, plateBottom - plateTop, 18)
+      .fillStyle(0xfff9ee, 0.95).fillRoundedRect(WIDTH / 2 - plateW / 2, plateTop, plateW, plateBottom - plateTop, 18);
     const g = this.starsG;
     g.clear();
     const stars = this.starsFor(this.taps);
@@ -522,7 +539,7 @@ export class GameScene extends Phaser.Scene {
     const t=this.level.trains[train],v=this.views.get(train)!;v.setAwake(true);
     this.arrows.clear();const x=v.container.x-(t.axis==='h'?t.len:1)*this.cs/2-3,y=v.container.y-(t.axis==='v'?t.len:1)*this.cs/2-3,w=(t.axis==='h'?t.len:1)*this.cs+6,h=(t.axis==='v'?t.len:1)*this.cs+6;
     this.arrows.lineStyle(5,0xfffcf3,1);this.arrows.strokeRoundedRect(x,y,w,h,11);this.arrows.lineStyle(2,0x853e68,1);this.arrows.strokeRoundedRect(x,y,w,h,11);
-    this.coach.setText(t.axis==='h'?'Swipe left or right to serve.':'Swipe up or down to serve.');
+    this.coach.setText('Pick a way');
   }
 
   // ------------------------------------------------------------------- run
@@ -536,6 +553,7 @@ export class GameScene extends Phaser.Scene {
     this.pending = null;
     this.arrows.clear();
     this.clearHint();
+    this.lastMove={train,dir};
     const before=this.state.slice();this.visualState=before.slice();
     const res = applyTap(this.level, this.state, { train, dir }, this.rules);
     this.taps++;
@@ -558,10 +576,30 @@ export class GameScene extends Phaser.Scene {
     this.bonk(v);
     this.sfx.miss();
     const t = this.level.trains[train];
-    const top = v.container.y - (t.axis === 'v' ? t.len : 1) * this.cs / 2 - 12;
-    const pop = this.hudText(v.container.x, top, 16, '#74435c').setText('No room!').setDepth(246).setScale(0.6);
+    this.popLabel(v.container.x, v.container.y - (t.axis === 'v' ? t.len : 1) * this.cs / 2 - 14, 'No room!');
+  }
+
+  /** A short readable pop (light backing so it never sits directly on game art). */
+  private popLabel(x: number, y: number, text: string, holdMs = 750): void {
+    const pop = this.hudText(x, y, 18, '#74435c').setText(text).setDepth(246).setScale(0.6)
+      .setPadding(9, 4, 9, 4).setBackgroundColor('rgba(255,249,238,0.94)');
     this.tweens.add({ targets: pop, scale: 1, duration: 160, ease: 'Back.Out' });
-    this.tweens.add({ targets: pop, y: top - 14, alpha: 0, delay: 650, duration: 260, onComplete: () => pop.destroy() });
+    this.tweens.add({ targets: pop, y: y - 14, alpha: 0, delay: holdMs, duration: 260, onComplete: () => pop.destroy() });
+  }
+
+  /** "No gap!" on a honked train whose face is blocked: a cross on the cell in front of its face, and a pop. */
+  private noGap(v: TrainView): void {
+    const t = v.def, half = t.len * this.cs / 2;
+    const fx = v.container.x + (t.axis === 'h' ? t.headDir * (half + this.cs / 2) : 0);
+    const fy = v.container.y + (t.axis === 'v' ? t.headDir * (half + this.cs / 2) : 0);
+    const cross = this.add.graphics({ x: fx, y: fy }).setDepth(245);
+    const k = this.cs * 0.2;
+    cross.lineStyle(7, 0xfff9ee, 1).lineBetween(-k, -k, k, k).lineBetween(-k, k, k, -k);
+    cross.lineStyle(4, 0xc0405e, 1).lineBetween(-k, -k, k, k).lineBetween(-k, k, k, -k);
+    cross.setScale(0.5);
+    this.tweens.add({ targets: cross, scale: 1, duration: 150, ease: 'Back.Out' });
+    this.tweens.add({ targets: cross, alpha: 0, delay: 1500, duration: 300, onComplete: () => cross.destroy() });
+    this.popLabel(v.container.x, v.container.y - (t.axis === 'v' ? t.len : 1) * this.cs / 2 - 14, 'No gap!', 1400);
   }
 
   // ------------------------------------------------------------- animation
@@ -593,9 +631,11 @@ export class GameScene extends Phaser.Scene {
     let combo = 0;
     const movingTrains=new Set<number>();
 
+    const movedThisTap = new Set<number>();
     events.forEach((e, idx) => {
       const nextE = events[idx + 1];
       if (e.type === 'run') {
+        movedThisTap.add(e.train);
         const v = this.views.get(e.train)!;
         const t = this.level.trains[e.train];
         const startPos = pos.get(e.train)!;
@@ -673,10 +713,12 @@ export class GameScene extends Phaser.Scene {
         const beat = (e.spooked ? f.spookMs : f.hornMs * 0.6) * this.pace(link);
         visualEnd=Math.max(visualEnd,cursor+f.hornMs*2+(Math.max(runner.def.len,target.def.len)-1)*f.carriageDelayMs);
         const step = combo++;
+        // A honk that could not move a train still on the board: its face had no gap.
+        const refused = !e.spooked && !movedThisTap.has(e.target);
         at(cursor, () => {
           this.horn(runner, rt.axis, e.dir, step, e.sameLine);
           if (e.spooked) this.spook(target, beat,e.targetDir);
-          else this.bonk(target);
+          else { this.bonk(target); if (refused) this.noGap(target); }
         });
         cursor += beat;
         lastRunDur = 0;
@@ -747,6 +789,19 @@ export class GameScene extends Phaser.Scene {
     }
     if (isCleared(this.state)) return this.win();
     if (this.taps >= this.limit) return this.fail();
+    // Guided wrong move: after the failing move, rewind for free and show the right one.
+    const trap = TRAPS[this.levelIndex];
+    if (trap && this.trapLevel !== this.levelIndex) {
+      this.trapLevel = this.levelIndex;
+      const tt = this.level.trains.find((x) => x.letter === trap.letter);
+      if (tt && this.lastMove?.train === tt.id && this.lastMove.dir === trap.dir) {
+        this.clearHint();
+        this.coach.setFontSize(20).setText('No gap! Again');
+        this.fitCoach();
+        this.timers.push(this.time.delayedCall(1500, () => this.restartWithFade()));
+        return; // input stays paused until the rewind
+      }
+    }
     this.phase = 'play';
     this.updateCoach();
   }
@@ -762,34 +817,75 @@ export class GameScene extends Phaser.Scene {
    * Guided tutorial for levels 1 to 4: a caption plus a pulsing ring and arrow on the train
    * an optimal solution taps next. It is only a hint: it never blocks or swallows input.
    */
+  /**
+   * Emphasis on the play area (owner, 21 November 2026): a layer matching the background gradient covers
+   * everything outside the board, with a soft-edged hole. Tunnel mouths at the edge stay visible; tunnel
+   * stubs and decor further out fade into the background. Sits under the HUD, labels and pops.
+   */
+  private drawVeil(): Phaser.GameObjects.Image {
+    const key = 'dd_play_veil', k = PIXEL_RATIO;
+    if (this.textures.exists(key)) this.textures.remove(key);
+    const tex = this.textures.createCanvas(key, Math.ceil(WIDTH * k), Math.ceil(HEIGHT * k))!;
+    const ctx = tex.context;
+    const grad = ctx.createLinearGradient(0, 0, 0, HEIGHT * k);
+    grad.addColorStop(0, '#fff3e1');
+    grad.addColorStop(1, '#f6dfc5');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, WIDTH * k, HEIGHT * k);
+    const w = this.cs * this.level.cols, h = this.cs * this.level.rows;
+    const clear = this.cs * 0.42, fade = this.cs * 1.35, steps = 14;
+    const hole = (grow: number, alpha: number) => {
+      ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+      ctx.beginPath();
+      ctx.roundRect((this.ox - grow) * k, (this.oy - grow - this.cs * 0.25) * k, (w + 2 * grow) * k, (h + 2 * grow + this.cs * 0.25) * k, (16 + grow * 0.6) * k);
+      ctx.fill();
+    };
+    ctx.globalCompositeOperation = 'destination-out';
+    for (let i = 0; i < steps; i++) hole(fade - (fade - clear) * (i / steps), 0.22);
+    hole(clear, 1);
+    ctx.globalCompositeOperation = 'source-over';
+    tex.refresh();
+    return this.add.image(0, 0, key).setOrigin(0).setDisplaySize(WIDTH, HEIGHT).setDepth(200);
+  }
+
+  /** Centre the label in the gap between the stars and the board, shrinking it if it does not fit. */
+  private fitCoach():void {
+    const top=this.hudStarsY+5,gap=this.oy-8-top;
+    if(this.coach.height>gap)this.coach.setFontSize(15);
+    this.coach.setY(top+gap/2);
+  }
+
+  /** Level index whose guided wrong move has been shown (or skipped) on this visit. */
+  private trapLevel=-1;
+  private lastMove:{train:number;dir:Dir}|null=null;
+
   private updateCoach():void {
     this.clearHint();const lines=COACH[this.levelIndex];
     if(!lines||this.phase!=='play'){this.coach.setText('');return;}
-    this.coach.setFontSize(14).setLineSpacing(4).setText(lines[Math.min(this.taps,lines.length-1)]);
-    const top=this.hudStarsY+5,gap=this.oy-8-top;if(this.coach.height>gap)this.coach.setFontSize(12);this.coach.setY(top+gap/2);
-    const m=solve(this.level,this.state,400000,this.rules).moves[0],v=m?this.views.get(m.train):undefined;if(!m||!v)return;
-    v.setAwake(true,m.dir);
-    const t=this.level.trains[m.train];
-    const direction=t.axis==='h'?(m.dir<0?'left':'right'):(m.dir<0?'up':'down');
-    // Mind the Gap (level 4) and Double Departure (level 5): name the swipe for the highlighted train.
-    // Captions follow the board, not the move count, so a wrong move never gets a misleading caption.
-    // Off the intended path (a honk that had no gap), say what went wrong and offer Restart instead of
-    // steering with the solver's arbitrary repair; the highlight is hidden so it cannot contradict the caption.
+    this.coach.setFontSize(20).setLineSpacing(4).setText(lines[Math.min(this.taps,lines.length-1)]);
+    const solved=solve(this.level,this.state,400000,this.rules).moves[0];
     const byLetter=(letter:string)=>this.level.trains.find(x=>x.letter===letter);
     const moved=(letter:string)=>{const t=byLetter(letter);return !!t&&this.state[t.id]!==t.start;};
+    // Guided wrong move first (once per visit): the glove points at the move that fails.
+    const trap=TRAPS[this.levelIndex],trapTrain=trap?byLetter(trap.letter):undefined;
+    const trapActive=!!trap&&!!trapTrain&&this.trapLevel!==this.levelIndex&&this.taps===0;
+    const m=trapActive?{train:trapTrain!.id,dir:trap!.dir}:solved,v=m?this.views.get(m.train):undefined;if(!m||!v)return this.fitCoach();
+    v.setAwake(true,m.dir);
+    const t=this.level.trains[m.train];
     let offPath=false;
     if(this.levelIndex===3){
       const b=byLetter('B');
       const gapOpen=!!b&&this.state[b.id]!==GONE&&canRun(this.level,this.state,b.id,b.headDir);
-      offPath=!gapOpen&&moved('A');
-      this.coach.setText(offPath?'No gap, so the honk could not move it. Tap Restart and open the gap first.':gapOpen?'Gap open! Now swipe '+direction+' to honk it out.':'A honked train needs a gap in front of its face. Swipe the highlighted train '+direction+' to open one.');
+      offPath=!trapActive&&!gapOpen&&moved('A');
+      this.coach.setText(trapActive?'Try this':offPath?'No gap! Restart':gapOpen?'Now honk!':'Open a gap');
     }
     if(this.levelIndex===4){
       const a=byLetter('A');
       const firstChainDone=!a||this.state[a.id]===GONE;
-      offPath=!firstChainDone&&moved('D');
-      this.coach.setText(offPath?'That honk had no gap yet. Tap Restart and start the other chain first.':firstChainDone?'Now swipe '+direction+' for the second chain.':'Two chains this time. Swipe '+direction+': this chain opens a gap for the next one.');
+      offPath=!trapActive&&!firstChainDone&&moved('D');
+      this.coach.setText(trapActive?'Try this':offPath?'No gap! Restart':firstChainDone?'Second chain!':'Other chain first');
     }
+    this.fitCoach();
     if(offPath)return;
     const g=this.add.graphics(),x=v.container.x-(t.axis==='h'?t.len:1)*this.cs/2-4,y=v.container.y-(t.axis==='v'?t.len:1)*this.cs/2-4,w=(t.axis==='h'?t.len:1)*this.cs+8,h=(t.axis==='v'?t.len:1)*this.cs+8;
     const bx=this.ox,by=this.oy,bw=this.level.cols*this.cs,bh=this.level.rows*this.cs,l=Math.max(bx,x),focusTop=Math.max(by,y),r=Math.min(bx+bw,x+w),bottom=Math.min(by+bh,y+h);
@@ -1062,6 +1158,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time:number,delta:number): void {
+    this.coach.setVisible(this.coach.text.length>0);
     runtime.fps=Math.round(this.game.loop.actualFps);
     const readyKey=this.visualState.join(',');
     if(readyKey!==this.readyStateKey){for(const [id,v]of this.views)v.setReady(canRun(this.level,this.visualState,id,v.def.headDir));this.readyStateKey=readyKey;}
