@@ -371,7 +371,7 @@ export class CharacterSelectView {
 
   ui.stats.setVisible(!p.dummy);const currentFill=ui.fillProgress<0?1:ui.fillProgress,statsKey=JSON.stringify(p.stats);
 
-  if(statsKey!==ui.statsKey){ui.statsKey=statsKey;ui.values=p.stats.slice(0,5).map(([,value])=>Math.max(0,Math.min(1,value)));ui.fillProgress=-1;for(let i=0;i<5;i++){const row=p.stats[i];ui.labels[i].setText(row?.[0]??'');ui.scores[i].setText(row?Math.round(row[2]*100)+'%':'');}}
+  if(statsKey!==ui.statsKey){ui.statsKey=statsKey;ui.values=p.stats.slice(0,5).map(([,value])=>Math.max(0,Math.min(1,value)));ui.fillProgress=-1;for(let i=0;i<5;i++){const row=p.stats[i];ui.labels[i].setText(row?.[0]??'');ui.scores[i].setText('').setVisible(false);}}
 
   const superMove=fighterSuper(p.id);
   ui.upper.setText(!p.dummy&&p.uppercut?t('charselect.super_cost',{name:superName(superMove.nameKey),stars:superMove.starCost}):'').setScale(1);
