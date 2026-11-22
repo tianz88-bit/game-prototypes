@@ -29,9 +29,56 @@ export interface TightRules {
   finaleShare: number;
   maxStates: number;
   minChains: number;
+  /** Owner, 22 November 2026: setup and payoff. Minimum tempting wrong chains along the solution. */
+  minTraps: number;
+  /** Share of trains with one end of their track permanently blocked (a single exit). */
+  minSingleExit: number;
 }
 
-export const TIGHT_RULES: TightRules = { maxFirstOptimal: 2, trapMargin: 2, minDensity: 0.36, finaleShare: 0.4, maxStates: 160000, minChains: 2 };
+export const TIGHT_RULES: TightRules = { maxFirstOptimal: 2, trapMargin: 2, minDensity: 0.36, finaleShare: 0.4, maxStates: 160000, minChains: 2, minTraps: 4, minSingleExit: 0.3 };
+
+/**
+ * Move labels for a solution: singles (one train off, no bump: boring), setups (nothing off: repositioning),
+ * reverses (setups driving a train away from its face), payoffs (3+ off right after a setup), chains, biggest.
+ */
+export function planLabels(level: Level, plan: Move[], rules: RuleOptions = DEFAULT_RULES) {
+  let state = initialState(level);
+  let singles = 0, setups = 0, reverses = 0, payoffs = 0, chains = 0, biggest = 0, prevSetup = false;
+  for (const m of plan) {
+    const r = applyTap(level, state, m, rules);
+    const bumps = r.events.filter((e) => e.type === 'hit').length;
+    if (r.exited === 0) { setups++; if (m.dir !== level.trains[m.train].headDir) reverses++; }
+    else if (r.exited === 1 && bumps === 0) singles++;
+    if (r.exited >= 2) chains++;
+    if (r.exited >= 3 && prevSetup) payoffs++;
+    prevSetup = r.exited === 0;
+    biggest = Math.max(biggest, r.exited);
+    state = r.state;
+  }
+  return { singles, setups, reverses, payoffs, chains, biggest };
+}
+
+/** Share of trains whose track is permanently blocked by an obstacle on exactly one side (a single exit). */
+export function singleExitShare(level: Level): number {
+  let single = 0;
+  for (const t of level.trains) {
+    const blocked = ([-1, 1] as Dir[]).filter((side) => {
+      const along = t.axis === 'h' ? level.cols : level.rows;
+      for (let i = side < 0 ? t.start - 1 : t.start + t.len; i >= 0 && i < along; i += side) {
+        const cell = t.axis === 'h' ? t.line * level.cols + i : i * level.cols + t.line;
+        if (level.obstacles.has(cell)) return true;
+      }
+      return false;
+    }).length;
+    if (blocked === 1) single++;
+  }
+  return single / Math.max(1, level.trains.length);
+}
+
+/** Complexity used to order levels (easiest first). */
+export function complexity(m: { par: number; setups: number; reverses: number; traps: number; biggest: number; states: number; trains: number }): number {
+  return m.par + 0.8 * m.setups + 0.5 * m.reverses + 0.12 * m.traps + 0.25 * m.biggest + 0.15 * Math.log2(Math.max(2, m.states)) + 0.05 * m.trains;
+}
 
 export interface Board {
   rows: string[];
@@ -40,6 +87,7 @@ export interface Board {
 }
 
 export interface TightResult extends Board {
+  setups: number; reverses: number; payoffs: number; singles: number; chains: number; biggest: number; traps: number;
   par: number;
   plan: Move[];
   linksPerTap: number[];
@@ -73,7 +121,7 @@ function replayPlan(level: Level, plan: Move[], rules: RuleOptions): { cleared: 
 
 /** Explores every reachable state; distances to the cleared board give exact par, optimal first moves and the greedy trap. */
 export function analyze(level: Level, rules: RuleOptions = DEFAULT_RULES, maxStates = TIGHT_RULES.maxStates):
-  { par: number; firstOptimal: number; greedySteps: number; greedyStuck: boolean; states: number; plan: Move[] } | null {
+  { par: number; firstOptimal: number; greedySteps: number; greedyStuck: boolean; states: number; plan: Move[]; traps: number } | null {
   const ids = new Map<string, number>();
   const states: State[] = [];
   const edges: { to: number; move: Move; exited: number; links: number }[][] = [];
@@ -125,12 +173,17 @@ export function analyze(level: Level, rules: RuleOptions = DEFAULT_RULES, maxSta
   for (const i of order) if (dist[i] === 1) for (const e of edges[i]) if (e.to === goal && (!lastEdge || e.exited > lastEdge.exited || (e.exited === lastEdge.exited && e.links > lastEdge.links))) { lastEdge = e; lastFrom = i; }
   if (!lastEdge) return null;
   const plan: Move[] = [lastEdge.move];
+  const path = [lastFrom];
   for (let cur = lastFrom; cur !== 0; ) {
     const p = preds[cur].find((from) => onPath[from] && dist[from] === dist[cur] + 1)!;
     plan.unshift(edges[p].find((e) => e.to === cur)!.move);
+    path.unshift(p);
     cur = p;
   }
-  return { par, firstOptimal, greedySteps, greedyStuck, states: states.length, plan };
+  // Traps: at every step of that solution, moves that send 2+ trains off now but are not on a shortest path.
+  let traps = 0;
+  for (const id of path) for (const e of edges[id]) if (e.exited >= 2 && dist[e.to] !== dist[id] - 1) traps++;
+  return { par, firstOptimal, greedySteps, greedyStuck, states: states.length, plan, traps };
 }
 
 const OBSTACLE_GLYPHS = new Set(['#', 'k', 's', 't', 'm', 'b']);
@@ -184,8 +237,13 @@ export function tighten(board: Board, seed: number, rules: RuleOptions = DEFAULT
     const again = replayPlan(lv, plan, rules);
     const same = again && again.cleared && again.exits.join() === run.exits.join();
     if (!same) continue;
-    const sol = solve(lv, initialState(lv), tight.maxStates, rules);
-    if (!sol.truncated && sol.par === plan.length) rows = trial;
+    // Load-bearing means removing it makes the puzzle worse on any measure: par, unique opening, traps or
+    // single exits. Only props that change nothing are removed.
+    const now = toLevel({ ...board, rows });
+    const before = analyze(now, rules, tight.maxStates), after = analyze(lv, rules, tight.maxStates);
+    if (!before || !after) continue;
+    const worse = after.par < before.par || after.firstOptimal > before.firstOptimal || after.traps < before.traps || singleExitShare(lv) < singleExitShare(now);
+    if (!worse) rows = trial;
   }
   level = toLevel({ ...board, rows });
   const kept: [number, number][] = [];
@@ -198,6 +256,14 @@ export function tighten(board: Board, seed: number, rules: RuleOptions = DEFAULT
   if (a.par !== plan.length) return { reject: 'par' };
   if (a.firstOptimal > tight.maxFirstOptimal) return { reject: 'many-solutions' };
   if (!a.greedyStuck && a.greedySteps < a.par + tight.trapMargin) return { reject: 'no-trap' };
+  const labels = planLabels(level, a.plan, rules);
+  if (labels.singles > 0) return { reject: 'single-move' };
+  if (labels.setups < 1) return { reject: 'no-setup' };
+  if (labels.payoffs < 1) return { reject: 'no-payoff' };
+  if (a.traps < tight.minTraps) return { reject: 'few-traps' };
+  if (singleExitShare(level) < tight.minSingleExit) return { reject: 'two-exits' };
+  const final = replayPlan(level, a.plan, rules)!;
+  if (!final.cleared || final.bumped.size < n || final.exits[final.exits.length - 1] < Math.max(...final.exits)) return { reject: 'final-plan' };
 
   // Props with taste: blocks inside the board, one accent prop at the edges.
   const accent = ACCENTS[seed % ACCENTS.length];
@@ -208,10 +274,12 @@ export function tighten(board: Board, seed: number, rules: RuleOptions = DEFAULT
     return edge ? accent.glyph : '#';
   }).join(''));
 
-  const difficulty = a.par + (a.firstOptimal === 1 ? 1 : 0) + 0.5 * Math.min(4, a.greedyStuck ? 4 : a.greedySteps - a.par) + 0.1 * n + 0.15 * Math.log2(a.states);
+  const difficulty = complexity({ par: a.par, setups: labels.setups, reverses: labels.reverses, traps: a.traps, biggest: labels.biggest, states: a.states, trains: n });
+  void finale;
   return {
-    ...board, rows, par: a.par, plan, linksPerTap: run.exits, finale, maxChain: Math.max(...run.exits), firstOptimal: a.firstOptimal,
+    ...board, rows, par: a.par, plan: a.plan, linksPerTap: final.exits, finale: final.exits[final.exits.length - 1], maxChain: Math.max(...final.exits), firstOptimal: a.firstOptimal,
     greedySteps: a.greedySteps, greedyStuck: a.greedyStuck, states: a.states, density: use.density, obstacles: kept.length, difficulty,
+    ...labels, traps: a.traps,
   };
 }
 
@@ -280,6 +348,10 @@ export function violations(board: Board, minPar: number, rules: RuleOptions = DE
   v += Math.max(0, a.firstOptimal - tight.maxFirstOptimal);
   v += a.greedyStuck ? 0 : Math.max(0, a.par + tight.trapMargin - a.greedySteps);
   v += Math.max(0, minPar - a.par);
+  const labels = planLabels(level, a.plan, rules);
+  v += labels.singles * 1.5 + (labels.setups < 1 ? 2 : 0) + (labels.payoffs < 1 ? 2 : 0);
+  v += Math.max(0, tight.minTraps - a.traps) * 0.3;
+  v += Math.max(0, tight.minSingleExit - singleExitShare(level)) * n;
   return v;
 }
 
@@ -293,7 +365,14 @@ export function polish(board: Board, seed: number, minPar: number, budget = 120,
   for (let step = 0; step < budget && bestScore > 0; step++) {
     const d: Draft = { ...best, trains: best.trains.map((t) => ({ ...t })), obstacles: new Set(best.obstacles) };
     const t = d.trains[pick(d.trains.length)];
-    switch (pick(7)) {
+    switch (pick(8)) {
+      case 6: {
+        // A stop at the end of a train's track: one exit only, so it needs room made elsewhere.
+        const side = r() < 0.5 ? -1 : 1, along = t.axis === 'h' ? d.cols : d.rows;
+        const i = side < 0 ? (r() < 0.6 ? 0 : t.start - 1) : (r() < 0.6 ? along - 1 : t.start + t.len);
+        if (i >= 0 && i < along) d.obstacles.add(t.axis === 'h' ? t.line * d.cols + i : i * d.cols + t.line);
+        break;
+      }
       case 0: t.head = (t.head === 1 ? -1 : 1) as Dir; break;
       case 1: t.start += r() < 0.5 ? -1 : 1; break;
       case 2: if (r() < 0.5) { t.len += 1; if (r() < 0.5) t.start -= 1; } else t.len -= 1; break;

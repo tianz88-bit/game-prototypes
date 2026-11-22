@@ -15,17 +15,16 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const game = path.join(root, 'prototypes/densha-domino/src/game');
 const SLOTS = 95;
 
-/** Board size, trains and minimum par for each slot, easiest first. */
-function specFor(i) {
-  const t = i / (SLOTS - 1);
-  if (i < 30) return { cols: 6, rows: 7, trains: 9 + Math.round(t * 3), minPar: 4 };
-  if (i < 60) return { cols: 7, rows: 7, trains: 10 + Math.round(((i - 30) / 29) * 2), minPar: 5 };
-  return { cols: 7, rows: 7, trains: 12, minPar: 5 };
+/** Board size, trains and minimum par for each generated slot (total = slots to generate). */
+function specFor(i, total) {
+  const t = i / Math.max(1, total - 1);
+  if (t < 0.4) return { cols: 6, rows: 7, trains: 9 + Math.round(t * 2.5), minPar: 4 };
+  return { cols: 7, rows: 7, trains: 10 + Math.round((t - 0.4) / 0.6 * 1.4), minPar: 4 };
 }
 
 async function bundle() {
   const b = await build({
-    stdin: { contents: "export {generate} from './generator';export {tighten,polish,analyze} from './quality';export {PUZZLE_CONTRACTS} from './puzzle-contracts';export {LEVEL_SOURCES,parseLevel} from './levels';export {applyTap} from './rules';export {LEVEL_REPAIRS} from './level-repairs';export {HEAD_DIRECTIONS} from './head-directions';", resolveDir: game, loader: 'ts' },
+    stdin: { contents: "export {generate} from './generator';export {tighten,polish,analyze,planLabels,complexity} from './quality';export {PACK} from './pack';export {PUZZLE_CONTRACTS} from './puzzle-contracts';export {LEVEL_SOURCES,parseLevel} from './levels';export {applyTap} from './rules';export {LEVEL_REPAIRS} from './level-repairs';export {HEAD_DIRECTIONS} from './head-directions';", resolveDir: game, loader: 'ts' },
     bundle: true, platform: 'node', format: 'esm', write: false, logLevel: 'error',
   });
   return 'data:text/javascript;base64,' + Buffer.from(b.outputFiles[0].text).toString('base64');
@@ -34,7 +33,7 @@ async function bundle() {
 if (!isMainThread) {
   const { generate, tighten, polish } = await import(workerData.module);
   for (const slot of workerData.slots) {
-    const spec = specFor(slot);
+    const spec = specFor(slot, workerData.total);
     let result = null;
     for (let attempt = 0; attempt < 400 && !result; attempt++) {
       const seed = 50000 + slot * 1000 + attempt;
@@ -50,10 +49,21 @@ if (!isMainThread) {
 } else {
   const workers = Number(process.argv[2] ?? Math.max(1, os.cpus().length));
   const module = await bundle();
-  const { LEVEL_SOURCES, parseLevel, HEAD_DIRECTIONS, analyze, applyTap } = await import(module);
+  const { LEVEL_SOURCES, parseLevel, HEAD_DIRECTIONS, analyze, applyTap, PACK, planLabels, complexity } = await import(module);
+  // Owner, 22 November 2026: keep current pack levels with setup and payoff (no singles, a setup, a 3+ chain
+  // right after a setup); generate the rest under the stricter rules in quality.ts.
+  const kept = PACK.map((entry) => {
+    const level = parseLevel(entry.name, entry.rows, entry.axis, entry.head);
+    const labels = planLabels(level, entry.quality.plan);
+    if (labels.singles > 0 || labels.setups < 1 || labels.payoffs < 1) return null;
+    const a = analyze(level, undefined, 400000);
+    if (!a) return null;
+    return { ...entry, slot: -1, difficulty: complexity({ par: a.par, setups: labels.setups, reverses: labels.reverses, traps: a.traps, biggest: labels.biggest, states: a.states, trains: level.trains.length }) };
+  }).filter(Boolean);
+  const GEN = SLOTS - kept.length;
   fs.mkdirSync(path.join(root, '.cache'), { recursive: true });
   const logFile = path.join(root, '.cache/densha-pack.log');
-  const cacheFile = path.join(root, '.cache/densha-pack-results.json');
+  const cacheFile = path.join(root, '.cache/densha-pack-setup-payoff.json');
   fs.appendFileSync(logFile, `start ${new Date().toISOString()} with ${workers} workers\n`);
   const log = (line) => { fs.appendFileSync(logFile, line + '\n'); console.log(line); };
   // Resume: finished slots are kept in .cache, so an interrupted build continues where it stopped.
@@ -61,15 +71,15 @@ if (!isMainThread) {
   const meetsRules = (r) => r.linksPerTap.filter((e) => e >= 2).length >= 2 && Object.keys(r.axis).length > r.par + slack;
   const results = fs.existsSync(cacheFile) ? JSON.parse(fs.readFileSync(cacheFile, 'utf8')).filter((r) => !r.failed && meetsRules(r)) : [];
   const done = new Set(results.map((r) => r.slot));
-  log(`resuming with ${results.length} finished slots`);
+  log(`keeping ${kept.length} existing levels; generating ${GEN}; resuming with ${results.length} finished slots`);
   const t0 = Date.now();
   await Promise.all(Array.from({ length: workers }, (_, w) => new Promise((resolve, reject) => {
-    const slots = Array.from({ length: SLOTS }, (_, i) => i).filter((i) => i % workers === w && !done.has(i));
-    const worker = new Worker(fileURLToPath(import.meta.url), { workerData: { module, slots } });
+    const slots = Array.from({ length: GEN }, (_, i) => i).filter((i) => i % workers === w && !done.has(i));
+    const worker = new Worker(fileURLToPath(import.meta.url), { workerData: { module, slots, total: GEN } });
     worker.on('message', (r) => {
       results.push(r);
       if (!r.failed) fs.writeFileSync(cacheFile, JSON.stringify(results));
-      log(r.failed ? `slot ${r.slot} FAILED` : `slot ${r.slot} ok (${results.length}/${SLOTS}, ${Math.round((Date.now() - t0) / 1000)} s) par ${r.par} finale ${r.finale}/${Object.keys(r.axis).length} first-optimal ${r.firstOptimal} greedy ${r.greedyStuck ? 'stuck' : '+' + (r.greedySteps - r.par)} props ${r.obstacles} density ${r.density.toFixed(2)} attempt ${r.attempt}`);
+      log(r.failed ? `slot ${r.slot} FAILED` : `slot ${r.slot} ok (${results.length}/${GEN}, ${Math.round((Date.now() - t0) / 1000)} s) par ${r.par} setups ${r.setups} reverses ${r.reverses} traps ${r.traps} finale ${r.finale}/${Object.keys(r.axis).length} first-optimal ${r.firstOptimal} greedy ${r.greedyStuck ? 'stuck' : '+' + (r.greedySteps - r.par)} props ${r.obstacles} density ${r.density.toFixed(2)} attempt ${r.attempt}`);
     });
     worker.on('error', reject);
     worker.on('exit', resolve);
@@ -88,15 +98,18 @@ if (!isMainThread) {
     return { level: k + 1, name: src.name, par: a.par, minChain: max, minFinal: final, plan: a.plan };
   });
   // Smooth ramp: order by difficulty (ties keep the earlier slot first).
-  const ordered = results.map((r) => ({ ...r, quality: { par: r.par, minChain: r.maxChain, minFinal: r.finale, plan: r.plan } }))
+  const ordered = [...kept, ...results.map((r) => ({ ...r, quality: { par: r.par, minChain: r.maxChain, minFinal: r.finale, plan: r.plan } }))]
     .sort((a, b) => a.difficulty - b.difficulty || a.slot - b.slot);
   const sushi = ['Salmon', 'Tuna', 'Tamago', 'Ebi', 'Ikura', 'Uni', 'Unagi', 'Maki', 'Nigiri', 'Wasabi', 'Ginger', 'Nori', 'Toro', 'Hamachi', 'Saba', 'Kani', 'Inari', 'Temaki', 'Gunkan', 'Futomaki'];
   const rail = ['Siding', 'Junction', 'Loop', 'Express', 'Terminal', 'Crossing', 'Depot', 'Yard', 'Platform', 'Shuttle', 'Local', 'Transfer', 'Spur', 'Viaduct', 'Limited', 'Relay'];
+  // New names skip the kept levels' names, so their best-move records stay with the same puzzle.
+  const taken = new Set(kept.map((k) => k.name));
   const names = [];
-  for (let k = 0; names.length < SLOTS; k++) names.push(`${sushi[k % sushi.length]} ${rail[(k * 7 + Math.floor(k / sushi.length)) % rail.length]}`);
-  if (new Set(names).size !== SLOTS) throw new Error('duplicate level names');
+  for (let k = 0; names.length < GEN && k < 2000; k++) { const n = `${sushi[k % sushi.length]} ${rail[(k * 7 + Math.floor(k / sushi.length)) % rail.length]}`; if (!taken.has(n) && !names.includes(n)) names.push(n); }
+  if (names.length < GEN) throw new Error('not enough level names');
+  let next = 0;
 
-  const items = ordered.map((r, i) => ({ name: names[i], rows: r.rows, axis: r.axis, head: r.head, quality: r.quality }));
+  const items = ordered.map((r) => ({ name: r.slot === -1 ? r.name : names[next++], rows: r.rows, axis: r.axis, head: r.head, quality: r.quality }));
   const body = items.map((it) => `  { name: ${JSON.stringify(it.name)}, rows: ${JSON.stringify(it.rows)}, axis: ${JSON.stringify(it.axis)}, head: ${JSON.stringify(it.head)}, quality: ${JSON.stringify(it.quality)} },`).join('\n');
   fs.writeFileSync(path.join(game, 'pack.ts'), `import type { LevelSource } from './levels';\n\n// Generated by scripts/build-densha-pack.mjs (backwards generator + tightness rules in quality.ts).\n// Ordered by difficulty. Do not edit by hand.\nexport const PACK: LevelSource[] = [\n${body}\n];\n`);
 
