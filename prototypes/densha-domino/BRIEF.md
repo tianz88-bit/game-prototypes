@@ -1,3 +1,7 @@
+# Tools over hand-made content (23 November 2026, owner decision)
+
+When the game needs new kinds of content, build a tool that makes it (generator rules, search tools, labels) rather than hand-designing individual levels.
+
 # Monetisation (21 November 2026, owner decisions)
 
 - Platforms: App Store, Google Play and Facebook Instant Games first; an itch.io demo of the first 20 levels ends with store links (the end of its content, not a wall).
