@@ -1,7 +1,7 @@
 import { createTitleArt } from '../render/titleArt';
 import { GAME_FONT } from '../gameFont';
 import Phaser from 'phaser';
-import { Sfx } from 'dig-kit';
+import { GameSfx as Sfx } from '../sfxSamples';
 import {GameButton as Button} from '../uiButton';
 import { PUZZLE_CONTRACTS } from '../game/puzzle-contracts';
 import { LEVELS } from '../game/levels';
@@ -13,6 +13,7 @@ import { BASE_W, HEIGHT, WIDTH, PIXEL_RATIO, colX, colY, takeResume, type Resume
 import { TrainView,SIDE_BODY_LIFT } from '../render/train';
 import { drawYard } from '../render/yard';
 import {preloadArt,registerArt,hasArt} from '../render/art';
+import {makeIcon} from '../render/icons';
 import { tune } from '../tune';
 import { VERSION_STAMP } from '../version.generated';
 
@@ -68,6 +69,7 @@ const TRAPS: Record<number, { letter: string; dir: Dir }> = {
 /** HUD card height and the space kept for the Menu and Restart corner buttons. */
 const CARD_H = 56;
 const BUTTONS_H = 52;
+const BAR_W = 118;
 
 type Phase = 'play' | 'animating' | 'won' | 'failed' | 'menu';
 
@@ -209,7 +211,7 @@ export class GameScene extends Phaser.Scene {
     this.add.text(5, 4, VERSION_STAMP, { fontFamily: 'monospace', fontSize: '8px', color: '#1f4f8f', resolution: PIXEL_RATIO }).setAlpha(0.35).setDepth(250);
     this.hudLevel = this.hudText(0, -9, 18, '#74435c');
     this.hudName = this.hudText(0, 13, 12, '#795a68');
-    this.hudTaps = this.hudText(0, -9, 15, '#74435c');
+    this.hudTaps = this.hudText(0, -11, 15, '#74435c');
     this.starsG = this.add.graphics();
     this.trainsText = this.hudText(0, 1, 19, '#74435c');
     this.plateLevel = this.add.graphics();
@@ -232,9 +234,17 @@ export class GameScene extends Phaser.Scene {
     this.heartsPill = this.add.container(WIDTH / 2, 30, [pillBg, heart, this.heartsText]).setDepth(240);
     // Rewarded helpers (opt-in): Undo takes back the last move including the move count, so stars stay possible;
     // Hint shows the next best move. Pass holders skip the ad.
-    this.undoBtn = new Button(this, 0, 0, 128, 40, 'Undo', null, { fill: 0x508067, edge: 0x9fc49c }, () => this.requestUndo(), 15);
-    this.hintBtn = new Button(this, 0, 0, 128, 40, 'Hint', null, { fill: 0x387d68, edge: 0x92dac3 }, () => this.requestHint(), 15);
+    this.undoBtn = new Button(this, 0, 0, 120, 42, 'Undo', null, { fill: 0x508067, edge: 0x9fc49c }, () => this.requestUndo(), 15);
+    this.hintBtn = new Button(this, 0, 0, 120, 42, 'Hint', null, { fill: 0x387d68, edge: 0x92dac3 }, () => this.requestHint(), 15);
     this.undoBtn.container.setDepth(238); this.hintBtn.container.setDepth(238);
+    // Icon left of the label, and a small play badge on the corner while the helper costs an ad.
+    for (const [b, kind] of [[this.undoBtn, 'undo'], [this.hintBtn, 'hint']] as const) {
+      const text = b.container.list.find((c) => c instanceof Phaser.GameObjects.Text) as Phaser.GameObjects.Text;
+      text.setX(11);
+      b.container.add(makeIcon(this, kind, 22).setPosition(-29, 0));
+      const badge = makeIcon(this, 'ad', 20).setPosition(56, -18).setName('ad-badge');
+      b.container.add(badge);
+    }
     this.heartsPill.setSize(104, 32).setInteractive().on('pointerdown', () => { if (!this.heartsFree() && this.heartsNow() < tune.rules.heartsMax) this.showOutOfHearts(false); });
     this.banner = this.hudText(WIDTH / 2, HEIGHT / 2 - 22, 34, '#ffe27a').setDepth(230).setAlpha(0);
     this.coach = this.hudText(WIDTH / 2, 172, 16, '#74435c').setDepth(230).setPadding(12, 5, 12, 5).setBackgroundColor('rgba(255,249,238,0.94)').setAlign('center').setWordWrapWidth(Math.min(WIDTH, 560) - 50);
@@ -242,8 +252,10 @@ export class GameScene extends Phaser.Scene {
     this.arrows = this.add.graphics().setDepth(60);
     this.cursorG = this.add.graphics().setDepth(70);
 
-    this.restartBtn = new Button(this, WIDTH-56, 30, 94, 38, 'Restart', null, { fill: 0x8b416d, edge: 0xba7b9f }, () => this.confirmRestart(), 16);
-    this.levelsBtn = new Button(this, 56, 30, 94, 38, 'Menu', null, { fill: 0x508067, edge: 0x9fc49c }, () => this.bus.emit({ type: 'levels' }), 16);
+    this.restartBtn = new Button(this, WIDTH-38, 30, 52, 42, '', null, { fill: 0x8b416d, edge: 0xba7b9f }, () => this.confirmRestart(), 16);
+    this.levelsBtn = new Button(this, 38, 30, 52, 42, '', null, { fill: 0x508067, edge: 0x9fc49c }, () => this.bus.emit({ type: 'levels' }), 16);
+    this.restartBtn.container.add(makeIcon(this, 'restart', 24));
+    this.levelsBtn.container.add(makeIcon(this, 'menu', 22));
     this.restartBtn.container.setDepth(240);this.levelsBtn.container.setDepth(240);
 
     this.bus.on((i) => this.onIntent(i));
@@ -290,6 +302,8 @@ export class GameScene extends Phaser.Scene {
           return { x: v.container.x, y: v.container.y, dir: m.dir, axis: this.level.trains[m.train].axis };
         },
         goto: (n: number) => this.startLevel(n),
+        next: () => { this.save.unlockAll = true; this.bus.emit({ type: 'next' }); },
+        setPass: (on: boolean) => { this.save.pass = on; this.refreshHud(); },
         menuOpen: () => this.phase === 'menu',
         coach: () => this.coach.text,
         hintShown: () => !!this.hint,
@@ -301,7 +315,7 @@ export class GameScene extends Phaser.Scene {
         setHearts: (n: number) => { this.save.hearts = n; this.save.heartsAt = Date.now(); this.persist(); this.heartsShown = ''; },
         art:()=>hasArt(this,'dd_family'),
         renderInfo:()=>({pixelRatio:PIXEL_RATIO,eyeFrames:this.textures.get('dd_eyes').getFrameNames().length,signalFrames:hasArt(this,'dd_signals')?this.textures.get('dd_signals').getFrameNames().length:0}),
-        trains:()=>[...this.views.values()].map(v=>({id:v.def.id,...v.inspect()})),
+        trains:()=>[...this.views.values()].map(v=>({id:v.def.id,x:v.container.x,y:v.container.y,...v.inspect()})),
         definitions:()=>this.level.trains,
         state:()=>this.state.slice(),
         carriages:(id:number)=>this.views.get(id)?.geometry()??null,
@@ -434,11 +448,66 @@ export class GameScene extends Phaser.Scene {
     this.cursor = { c: 0, r: 0 };
     this.refreshHud();
     this.updateCoach();
+    if (!reuseYard && !this.titleOpen) this.introLevel();
+  }
+
+  private introTweens: Phaser.Tweens.Tween[] = [];
+  /** New level: trains drop onto their tracks one after another and the HUD cards fade up (under a second). */
+  private introLevel(): void {
+    this.finishIntro();
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const f = tune.feel;
+    const order = [...this.views.values()].sort((a, b) => a.container.y - b.container.y || a.container.x - b.container.x);
+    order.forEach((v, i) => {
+      const y = v.container.y;
+      v.container.setY(y - this.cs * 0.7).setAlpha(0);
+      this.introTweens.push(this.tweens.add({ targets: v.container, y, alpha: 1, delay: i * f.introStaggerMs, duration: f.introMs * 0.6, ease: 'Back.Out' }));
+    });
+    [this.cardLevel, this.cardScore, this.cardTrains].forEach((card, i) => {
+      card.setAlpha(0);
+      this.introTweens.push(this.tweens.add({ targets: card, alpha: 1, delay: 60 + i * 70, duration: f.introMs * 0.5 }));
+    });
+  }
+
+  /** Jumps any running intro to its end, so the first move never fights it. */
+  private finishIntro(): void {
+    if (!this.introTweens.length) return;
+    for (const t of this.introTweens) t.stop();
+    this.introTweens = [];
+    for (const [id, v] of this.views) {
+      if (this.state[id] < 0) continue;
+      const c = v.centre(this.state[id], this.ox, this.oy);
+      v.container.setPosition(c.x, c.y).setAlpha(1);
+    }
+    for (const card of [this.cardLevel, this.cardScore, this.cardTrains]) card.setAlpha(1);
+  }
+
+  /** Level end: a cream curtain with a cab on its edge sweeps across, the next level is built behind it. */
+  private wipeTo(build: () => void): void {
+    if (this.restarting) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return build();
+    this.restarting = true;
+    const f = tune.feel, w = WIDTH + 80;
+    const curtain = this.add.graphics().fillStyle(0xfff3e1, 1).fillRect(-w, 0, w, HEIGHT).fillStyle(0xf2a3a8, 1).fillRect(-14, 0, 14, HEIGHT);
+    const cab = hasArt(this, 'dd_liveries_0') ? this.add.image(-6, HEIGHT / 2, 'dd_liveries_0', '0-7').setDisplaySize(84, 46) : this.add.graphics().fillStyle(0xff7a59).fillRoundedRect(-46, HEIGHT / 2 - 20, 80, 40, 14);
+    const layer = this.add.container(0, 0, [curtain, cab]).setDepth(700);
+    this.sfx.sample('whoosh', 1, 0.6);
+    this.tweens.add({ targets: layer, x: w, duration: f.wipeMs, ease: 'Cubic.In', onComplete: () => {
+      build();
+      this.introLevel();
+      if (cab instanceof Phaser.GameObjects.Image) cab.setFlipX(true);
+      curtain.setX(0);
+      this.tweens.add({ targets: layer, x: 2 * w, duration: f.wipeMs, ease: 'Cubic.Out', onComplete: () => {
+        layer.destroy(); this.restarting = false;
+      } });
+    } });
+    layer.once('destroy', () => this.tweens.killTweensOf(layer));
   }
 
   /** Puts the board back where the player was before the screen changed shape (fold, unfold, rotate). */
   private applyResume(r: Resume): void {
     if (r.level !== this.levelIndex || r.state.length !== this.state.length || isCleared(r.state)) return;
+    this.finishIntro();
     this.state = r.state.slice();
     this.visualState = this.state.slice();
     this.taps = r.taps;
@@ -495,10 +564,24 @@ export class GameScene extends Phaser.Scene {
     const near = this.limit - this.taps <= 2;
     this.hudTaps.setText(`Moves ${this.taps} / ${this.par}` + (near ? `  ·  ${Math.max(0, this.limit - this.taps)} left` : '')).setColor(near ? '#c0405e' : '#74435c');
     this.trainsText.setText(`× ${left}`);
+    // Moves bar: fills as moves are used; a star sits on each threshold (3 at par, 2 at par + starSlack,
+    // 1 at the limit) and stays lit while the moves are within it.
     const g = this.starsG;
     g.clear();
-    const stars = this.starsFor(this.taps);
-    for (let i = 0; i < 3; i++) this.drawStar(g, (i - 1) * 24, 13, 9, i < stars ? 0xffd04a : 0x6f8db5);
+    const barW = BAR_W, x0 = -barW / 2, y = 11, limit = Math.max(1, this.limit);
+    // Piecewise scale so the three stars never bunch up: 0..par fills 62% of the bar, each extra move after it
+    // an equal share of the rest.
+    const extra = Math.max(1, limit - this.par);
+    const at = (m: number) => m <= this.par ? 0.62 * m / Math.max(1, this.par) : Math.min(1, 0.62 + 0.38 * (m - this.par) / extra);
+    const fill = at(this.taps), stars = this.starsFor(this.taps);
+    const color = this.taps <= this.par ? 0x5fb08a : this.taps <= this.par + tune.rules.starSlack ? 0xf0a640 : 0xd9546e;
+    g.fillStyle(0x74435c, 0.14).fillRoundedRect(x0, y - 4, barW, 8, 4);
+    if (fill > 0) g.fillStyle(color, 1).fillRoundedRect(x0, y - 4, Math.max(8, barW * fill), 8, 4);
+    const marks = [this.par, this.par + tune.rules.starSlack, limit];
+    marks.forEach((m, i) => {
+      const mx = x0 + barW * at(m) - (i === 2 ? 7 : 0);
+      this.drawStar(g, mx, y, 8, 3 - i <= stars ? 0xffd04a : 0xb9b0bd);
+    });
     if (this.lastTrainsLeft >= 0 && left < this.lastTrainsLeft) {
       for (const o of [this.cabIcon, this.trainsText]) { this.tweens.killTweensOf(o); this.tweens.add({ targets: o, y: o.y - 5, duration: 110, yoyo: true, ease: 'Quad.Out' }); }
     }
@@ -509,11 +592,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Undo and Hint under the board (portrait) or at the bottom of the left column (wide). */
   private placeAssist(): void {
-    const ad = this.save.pass ? '' : ' (ad)';
-    for (const [b, label] of [[this.undoBtn, 'Undo' + ad], [this.hintBtn, 'Hint' + ad]] as const) {
-      const text = b.container.list.find((c) => c instanceof Phaser.GameObjects.Text) as Phaser.GameObjects.Text | undefined;
-      text?.setText(label);
-    }
+    for (const b of [this.undoBtn, this.hintBtn]) (b.container.getByName('ad-badge') as Phaser.GameObjects.Graphics | null)?.setVisible(!this.save.pass);
     const bottom = this.oy + this.cs * this.level.rows;
     if (!this.hudSide) {
       const y = Math.min(HEIGHT - 30, bottom + 23 + 46);
@@ -532,7 +611,7 @@ export class GameScene extends Phaser.Scene {
       .fillStyle(0x74435c, 0.08).fillRoundedRect(-w / 2, -CARD_H / 2 + 3, w, CARD_H, 16)
       .fillStyle(0xfff9ee, 0.96).fillRoundedRect(-w / 2, -CARD_H / 2, w, CARD_H, 16);
     const levelW = Math.max(this.hudLevel.width, this.hudName.width) + 28;
-    const scoreW = Math.max(this.hudTaps.width, 72) + 28;
+    const scoreW = Math.max(this.hudTaps.width, BAR_W) + 28;
     const trainsW = 42 + 10 + this.trainsText.width + 28;
     this.cabIcon.setX(-trainsW / 2 + 14 + 21);
     this.trainsText.setX(-trainsW / 2 + 14 + 42 + 10 + this.trainsText.width / 2);
@@ -615,10 +694,11 @@ export class GameScene extends Phaser.Scene {
     if(this.titleOpen || this.dialogOpen)return;
     if(this.restarting)return;
     if (intent.type === 'restart') return this.restartWithFade();
-    if (intent.type === 'next') return this.isUnlocked(this.levelIndex + 1) ? this.startLevel(this.levelIndex + 1) : this.startLevel(this.levelIndex);
+    if (intent.type === 'next') { const to = this.isUnlocked(this.levelIndex + 1) ? this.levelIndex + 1 : this.levelIndex; return this.wipeTo(() => this.startLevel(to)); }
     if (intent.type === 'levels') return this.phase === 'menu' ? (this.closeMenu(), this.updateCoach()) : this.phase === 'play' ? ((this.menuPage = -1), this.openMenu()) : undefined;
     if (intent.type === 'select') return this.selectLevel(intent.level);
     if (this.phase !== 'play') return;
+    this.finishIntro();
     if (intent.type === 'tap') {
       const t = this.locate(intent.x, intent.y);
       if (t >= 0) return this.tapTrain(t);
@@ -822,7 +902,7 @@ export class GameScene extends Phaser.Scene {
     // Counted with a tween: a clock event created inside this button callback never fired here.
     const count = this.tweens.addCounter({ from: 3, to: 0, duration: 3000, onUpdate: (tw) => {
       label.setText(`Ad placeholder (${Math.ceil(tw.getValue() ?? 0)})`);
-    }, onComplete: () => { layer.destroy(); this.dialogOpen = false; reward(); } });
+    }, onComplete: () => { layer.destroy(); this.dialogOpen = false; this.sfx.treasure(); reward(); } });
     layer.once('destroy', () => count.stop());
   }
 
@@ -836,6 +916,9 @@ export class GameScene extends Phaser.Scene {
     const snap = this.history.pop();
     if (!snap) return;
     const keep = this.history.slice(), live = this.attemptLive;
+    // Where each train is now, so the rewind can slide it back (gone trains come back in from their exit).
+    const from = new Map<number, { x: number; y: number }>();
+    for (const [id, v] of this.views) if (this.state[id] >= 0) from.set(id, { x: v.container.x, y: v.container.y });
     this.freeRestart = true;
     this.startLevel(this.levelIndex);
     this.history = keep;
@@ -843,6 +926,26 @@ export class GameScene extends Phaser.Scene {
     this.attemptLive = live;
     if (live) { this.save.attemptLevel = this.levelIndex; this.persist(); }
     this.refreshHud();
+    this.rewind(from);
+  }
+
+  private rewind(from: Map<number, { x: number; y: number }>): void {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const f = tune.feel;
+    if (!this.sfx.sample('whoosh', 1.25, 0.45)) this.sfx.noise(0.18, 0.12, 1400);
+    for (const [id, v] of this.views) {
+      const to = { x: v.container.x, y: v.container.y };
+      let start = from.get(id);
+      if (!start) {
+        // Exited: enter from the nearer end of its track.
+        const t = this.level.trains[id], span = (t.len / 2 + 0.6) * this.cs;
+        if (t.axis === 'h') { const left = to.x - this.ox < this.ox + this.level.cols * this.cs - to.x; start = { x: left ? this.ox - span : this.ox + this.level.cols * this.cs + span, y: to.y }; }
+        else { const top = to.y - this.oy < this.oy + this.level.rows * this.cs - to.y; start = { x: to.x, y: top ? this.oy - span : this.oy + this.level.rows * this.cs + span }; }
+      }
+      if (Math.abs(start.x - to.x) + Math.abs(start.y - to.y) < 1) continue;
+      v.container.setPosition(start.x, start.y);
+      this.introTweens.push(this.tweens.add({ targets: v.container, x: to.x, y: to.y, duration: f.undoRewindMs, ease: 'Cubic.InOut' }));
+    }
   }
 
   private requestHint(): void {
@@ -926,6 +1029,10 @@ export class GameScene extends Phaser.Scene {
     for (const [id] of this.views) pos.set(id, initial[id]);
     let combo = 0;
     const movingTrains=new Set<number>();
+    // Exit counter: every train that leaves pops "×n" at its tunnel with a rising note; the last exit of a
+    // big chain freezes for a beat (hit-stop) and shakes the screen in proportion to the chain.
+    const totalExits=events.filter((e)=>e.type==='run'&&e.exited).length;
+    let scoredN=0;
 
     const movedThisTap = new Set<number>();
     events.forEach((e, idx) => {
@@ -954,7 +1061,7 @@ export class GameScene extends Phaser.Scene {
           const horizontal=t.axis==='h';
           const mouth=(horizontal?this.ox:this.oy)+(e.dir>0?(horizontal?this.level.cols:this.level.rows)*this.cs:0);
           const side=horizontal?(e.dir>0?'right':'left'):(e.dir>0?'down':'up');
-          this.sfx.noise(0.1, 0.18, 1800);
+          if(!this.sfx.sample(e.exited?'whoosh':'clack',0.9+Math.random()*0.2,0.55))this.sfx.noise(0.1, 0.18, 1800);
           this.tweens.add({
             targets: v.container,
             x: to.x,
@@ -977,8 +1084,8 @@ export class GameScene extends Phaser.Scene {
                 }
                 this.tweens.add({targets:glow,scaleX:1.85,scaleY:1.45,alpha:0,duration:520,ease:'Quad.Out'});
               }
-              this.sfx.tone(440,.09,'triangle',.17,690);
-              this.sfx.tone(880,.16,'sine',.16,undefined,.065);
+              const n=++scoredN;
+              this.exitPop(n,n===totalExits,glow?.x??(v.container.x+(horizontal?e.dir*t.len*this.cs/2:0)),glow?.y??(v.container.y+(horizontal?0:e.dir*t.len*this.cs/2)));
             }:undefined,
             onComplete: () => {
               if (e.exited) {
@@ -992,7 +1099,7 @@ export class GameScene extends Phaser.Scene {
           void from;
           void v.container.setPosition(from.x, from.y);
         });
-        if(!e.exited){const brakeMs=f.brakeMs*this.pace(e.link);at(start+Math.max(0,dur-brakeMs),()=>v.react('brake',e.dir,brakeMs));}
+        if(!e.exited){const brakeMs=f.brakeMs*this.pace(e.link);at(start+Math.max(0,dur-brakeMs),()=>{v.react('brake',e.dir,brakeMs);this.sfx.sample('stop',0.95+Math.random()*0.1,0.5);});}
         pos.set(e.train, e.exited ? e.to : e.to);
         lastRunStart = start;
         lastRunDur = dur;
@@ -1022,6 +1129,26 @@ export class GameScene extends Phaser.Scene {
     });
 
     at(Math.max(cursor,visualEnd) + 60, () => this.afterPlay(links, exits));
+  }
+
+  private hitStopUntil=0;
+  /** One train out: "×n" at the tunnel and a note that climbs a pentatonic scale with n. */
+  private exitPop(n:number,final:boolean,x:number,y:number):void {
+    const f=tune.feel;
+    const steps=[0,2,4,7,9],k=n-1,semi=Math.floor(k/5)*12+steps[k%5];
+    const freq=440*Math.pow(2,Math.min(semi,24)/12);
+    if(!this.sfx.sample('exit',1+Math.min(semi,24)/24))this.sfx.tone(freq,.09,'triangle',.17,freq*1.57);
+    this.sfx.tone(freq*2,.16,'sine',.14,undefined,.065);
+    const big=final&&n>=tune.feel.bigChainTrains;
+    const cx=Phaser.Math.Clamp(x,40,WIDTH-40),cy=Phaser.Math.Clamp(y,40,HEIGHT-40);
+    const label=this.hudText(cx,cy,big?30:20+Math.min(n,6),'#fff7dc').setText('×'+n).setStroke('#74374a',5).setDepth(243).setScale(.4);
+    this.tweens.add({targets:label,scale:1,duration:110,ease:'Back.Out'});
+    this.tweens.add({targets:label,y:cy-this.cs*.6,alpha:0,delay:big?f.exitPopMs:f.exitPopMs*.5,duration:220,ease:'Quad.In',onComplete:()=>label.destroy()});
+    label.once('destroy',()=>this.tweens.killTweensOf(label));
+    if(!big)return;
+    this.hitStopUntil=performance.now()+f.hitStopMs;
+    if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches)this.cameras.main.shake(f.shakeMs,Math.min(.012,f.shakeBase+f.shakePerExit*n));
+    if(!this.sfx.sample('win',1))this.sfx.tone(freq*1.5,.22,'sine',.15,undefined,.03);
   }
 
   private showCombo(count:number):void {
@@ -1256,7 +1383,7 @@ export class GameScene extends Phaser.Scene {
       if(i<stars){
         star.setScale(tune.feel.starStartScale).setY(colY(378)).setAlpha(0);
         this.tweens.add({targets:star,scale:tune.feel.starPeakScale,y:colY(390),alpha:1,delay:i*tune.feel.starStaggerMs,duration:tune.feel.starArrivalMs,ease:tune.feel.uiEase,onComplete:()=>{
-          this.sfx.tone([523,659,784][i],.13,'sine',i===2?.23:.16);
+          if(!this.sfx.sample('star',[1,1.122,1.26][i]))this.sfx.tone([523,659,784][i],.13,'sine',i===2?.23:.16);
           this.tweens.add({targets:star,scale:1,duration:tune.feel.starSettleMs,ease:tune.feel.uiEase});
         }});
       }
@@ -1272,8 +1399,9 @@ export class GameScene extends Phaser.Scene {
       decorations.push(replay.container);
     }
     const b = new Button(this, stars?colX(261):WIDTH/2, colY(stars?490:480), stars?119:220, stars?50:60, label, null, { fill: 0x2f9e5b, edge: 0x6dffa8 }, onTap, 22);
-    const body=this.add.container(0,0,[panel,t,...decorations,b.container]).setDepth(310).setY(22);
-    this.tweens.add({targets:body,y:0,duration:tune.feel.uiBounceMs,ease:tune.feel.uiEase});
+    const body=this.add.container(0,0,[panel,t,...decorations,b.container]).setDepth(310).setY(64).setAlpha(0);
+    dim.setAlpha(0);this.tweens.add({targets:dim,alpha:1,duration:tune.feel.menuSlideMs*.7});dim.once('destroy',()=>this.tweens.killTweensOf(dim));
+    this.tweens.add({targets:body,y:0,alpha:1,duration:tune.feel.menuSlideMs,ease:'Back.Out'});
     this.overlay.push(dim,body);
     for(const o of [body,...decorations])o.once('destroy',()=>this.tweens.killTweensOf(o));
     if(stars===3){
@@ -1366,6 +1494,7 @@ export class GameScene extends Phaser.Scene {
   private menuPage = -1;
 
   private openMenu(): void {
+    const paging = this.phase === 'menu';
     this.closeMenu();
     this.phase = 'menu';
     this.pending = null;
@@ -1437,8 +1566,9 @@ export class GameScene extends Phaser.Scene {
     const close = new Button(this, WIDTH / 2, py + panelH - 40, 160, 48, 'Close', null, { fill: 0x2f9e5b, edge: 0x6dffa8 }, () => this.bus.emit({ type: 'levels' }), 20);
     close.container.setDepth(310);
     this.menu.push(close.container);
-    const content=this.menu.filter(o=>o!==dim&&o!==zone),body=this.add.container(0,22,content).setDepth(310);
-    this.tweens.add({targets:body,y:0,duration:tune.feel.uiBounceMs,ease:tune.feel.uiEase});body.once('destroy',()=>this.tweens.killTweensOf(body));this.menu.push(body);
+    const content=this.menu.filter(o=>o!==dim&&o!==zone),body=this.add.container(0,paging?22:64,content).setDepth(310);
+    if(!paging){body.setAlpha(0);dim.setAlpha(0);this.tweens.add({targets:dim,alpha:1,duration:tune.feel.menuSlideMs*.7});dim.once('destroy',()=>this.tweens.killTweensOf(dim));}
+    this.tweens.add({targets:body,y:0,alpha:1,duration:paging?tune.feel.uiBounceMs:tune.feel.menuSlideMs,ease:paging?tune.feel.uiEase:'Back.Out'});body.once('destroy',()=>this.tweens.killTweensOf(body));this.menu.push(body);
   }
 
   // -------------------------------------------------------------------- fx
@@ -1477,7 +1607,8 @@ export class GameScene extends Phaser.Scene {
       this.startLevel(runtime.goto - 1);
     }
     // Holding a finger down during a chain speeds it up.
-    const speed = (this.phase === 'animating' && this.hold ? tune.feel.holdSpeed : 1) * this.testSlow;
+    const stopped = performance.now() < this.hitStopUntil;
+    const speed = stopped ? 0.03 : (this.phase === 'animating' && this.hold ? tune.feel.holdSpeed : 1) * this.testSlow;
     this.tweens.timeScale = speed;
     this.time.timeScale = speed;
   }

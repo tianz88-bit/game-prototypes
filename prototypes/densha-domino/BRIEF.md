@@ -1,3 +1,12 @@
+# Juice and feel pass (23 November 2026, owner request)
+
+- Icon buttons: menu (grid) and restart (circular arrow) are icon-only; Undo and Hint carry an icon and a small play badge while they cost an ad (hidden for Pass holders). Codex is drawing the art versions (loose/icon-<name>.webp); vector placeholders until then.
+- Score card: a moves bar that fills as moves are used, with a star on each threshold (3 at par, 2 at par + 1, 1 at the limit), each lit while the moves are within it.
+- Big chains: every train that leaves pops "×n" at its tunnel with a note climbing a pentatonic scale; the last exit of a 3+ chain freezes for about 60 ms (hit-stop) and shakes the screen in proportion to the chain (off with reduced motion).
+- Transitions: a new level drops its trains in one after another and fades the HUD cards up (under a second, skipped by the first input); Next sweeps a cream curtain with a cab across the screen and the next level drops in as it opens; the level menu and result panel slide up.
+- Undo slides the trains back along their tracks (exited trains come back in from the nearer end) instead of snapping.
+- Sound effects: Kenney Interface Sounds (CC0) as loose/sfx-<name>.ogg and .mp3 in the art zip (tap, bonk, win, star, reward, exit, whoosh, stop, clack). The synthesised sounds remain the fallback for any missing file; the honk stays synthesised. Timings live in tune.json feel (hitStopMs, shake*, exitPopMs, intro*, wipeMs, undoRewindMs, menuSlideMs).
+
 # Setup chains: tried and stopped (23 November 2026, owner decision)
 
 Goal was a "setup chain": one honk that moves 3+ trains and clears none, parking them for the final payoff. Under the current rules this is close to impossible to build: a honked train always drives toward its face until stopped; if a prop stops it, its face is blocked for good and it can never join the payoff, so the stoppers must be trains that refuse at that moment and clear later. Evidence: 1 in 116 setup moves in the pack; backward search from all 95 levels found 0 valid versions; about 1 in 4,000 random dense boards had one in the shortest solution; the cascade designer (scripts/build-densha-cascade-levels.mjs, both train-stopper and prop-parking modes) produced 0 levels in 40 minutes on 4 cores. Stopped as the limit of the current mechanics. The tools (setupChains label, seekSetupChain, cascade builders) stay for a future mechanic that lets trains park, such as stations, switches or sidings.

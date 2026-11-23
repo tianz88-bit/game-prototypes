@@ -70,6 +70,16 @@
     "buttonPressX": 0.96,
     "buttonPressY": 0.91,
     "uiEase": "Quad.Out",
-    "foodDamping": 0.55
+    "foodDamping": 0.55,
+    "hitStopMs": 60,
+    "shakeMs": 220,
+    "shakeBase": 0.002,
+    "shakePerExit": 0.0007,
+    "exitPopMs": 520,
+    "introMs": 520,
+    "introStaggerMs": 35,
+    "wipeMs": 360,
+    "undoRewindMs": 260,
+    "menuSlideMs": 240
   }
 }

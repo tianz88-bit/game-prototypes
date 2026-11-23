@@ -6,7 +6,12 @@
     "title_salmon": "loose/title-salmon.webp",
     "title_mint": "loose/title-mint.webp",
     "title_honk": "loose/title-honk.webp",
-    "title_express": "loose/title-express.webp"
+    "title_express": "loose/title-express.webp",
+    "icon_undo": "loose/icon-undo.webp",
+    "icon_hint": "loose/icon-hint.webp",
+    "icon_restart": "loose/icon-restart.webp",
+    "icon_menu": "loose/icon-menu.webp",
+    "icon_ad": "loose/icon-ad.webp"
   },
   "sets": {
     "classic": {

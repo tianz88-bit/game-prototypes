@@ -1,22 +1,31 @@
 ## Current milestone
-Rewarded Undo and Hint (placeholder ads) built on branch, not live. Setup-chain levels stopped: no evidence the current mechanics support them (see BRIEF). Hearts and rewarded-ad placeholders on branch (not live): 5 hearts, 1 per 25 min, lost attempts cost a heart, move limit par + 2. Ads and the Pass are mocks. HUD split into three cards (level, moves+stars, trains left with cab icon), placed in a row (portrait) or side columns (wide), whichever gives the bigger board. Tutorial teaches by showing (guided wrong move + rewind on levels 4 and 5, short labels, No gap! cue in all levels) and the play area is framed (soft veil outside the board, HUD card). On branch ccr-1e26354f-01jcy9; live after the owner approves a pin update. Tighter levels on branch ccr-1e26354f-01jcy9 (not released): tutorial levels 4 to 6 rebuilt, "No room!" cue, and a regenerated 95-level pack (levels 7 to 101) under the new rules. All 101 pass check-densha-quality.mjs. Board-framed layout: tunnels capped at 1.6 cells past the board, HUD anchored above the board, block centred below the corner buttons. Full-screen adaptive layout: the canvas fills any screen shape (phones, foldable cover and inner screens, tablets, desktop) with no bars, and a fold, unfold or rotate rebuilds the game at the new size while keeping the level, board and moves. Local music and sushi-bar art review after public release 15.
+Juice and feel pass on branch ccr-1e26354f-01jcy9 (not live): icon buttons, a star-threshold moves bar, big-chain exit counter with hit-stop and shake, level intro, curtain wipe between levels, sliding menus, undo rewind, and Kenney CC0 sound effects. Live after the owner uploads the new kaiten-express_assets.zip (adds the sounds) and approves a pin update. Earlier branch work (hearts, rewarded Undo and Hint as mocks, tighter 101-level set, framed HUD cards, adaptive full-screen layout) is already live.
 
 ## What was implemented
-Gemini generated separate title and gameplay instrumentals. Edited loop exports are 24.00 and 20.76 seconds. A music control remembers the player's preference. Plays switch to the gameplay arrangement when the title closes.
-Plates and sushi are 50% larger in both dimensions, with the cargo centered over the available deck. Four pastel counter props occupy existing obstacle cells. Up to two faint wave decals decorate tiles outside active lanes.
+- Icons (src/render/icons.ts): vector placeholders for undo, hint, restart, menu and the ad badge; the art versions load automatically from loose/icon-<name>.webp (art-sets.json) once Codex delivers them.
+- Score card moves bar with stars on the par, par + 1 and limit thresholds (piecewise scale so the stars never bunch up).
+- Exit counter "×n" at each tunnel with a rising pentatonic note; hit-stop and screen shake on the last exit of a 3+ chain.
+- Level intro (trains drop in, cards fade up; the first input finishes it), curtain wipe with a cab on Next, menu and result panel slide up.
+- Undo rewind: trains slide back along their tracks over 260 ms.
+- GameSfx (src/sfxSamples.ts) extends the pinned dig-kit Sfx locally: plays loose/sfx-*.ogg or .mp3 from the manifest, falling back to the synth sounds. Nine Kenney Interface Sounds (CC0) prepared for the zip.
+- New tune.json feel values for all new timings; test hooks next() and setPass().
 
 ## Key technical decisions
-One looping audio player switches cues, pauses while hidden, and uses a local Ogg or MP3 file. All four decorative objects share a single texture. Floor decals are baked with the existing floor drawing.
+- dig-kit is not changed: the sample player is a local subclass.
+- Sound files are not committed: they go into kaiten-express_assets.zip for R2 (owner upload), like the art.
+- Only the Kenney Interface Sounds pack was reachable (kenney.nl and other OpenGameArt pages refuse automated downloads), so whoosh, stop and clack are interface sounds standing in for train sounds. No music jingle yet.
+- All new motion respects prefers-reduced-motion.
 
 ## Open questions
-- itch.io demo length (e.g. levels 1 to 20) not decided. BRIEF.md may need it.
-- Rewarded hint and +3 moves placements not built yet; real ad and purchase SDKs need dependency approval.
-Owner review of the music mix, prop palette and cargo placement.
+- Sound picks were chosen by name and length, not by ear: owner listening pass needed (tap click_002, bonk error_004, win confirmation_002, star glass_002, reward maximize_006, exit pluck_001, whoosh minimize_007, stop drop_002, clack click_005).
+- Train-specific sounds (wheel clacks, horns, tunnel whoosh) from Kenney's Impact or Sci-fi packs need a manual download by the owner if wanted.
+- itch.io demo length (levels 1 to 20 proposed) not built yet. BRIEF.md may need it.
 
 ## Known issues
-- Generated levels have par 4 to 6 only; longer late levels need bigger boards with 14+ trains, which the builder generates slowly. Saves keep stars by level number, so earned stars attach to whatever level now has that number; best-move records start fresh (new names).
-- Layout: real fullscreen is requested on Play only on touch devices that support it (not iPhone Safari). Dual-screen devices with a visible hinge (viewport segments) are not handled specially. A rebuild after a fold restarts any background music and drops an open menu or result panel. Not tested on a physical foldable.
-Mobile layout and playback were checked at phone size in Brave. Physical-phone playback remains unverified.
+- Codex art for icons, belt, effects and backgrounds not delivered yet; placeholders in use.
+- Headless 1280x800 checks run at 3 to 5 fps (software rendering), so wide-screen motion was only checked by screenshot.
+- Physical-phone audio and haptics untested.
+- Generated levels have par 4 to 6 only.
 
 ## Next proposed step
-Review the two local loops and Level 5 board before publishing.
+Owner uploads the new kaiten-express_assets.zip to R2, listens to the sound picks, then approves the pin update to put the juice pass live. Wire Codex's art when it arrives.
