@@ -20,7 +20,8 @@ export function preloadArt(scene: Phaser.Scene): void {
     const requested=new URLSearchParams(location.search).get('artSet')??sets.defaultSet;
     const active=Object.prototype.hasOwnProperty.call(catalog,requested)?catalog[requested]:catalog[sets.defaultSet];
     const files=new Map(manifest.map(entry=>[entry.path,entry]));
-    for(const [key,path] of Object.entries({...sets.shared,...active})){
+    // optional: loaded when the zip has them (new art in progress); the release check only requires shared and sets.
+    for(const [key,path] of Object.entries({...sets.optional,...sets.shared,...active})){
       const entry=files.get(path);
       if(entry&&!scene.textures.exists(key))scene.load.image(key,'assets/'+path+(entry.hash?'?v='+encodeURIComponent(entry.hash):''));
     }
