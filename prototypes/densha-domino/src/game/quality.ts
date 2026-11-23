@@ -35,9 +35,11 @@ export interface TightRules {
   minSingleExit: number;
   /** Owner, 23 November 2026: setup chains (3+ trains moved, none cleared) required before the payoff. */
   minSetupChains: number;
+  /** Prop-parking mode: trains parked against a prop may leave by a reverse swipe on their own (allowed singles). */
+  allowReverseSingles: number;
 }
 
-export const TIGHT_RULES: TightRules = { maxFirstOptimal: 2, trapMargin: 2, minDensity: 0.36, finaleShare: 0.4, maxStates: 160000, minChains: 2, minTraps: 4, minSingleExit: 0.3, minSetupChains: 0 };
+export const TIGHT_RULES: TightRules = { maxFirstOptimal: 2, trapMargin: 2, minDensity: 0.36, finaleShare: 0.4, maxStates: 160000, minChains: 2, minTraps: 4, minSingleExit: 0.3, minSetupChains: 0, allowReverseSingles: 0 };
 
 /**
  * Move labels for a solution: singles (one train off, no bump: boring), setups (nothing off: repositioning),
@@ -45,19 +47,19 @@ export const TIGHT_RULES: TightRules = { maxFirstOptimal: 2, trapMargin: 2, minD
  */
 export function planLabels(level: Level, plan: Move[], rules: RuleOptions = DEFAULT_RULES) {
   let state = initialState(level);
-  let singles = 0, setups = 0, reverses = 0, payoffs = 0, chains = 0, biggest = 0, setupChains = 0, prevSetup = false;
+  let singles = 0, reverseSingles = 0, setups = 0, reverses = 0, payoffs = 0, chains = 0, biggest = 0, setupChains = 0, maxSetupLinks = 0, prevSetup = false;
   for (const m of plan) {
     const r = applyTap(level, state, m, rules);
     const bumps = r.events.filter((e) => e.type === 'hit').length;
-    if (r.exited === 0) { setups++; if (m.dir !== level.trains[m.train].headDir) reverses++; if (r.links >= 3) setupChains++; }
-    else if (r.exited === 1 && bumps === 0) singles++;
+    if (r.exited === 0) { setups++; if (m.dir !== level.trains[m.train].headDir) reverses++; if (r.links >= 3) setupChains++; maxSetupLinks = Math.max(maxSetupLinks, r.links); }
+    else if (r.exited === 1 && bumps === 0) { singles++; if (m.dir !== level.trains[m.train].headDir) reverseSingles++; }
     if (r.exited >= 2) chains++;
     if (r.exited >= 3 && prevSetup) payoffs++;
     prevSetup = r.exited === 0;
     biggest = Math.max(biggest, r.exited);
     state = r.state;
   }
-  return { singles, setups, reverses, payoffs, chains, biggest, setupChains };
+  return { singles, reverseSingles, setups, reverses, payoffs, chains, biggest, setupChains, maxSetupLinks };
 }
 
 /** Share of trains whose track is permanently blocked by an obstacle on exactly one side (a single exit). */
@@ -259,7 +261,7 @@ export function tighten(board: Board, seed: number, rules: RuleOptions = DEFAULT
   if (a.firstOptimal > tight.maxFirstOptimal) return { reject: 'many-solutions' };
   if (!a.greedyStuck && a.greedySteps < a.par + tight.trapMargin) return { reject: 'no-trap' };
   const labels = planLabels(level, a.plan, rules);
-  if (labels.singles > 0) return { reject: 'single-move' };
+  if (labels.singles - Math.min(labels.reverseSingles, tight.allowReverseSingles) > 0) return { reject: 'single-move' };
   if (labels.setups < 1) return { reject: 'no-setup' };
   if (labels.payoffs < 1) return { reject: 'no-payoff' };
   if (a.traps < tight.minTraps) return { reject: 'few-traps' };
@@ -352,11 +354,53 @@ export function violations(board: Board, minPar: number, rules: RuleOptions = DE
   v += a.greedyStuck ? 0 : Math.max(0, a.par + tight.trapMargin - a.greedySteps);
   v += Math.max(0, minPar - a.par);
   const labels = planLabels(level, a.plan, rules);
-  v += labels.singles * 1.5 + (labels.setups < 1 ? 2 : 0) + (labels.payoffs < 1 ? 2 : 0);
+  v += (labels.singles - Math.min(labels.reverseSingles, tight.allowReverseSingles)) * 1.5 + (labels.setups < 1 ? 2 : 0) + (labels.payoffs < 1 ? 2 : 0);
   v += Math.max(0, tight.minTraps - a.traps) * 0.3;
   v += Math.max(0, tight.minSingleExit - singleExitShare(level)) * n;
-  v += Math.max(0, tight.minSetupChains - labels.setupChains) * 2.5;
+  v += Math.max(0, tight.minSetupChains - labels.setupChains) * 6;
   return v;
+}
+
+/**
+ * Stage one of the cascade designer (owner, 23 November 2026): hill-climbs a board until its shortest solution
+ * contains a setup chain (one move that moves 3+ trains and clears none). Other rules are left to polish().
+ */
+export function seekSetupChain(board: Board, seed: number, budget = 300, rules: RuleOptions = DEFAULT_RULES): Board | null {
+  const score = (b: Board): number => {
+    const level = toLevel(b);
+    const a = analyze(level, rules, 30000);
+    if (!a) return 100;
+    const lab = planLabels(level, a.plan, rules);
+    return Math.max(0, 3 - lab.maxSetupLinks) * 5 + (lab.setupChains ? 0 : 1);
+  };
+  return climb(board, seed, budget, score);
+}
+
+/** Shared hill climb over small board edits; returns the board once `score` reaches 0. */
+function climb(board: Board, seed: number, budget: number, score: (b: Board) => number): Board | null {
+  let rand = seed >>> 0;
+  const r = () => { rand = (rand + 0x6d2b79f5) >>> 0; let t = rand; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const pick = (n: number) => Math.floor(r() * n);
+  let best = draftOf(board), bestScore = score(board);
+  const targetTrains = best.trains.length;
+  for (let step = 0; step < budget && bestScore > 0; step++) {
+    const d: Draft = { ...best, trains: best.trains.map((t) => ({ ...t })), obstacles: new Set(best.obstacles) };
+    const t = d.trains[pick(d.trains.length)];
+    switch (pick(8)) {
+      case 0: t.head = (t.head === 1 ? -1 : 1) as Dir; break;
+      case 1: t.start += r() < 0.5 ? -1 : 1; break;
+      case 2: if (r() < 0.5) { t.len += 1; if (r() < 0.5) t.start -= 1; } else t.len -= 1; break;
+      case 3: { const cell = pick(d.cols * d.rows); if (d.obstacles.has(cell)) d.obstacles.delete(cell); else d.obstacles.add(cell); break; }
+      case 4: if (d.obstacles.size) d.obstacles.delete([...d.obstacles][pick(d.obstacles.size)]); break;
+      case 5: if (d.trains.length <= targetTrains) { const axis: Axis = r() < 0.5 ? 'h' : 'v', len = 1 + pick(3); d.trains.push({ axis, len, head: r() < 0.5 ? -1 : 1, line: pick(axis === 'h' ? d.rows : d.cols), start: pick((axis === 'h' ? d.cols : d.rows) - len + 1) }); } break;
+      case 6: { const side = r() < 0.5 ? -1 : 1, along = t.axis === 'h' ? d.cols : d.rows; const i = side < 0 ? (r() < 0.6 ? 0 : t.start - 1) : (r() < 0.6 ? along - 1 : t.start + t.len); if (i >= 0 && i < along) d.obstacles.add(t.axis === 'h' ? t.line * d.cols + i : i * d.cols + t.line); break; }
+      default: if (d.trains.length >= targetTrains && d.trains.length > 3) d.trains.splice(pick(d.trains.length), 1);
+    }
+    if (!valid(d)) continue;
+    const b = boardOf(d), sc = score(b);
+    if (sc <= bestScore) { best = d; bestScore = sc; }
+  }
+  return bestScore === 0 ? boardOf(best) : null;
 }
 
 /** Repairs a generated board with small random edits (hill climbing on `violations`). */
