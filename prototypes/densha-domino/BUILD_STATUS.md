@@ -1,5 +1,5 @@
 ## Current milestone
-Juice and feel pass on branch ccr-1e26354f-01jcy9 (not live): icon buttons, a star-threshold moves bar, big-chain exit counter with hit-stop and shake, level intro, curtain wipe between levels, sliding menus, undo rewind, and Kenney CC0 sound effects. Live after the owner uploads the new kaiten-express_assets.zip (adds the sounds) and approves a pin update. Earlier branch work (hearts, rewarded Undo and Hint as mocks, tighter 101-level set, framed HUD cards, adaptive full-screen layout) is already live.
+Juice and feel pass live (pin 5949369d, PRs #615 and #616): icon buttons, a star-threshold moves bar, big-chain exit counter with hit-stop and shake, level intro, curtain wipe between levels, sliding menus, undo rewind, and Kenney CC0 sound effects. Sounds play the synth fallback until the owner uploads the new kaiten-express_assets.zip to R2 (no code change needed). Icon art is optional in art-sets.json, so the release builds before Codex delivers it. Earlier work (hearts, rewarded Undo and Hint as mocks, tighter 101-level set, framed HUD cards, adaptive full-screen layout) is also live.
 
 ## What was implemented
 - Icons (src/render/icons.ts): vector placeholders for undo, hint, restart, menu and the ad badge; the art versions load automatically from loose/icon-<name>.webp (art-sets.json) once Codex delivers them.
@@ -28,4 +28,4 @@ Juice and feel pass on branch ccr-1e26354f-01jcy9 (not live): icon buttons, a st
 - Generated levels have par 4 to 6 only.
 
 ## Next proposed step
-Owner uploads the new kaiten-express_assets.zip to R2, listens to the sound picks, then approves the pin update to put the juice pass live. Wire Codex's art when it arrives.
+Owner plays the live build, uploads the new kaiten-express_assets.zip to R2 for the sounds (a redeploy picks it up), and reviews the sound picks. Wire Codex's art when it arrives.
