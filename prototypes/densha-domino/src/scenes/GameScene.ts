@@ -315,6 +315,7 @@ export class GameScene extends Phaser.Scene {
         goto: (n: number) => this.startLevel(n),
         next: () => { this.save.unlockAll = true; this.bus.emit({ type: 'next' }); },
         setPass: (on: boolean) => { this.save.pass = on; this.refreshHud(); },
+        showGoals: () => this.children.list.filter((o) => o.name.startsWith('goal-')).map((o) => { (o as Phaser.GameObjects.Container).setAlpha(1).setScale(1); return o.name + ':' + o.type; }),
         menuOpen: () => this.phase === 'menu',
         coach: () => this.coach.text,
         hintShown: () => !!this.hint,

@@ -17,6 +17,7 @@ Codex's polish art live (pin cfed53a3, PR #617): art icons (tinted cream on butt
 - All new motion respects prefers-reduced-motion.
 
 ## Open questions
+- Owner review (23 November): Codex's icon art read small and thin on the buttons, the tunnel-glow art barely showed, and the belt tile is nearly flat so it looks like the old track. Icons, heart, ad badge and glow went back to the drawn versions (removed from art-sets.json optional); Codex is asked for bolder, tightly cropped icons, a stronger glow and a belt with visible slats.
 - Sound picks were chosen by name and length, not by ear: owner listening pass needed (tap click_002, bonk error_004, win confirmation_002, star glass_002, reward maximize_006, exit pluck_001, whoosh minimize_007, stop drop_002, clack click_005).
 - Train-specific sounds (wheel clacks, horns, tunnel whoosh) from Kenney's Impact or Sci-fi packs need a manual download by the owner if wanted.
 - itch.io demo length (levels 1 to 20 proposed) not built yet. BRIEF.md may need it.
