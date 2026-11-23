@@ -33,9 +33,11 @@ export interface TightRules {
   minTraps: number;
   /** Share of trains with one end of their track permanently blocked (a single exit). */
   minSingleExit: number;
+  /** Owner, 23 November 2026: setup chains (3+ trains moved, none cleared) required before the payoff. */
+  minSetupChains: number;
 }
 
-export const TIGHT_RULES: TightRules = { maxFirstOptimal: 2, trapMargin: 2, minDensity: 0.36, finaleShare: 0.4, maxStates: 160000, minChains: 2, minTraps: 4, minSingleExit: 0.3 };
+export const TIGHT_RULES: TightRules = { maxFirstOptimal: 2, trapMargin: 2, minDensity: 0.36, finaleShare: 0.4, maxStates: 160000, minChains: 2, minTraps: 4, minSingleExit: 0.3, minSetupChains: 0 };
 
 /**
  * Move labels for a solution: singles (one train off, no bump: boring), setups (nothing off: repositioning),
@@ -43,11 +45,11 @@ export const TIGHT_RULES: TightRules = { maxFirstOptimal: 2, trapMargin: 2, minD
  */
 export function planLabels(level: Level, plan: Move[], rules: RuleOptions = DEFAULT_RULES) {
   let state = initialState(level);
-  let singles = 0, setups = 0, reverses = 0, payoffs = 0, chains = 0, biggest = 0, prevSetup = false;
+  let singles = 0, setups = 0, reverses = 0, payoffs = 0, chains = 0, biggest = 0, setupChains = 0, prevSetup = false;
   for (const m of plan) {
     const r = applyTap(level, state, m, rules);
     const bumps = r.events.filter((e) => e.type === 'hit').length;
-    if (r.exited === 0) { setups++; if (m.dir !== level.trains[m.train].headDir) reverses++; }
+    if (r.exited === 0) { setups++; if (m.dir !== level.trains[m.train].headDir) reverses++; if (r.links >= 3) setupChains++; }
     else if (r.exited === 1 && bumps === 0) singles++;
     if (r.exited >= 2) chains++;
     if (r.exited >= 3 && prevSetup) payoffs++;
@@ -55,7 +57,7 @@ export function planLabels(level: Level, plan: Move[], rules: RuleOptions = DEFA
     biggest = Math.max(biggest, r.exited);
     state = r.state;
   }
-  return { singles, setups, reverses, payoffs, chains, biggest };
+  return { singles, setups, reverses, payoffs, chains, biggest, setupChains };
 }
 
 /** Share of trains whose track is permanently blocked by an obstacle on exactly one side (a single exit). */
@@ -262,6 +264,7 @@ export function tighten(board: Board, seed: number, rules: RuleOptions = DEFAULT
   if (labels.payoffs < 1) return { reject: 'no-payoff' };
   if (a.traps < tight.minTraps) return { reject: 'few-traps' };
   if (singleExitShare(level) < tight.minSingleExit) return { reject: 'two-exits' };
+  if (labels.setupChains < tight.minSetupChains) return { reject: 'no-setup-chain' };
   const final = replayPlan(level, a.plan, rules)!;
   if (!final.cleared || final.bumped.size < n || final.exits[final.exits.length - 1] < Math.max(...final.exits)) return { reject: 'final-plan' };
 
@@ -352,15 +355,17 @@ export function violations(board: Board, minPar: number, rules: RuleOptions = DE
   v += labels.singles * 1.5 + (labels.setups < 1 ? 2 : 0) + (labels.payoffs < 1 ? 2 : 0);
   v += Math.max(0, tight.minTraps - a.traps) * 0.3;
   v += Math.max(0, tight.minSingleExit - singleExitShare(level)) * n;
+  v += Math.max(0, tight.minSetupChains - labels.setupChains) * 2.5;
   return v;
 }
 
 /** Repairs a generated board with small random edits (hill climbing on `violations`). */
-export function polish(board: Board, seed: number, minPar: number, budget = 120, rules: RuleOptions = DEFAULT_RULES): Board | null {
+export function polish(board: Board, seed: number, minPar: number, budget = 120, rules: RuleOptions = DEFAULT_RULES, tight: TightRules = TIGHT_RULES): Board | null {
+  const repairTight = { ...tight, maxStates: 60000 };
   let rand = seed >>> 0;
   const r = () => { rand = (rand + 0x6d2b79f5) >>> 0; let t = rand; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const pick = (n: number) => Math.floor(r() * n);
-  let best = draftOf(board), bestScore = violations(board, minPar, rules);
+  let best = draftOf(board), bestScore = violations(board, minPar, rules, repairTight);
   const targetTrains = best.trains.length;
   for (let step = 0; step < budget && bestScore > 0; step++) {
     const d: Draft = { ...best, trains: best.trains.map((t) => ({ ...t })), obstacles: new Set(best.obstacles) };
@@ -382,7 +387,7 @@ export function polish(board: Board, seed: number, minPar: number, budget = 120,
       default: if (d.trains.length >= targetTrains && d.trains.length > 3) d.trains.splice(pick(d.trains.length), 1);
     }
     if (!valid(d)) continue;
-    const b = boardOf(d), score = violations(b, minPar, rules);
+    const b = boardOf(d), score = violations(b, minPar, rules, repairTight);
     if (score <= bestScore) { best = d; bestScore = score; }
   }
   return bestScore === 0 ? boardOf(best) : null;

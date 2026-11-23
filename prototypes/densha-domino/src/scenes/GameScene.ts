@@ -107,6 +107,10 @@ export class GameScene extends Phaser.Scene {
   private attemptLive = false;
   /** The next startLevel is a free rewind (tutorial guided wrong move). */
   private freeRestart = false;
+  /** Board before each move this attempt, for the rewarded Undo (owner, 23 November 2026). */
+  private history: { state: State; taps: number; longestChain: number }[] = [];
+  private undoBtn!: Button;
+  private hintBtn!: Button;
   /** Y of the HUD star row; the HUD sits just above the board. */
   private exitAudit:object[]|null=null;
   private alternatePars=new Map<Level,number>();
@@ -226,6 +230,11 @@ export class GameScene extends Phaser.Scene {
     this.heartsText = this.hudText(-16, 0, 15, '#74435c').setOrigin(0, 0.5);
     const pillBg = this.add.graphics().fillStyle(0x74435c, 0.08).fillRoundedRect(-52, -14, 104, 32, 16).fillStyle(0xfff9ee, 0.96).fillRoundedRect(-52, -16, 104, 32, 16);
     this.heartsPill = this.add.container(WIDTH / 2, 30, [pillBg, heart, this.heartsText]).setDepth(240);
+    // Rewarded helpers (opt-in): Undo takes back the last move including the move count, so stars stay possible;
+    // Hint shows the next best move. Pass holders skip the ad.
+    this.undoBtn = new Button(this, 0, 0, 128, 40, 'Undo', null, { fill: 0x508067, edge: 0x9fc49c }, () => this.requestUndo(), 15);
+    this.hintBtn = new Button(this, 0, 0, 128, 40, 'Hint', null, { fill: 0x387d68, edge: 0x92dac3 }, () => this.requestHint(), 15);
+    this.undoBtn.container.setDepth(238); this.hintBtn.container.setDepth(238);
     this.heartsPill.setSize(104, 32).setInteractive().on('pointerdown', () => { if (!this.heartsFree() && this.heartsNow() < tune.rules.heartsMax) this.showOutOfHearts(false); });
     this.banner = this.hudText(WIDTH / 2, HEIGHT / 2 - 22, 34, '#ffe27a').setDepth(230).setAlpha(0);
     this.coach = this.hudText(WIDTH / 2, 172, 16, '#74435c').setDepth(230).setPadding(12, 5, 12, 5).setBackgroundColor('rgba(255,249,238,0.94)').setAlign('center').setWordWrapWidth(Math.min(WIDTH, 560) - 50);
@@ -360,6 +369,7 @@ export class GameScene extends Phaser.Scene {
     else this.endAttempt(false);
     this.freeRestart = false;
     if (index !== this.levelIndex) this.trapLevel = -1;
+    this.history = [];
     const previousLevel=this.level;
     this.levelIndex = Phaser.Math.Clamp(index, 0, LEVELS.length - 1);
     this.level = LEVELS[this.levelIndex];
@@ -494,6 +504,26 @@ export class GameScene extends Phaser.Scene {
     }
     this.lastTrainsLeft = left;
     this.placeCards();
+    this.placeAssist();
+  }
+
+  /** Undo and Hint under the board (portrait) or at the bottom of the left column (wide). */
+  private placeAssist(): void {
+    const ad = this.save.pass ? '' : ' (ad)';
+    for (const [b, label] of [[this.undoBtn, 'Undo' + ad], [this.hintBtn, 'Hint' + ad]] as const) {
+      const text = b.container.list.find((c) => c instanceof Phaser.GameObjects.Text) as Phaser.GameObjects.Text | undefined;
+      text?.setText(label);
+    }
+    const bottom = this.oy + this.cs * this.level.rows;
+    if (!this.hudSide) {
+      const y = Math.min(HEIGHT - 30, bottom + 23 + 46);
+      this.undoBtn.container.setPosition(WIDTH / 2 - 72, y);
+      this.hintBtn.container.setPosition(WIDTH / 2 + 72, y);
+    } else {
+      const x = this.cardLevel.x;
+      this.undoBtn.container.setPosition(x, bottom - 76);
+      this.hintBtn.container.setPosition(x, bottom - 26);
+    }
   }
 
   /** Sizes the card plates to their text and places the cards for the current HUD mode. */
@@ -668,6 +698,7 @@ export class GameScene extends Phaser.Scene {
     if (this.taps === 0 && !this.heartsFree() && this.heartsNow() <= 0) return this.showOutOfHearts(true);
     if (!this.heartsFree() && !this.attemptLive) { this.attemptLive = true; this.save.attemptLevel = this.levelIndex; this.persist(); }
     this.lastMove={train,dir};
+    this.history.push({ state: this.state.slice(), taps: this.taps, longestChain: this.longestChain });
     const before=this.state.slice();this.visualState=before.slice();
     const res = applyTap(this.level, this.state, { train, dir }, this.rules);
     this.taps++;
@@ -793,6 +824,31 @@ export class GameScene extends Phaser.Scene {
       label.setText(`Ad placeholder (${Math.ceil(tw.getValue() ?? 0)})`);
     }, onComplete: () => { layer.destroy(); this.dialogOpen = false; reward(); } });
     layer.once('destroy', () => count.stop());
+  }
+
+  private requestUndo(): void {
+    if (this.phase !== 'play' || this.dialogOpen || !this.history.length) return;
+    if (this.save.pass) this.undoMove(); else this.mockRewardedAd(() => this.undoMove());
+  }
+
+  /** Puts the board, move count and longest chain back to before the last move. No heart is used. */
+  private undoMove(): void {
+    const snap = this.history.pop();
+    if (!snap) return;
+    const keep = this.history.slice(), live = this.attemptLive;
+    this.freeRestart = true;
+    this.startLevel(this.levelIndex);
+    this.history = keep;
+    this.applyResume({ level: this.levelIndex, state: snap.state, taps: snap.taps, longestChain: snap.longestChain, title: false });
+    this.attemptLive = live;
+    if (live) { this.save.attemptLevel = this.levelIndex; this.persist(); }
+    this.refreshHud();
+  }
+
+  private requestHint(): void {
+    if (this.phase !== 'play' || this.dialogOpen) return;
+    const show = () => { const m = solve(this.level, this.state, 400000, this.rules).moves[0]; if (m) { this.clearHint(); this.drawHint(m); } };
+    if (this.save.pass) show(); else this.mockRewardedAd(show);
   }
 
   /** A short cue instead of a restart, for a swipe across the track or a tap on a train that cannot move. */
@@ -1127,6 +1183,13 @@ export class GameScene extends Phaser.Scene {
     }
     this.fitCoach();
     if(offPath)return;
+    this.drawHint(m);
+  }
+
+  /** Focus ring and swiping glove on the move `m` (tutorial and the rewarded hint). Cleared by the next move. */
+  private drawHint(m:{train:number;dir:Dir}):void {
+    const v=this.views.get(m.train);if(!v)return;
+    const t=this.level.trains[m.train];
     const g=this.add.graphics(),x=v.container.x-(t.axis==='h'?t.len:1)*this.cs/2-4,y=v.container.y-(t.axis==='v'?t.len:1)*this.cs/2-4,w=(t.axis==='h'?t.len:1)*this.cs+8,h=(t.axis==='v'?t.len:1)*this.cs+8;
     const bx=this.ox,by=this.oy,bw=this.level.cols*this.cs,bh=this.level.rows*this.cs,l=Math.max(bx,x),focusTop=Math.max(by,y),r=Math.min(bx+bw,x+w),bottom=Math.min(by+bh,y+h);
     g.fillStyle(0x543044,.16);g.fillRect(bx,by,Math.max(0,l-bx),bh);g.fillRect(r,by,Math.max(0,bx+bw-r),bh);g.fillRect(l,by,Math.max(0,r-l),Math.max(0,focusTop-by));g.fillRect(l,bottom,Math.max(0,r-l),Math.max(0,by+bh-bottom));
@@ -1402,6 +1465,9 @@ export class GameScene extends Phaser.Scene {
   update(_time:number,delta:number): void {
     this.coach.setVisible(this.coach.text.length>0);
     this.refreshHearts();
+    const assist = this.phase === 'play' && !this.titleOpen && !this.dialogOpen && !COACH[this.levelIndex];
+    this.undoBtn.container.setVisible(assist).setAlpha(this.history.length ? 1 : 0.45);
+    this.hintBtn.container.setVisible(assist);
     runtime.fps=Math.round(this.game.loop.actualFps);
     const readyKey=this.visualState.join(',');
     if(readyKey!==this.readyStateKey){for(const [id,v]of this.views)v.setReady(canRun(this.level,this.visualState,id,v.def.headDir));this.readyStateKey=readyKey;}
