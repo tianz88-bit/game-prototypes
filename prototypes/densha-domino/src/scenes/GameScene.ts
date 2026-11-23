@@ -13,7 +13,7 @@ import { BASE_W, HEIGHT, WIDTH, PIXEL_RATIO, colX, colY, takeResume, type Resume
 import { TrainView,SIDE_BODY_LIFT } from '../render/train';
 import { drawYard } from '../render/yard';
 import {preloadArt,registerArt,hasArt} from '../render/art';
-import {makeIcon} from '../render/icons';
+import {makeBlockedIcon, makeIcon} from '../render/icons';
 import { tune } from '../tune';
 import { VERSION_STAMP } from '../version.generated';
 
@@ -1003,14 +1003,12 @@ export class GameScene extends Phaser.Scene {
     const t = v.def, half = t.len * this.cs / 2;
     const fx = v.container.x + (t.axis === 'h' ? t.headDir * (half + this.cs / 2) : 0);
     const fy = v.container.y + (t.axis === 'v' ? t.headDir * (half + this.cs / 2) : 0);
-    const cross = this.add.graphics({ x: fx, y: fy }).setDepth(245);
-    const k = this.cs * 0.2;
-    cross.lineStyle(7, 0xfff9ee, 1).lineBetween(-k, -k, k, k).lineBetween(-k, k, k, -k);
-    cross.lineStyle(4, 0xc0405e, 1).lineBetween(-k, -k, k, k).lineBetween(-k, k, k, -k);
-    cross.setScale(0.5);
-    this.tweens.add({ targets: cross, scale: 1, duration: 150, ease: 'Back.Out' });
+    const cross = makeBlockedIcon(this, this.cs * 0.66).setPosition(fx, fy).setDepth(245);
+    const { scaleX, scaleY } = cross;
+    this.tweens.add({ targets: cross, scaleX: { from: scaleX * 0.5, to: scaleX }, scaleY: { from: scaleY * 0.5, to: scaleY }, duration: 150, ease: 'Back.Out' });
     this.tweens.add({ targets: cross, alpha: 0, delay: 1500, duration: 300, onComplete: () => cross.destroy() });
-    this.popLabel(v.container.x, v.container.y - (t.axis === 'v' ? t.len : 1) * this.cs / 2 - 14, 'No gap!', 1400);
+    const labelY = t.axis === 'v' && t.headDir === -1 ? fy - this.cs * 0.42 - 12 : v.container.y - (t.axis === 'v' ? t.len : 1) * this.cs / 2 - 14;
+    this.popLabel(v.container.x, labelY, 'No gap!', 1400);
   }
 
   // ------------------------------------------------------------- animation

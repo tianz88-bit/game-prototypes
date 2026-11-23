@@ -9,8 +9,16 @@
     "title_express": "loose/title-express.webp"
   },
   "optional": {
+    "icon_blocked": "loose/icon-blocked.webp",
+    "icon_undo": "loose/icon-undo.webp",
+    "icon_hint": "loose/icon-hint.webp",
+    "icon_restart": "loose/icon-restart.webp",
+    "icon_menu": "loose/icon-menu.webp",
+    "icon_ad": "loose/icon-ad.webp",
+    "icon_heart": "loose/icon-heart.webp",
     "icon_cab": "loose/icon-cab.webp",
     "dd_belt": "loose/track-belt.webp",
+    "dd_mouth_glow": "loose/tunnel-mouth-glow.webp",
     "fx_steam": "loose/fx-steam.webp",
     "fx_sparkle": "loose/fx-sparkle.webp",
     "fx_dust": "loose/fx-dust.webp",

@@ -1,6 +1,22 @@
 import Phaser from 'phaser';
 import { hasArt } from './art';
 
+/** Board feedback for a blocked signal, shared by the tutorial and later puzzles. */
+export function makeBlockedIcon(scene: Phaser.Scene, size: number): Phaser.GameObjects.Image | Phaser.GameObjects.Graphics {
+  if (hasArt(scene, 'icon_blocked')) return scene.add.image(0, 0, 'icon_blocked').setDisplaySize(size, size);
+  const g = scene.add.graphics();
+  const rim = size * 0.44, arm = size * 0.14, cap = size * 0.075;
+  g.fillStyle(0x89364e, 0.5).fillCircle(0, size * 0.035, rim);
+  g.fillStyle(0xfff9ee, 1).fillCircle(0, 0, rim);
+  g.fillStyle(0xe74d66, 1).fillCircle(0, 0, size * 0.37);
+  g.lineStyle(cap * 2, 0xfff9ee).lineBetween(-arm, -arm, arm, arm).lineBetween(-arm, arm, arm, -arm);
+  g.fillStyle(0xfff9ee, 1);
+  for (const x of [-arm, arm]) {
+    g.fillCircle(x, -arm, cap).fillCircle(x, arm, cap);
+  }
+  return g;
+}
+
 export type IconKind = 'undo' | 'hint' | 'restart' | 'menu' | 'ad' | 'heart' | 'cab';
 
 /** Art key for an icon from loose/icon-<kind>.webp (see art-sets.json). */
