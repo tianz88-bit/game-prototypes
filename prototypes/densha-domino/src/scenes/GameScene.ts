@@ -180,6 +180,14 @@ export class GameScene extends Phaser.Scene {
     this.gBackdrop.fillRect(0, 0, WIDTH, HEIGHT);
     this.gBackdrop.fillStyle(0xffffff, 0.35);
     for (const [x, y, r] of [[70, 70, 30], [320, 50, 22], [330, 760, 36], [50, 780, 26]]) this.gBackdrop.fillCircle(x * WIDTH / BASE_W, y * HEIGHT / 844, r);
+    // Pack backdrop art (loose/bg-pack-1.webp, portrait 1080x1920), scaled to cover. On wide screens only its
+    // middle would show, cutting the frame, so wide layouts keep the drawn gradient.
+    if (hasArt(this, 'bg_pack_1') && HEIGHT / WIDTH >= 1.3) {
+      const bg = this.add.image(WIDTH / 2, HEIGHT / 2, 'bg_pack_1').setDepth(-9);
+      // Fill the screen; stretch up to 25% between axes so the tiled frame stays on screen, else cover.
+      const sx = WIDTH / bg.width, sy = HEIGHT / bg.height;
+      if (Math.max(sx, sy) / Math.min(sx, sy) <= 1.25) bg.setScale(sx, sy); else bg.setScale(Math.max(sx, sy));
+    }
 
     const px = this.make.graphics({ x: 0, y: 0 }, false);
     px.fillStyle(0xffffff, 1);
@@ -194,8 +202,10 @@ export class GameScene extends Phaser.Scene {
       halo.addColorStop(.38,'#ffdf00');halo.addColorStop(.56,'rgba(255,216,0,.55)');
       halo.addColorStop(1,'rgba(255,216,0,0)');ctx.fillStyle=halo;ctx.fillRect(0,0,48,48);texture.refresh();
     }
-    this.goalBalls=this.add.particles(0,0,orbKey,{emitting:false,maxParticles:72,lifespan:{min:390,max:550},
-      scale:{start:.43,end:.09},alpha:{start:1,end:0},speed:0}).setDepth(4);
+    // Sparkle art (loose/fx-sparkle.webp, 128 px) when loaded, else the drawn golden orb.
+    const sparkle=hasArt(this,'fx_sparkle');
+    this.goalBalls=this.add.particles(0,0,sparkle?'fx_sparkle':orbKey,{emitting:false,maxParticles:72,lifespan:{min:390,max:550},
+      scale:sparkle?{start:.2,end:.04}:{start:.43,end:.09},rotate:sparkle?{min:0,max:90}:0,alpha:{start:1,end:0},speed:0}).setDepth(4);
     this.sparks = this.add
       .particles(0, 0, 'px', {
         emitting: false,
@@ -218,6 +228,7 @@ export class GameScene extends Phaser.Scene {
     this.plateScore = this.add.graphics();
     this.plateTrains = this.add.graphics();
     if (hasArt(this, 'dd_liveries_0')) this.cabIcon = this.add.image(0, 2, 'dd_liveries_0', '0-7').setDisplaySize(42, 23);
+    else if (hasArt(this, 'icon_cab')) this.cabIcon = makeIcon(this, 'cab', 34, 0x74435c) as Phaser.GameObjects.Image;
     else {
       const g = this.add.graphics();
       g.fillStyle(0x5b3e5e).fillRoundedRect(-20, -9, 40, 21, 8).fillStyle(0xff7a59).fillRoundedRect(-20, -11, 40, 19, 9).fillStyle(0x543451).fillRoundedRect(6, -7, 10, 10, 4);
@@ -226,8 +237,7 @@ export class GameScene extends Phaser.Scene {
     this.cardLevel = this.add.container(0, 0, [this.plateLevel, this.hudLevel, this.hudName]).setDepth(236);
     this.cardScore = this.add.container(0, 0, [this.plateScore, this.hudTaps, this.starsG]).setDepth(236);
     this.cardTrains = this.add.container(0, 0, [this.plateTrains, this.cabIcon, this.trainsText]).setDepth(236);
-    const heart = this.add.graphics();
-    heart.fillStyle(0xe8435f).fillCircle(-5, -3, 6).fillCircle(5, -3, 6).fillTriangle(-10.5, -0.5, 10.5, -0.5, 0, 11);
+    const heart = hasArt(this, 'icon_heart') ? makeIcon(this, 'heart', 24, 0xe8435f) : this.add.graphics().fillStyle(0xe8435f).fillCircle(-5, -3, 6).fillCircle(5, -3, 6).fillTriangle(-10.5, -0.5, 10.5, -0.5, 0, 11);
     heart.setX(-30);
     this.heartsText = this.hudText(-16, 0, 15, '#74435c').setOrigin(0, 0.5);
     const pillBg = this.add.graphics().fillStyle(0x74435c, 0.08).fillRoundedRect(-52, -14, 104, 32, 16).fillStyle(0xfff9ee, 0.96).fillRoundedRect(-52, -16, 104, 32, 16);
@@ -243,6 +253,7 @@ export class GameScene extends Phaser.Scene {
       text.setX(11);
       b.container.add(makeIcon(this, kind, 22).setPosition(-29, 0));
       const badge = makeIcon(this, 'ad', 20).setPosition(56, -18).setName('ad-badge');
+      if (badge instanceof Phaser.GameObjects.Container) badge.setPosition(54, -16);
       b.container.add(badge);
     }
     this.heartsPill.setSize(104, 32).setInteractive().on('pointerdown', () => { if (!this.heartsFree() && this.heartsNow() < tune.rules.heartsMax) this.showOutOfHearts(false); });
@@ -592,7 +603,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Undo and Hint under the board (portrait) or at the bottom of the left column (wide). */
   private placeAssist(): void {
-    for (const b of [this.undoBtn, this.hintBtn]) (b.container.getByName('ad-badge') as Phaser.GameObjects.Graphics | null)?.setVisible(!this.save.pass);
+    for (const b of [this.undoBtn, this.hintBtn]) (b.container.getByName('ad-badge') as Phaser.GameObjects.Container | null)?.setVisible(!this.save.pass);
     const bottom = this.oy + this.cs * this.level.rows;
     if (!this.hudSide) {
       const y = Math.min(HEIGHT - 30, bottom + 23 + 46);
@@ -1099,7 +1110,7 @@ export class GameScene extends Phaser.Scene {
           void from;
           void v.container.setPosition(from.x, from.y);
         });
-        if(!e.exited){const brakeMs=f.brakeMs*this.pace(e.link);at(start+Math.max(0,dur-brakeMs),()=>{v.react('brake',e.dir,brakeMs);this.sfx.sample('stop',0.95+Math.random()*0.1,0.5);});}
+        if(!e.exited){const brakeMs=f.brakeMs*this.pace(e.link);at(start+Math.max(0,dur-brakeMs),()=>{v.react('brake',e.dir,brakeMs);this.sfx.sample('stop',0.95+Math.random()*0.1,0.5);this.puff('fx_dust',to.x+(t.axis==='h'?e.dir*t.len*this.cs/2:0),to.y+(t.axis==='v'?e.dir*t.len*this.cs/2:0),.5,e.dir,t.axis);});}
         pos.set(e.train, e.exited ? e.to : e.to);
         lastRunStart = start;
         lastRunDur = dur;
@@ -1129,6 +1140,15 @@ export class GameScene extends Phaser.Scene {
     });
 
     at(Math.max(cursor,visualEnd) + 60, () => this.afterPlay(links, exits));
+  }
+
+  /** A small art puff (steam on a honk, dust on a stop) that drifts with the motion and fades. Skipped without the art. */
+  private puff(key:string,x:number,y:number,size:number,dir:Dir,axis:'h'|'v'):void {
+    if(!hasArt(this,key)||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    const d=this.cs*size,img=this.add.image(x,y,key).setDisplaySize(d,d).setDepth(199).setAlpha(.9);
+    const sx=img.scaleX;
+    this.tweens.add({targets:img,x:x+(axis==='h'?dir*d*.35:0),y:y+(axis==='v'?dir*d*.35:-d*.25),scale:sx*1.6,alpha:0,duration:420,ease:'Quad.Out',onComplete:()=>img.destroy()});
+    img.once('destroy',()=>this.tweens.killTweensOf(img));
   }
 
   private hitStopUntil=0;
@@ -1180,6 +1200,7 @@ export class GameScene extends Phaser.Scene {
     const p=Math.pow(2,Math.min(step,f.pitchStepMax)*f.pitchStepPerLink);
     this.sfx.tone(392*p,.14,'square',.13);this.sfx.tone(494*p,.14,'square',.11,undefined,.01);
     const x=runner.container.x+(axis==='h'?dir*(runner.def.len/2-.2)*this.cs:0),y=runner.container.y+(axis==='v'?dir*(runner.def.len/2-.2)*this.cs:-SIDE_BODY_LIFT*this.cs/116*.94)-this.cs*.35;
+    this.puff('fx_steam',x,y,.55,dir,axis);
     const g=this.add.graphics({x,y}).setDepth(200);
     g.setName('honk-burst');
     // Soft cream rims, coral/mango signal rays, and a little expanding sound arc.

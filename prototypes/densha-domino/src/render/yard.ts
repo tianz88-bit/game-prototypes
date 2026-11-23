@@ -106,12 +106,21 @@ export function drawYard(g:Phaser.GameObjects.Graphics,level:Level,geo:YardGeo):
     for(const [offset,colour] of [[1,0xfffaf0],[0,0xb4978d]]){
       badge.lineStyle(cs*.041,colour);badge.beginPath();badge.moveTo(-cs*.053,-cs*.085+offset);badge.lineTo(cs*.045,offset);badge.lineTo(-cs*.053,cs*.085+offset);badge.strokePath();
     }
-    const glow=scene.add.graphics().setPosition(x,y).setRotation(angle).setDepth(3).setAlpha(0).setName('goal-'+dir+'-'+(vertical?Math.floor((x-ox)/cs):Math.floor((y-oy)/cs)));
-    // Project the light back onto the playable floor from the tunnel mouth.
-    for(let layer=0;layer<12;layer++){
-      const fraction=1-layer/14;
-      glow.fillStyle(layer<6?0xffdc00:0xfff586,.075+layer*.009);
-      glow.fillEllipse(-cs*.2*fraction,0,cs*1.55*fraction,cs*2.1*fraction);
+    const glowName='goal-'+dir+'-'+(vertical?Math.floor((x-ox)/cs):Math.floor((y-oy)/cs));
+    let glow:Phaser.GameObjects.Graphics|Phaser.GameObjects.Container;
+    if(hasArt(scene,'dd_mouth_glow')){
+      // Tunnel-mouth glow art (white, tinted gold), in a container so the scene can scale it like the drawn glow.
+      const light=scene.add.image(-cs*.2,0,'dd_mouth_glow').setDisplaySize(cs*1.55,cs*2.1).setTint(0xffd21f);
+      glow=scene.add.container(x,y,[light]).setRotation(angle).setDepth(3).setAlpha(0).setName(glowName);
+    }else{
+      const drawn=scene.add.graphics().setPosition(x,y).setRotation(angle).setDepth(3).setAlpha(0).setName(glowName);
+      // Project the light back onto the playable floor from the tunnel mouth.
+      for(let layer=0;layer<12;layer++){
+        const fraction=1-layer/14;
+        drawn.fillStyle(layer<6?0xffdc00:0xfff586,.075+layer*.009);
+        drawn.fillEllipse(-cs*.2*fraction,0,cs*1.55*fraction,cs*2.1*fraction);
+      }
+      glow=drawn;
     }
     glow.once('destroy',()=>scene.tweens.killTweensOf(glow));objects.push(badge,glow);
     if(vertical){

@@ -13,7 +13,22 @@ export function channelSurface(scene:Phaser.Scene,level:Level,cs:number):Phaser.
     const begin=run.start*cs*scale,length=(run.end-run.start)*cs*scale,across=(run.line+.5)*cs*scale-lane/2;
     if(run.axis==='h')path.rect(begin,across,length,lane);else path.rect(across,begin,lane,length);
   }
-  ctx.fillStyle='#abb7cc';ctx.fill(path);const image=ctx.getImageData(0,0,w,h),source=new Uint8ClampedArray(image.data),radius=Math.max(5,Math.round(cs*.1*scale));
+  ctx.fillStyle='#abb7cc';ctx.fill(path);
+  // Conveyor belt art (loose/track-belt.webp, a horizontal tile): laid along each run, turned for vertical runs.
+  // Without it the plain lane colour stays.
+  if(scene.textures.exists('dd_belt')){
+    const tile=scene.textures.get('dd_belt').getSourceImage() as CanvasImageSource&{width:number;height:number};
+    const k=lane/tile.height;
+    for(const run of channelRuns(level)){
+      const begin=run.start*cs*scale,length=(run.end-run.start)*cs*scale,across=(run.line+.5)*cs*scale-lane/2;
+      ctx.save();
+      if(run.axis==='h')ctx.translate(begin,across);else{ctx.translate(across+lane,begin);ctx.rotate(Math.PI/2);}
+      ctx.beginPath();ctx.rect(0,0,length,lane);ctx.clip();
+      for(let x=0;x<length;x+=tile.width*k)ctx.drawImage(tile,x,0,tile.width*k+1,lane);
+      ctx.restore();
+    }
+  }
+  const image=ctx.getImageData(0,0,w,h),source=new Uint8ClampedArray(image.data),radius=Math.max(5,Math.round(cs*.1*scale));
   const inside=(x:number,y:number)=>x>=0&&x<w&&y>=0&&y<h&&source[(y*w+x)*4+3]>127;
   for(let y=0;y<h;y++)for(let x=0;x<w;x++){
     const p=(y*w+x)*4;if(!source[p+3])continue;
@@ -22,7 +37,7 @@ export function channelSurface(scene:Phaser.Scene,level:Level,cs:number):Phaser.
     // A channel exits flush with the board; never shade an artificial rounded lip there.
     if(y<radius)up=radius;if(x<radius)left=radius;if(y>=h-radius)down=radius;if(x>=w-radius)right=radius;
     const edge=(d:number)=>Math.pow(1-d/radius,2),shade=-.30*edge(up)-.18*edge(left)+.18*edge(down)+.1*edge(right);
-    for(let c=0;c<3;c++)image.data[p+c]=Math.round([171,183,204][c]*(1+shade));
+    for(let c=0;c<3;c++)image.data[p+c]=Math.round(source[p+c]*(1+shade));
   }
   ctx.putImageData(image,0,0);texture.refresh();return scene.add.image(0,0,key).setOrigin(0).setDisplaySize(width,height).setDepth(1);
 }
