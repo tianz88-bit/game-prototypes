@@ -1,3 +1,7 @@
+# Setup chains: tried and stopped (23 November 2026, owner decision)
+
+Goal was a "setup chain": one honk that moves 3+ trains and clears none, parking them for the final payoff. Under the current rules this is close to impossible to build: a honked train always drives toward its face until stopped; if a prop stops it, its face is blocked for good and it can never join the payoff, so the stoppers must be trains that refuse at that moment and clear later. Evidence: 1 in 116 setup moves in the pack; backward search from all 95 levels found 0 valid versions; about 1 in 4,000 random dense boards had one in the shortest solution; the cascade designer (scripts/build-densha-cascade-levels.mjs, both train-stopper and prop-parking modes) produced 0 levels in 40 minutes on 4 cores. Stopped as the limit of the current mechanics. The tools (setupChains label, seekSetupChain, cascade builders) stay for a future mechanic that lets trains park, such as stations, switches or sidings.
+
 # Tools over hand-made content (23 November 2026, owner decision)
 
 When the game needs new kinds of content, build a tool that makes it (generator rules, search tools, labels) rather than hand-designing individual levels.
