@@ -36,6 +36,12 @@ you did so.
 - Claude Code writes all code, config, and CI.
 - Each prototype is specified by its own `BRIEF.md`. The brief is the
   source of truth. If the brief does not ask for it, do not build it.
+  Studies (see Studies) have no brief: the owner's request in chat
+  defines their scope.
+- Reference images, concept art and other artwork the owner supplies
+  are the team's own IP unless the owner says otherwise. Do not ask the
+  owner to confirm ownership. Claude may still mention it once if a
+  reference is plainly another studio's IP.
 
 ## Stack
 
@@ -45,7 +51,12 @@ It defines the standard and compact delivery contracts and their required checks
 
 Fixed. Do not add, swap, or upgrade any of these without asking first.
 
-- Engine: Phaser 3
+- Engine: Phaser 3 for 2D prototypes; Three.js for 3D prototypes
+  (approved by the owner on 25 November 2026). Each prototype uses one
+  engine; do not mix Phaser and Three.js in one prototype without
+  asking. A Three.js prototype installs `three` (and `@types/three`)
+  from npm at an exact pinned version, chosen when the prototype is
+  created and only upgraded deliberately.
 - Language: TypeScript (strict mode)
 - Build: Vite
 - Atlas packing: free-tex-packer-cli
@@ -88,6 +99,7 @@ prototypes/<name>/     One self-contained prototype
   BRIEF.md             Spec for this prototype
   src/                 Game source
   tune.json            Tuned constants (see Tuning)
+studies/<name>/        Quick visual or technical experiment (see Studies)
 scripts/               Build, pack, fetch, screenshot
 .github/workflows/     CI
 
@@ -108,6 +120,9 @@ Artwork lives in Cloudflare R2, never in this repository.
 - Fetched over plain HTTPS. No credentials required. Never add R2 API
   tokens or secrets to this repo.
 - Never commit PNG, zip, or atlas files. Enforce via .gitignore.
+- 3D prototypes follow the same rules for models: `.glb`/`.gltf`
+  files and their textures live in R2 under `loose/` in the
+  prototype's zip and are never committed.
 
 Zip structure:
 
@@ -190,7 +205,8 @@ scope of a prototype.
 
 ## Placeholder-first
 
-Build all mechanics with coloured rectangles first. Do not wait on
+Build all mechanics with coloured rectangles first (in 3D, coloured
+primitive shapes). Do not wait on
 artwork, and do not treat missing art as a blocker. Art is swapped in
 only after the loop is confirmed working.
 
@@ -200,6 +216,10 @@ Gameplay, rendering, and UI chrome are implemented in the Phaser canvas
 by default. Design mockups can guide the canvas implementation, but the
 React + Tailwind DOM-overlay approach is retired for new work unless the
 user explicitly chooses it again. Existing code is not force-migrated.
+
+In Three.js prototypes the same applies: UI is drawn in the WebGL
+canvas (for example an orthographic HUD scene), not a DOM overlay.
+Tweakpane remains the one DOM exception, for the debug panel.
 
 **Firestorm Arena:** all interface elements are drawn in the Phaser canvas.
 Do not use React, Tailwind, @vitejs/plugin-react, or any DOM UI overlay in
@@ -264,6 +284,10 @@ correct.
   style/config; the game-level pixel buffer size does not by itself
   sharpen text. Verify visually, per prototype and per Phaser version
   in use.
+- Three.js prototypes do this with
+  `renderer.setPixelRatio(Math.min(window.devicePixelRatio, cap))`
+  instead of the Phaser camera-zoom approach. The same cap reasoning
+  applies.
 - This is a rendering-quality fix only: it must not change layout,
   logical coordinates, or game logic. Positioning math written in
   logical/CSS pixel space (e.g. `x = width / 2`) stays unaffected.
@@ -284,6 +308,36 @@ Run all of these. Do not report a task complete if any fail.
 
 Report what you actually verified. Do not describe untested behaviour
 as working.
+
+## Studies
+
+`studies/<name>/` holds quick visual or technical experiments: art
+and shader tests, model viewers, animation sketches, one-off demos.
+A study is not a prototype, so most prototype rules do not apply.
+
+- Exempt: `BRIEF.md`, `tune.json` and the Tweakpane panel, version
+  stamping, `BUILD_STATUS.md`, the intent layer, phone play, and the
+  four-step verification list.
+- Still applies: the Stack (approved engines and libraries only, ask
+  before adding others), the art pipeline (no committed art), never
+  block the player, and the device pixel ratio rule.
+- A study may be a single self-contained HTML file that loads its
+  libraries from a CDN pinned to an exact version, or a small
+  Vite + TypeScript app. It may also be published as a claude.ai
+  artifact for review.
+- Verification for a study: it loads with no console errors, and one
+  Playwright screenshot is taken and inspected. Report what was
+  actually checked.
+- Studies are not linked from the hub and are not deployed.
+
+Graduation: when a study has matured and the owner decides it is
+good enough, it is promoted to `prototypes/<name>/`. Promotion happens
+only on the owner's explicit say-so. From then on it follows every
+prototype rule: the owner writes its `BRIEF.md`, and it gains
+`tune.json` with a Tweakpane panel, a version stamp starting at
+`0000`, `BUILD_STATUS.md`, the intent layer and phone play, and
+npm-installed dependencies in place of CDN scripts. Hosting is then
+chosen per prototype as usual, so it can go live.
 
 ## Session status file
 
