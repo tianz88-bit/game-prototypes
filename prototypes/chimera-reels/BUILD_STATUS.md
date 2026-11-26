@@ -40,6 +40,13 @@ on a design decision.
   re-roll.
 - Pocket row shrinks its slots to fit any pocket size.
 
+- Balance pass 1 (owner-approved): tier multipliers 1/1.8/2.7/4.5,
+  target duplicate bonus +35%, stacked Quick 50% / 100% / 200% with
+  carry-over into the following cooldown. Headless balance sim in
+  `scripts/sim-chimera-balance.ts` (run `node scripts/sim-chimera-balance.mjs 200`).
+  Floor 1 win rates (smart bot): Tuskrel 79%, Skyreave 47%, Bulwark 94%,
+  Random 84%. Avg fights 21s to 55s.
+
 ## Key technical decisions
 - `computeHit` is a pure function used both for previews and for
   resolution, so the shown damage always matches what lands.
@@ -67,6 +74,10 @@ on a design decision.
 - Rare and epic parts reuse common meshes at a larger size.
 - The HUD canvas is redrawn every frame; may cost battery on low-end
   phones.
+
+- Balance still open: Skyreave below the 70-80% F1 target, Bulwark too
+  strong and slow, supers rare (about 0.02 per fight with the sim bot),
+  move power and a gentler floor 1 not decided.
 
 ## Next proposed step
 Owner plays the 3-reel build and tunes (`?debug=1`). Confirm the blank

@@ -156,6 +156,15 @@ answers one question.
 - Burning does not use up the turn. The player still chooses Execute or
   Pocket afterwards. Time spent burning counts as deciding.
 
+### Quick
+
+- Quick cuts the next cooldown, scaling with how many are stacked (line
+  tile plus pocketed duplicates): 1 Quick 50%, 2 Quicks 100% (the next
+  spin starts at once), 3 Quicks 200% (the next two spins start at once,
+  a double move). Values in `tune.json`. Burning Quick tiles uses the
+  same table. This is the rapid-offence strategy (Skyreave).
+- The Execute button names the Quick effect before the player commits.
+
 ### Shields
 
 - Shield is a mutator tile. Executing with Shield on the line fires the
