@@ -69,8 +69,6 @@ on a design decision.
 ## Known issues
 - Not tested on a real phone; verified in headless Chromium at 390x844
   and 1280x720, dev build.
-- Balance untouched first guesses; automated fights often end near 0 HP
-  on both sides.
 - Rare and epic parts reuse common meshes at a larger size.
 - The HUD canvas is redrawn every frame; may cost battery on low-end
   phones.
