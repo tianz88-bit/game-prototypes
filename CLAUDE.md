@@ -45,7 +45,10 @@ It defines the standard and compact delivery contracts and their required checks
 
 Fixed. Do not add, swap, or upgrade any of these without asking first.
 
-- Engine: Phaser 3
+- Engine: Phaser 3. Exception: chimera-reels uses Three.js (pinned in its
+  own package.json), approved by the owner for that prototype only. Every
+  other rule (intents, tune.json and Tweakpane, version stamp, DPR,
+  phone play) still applies there in Three.js form.
 - Language: TypeScript (strict mode)
 - Build: Vite
 - Atlas packing: free-tex-packer-cli
