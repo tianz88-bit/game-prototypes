@@ -13,9 +13,9 @@
     "partsBrokenPerBlank": 2
   },
   "combat": {
-    "tierMult": [1, 1.4, 1.9, 3],
+    "tierMult": [1, 1.8, 2.7, 4.5],
     "burnMult": [0, 0.5, 1, 1.5],
-    "targetMatchBonus": 0.2,
+    "targetMatchBonus": 0.35,
     "targetMatchCap": 2,
     "mutatorMatchBonus": 0.25,
     "mutatorMatchCap": 2,
@@ -83,7 +83,7 @@
   },
   "mutators": {
     "power": { "mult": 1.5 },
-    "quick": { "cooldownCut": 0.35 }
+    "quick": { "cooldownCut": 0.5 }
   },
   "rarity": {
     "rareFromFloor": 3,
