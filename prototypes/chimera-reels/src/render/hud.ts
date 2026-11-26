@@ -8,6 +8,7 @@ import { tune } from '../tune';
 import {
   executeMatches,
   isFlying,
+  planPocket,
   pocketGroups,
   previewBurn,
   previewExecute,
@@ -15,6 +16,7 @@ import {
   reelWindow,
   REELS,
   shieldCap,
+  tilesFromPart,
   weakspot,
   type Combat,
   type CombatEvent,
@@ -103,7 +105,7 @@ export class Hud {
   /** Pocket tiles still flying in (hidden in the pocket until they land), by tile. */
   private hidden = new Map<PocketTile, number>();
   /** Displayed x of each pocket tile, eased towards its slot so re-sorting slides. */
-  private slotX = new WeakMap<PocketTile, number>();
+  private slotX = new Map<string, number>();
   private frameDt = 1 / 60;
   private landAge: Record<Side, number[]> = { player: [9, 9, 9], enemy: [9, 9, 9] };
   private lastTickRow = [0, 0, 0];
@@ -167,12 +169,13 @@ export class Hud {
     return { x: P.reelX[reel], y: P.reelY + row * (P.tileH + P.gap), w: P.tileW, h: P.tileH };
   }
 
-  /** Pocket slot i when the pocket holds n slots; slots shrink so any size fits one row. */
-  private slotRect(side: Side, i: number, n = 9): Rect {
+  /** Pocket stack slot i when the pocket has n type slots; slots share one row. */
+  private slotRect(side: Side, i: number, n = 6): Rect {
     const P = side === 'player' ? L.player : L.enemy;
     const total = side === 'player' ? 358 : 207;
-    const size = Math.min(P.slot, (total - (n - 1) * P.slotGap) / n);
-    return { x: P.pocketX + i * (size + P.slotGap), y: P.pocketY + (P.slot - size) / 2, w: size, h: size };
+    const maxW = side === 'player' ? 58 : 32;
+    const w = Math.min(maxW, (total - (n - 1) * P.slotGap) / n);
+    return { x: P.pocketX + i * (w + P.slotGap), y: P.pocketY, w, h: P.slot };
   }
 
   private choiceRect(i: number, n: number): Rect {
@@ -240,8 +243,9 @@ export class Hud {
         if (inside(L.pocket, x, y)) return { type: 'secondary' };
         if (inside(L.yield, x, y)) return { type: 'yield' };
         const f = c.fighters.player;
-        for (let i = 0; i < f.pocket.length; i++) {
-          if (inside(this.slotRect('player', i, f.pocketSize), x, y)) return { type: 'burn', group: pocketGroups(f).findIndex((gr) => gr.id === f.pocket[i].id) };
+        const groups = pocketGroups(f);
+        for (let i = 0; i < groups.length; i++) {
+          if (inside(this.slotRect('player', i, f.pocketSize), x, y)) return { type: 'burn', group: i };
         }
         return null;
       }
@@ -368,7 +372,7 @@ export class Hud {
           const slot = this.slotRect(e.side, s.to, fl.pocketSize);
           const to = center(slot);
           this.hidden.set(s.tile, f.tileFlySec + k * 0.04);
-          this.slotX.set(s.tile, slot.x);
+          this.slotX.set(`${e.side}:${s.id}`, slot.x);
           this.flies.push({ id: s.id, x0: from.x, y0: from.y, x1: to.x, y1: to.y, age: -k * 0.04, dur: f.tileFlySec, drop: false, w: tw, h: tw, arc: -40 });
         });
         for (const slot of e.discarded) {
@@ -657,53 +661,80 @@ export class Hud {
     }
   }
 
-  private drawPocket(c: Combat, f: Fighter, side: Side) {
+  private drawPocket(c: Combat, f: Fighter, side: Side, aimPart = -1) {
     const m = f.landed ? executeMatches(f) : null;
     const groups = pocketGroups(f);
-    const count = f.pocketSize;
-    for (let i = 0; i < count; i++) this.rr(this.slotRect(side, i, count), side === 'player' ? 7 : 4, 'rgba(255,255,255,0.05)', 'rgba(255,255,255,0.13)', 1);
-    for (let i = 0; i < f.pocket.length; i++) {
-      const t = f.pocket[i];
-      const slot = this.slotRect(side, i, count);
-      // Tiles ease towards their sorted slot, so re-ordering reads as a slide.
-      const x0 = this.slotX.get(t) ?? slot.x;
+    const n = f.pocketSize;
+    const cap = tune.pocket.stackCap;
+    for (let i = 0; i < n; i++) this.rr(this.slotRect(side, i, n), side === 'player' ? 7 : 4, 'rgba(255,255,255,0.05)', 'rgba(255,255,255,0.13)', 1);
+    groups.forEach((g, i) => {
+      const slot = this.slotRect(side, i, n);
+      // Stacks ease towards their sorted slot, so re-ordering reads as a slide.
+      const key = `${side}:${g.id}`;
+      const x0 = this.slotX.get(key) ?? slot.x;
       const x = x0 + (slot.x - x0) * Math.min(1, this.frameDt * 14);
-      this.slotX.set(t, x);
-      if (this.hidden.has(t)) continue;
-      const r = { ...slot, x };
-      const match = m && t.id !== 'blank' && (t.id === m.move || t.id === m.target || t.id === m.mut);
+      this.slotX.set(key, x);
+      const tiles = f.pocket.filter((t) => t.id === g.id);
+      const shown = tiles.filter((t) => !this.hidden.has(t)).length;
+      if (shown <= 0) return;
+      const match = m && (g.id === m.move || g.id === m.target || g.id === m.mut);
+      const full = shown >= cap && isMove(g.id);
       const wob = match ? Math.sin(this.time * 14 + i) * 1.5 : 0;
       let badge: string | undefined;
-      if (side === 'player' && f.landed && isMove(t.id)) {
-        const b = previewBurn(c, 'player', t.id);
+      if (side === 'player' && f.landed) {
+        const b = previewBurn(c, 'player', g.id);
         if (b) badge = String(b.damage);
       }
-      const n = groups.find((gr) => gr.id === t.id)?.count ?? 1;
-      this.tile({ x: r.x, y: r.y + wob, w: r.w, h: r.h }, t.id, {
-        scale: match ? 1.08 : 1, glow: match ? `rgba(255,224,138,${0.6 + 0.4 * Math.sin(this.time * 10)})` : undefined, badge,
-      });
-      if (side === 'player' && n > 1) this.text(`${n}`, r.x + 6, r.y + 7, 9, '#ffffff', 'center', '900');
-    }
+      const glow = match ? `rgba(255,224,138,${0.6 + 0.4 * Math.sin(this.time * 10)})` : full ? 'rgba(255,226,74,0.9)' : undefined;
+      this.tile({ x, y: slot.y + wob, w: slot.w, h: slot.h }, g.id, { scale: match ? 1.06 : 1, glow, badge });
+      const big = side === 'player';
+      this.rr({ x: x + 2, y: slot.y + 2, w: big ? 20 : 12, h: big ? 13 : 9 }, 4, 'rgba(10,8,18,0.8)');
+      this.text(`x${shown}`, x + (big ? 12 : 8), slot.y + (big ? 9 : 7), big ? 10 : 7, shown >= cap ? '#ffe24a' : '#fff', 'center', '900');
+      // Tiles from the part being aimed at: knocked out or dropped if the hit lands.
+      const risk = aimPart >= 0 ? tiles.filter((t) => t.part === aimPart).length : 0;
+      if (risk) {
+        const pulse = 0.6 + 0.4 * Math.sin(this.time * 12);
+        this.rr({ x: x - 2, y: slot.y - 2, w: slot.w + 4, h: slot.h + 4 }, 6, 'rgba(0,0,0,0)', `rgba(120,230,255,${pulse})`, 2);
+        this.rr({ x: x + slot.w - 13, y: slot.y + slot.h - 9, w: 14, h: 10 }, 3, '#2aa7d8');
+        this.text(`${risk}!`, x + slot.w - 6, slot.y + slot.h - 4, 7, '#fff', 'center', '900');
+      }
+    });
   }
+
 
   private drawFight(c: Combat, frozen = false) {
     const e = c.fighters.enemy;
     const p = c.fighters.player;
     this.bars(e, L.enemy.hpY, L.enemy.cdY);
     this.drawReels(e, 'enemy', p);
-    this.text(`Pocket ${e.pocket.length}/${e.pocketSize}`, L.enemy.pocketX, L.enemy.pocketY - 10, 10, '#cfc7d9');
-    this.drawPocket(c, e, 'enemy');
+    this.text(`Pocket ${pocketGroups(e).length}/${e.pocketSize}`, L.enemy.pocketX, L.enemy.pocketY - 10, 10, '#cfc7d9');
+    const aim = !frozen && p.landed ? previewExecute(c, 'player') : null;
+    const aimPart = aim ? aim.hit.part : -1;
+    this.drawPocket(c, e, 'enemy', aimPart);
     const w = weakspot(e);
-    this.text(`Weak: ${w >= 0 ? PARTS[e.parts[w].id].name : '-'}`, 168, 118, 11, '#ff9a8a', 'left', '700');
-    this.text(`Armour: ${e.armour}`, 168, 134, 10, '#cfc7d9');
-    const broken = e.parts.filter((pt) => pt.broken).length;
-    if (broken) this.text(`${broken} broken`, 168, 150, 10, '#ff9a3a', 'left', '700');
+    if (aim) {
+      // What this turn's hit does to the aimed part and its tiles.
+      const part = e.parts[aimPart];
+      const isBody = part.slot === 'body';
+      const risk = tilesFromPart(e, aimPart);
+      const breaks = !isBody && aim.hit.damage >= part.hp;
+      const knock = aim.hit.toHp > 0 && risk.some((t) => isMove(t.id));
+      this.text(`AIM: ${PARTS[part.id].name}${isBody ? '' : `  ${Math.max(0, part.hp)}/${part.maxHp}`}`, 168, 118, 11, '#78e6ff', 'left', '800');
+      const outcome = breaks ? `BREAKS${risk.length ? `, drops ${risk.length}` : ''}` : knock ? 'knocks out 1 tile' : aim.hit.toHp === 0 ? 'shield takes it' : risk.length ? '' : 'no tiles at risk';
+      if (outcome) this.text(outcome, 168, 134, 10, breaks ? '#ffb36b' : '#cfe9ff', 'left', '800');
+      this.text(`Weak: ${w >= 0 ? PARTS[e.parts[w].id].name : '-'}`, 168, 150, 10, '#ff9a8a', 'left', '700');
+    } else {
+      this.text(`Weak: ${w >= 0 ? PARTS[e.parts[w].id].name : '-'}`, 168, 118, 11, '#ff9a8a', 'left', '700');
+      this.text(`Armour: ${e.armour}`, 168, 134, 10, '#cfc7d9');
+      const broken = e.parts.filter((pt) => pt.broken).length;
+      if (broken) this.text(`${broken} broken`, 168, 150, 10, '#ff9a3a', 'left', '700');
+    }
     if (e.landed) this.text('deciding...', 374, 150, 10, '#e8c15a', 'right');
 
     this.bars(p, L.player.hpY, L.player.cdY);
     if (this.missedFlash > 0) this.text('Too slow, spin lost!', 16, 530, 11, '#ff8a7a', 'left', '700');
     this.drawReels(p, 'player', e);
-    this.text(`Pocket ${p.pocket.length}/${p.pocketSize}`, 16, L.player.pocketY - 9, 10, '#cfc7d9', 'left', '700');
+    this.text(`Pocket ${pocketGroups(p).length}/${p.pocketSize} types, stacks of ${tune.pocket.stackCap}`, 16, L.player.pocketY - 9, 10, '#cfc7d9', 'left', '700');
     if (p.landed && p.pocket.length) this.text('tap tile = burn', 374, L.player.pocketY - 9, 10, '#e8c15a', 'right', '700');
     this.drawPocket(c, p, 'player');
     if (!frozen) {
@@ -777,11 +808,9 @@ export class Hud {
     } else this.text(isMove(m.move) ? 'no target' : 'whiff', ex.x + ex.w / 2, ex.y + 50, 13, 'rgba(255,255,255,0.8)', 'center', '700');
     if (m.mut === 'shield') this.text('+ SHIELD', ex.x + ex.w / 2, ex.y + 66, 10, '#bfefff', 'center', '900');
     if (m.mut === 'quick') this.text(['+ QUICK 50%', '+ INSTANT NEXT SPIN', '+ DOUBLE MOVE'][m.mutMatches] ?? '', ex.x + ex.w / 2, ex.y + 66, 10, '#b6ffd9', 'center', '900');
-    const visible = REELS.flatMap((r) => [reelWindow(f, r)[0], reelWindow(f, r)[2]]).filter((t) => t.id !== 'blank' && !t.broken).length;
-    const free = f.pocketSize - f.pocket.length;
-    const store = Math.min(free, visible);
-    this.text(`store ${store}`, po.x + po.w / 2, po.y + 46, 14, '#1a1424', 'center', '800');
-    if (visible > store) this.text(`lose ${visible - store}`, po.x + po.w / 2, po.y + 62, 11, 'rgba(26,20,36,0.75)', 'center', '700');
+    const plan = planPocket(f);
+    this.text(`store ${plan.store.length}`, po.x + po.w / 2, po.y + 46, 14, '#1a1424', 'center', '800');
+    if (plan.discard.length) this.text(`lose ${plan.discard.length}`, po.x + po.w / 2, po.y + 62, 11, 'rgba(26,20,36,0.75)', 'center', '700');
   }
 
   private drawFlies() {

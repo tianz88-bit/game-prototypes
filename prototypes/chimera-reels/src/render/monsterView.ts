@@ -29,6 +29,7 @@ export class MonsterView {
   private falling: Falling[] = [];
   private weakSlot: Slot | null = null;
   private highlightGold = false;
+  private aimSlot: Slot | null = null;
   private shieldBubble: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>;
   private time = Math.random() * 10;
   private springAcc = 0;
@@ -187,6 +188,11 @@ export class MonsterView {
     this.body.add(this.shieldBubble);
   }
 
+  /** The part this turn's hit will land on (cyan outline, shown over the weakspot red). */
+  setAim(slot: Slot | null) {
+    this.aimSlot = slot;
+  }
+
   /** 0..1 share of the shield cap currently held. */
   setShield(frac: number) {
     const target = frac > 0 ? 0.12 + 0.18 * frac : 0;
@@ -264,9 +270,13 @@ export class MonsterView {
     const pulse = 0.5 + 0.5 * Math.sin(this.time * 6);
     for (const slot of Object.keys(this.outlines) as Slot[]) {
       const weak = slot === this.weakSlot;
+      const aimed = slot === this.aimSlot;
       for (const o of this.outlines[slot]) {
         const u = (o.material as THREE.ShaderMaterial).uniforms;
-        if (weak) {
+        if (aimed) {
+          u.uColor.value.setRGB(0.3 + 0.2 * pulse, 0.85 + 0.15 * pulse, 1);
+          u.uThick.value = 0.036;
+        } else if (weak) {
           if (this.highlightGold) u.uColor.value.setRGB(1, 0.65 + 0.3 * pulse, 0.1);
           else u.uColor.value.setRGB(0.55 + 0.45 * pulse, 0.08, 0.1);
           u.uThick.value = 0.032;

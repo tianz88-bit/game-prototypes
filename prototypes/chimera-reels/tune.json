@@ -20,7 +20,8 @@
     "mutatorMatchBonus": 0.25,
     "mutatorMatchCap": 2,
     "holdReducePerTile": 0.1,
-    "holdReduceCap": 0.3
+    "holdReduceCap": 0.3,
+    "targetBurnDamage": [0, 1, 2, 3]
   },
   "shield": {
     "perTile": 8,
@@ -56,9 +57,9 @@
       "plating": { "hp": 20, "speed": -0.05, "atk": 0, "def": 0.25, "weak": 0, "shield": 0.6 },
       "spines": { "hp": 0, "speed": 0, "atk": 0.05, "def": 0.05, "weak": 1 },
       "tailclub": { "hp": 5, "speed": 0, "atk": 0.05, "def": 0, "weak": 2 },
-      "pouch": { "hp": 0, "speed": 0, "atk": 0, "def": 0, "weak": 3, "pocket": 2 },
+      "pouch": { "hp": 0, "speed": 0, "atk": 0, "def": 0, "weak": 3, "pocket": 1 },
       "spiketail": { "hp": 10, "speed": 0, "atk": 0.1, "def": 0, "weak": 2 },
-      "heart": { "hp": 10, "speed": 0.05, "atk": 0.1, "def": 0, "weak": 4, "pocket": 3, "shield": 0.3 }
+      "heart": { "hp": 10, "speed": 0.05, "atk": 0.1, "def": 0, "weak": 4, "pocket": 1, "shield": 0.3 }
     }
   },
   "armour": {
@@ -69,7 +70,8 @@
     "plate": { "slash": 0.7, "crush": 0.9, "pierce": 0.7, "exotherm": 1.1, "breakMult": 1.6 }
   },
   "pocket": {
-    "defaultSize": 9
+    "defaultSize": 6,
+    "stackCap": 3
   },
   "moves": {
     "claw": { "power": 10 },

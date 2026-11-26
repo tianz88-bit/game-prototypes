@@ -2,7 +2,7 @@
 // part breaks, weakspot highlight, flight hover and camera shake.
 import * as THREE from 'three';
 import { tune } from '../tune';
-import { isFlying, shieldCap, weakspot, type Combat, type CombatEvent, type Side } from '../sim/combat';
+import { isFlying, previewExecute, shieldCap, weakspot, type Combat, type CombatEvent, type Side } from '../sim/combat';
 import type { MonsterSpec, Slot } from '../sim/content';
 import { MonsterView } from './monsterView';
 import { makeGround, Vfx } from './toon';
@@ -172,10 +172,15 @@ export class Arena {
         continue;
       }
       // Only the enemy's weakspot is highlighted (it is what the player aims for).
-      if (side === 'enemy' && fighter && !c?.winner) {
+      if (side === 'enemy' && fighter && c && !c.winner) {
         const w = weakspot(fighter);
         v.setWeak(w >= 0 ? fighter.parts[w].slot : null);
-      } else v.setWeak(null);
+        const aim = c.fighters.player.landed ? previewExecute(c, 'player') : null;
+        v.setAim(aim ? fighter.parts[aim.hit.part].slot : null);
+      } else {
+        v.setWeak(null);
+        v.setAim(null);
+      }
     }
     this.vfx.update(dt);
     this.camera.position.copy(this.camBase);
