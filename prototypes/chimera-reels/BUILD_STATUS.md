@@ -12,15 +12,28 @@ Brief drafted. No code yet.
   this prototype only.
 - Portrait, mobile-first, web.
 - Placeholder monsters built from primitive meshes, one mesh per part.
-- One command per ready monster. The "2 commands per turn" idea is
-  dropped for 1v1 and will be revisited with 3v3 swapping.
+- Combat input is two buttons only: Execute or Pocket. Reels auto spin
+  when the speed cooldown finishes. Category and direction choice were
+  dropped; parts and the mutator reel decide them.
+- Reels are 2 x 3 (6 visible tiles). The middle line executes, off-line
+  tiles give small effects. Pocket stores all 6 tiles for passive buffs;
+  matching pocketed tiles power up later executes (1, 2, 3 tiles up to a
+  super version) and are consumed.
+- No decision timer and no pause.
 - Hosting: GitHub Pages static site via the existing `deploy.yml`.
 
 ## Open questions
 - Items marked (proposed) in `BRIEF.md` are gaps in the original notes
-  and need owner confirmation: speed gauge timing, RPS stance rules,
-  tile potency rule, starter content, damage type subset, UI drawn in
-  canvas.
+  and need owner confirmation: RPS stance rules, whether pocketed
+  mutator tiles also power up, pocket overflow rule, starter content,
+  damage type subset, UI drawn in canvas.
+- Hesitation cost: the brief reads "wasting the next speed CD" as the
+  next cooldown only starting once the player chooses. The alternative
+  (cooldown runs anyway and an unanswered spin is lost) was not chosen.
+  BRIEF.md may need updating once confirmed.
+- Combat controls changed a lot during discussion (category choice,
+  direction choice, wait, pocket). BRIEF.md now reflects the latest
+  decision but the original notes did not cover it.
 - CLAUDE.md and STACK.md still say Phaser 3 is fixed for every
   prototype. They need a line recording the Three.js exception.
 - Working name "chimera-reels" is a placeholder.

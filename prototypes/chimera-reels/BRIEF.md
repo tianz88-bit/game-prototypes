@@ -15,7 +15,9 @@ original notes. Confirm or change them before build starts.
 
 1. Pick a starter chimera.
 2. Pay an entry bet in gold to enter the next tower floor.
-3. Fight one enemy monster. Reels spin, parts break, one side falls or yields.
+3. Fight one enemy monster. Reels spin on each monster's speed cooldown,
+   the player chooses Execute or Pocket, parts break, one side falls or
+   yields.
 4. Win: collect the payout, gain a level, choose 1 of 3 new reel tiles.
 5. Lose: the run ends.
 6. Repeat until gold cannot cover the next floor's entry bet.
@@ -58,35 +60,70 @@ chimeras built from these. The debug panel can swap any part for testing.
 - Both monsters' reels are always on screen, so the fight can be read at
   a glance by a player or a spectator.
 
-### Speed and timing (proposed)
+### Speed and spinning
 
-- Each monster has a speed gauge that fills at a rate set by its speed
-  stat (legs and wings). When the gauge is full, that monster acts.
-- When the player's monster is ready, time pauses until the player
-  chooses. The fight feels turn-based but faster monsters act more often.
-- One command per ready. There is no "2 commands per turn" rule: speed
-  is the source of tempo depth. Revisit when 3v3 swapping is built.
+- Each monster has a speed cooldown set by its speed stat (legs and
+  wings). When the cooldown finishes, its reels spin automatically.
+- After a spin the player has two buttons: **Execute** or **Pocket**.
+  There is no other combat input.
+- There is no decision timer and the fight does not pause. The
+  monster's next cooldown only starts once the player has chosen, so
+  hesitating wastes time while the opponent keeps acting
+  **(proposed reading, confirm)**.
 
-### The two reels
+### The reels
 
-- **Reel 1, command.** The player picks a category (Attack, Defend or
-  Brains). Reel 1 spins on that category's strip and lands on the exact
-  move. The player chooses the command, never the exact move.
-- **Reel 2, mutator.** Modifies the move: attack direction, power up,
-  damage type shift, blank, or a temporary tile.
-- Each category's strip is built from the tiles the monster's parts
-  provide. Duplicate tiles are allowed.
-- Potency **(proposed)**: the more copies of the landed tile on its strip,
-  the stronger the result. Stacking a tile makes it both more likely and
-  more potent.
-- Temporary tiles can appear on either monster's strips and expire after
-  a set number of spins.
+- 2 reels, each showing 3 rows, so 6 tiles are visible per spin.
+- **Reel 1, move.** Tiles are moves supplied by the monster's parts.
+- **Reel 2, mutator.** Tiles modify the move: attack direction, power
+  up, damage type shift, blank.
+- The middle row is the **line**. The line's move plus its mutator is
+  the action.
+- The 4 off-line tiles (above and below) are also in play: each gives a
+  small effect when the player Executes.
+- Strips are built from the tiles the monster's parts provide.
+  Duplicates are allowed.
+- Temporary tiles can appear on either monster's strips and expire
+  after a set number of spins.
+- Off-line effects are kept small and shown as one combined readout per
+  spin, so the line result and pocket triggers stay the focus.
+
+### Execute
+
+- Resolves the line action, plus the small effects of the 4 off-line
+  tiles.
+- Any pocketed tiles matching the line move (and, **(proposed)**, the
+  line mutator) are consumed to power it up:
+  - 1 matching tile: boosted version.
+  - 2 matching tiles: stronger version.
+  - 3 matching tiles: super version.
+- Tiles only power up spins after the one they were pocketed on.
+
+### Pocket
+
+- Stores all 6 visible tiles in the monster's pocket. No action
+  resolves this spin, and the off-line effects do not apply.
+- While held, each pocketed tile gives a passive buff.
+- Using pocketed tiles for a power-up removes them, so their passive
+  buff ends. Holding versus spending is the core decision.
+- Pocket space: every monster has a default size, and parts change it.
+  Some parts start the fight with tiles already pocketed.
+- When a Pocket would exceed the space, overflow is discarded,
+  keeping line tiles first **(proposed)**.
+
+### Pocket counterplay
+
+- Some moves make the opponent drop pocketed tiles.
+- When a part breaks, pocketed tiles that came from that part are
+  dropped.
+- Both monsters' reels and pockets are always visible.
 
 ### Attack, Defend, Brains (proposed)
 
-Pseudo rock-paper-scissors. Defend and Brains leave a stance that lasts
-until that monster's next spin. An incoming move is checked against the
-target's current stance.
+Every move tile is one of three types, which counter each other in a
+pseudo rock-paper-scissors. Executing a Defend or Brains move leaves a
+stance that lasts until that monster's next action. An incoming move is
+checked against the target's current stance.
 
 - Defend beats Attack (blocks most of it).
 - Attack beats Brains (interrupts it).
@@ -167,8 +204,8 @@ lost for good (ends the run).
 
 1. Three.js scene in portrait, two placeholder monsters, touch and mouse
    input through intents, version stamp, debug panel.
-2. Speed gauges, the two reels, category choice, RPS stances, HP, win
-   and loss.
+2. Speed cooldowns, auto spin, the 2x3 reels, Execute and Pocket,
+   pocket buffs and power-ups, RPS stances, HP, win and loss.
 3. Parts give stats and tiles. Starter parts and 3 starter chimeras.
 4. Attack directions, hitzones, part breaks, flight.
 5. Armour types, the 4 damage types, weakspot and fragility.
@@ -192,5 +229,5 @@ not listed above.
 ## Success test
 
 Watching both reels land and seeing a part break feels exciting, and
-choosing Attack, Defend or Brains feels like a real decision rather
-than a coin flip.
+choosing Execute or Pocket feels like a real decision rather than a
+coin flip.
