@@ -2,11 +2,16 @@ import * as THREE from 'three';
 import { Arena } from './render/arena';
 import { Hud } from './render/hud';
 import { fitView, WIDTH, HEIGHT } from './render/view';
-import { bindKeyboard, bindPointer, drainIntents } from './input/intents';
-import { createCombat, execute, pocket, burn, pocketGroups, tick, type Combat } from './sim/combat';
-import { ENEMY_MONSTER, PLAYER_MONSTER } from './sim/content';
+import { bindKeyboard, bindPointer, drainIntents, type Intent } from './input/intents';
+import { burn, execute, pocket, pocketGroups, tick } from './sim/combat';
+import { STARTERS } from './sim/content';
 import { makeRng } from './sim/rng';
+import {
+  chooseOffer, chooseStarter, continueAfterResult, enterFight, entryBet, finishFight, newRun, playerYield, restartRun, type Run,
+} from './sim/run';
 import { mountDebugPanel } from './debug/panel';
+import { sfx, unlockAudio } from './audio/sfx';
+import { tune } from './tune';
 
 const app = document.getElementById('app')!;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -23,18 +28,12 @@ const hud = new Hud();
 hud.setHeadLocator((side) => arena.headScreen(side));
 
 const params = new URLSearchParams(location.search);
-let seed = Number(params.get('seed')) || Math.floor(Math.random() * 1e9);
-let combat: Combat = newFight();
-
-function newFight(): Combat {
-  return createCombat(PLAYER_MONSTER, ENEMY_MONSTER, makeRng(seed++));
-}
-
-function restart() {
-  combat = newFight();
-  arena.reset();
-  hud.clearPopups();
-}
+const seed = Number(params.get('seed')) || Math.floor(Math.random() * 1e9);
+let run: Run = newRun(makeRng(seed));
+/** Seconds the KO / yield is shown before the result screen. */
+let endDelay = 0;
+/** Hit-stop: sim and 3D freeze briefly on big impacts. */
+let hitStop = 0;
 
 let view = fitView();
 function resize() {
@@ -47,38 +46,119 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-bindKeyboard();
-bindPointer(canvas, (x, y) => ({ x: (x / view.cssW) * WIDTH, y: (y / view.cssH) * HEIGHT }), (x, y) => hud.hitTest(x, y, combat));
-mountDebugPanel(restart);
+bindKeyboard(unlockAudio);
+bindPointer(canvas, (x, y) => ({ x: (x / view.cssW) * WIDTH, y: (y / view.cssH) * HEIGHT }), (x, y) => hud.hitTest(x, y, run), unlockAudio);
+// Debug "Restart fight": refund the bet and start the same floor again.
+mountDebugPanel(() => {
+  if (run.screen !== 'fight') return;
+  run.gold += entryBet(run);
+  run.screen = 'prefight';
+  startFight();
+});
 
-function applyIntents() {
-  for (const intent of drainIntents()) {
-    if (combat.winner) {
-      if (intent.type === 'primary') restart();
-      continue;
-    }
-    if (intent.type === 'primary') execute(combat, 'player');
-    else if (intent.type === 'secondary') pocket(combat, 'player');
-    else if (intent.type === 'burn') {
-      const group = pocketGroups(combat.fighters.player)[intent.group];
-      if (group) burn(combat, 'player', group.id);
-    }
+function startFight() {
+  enterFight(run);
+  arena.resetFight();
+  hud.resetFight();
+  endDelay = 0;
+}
+
+function applyIntent(intent: Intent) {
+  const c = run.combat;
+  switch (run.screen) {
+    case 'select':
+      if (intent.type === 'choose' && intent.index < STARTERS.length) {
+        hud.selectIndex = intent.index;
+        sfx.ui();
+      } else if (intent.type === 'primary') {
+        hud.pressed('wide');
+        sfx.ui();
+        chooseStarter(run, hud.selectIndex);
+      }
+      break;
+    case 'prefight':
+      if (intent.type === 'primary') {
+        hud.pressed('wide');
+        sfx.coin();
+        startFight();
+      }
+      break;
+    case 'fight':
+      if (!c || c.winner) break;
+      if (intent.type === 'primary') {
+        if (execute(c, 'player')) hud.pressed('execute');
+      } else if (intent.type === 'secondary') {
+        if (pocket(c, 'player')) hud.pressed('pocket');
+      } else if (intent.type === 'burn') {
+        const group = pocketGroups(c.fighters.player)[intent.group];
+        if (group) burn(c, 'player', group.id);
+      } else if (intent.type === 'yield') {
+        if (hud.armYield()) playerYield(run);
+      }
+      break;
+    case 'result':
+      if (intent.type === 'primary') {
+        hud.pressed('wide');
+        sfx.ui();
+        continueAfterResult(run);
+      }
+      break;
+    case 'levelup':
+      if (intent.type === 'choose' && intent.index < run.offers.length) {
+        sfx.match(2);
+        chooseOffer(run, intent.index);
+      }
+      break;
+    case 'gameover':
+      if (intent.type === 'primary') {
+        hud.pressed('wide');
+        sfx.ui();
+        run = restartRun(run);
+      }
+      break;
   }
+}
+
+function syncArena() {
+  if (run.screen === 'select') arena.setMonsters(STARTERS[hud.selectIndex], null);
+  else if (run.screen === 'gameover') arena.setMonsters(null, run.enemy);
+  else arena.setMonsters(run.monster, run.enemy);
 }
 
 let last = performance.now();
 function frame(now: number) {
-  const dt = Math.min(0.1, (now - last) / 1000);
+  const rawDt = Math.min(0.1, (now - last) / 1000);
   last = now;
-  applyIntents();
-  tick(combat, dt);
-  for (const e of combat.events.splice(0)) {
-    arena.onEvent(e);
-    hud.onEvent(e);
+  for (const intent of drainIntents()) applyIntent(intent);
+  syncArena();
+
+  const c = run.combat;
+  let simDt = rawDt;
+  if (hitStop > 0) {
+    hitStop = Math.max(0, hitStop - rawDt);
+    simDt = 0;
   }
-  arena.update(dt);
-  hud.update(dt);
-  hud.draw(combat);
+  if (run.screen === 'fight' && c) {
+    tick(c, simDt);
+    for (const e of c.events.splice(0)) {
+      arena.onEvent(e, c);
+      hud.onEvent(e, c);
+      const f = tune.feel;
+      if (e.type === 'action' && e.isSuper) hitStop = Math.max(hitStop, f.superHitStopSec);
+      if (e.type === 'hit' && !e.chip) hitStop = Math.max(hitStop, e.amount >= f.bigHit ? f.bigHitStopSec : f.hitStopSec);
+      if (e.type === 'break') hitStop = Math.max(hitStop, f.bigHitStopSec);
+    }
+    if (c.winner) {
+      endDelay += rawDt;
+      if (endDelay > 1.3) {
+        finishFight(run);
+        if (run.last?.won) hud.payout(run.last.payout);
+      }
+    }
+  }
+  arena.update(simDt, run.screen === 'fight' || run.screen === 'result' ? c : null);
+  hud.update(rawDt, run);
+  hud.draw(run);
   renderer.clear();
   renderer.render(arena.scene, arena.camera);
   renderer.render(hud.scene, hud.camera);
@@ -87,4 +167,4 @@ function frame(now: number) {
 requestAnimationFrame(frame);
 
 // Exposed for the Playwright check only.
-(window as unknown as { __chimera: () => Combat }).__chimera = () => combat;
+(window as unknown as { __chimera: () => Run }).__chimera = () => run;

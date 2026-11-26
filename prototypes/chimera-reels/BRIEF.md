@@ -186,6 +186,10 @@ A losing player can yield before the final hit. Yield ends the fight as
 a loss but keeps the monster. Taking the final hit means the monster is
 lost for good (ends the run).
 
+Yield is a small button in the player panel, outside the two combat
+buttons, and needs a second tap within 2 seconds to confirm. After a
+yield the player retries the same floor if gold covers the bet.
+
 ## Run and progression
 
 - Each floor has an entry bet. Winning pays out more than the bet.
@@ -203,14 +207,23 @@ lost for good (ends the run).
 - Placeholder first: monsters are built from primitives (box body, sphere
   head, cylinder limbs, flat wings, coloured by part). Each part is its
   own mesh, so hitzones and breaks are visible.
+- Placeholder art follows the Kimberly Tank Study workflow (owner
+  request): cel-shaded toon materials, inverted-hull outlines, chamfered
+  primitives, damped springs for secondary motion, toon smoke puffs. All
+  generated in code; no art files.
 - Animation is simple procedural motion on those primitives (lunge,
-  recoil, hop, flinch). No skeletal animation yet.
-- UI is drawn inside the WebGL canvas, not as DOM overlay **(proposed)**.
+  recoil, hop, flinch, wing flap, hover). No skeletal animation yet.
+- The slots must feel juicy (owner request): blurred spins with ticks,
+  landing overshoot and thunk, a slowed tease when a super is about to
+  land, tiles flying between reels and pocket, sparks, hit-stop, screen
+  shake and flash on supers, coin shower on payouts. Sounds are
+  synthesised placeholders.
+- UI is drawn inside the WebGL canvas, not as DOM overlay.
 
 ## Stack
 
-- Engine: Three.js, chosen by the owner for this prototype only. Other
-  prototypes stay on Phaser 3.
+- Engine: Three.js (approved for 3D prototypes repo-wide), `three`
+  pinned to 0.187.0.
 - TypeScript (strict), Vite, Tweakpane, Playwright, as elsewhere.
 - All repo rules still apply in Three.js form: intent layer for input,
   `tune.json` plus Tweakpane on `?debug=1` with copy-to-clipboard,

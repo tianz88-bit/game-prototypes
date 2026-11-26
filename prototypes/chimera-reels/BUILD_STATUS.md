@@ -1,73 +1,75 @@
 ## Current milestone
-Scope steps 1 and 2 done: Three.js portrait scaffold plus the core reel
-combat loop (1v1, fixed placeholder monsters).
+Scope steps 1 to 6 done: toon-art 3D scene, juicy reel combat, parts,
+hitzones and part breaks, armour and damage types, weakspot, and the
+single-player tower run. Steps 7 (3v3) and 8 (part drops) not started.
 
 ## What was implemented
-- Three.js scene in portrait (390x844 logical), pillarboxed on wide
-  windows, never blocked. Two placeholder chimeras built from primitives,
-  one mesh per part (torso, head, jaw, horns, legs, claws, tail).
-  Procedural motion only: idle bob, lunge, recoil, hit flash, super spin,
-  knockdown on defeat, camera shake.
-- HUD drawn with the 2D canvas API onto an offscreen canvas and shown as a
-  textured quad inside the WebGL canvas (no DOM UI). Enemy panel on top,
-  arena in the middle band, player panel and buttons at the bottom.
-- Combat sim (`src/sim/combat.ts`), pure logic with an event list:
-  - speed cooldown, auto spin, 2 reels x 3 rows, line highlight
-  - Execute: line move plus mutator, off-line tile chip effects, pocket
-    matches consumed for tiers 1 to 3 (tier 3 = super), mutator matches
-    stack
-  - Pocket: stores the visible non-blank tiles, overflow priority (held
-    matches, then line, then off-line), passive buffs while held
-  - Burn: tap a pocket tile to burn its group (up to 3) while deciding
-  - Attack / Defend / Brains stances (block, interrupt, feint), Snatch
-    drops pocketed tiles, Jam turns opponent tiles into temporary blanks
-  - deciding slows the next cooldown; if it finishes first the spin is lost
-  - simple enemy AI, win/lose result, Fight again
-- Intent layer: Execute = primary (Space, Enter, J, tap), Pocket =
-  secondary (K, P, tap), Burn = tap pocket tile or keys 1 to 9.
-- `tune.json` holds every number; Tweakpane panel on `?debug=1` with
-  Restart fight and Copy JSON. `?seed=` replays a fight.
-- Version stamp top-left (`version.json`, counter bumped by
-  `.github/workflows/deploy.yml`, which now also persists this counter).
-- Hub link added. CLAUDE.md and STACK.md record the Three.js exception.
-- `scripts/screenshot-chimera-reels.mjs`: phone-size play-through (Pocket,
-  Execute, Burn), wide desktop + debug check, fails on console errors.
+- Monsters are assembled from parts (body, head, limbs, legs, skin, aux),
+  3 options per slot except body and legs (2). Parts set HP, speed,
+  attack, defence, weak value, pocket size, armour, flight, and which
+  tiles go on each reel. Short reels are padded with blanks.
+- 3 starters (Tuskrel, Skyreave, Bulwark); enemies get random parts and
+  scale per floor.
+- Directions from the mutator reel (front, High, Low). The hit lands on
+  an unbroken part facing that way, else the body. Low misses flyers,
+  High is weak but strong vs flyers.
+- Part breaks at a share of body HP (scaled by armour): the part's tiles
+  become broken blanks, its pocketed tiles are dropped, a pending result
+  is cancelled, and the 3D part tumbles off. Wings breaking grounds a
+  flyer.
+- Armour (hide, shell, fur) x damage type (slash, crush, pierce,
+  exotherm) resistance table. Weakspot = highest weak value, takes x1.5,
+  shown as a pulsing red outline on the enemy; total weak adds fragility.
+- Tower run: starter select, entry bet, fight, payout, level up with a
+  choice of 3 tiles (rarer tiles unlock with level), game over when gold
+  cannot cover the bet or the monster takes the final hit. Yield button
+  (two taps) keeps the monster and retries the floor.
+- Toon art following the Kimberly Tank Study: toon shader, outlines,
+  chamfered parts, springs, toon puffs, contact-shadow floor.
+- Juice: blurred reel spins with ticks, landing overshoot and pop, super
+  tease (mutator reel stops first, move reel crawls with a pulsing frame
+  and "!!!"), tiles flying reel to pocket and pocket to line, discarded
+  tiles falling, burn sparks, match glow on pocket tiles, hit-stop, HUD
+  and camera shake, super flash and stamp, impact puffs, coin shower,
+  pressable buttons with a gleam, synthesised WebAudio sounds.
 
 ## Key technical decisions
-- Engine: Three.js 0.187.0 pinned in this prototype's package.json, owner
-  approved for this prototype only.
-- DPR: `renderer.setPixelRatio(min(devicePixelRatio, 2))`, and the HUD
-  canvas is sized at logical size x CSS scale x the same ratio, so text is
-  drawn at native resolution.
-- dig-kit not used: its barrel export includes Phaser-dependent modules.
-  The tune panel is a local copy of dig-kit's. Possible future extraction:
-  an engine-agnostic `tune-panel` package both could share.
-- Strips are fixed lists in `src/sim/content.ts` until scope step 3
-  builds them from parts.
-- Pocketing counts as an action (clears stance). Blank tiles are never
-  pocketed. Burn fires without changing stance.
+- Custom toon shaders call `linearToOutputTexel`: three 0.187 colour
+  management otherwise renders them too dark (the tank study used 0.147).
+- Springs run at a fixed 1/240 s substep; a frame-sized step made the
+  9 Hz hull spring explode and hid the body.
+- Hit-stop freezes the sim and 3D view only; HUD effects keep animating.
+- The sim keeps tile provenance (which part supplied each strip and
+  pocket tile) so breaks remove exactly that part's tiles.
+- Sounds are generated with WebAudio (no files, no dependency) and start
+  on the first tap.
+- Merged main: Three.js is now an approved 3D engine repo-wide (CHANGELOG
+  2026-11-25), so the earlier per-prototype exception note was dropped.
 
 ## Open questions
-- Items still marked (proposed) in `BRIEF.md`: RPS stance rules, pocket
-  overflow rule, starter content, first 4 damage types, UI drawn in
-  canvas. The current build implements them as written.
-- Burn, the pocket and the two-button control scheme were all decided
-  during discussion, not in the original notes. BRIEF.md now covers them.
-- Whether pocketing should clear the current stance (currently yes) is not
-  in BRIEF.md and may need adding.
+- Step 7 (3v3) needs a design decision before building: swapping costs
+  a command, but combat input is two buttons (Execute, Pocket). Where does
+  Swap go, and does a swap use the turn? BRIEF.md needs updating.
+- Back attacks: aux parts face "back", and only sneak moves may attack
+  from behind, but no sneak move exists yet, so aux parts cannot be hit.
+  BRIEF.md does not say which moves sneak.
+- Items still marked (proposed) in BRIEF.md: stance rules, overflow
+  rule, starter content, first 4 damage types.
+- Pocketing clears stance (implemented); not stated in BRIEF.md.
+- Level-up tiles are permanent for the run; part replacement from enemy
+  drops (step 8) is not built.
 
 ## Known issues
-- Not tested on a real phone. Only verified in headless Chromium at
-  390x844 and 1280x720.
-- The HUD canvas is redrawn and re-uploaded to the GPU every frame. Fine
-  on desktop; may cost battery or frame rate on low-end phones.
-- Pocket layout shows 6 slots; pocket sizes above 6 (from parts later)
-  need a layout change.
-- In an automated test fight no super fired. Super frequency needs
-  tuning by play (tune values untouched).
-- Damage numbers and pocket count badges can overlap the top panel edge
-  when the enemy lunges.
+- Not tested on a real phone; verified in headless Chromium at 390x844
+  (phone) and 1280x720 (desktop, debug panel), dev and production builds.
+- Balance is untouched first guesses. In automated test fights the player
+  often ends near 1 HP, and Skyreave's move reel has 2 blanks (whiffs).
+- The HUD canvas is redrawn and uploaded every frame; may cost battery on
+  low-end phones.
+- Pocket grid shows at most 9 slots.
+- Enemy pocket tiles flying in can briefly overlap the "Pocket" label.
 
 ## Next proposed step
-Owner plays the build (`?debug=1` to tune). Then scope step 3: parts
-give stats and tiles, starter parts, 3 starter chimeras.
+Owner plays the live build and tunes feel (`?debug=1`). Decide how
+swapping fits the two-button controls, then build step 7 (3v3), and
+step 8 (part drops).
