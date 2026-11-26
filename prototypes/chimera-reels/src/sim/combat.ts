@@ -89,11 +89,36 @@ export type CombatEvent =
   | { type: 'burn'; side: Side; id: TileId; count: number }
   | { type: 'end'; winner: Side };
 
+/** One Execute or Burn and what came of it, for the post-battle log. */
+export interface LogEntry {
+  t: number;
+  side: Side;
+  kind: 'execute' | 'burn';
+  /** Move, or the burned tile. */
+  tile: TileId;
+  count: number;
+  tier: number;
+  zone: ZoneId | null;
+  mut: TileId;
+  mutStack: number;
+  damage: number;
+  shielded: number;
+  weak: boolean;
+  resist: number;
+  broke: string | null;
+  knockedOut: boolean;
+  shieldGain: number;
+  miss: string | null;
+}
+
 export interface Combat {
   fighters: Record<Side, Fighter>;
   winner: Side | null;
   events: CombatEvent[];
   rng: Rng;
+  /** Seconds of fight time so far. */
+  time: number;
+  log: LogEntry[];
 }
 
 export const other = (s: Side): Side => (s === 'player' ? 'enemy' : 'player');
@@ -187,7 +212,7 @@ function buildStrips(c: Combat, f: Fighter) {
 }
 
 export function createCombat(player: Fighter, enemy: Fighter, rng: Rng): Combat {
-  const c: Combat = { fighters: { player, enemy }, winner: null, events: [], rng };
+  const c: Combat = { fighters: { player, enemy }, winner: null, events: [], rng, time: 0, log: [] };
   buildStrips(c, player);
   buildStrips(c, enemy);
   return c;
@@ -342,25 +367,39 @@ function breakPart(c: Combat, f: Fighter, index: number) {
   c.events.push({ type: 'break', side: f.side, part: index, cancelled });
 }
 
-function applyHit(c: Combat, attacker: Fighter, move: MoveId, zone: ZoneId, mult: number) {
+function newEntry(c: Combat, side: Side, kind: LogEntry['kind'], tile: TileId): LogEntry {
+  const e: LogEntry = {
+    t: c.time, side, kind, tile, count: 1, tier: 0, zone: null, mut: 'blank', mutStack: 0,
+    damage: 0, shielded: 0, weak: false, resist: 1, broke: null, knockedOut: false, shieldGain: 0, miss: null,
+  };
+  c.log.push(e);
+  return e;
+}
+
+function applyHit(c: Combat, attacker: Fighter, move: MoveId, zone: ZoneId, mult: number, log: LogEntry) {
   const target = c.fighters[other(attacker.side)];
   const h = computeHit(attacker, target, move, zone, mult);
   target.shield -= h.toShield;
   target.hp = Math.max(0, target.hp - h.toHp);
   c.events.push({ type: 'hit', side: target.side, amount: h.damage, shielded: h.toShield, part: h.part, weak: h.weak, resist: h.resist });
+  Object.assign(log, { zone, damage: h.damage, shielded: h.toShield, weak: h.weak, resist: h.resist });
   if (target.hp <= 0) return;
   // Shield up = pocket safe. Damage through to HP knocks out a move tile from that part.
   if (h.toHp > 0) {
     const idx = target.pocket.findIndex((t) => t.part === h.part && isMove(t.id));
     if (idx >= 0) {
       target.pocket.splice(idx, 1);
+      log.knockedOut = true;
       c.events.push({ type: 'drop', side: target.side, count: 1, part: h.part });
     }
   }
   const p = target.parts[h.part];
   if (p.slot !== 'body' && !p.broken) {
     p.hp -= h.damage;
-    if (p.hp <= 0) breakPart(c, target, h.part);
+    if (p.hp <= 0) {
+      log.broke = PARTS[p.id].name;
+      breakPart(c, target, h.part);
+    }
   }
 }
 
@@ -379,11 +418,12 @@ function applyQuick(f: Fighter, stack: number) {
   }
 }
 
-function gainShield(c: Combat, f: Fighter, amount: number) {
+function gainShield(c: Combat, f: Fighter, amount: number): number {
   const gained = Math.min(shieldCap(f) - f.shield, Math.round(amount));
-  if (gained <= 0) return;
+  if (gained <= 0) return 0;
   f.shield += gained;
   c.events.push({ type: 'shield', side: f.side, amount: gained });
+  return gained;
 }
 
 export function execute(c: Combat, side: Side): boolean {
@@ -395,17 +435,24 @@ export function execute(c: Combat, side: Side): boolean {
   removeFromPocket(f, m.mut, m.mutMatches);
   const consumed: TileId[] = [...Array(m.tier).fill(m.move), ...Array(m.targetMatches).fill(m.target), ...Array(m.mutMatches).fill(m.mut)];
   f.landed = false;
+  const log = newEntry(c, side, 'execute', m.move);
+  Object.assign(log, { tier: m.tier, mut: m.mut, mutStack: m.mut === 'blank' ? 0 : 1 + m.mutMatches });
   const mutStack = 1 + m.mutMatches * tune.combat.mutatorMatchBonus;
-  if (m.mut === 'shield') gainShield(c, f, tune.shield.perTile * f.shieldMult * mutStack);
+  if (m.mut === 'shield') log.shieldGain = gainShield(c, f, tune.shield.perTile * f.shieldMult * mutStack);
   if (m.mut === 'quick') applyQuick(f, 1 + m.mutMatches);
   if (isMove(m.move)) {
-    if (!isTarget(m.target)) c.events.push({ type: 'miss', side: other(side), reason: 'NO TARGET' });
-    else {
+    if (!isTarget(m.target)) {
+      log.miss = 'no target';
+      c.events.push({ type: 'miss', side: other(side), reason: 'NO TARGET' });
+    } else {
       const zone = zoneOf(m.target);
       c.events.push({ type: 'action', side, move: m.move, tier: m.tier, isSuper: m.tier >= 3, burn: false, zone, consumed });
-      applyHit(c, f, m.move, zone, lineMult(m));
+      applyHit(c, f, m.move, zone, lineMult(m), log);
     }
-  } else c.events.push({ type: 'miss', side: other(side), reason: 'WHIFF' });
+  } else {
+    log.miss = 'whiff';
+    c.events.push({ type: 'miss', side: other(side), reason: 'WHIFF' });
+  }
   checkEnd(c);
   return true;
 }
@@ -438,15 +485,19 @@ export function burn(c: Combat, side: Side, id: TileId): boolean {
   const n = removeFromPocket(f, id, 3);
   if (!n) return false;
   c.events.push({ type: 'burn', side, id, count: n });
+  const log = newEntry(c, side, 'burn', id);
+  log.count = n;
   if (isMove(id)) {
     const target = lineTiles(f).target;
-    if (!isTarget(target)) c.events.push({ type: 'miss', side: other(side), reason: 'NO TARGET' });
-    else {
+    if (!isTarget(target)) {
+      log.miss = 'no target';
+      c.events.push({ type: 'miss', side: other(side), reason: 'NO TARGET' });
+    } else {
       const zone = zoneOf(target);
       c.events.push({ type: 'action', side, move: id, tier: n, isSuper: false, burn: true, zone, consumed: [] });
-      applyHit(c, f, id, zone, tune.combat.burnMult[n]);
+      applyHit(c, f, id, zone, tune.combat.burnMult[n], log);
     }
-  } else if (id === 'shield') gainShield(c, f, tune.shield.perTile * f.shieldMult * n);
+  } else if (id === 'shield') log.shieldGain = gainShield(c, f, tune.shield.perTile * f.shieldMult * n);
   else if (id === 'quick') applyQuick(f, n);
   checkEnd(c);
   return true;
@@ -493,6 +544,7 @@ export function reelLandTime(f: Fighter, reel: ReelIndex): number {
 
 export function tick(c: Combat, dt: number) {
   if (c.winner) return;
+  c.time += dt;
   for (const side of ['player', 'enemy'] as const) {
     const f = c.fighters[side];
     if (f.spinLeft > 0) {

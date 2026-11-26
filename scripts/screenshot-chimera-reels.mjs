@@ -111,6 +111,14 @@ async function waitFor(page, pred, what, tries = 150) {
   const s = await waitFor(page, (x) => x.screen !== 'fight', 'fight end', 400);
   await page.waitForTimeout(500);
   await shot(page, 'chimera-result.png');
+  await page.mouse.click(337, 493); // open battle log
+  await page.waitForTimeout(300);
+  await shot(page, 'chimera-log.png');
+  await page.mouse.click(324, 790); // next page
+  await page.waitForTimeout(200);
+  await shot(page, 'chimera-log-2.png');
+  await page.mouse.click(195, 790); // close log
+  await page.waitForTimeout(200);
   await page.mouse.click(195, 786);
   await page.waitForTimeout(500);
   await shot(page, 'chimera-after-result.png');

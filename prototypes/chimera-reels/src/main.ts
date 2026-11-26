@@ -73,6 +73,20 @@ function applyIntent(intent: Intent) {
     sfx.ui();
     return;
   }
+  if (intent.type === 'log' && hud.logAvailable(run)) {
+    hud.logOpen = !hud.logOpen;
+    hud.logPage = 0;
+    sfx.ui();
+    return;
+  }
+  if (hud.logOpen) {
+    if (intent.type === 'choose' && run.combat) {
+      const pages = hud.logPages(run.combat);
+      hud.logPage = Math.max(0, Math.min(pages - 1, hud.logPage + (intent.index === 0 ? -1 : 1)));
+      sfx.ui();
+    }
+    return;
+  }
   if (hud.viewerOpen) {
     if (intent.type === 'choose' && intent.index < SLOTS.length) {
       hud.viewerSlot = intent.index;
@@ -144,6 +158,7 @@ function applyIntent(intent: Intent) {
 
 function syncArena() {
   if (!viewerScreens.includes(run.screen)) hud.viewerOpen = false;
+  if (!hud.logAvailable(run)) hud.logOpen = false;
   arena.viewer = hud.viewerOpen ? { slot: SLOTS[hud.viewerSlot] } : null;
   if (run.screen === 'select') arena.setMonsters(starterOptions(run)[hud.selectIndex], null);
   else if (run.screen === 'gameover') arena.setMonsters(null, run.enemy);

@@ -209,6 +209,15 @@ defence and speed buffs from held tiles, the Guard move and the
 Attack/Defend/Brains stances, Jam and Snatch, High/Low/Back attack
 directions, and the fragility readout.
 
+### Battle log
+
+After a fight, a "Battle log" button on the result and game-over screens
+opens a paged list of every Execute and Burn from both sides: time, who,
+the tile, move > target + mutator, and the outcome (damage, shield
+absorbed, weak spot, resisted or effective, part broken, tile knocked
+out, shield gained, Quick effect, or a miss). A summary line per side
+shows total damage, breaks and supers.
+
 ### Yield
 
 A losing player can yield before the final hit. Yield ends the fight as

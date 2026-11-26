@@ -18,6 +18,7 @@ import {
   weakspot,
   type Combat,
   type CombatEvent,
+  type LogEntry,
   type Fighter,
   type Side,
 } from '../sim/combat';
@@ -112,6 +113,9 @@ export class Hud {
   /** Parts viewer state: open flag and the selected slot index. */
   viewerOpen = false;
   viewerSlot = 1;
+  /** Post-battle combat log state. */
+  logOpen = false;
+  logPage = 0;
 
   constructor() {
     this.texture.colorSpace = THREE.SRGBColorSpace;
@@ -187,7 +191,23 @@ export class Hud {
     return run.screen === 'select' || run.screen === 'prefight' || run.screen === 'loot' || run.screen === 'levelup';
   }
 
+  private logButtons() {
+    const y = L.wide.y + 20;
+    return { prev: { x: 16, y, w: 100, h: 60 }, close: { x: 124, y, w: 142, h: 60 }, next: { x: 274, y, w: 100, h: 60 } };
+  }
+
+  logAvailable(run: Run) {
+    return (run.screen === 'result' || run.screen === 'gameover') && !!run.combat;
+  }
+
   hitTest(x: number, y: number, run: Run): Intent | null {
+    if (this.logOpen) {
+      const b = this.logButtons();
+      if (inside(b.prev, x, y)) return { type: 'choose', index: 0 };
+      if (inside(b.next, x, y)) return { type: 'choose', index: 1 };
+      return inside(b.close, x, y) ? { type: 'log' } : null;
+    }
+    if (this.logAvailable(run) && inside(L.parts, x, y)) return { type: 'log' };
     if (this.viewerAvailable(run) && inside(L.parts, x, y)) return { type: 'viewer' };
     if (this.viewerOpen) {
       for (let i = 0; i < SLOTS.length; i++) if (inside(this.viewerRow(i), x, y)) return { type: 'choose', index: i };
@@ -439,7 +459,8 @@ export class Hud {
     g.fillRect(-10, -10, WIDTH + 20, 196);
     g.fillRect(-10, L.player.panelY, WIDTH + 20, HEIGHT - L.player.panelY + 10);
 
-    if (this.viewerOpen) this.drawViewer(run);
+    if (this.logOpen && run.combat) this.drawLog(run.combat);
+    else if (this.viewerOpen) this.drawViewer(run);
     else {
       switch (run.screen) {
         case 'select': this.drawSelect(run); break;
@@ -450,6 +471,10 @@ export class Hud {
         case 'levelup': this.drawLevelUp(run); break;
         case 'gameover': this.drawGameOver(run); break;
       }
+    }
+    if (this.logAvailable(run) && !this.logOpen) {
+      this.button(L.parts, 'parts', 'rgba(255,255,255,0.12)', false);
+      this.text('Battle log', L.parts.x + L.parts.w / 2, L.parts.y + L.parts.h / 2 + 1, 11, '#fff', 'center', '800');
     }
     if (this.viewerAvailable(run)) {
       this.button(L.parts, 'parts', this.viewerOpen ? '#ffe08a' : 'rgba(255,255,255,0.12)', false);
@@ -918,6 +943,73 @@ export class Hud {
     this.text(run.gameOverReason, 195, 104, 12, '#cfc7d9', 'center', '700');
     this.text(`Reached floor ${run.floor}   Best streak ${run.bestStreak}`, 195, 130, 13, '#ffe08a', 'center', '800');
     this.bigButton('NEW RUN', '');
+  }
+
+  private static readonly LOG_LINES = 15;
+
+  logPages(c: Combat) {
+    return Math.max(1, Math.ceil(c.log.length / Hud.LOG_LINES));
+  }
+
+  private logAction(e: LogEntry): string {
+    const name = tileLabel(e.tile) || 'Whiff';
+    let a = e.kind === 'burn' ? `Burn ${name} x${e.count}` : e.tier >= 3 ? `SUPER ${name}` : `${name}${'+'.repeat(e.tier)}`;
+    if (e.zone) a += ` > ${ZONE_LABEL[e.zone]}`;
+    if (e.kind === 'execute' && e.mut !== 'blank') a += ` + ${tileLabel(e.mut)}${e.mutStack > 1 ? ` x${e.mutStack}` : ''}`;
+    return a;
+  }
+
+  private logOutcome(e: LogEntry): string {
+    const bits: string[] = [];
+    if (e.miss) bits.push(e.miss === 'whiff' ? 'whiff, no attack' : 'missed, no target');
+    if (e.damage) {
+      bits.push(`${e.damage} dmg${e.shielded ? ` (${e.shielded} to shield)` : ''}`);
+      if (e.weak) bits.push('weak spot');
+      if (e.resist > 1.05) bits.push('effective');
+      if (e.resist < 0.95) bits.push('resisted');
+    }
+    if (e.broke) bits.push(`${e.broke} BROKEN`);
+    if (e.knockedOut) bits.push('knocked out a tile');
+    if (e.shieldGain) bits.push(`+${e.shieldGain} shield`);
+    const quicks = e.kind === 'burn' ? (e.tile === 'quick' ? e.count : 0) : e.mut === 'quick' ? e.mutStack : 0;
+    if (quicks) bits.push(['next spin -50%', 'instant next spin', 'double move'][Math.min(3, quicks) - 1]);
+    return bits.join(', ') || 'no effect';
+  }
+
+  private drawLog(c: Combat) {
+    const g = this.g;
+    g.fillStyle = 'rgba(10,8,16,0.96)';
+    g.fillRect(-10, -10, WIDTH + 20, HEIGHT + 20);
+    this.outlined('BATTLE LOG', 195, 34, 24, '#ffe08a');
+    const sum = (side: Side) => c.log.filter((e) => e.side === side).reduce((s, e) => s + e.damage, 0);
+    const breaks = (side: Side) => c.log.filter((e) => e.side === side && e.broke).length;
+    const supers = (side: Side) => c.log.filter((e) => e.side === side && e.kind === 'execute' && e.tier >= 3).length;
+    this.text(`${c.time.toFixed(0)}s   ${c.log.length} actions`, 195, 62, 11, '#a89fbc', 'center', '700');
+    const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
+    const line = (side: Side) => `${sum(side)} dmg  ${plural(breaks(side), 'break')}  ${plural(supers(side), 'super')}`;
+    this.text(`YOU  ${line('player')}`, 16, 86, 11, '#7be3a4', 'left', '800');
+    this.text(`FOE  ${line('enemy')}`, 16, 104, 11, '#ff9a8a', 'left', '800');
+    const pages = this.logPages(c);
+    this.logPage = Math.min(this.logPage, pages - 1);
+    const start = this.logPage * Hud.LOG_LINES;
+    c.log.slice(start, start + Hud.LOG_LINES).forEach((e, i) => {
+      const y = 126 + i * 40;
+      const you = e.side === 'player';
+      this.rr({ x: 12, y, w: 366, h: 36 }, 6, you ? 'rgba(123,227,164,0.07)' : 'rgba(255,154,138,0.07)');
+      this.text(`${e.t.toFixed(1)}s`, 18, y + 11, 9, '#8a82a0', 'left', '700');
+      this.text(you ? 'YOU' : 'FOE', 18, y + 25, 9, you ? '#7be3a4' : '#ff9a8a', 'left', '900');
+      if (e.tile !== 'blank') this.tile({ x: 52, y: y + 4, w: 28, h: 28 }, e.tile, {});
+      this.text(this.logAction(e), 88, y + 11, 11, e.tier >= 3 ? '#ffe24a' : '#fff', 'left', '800');
+      this.text(this.logOutcome(e), 88, y + 26, 9.5, e.broke ? '#ffb36b' : '#cfc7d9', 'left', '600');
+    });
+    if (!c.log.length) this.text('No actions this fight.', 195, 200, 12, '#a89fbc', 'center');
+    const b = this.logButtons();
+    this.button(b.prev, 'prev', this.logPage > 0 ? '#e8c15a' : '#3a3530', false);
+    this.button(b.close, 'close', 'rgba(255,224,138,0.85)', false);
+    this.button(b.next, 'next', this.logPage < pages - 1 ? '#e8c15a' : '#3a3530', false);
+    this.text('< Prev', b.prev.x + b.prev.w / 2, b.prev.y + 30, 14, '#1a1424', 'center', '900');
+    this.text(`Close  ${this.logPage + 1}/${pages}`, b.close.x + b.close.w / 2, b.close.y + 30, 14, '#1a1424', 'center', '900');
+    this.text('Next >', b.next.x + b.next.w / 2, b.next.y + 30, 14, '#1a1424', 'center', '900');
   }
 
   /** Which monster the parts viewer shows on this screen. */
