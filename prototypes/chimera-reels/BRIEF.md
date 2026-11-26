@@ -125,6 +125,11 @@ answers one question.
   - **Target duplicates**: extra damage to that part (small, capped).
   - **Mutator duplicates**: stack the mutator (small, capped).
 - Tiles only power up spins after the one they were pocketed on.
+- Aim readout: once the player's reels land, the part the line target
+  will hit is outlined cyan on the enemy model, and the enemy panel shows
+  its name, part HP and the outcome ("BREAKS, drops N", "knocks out 1
+  tile", "shield takes it"). Enemy pocket stacks holding tiles from that
+  part are outlined, with a count of tiles at risk.
 - Damage preview: when the line move deals damage, the Execute button
   shows the exact final damage and target before the player commits
   (for example "Bite > HEAD 34, weak spot").
@@ -139,12 +144,14 @@ answers one question.
 - Held target tiles reduce damage taken on your own matching part by a
   percentage per tile (capped). This is the only passive effect of held
   tiles.
-- Pocket space: every monster has a default size, and parts change it.
-  Default 9 (`tune.json`) **(proposed)**, since a Pocket now adds up
-  to 6 tiles. Some parts start the fight with tiles already pocketed.
-- Overflow **(proposed)**: tiles already held are never pushed out. New
-  tiles fill free space, duplicates of held tiles first, then move,
-  target and mutator tiles in that order. The rest are discarded.
+- The pocket holds **tile types in stacks**: default 6 type slots, each
+  stacking up to 3 identical tiles (`tune.json`). Parts can add type
+  slots (Pouch and Ember heart +1). Some parts start the fight with
+  tiles already pocketed.
+- Overflow: tiles already held are never pushed out. New tiles join
+  their stack if it has room, or take a free type slot; anything else is
+  discarded. Duplicates of held tiles are stored first, then move,
+  target and mutator tiles. The Pocket button shows "store N / lose N".
 
 ### Burn
 
@@ -153,9 +160,13 @@ answers one question.
 - Burned move tiles fire on their own at the **current line target**:
   1 tile weak, 2 normal, 3 strong, never the super. Each burnable move
   tile shows its exact damage.
+- Burned target tiles deal 1, 2 or 3 flat damage (for 1, 2 or 3 tiles)
+  to the enemy part named on the tile, to break up its charge. Shields
+  soak it like any hit; if damage reaches HP it knocks out a tile from
+  that part, and it counts towards breaking the part.
 - Burned Shield tiles grant shield points at once. Burned Quick tiles cut
-  the next cooldown. Burned Power+ and target tiles are simply discarded
-  to free space **(proposed)**.
+  the next cooldown. Burned Power+ tiles are simply discarded to free
+  space **(proposed)**.
 - Burning does not use up the turn. The player still chooses Execute or
   Pocket afterwards. Time spent burning counts as deciding.
 

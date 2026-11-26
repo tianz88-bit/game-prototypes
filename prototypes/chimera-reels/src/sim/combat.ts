@@ -72,6 +72,7 @@ export interface Fighter {
   /** A landed result is waiting for Execute or Pocket. */
   landed: boolean;
   pocket: PocketTile[];
+  /** Number of tile types the pocket can hold; each type stacks up to the stack cap. */
   pocketSize: number;
   aiWait: number;
 }
@@ -294,7 +295,7 @@ export function shieldCap(f: Fighter): number {
   return Math.round(f.maxHp * tune.shield.capPct);
 }
 
-function partForZone(f: Fighter, zone: ZoneId): number {
+export function partForZone(f: Fighter, zone: ZoneId): number {
   const i = f.parts.findIndex((p) => p.zone === zone && !p.broken);
   return i >= 0 ? i : SLOTS.indexOf('body');
 }
@@ -335,9 +336,57 @@ export function previewExecute(c: Combat, side: Side): Preview | null {
   return { move: m.move, zone, tier: m.tier, hit: computeHit(f, c.fighters[other(side)], m.move, zone, lineMult(m)) };
 }
 
-/** What burning a pocketed move group would deal at the current line target. */
+/** Damage of burning `n` target tiles at a zone: flat, soaked by shields like any hit. */
+function targetBurnHit(foe: Fighter, zone: ZoneId, n: number): HitCalc {
+  const damage = tune.combat.targetBurnDamage[n];
+  const toShield = Math.min(foe.shield, damage);
+  return { damage, toShield, toHp: damage - toShield, part: partForZone(foe, zone), weak: false, resist: 1 };
+}
+
+/** Index of the stack (tile type) holding `id` in the sorted pocket, or -1. */
+export function stackIndex(f: Fighter, id: TileId): number {
+  return pocketGroups(f).findIndex((g) => g.id === id);
+}
+
+/** What Pocket would store and discard right now, without changing anything. */
+export function planPocket(f: Fighter) {
+  const cap = tune.pocket.stackCap;
+  const tiles = visibleTiles(f).filter((t) => !t.line && t.id !== 'blank' && !t.broken);
+  const counts = new Map(pocketGroups(f).map((g) => [g.id, g.count] as [TileId, number]));
+  // Duplicates of held tiles first, then move, target and mutator tiles.
+  const ordered = [...tiles].sort((a, b) => (counts.has(b.id) ? 1 : 0) - (counts.has(a.id) ? 1 : 0) || a.slot - b.slot);
+  const store: typeof tiles = [];
+  const discard: typeof tiles = [];
+  for (const t of ordered) {
+    const n = counts.get(t.id) ?? 0;
+    if (n >= cap || (n === 0 && counts.size >= f.pocketSize)) discard.push(t);
+    else {
+      counts.set(t.id, n + 1);
+      store.push(t);
+    }
+  }
+  return { store, discard };
+}
+
+/** How many more tiles the pocket could take (free stack space plus empty type slots). */
+export function pocketRoom(f: Fighter): number {
+  const cap = tune.pocket.stackCap;
+  const groups = pocketGroups(f);
+  return groups.reduce((s, g) => s + Math.max(0, cap - g.count), 0) + Math.max(0, f.pocketSize - groups.length) * cap;
+}
+
+/** Pocketed tiles that came from one part: move tiles can be knocked out, all drop on a break. */
+export function tilesFromPart(f: Fighter, part: number): PocketTile[] {
+  return f.pocket.filter((t) => t.part === part);
+}
+
+/** What burning a pocketed group would deal: moves at the line target, targets at their own part. */
 export function previewBurn(c: Combat, side: Side, id: TileId): HitCalc | null {
   const f = c.fighters[side];
+  if (isTarget(id)) {
+    const n = Math.min(3, countIn(f.pocket, id));
+    return targetBurnHit(c.fighters[other(side)], zoneOf(id), n);
+  }
   const target = lineTiles(f).target;
   if (!isMove(id) || !isTarget(target)) return null;
   const n = Math.min(3, countIn(f.pocket, id));
@@ -389,7 +438,11 @@ function newEntry(c: Combat, side: Side, kind: LogEntry['kind'], tile: TileId): 
 
 function applyHit(c: Combat, attacker: Fighter, move: MoveId, zone: ZoneId, mult: number, log: LogEntry) {
   const target = c.fighters[other(attacker.side)];
-  const h = computeHit(attacker, target, move, zone, mult);
+  landHit(c, target, computeHit(attacker, target, move, zone, mult), zone, log);
+}
+
+/** Damage after shields, then knock-out and part break. Shared by attacks and target burns. */
+function landHit(c: Combat, target: Fighter, h: HitCalc, zone: ZoneId, log: LogEntry) {
   target.shield -= h.toShield;
   target.hp = Math.max(0, target.hp - h.toHp);
   c.events.push({ type: 'hit', side: target.side, amount: h.damage, shielded: h.toShield, part: h.part, weak: h.weak, resist: h.resist });
@@ -399,9 +452,10 @@ function applyHit(c: Combat, attacker: Fighter, move: MoveId, zone: ZoneId, mult
   if (h.toHp > 0) {
     const idx = target.pocket.findIndex((t) => t.part === h.part && isMove(t.id));
     if (idx >= 0) {
+      const from = stackIndex(target, target.pocket[idx].id);
       target.pocket.splice(idx, 1);
       log.knockedOut = true;
-      c.events.push({ type: 'drop', side: target.side, count: 1, part: h.part, from: idx });
+      c.events.push({ type: 'drop', side: target.side, count: 1, part: h.part, from });
     }
   }
   const p = target.parts[h.part];
@@ -441,7 +495,8 @@ export function execute(c: Combat, side: Side): boolean {
   const f = c.fighters[side];
   if (!f.landed || c.winner) return false;
   const m = executeMatches(f);
-  // Remove in descending slot order so earlier indices stay valid.
+  // `from` is the stack each consumed tile came out of.
+  const stacksBefore = pocketGroups(f).map((g) => g.id);
   const consumed: { id: TileId; from: number }[] = [];
   const take = [[m.move, m.tier], [m.target, m.targetMatches], [m.mut, m.mutMatches]] as [TileId, number][];
   const slots = take.flatMap(([id, n]) => {
@@ -451,7 +506,7 @@ export function execute(c: Combat, side: Side): boolean {
   }).sort((a, b) => b.from - a.from);
   for (const s of slots) {
     f.pocket.splice(s.from, 1);
-    consumed.push(s);
+    consumed.push({ id: s.id, from: stacksBefore.indexOf(s.id) });
   }
   f.landed = false;
   const log = newEntry(c, side, 'execute', m.move);
@@ -479,23 +534,16 @@ export function execute(c: Combat, side: Side): boolean {
 export function pocket(c: Combat, side: Side): boolean {
   const f = c.fighters[side];
   if (!f.landed || c.winner) return false;
-  const tiles = visibleTiles(f).filter((t) => !t.line && t.id !== 'blank' && !t.broken);
-  const held = new Set(f.pocket.map((t) => t.id));
-  // Duplicates of held tiles first, then move, target and mutator tiles.
-  const ordered = [...tiles].sort((a, b) => (held.has(b.id) ? 1 : 0) - (held.has(a.id) ? 1 : 0) || a.slot - b.slot);
+  const plan = planPocket(f);
   const added: { tile: PocketTile; from: number }[] = [];
-  const discarded: number[] = [];
-  for (const t of ordered) {
-    if (f.pocket.length >= f.pocketSize) {
-      discarded.push(t.slot);
-      continue;
-    }
+  for (const t of plan.store) {
     const tile = { id: t.id, part: t.part };
     f.pocket.push(tile);
     added.push({ tile, from: t.slot });
   }
   f.pocket.sort(pocketOrder);
-  const stored = added.map((a) => ({ id: a.tile.id, from: a.from, to: f.pocket.indexOf(a.tile), tile: a.tile }));
+  const discarded = plan.discard.map((t) => t.slot);
+  const stored = added.map((a) => ({ id: a.tile.id, from: a.from, to: stackIndex(f, a.tile.id), tile: a.tile }));
   c.events.push({ type: 'pocket', side, stored, discarded });
   f.landed = false;
   return true;
@@ -504,10 +552,10 @@ export function pocket(c: Combat, side: Side): boolean {
 export function burn(c: Combat, side: Side, id: TileId): boolean {
   const f = c.fighters[side];
   if (!f.landed || c.winner) return false;
-  const from = removeFromPocket(f, id, 3);
-  const n = from.length;
+  const stack = stackIndex(f, id);
+  const n = removeFromPocket(f, id, 3).length;
   if (!n) return false;
-  c.events.push({ type: 'burn', side, id, count: n, from });
+  c.events.push({ type: 'burn', side, id, count: n, from: Array(n).fill(stack) });
   const log = newEntry(c, side, 'burn', id);
   log.count = n;
   if (isMove(id)) {
@@ -520,6 +568,12 @@ export function burn(c: Combat, side: Side, id: TileId): boolean {
       c.events.push({ type: 'action', side, move: id, tier: n, isSuper: false, burn: true, zone, consumed: [] });
       applyHit(c, f, id, zone, tune.combat.burnMult[n], log);
     }
+  } else if (isTarget(id)) {
+    // Burned target tiles chip the named enemy part, to break up its charge.
+    const foe = c.fighters[other(side)];
+    const zone = zoneOf(id);
+    log.zone = zone;
+    landHit(c, foe, targetBurnHit(foe, zone, n), zone, log);
   } else if (id === 'shield') log.shieldGain = gainShield(c, f, tune.shield.perTile * f.shieldMult * n);
   else if (id === 'quick') applyQuick(f, n);
   checkEnd(c);
@@ -602,7 +656,7 @@ function enemyThink(c: Combat, dt: number) {
   f.aiWait += dt;
   if (f.aiWait < tune.timing.aiThinkSec) return;
   const m = executeMatches(f);
-  const free = f.pocketSize - f.pocket.length;
+  const free = pocketRoom(f);
   if (free < 3) {
     const stale = pocketGroups(f).find((g) => isMove(g.id) && g.id !== m.move && g.count >= 2);
     if (stale) burn(c, 'enemy', stale.id);

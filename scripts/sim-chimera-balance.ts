@@ -1,7 +1,7 @@
 // Headless balance sim for chimera-reels. Runs the real combat and run code
 // (no rendering) and prints win rates and fight stats per starter and floor.
 // Launch with: node scripts/sim-chimera-balance.mjs [fightsPerCell]
-import { burn, createCombat, execute, executeMatches, makeFighter, pocket, pocketGroups, tick, type Combat } from '../prototypes/chimera-reels/src/sim/combat';
+import { burn, createCombat, execute, executeMatches, makeFighter, pocket, pocketGroups, pocketRoom, tick, type Combat } from '../prototypes/chimera-reels/src/sim/combat';
 import { isMove, isTarget, STARTERS, type MonsterSpec } from '../prototypes/chimera-reels/src/sim/content';
 import { makeRng } from '../prototypes/chimera-reels/src/sim/rng';
 import { randomMonster } from '../prototypes/chimera-reels/src/sim/run';
@@ -14,7 +14,7 @@ function decide(c: Combat, policy: Policy) {
   const f = c.fighters.player;
   if (policy === 'execute') return execute(c, 'player');
   const m = executeMatches(f);
-  const free = f.pocketSize - f.pocket.length;
+  const free = pocketRoom(f);
   if (free < 3) {
     const stale = pocketGroups(f).find((g) => isMove(g.id) && g.id !== m.move && g.count >= 2);
     if (stale) burn(c, 'player', stale.id);

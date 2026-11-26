@@ -54,6 +54,16 @@ on a design decision.
 - Pocket auto-sorts by type (moves, targets, mutators; duplicates
   together) and tiles slide into place when the order changes.
 
+- Pocket as 6 type slots with stacks of 3 (owner-approved); Pouch and
+  Ember heart add a type slot instead of +2/+3 tiles. Stacks show a
+  count badge and slide when re-sorted.
+- Burning target tiles: 1/2/3 flat damage to the named enemy part,
+  soaked by shields, knocks out a tile if it reaches HP.
+- Aim readout: cyan outline on the aimed enemy part, part HP and outcome
+  in the enemy panel, at-risk markers on enemy pocket stacks.
+- Sim after these changes (F1, smart bot): Tuskrel 83%, Skyreave 47%,
+  Bulwark 94%, Random 85%; supers about 0.07 per fight (up from 0.02).
+
 ## Key technical decisions
 - `computeHit` is a pure function used both for previews and for
   resolution, so the shown damage always matches what lands.
@@ -75,6 +85,8 @@ on a design decision.
 
 - Pocket ordering was ambiguous in the request ("by time"); the owner
   confirmed "by type". BRIEF.md now covers it.
+- Part damage ignores shields (shields only protect HP and the pocket),
+  so a shielded part can still break. Not stated in BRIEF.md; confirm.
 
 ## Known issues
 - Not tested on a real phone; verified in headless Chromium at 390x844
