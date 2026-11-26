@@ -1,7 +1,8 @@
 ## Current milestone
-Scope steps 1 to 6 done: toon-art 3D scene, juicy reel combat, parts,
-hitzones and part breaks, armour and damage types, weakspot, and the
-single-player tower run. Steps 7 (3v3) and 8 (part drops) not started.
+Scope steps 1 to 6 and 8 done: toon-art 3D scene, juicy reel combat,
+parts, hitzones and part breaks, armour and damage types, weakspot, the
+single-player tower run, and enemy part drops. Step 7 (3v3) is waiting
+on a design decision. Live on GitHub Pages and linked from the hub.
 
 ## What was implemented
 - Monsters are assembled from parts (body, head, limbs, legs, skin, aux),
@@ -24,6 +25,9 @@ single-player tower run. Steps 7 (3v3) and 8 (part drops) not started.
   choice of 3 tiles (rarer tiles unlock with level), game over when gold
   cannot cover the bet or the monster takes the final hit. Yield button
   (two taps) keeps the monster and retries the floor.
+- Part drops: after a win the enemy drops one of its parts that differs
+  from yours; a loot screen compares stats and tiles, and Take swaps it
+  into that slot (the 3D model rebuilds), Keep skips. Then level-up.
 - Toon art following the Kimberly Tank Study: toon shader, outlines,
   chamfered parts, springs, toon puffs, contact-shadow floor.
 - Juice: blurred reel spins with ticks, landing overshoot and pop, super
@@ -56,8 +60,8 @@ single-player tower run. Steps 7 (3v3) and 8 (part drops) not started.
 - Items still marked (proposed) in BRIEF.md: stance rules, overflow
   rule, starter content, first 4 damage types.
 - Pocketing clears stance (implemented); not stated in BRIEF.md.
-- Level-up tiles are permanent for the run; part replacement from enemy
-  drops (step 8) is not built.
+- Level-up tiles are permanent for the run. A dropped part is offered
+  every win (if it differs); BRIEF.md does not say how often parts drop.
 
 ## Known issues
 - Not tested on a real phone; verified in headless Chromium at 390x844
@@ -71,5 +75,4 @@ single-player tower run. Steps 7 (3v3) and 8 (part drops) not started.
 
 ## Next proposed step
 Owner plays the live build and tunes feel (`?debug=1`). Decide how
-swapping fits the two-button controls, then build step 7 (3v3), and
-step 8 (part drops).
+swapping fits the two-button controls, then build step 7 (3v3).

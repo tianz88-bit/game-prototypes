@@ -19,7 +19,7 @@ import {
   type Fighter,
   type Side,
 } from '../sim/combat';
-import { isMove, MOVES, PARTS, STARTERS, tileLabel, tileShort, type TileId } from '../sim/content';
+import { isMove, MOVES, PARTS, STARTERS, tileLabel, tileShort, type PartId, type TileId } from '../sim/content';
 import { entryBet, partNames, type Run } from '../sim/run';
 import type { Intent } from '../input/intents';
 import { HEIGHT, WIDTH, type ViewSize } from './view';
@@ -155,6 +155,10 @@ export class Hud {
     return { x: P.pocketX + col * (P.slotW + P.slotGapX), y: P.pocketY + row * (P.slotH + P.slotGapY), w: P.slotW, h: P.slotH };
   }
 
+  private lootRect(i: number): Rect {
+    return { ...this.choiceRect(i, 2), y: 500, h: 215 };
+  }
+
   private choiceRect(i: number, n: number): Rect {
     const w = (358 - (n - 1) * 8) / n;
     return { x: 16 + i * (w + 8), y: 540, w, h: 170 };
@@ -167,6 +171,9 @@ export class Hud {
       case 'select':
         for (let i = 0; i < STARTERS.length; i++) if (inside(this.choiceRect(i, STARTERS.length), x, y)) return { type: 'choose', index: i };
         return inside(L.wide, x, y) ? { type: 'primary' } : null;
+      case 'loot':
+        for (let i = 0; i < 2; i++) if (inside(this.lootRect(i), x, y)) return { type: 'choose', index: i };
+        return null;
       case 'levelup':
         for (let i = 0; i < run.offers.length; i++) if (inside(this.choiceRect(i, run.offers.length), x, y)) return { type: 'choose', index: i };
         return null;
@@ -415,6 +422,7 @@ export class Hud {
       case 'prefight': this.drawPrefight(run); break;
       case 'fight': if (run.combat) this.drawFight(run.combat); break;
       case 'result': if (run.combat) this.drawFight(run.combat, true); this.drawResult(run); break;
+      case 'loot': this.drawLoot(run); break;
       case 'levelup': this.drawLevelUp(run); break;
       case 'gameover': this.drawGameOver(run); break;
     }
@@ -823,6 +831,36 @@ export class Hud {
     this.outlined(label, 195, 318, 36, color);
     this.text(last.won ? `+${last.payout} gold   streak ${run.streak}` : last.yielded ? `${run.monster?.name} survives. Bet lost.` : `${run.monster?.name} is lost.`, 195, 360, 13, '#fff', 'center', '700');
     this.bigButton(last.won ? 'COLLECT' : 'CONTINUE', '');
+  }
+
+  private partCard(r: Rect, id: PartId, title: string, accent: string) {
+    const def = PARTS[id];
+    this.rr(r, 12, 'rgba(255,255,255,0.06)', accent, 1.5);
+    this.text(title, r.x + r.w / 2, r.y + 18, 11, accent, 'center', '800');
+    this.text(def.name, r.x + r.w / 2, r.y + 42, 16, '#fff', 'center', '900');
+    const st = tune.parts.stats[id] as Record<string, number>;
+    const bits = (['hp', 'speed', 'atk', 'def', 'weak', 'pocket'] as const)
+      .filter((k) => st[k])
+      .map((k) => `${k.toUpperCase()} ${st[k] > 0 ? '+' : ''}${st[k]}`);
+    bits.forEach((b, i) => this.text(b, r.x + r.w / 2, r.y + 64 + i * 13, 10, '#cfc7d9', 'center'));
+    const tiles = [...def.moves, ...def.mutators.filter((m) => m !== 'blank')];
+    tiles.slice(0, 6).forEach((t, i) => {
+      const tw = (r.w - 24) / 3;
+      this.tile({ x: r.x + 8 + (i % 3) * (tw + 4), y: r.y + 162 + Math.floor(i / 3) * 24, w: tw, h: 20 }, t, { size: 9, short: true });
+    });
+    if (def.flight) this.text('FLIGHT', r.x + r.w / 2, r.y + 148, 10, '#9fe3ff', 'center', '800');
+  }
+
+  private drawLoot(run: Run) {
+    const drop = run.drop!;
+    const slot = PARTS[drop].slot;
+    const current = run.monster!.build[slot];
+    this.outlined('PART DROPPED!', 195, 60, 30, '#ffb36b');
+    this.text(`The enemy left its ${PARTS[drop].name}.`, 195, 100, 13, '#cfc7d9', 'center', '700');
+    this.text(`Swap it into your ${slot} slot, or keep yours.`, 195, 122, 12, '#a89fbc', 'center');
+    this.partCard(this.lootRect(0), drop, 'TAKE NEW', '#ffb36b');
+    this.partCard(this.lootRect(1), current, 'KEEP CURRENT', 'rgba(255,255,255,0.4)');
+    this.text('Parts change stats, weak spots and the tiles on your reels', 195, 730, 10, '#8a82a0', 'center');
   }
 
   private drawLevelUp(run: Run) {
