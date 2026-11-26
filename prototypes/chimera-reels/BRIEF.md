@@ -5,8 +5,7 @@ Combat is resolved by each monster's own slot reels: the parts a monster
 carries decide which tiles are on its reels, and its speed decides how
 often it spins. Single-player tower run first. PvP is the long-term goal.
 
-Mobile-first, portrait, web. Built with Three.js (owner-approved
-exception to the Phaser default, see Stack).
+Mobile-first, portrait, web. Built with Three.js (see Stack).
 
 Items marked **(proposed)** are Claude's resolution of gaps in the
 original notes. Confirm or change them before build starts.
@@ -15,9 +14,9 @@ original notes. Confirm or change them before build starts.
 
 1. Pick a starter chimera.
 2. Pay an entry bet in gold to enter the next tower floor.
-3. Fight one enemy monster. Reels spin on each monster's speed cooldown,
-   the player chooses Execute or Pocket, parts break, one side falls or
-   yields.
+3. Fight one enemy monster. Three reels (move, target, mutator) spin on
+   each monster's speed cooldown, the player chooses Execute or Pocket,
+   parts break, one side falls or yields.
 4. Win: collect the payout, gain a level, choose 1 of 3 new reel tiles.
 5. Lose: the run ends.
 6. Repeat until gold cannot cover the next floor's entry bet.
@@ -57,8 +56,8 @@ chimeras built from these. The debug panel can swap any part for testing.
 ### Format
 
 - 1v1 first. 3v3 (1 forward, 2 reserve) comes later in scope order.
-- Both monsters' reels are always on screen, so the fight can be read at
-  a glance by a player or a spectator.
+- Both monsters' reels, pockets and shields are always on screen, so the
+  fight can be read at a glance by a player or a spectator.
 
 ### Speed and spinning
 
@@ -72,105 +71,95 @@ chimeras built from these. The debug panel can swap any part for testing.
   finishes before the player chooses, the undecided spin is lost and
   the reels spin again.
 
-### The reels
+### The three reels
 
-- 2 reels, each showing 3 rows, so 6 tiles are visible per spin.
-- **Reel 1, move.** Tiles are moves supplied by the monster's parts.
-- **Reel 2, mutator.** Tiles modify the move: attack direction, power
-  up, damage type shift, blank.
-- The middle row is the **line**. The line's move plus its mutator is
-  the action.
-- The 4 off-line tiles (above and below) are also in play: each gives a
-  small effect when the player Executes.
-- Strips are built from the tiles the monster's parts provide.
-  Duplicates are allowed.
-- Temporary tiles can appear on either monster's strips and expire
-  after a set number of spins.
-- Off-line effects are kept small and shown as one combined readout per
-  spin, so the line result and pocket triggers stay the focus.
+3 reels, each showing 3 rows, so 9 tiles are visible per spin. Each reel
+answers one question.
+
+| Reel | Question | Tiles | Where its tiles come from |
+|---|---|---|---|
+| Move | What you do | Claw, Bite, Slam, Breath (attacks only) | Your own parts |
+| Target | Where it lands | Head, Limbs, Legs, Aux, Body | The enemy's remaining parts |
+| Mutator | How it is modified | Power+, Quick, Shield, blank | Your own parts |
+
+- The middle row is the **line**: move + target + mutator is the action.
+- Target reel: each unbroken enemy part adds tiles for its zone, plus a
+  few Body tiles so the reel is never empty **(proposed)**. When an enemy
+  part breaks, its tiles leave the target reel. A flying enemy has no
+  Legs tiles. The enemy weakspot's tile is highlighted.
+- Short reels are padded with blank tiles.
+- Tiles show an icon plus a small text label. Labels may be dropped
+  later once the icon set is learned. Icons are placeholder shapes drawn
+  in code until the owner supplies art.
 
 ### Execute
 
-- Resolves the line action, plus the small effects of the 4 off-line
-  tiles.
-- Any pocketed tiles matching the line move or the line mutator are
-  consumed to power it up:
-  - 1 matching tile: boosted version.
-  - 2 matching tiles: stronger version.
-  - 3 matching tiles: super version.
+- Fires the line action.
+- Pocketed tiles that duplicate a line tile are consumed to power it up,
+  on all three reels:
+  - **Move duplicates**: 1 boosted, 2 stronger, 3 super. Supers come
+    from the move reel only.
+  - **Target duplicates**: extra damage to that part (small, capped).
+  - **Mutator duplicates**: stack the mutator (small, capped).
 - Tiles only power up spins after the one they were pocketed on.
+- Damage preview: when the line move deals damage, the Execute button
+  shows the exact final damage and target before the player commits
+  (for example "Bite > HEAD 34, weak spot").
 
 ### Pocket
 
-- Stores all 6 visible tiles in the monster's pocket. No action
-  resolves this spin, and the off-line effects do not apply.
-- While held, each pocketed tile gives a passive buff.
-- Using pocketed tiles for a power-up removes them, so their passive
-  buff ends. Holding versus spending is the core decision.
+- Stores the 6 tiles that are not on the line. The line action does not
+  fire this spin.
+- Held target tiles reduce damage taken on your own matching part by a
+  percentage per tile (capped). This is the only passive effect of held
+  tiles.
 - Pocket space: every monster has a default size, and parts change it.
-  Some parts start the fight with tiles already pocketed.
-- Default pocket size is 6 (`tune.json`).
-- Overflow **(proposed)**: tiles already held are never pushed out.
-  New tiles fill free space in this priority order: tiles matching
-  something already held, then the line tiles, then the off-line tiles.
-  Whatever does not fit is discarded. A full pocket is the signal to
-  Execute.
+  Default 9 (`tune.json`) **(proposed)**, since a Pocket now adds up
+  to 6 tiles. Some parts start the fight with tiles already pocketed.
+- Overflow **(proposed)**: tiles already held are never pushed out. New
+  tiles fill free space, duplicates of held tiles first, then move,
+  target and mutator tiles in that order. The rest are discarded.
 
 ### Burn
 
 - Between a spin landing and the Execute or Pocket choice, the player
-  may tap a group of identical pocketed tiles to burn them.
-- Burned move tiles fire their move on its own, weaker than a matched
-  power-up: 1 tile weak, 2 tiles normal, 3 tiles strong. Burning never
-  gives the super version, which stays exclusive to matching on the
-  line.
-- Burned mutator tiles give their small off-line effect once per tile.
+  may tap a group of identical pocketed tiles to burn them (up to 3).
+- Burned move tiles fire on their own at the **current line target**:
+  1 tile weak, 2 normal, 3 strong, never the super. Each burnable move
+  tile shows its exact damage.
+- Burned Shield tiles grant shield points at once. Burned Quick tiles cut
+  the next cooldown. Burned Power+ and target tiles are simply discarded
+  to free space **(proposed)**.
 - Burning does not use up the turn. The player still chooses Execute or
-  Pocket afterwards. Time spent burning counts as deciding, so the next
-  cooldown runs at the reduced rate meanwhile.
-- Burned tiles leave the pocket, so their passive buff ends.
-- The pocket needs large, grouped tap targets on a portrait phone.
+  Pocket afterwards. Time spent burning counts as deciding.
 
-### Pocket counterplay
+### Shields
 
-- Some moves make the opponent drop pocketed tiles.
-- When a part breaks, pocketed tiles that came from that part are
-  dropped.
-- Both monsters' reels and pockets are always visible.
+- Shield is a mutator tile. Executing with Shield on the line fires the
+  attack **and** grants shield points, so defending never costs a turn.
+- Shield points absorb damage before HP. They stack across Executes and
+  last until broken, capped at a share of max HP (`tune.json`, default
+  50%).
+- Parts add Shield tiles to the mutator reel, and some parts raise how
+  much each Shield tile gives (for example Shell more, Fur less).
+- Shown as a pale segment on the HP bar and a bubble on the 3D monster.
 
-### Attack, Defend, Brains (proposed)
+### Hits, drops and part breaks
 
-Every move tile is one of three types, which counter each other in a
-pseudo rock-paper-scissors. Executing a Defend or Brains move leaves a
-stance that lasts until that monster's next action. An incoming move is
-checked against the target's current stance.
-
-- Defend beats Attack (blocks most of it).
-- Attack beats Brains (interrupts it).
-- Brains beats Defend (feints past the guard, or messes with the
-  opponent's reels, for example turning a tile into a temporary blank).
-
-### Attack directions
-
-Set by the mutator reel. Front is the default.
-
-| Direction | Effect |
-|---|---|
-| Front | Default |
-| Low | Powerful ground attack. Misses flying monsters |
-| High | Weak, but strong against flyers and high weakspots |
-| Back | Only sneak-attack moves can use it. Only useful against certain weakspots. Otherwise counts as Front |
-
-### Hitzones and part breaks
-
-- The part nearest the attack direction (up, down, front, back) takes the
-  hit. If no part covers that side, the body takes it.
+- Every hit lands on the part named by the line target tile.
+- Damage goes to shield points first, then HP. The hit part also takes
+  the damage towards its break threshold.
+- **Pocket drop**: if any damage reaches HP, 1 pocketed move tile that
+  came from the hit part falls out. If the shield absorbs the whole hit,
+  nothing drops ("shield up = pocket safe").
 - Each part has a break threshold: a percentage of body HP, adjusted by
   armour type.
-- When a part breaks: its tiles are removed from the reels or weakened,
-  related moves deal less damage, and on the turn it breaks it can cancel
-  the move in progress.
-- Broken parts show visibly on the 3D model.
+- When a part breaks: its tiles leave its owner's reels, every pocketed
+  tile from that part drops, the matching target tiles leave the
+  attacker's target reel, and a result the owner is deciding on is
+  cancelled. The part visibly comes off the 3D model.
+- Weakspot: the part with the highest weak value takes extra damage.
+  Total weak value adds hidden fragility (not shown on the HUD).
 
 ### Damage types
 
@@ -178,7 +167,15 @@ The full set: slash, crush, pierce, exotherm, endotherm, corrosion,
 electron, bio, psychic, gravity, time, wave.
 
 First prototype uses 4 **(proposed)**: slash, crush, pierce, exotherm.
-Resistances are a table of damage type x armour type in `tune.json`.
+Resistances are a table of damage type x armour type in `tune.json`. The
+HUD only says "RESISTED" or "EFFECTIVE", never the numbers.
+
+### Removed in the 3-reel redesign
+
+Cut to keep combat readable: off-line tile effects, passive attack,
+defence and speed buffs from held tiles, the Guard move and the
+Attack/Defend/Brains stances, Jam and Snatch, High/Low/Back attack
+directions, and the fragility readout.
 
 ### Yield
 
@@ -246,6 +243,9 @@ yield the player retries the same floor if gold covers the bet.
 7. 3v3: reserves, swapping (costs a command), AoE split 50% forward and
    25% to each reserve.
 8. Enemy part drops and part replacement.
+9. 3-reel redesign (move, target, mutator), shields, pocket drops on
+   hit, damage preview, icon tiles. Replaces the 2-reel combat built in
+   steps 2, 4 and 5.
 
 Feel (spin timing, hit stops, recoil, break effects) is tuned before any
 later step is added.
