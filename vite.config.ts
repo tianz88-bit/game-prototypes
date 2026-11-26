@@ -36,6 +36,14 @@ function getPrototypeEntries(): Record<string, string> {
       entries[name] = htmlPath;
     }
   }
+  // Studies are built onto the Pages site too; only ones the owner asked to publish are linked from the hub.
+  const studyDir = path.resolve(__dirname, 'studies');
+  if (fs.existsSync(studyDir)) {
+    for (const name of fs.readdirSync(studyDir)) {
+      const htmlPath = path.join(studyDir, name, 'index.html');
+      if (fs.existsSync(htmlPath)) entries[`study-${name}`] = htmlPath;
+    }
+  }
   return entries;
 }
 

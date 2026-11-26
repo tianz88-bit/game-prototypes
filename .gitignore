@@ -3,6 +3,8 @@ dist/
 *.png
 *.zip
 *.atlas
+*.glb
+*.gltf
 .cache/
 public/
 prototypes/*/assets-src/
