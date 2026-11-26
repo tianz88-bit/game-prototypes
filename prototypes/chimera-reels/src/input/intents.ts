@@ -5,6 +5,7 @@
 //   burn      = burn the pocket group at `group` (index into pocket groups)
 //   choose    = pick option `index` (starter, level-up tile)
 //   yield     = give up the current fight (asks for a second tap)
+//   viewer    = open or close the parts viewer
 //   pause     = reserved, not used yet
 export type Intent =
   | { type: 'primary' }
@@ -12,6 +13,7 @@ export type Intent =
   | { type: 'burn'; group: number }
   | { type: 'choose'; index: number }
   | { type: 'yield' }
+  | { type: 'viewer' }
   | { type: 'pause' };
 
 const queue: Intent[] = [];
@@ -31,6 +33,7 @@ export function bindKeyboard(onAny: () => void) {
     if (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyJ') pushIntent({ type: 'primary' });
     else if (e.code === 'KeyK' || e.code === 'KeyP') pushIntent({ type: 'secondary' });
     else if (e.code === 'KeyY') pushIntent({ type: 'yield' });
+    else if (e.code === 'KeyV') pushIntent({ type: 'viewer' });
     else if (e.code === 'Escape') pushIntent({ type: 'pause' });
     else if (/^Digit[1-9]$/.test(e.code)) {
       const n = Number(e.code.slice(5)) - 1;

@@ -52,31 +52,45 @@ async function waitFor(page, pred, what, tries = 150) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
   const page = await ctx.newPage();
   watch(page, 'phone');
-  await page.goto(`${base}?seed=7`);
+  await page.goto(`${base}?seed=${process.env.SEED ?? 7}`);
   await page.waitForTimeout(700);
-  await page.mouse.click(195, 620); // middle starter card
+  await page.mouse.click(330, 620); // random-roll card
+  await page.waitForTimeout(200);
+  await page.mouse.click(330, 620); // tap again: re-roll
   await page.waitForTimeout(300);
+  await shot(page, 'chimera-select-random.png');
+  await page.mouse.click(150, 620); // Skyreave card
+  await page.waitForTimeout(200);
+  await page.mouse.click(337, 493); // open parts viewer
+  await page.waitForTimeout(200);
+  await page.mouse.click(90, 535 + 34 * 2); // inspect limbs
+  await page.waitForTimeout(900);
+  await shot(page, 'chimera-viewer.png');
+  await page.mouse.click(337, 493); // close viewer
+  await page.waitForTimeout(200);
   await shot(page, 'chimera-select.png');
-  await page.mouse.click(195, 776); // choose
+  await page.mouse.click(195, 786); // choose
   await waitFor(page, (s) => s.screen === 'prefight', 'prefight');
   await page.waitForTimeout(300);
   await shot(page, 'chimera-prefight.png');
-  await page.mouse.click(195, 776); // enter fight
+  await page.mouse.click(195, 786); // enter fight
   await waitFor(page, (s) => s.screen === 'fight', 'fight');
   await waitFor(page, (s) => s.landed, 'first landing');
   await shot(page, 'chimera-landed.png');
-  await page.mouse.click(287, 776); // Pocket
+  await page.mouse.click(287, 799); // Pocket
   await page.waitForTimeout(120);
   await shot(page, 'chimera-pocket-fly.png');
   const afterPocket = await state(page);
   if (!afterPocket.pocket) throw new Error('Pocket tap stored nothing');
   await waitFor(page, (s) => s.landed || s.winner, 'second landing');
-  await page.mouse.click(103, 776); // Execute
+  await page.mouse.click(103, 799); // Execute
   await page.waitForTimeout(200);
   await shot(page, 'chimera-execute.png');
   await waitFor(page, (s) => s.landed || s.winner, 'third landing');
-  await page.mouse.click(246, 582); // burn first pocket group
+  await page.mouse.click(34, 734); // burn first pocket group
   await page.waitForTimeout(150);
+  // FORCE_WIN=1 weakens the enemy so the loot and level-up screens get checked.
+  if (process.env.FORCE_WIN) await page.evaluate(() => { const e = window.__chimera().combat.fighters.enemy; e.hp = Math.min(e.hp, 5); });
   await shot(page, 'chimera-burn.png');
   // Auto-play: pocket until a match exists, then execute.
   let midShot = false;
@@ -97,7 +111,7 @@ async function waitFor(page, pred, what, tries = 150) {
   const s = await waitFor(page, (x) => x.screen !== 'fight', 'fight end', 400);
   await page.waitForTimeout(500);
   await shot(page, 'chimera-result.png');
-  await page.mouse.click(195, 776);
+  await page.mouse.click(195, 786);
   await page.waitForTimeout(500);
   await shot(page, 'chimera-after-result.png');
   if ((await state(page)).screen === 'loot') {

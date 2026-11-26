@@ -1,33 +1,34 @@
-// Pure combat simulation. No rendering, no input devices: the game loop
-// feeds it player decisions (from intents) and elapsed time, and reads back
-// state plus a list of events for the renderer to animate.
+// Pure combat simulation (3 reels: move, target, mutator). No rendering and
+// no input devices: the game loop feeds it player decisions (from intents)
+// and elapsed time, and reads back state plus events for the renderer.
 import { tune } from '../tune';
 import {
-  directionOf,
   isMove,
+  isTarget,
   MOVES,
   PARTS,
+  SLOT_ZONE,
   SLOTS,
+  targetTile,
+  zoneOf,
   type ArmourId,
-  type Direction,
   type MonsterSpec,
   type MoveId,
-  type MoveKind,
   type PartId,
+  type ReelIndex,
   type Slot,
   type TileId,
-  type Zone,
+  type ZoneId,
 } from './content';
 import { pickIndex, type Rng } from './rng';
 
 export type Side = 'player' | 'enemy';
-export type Stance = 'none' | 'defend' | 'brains';
+export const REELS: ReelIndex[] = [0, 1, 2];
 
 /** One position on a reel strip. `part` is the index of the part that supplied it. */
 export interface StripTile {
   id: TileId;
   part?: number;
-  jam?: { spinsLeft: number; original: TileId };
   broken?: boolean;
 }
 
@@ -39,7 +40,7 @@ export interface PocketTile {
 export interface PartState {
   id: PartId;
   slot: Slot;
-  zone: Zone;
+  zone: ZoneId | null;
   hp: number;
   maxHp: number;
   broken: boolean;
@@ -52,38 +53,35 @@ export interface Fighter {
   spec: MonsterSpec;
   hp: number;
   maxHp: number;
+  shield: number;
+  shieldMult: number;
   stats: { speed: number; atk: number; def: number };
   armour: ArmourId;
   parts: PartState[];
-  strips: [StripTile[], StripTile[]];
-  /** Index of the tile sitting on the line, per reel. */
-  reelPos: [number, number];
-  /** Seconds of cooldown left before the next automatic spin. */
+  strips: [StripTile[], StripTile[], StripTile[]];
+  reelPos: [number, number, number];
   cooldown: number;
-  /** >0 while the reels are spinning (seconds left). */
   spinLeft: number;
   spinTotal: number;
-  /** This spin is a super tease (line lands on a triple match). */
+  /** This spin lands a super (the move reel lands last, slowly). */
   tease: boolean;
   /** A landed result is waiting for Execute or Pocket. */
   landed: boolean;
   pocket: PocketTile[];
   pocketSize: number;
-  stance: Stance;
   aiWait: number;
 }
 
 export type CombatEvent =
   | { type: 'spin'; side: Side; tease: boolean }
-  | { type: 'reelLand'; side: Side; reel: 0 | 1 }
+  | { type: 'reelLand'; side: Side; reel: ReelIndex }
   | { type: 'land'; side: Side }
   | { type: 'lost'; side: Side }
-  | { type: 'action'; side: Side; move: MoveId; tier: number; isSuper: boolean; burn: boolean; dir: Direction; consumed: TileId[] }
-  | { type: 'hit'; side: Side; amount: number; blocked: boolean; interrupted: boolean; chip: boolean; part: number; weak: boolean; resist: number }
+  | { type: 'action'; side: Side; move: MoveId; tier: number; isSuper: boolean; burn: boolean; zone: ZoneId; consumed: TileId[] }
+  | { type: 'hit'; side: Side; amount: number; shielded: number; part: number; weak: boolean; resist: number }
   | { type: 'miss'; side: Side; reason: string }
-  | { type: 'heal'; side: Side; amount: number }
-  | { type: 'drop'; side: Side; count: number }
-  | { type: 'jam'; side: Side; count: number }
+  | { type: 'shield'; side: Side; amount: number }
+  | { type: 'drop'; side: Side; count: number; part: number }
   | { type: 'break'; side: Side; part: number; cancelled: boolean }
   | { type: 'pocket'; side: Side; stored: { id: TileId; from: number }[]; discarded: number[] }
   | { type: 'burn'; side: Side; id: TileId; count: number }
@@ -98,6 +96,9 @@ export interface Combat {
 
 export const other = (s: Side): Side => (s === 'player' ? 'enemy' : 'player');
 
+type PartStats = { hp: number; speed: number; atk: number; def: number; weak: number; pocket?: number; shield?: number };
+const statsOf = (id: PartId) => tune.parts.stats[id] as PartStats;
+
 // ---------------------------------------------------------------- building
 
 function shuffle<T>(rng: Rng, list: T[]): T[] {
@@ -108,108 +109,106 @@ function shuffle<T>(rng: Rng, list: T[]): T[] {
   return list;
 }
 
-export interface FighterScale {
-  hp: number;
-  atk: number;
-}
+export interface FighterScale { hp: number; atk: number }
 
-export function makeFighter(side: Side, spec: MonsterSpec, rng: Rng, scale: FighterScale = { hp: 1, atk: 1 }): Fighter {
-  const pt = tune.parts;
+export function makeFighter(side: Side, spec: MonsterSpec, scale: FighterScale = { hp: 1, atk: 1 }): Fighter {
   let hp = 0;
+  let shieldMult = 0;
   const stats = { speed: 0, atk: 0, def: 0 };
   let pocketSize = tune.pocket.defaultSize;
   let armour: ArmourId = 'hide';
-  const reel1: StripTile[] = [];
-  const reel2: StripTile[] = [];
   const pocket: PocketTile[] = [];
   SLOTS.forEach((slot, index) => {
     const id = spec.build[slot];
-    const def = PARTS[id];
-    const st = pt.stats[id] as { hp: number; speed: number; atk: number; def: number; weak: number; pocket?: number };
+    const st = statsOf(id);
     hp += st.hp;
     stats.speed += st.speed;
     stats.atk += st.atk;
     stats.def += st.def;
+    shieldMult += st.shield ?? 0;
     pocketSize += st.pocket ?? 0;
-    if (def.armour) armour = def.armour;
-    for (const m of def.moves) reel1.push({ id: m, part: index });
-    for (const m of def.mutators) reel2.push({ id: m, part: index });
-    for (const t of def.startPocket ?? []) pocket.push({ id: t, part: index });
+    if (PARTS[id].armour) armour = PARTS[id].armour!;
+    for (const t of PARTS[id].startPocket ?? []) pocket.push({ id: t, part: index });
   });
-  for (const t of spec.extra) (isMove(t) ? reel1 : reel2).push({ id: t });
-  while (reel1.length < tune.combat.minStripLength) reel1.push({ id: 'blank' });
-  while (reel2.length < tune.combat.minStripLength) reel2.push({ id: 'blank' });
   hp = Math.round(hp * scale.hp);
   stats.atk *= scale.atk;
   const breakMult = tune.armour[armour].breakMult;
   const parts: PartState[] = SLOTS.map((slot) => {
     const id = spec.build[slot];
-    const maxHp = Math.round(hp * pt.breakPct * breakMult);
-    return { id, slot, zone: PARTS[id].zone, hp: maxHp, maxHp, broken: false, weak: (pt.stats[id] as { weak: number }).weak };
+    const maxHp = Math.round(hp * tune.parts.breakPct * breakMult);
+    return { id, slot, zone: SLOT_ZONE[slot], hp: maxHp, maxHp, broken: false, weak: statsOf(id).weak };
   });
   return {
-    side,
-    name: spec.name,
-    spec,
-    hp,
-    maxHp: hp,
-    stats,
-    armour,
-    parts,
-    strips: [shuffle(rng, reel1), shuffle(rng, reel2)],
-    reelPos: [pickIndex(rng, reel1.length), pickIndex(rng, reel2.length)],
-    // Stagger the opening spins a little so both sides do not start in sync.
+    side, name: spec.name, spec, hp, maxHp: hp, shield: 0, shieldMult: Math.max(0.2, shieldMult),
+    stats, armour, parts, strips: [[], [], []], reelPos: [0, 0, 0],
     cooldown: tune.timing.baseCooldownSec * (side === 'player' ? 0.35 : 0.55),
-    spinLeft: 0,
-    spinTotal: 0,
-    tease: false,
-    landed: false,
-    pocket,
-    pocketSize,
-    stance: 'none',
-    aiWait: 0,
+    spinLeft: 0, spinTotal: 0, tease: false, landed: false, pocket, pocketSize, aiWait: 0,
   };
 }
 
+const brokenCount = (f: Fighter) => f.parts.filter((p) => p.broken).length;
+
+/** Rebuild a fighter's three strips from the current state of both monsters. */
+function buildStrips(c: Combat, f: Fighter) {
+  const r = tune.reels;
+  const foe = c.fighters[other(f.side)];
+  const moves: StripTile[] = [];
+  const muts: StripTile[] = [];
+  f.parts.forEach((p, i) => {
+    if (p.broken) return;
+    for (const m of PARTS[p.id].moves) moves.push({ id: m, part: i });
+    for (const m of PARTS[p.id].mutators) muts.push({ id: m, part: i });
+  });
+  for (const t of f.spec.extra) (isMove(t) ? moves : muts).push({ id: t });
+  // Move reel never runs dry: repeat your own moves to fill it.
+  const base = moves.length;
+  for (let i = 0; base > 0 && moves.length < r.minLength; i++) moves.push({ ...moves[i % base] });
+  while (moves.length < r.minLength) moves.push({ id: 'blank' });
+  for (let i = 0; i < Math.floor(brokenCount(f) / r.partsBrokenPerBlank); i++) moves.push({ id: 'blank' });
+  while (muts.length < r.minLength) muts.push({ id: 'blank' });
+
+  // Target reel: the enemy's remaining parts, padded with Body.
+  const targets: StripTile[] = [];
+  const foeFlying = isFlying(foe);
+  for (const p of foe.parts) {
+    if (p.broken || !p.zone || p.zone === 'body') continue;
+    if (p.zone === 'legs' && foeFlying) continue;
+    const n = (r.targetTiles as Record<ZoneId, number>)[p.zone];
+    for (let i = 0; i < n; i++) targets.push({ id: targetTile(p.zone) });
+  }
+  for (let i = 0; i < r.targetTiles.body; i++) targets.push({ id: 't_body' });
+  while (targets.length < r.minLength) targets.push({ id: 't_body' });
+  for (let i = 0; i < Math.floor(brokenCount(foe) / r.partsBrokenPerBlank); i++) targets.push({ id: 'blank' });
+
+  f.strips = [shuffle(c.rng, moves), shuffle(c.rng, targets), shuffle(c.rng, muts)];
+  f.reelPos = [pickIndex(c.rng, moves.length), pickIndex(c.rng, targets.length), pickIndex(c.rng, muts.length)];
+}
+
 export function createCombat(player: Fighter, enemy: Fighter, rng: Rng): Combat {
-  return { fighters: { player, enemy }, winner: null, events: [], rng };
+  const c: Combat = { fighters: { player, enemy }, winner: null, events: [], rng };
+  buildStrips(c, player);
+  buildStrips(c, enemy);
+  return c;
 }
 
 // ---------------------------------------------------------------- reading
 
 /** The 3 visible tiles of one reel: [above, line, below]. */
-export function reelWindow(f: Fighter, reel: 0 | 1): [StripTile, StripTile, StripTile] {
+export function reelWindow(f: Fighter, reel: ReelIndex): [StripTile, StripTile, StripTile] {
   const strip = f.strips[reel];
   const n = strip.length;
   const p = f.reelPos[reel];
   return [strip[(p - 1 + n) % n], strip[p], strip[(p + 1) % n]];
 }
 
-/** All 6 visible tiles, line tiles flagged. `slot` is reel * 3 + row. */
-export function visibleTiles(f: Fighter): { id: TileId; part?: number; line: boolean; slot: number }[] {
-  const out: { id: TileId; part?: number; line: boolean; slot: number }[] = [];
-  for (const reel of [0, 1] as const) {
-    reelWindow(f, reel).forEach((t, row) => out.push({ id: t.id, part: t.part, line: row === 1, slot: reel * 3 + row }));
-  }
+/** All 9 visible tiles. `slot` is reel * 3 + row; row 1 is the line. */
+export function visibleTiles(f: Fighter) {
+  const out: { id: TileId; part?: number; broken?: boolean; line: boolean; slot: number; reel: ReelIndex }[] = [];
+  for (const reel of REELS) reelWindow(f, reel).forEach((t, row) => out.push({ ...t, line: row === 1, slot: reel * 3 + row, reel }));
   return out;
 }
 
-function countIn(list: PocketTile[], id: TileId): number {
-  return list.reduce((n, t) => n + (t.id === id ? 1 : 0), 0);
-}
-
-function kindCount(list: PocketTile[], kind: MoveKind): number {
-  return list.reduce((n, t) => n + (isMove(t.id) && MOVES[t.id].kind === kind ? 1 : 0), 0);
-}
-
-export function pocketBuffs(f: Fighter) {
-  const p = tune.pocket;
-  return {
-    attack: kindCount(f.pocket, 'attack') * p.attackBuffPerTile + countIn(f.pocket, 'power') * p.powerBuffPerTile,
-    defend: kindCount(f.pocket, 'defend') * p.defendBuffPerTile,
-    speed: kindCount(f.pocket, 'brains') * p.brainsSpeedPerTile + countIn(f.pocket, 'quick') * p.quickSpeedPerTile,
-  };
-}
+const countIn = (list: PocketTile[], id: TileId) => list.reduce((n, t) => n + (t.id === id ? 1 : 0), 0);
 
 /** Groups of identical pocketed tiles, in first-seen order (burn targets). */
 export function pocketGroups(f: Fighter): { id: TileId; count: number }[] {
@@ -222,24 +221,36 @@ export function pocketGroups(f: Fighter): { id: TileId; count: number }[] {
   return groups;
 }
 
-/** What Execute would do right now: power-up tier and mutator matches. */
-export function executePreview(f: Fighter) {
-  const move = reelWindow(f, 0)[1].id;
-  const mut = reelWindow(f, 1)[1].id;
-  const tier = isMove(move) ? Math.min(3, countIn(f.pocket, move)) : 0;
-  const mutMatches = mut !== 'blank' ? Math.min(3, countIn(f.pocket, mut)) : 0;
-  return { move, mut, tier, mutMatches };
+/** The line's tile ids; a tile gone dark from a part break counts as blank. */
+export function lineTiles(f: Fighter) {
+  const id = (r: ReelIndex): TileId => {
+    const t = reelWindow(f, r)[1];
+    return t.broken ? 'blank' : t.id;
+  };
+  return { move: id(0), target: id(1), mut: id(2) };
+}
+
+/** Pocketed duplicates Execute would consume right now. */
+export function executeMatches(f: Fighter) {
+  const { move, target, mut } = lineTiles(f);
+  const cb = tune.combat;
+  return {
+    move, target, mut,
+    tier: isMove(move) ? Math.min(3, countIn(f.pocket, move)) : 0,
+    targetMatches: isTarget(target) ? Math.min(cb.targetMatchCap, countIn(f.pocket, target)) : 0,
+    mutMatches: mut !== 'blank' ? Math.min(cb.mutatorMatchCap, countIn(f.pocket, mut)) : 0,
+  };
 }
 
 export function isFlying(f: Fighter): boolean {
   return f.parts.some((p) => !p.broken && PARTS[p.id].flight);
 }
 
-/** Index of the designated weakspot: the unbroken part with the highest weak value. */
+/** Index of the designated weakspot: the unbroken hittable part with the highest weak value. */
 export function weakspot(f: Fighter): number {
   let best = -1;
   f.parts.forEach((p, i) => {
-    if (p.broken || p.zone === 'none') return;
+    if (p.broken || !p.zone) return;
     if (best < 0 || p.weak > f.parts[best].weak) best = i;
   });
   return best;
@@ -247,6 +258,60 @@ export function weakspot(f: Fighter): number {
 
 export function fragility(f: Fighter): number {
   return f.parts.reduce((s, p) => s + (p.broken ? 0 : p.weak), 0) * tune.parts.fragilityPerWeak;
+}
+
+export function shieldCap(f: Fighter): number {
+  return Math.round(f.maxHp * tune.shield.capPct);
+}
+
+function partForZone(f: Fighter, zone: ZoneId): number {
+  const i = f.parts.findIndex((p) => p.zone === zone && !p.broken);
+  return i >= 0 ? i : SLOTS.indexOf('body');
+}
+
+export interface HitCalc { damage: number; toShield: number; toHp: number; part: number; weak: boolean; resist: number }
+
+/** Exact damage of a move at a zone. Pure: used for both previews and resolution. */
+export function computeHit(attacker: Fighter, defender: Fighter, move: MoveId, zone: ZoneId, mult: number): HitCalc {
+  const resist = tune.armour[defender.armour][MOVES[move].dmg];
+  const part = partForZone(defender, zone);
+  const weak = part === weakspot(defender);
+  const held = countIn(defender.pocket, targetTile(zone));
+  const reduce = Math.min(tune.combat.holdReduceCap, held * tune.combat.holdReducePerTile);
+  let dmg = (tune.moves[move] as { power: number }).power * mult * attacker.stats.atk * resist;
+  if (weak) dmg *= tune.parts.weakspotMult;
+  dmg *= (1 + fragility(defender)) * (1 - reduce) / Math.max(0.3, defender.stats.def);
+  const damage = Math.max(1, Math.round(dmg));
+  const toShield = Math.min(defender.shield, damage);
+  return { damage, toShield, toHp: damage - toShield, part, weak, resist };
+}
+
+/** Multiplier from tier, target matches and a Power+ mutator. */
+function lineMult(m: ReturnType<typeof executeMatches>): number {
+  const cb = tune.combat;
+  let mult = cb.tierMult[m.tier] * (1 + m.targetMatches * cb.targetMatchBonus);
+  if (m.mut === 'power') mult *= 1 + (tune.mutators.power.mult - 1) * (1 + m.mutMatches * cb.mutatorMatchBonus);
+  return mult;
+}
+
+export interface Preview { move: MoveId; zone: ZoneId; hit: HitCalc; tier: number }
+
+/** What Execute would deal right now, or null when the line has no attack or no target. */
+export function previewExecute(c: Combat, side: Side): Preview | null {
+  const f = c.fighters[side];
+  const m = executeMatches(f);
+  if (!isMove(m.move) || !isTarget(m.target)) return null;
+  const zone = zoneOf(m.target);
+  return { move: m.move, zone, tier: m.tier, hit: computeHit(f, c.fighters[other(side)], m.move, zone, lineMult(m)) };
+}
+
+/** What burning a pocketed move group would deal at the current line target. */
+export function previewBurn(c: Combat, side: Side, id: TileId): HitCalc | null {
+  const f = c.fighters[side];
+  const target = lineTiles(f).target;
+  if (!isMove(id) || !isTarget(target)) return null;
+  const n = Math.min(3, countIn(f.pocket, id));
+  return computeHit(f, c.fighters[other(side)], id, zoneOf(target), tune.combat.burnMult[n]);
 }
 
 // ---------------------------------------------------------------- acting
@@ -262,171 +327,68 @@ function removeFromPocket(f: Fighter, id: TileId, max: number): number {
   return removed;
 }
 
-/** The part an attack from `dir` lands on: an unbroken part facing that way, else the body. */
-function hitPart(c: Combat, target: Fighter, dir: Direction): number {
-  const facing = target.parts.map((p, i) => ({ p, i })).filter(({ p }) => !p.broken && p.zone === dir);
-  if (facing.length) return facing[pickIndex(c.rng, facing.length)].i;
-  return SLOTS.indexOf('body');
-}
-
 function breakPart(c: Combat, f: Fighter, index: number) {
   const part = f.parts[index];
   part.broken = true;
-  for (const strip of f.strips) {
-    for (const t of strip) {
-      if (t.part === index) {
-        t.id = 'blank';
-        t.broken = true;
-        delete t.jam;
-      }
-    }
-  }
+  // Its tiles go dark now; reels are rebuilt without them on the next spin.
+  for (const reel of [0, 2] as const) for (const t of f.strips[reel]) if (t.part === index) t.broken = true;
+  const foe = c.fighters[other(f.side)];
+  if (part.zone) for (const t of foe.strips[1]) if (t.id === targetTile(part.zone)) t.broken = true;
   f.pocket = f.pocket.filter((t) => t.part !== index);
-  // A break on the turn the target is deciding cancels its pending result.
   const cancelled = f.landed;
   f.landed = false;
   c.events.push({ type: 'break', side: f.side, part: index, cancelled });
 }
 
-interface AttackOpts {
-  chip: boolean;
-  dir: Direction;
-  dmg?: keyof typeof tune.armour.hide;
-}
-
-function damage(c: Combat, attacker: Fighter, target: Fighter, base: number, o: AttackOpts) {
-  const cb = tune.combat;
-  const dr = tune.directions;
-  let amount = base * attacker.stats.atk * (1 + pocketBuffs(attacker).attack);
-  let blocked = false;
-  let interrupted = false;
-  const flying = isFlying(target);
-  if (!o.chip) {
-    if (o.dir === 'low' && flying) {
-      c.events.push({ type: 'miss', side: target.side, reason: 'FLYING' });
-      return;
-    }
-    if (o.dir === 'low') amount *= dr.lowMult;
-    if (o.dir === 'high') amount *= flying ? dr.highVsFlyingMult : dr.highMult;
-    if (target.stance === 'defend') {
-      amount *= 1 - cb.defendBlock;
-      blocked = true;
-    } else if (target.stance === 'brains') {
-      amount *= cb.interruptMult;
-      target.stance = 'none';
-      interrupted = true;
+function applyHit(c: Combat, attacker: Fighter, move: MoveId, zone: ZoneId, mult: number) {
+  const target = c.fighters[other(attacker.side)];
+  const h = computeHit(attacker, target, move, zone, mult);
+  target.shield -= h.toShield;
+  target.hp = Math.max(0, target.hp - h.toHp);
+  c.events.push({ type: 'hit', side: target.side, amount: h.damage, shielded: h.toShield, part: h.part, weak: h.weak, resist: h.resist });
+  if (target.hp <= 0) return;
+  // Shield up = pocket safe. Damage through to HP knocks out a move tile from that part.
+  if (h.toHp > 0) {
+    const idx = target.pocket.findIndex((t) => t.part === h.part && isMove(t.id));
+    if (idx >= 0) {
+      target.pocket.splice(idx, 1);
+      c.events.push({ type: 'drop', side: target.side, count: 1, part: h.part });
     }
   }
-  const resist = o.dmg ? tune.armour[target.armour][o.dmg] : 1;
-  amount *= resist;
-  const part = o.chip ? SLOTS.indexOf('body') : hitPart(c, target, o.dir);
-  const weak = !o.chip && part === weakspot(target);
-  if (weak) amount *= tune.parts.weakspotMult;
-  amount *= 1 + fragility(target);
-  amount *= Math.max(0.1, 1 - pocketBuffs(target).defend) / Math.max(0.2, target.stats.def);
-  const dealt = Math.max(1, Math.round(amount));
-  target.hp = Math.max(0, target.hp - dealt);
-  c.events.push({ type: 'hit', side: target.side, amount: dealt, blocked, interrupted, chip: o.chip, part, weak, resist });
-  const p = target.parts[part];
-  if (!o.chip && p.slot !== 'body' && !p.broken && target.hp > 0) {
-    p.hp -= dealt;
-    if (p.hp <= 0) breakPart(c, target, part);
+  const p = target.parts[h.part];
+  if (p.slot !== 'body' && !p.broken) {
+    p.hp -= h.damage;
+    if (p.hp <= 0) breakPart(c, target, h.part);
   }
 }
 
-function heal(c: Combat, f: Fighter, amount: number) {
-  const healed = Math.min(f.maxHp - f.hp, Math.round(amount));
-  if (healed <= 0) return;
-  f.hp += healed;
-  c.events.push({ type: 'heal', side: f.side, amount: healed });
-}
-
-function jamTiles(c: Combat, target: Fighter, count: number) {
-  let jammed = 0;
-  for (let tries = 0; tries < 30 && jammed < count; tries++) {
-    const reel = pickIndex(c.rng, 2) as 0 | 1;
-    const strip = target.strips[reel];
-    const t = strip[pickIndex(c.rng, strip.length)];
-    if (t.jam || t.id === 'blank') continue;
-    t.jam = { spinsLeft: tune.combat.jamSpins, original: t.id };
-    t.id = 'blank';
-    jammed++;
-  }
-  if (jammed) c.events.push({ type: 'jam', side: target.side, count: jammed });
-}
-
-function dropTiles(c: Combat, target: Fighter, count: number) {
-  let dropped = 0;
-  while (dropped < count && target.pocket.length) {
-    target.pocket.splice(pickIndex(c.rng, target.pocket.length), 1);
-    dropped++;
-  }
-  if (dropped) c.events.push({ type: 'drop', side: target.side, count: dropped });
-}
-
-/** Resolve one move. `mult` already includes tier or burn scaling. */
-function resolveMove(c: Combat, f: Fighter, move: MoveId, mult: number, dir: Direction) {
-  const target = c.fighters[other(f.side)];
-  const cb = tune.combat;
-  const def = MOVES[move];
-  if (def.kind === 'attack') {
-    const power = (tune.moves[move] as { power: number }).power;
-    damage(c, f, target, power * mult, { chip: false, dir, dmg: def.dmg });
-  } else if (def.kind === 'defend') {
-    heal(c, f, tune.moves.guard.heal * mult);
-  } else {
-    // Brains beats Defend: feints past the guard with doubled effect.
-    const vsDefend = target.stance === 'defend';
-    const boost = vsDefend ? cb.brainsVsDefendMult : 1;
-    if (vsDefend) target.stance = 'none';
-    const power = (tune.moves[move] as { power: number }).power;
-    damage(c, f, target, power * mult * boost, { chip: true, dir: 'front' });
-    if (move === 'snatch') dropTiles(c, target, Math.max(1, Math.round(tune.moves.snatch.drop * mult * boost)));
-    else jamTiles(c, target, Math.max(1, Math.round(mult * boost)));
-  }
-}
-
-/** Small automatic effect of one off-line tile (also used by mutator burns). */
-function offlineEffect(c: Combat, f: Fighter, id: TileId) {
-  const o = tune.offline;
-  const target = c.fighters[other(f.side)];
-  if (id === 'blank' || id === 'high' || id === 'low') return;
-  if (id === 'power') damage(c, f, target, o.powerChip, { chip: true, dir: 'front' });
-  else if (id === 'quick') f.cooldown -= tune.timing.baseCooldownSec * o.quickCooldownCut;
-  else {
-    const kind = MOVES[id].kind;
-    if (kind === 'attack') damage(c, f, target, o.attackChip, { chip: true, dir: 'front' });
-    else if (kind === 'defend') heal(c, f, o.defendHeal);
-    else f.cooldown -= tune.timing.baseCooldownSec * o.brainsCooldownCut;
-  }
+function gainShield(c: Combat, f: Fighter, amount: number) {
+  const gained = Math.min(shieldCap(f) - f.shield, Math.round(amount));
+  if (gained <= 0) return;
+  f.shield += gained;
+  c.events.push({ type: 'shield', side: f.side, amount: gained });
 }
 
 export function execute(c: Combat, side: Side): boolean {
   const f = c.fighters[side];
   if (!f.landed || c.winner) return false;
-  const cb = tune.combat;
-  const { move, mut, tier, mutMatches } = executePreview(f);
-  removeFromPocket(f, move, tier);
-  removeFromPocket(f, mut, mutMatches);
-  const consumed: TileId[] = [...Array(tier).fill(move), ...Array(mutMatches).fill(mut)];
-  const schemed = f.stance === 'brains';
-  let mult = cb.tierMult[tier] * (schemed ? cb.schemeMult : 1);
-  const mutStack = 1 + mutMatches * cb.mutatorMatchBonus;
-  if (mut === 'power') mult *= 1 + (tune.mutators.power.mult - 1) * mutStack;
-  else if (mut === 'high' || mut === 'low') mult *= mutStack;
-  const dir = directionOf(mut);
+  const m = executeMatches(f);
+  removeFromPocket(f, m.move, m.tier);
+  removeFromPocket(f, m.target, m.targetMatches);
+  removeFromPocket(f, m.mut, m.mutMatches);
+  const consumed: TileId[] = [...Array(m.tier).fill(m.move), ...Array(m.targetMatches).fill(m.target), ...Array(m.mutMatches).fill(m.mut)];
   f.landed = false;
-  if (isMove(move)) {
-    c.events.push({ type: 'action', side, move, tier, isSuper: tier >= 3, burn: false, dir, consumed });
-    resolveMove(c, f, move, mult, dir);
-  }
-  if (mut === 'quick') f.cooldown -= tune.timing.baseCooldownSec * tune.mutators.quick.cooldownCut * mutStack;
-  for (const reel of [0, 1] as const) {
-    const w = reelWindow(f, reel);
-    offlineEffect(c, f, w[0].id);
-    offlineEffect(c, f, w[2].id);
-  }
-  f.stance = isMove(move) ? (MOVES[move].kind === 'attack' ? 'none' : (MOVES[move].kind as Stance)) : 'none';
+  const mutStack = 1 + m.mutMatches * tune.combat.mutatorMatchBonus;
+  if (m.mut === 'shield') gainShield(c, f, tune.shield.perTile * f.shieldMult * mutStack);
+  if (m.mut === 'quick') f.cooldown -= tune.timing.baseCooldownSec * tune.mutators.quick.cooldownCut * mutStack;
+  if (isMove(m.move)) {
+    if (!isTarget(m.target)) c.events.push({ type: 'miss', side: other(side), reason: 'NO TARGET' });
+    else {
+      const zone = zoneOf(m.target);
+      c.events.push({ type: 'action', side, move: m.move, tier: m.tier, isSuper: m.tier >= 3, burn: false, zone, consumed });
+      applyHit(c, f, m.move, zone, lineMult(m));
+    }
+  } else c.events.push({ type: 'miss', side: other(side), reason: 'WHIFF' });
   checkEnd(c);
   return true;
 }
@@ -434,11 +396,10 @@ export function execute(c: Combat, side: Side): boolean {
 export function pocket(c: Combat, side: Side): boolean {
   const f = c.fighters[side];
   if (!f.landed || c.winner) return false;
-  const tiles = visibleTiles(f).filter((t) => t.id !== 'blank');
+  const tiles = visibleTiles(f).filter((t) => !t.line && t.id !== 'blank' && !t.broken);
   const held = new Set(f.pocket.map((t) => t.id));
-  // Priority: matches with held tiles, then line tiles, then off-line tiles.
-  const rank = (t: { id: TileId; line: boolean }) => (held.has(t.id) ? 0 : t.line ? 1 : 2);
-  const ordered = [...tiles].sort((a, b) => rank(a) - rank(b) || a.slot - b.slot);
+  // Duplicates of held tiles first, then move, target and mutator tiles.
+  const ordered = [...tiles].sort((a, b) => (held.has(b.id) ? 1 : 0) - (held.has(a.id) ? 1 : 0) || a.slot - b.slot);
   const stored: { id: TileId; from: number }[] = [];
   const discarded: number[] = [];
   for (const t of ordered) {
@@ -450,7 +411,6 @@ export function pocket(c: Combat, side: Side): boolean {
     stored.push({ id: t.id, from: t.slot });
   }
   c.events.push({ type: 'pocket', side, stored, discarded });
-  f.stance = 'none';
   f.landed = false;
   return true;
 }
@@ -462,11 +422,15 @@ export function burn(c: Combat, side: Side, id: TileId): boolean {
   if (!n) return false;
   c.events.push({ type: 'burn', side, id, count: n });
   if (isMove(id)) {
-    c.events.push({ type: 'action', side, move: id, tier: n, isSuper: false, burn: true, dir: 'front', consumed: [] });
-    resolveMove(c, f, id, tune.combat.burnMult[n], 'front');
-  } else {
-    for (let i = 0; i < n; i++) offlineEffect(c, f, id);
-  }
+    const target = lineTiles(f).target;
+    if (!isTarget(target)) c.events.push({ type: 'miss', side: other(side), reason: 'NO TARGET' });
+    else {
+      const zone = zoneOf(target);
+      c.events.push({ type: 'action', side, move: id, tier: n, isSuper: false, burn: true, zone, consumed: [] });
+      applyHit(c, f, id, zone, tune.combat.burnMult[n]);
+    }
+  } else if (id === 'shield') gainShield(c, f, tune.shield.perTile * f.shieldMult * n);
+  else if (id === 'quick') f.cooldown -= tune.timing.baseCooldownSec * tune.mutators.quick.cooldownCut * n;
   checkEnd(c);
   return true;
 }
@@ -494,27 +458,20 @@ function checkEnd(c: Combat) {
 function startSpin(c: Combat, f: Fighter) {
   if (f.landed) c.events.push({ type: 'lost', side: f.side });
   f.landed = false;
-  for (const reel of [0, 1] as const) {
-    const strip = f.strips[reel];
-    f.reelPos[reel] = pickIndex(c.rng, strip.length);
-    for (const t of strip) {
-      if (t.jam && --t.jam.spinsLeft <= 0) {
-        t.id = t.jam.original;
-        delete t.jam;
-      }
-    }
-  }
-  f.tease = executePreview(f).tier >= 3;
-  f.spinTotal = tune.timing.spinSec + tune.timing.reelStaggerSec + (f.tease ? tune.timing.superTeaseSec : 0);
+  buildStrips(c, f);
+  const m = executeMatches(f);
+  f.tease = m.tier >= 3 && isTarget(m.target);
+  const t = tune.timing;
+  f.spinTotal = t.spinSec + 2 * t.reelStaggerSec + (f.tease ? t.superTeaseSec : 0);
   f.spinLeft = f.spinTotal;
   c.events.push({ type: 'spin', side: f.side, tease: f.tease });
 }
 
-/** Seconds after spin start at which a reel lands. The move reel lands last on a tease. */
-export function reelLandTime(f: Fighter, reel: 0 | 1): number {
+/** Seconds after spin start at which a reel lands. On a tease the move reel lands last. */
+export function reelLandTime(f: Fighter, reel: ReelIndex): number {
   const t = tune.timing;
-  if (f.tease) return reel === 1 ? t.spinSec : t.spinSec + t.reelStaggerSec + t.superTeaseSec;
-  return reel === 0 ? t.spinSec : t.spinSec + t.reelStaggerSec;
+  if (f.tease) return reel === 0 ? t.spinSec + 2 * t.reelStaggerSec + t.superTeaseSec : t.spinSec + (reel - 1) * t.reelStaggerSec;
+  return t.spinSec + reel * t.reelStaggerSec;
 }
 
 export function tick(c: Combat, dt: number) {
@@ -525,7 +482,7 @@ export function tick(c: Combat, dt: number) {
       const before = f.spinTotal - f.spinLeft;
       f.spinLeft -= dt;
       const after = f.spinTotal - f.spinLeft;
-      for (const reel of [0, 1] as const) {
+      for (const reel of REELS) {
         const at = reelLandTime(f, reel);
         if (before < at && after >= at && f.spinLeft > 0) c.events.push({ type: 'reelLand', side, reel });
       }
@@ -538,8 +495,7 @@ export function tick(c: Combat, dt: number) {
       }
       continue;
     }
-    const rate = f.stats.speed * (1 + pocketBuffs(f).speed) * (f.landed ? tune.timing.decideCooldownRate : 1);
-    f.cooldown -= dt * rate;
+    f.cooldown -= dt * f.stats.speed * (f.landed ? tune.timing.decideCooldownRate : 1);
     if (f.cooldown <= 0) startSpin(c, f);
   }
   enemyThink(c, dt);
@@ -552,20 +508,20 @@ function enemyThink(c: Combat, dt: number) {
   if (!f.landed || c.winner) return;
   f.aiWait += dt;
   if (f.aiWait < tune.timing.aiThinkSec) return;
-  const { tier, move } = executePreview(f);
+  const m = executeMatches(f);
   const free = f.pocketSize - f.pocket.length;
-  // Full pocket with a stale pair: burn it to make room.
-  if (free === 0) {
-    const stale = pocketGroups(f).find((g) => g.id !== move && g.count >= 2);
+  if (free < 3) {
+    const stale = pocketGroups(f).find((g) => isMove(g.id) && g.id !== m.move && g.count >= 2);
     if (stale) burn(c, 'enemy', stale.id);
     if (!f.landed) return;
   }
-  if (tier >= 1 || move === 'blank') {
-    if (move === 'blank' && free >= 3) pocket(c, 'enemy');
+  const dead = !isMove(m.move) || !isTarget(m.target);
+  if (dead) {
+    if (free >= 3) pocket(c, 'enemy');
     else execute(c, 'enemy');
     return;
   }
-  const weakLine = move === 'guard' && f.hp > f.maxHp * 0.6;
-  if (free >= 3 && (weakLine || c.rng() < 0.3)) pocket(c, 'enemy');
+  if (m.tier >= 1 || (m.mut === 'shield' && f.shield === 0)) execute(c, 'enemy');
+  else if (free >= 6 && c.rng() < 0.25) pocket(c, 'enemy');
   else execute(c, 'enemy');
 }

@@ -4,10 +4,10 @@ import { Hud } from './render/hud';
 import { fitView, WIDTH, HEIGHT } from './render/view';
 import { bindKeyboard, bindPointer, drainIntents, type Intent } from './input/intents';
 import { burn, execute, pocket, pocketGroups, tick } from './sim/combat';
-import { STARTERS } from './sim/content';
+import { SLOTS, STARTERS } from './sim/content';
 import { makeRng } from './sim/rng';
 import {
-  chooseLoot, chooseOffer, chooseStarter, continueAfterResult, enterFight, entryBet, finishFight, newRun, playerYield, restartRun, type Run,
+  chooseLoot, chooseOffer, chooseStarter, continueAfterResult, enterFight, entryBet, rerollRandomStarter, starterOptions, finishFight, newRun, playerYield, restartRun, type Run,
 } from './sim/run';
 import { mountDebugPanel } from './debug/panel';
 import { sfx, unlockAudio } from './audio/sfx';
@@ -63,11 +63,28 @@ function startFight() {
   endDelay = 0;
 }
 
+const viewerScreens = ['select', 'prefight', 'loot', 'levelup'];
+
 function applyIntent(intent: Intent) {
   const c = run.combat;
+  if (intent.type === 'viewer' && viewerScreens.includes(run.screen)) {
+    hud.viewerOpen = !hud.viewerOpen;
+    hud.pressed('parts');
+    sfx.ui();
+    return;
+  }
+  if (hud.viewerOpen) {
+    if (intent.type === 'choose' && intent.index < SLOTS.length) {
+      hud.viewerSlot = intent.index;
+      sfx.ui();
+    }
+    return;
+  }
   switch (run.screen) {
     case 'select':
-      if (intent.type === 'choose' && intent.index < STARTERS.length) {
+      if (intent.type === 'choose' && intent.index < starterOptions(run).length) {
+        // Tapping the selected random card again re-rolls it.
+        if (intent.index === STARTERS.length && hud.selectIndex === intent.index) rerollRandomStarter(run);
         hud.selectIndex = intent.index;
         sfx.ui();
       } else if (intent.type === 'primary') {
@@ -126,7 +143,9 @@ function applyIntent(intent: Intent) {
 }
 
 function syncArena() {
-  if (run.screen === 'select') arena.setMonsters(STARTERS[hud.selectIndex], null);
+  if (!viewerScreens.includes(run.screen)) hud.viewerOpen = false;
+  arena.viewer = hud.viewerOpen ? { slot: SLOTS[hud.viewerSlot] } : null;
+  if (run.screen === 'select') arena.setMonsters(starterOptions(run)[hud.selectIndex], null);
   else if (run.screen === 'gameover') arena.setMonsters(null, run.enemy);
   else arena.setMonsters(run.monster, run.enemy);
 }
@@ -151,7 +170,7 @@ function frame(now: number) {
       hud.onEvent(e, c);
       const f = tune.feel;
       if (e.type === 'action' && e.isSuper) hitStop = Math.max(hitStop, f.superHitStopSec);
-      if (e.type === 'hit' && !e.chip) hitStop = Math.max(hitStop, e.amount >= f.bigHit ? f.bigHitStopSec : f.hitStopSec);
+      if (e.type === 'hit') hitStop = Math.max(hitStop, e.amount >= f.bigHit ? f.bigHitStopSec : f.hitStopSec);
       if (e.type === 'break') hitStop = Math.max(hitStop, f.bigHitStopSec);
     }
     if (c.winner) {
