@@ -3,6 +3,14 @@
 Base-level (repo-wide) changes that individual prototypes should
 account for the next time they're touched. Newest entries first.
 
+## 2026-11-26 - Studies can publish to GitHub Pages on request
+
+**What changed:** the Vite build now includes every `studies/<name>/index.html`, so studies ship
+with the hub's GitHub Pages site. A study is linked from the hub (tag "Study") only when the owner
+asks; the first is Kimberly Tank Study. Publishing does not promote a study to a prototype.
+
+**Applies to:** studies only. Prototypes are unaffected.
+
 ## 2026-11-25 - Three.js for 3D prototypes, studies folder, owner-supplied art
 
 **What changed:** Three.js joins the fixed stack as the engine for 3D prototypes (Phaser 3 stays

@@ -328,7 +328,11 @@ A study is not a prototype, so most prototype rules do not apply.
 - Verification for a study: it loads with no console errors, and one
   Playwright screenshot is taken and inspected. Report what was
   actually checked.
-- Studies are not linked from the hub and are not deployed.
+- Studies are not deployed or linked from the hub by default. When
+  the owner asks to publish one, it ships with the hub's GitHub Pages
+  build (Vite picks up every `studies/<name>/index.html`) and gets a
+  hub entry tagged "Study". This is not graduation: the study keeps
+  the lighter study rules.
 
 Graduation: when a study has matured and the owner decides it is
 good enough, it is promoted to `prototypes/<name>/`. Promotion happens
