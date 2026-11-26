@@ -12,15 +12,15 @@ Brief drafted. No code yet.
   this prototype only.
 - Portrait, mobile-first, web.
 - Placeholder monsters built from primitive meshes, one mesh per part.
+- One command per ready monster. The "2 commands per turn" idea is
+  dropped for 1v1 and will be revisited with 3v3 swapping.
+- Hosting: GitHub Pages static site via the existing `deploy.yml`.
 
 ## Open questions
 - Items marked (proposed) in `BRIEF.md` are gaps in the original notes
   and need owner confirmation: speed gauge timing, RPS stance rules,
   tile potency rule, starter content, damage type subset, UI drawn in
   canvas.
-- How the original "2 commands per turn" idea fits the speed gauge model
-  is unresolved. BRIEF.md may need updating to cover it.
-- Hosting target not chosen yet.
 - CLAUDE.md and STACK.md still say Phaser 3 is fixed for every
   prototype. They need a line recording the Three.js exception.
 - Working name "chimera-reels" is a placeholder.

@@ -64,6 +64,8 @@ chimeras built from these. The debug panel can swap any part for testing.
   stat (legs and wings). When the gauge is full, that monster acts.
 - When the player's monster is ready, time pauses until the player
   chooses. The fight feels turn-based but faster monsters act more often.
+- One command per ready. There is no "2 commands per turn" rule: speed
+  is the source of tempo depth. Revisit when 3v3 swapping is built.
 
 ### The two reels
 
@@ -157,8 +159,9 @@ lost for good (ends the run).
   `tune.json` plus Tweakpane on `?debug=1` with copy-to-clipboard,
   version stamp top-left, devicePixelRatio capped through
   `renderer.setPixelRatio`, playable on phone, never block the player.
-- Hosting: to be picked by the owner. Default suggestion is itch.io via
-  Butler.
+- Hosting: static site on GitHub Pages, built and deployed by the
+  existing `.github/workflows/deploy.yml` alongside the hub. The version
+  counter is bumped by that workflow.
 
 ## Scope order
 
