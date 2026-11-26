@@ -1,0 +1,85 @@
+// Headless balance sim for chimera-reels. Runs the real combat and run code
+// (no rendering) and prints win rates and fight stats per starter and floor.
+// Launch with: node scripts/sim-chimera-balance.mjs [fightsPerCell]
+import { burn, createCombat, execute, executeMatches, makeFighter, pocket, pocketGroups, tick, type Combat } from '../prototypes/chimera-reels/src/sim/combat';
+import { isMove, isTarget, STARTERS, type MonsterSpec } from '../prototypes/chimera-reels/src/sim/content';
+import { makeRng } from '../prototypes/chimera-reels/src/sim/rng';
+import { randomMonster } from '../prototypes/chimera-reels/src/sim/run';
+import { tune } from '../prototypes/chimera-reels/src/tune';
+
+type Policy = 'execute' | 'smart';
+
+/** Player decision when the player's reels have landed. */
+function decide(c: Combat, policy: Policy) {
+  const f = c.fighters.player;
+  if (policy === 'execute') return execute(c, 'player');
+  const m = executeMatches(f);
+  const free = f.pocketSize - f.pocket.length;
+  if (free < 3) {
+    const stale = pocketGroups(f).find((g) => isMove(g.id) && g.id !== m.move && g.count >= 2);
+    if (stale) burn(c, 'player', stale.id);
+    if (!f.landed) return;
+  }
+  if (!isMove(m.move) || !isTarget(m.target)) return free >= 3 ? pocket(c, 'player') : execute(c, 'player');
+  if (m.tier >= 1 || (m.mut === 'shield' && f.shield === 0)) return execute(c, 'player');
+  if (free >= 6 && c.rng() < 0.25) return pocket(c, 'player');
+  return execute(c, 'player');
+}
+
+interface Stats { wins: number; fights: number; secs: number; hpLeft: number; supers: number; breaks: number; shield: number; timeouts: number }
+
+function fight(player: MonsterSpec, floor: number, seed: number, policy: Policy, s: Stats) {
+  const rng = makeRng(seed);
+  const r = tune.run;
+  const enemySpec = randomMonster(rng, floor);
+  const p = makeFighter('player', player);
+  const e = makeFighter('enemy', enemySpec, { hp: 1 + (floor - 1) * r.enemyHpPerFloor, atk: 1 + (floor - 1) * r.enemyAtkPerFloor });
+  const c = createCombat(p, e, rng);
+  const dt = 1 / 30;
+  let t = 0;
+  while (!c.winner && t < 300) {
+    tick(c, dt);
+    t += dt;
+    if (c.fighters.player.landed) {
+      // Think time like a quick human player.
+      decide(c, policy);
+    }
+    for (const ev of c.events.splice(0)) {
+      if (ev.type === 'action' && ev.isSuper) s.supers++;
+      if (ev.type === 'break') s.breaks++;
+      if (ev.type === 'shield' && ev.side === 'player') s.shield += ev.amount;
+    }
+  }
+  s.fights++;
+  s.secs += t;
+  if (!c.winner) s.timeouts++;
+  if (c.winner === 'player') {
+    s.wins++;
+    s.hpLeft += c.fighters.player.hp / c.fighters.player.maxHp;
+  }
+}
+
+export async function main(args: string[]) {
+  const n = Number(args[0]) || 200;
+  const floors = [1, 2, 3, 4, 6, 8];
+  const starters: MonsterSpec[] = [...STARTERS];
+  // A few random-roll starters, averaged as one row.
+  const randoms = Array.from({ length: 10 }, (_, i) => randomMonster(makeRng(900 + i), 1, `Random${i}`));
+  for (const policy of ['smart', 'execute'] as Policy[]) {
+    console.log(`\n== policy: ${policy}, ${n} fights per cell ==`);
+    console.log(['starter'.padEnd(10), ...floors.map((f) => `F${f}`.padStart(15))].join(''));
+    const rows: [string, MonsterSpec[]][] = [...starters.map((s) => [s.name, [s]] as [string, MonsterSpec[]]), ['Random', randoms]];
+    for (const [name, specs] of rows) {
+      const cells: string[] = [];
+      for (const floor of floors) {
+        const s: Stats = { wins: 0, fights: 0, secs: 0, hpLeft: 0, supers: 0, breaks: 0, shield: 0, timeouts: 0 };
+        for (let i = 0; i < n; i++) fight(specs[i % specs.length], floor, floor * 100000 + i, policy, s);
+        cells.push(`${Math.round((100 * s.wins) / s.fights)}% ${Math.round(s.secs / s.fights)}s`.padStart(15));
+        if (floor === 1 && policy === 'smart') {
+          console.error(`  ${name} F1: avg ${(s.secs / s.fights).toFixed(1)}s, supers/fight ${(s.supers / s.fights).toFixed(2)}, breaks/fight ${(s.breaks / s.fights).toFixed(2)}, shield/fight ${(s.shield / s.fights).toFixed(0)}, hp left on win ${s.wins ? Math.round((100 * s.hpLeft) / s.wins) : 0}%, timeouts ${s.timeouts}`);
+        }
+      }
+      console.log([name.padEnd(10), ...cells].join(''));
+    }
+  }
+}
