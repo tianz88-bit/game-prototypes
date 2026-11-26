@@ -133,6 +133,9 @@ answers one question.
 
 - Stores the 6 tiles that are not on the line. The line action does not
   fire this spin.
+- The pocket keeps itself sorted by type: moves, then targets, then
+  mutators, with identical tiles side by side. Tiles slide to their new
+  place when the order changes.
 - Held target tiles reduce damage taken on your own matching part by a
   percentage per tile (capped). This is the only passive effect of held
   tiles.

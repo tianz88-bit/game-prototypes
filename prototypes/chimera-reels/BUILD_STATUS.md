@@ -51,6 +51,9 @@ on a design decision.
   time, action and outcome, paged, plus a per-side summary. Opened from
   the result and game-over screens.
 
+- Pocket auto-sorts by type (moves, targets, mutators; duplicates
+  together) and tiles slide into place when the order changes.
+
 ## Key technical decisions
 - `computeHit` is a pure function used both for previews and for
   resolution, so the shown damage always matches what lands.
@@ -70,9 +73,8 @@ on a design decision.
   reel, pocket size 9, burn of Power+/target tiles discards, overflow
   order, first 4 damage types.
 
-- "Pocketed tiles rearrange themselves by time for clarity": waiting for
-  the owner to confirm the intended order before building. BRIEF.md may
-  need a line on pocket ordering.
+- Pocket ordering was ambiguous in the request ("by time"); the owner
+  confirmed "by type". BRIEF.md now covers it.
 
 ## Known issues
 - Not tested on a real phone; verified in headless Chromium at 390x844

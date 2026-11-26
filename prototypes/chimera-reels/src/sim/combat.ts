@@ -6,10 +6,12 @@ import {
   isMove,
   isTarget,
   MOVES,
+  MUTATORS,
   PARTS,
   SLOT_ZONE,
   SLOTS,
   targetTile,
+  ZONES,
   zoneOf,
   type ArmourId,
   type MonsterSpec,
@@ -79,14 +81,14 @@ export type CombatEvent =
   | { type: 'reelLand'; side: Side; reel: ReelIndex }
   | { type: 'land'; side: Side }
   | { type: 'lost'; side: Side }
-  | { type: 'action'; side: Side; move: MoveId; tier: number; isSuper: boolean; burn: boolean; zone: ZoneId; consumed: TileId[] }
+  | { type: 'action'; side: Side; move: MoveId; tier: number; isSuper: boolean; burn: boolean; zone: ZoneId; consumed: { id: TileId; from: number }[] }
   | { type: 'hit'; side: Side; amount: number; shielded: number; part: number; weak: boolean; resist: number }
   | { type: 'miss'; side: Side; reason: string }
   | { type: 'shield'; side: Side; amount: number }
-  | { type: 'drop'; side: Side; count: number; part: number }
+  | { type: 'drop'; side: Side; count: number; part: number; from: number }
   | { type: 'break'; side: Side; part: number; cancelled: boolean }
-  | { type: 'pocket'; side: Side; stored: { id: TileId; from: number }[]; discarded: number[] }
-  | { type: 'burn'; side: Side; id: TileId; count: number }
+  | { type: 'pocket'; side: Side; stored: { id: TileId; from: number; to: number; tile: PocketTile }[]; discarded: number[] }
+  | { type: 'burn'; side: Side; id: TileId; count: number; from: number[] }
   | { type: 'end'; winner: Side };
 
 /** One Execute or Burn and what came of it, for the post-battle log. */
@@ -157,6 +159,7 @@ export function makeFighter(side: Side, spec: MonsterSpec, scale: FighterScale =
     if (PARTS[id].armour) armour = PARTS[id].armour!;
     for (const t of PARTS[id].startPocket ?? []) pocket.push({ id: t, part: index });
   });
+  pocket.sort(pocketOrder);
   hp = Math.round(hp * scale.hp);
   stats.atk *= scale.atk;
   const breakMult = tune.armour[armour].breakMult;
@@ -343,15 +346,23 @@ export function previewBurn(c: Combat, side: Side, id: TileId): HitCalc | null {
 
 // ---------------------------------------------------------------- acting
 
-function removeFromPocket(f: Fighter, id: TileId, max: number): number {
-  let removed = 0;
-  for (let i = f.pocket.length - 1; i >= 0 && removed < max; i--) {
+const ORDER: TileId[] = [...(Object.keys(MOVES) as TileId[]), ...ZONES.map(targetTile), ...(Object.keys(MUTATORS) as TileId[])];
+
+/** Pocket order: moves, then targets, then mutators; identical tiles side by side. */
+export function pocketOrder(a: PocketTile, b: PocketTile): number {
+  return ORDER.indexOf(a.id) - ORDER.indexOf(b.id);
+}
+
+/** Removes up to `max` tiles with this id; returns the slot indices they occupied. */
+function removeFromPocket(f: Fighter, id: TileId, max: number): number[] {
+  const from: number[] = [];
+  for (let i = f.pocket.length - 1; i >= 0 && from.length < max; i--) {
     if (f.pocket[i].id === id) {
       f.pocket.splice(i, 1);
-      removed++;
+      from.push(i);
     }
   }
-  return removed;
+  return from;
 }
 
 function breakPart(c: Combat, f: Fighter, index: number) {
@@ -390,7 +401,7 @@ function applyHit(c: Combat, attacker: Fighter, move: MoveId, zone: ZoneId, mult
     if (idx >= 0) {
       target.pocket.splice(idx, 1);
       log.knockedOut = true;
-      c.events.push({ type: 'drop', side: target.side, count: 1, part: h.part });
+      c.events.push({ type: 'drop', side: target.side, count: 1, part: h.part, from: idx });
     }
   }
   const p = target.parts[h.part];
@@ -430,10 +441,18 @@ export function execute(c: Combat, side: Side): boolean {
   const f = c.fighters[side];
   if (!f.landed || c.winner) return false;
   const m = executeMatches(f);
-  removeFromPocket(f, m.move, m.tier);
-  removeFromPocket(f, m.target, m.targetMatches);
-  removeFromPocket(f, m.mut, m.mutMatches);
-  const consumed: TileId[] = [...Array(m.tier).fill(m.move), ...Array(m.targetMatches).fill(m.target), ...Array(m.mutMatches).fill(m.mut)];
+  // Remove in descending slot order so earlier indices stay valid.
+  const consumed: { id: TileId; from: number }[] = [];
+  const take = [[m.move, m.tier], [m.target, m.targetMatches], [m.mut, m.mutMatches]] as [TileId, number][];
+  const slots = take.flatMap(([id, n]) => {
+    const idx: number[] = [];
+    f.pocket.forEach((t, i) => t.id === id && idx.length < n && idx.push(i));
+    return idx.map((i) => ({ id, from: i }));
+  }).sort((a, b) => b.from - a.from);
+  for (const s of slots) {
+    f.pocket.splice(s.from, 1);
+    consumed.push(s);
+  }
   f.landed = false;
   const log = newEntry(c, side, 'execute', m.move);
   Object.assign(log, { tier: m.tier, mut: m.mut, mutStack: m.mut === 'blank' ? 0 : 1 + m.mutMatches });
@@ -464,16 +483,19 @@ export function pocket(c: Combat, side: Side): boolean {
   const held = new Set(f.pocket.map((t) => t.id));
   // Duplicates of held tiles first, then move, target and mutator tiles.
   const ordered = [...tiles].sort((a, b) => (held.has(b.id) ? 1 : 0) - (held.has(a.id) ? 1 : 0) || a.slot - b.slot);
-  const stored: { id: TileId; from: number }[] = [];
+  const added: { tile: PocketTile; from: number }[] = [];
   const discarded: number[] = [];
   for (const t of ordered) {
     if (f.pocket.length >= f.pocketSize) {
       discarded.push(t.slot);
       continue;
     }
-    f.pocket.push({ id: t.id, part: t.part });
-    stored.push({ id: t.id, from: t.slot });
+    const tile = { id: t.id, part: t.part };
+    f.pocket.push(tile);
+    added.push({ tile, from: t.slot });
   }
+  f.pocket.sort(pocketOrder);
+  const stored = added.map((a) => ({ id: a.tile.id, from: a.from, to: f.pocket.indexOf(a.tile), tile: a.tile }));
   c.events.push({ type: 'pocket', side, stored, discarded });
   f.landed = false;
   return true;
@@ -482,9 +504,10 @@ export function pocket(c: Combat, side: Side): boolean {
 export function burn(c: Combat, side: Side, id: TileId): boolean {
   const f = c.fighters[side];
   if (!f.landed || c.winner) return false;
-  const n = removeFromPocket(f, id, 3);
+  const from = removeFromPocket(f, id, 3);
+  const n = from.length;
   if (!n) return false;
-  c.events.push({ type: 'burn', side, id, count: n });
+  c.events.push({ type: 'burn', side, id, count: n, from });
   const log = newEntry(c, side, 'burn', id);
   log.count = n;
   if (isMove(id)) {

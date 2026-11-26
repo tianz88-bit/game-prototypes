@@ -19,6 +19,7 @@ import {
   type Combat,
   type CombatEvent,
   type LogEntry,
+  type PocketTile,
   type Fighter,
   type Side,
 } from '../sim/combat';
@@ -99,7 +100,11 @@ export class Hud {
   private popups: Popup[] = [];
   private flies: Fly[] = [];
   private sparks: Spark[] = [];
-  private hidden: Record<Side, Map<number, number>> = { player: new Map(), enemy: new Map() };
+  /** Pocket tiles still flying in (hidden in the pocket until they land), by tile. */
+  private hidden = new Map<PocketTile, number>();
+  /** Displayed x of each pocket tile, eased towards its slot so re-sorting slides. */
+  private slotX = new WeakMap<PocketTile, number>();
+  private frameDt = 1 / 60;
   private landAge: Record<Side, number[]> = { player: [9, 9, 9], enemy: [9, 9, 9] };
   private lastTickRow = [0, 0, 0];
   private missedFlash = 0;
@@ -145,8 +150,7 @@ export class Hud {
     this.popups = [];
     this.flies = [];
     this.sparks = [];
-    this.hidden.player.clear();
-    this.hidden.enemy.clear();
+    this.hidden.clear();
     this.landAge = { player: [9, 9, 9], enemy: [9, 9, 9] };
     this.superFlash = this.superStamp = 0;
     this.yieldArmed = 0;
@@ -312,8 +316,8 @@ export class Hud {
           sfx.super();
         } else if (!e.burn) sfx.execute();
         const fl = c.fighters[e.side];
-        e.consumed.forEach((id, k) => {
-          const from = center(this.slotRect(e.side, fl.pocket.length + k, fl.pocketSize));
+        e.consumed.forEach(({ id, from: slot }, k) => {
+          const from = center(this.slotRect(e.side, slot, fl.pocketSize));
           const to = center(this.reelRect(e.side, reelOf(id), 1));
           this.flies.push({ id, x0: from.x, y0: from.y, x1: to.x, y1: to.y, age: -k * 0.05, dur: f.tileFlySec, drop: false, w: tw, h: tw, arc: -50 });
         });
@@ -345,7 +349,7 @@ export class Hud {
       case 'drop': {
         this.pop(e.side, 'TILE KNOCKED OUT', '#ffb36b', 14, 54);
         const fl = c.fighters[e.side];
-        const r = center(this.slotRect(e.side, fl.pocket.length, fl.pocketSize));
+        const r = center(this.slotRect(e.side, e.from, fl.pocketSize));
         this.sparkBurst(r.x, r.y, 10, ['#ffb36b', '#ffffff'], 140, 3);
         break;
       }
@@ -359,11 +363,12 @@ export class Hud {
       }
       case 'pocket': {
         const fl = c.fighters[e.side];
-        const start = fl.pocket.length - e.stored.length;
         e.stored.forEach((s, k) => {
           const from = center(this.reelRect(e.side, Math.floor(s.from / 3), s.from % 3));
-          const to = center(this.slotRect(e.side, start + k, fl.pocketSize));
-          this.hidden[e.side].set(start + k, f.tileFlySec + k * 0.04);
+          const slot = this.slotRect(e.side, s.to, fl.pocketSize);
+          const to = center(slot);
+          this.hidden.set(s.tile, f.tileFlySec + k * 0.04);
+          this.slotX.set(s.tile, slot.x);
           this.flies.push({ id: s.id, x0: from.x, y0: from.y, x1: to.x, y1: to.y, age: -k * 0.04, dur: f.tileFlySec, drop: false, w: tw, h: tw, arc: -40 });
         });
         for (const slot of e.discarded) {
@@ -377,8 +382,8 @@ export class Hud {
       }
       case 'burn': {
         const fl = c.fighters[e.side];
-        for (let k = 0; k < e.count; k++) {
-          const r = center(this.slotRect(e.side, fl.pocket.length + k, fl.pocketSize));
+        for (const slot of e.from) {
+          const r = center(this.slotRect(e.side, slot, fl.pocketSize));
           this.sparkBurst(r.x, r.y, 14, ['#ff6a2a', '#ffd24a', '#fff2c2', tileColor(e.id)], 150, 3.5);
         }
         if (e.side === 'player') sfx.burn();
@@ -407,6 +412,8 @@ export class Hud {
 
   update(dt: number, run: Run) {
     this.time += dt;
+    this.frameDt = dt;
+    for (const [k, v] of this.hidden) v - dt <= 0 ? this.hidden.delete(k) : this.hidden.set(k, v - dt);
     for (const p of this.popups) p.age += dt;
     this.popups = this.popups.filter((p) => p.age < p.life);
     for (const fl of this.flies) fl.age += dt;
@@ -419,7 +426,7 @@ export class Hud {
     }
     this.sparks = this.sparks.filter((s) => s.age < s.life);
     for (const side of ['player', 'enemy'] as const) {
-      for (const [k, v] of this.hidden[side]) v - dt <= 0 ? this.hidden[side].delete(k) : this.hidden[side].set(k, v - dt);
+
       for (const r of REELS) this.landAge[side][r] += dt;
     }
     for (const k of Object.keys(this.press)) this.press[k] = Math.max(0, this.press[k] - dt);
@@ -654,13 +661,16 @@ export class Hud {
     const m = f.landed ? executeMatches(f) : null;
     const groups = pocketGroups(f);
     const count = f.pocketSize;
-    for (let i = 0; i < count; i++) {
-      const r = this.slotRect(side, i, count);
+    for (let i = 0; i < count; i++) this.rr(this.slotRect(side, i, count), side === 'player' ? 7 : 4, 'rgba(255,255,255,0.05)', 'rgba(255,255,255,0.13)', 1);
+    for (let i = 0; i < f.pocket.length; i++) {
       const t = f.pocket[i];
-      if (!t || this.hidden[side].has(i)) {
-        this.rr(r, side === 'player' ? 7 : 4, 'rgba(255,255,255,0.05)', 'rgba(255,255,255,0.13)', 1);
-        continue;
-      }
+      const slot = this.slotRect(side, i, count);
+      // Tiles ease towards their sorted slot, so re-ordering reads as a slide.
+      const x0 = this.slotX.get(t) ?? slot.x;
+      const x = x0 + (slot.x - x0) * Math.min(1, this.frameDt * 14);
+      this.slotX.set(t, x);
+      if (this.hidden.has(t)) continue;
+      const r = { ...slot, x };
       const match = m && t.id !== 'blank' && (t.id === m.move || t.id === m.target || t.id === m.mut);
       const wob = match ? Math.sin(this.time * 14 + i) * 1.5 : 0;
       let badge: string | undefined;
