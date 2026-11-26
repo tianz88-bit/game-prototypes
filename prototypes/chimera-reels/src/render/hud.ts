@@ -741,6 +741,7 @@ export class Hud {
       this.text(`${pv.hit.damage} dmg${tags ? ` ${tags}` : ''}`, ex.x + ex.w / 2, ex.y + 61, 14, pv.hit.weak ? '#ffe24a' : '#ffe8d0', 'center', '900');
     } else this.text(isMove(m.move) ? 'no target' : 'whiff', ex.x + ex.w / 2, ex.y + 50, 13, 'rgba(255,255,255,0.8)', 'center', '700');
     if (m.mut === 'shield' && pv) this.text('+shield', ex.x + ex.w - 8, ex.y + 12, 10, '#bfefff', 'right', '800');
+    if (m.mut === 'quick') this.text(['+50% speed', 'INSTANT NEXT', 'DOUBLE MOVE'][m.mutMatches] ?? '', ex.x + ex.w - 8, ex.y + 12, 10, '#9cf2c8', 'right', '800');
     const visible = REELS.flatMap((r) => [reelWindow(f, r)[0], reelWindow(f, r)[2]]).filter((t) => t.id !== 'blank' && !t.broken).length;
     const free = f.pocketSize - f.pocket.length;
     const store = Math.min(free, visible);

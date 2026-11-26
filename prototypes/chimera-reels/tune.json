@@ -83,7 +83,7 @@
   },
   "mutators": {
     "power": { "mult": 1.5 },
-    "quick": { "cooldownCut": 0.5 }
+    "quick": { "cooldownCut": [0.5, 1, 2] }
   },
   "rarity": {
     "rareFromFloor": 3,

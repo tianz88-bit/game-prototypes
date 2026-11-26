@@ -61,6 +61,8 @@ export interface Fighter {
   strips: [StripTile[], StripTile[], StripTile[]];
   reelPos: [number, number, number];
   cooldown: number;
+  /** Cooldown already paid off by Quick beyond 100%, applied after the next landing. */
+  quickBank: number;
   spinLeft: number;
   spinTotal: number;
   /** This spin lands a super (the move reel lands last, slowly). */
@@ -142,7 +144,7 @@ export function makeFighter(side: Side, spec: MonsterSpec, scale: FighterScale =
     side, name: spec.name, spec, hp, maxHp: hp, shield: 0, shieldMult: Math.max(0.2, shieldMult),
     stats, armour, parts, strips: [[], [], []], reelPos: [0, 0, 0],
     cooldown: tune.timing.baseCooldownSec * (side === 'player' ? 0.35 : 0.55),
-    spinLeft: 0, spinTotal: 0, tease: false, landed: false, pocket, pocketSize, aiWait: 0,
+    quickBank: 0, spinLeft: 0, spinTotal: 0, tease: false, landed: false, pocket, pocketSize, aiWait: 0,
   };
 }
 
@@ -362,6 +364,21 @@ function applyHit(c: Combat, attacker: Fighter, move: MoveId, zone: ZoneId, mult
   }
 }
 
+/**
+ * Quick cuts the next cooldown by a share set per stack size (1, 2 or 3
+ * Quicks). Anything past 100% carries into the cooldown after that, so a
+ * 200% cut gives two instant spins in a row.
+ */
+function applyQuick(f: Fighter, stack: number) {
+  const cuts = tune.mutators.quick.cooldownCut;
+  const cut = cuts[Math.min(cuts.length, Math.max(1, stack)) - 1];
+  f.cooldown -= tune.timing.baseCooldownSec * cut;
+  if (f.cooldown < 0) {
+    f.quickBank += -f.cooldown;
+    f.cooldown = 0;
+  }
+}
+
 function gainShield(c: Combat, f: Fighter, amount: number) {
   const gained = Math.min(shieldCap(f) - f.shield, Math.round(amount));
   if (gained <= 0) return;
@@ -380,7 +397,7 @@ export function execute(c: Combat, side: Side): boolean {
   f.landed = false;
   const mutStack = 1 + m.mutMatches * tune.combat.mutatorMatchBonus;
   if (m.mut === 'shield') gainShield(c, f, tune.shield.perTile * f.shieldMult * mutStack);
-  if (m.mut === 'quick') f.cooldown -= tune.timing.baseCooldownSec * tune.mutators.quick.cooldownCut * mutStack;
+  if (m.mut === 'quick') applyQuick(f, 1 + m.mutMatches);
   if (isMove(m.move)) {
     if (!isTarget(m.target)) c.events.push({ type: 'miss', side: other(side), reason: 'NO TARGET' });
     else {
@@ -430,7 +447,7 @@ export function burn(c: Combat, side: Side, id: TileId): boolean {
       applyHit(c, f, id, zone, tune.combat.burnMult[n]);
     }
   } else if (id === 'shield') gainShield(c, f, tune.shield.perTile * f.shieldMult * n);
-  else if (id === 'quick') f.cooldown -= tune.timing.baseCooldownSec * tune.mutators.quick.cooldownCut * n;
+  else if (id === 'quick') applyQuick(f, n);
   checkEnd(c);
   return true;
 }
@@ -490,7 +507,8 @@ export function tick(c: Combat, dt: number) {
         f.spinLeft = 0;
         f.landed = true;
         f.aiWait = 0;
-        f.cooldown = tune.timing.baseCooldownSec;
+        f.cooldown = Math.max(0, tune.timing.baseCooldownSec - f.quickBank);
+        f.quickBank = Math.max(0, f.quickBank - tune.timing.baseCooldownSec);
         c.events.push({ type: 'land', side });
       }
       continue;
