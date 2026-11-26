@@ -100,6 +100,12 @@ async function waitFor(page, pred, what, tries = 150) {
   await page.mouse.click(195, 776);
   await page.waitForTimeout(500);
   await shot(page, 'chimera-after-result.png');
+  if ((await state(page)).screen === 'loot') {
+    await page.mouse.click(105, 600); // take the dropped part
+    await waitFor(page, (x) => x.screen === 'levelup', 'level-up after loot');
+    await page.waitForTimeout(300);
+    await shot(page, 'chimera-levelup.png');
+  }
   console.log('phone run', JSON.stringify(s), '->', JSON.stringify(await state(page)));
   await ctx.close();
 }

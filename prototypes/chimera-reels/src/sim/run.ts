@@ -9,12 +9,13 @@ import {
   STARTERS,
   TILE_POOL,
   type MonsterSpec,
+  type PartId,
   type TileId,
 } from './content';
 import { createCombat, makeFighter, yieldFight, type Combat } from './combat';
 import { pickIndex, type Rng } from './rng';
 
-export type Screen = 'select' | 'prefight' | 'fight' | 'result' | 'levelup' | 'gameover';
+export type Screen = 'select' | 'prefight' | 'fight' | 'result' | 'loot' | 'levelup' | 'gameover';
 
 export interface Run {
   screen: Screen;
@@ -30,13 +31,15 @@ export interface Run {
   /** Outcome of the last fight, shown on the result screen. */
   last: { won: boolean; yielded: boolean; payout: number } | null;
   offers: TileId[];
+  /** Part dropped by the last defeated enemy, offered as a swap. */
+  drop: PartId | null;
   gameOverReason: string;
 }
 
 export function newRun(rng: Rng): Run {
   return {
     screen: 'select', rng, monster: null, gold: tune.run.startGold, floor: 1, level: 1,
-    streak: 0, bestStreak: 0, enemy: null, combat: null, last: null, offers: [], gameOverReason: '',
+    streak: 0, bestStreak: 0, enemy: null, combat: null, last: null, offers: [], drop: null, gameOverReason: '',
   };
 }
 
@@ -106,11 +109,30 @@ export function continueAfterResult(run: Run) {
   if (run.last.won) {
     run.level++;
     run.offers = rollOffers(run);
-    run.screen = 'levelup';
+    run.drop = rollDrop(run);
+    run.screen = run.drop ? 'loot' : 'levelup';
   } else if (!run.last.yielded) {
     run.screen = 'gameover';
     run.gameOverReason = `${run.monster?.name} took the final hit and is lost.`;
   } else prepareFloor(run); // yielded: retry the same floor if gold allows
+}
+
+/** One of the defeated enemy's parts that differs from the player's part in that slot. */
+function rollDrop(run: Run): PartId | null {
+  if (!run.enemy || !run.monster) return null;
+  const options = SLOTS.map((s) => run.enemy!.build[s]).filter((id) => run.monster!.build[PARTS[id].slot] !== id);
+  return options.length ? options[pickIndex(run.rng, options.length)] : null;
+}
+
+/** Take the dropped part (replacing the one in its slot) or keep the current one. */
+export function chooseLoot(run: Run, take: boolean) {
+  if (run.screen !== 'loot' || !run.monster) return;
+  if (take && run.drop) {
+    const slot = PARTS[run.drop].slot;
+    run.monster = { ...run.monster, build: { ...run.monster.build, [slot]: run.drop } };
+  }
+  run.drop = null;
+  run.screen = 'levelup';
 }
 
 function rollOffers(run: Run): TileId[] {

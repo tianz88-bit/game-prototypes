@@ -7,7 +7,7 @@ import { burn, execute, pocket, pocketGroups, tick } from './sim/combat';
 import { STARTERS } from './sim/content';
 import { makeRng } from './sim/rng';
 import {
-  chooseOffer, chooseStarter, continueAfterResult, enterFight, entryBet, finishFight, newRun, playerYield, restartRun, type Run,
+  chooseLoot, chooseOffer, chooseStarter, continueAfterResult, enterFight, entryBet, finishFight, newRun, playerYield, restartRun, type Run,
 } from './sim/run';
 import { mountDebugPanel } from './debug/panel';
 import { sfx, unlockAudio } from './audio/sfx';
@@ -101,6 +101,12 @@ function applyIntent(intent: Intent) {
         hud.pressed('wide');
         sfx.ui();
         continueAfterResult(run);
+      }
+      break;
+    case 'loot':
+      if (intent.type === 'choose' && intent.index < 2) {
+        sfx.ui();
+        chooseLoot(run, intent.index === 0);
       }
       break;
     case 'levelup':
