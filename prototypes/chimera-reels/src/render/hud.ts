@@ -725,8 +725,8 @@ export class Hud {
     const hot = !!m && m.tier >= 3;
     this.button(ex, 'execute', !live ? '#3a2f3f' : hot ? '#e8a020' : '#d4554b', live);
     this.button(po, 'pocket', live ? '#e0a83a' : '#3a3530', live);
-    this.text('EXECUTE', ex.x + ex.w / 2, ex.y + 22, 18, live ? '#fff' : 'rgba(255,255,255,0.35)', 'center', '900');
-    this.text('POCKET', po.x + po.w / 2, po.y + 22, 18, live ? '#1a1424' : 'rgba(255,255,255,0.35)', 'center', '900');
+    this.text('EXECUTE', ex.x + ex.w / 2, ex.y + 16, 15, live ? '#fff' : 'rgba(255,255,255,0.35)', 'center', '900');
+    this.text('POCKET', po.x + po.w / 2, po.y + 16, 15, live ? '#1a1424' : 'rgba(255,255,255,0.35)', 'center', '900');
     if (!live || !m) {
       const sub = f.spinLeft > 0 ? 'spinning...' : 'charging';
       this.text(sub, ex.x + ex.w / 2, ex.y + 50, 12, 'rgba(255,255,255,0.35)', 'center');
@@ -736,11 +736,12 @@ export class Hud {
     if (pv) {
       const name = MOVES[pv.move].label;
       const head = `${pv.tier >= 3 ? 'SUPER ' : ''}${name}${pv.tier && pv.tier < 3 ? '+'.repeat(pv.tier) : ''} > ${ZONE_LABEL[pv.zone]}`;
-      this.text(head, ex.x + ex.w / 2, ex.y + 44, 13, hot ? '#fff6b0' : '#fff', 'center', '800');
+      this.text(head, ex.x + ex.w / 2, ex.y + 35, 13, hot ? '#fff6b0' : '#fff', 'center', '800');
       const tags = [pv.hit.weak && 'WEAK', pv.hit.toShield >= pv.hit.damage && 'shielded'].filter(Boolean).join(' ');
-      this.text(`${pv.hit.damage} dmg${tags ? ` ${tags}` : ''}`, ex.x + ex.w / 2, ex.y + 61, 14, pv.hit.weak ? '#ffe24a' : '#ffe8d0', 'center', '900');
+      this.text(`${pv.hit.damage} dmg${tags ? ` ${tags}` : ''}`, ex.x + ex.w / 2, ex.y + 51, 14, pv.hit.weak ? '#ffe24a' : '#ffe8d0', 'center', '900');
     } else this.text(isMove(m.move) ? 'no target' : 'whiff', ex.x + ex.w / 2, ex.y + 50, 13, 'rgba(255,255,255,0.8)', 'center', '700');
-    if (m.mut === 'shield' && pv) this.text('+shield', ex.x + ex.w - 8, ex.y + 12, 10, '#bfefff', 'right', '800');
+    if (m.mut === 'shield') this.text('+ SHIELD', ex.x + ex.w / 2, ex.y + 66, 10, '#bfefff', 'center', '900');
+    if (m.mut === 'quick') this.text(['+ QUICK 50%', '+ INSTANT NEXT SPIN', '+ DOUBLE MOVE'][m.mutMatches] ?? '', ex.x + ex.w / 2, ex.y + 66, 10, '#b6ffd9', 'center', '900');
     const visible = REELS.flatMap((r) => [reelWindow(f, r)[0], reelWindow(f, r)[2]]).filter((t) => t.id !== 'blank' && !t.broken).length;
     const free = f.pocketSize - f.pocket.length;
     const store = Math.min(free, visible);
