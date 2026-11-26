@@ -2,8 +2,8 @@
 // part breaks, weakspot highlight, flight hover and camera shake.
 import * as THREE from 'three';
 import { tune } from '../tune';
-import { isFlying, weakspot, type Combat, type CombatEvent, type Side } from '../sim/combat';
-import type { MonsterSpec } from '../sim/content';
+import { isFlying, shieldCap, weakspot, type Combat, type CombatEvent, type Side } from '../sim/combat';
+import type { MonsterSpec, Slot } from '../sim/content';
 import { MonsterView } from './monsterView';
 import { makeGround, Vfx } from './toon';
 import { HEIGHT, WIDTH } from './view';
@@ -96,17 +96,13 @@ export class Arena {
       if (!v) return;
       const slot = c.fighters[e.side].parts[e.part]?.slot ?? 'body';
       const at = v.slotWorld(slot);
-      if (e.chip) {
-        if (e.amount > 1) this.vfx.flash(at, 0.4);
-        return;
-      }
+      const big = e.amount >= f.bigHit;
       a.recoil = f.recoilSec;
-      v.kick(f.springKick * (e.amount >= f.bigHit ? 1.8 : 1));
+      v.kick(f.springKick * (big ? 1.8 : 1));
       this.shake = f.recoilSec;
-      this.shakeAmp = e.amount >= f.bigHit ? f.superShakeAmp : f.shakeAmp;
-      this.vfx.flash(at, e.amount >= f.bigHit ? 1.6 : 1);
-      const n = e.amount >= f.bigHit ? 9 : 5;
-      this.vfx.burst(at, e.blocked ? 3 : n, e.weak
+      this.shakeAmp = big ? f.superShakeAmp : f.shakeAmp;
+      this.vfx.flash(at, big ? 1.6 : 1, e.shielded >= e.amount ? '#bfefff' : '#fff2a8');
+      this.vfx.burst(at, e.shielded >= e.amount ? 3 : big ? 9 : 5, e.weak
         ? { col: '#ffcf5a', shade: '#c2412d', speed: 3.2, size: 0.3, heat: 1 }
         : { col: '#f1ecff', shade: '#8f86b8', speed: 2.4, size: 0.26 });
     } else if (e.type === 'break') {
@@ -118,21 +114,27 @@ export class Arena {
       this.vfx.flash(at, 2.2);
       this.shake = 0.35;
       this.shakeAmp = tune.feel.superShakeAmp;
-    } else if (e.type === 'heal') {
+    } else if (e.type === 'shield') {
       const v = this.views[e.side];
-      if (v) this.vfx.burst(v.slotWorld('body'), 3, { col: '#9cf2c8', shade: '#3a9c74', speed: 1.2, size: 0.18 });
-    } else if (e.type === 'miss') {
+      if (v) this.vfx.burst(v.slotWorld('body'), 4, { col: '#bfefff', shade: '#4a9cc9', speed: 1.4, size: 0.2 });
+    } else if (e.type === 'drop') {
       const v = this.views[e.side];
-      if (v) this.vfx.burst(v.slotWorld('legs'), 4, { col: '#d9d2ea', shade: '#7a7294', speed: 1.5, size: 0.2 });
+      const slot = c.fighters[e.side].parts[e.part]?.slot ?? 'body';
+      if (v) this.vfx.burst(v.slotWorld(slot), 4, { col: '#ffd66b', shade: '#a3422c', speed: 2.6, size: 0.16 });
     } else if (e.type === 'end') {
       const loser = e.winner === 'player' ? 'enemy' : 'player';
       this.anim[loser].down = c.fighters[loser].hp <= 0;
     }
   }
 
+  /** Parts viewer: slowly turn the player-side monster and highlight one slot in gold. */
+  viewer: { slot: Slot | null } | null = null;
+  private viewerAngle = 0;
+
   update(dt: number, c: Combat | null) {
     const f = tune.feel;
     this.time += dt;
+    this.viewerAngle = this.viewer ? this.viewerAngle + dt * f.viewerSpinSpeed : 0;
     for (const side of ['player', 'enemy'] as const) {
       const v = this.views[side];
       if (!v) continue;
@@ -162,6 +164,13 @@ export class Arena {
       } else v.body.rotation.y = 0;
       a.flash = Math.max(0, a.flash - dt);
       v.setFlash(a.flash > 0 ? 0.85 : 0);
+      v.setShield(fighter && !c?.winner ? fighter.shield / Math.max(1, shieldCap(fighter)) : 0);
+      const fac = FACING[side];
+      v.root.rotation.y = Math.atan2(-fac.z, fac.x) + (side === 'player' ? this.viewerAngle : 0);
+      if (side === 'player' && this.viewer) {
+        v.setWeak(this.viewer.slot, true);
+        continue;
+      }
       // Only the enemy's weakspot is highlighted (it is what the player aims for).
       if (side === 'enemy' && fighter && !c?.winner) {
         const w = weakspot(fighter);

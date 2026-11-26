@@ -1,7 +1,7 @@
 // A chimera assembled from its parts, one group per slot, so a hit, a
 // weakspot highlight or a part break can be shown on the exact part.
 import * as THREE from 'three';
-import type { MonsterSpec, Slot } from '../sim/content';
+import { PARTS, SLOTS, type MonsterSpec, type Slot } from '../sim/content';
 import { cbox, cone, cyl, part, sphere, Spring, toon, type PartMesh, type ToonMat } from './toon';
 
 const IVORY = '#f4ead2';
@@ -28,11 +28,15 @@ export class MonsterView {
   private wings: THREE.Object3D[] = [];
   private falling: Falling[] = [];
   private weakSlot: Slot | null = null;
+  private highlightGold = false;
+  private shieldBubble: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>;
   private time = Math.random() * 10;
   private springAcc = 0;
 
   constructor(spec: MonsterSpec) {
-    const b = spec.build;
+    // Rarer parts reuse a common part's placeholder look at a bigger size.
+    const b = {} as Record<Slot, string>;
+    for (const s of SLOTS) b[s] = PARTS[spec.build[s]].look;
     const bodyMat = this.mat(toon(spec.palette.body, { wear: 0.1 }));
     const partMat = this.mat(toon(spec.palette.part, { gloss: 55, spec: 0.8 }));
     const ivory = this.mat(toon(IVORY, { gloss: 60, spec: 0.9, wear: 0.04 }));
@@ -165,6 +169,31 @@ export class MonsterView {
       this.springs.push(new Spring(stub, this.hullSpring, 5, 0.15, [0.5, 0.6, 0.1], 1.4));
       part(cyl(0.04, 0.1, 0.45), bodyMat, stub, [-0.2, 0.06, 0], [0, 0, 1.2]);
     }
+
+    for (const s of SLOTS) {
+      const size = PARTS[spec.build[s]].size ?? 1;
+      // Legs only thicken, so the torso still sits on top of them.
+      if (s === 'legs') this.slots[s].scale.set(size, 1, size);
+      else this.slots[s].scale.setScalar(size);
+    }
+
+    // Shield bubble: hidden until the monster holds shield points.
+    this.shieldBubble = new THREE.Mesh(
+      new THREE.SphereGeometry(1.25, 24, 16),
+      new THREE.MeshBasicMaterial({ color: 0x9fe3ff, transparent: true, opacity: 0, depthWrite: false }),
+    );
+    this.shieldBubble.position.y = legH + 0.4;
+    this.shieldBubble.scale.set(1.25, 1, 1);
+    this.body.add(this.shieldBubble);
+  }
+
+  /** 0..1 share of the shield cap currently held. */
+  setShield(frac: number) {
+    const target = frac > 0 ? 0.12 + 0.18 * frac : 0;
+    const m = this.shieldBubble.material;
+    m.opacity += (target - m.opacity) * 0.2;
+    this.shieldBubble.visible = m.opacity > 0.01;
+    this.shieldBubble.rotation.y = this.time * 0.6;
   }
 
   private mat(m: ToonMat) {
@@ -181,7 +210,9 @@ export class MonsterView {
     this.hullSpring.kick(strength, strength * (Math.random() - 0.5), strength * 0.6);
   }
 
-  setWeak(slot: Slot | null) {
+  /** Pulse a slot's outline: red for the weakspot, gold for the parts viewer. */
+  setWeak(slot: Slot | null, gold = false) {
+    this.highlightGold = gold;
     if (slot === this.weakSlot) return;
     this.weakSlot = slot;
   }
@@ -236,7 +267,8 @@ export class MonsterView {
       for (const o of this.outlines[slot]) {
         const u = (o.material as THREE.ShaderMaterial).uniforms;
         if (weak) {
-          u.uColor.value.setRGB(0.55 + 0.45 * pulse, 0.08, 0.1);
+          if (this.highlightGold) u.uColor.value.setRGB(1, 0.65 + 0.3 * pulse, 0.1);
+          else u.uColor.value.setRGB(0.55 + 0.45 * pulse, 0.08, 0.1);
           u.uThick.value = 0.032;
         } else {
           u.uColor.value.copy(o.userData.base as THREE.Color);

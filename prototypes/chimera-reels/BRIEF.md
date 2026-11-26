@@ -47,9 +47,24 @@ Rules:
   value is the monster's designated weakspot, and the sum of all values
   is its overall fragility (bonus damage taken).
 
-Starter content **(proposed)**: 2 bodies, 2 heads, 3 limbs (claws, fists,
-wings), 2 legs, 3 skins (hide, shell, fur), 2 aux. Three premade starter
-chimeras built from these. The debug panel can swap any part for testing.
+Starter content: each slot has commons plus 1 rare and 1 epic
+placeholder part (owner-approved placeholders, to be redesigned).
+Three premade starters plus a 4th "Random" option that rolls random
+common parts (tap it again to re-roll).
+
+Rarity (Common, Rare, Epic) applies to parts and move tiles:
+
+- Rare parts have better stats and more or stronger tiles; Epic parts
+  bring a unique move (Gore, Inferno, Quake).
+- Rarer parts and tiles never roll before their floor (Rare from floor
+  3, Epic from floor 6, in `tune.json`). This gates enemy parts, drops
+  and level-up offers.
+- Shown as a coloured border (blue rare, gold epic).
+
+Parts viewer: a "Parts" button on the starter, prefight, loot and
+level-up screens opens a viewer: the monster turns slowly, tapping a
+slot highlights that part in gold and shows its rarity, hit zone,
+stats and the tiles it adds.
 
 ## Combat
 
@@ -87,7 +102,15 @@ answers one question.
   few Body tiles so the reel is never empty **(proposed)**. When an enemy
   part breaks, its tiles leave the target reel. A flying enemy has no
   Legs tiles. The enemy weakspot's tile is highlighted.
-- Short reels are padded with blank tiles.
+- Reel length and blanks:
+  - Move reel never has filler blanks: if your parts give too few moves,
+    your own moves repeat to fill it.
+  - Target reel is padded with Body tiles.
+  - Mutator reel is padded with blanks ("no modifier").
+  - Intensity: your move reel gains 1 blank per 2 of your parts
+    destroyed, and your target reel gains 1 blank per 2 enemy parts
+    destroyed **(Claude's reading of the owner's rule)**.
+  - Reels are rebuilt from the current parts at every spin.
 - Tiles show an icon plus a small text label. Labels may be dropped
   later once the icon set is learned. Icons are placeholder shapes drawn
   in code until the owner supplies art.
@@ -246,6 +269,8 @@ yield the player retries the same floor if gold covers the bet.
 9. 3-reel redesign (move, target, mutator), shields, pocket drops on
    hit, damage preview, icon tiles. Replaces the 2-reel combat built in
    steps 2, 4 and 5.
+10. Parts viewer, random-roll starter, rarity with floor gating and
+    placeholder rare and epic parts, reel blank rules.
 
 Feel (spin timing, hit stops, recoil, break effects) is tuned before any
 later step is added.

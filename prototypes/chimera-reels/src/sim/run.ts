@@ -2,14 +2,16 @@
 // fight, take the payout, pick a level-up tile, repeat until broke or KO.
 import { tune } from '../tune';
 import {
-  ENEMY_PALETTES,
+  OFFER_TILES,
+  PALETTES,
   PARTS,
   PARTS_BY_SLOT,
   SLOTS,
   STARTERS,
-  TILE_POOL,
+  tileRarity,
   type MonsterSpec,
   type PartId,
+  type Rarity,
   type TileId,
 } from './content';
 import { createCombat, makeFighter, yieldFight, type Combat } from './combat';
@@ -33,11 +35,14 @@ export interface Run {
   offers: TileId[];
   /** Part dropped by the last defeated enemy, offered as a swap. */
   drop: PartId | null;
+  /** The 4th starter option: random common parts, re-rolled on demand. */
+  randomStarter: MonsterSpec;
   gameOverReason: string;
 }
 
 export function newRun(rng: Rng): Run {
   return {
+    randomStarter: randomMonster(rng, 1, 'Random roll'),
     screen: 'select', rng, monster: null, gold: tune.run.startGold, floor: 1, level: 1,
     streak: 0, bestStreak: 0, enemy: null, combat: null, last: null, offers: [], drop: null, gameOverReason: '',
   };
@@ -47,18 +52,50 @@ export function entryBet(run: Run): number {
   return tune.run.betBase + (run.floor - 1) * tune.run.betPerFloor;
 }
 
-const HEAD_NAMES: Record<string, string> = { tusk: 'Tusk', maw: 'Maw', crest: 'Crest' };
-const BODY_NAMES: Record<string, string> = { brute: 'hulk', stalker: 'wisp' };
+/** Rarities that may appear on this floor. Rarer ones never roll before their floor. */
+export function allowedRarities(floor: number): Rarity[] {
+  const r = tune.rarity;
+  return floor >= r.epicFromFloor ? ['common', 'rare', 'epic'] : floor >= r.rareFromFloor ? ['common', 'rare'] : ['common'];
+}
 
-function randomEnemy(rng: Rng, floor: number): MonsterSpec {
+/** Weighted pick that respects the floor's rarity gate. */
+function pickByRarity<T>(rng: Rng, items: T[], rarityOf: (t: T) => Rarity, floor: number): T {
+  const allowed = allowedRarities(floor);
+  const weight = (r: Rarity) => (r === 'epic' ? tune.rarity.epicWeight : r === 'rare' ? tune.rarity.rareWeight : 1);
+  const pool = items.filter((t) => allowed.includes(rarityOf(t)));
+  const total = pool.reduce((s, t) => s + weight(rarityOf(t)), 0);
+  let roll = rng() * total;
+  for (const t of pool) {
+    roll -= weight(rarityOf(t));
+    if (roll <= 0) return t;
+  }
+  return pool[pool.length - 1];
+}
+
+const NAME_A = ['Tusk', 'Maw', 'Crest', 'Fang', 'Scar', 'Gloom', 'Ember', 'Rift'];
+const NAME_B = ['hulk', 'wisp', 'reaver', 'back', 'claw', 'drake'];
+
+export function randomMonster(rng: Rng, floor: number, name?: string): MonsterSpec {
   const build = {} as MonsterSpec['build'];
-  for (const slot of SLOTS) build[slot] = PARTS_BY_SLOT[slot][pickIndex(rng, PARTS_BY_SLOT[slot].length)];
-  const name = `${HEAD_NAMES[build.head]}${BODY_NAMES[build.body]} F${floor}`;
-  return { name, build, extra: [], palette: ENEMY_PALETTES[pickIndex(rng, ENEMY_PALETTES.length)] };
+  for (const slot of SLOTS) build[slot] = pickByRarity(rng, PARTS_BY_SLOT[slot], (id) => PARTS[id].rarity, floor);
+  return {
+    name: name ?? `${NAME_A[pickIndex(rng, NAME_A.length)]}${NAME_B[pickIndex(rng, NAME_B.length)]}`,
+    build, extra: [], palette: PALETTES[pickIndex(rng, PALETTES.length)],
+  };
+}
+
+export function rerollRandomStarter(run: Run) {
+  run.randomStarter = randomMonster(run.rng, 1, 'Random roll');
+}
+
+/** The 4 starter options: 3 premade plus the random roll. */
+export function starterOptions(run: Run): MonsterSpec[] {
+  return [...STARTERS, run.randomStarter];
 }
 
 function prepareFloor(run: Run) {
-  run.enemy = randomEnemy(run.rng, run.floor);
+  run.enemy = randomMonster(run.rng, run.floor);
+  run.enemy.name += ` F${run.floor}`;
   run.combat = null;
   if (run.gold < entryBet(run)) {
     run.screen = 'gameover';
@@ -67,9 +104,9 @@ function prepareFloor(run: Run) {
 }
 
 export function chooseStarter(run: Run, index: number) {
-  const s = STARTERS[index];
+  const s = starterOptions(run)[index];
   if (!s) return;
-  run.monster = { ...s, build: { ...s.build }, extra: [] };
+  run.monster = { ...s, name: index === STARTERS.length ? 'Mongrel' : s.name, build: { ...s.build }, extra: [] };
   prepareFloor(run);
 }
 
@@ -78,8 +115,8 @@ export function enterFight(run: Run) {
   run.gold -= entryBet(run);
   const r = tune.run;
   const f = run.floor - 1;
-  const player = makeFighter('player', run.monster, run.rng);
-  const enemy = makeFighter('enemy', run.enemy, run.rng, { hp: 1 + f * r.enemyHpPerFloor, atk: 1 + f * r.enemyAtkPerFloor });
+  const player = makeFighter('player', run.monster);
+  const enemy = makeFighter('enemy', run.enemy, { hp: 1 + f * r.enemyHpPerFloor, atk: 1 + f * r.enemyAtkPerFloor });
   run.combat = createCombat(player, enemy, run.rng);
   run.screen = 'fight';
 }
@@ -136,13 +173,10 @@ export function chooseLoot(run: Run, take: boolean) {
 }
 
 function rollOffers(run: Run): TileId[] {
-  const r = tune.run;
-  const pool = [...TILE_POOL[0]];
-  if (run.level >= r.rareFromLevel) pool.push(...TILE_POOL[1]);
-  if (run.level >= r.epicFromLevel) pool.push(...TILE_POOL[2]);
   const out: TileId[] = [];
-  for (let tries = 0; tries < 50 && out.length < r.offerCount; tries++) {
-    const t = pool[pickIndex(run.rng, pool.length)];
+  // Offers use the next floor's gate, so rarer tiles show up as the tower climbs.
+  for (let tries = 0; tries < 60 && out.length < tune.run.offerCount; tries++) {
+    const t = pickByRarity(run.rng, OFFER_TILES, tileRarity, run.floor + 1);
     if (!out.includes(t)) out.push(t);
   }
   return out;

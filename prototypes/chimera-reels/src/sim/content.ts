@@ -1,110 +1,128 @@
-// Tile and part identities. All numbers (power, stats, buffs) live in
-// tune.json; this file only says what things are and which tiles each part
-// puts on the reels.
+// Tile and part identities. All numbers (power, stats, shields) live in
+// tune.json; this file only says what things are, their rarity, and which
+// tiles each part puts on the reels.
 
-export type MoveKind = 'attack' | 'defend' | 'brains';
+export type Rarity = 'common' | 'rare' | 'epic';
+export const RARITIES: Rarity[] = ['common', 'rare', 'epic'];
 export type DamageType = 'slash' | 'crush' | 'pierce' | 'exotherm';
-export type MoveId = 'claw' | 'bite' | 'slam' | 'breath' | 'guard' | 'snatch' | 'jam';
-export type MutatorId = 'power' | 'quick' | 'high' | 'low' | 'blank';
-export type TileId = MoveId | MutatorId;
-export type Direction = 'front' | 'high' | 'low';
 
-export interface MoveDef {
-  kind: MoveKind;
-  label: string;
-  short: string;
-  dmg?: DamageType;
-}
+export type MoveId = 'claw' | 'bite' | 'slam' | 'breath' | 'rend' | 'gore' | 'inferno' | 'quake';
+export type MutatorId = 'power' | 'quick' | 'shield';
+export type ZoneId = 'head' | 'limbs' | 'legs' | 'aux' | 'body';
+export type TargetId = `t_${ZoneId}`;
+export type TileId = MoveId | MutatorId | TargetId | 'blank';
+export type ReelIndex = 0 | 1 | 2;
+export const REEL_NAMES = ['Move', 'Target', 'Mutator'];
 
+export interface MoveDef { label: string; dmg: DamageType; rarity: Rarity }
 export const MOVES: Record<MoveId, MoveDef> = {
-  claw: { kind: 'attack', label: 'Claw', short: 'Clw', dmg: 'slash' },
-  bite: { kind: 'attack', label: 'Bite', short: 'Bit', dmg: 'pierce' },
-  slam: { kind: 'attack', label: 'Slam', short: 'Slm', dmg: 'crush' },
-  breath: { kind: 'attack', label: 'Breath', short: 'Brt', dmg: 'exotherm' },
-  guard: { kind: 'defend', label: 'Guard', short: 'Grd' },
-  snatch: { kind: 'brains', label: 'Snatch', short: 'Snt' },
-  jam: { kind: 'brains', label: 'Jam', short: 'Jam' },
+  claw: { label: 'Claw', dmg: 'slash', rarity: 'common' },
+  bite: { label: 'Bite', dmg: 'pierce', rarity: 'common' },
+  slam: { label: 'Slam', dmg: 'crush', rarity: 'common' },
+  breath: { label: 'Breath', dmg: 'exotherm', rarity: 'common' },
+  rend: { label: 'Rend', dmg: 'slash', rarity: 'rare' },
+  gore: { label: 'Gore', dmg: 'pierce', rarity: 'epic' },
+  inferno: { label: 'Inferno', dmg: 'exotherm', rarity: 'epic' },
+  quake: { label: 'Quake', dmg: 'crush', rarity: 'epic' },
 };
 
-export const MUTATORS: Record<MutatorId, { label: string; short: string }> = {
-  power: { label: 'Power+', short: 'Pw+' },
-  quick: { label: 'Quick', short: 'Qck' },
-  high: { label: 'High', short: 'Hi' },
-  low: { label: 'Low', short: 'Lo' },
-  blank: { label: '-', short: '-' },
+export const MUTATORS: Record<MutatorId, { label: string; rarity: Rarity }> = {
+  power: { label: 'Power+', rarity: 'common' },
+  quick: { label: 'Quick', rarity: 'common' },
+  shield: { label: 'Shield', rarity: 'common' },
 };
 
-export function isMove(id: TileId): id is MoveId {
-  return id in MOVES;
-}
+export const ZONES: ZoneId[] = ['head', 'limbs', 'legs', 'aux', 'body'];
+export const ZONE_LABEL: Record<ZoneId, string> = { head: 'Head', limbs: 'Limbs', legs: 'Legs', aux: 'Aux', body: 'Body' };
+
+export const isMove = (id: TileId): id is MoveId => id in MOVES;
+export const isMutator = (id: TileId): id is MutatorId => id in MUTATORS;
+export const isTarget = (id: TileId): id is TargetId => id.startsWith('t_');
+export const zoneOf = (id: TargetId): ZoneId => id.slice(2) as ZoneId;
+export const targetTile = (z: ZoneId): TargetId => `t_${z}`;
+export const reelOf = (id: TileId): ReelIndex => (isMove(id) ? 0 : isTarget(id) ? 1 : 2);
 
 export function tileLabel(id: TileId): string {
-  return isMove(id) ? MOVES[id].label : MUTATORS[id].label;
+  if (id === 'blank') return '';
+  if (isMove(id)) return MOVES[id].label;
+  if (isTarget(id)) return ZONE_LABEL[zoneOf(id)];
+  return MUTATORS[id].label;
 }
 
-export function tileShort(id: TileId): string {
-  return isMove(id) ? MOVES[id].short : MUTATORS[id].short;
-}
-
-export function directionOf(id: TileId): Direction {
-  return id === 'high' || id === 'low' ? id : 'front';
+export function tileRarity(id: TileId): Rarity {
+  if (isMove(id)) return MOVES[id].rarity;
+  if (isMutator(id)) return MUTATORS[id].rarity;
+  return 'common';
 }
 
 // ------------------------------------------------------------------ parts
 
 export type Slot = 'body' | 'head' | 'limbs' | 'legs' | 'skin' | 'aux';
 export const SLOTS: Slot[] = ['body', 'head', 'limbs', 'legs', 'skin', 'aux'];
-export type ArmourId = 'hide' | 'shell' | 'fur';
-/** Which attack direction a part faces. Skin is armour, not a hitzone. */
-export type Zone = Direction | 'back' | 'none';
+export type ArmourId = 'hide' | 'shell' | 'fur' | 'scale' | 'plate';
+/** The target zone a slot is hit through. Skin is armour, not a hitzone. */
+export const SLOT_ZONE: Record<Slot, ZoneId | null> = { body: 'body', head: 'head', limbs: 'limbs', legs: 'legs', skin: null, aux: 'aux' };
 
 export type PartId =
-  | 'brute' | 'stalker'
-  | 'tusk' | 'maw' | 'crest'
-  | 'claws' | 'fists' | 'wings'
-  | 'striders' | 'stumps'
-  | 'hide' | 'shell' | 'fur'
-  | 'spines' | 'tailclub' | 'pouch';
+  | 'brute' | 'stalker' | 'titan' | 'wyrmcore'
+  | 'tusk' | 'maw' | 'crest' | 'horned' | 'gorehorn'
+  | 'claws' | 'fists' | 'wings' | 'blades' | 'dragonwings'
+  | 'striders' | 'stumps' | 'raptor' | 'colossus'
+  | 'hide' | 'shell' | 'fur' | 'scales' | 'plating'
+  | 'spines' | 'tailclub' | 'pouch' | 'spiketail' | 'heart';
 
+/** `look` picks the placeholder mesh builder; `size` scales it for rarer variants. */
 export interface PartDef {
   slot: Slot;
   name: string;
-  zone: Zone;
+  rarity: Rarity;
   moves: MoveId[];
   mutators: MutatorId[];
-  /** Tiles already in the pocket when a fight starts. */
   startPocket?: TileId[];
   flight?: boolean;
   armour?: ArmourId;
+  look: string;
+  size?: number;
 }
 
 export const PARTS: Record<PartId, PartDef> = {
-  brute: { slot: 'body', name: 'Brute body', zone: 'none', moves: ['guard'], mutators: ['blank', 'blank'] },
-  stalker: { slot: 'body', name: 'Stalker body', zone: 'none', moves: ['snatch'], mutators: ['quick', 'blank'] },
-  tusk: { slot: 'head', name: 'Tusk head', zone: 'high', moves: ['bite', 'bite'], mutators: ['power'] },
-  maw: { slot: 'head', name: 'Maw head', zone: 'high', moves: ['bite', 'breath'], mutators: ['blank'] },
-  crest: { slot: 'head', name: 'Crest head', zone: 'high', moves: ['jam', 'breath'], mutators: ['high'] },
-  claws: { slot: 'limbs', name: 'Claws', zone: 'front', moves: ['claw', 'claw', 'claw'], mutators: ['power'] },
-  fists: { slot: 'limbs', name: 'Fists', zone: 'front', moves: ['slam', 'slam', 'guard'], mutators: ['low'] },
-  wings: { slot: 'limbs', name: 'Wings', zone: 'high', moves: ['claw'], mutators: ['high', 'quick'], flight: true },
-  striders: { slot: 'legs', name: 'Strider legs', zone: 'low', moves: ['claw'], mutators: ['quick', 'blank'] },
-  stumps: { slot: 'legs', name: 'Stump legs', zone: 'low', moves: ['guard', 'slam'], mutators: ['low', 'blank'] },
-  hide: { slot: 'skin', name: 'Hide', zone: 'none', moves: [], mutators: ['blank'], armour: 'hide' },
-  shell: { slot: 'skin', name: 'Shell', zone: 'none', moves: ['guard'], mutators: ['blank'], armour: 'shell' },
-  fur: { slot: 'skin', name: 'Fur', zone: 'none', moves: [], mutators: ['quick'], armour: 'fur' },
-  spines: { slot: 'aux', name: 'Spines', zone: 'back', moves: ['jam'], mutators: ['power'] },
-  tailclub: { slot: 'aux', name: 'Tail club', zone: 'back', moves: ['slam'], mutators: ['low'] },
-  pouch: { slot: 'aux', name: 'Pouch', zone: 'back', moves: ['snatch'], mutators: ['blank'], startPocket: ['power'] },
+  brute: { slot: 'body', name: 'Brute body', rarity: 'common', moves: ['slam'], mutators: ['shield'], look: 'brute' },
+  stalker: { slot: 'body', name: 'Stalker body', rarity: 'common', moves: ['claw'], mutators: ['quick'], look: 'stalker' },
+  titan: { slot: 'body', name: 'Titan body', rarity: 'rare', moves: ['slam', 'slam'], mutators: ['shield', 'shield'], look: 'brute', size: 1.12 },
+  wyrmcore: { slot: 'body', name: 'Wyrm core', rarity: 'epic', moves: ['inferno'], mutators: ['shield', 'power', 'quick'], look: 'stalker', size: 1.2 },
+
+  tusk: { slot: 'head', name: 'Tusk head', rarity: 'common', moves: ['bite', 'bite'], mutators: ['power'], look: 'tusk' },
+  maw: { slot: 'head', name: 'Maw head', rarity: 'common', moves: ['bite', 'breath'], mutators: [], look: 'maw' },
+  crest: { slot: 'head', name: 'Crest head', rarity: 'common', moves: ['breath', 'breath'], mutators: ['quick'], look: 'crest' },
+  horned: { slot: 'head', name: 'Horned head', rarity: 'rare', moves: ['bite', 'bite', 'rend'], mutators: ['power'], look: 'tusk', size: 1.15 },
+  gorehorn: { slot: 'head', name: 'Gorehorn', rarity: 'epic', moves: ['gore', 'gore', 'bite'], mutators: ['power', 'power'], look: 'tusk', size: 1.3 },
+
+  claws: { slot: 'limbs', name: 'Claws', rarity: 'common', moves: ['claw', 'claw', 'claw'], mutators: ['power'], look: 'claws' },
+  fists: { slot: 'limbs', name: 'Fists', rarity: 'common', moves: ['slam', 'slam'], mutators: ['shield'], look: 'fists' },
+  wings: { slot: 'limbs', name: 'Wings', rarity: 'common', moves: ['claw'], mutators: ['quick', 'quick'], flight: true, look: 'wings' },
+  blades: { slot: 'limbs', name: 'Blade arms', rarity: 'rare', moves: ['rend', 'rend', 'claw'], mutators: ['power'], look: 'claws', size: 1.25 },
+  dragonwings: { slot: 'limbs', name: 'Dragon wings', rarity: 'epic', moves: ['inferno', 'claw'], mutators: ['quick', 'shield'], flight: true, look: 'wings', size: 1.3 },
+
+  striders: { slot: 'legs', name: 'Strider legs', rarity: 'common', moves: ['claw'], mutators: ['quick'], look: 'striders' },
+  stumps: { slot: 'legs', name: 'Stump legs', rarity: 'common', moves: ['slam'], mutators: ['shield'], look: 'stumps' },
+  raptor: { slot: 'legs', name: 'Raptor legs', rarity: 'rare', moves: ['rend', 'claw'], mutators: ['quick'], look: 'striders', size: 1.15 },
+  colossus: { slot: 'legs', name: 'Colossus legs', rarity: 'epic', moves: ['quake', 'quake'], mutators: ['shield', 'shield'], look: 'stumps', size: 1.3 },
+
+  hide: { slot: 'skin', name: 'Hide', rarity: 'common', moves: [], mutators: ['power'], armour: 'hide', look: 'hide' },
+  shell: { slot: 'skin', name: 'Shell', rarity: 'common', moves: [], mutators: ['shield', 'shield'], armour: 'shell', look: 'shell' },
+  fur: { slot: 'skin', name: 'Fur', rarity: 'common', moves: [], mutators: ['quick'], armour: 'fur', look: 'fur' },
+  scales: { slot: 'skin', name: 'Scales', rarity: 'rare', moves: [], mutators: ['shield', 'power'], armour: 'scale', look: 'shell', size: 0.8 },
+  plating: { slot: 'skin', name: 'Bone plating', rarity: 'epic', moves: [], mutators: ['shield', 'shield', 'shield'], armour: 'plate', look: 'shell', size: 1.15 },
+
+  spines: { slot: 'aux', name: 'Spines', rarity: 'common', moves: ['claw'], mutators: ['power'], look: 'spines' },
+  tailclub: { slot: 'aux', name: 'Tail club', rarity: 'common', moves: ['slam'], mutators: [], look: 'tailclub' },
+  pouch: { slot: 'aux', name: 'Pouch', rarity: 'common', moves: ['bite'], mutators: [], startPocket: ['power'], look: 'pouch' },
+  spiketail: { slot: 'aux', name: 'Spike tail', rarity: 'rare', moves: ['slam', 'rend'], mutators: ['power'], look: 'tailclub', size: 1.2 },
+  heart: { slot: 'aux', name: 'Ember heart', rarity: 'epic', moves: ['inferno'], mutators: ['shield'], startPocket: ['shield', 'power'], look: 'pouch', size: 1.3 },
 };
 
-export const PARTS_BY_SLOT: Record<Slot, PartId[]> = {
-  body: ['brute', 'stalker'],
-  head: ['tusk', 'maw', 'crest'],
-  limbs: ['claws', 'fists', 'wings'],
-  legs: ['striders', 'stumps'],
-  skin: ['hide', 'shell', 'fur'],
-  aux: ['spines', 'tailclub', 'pouch'],
-};
+export const PARTS_BY_SLOT = {} as Record<Slot, PartId[]>;
+for (const s of SLOTS) PARTS_BY_SLOT[s] = (Object.keys(PARTS) as PartId[]).filter((id) => PARTS[id].slot === s);
 
 export type Build = Record<Slot, PartId>;
 
@@ -120,33 +138,27 @@ export const STARTERS: MonsterSpec[] = [
   {
     name: 'Tuskrel',
     build: { body: 'brute', head: 'tusk', limbs: 'claws', legs: 'striders', skin: 'hide', aux: 'spines' },
-    extra: [],
-    palette: { body: '#3fae8c', part: '#ffd66b' },
+    extra: [], palette: { body: '#3fae8c', part: '#ffd66b' },
   },
   {
     name: 'Skyreave',
     build: { body: 'stalker', head: 'crest', limbs: 'wings', legs: 'striders', skin: 'fur', aux: 'pouch' },
-    extra: [],
-    palette: { body: '#6a72e8', part: '#ff8fb8' },
+    extra: [], palette: { body: '#6a72e8', part: '#ff8fb8' },
   },
   {
     name: 'Bulwark',
     build: { body: 'brute', head: 'maw', limbs: 'fists', legs: 'stumps', skin: 'shell', aux: 'tailclub' },
-    extra: [],
-    palette: { body: '#d07a3a', part: '#7fe0ff' },
+    extra: [], palette: { body: '#d07a3a', part: '#7fe0ff' },
   },
 ];
 
-/** Level-up offer pool, by rarity tier (higher tiers unlock with level). */
-export const TILE_POOL: TileId[][] = [
-  ['claw', 'guard', 'power', 'quick', 'slam'],
-  ['bite', 'breath', 'snatch', 'jam', 'high', 'low'],
-  ['power', 'bite', 'breath', 'quick'],
-];
-
-export const ENEMY_PALETTES = [
+export const PALETTES = [
   { body: '#b8483c', part: '#ffb36b' },
   { body: '#8a4fc2', part: '#9cf2c8' },
   { body: '#3c7fb8', part: '#ffd66b' },
   { body: '#5b8a3c', part: '#ff7a7a' },
+  { body: '#c0567a', part: '#ffe08a' },
 ];
+
+/** Tiles a level-up can offer (moves and mutators), filtered by rarity at roll time. */
+export const OFFER_TILES: TileId[] = [...(Object.keys(MOVES) as MoveId[]), ...(Object.keys(MUTATORS) as MutatorId[])];
