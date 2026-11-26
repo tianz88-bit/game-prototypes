@@ -1,0 +1,61 @@
+{
+  "timing": {
+    "baseCooldownSec": 3.2,
+    "decideCooldownRate": 0.4,
+    "spinSec": 0.7,
+    "reelStaggerSec": 0.3,
+    "aiThinkSec": 0.9
+  },
+  "combat": {
+    "tierMult": [1, 1.4, 1.9, 3],
+    "burnMult": [0, 0.5, 1, 1.5],
+    "mutatorMatchBonus": 0.25,
+    "defendBlock": 0.6,
+    "interruptMult": 1.5,
+    "schemeMult": 1.3,
+    "brainsVsDefendMult": 2,
+    "jamSpins": 3
+  },
+  "pocket": {
+    "defaultSize": 6,
+    "attackBuffPerTile": 0.06,
+    "defendBuffPerTile": 0.06,
+    "brainsSpeedPerTile": 0.06,
+    "powerBuffPerTile": 0.04,
+    "quickSpeedPerTile": 0.04
+  },
+  "moves": {
+    "claw": { "power": 10 },
+    "bite": { "power": 13 },
+    "slam": { "power": 9 },
+    "guard": { "heal": 2 },
+    "snatch": { "power": 4, "drop": 2 },
+    "jam": { "power": 3 }
+  },
+  "mutators": {
+    "power": { "mult": 1.5 },
+    "quick": { "cooldownCut": 0.35 }
+  },
+  "offline": {
+    "attackChip": 1,
+    "defendHeal": 1,
+    "brainsCooldownCut": 0.05,
+    "powerChip": 1,
+    "quickCooldownCut": 0.05
+  },
+  "monsters": {
+    "player": { "hp": 120, "speed": 1, "atk": 1, "def": 1 },
+    "enemy": { "hp": 120, "speed": 0.9, "atk": 1, "def": 1 }
+  },
+  "feel": {
+    "lungeSec": 0.28,
+    "lungeDist": 1.1,
+    "recoilSec": 0.22,
+    "hitFlashSec": 0.15,
+    "shakeAmp": 0.08,
+    "superShakeAmp": 0.22,
+    "popupSec": 0.9,
+    "idleBobAmp": 0.06,
+    "idleBobHz": 1.1
+  }
+}
