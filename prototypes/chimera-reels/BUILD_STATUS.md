@@ -47,6 +47,10 @@ on a design decision.
   Floor 1 win rates (smart bot): Tuskrel 79%, Skyreave 47%, Bulwark 94%,
   Random 84%. Avg fights 21s to 55s.
 
+- Post-battle combat log: every Execute and Burn from both sides with
+  time, action and outcome, paged, plus a per-side summary. Opened from
+  the result and game-over screens.
+
 ## Key technical decisions
 - `computeHit` is a pure function used both for previews and for
   resolution, so the shown damage always matches what lands.
@@ -66,6 +70,10 @@ on a design decision.
   reel, pocket size 9, burn of Power+/target tiles discards, overflow
   order, first 4 damage types.
 
+- "Pocketed tiles rearrange themselves by time for clarity": waiting for
+  the owner to confirm the intended order before building. BRIEF.md may
+  need a line on pocket ordering.
+
 ## Known issues
 - Not tested on a real phone; verified in headless Chromium at 390x844
   and 1280x720, dev build.
@@ -76,6 +84,9 @@ on a design decision.
 - Balance still open: Skyreave below the 70-80% F1 target, Bulwark too
   strong and slow, supers rare (about 0.02 per fight with the sim bot),
   move power and a gentler floor 1 not decided.
+
+- Supers may now be too strong: one test fight logged a SUPER Breath on a
+  weak spot for 109 damage against a 140 HP enemy.
 
 ## Next proposed step
 Owner plays the 3-reel build and tunes (`?debug=1`). Confirm the blank
