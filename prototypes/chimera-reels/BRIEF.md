@@ -67,9 +67,10 @@ chimeras built from these. The debug panel can swap any part for testing.
 - After a spin the player has two buttons: **Execute** or **Pocket**.
   There is no other combat input.
 - There is no decision timer and the fight does not pause. The
-  monster's next cooldown only starts once the player has chosen, so
-  hesitating wastes time while the opponent keeps acting
-  **(proposed reading, confirm)**.
+  cooldown for the next spin keeps running while the player decides,
+  but at a reduced rate (`tune.json`; a rate of 0 stops it). If it still
+  finishes before the player chooses, the undecided spin is lost and
+  the reels spin again.
 
 ### The reels
 
@@ -92,8 +93,8 @@ chimeras built from these. The debug panel can swap any part for testing.
 
 - Resolves the line action, plus the small effects of the 4 off-line
   tiles.
-- Any pocketed tiles matching the line move (and, **(proposed)**, the
-  line mutator) are consumed to power it up:
+- Any pocketed tiles matching the line move or the line mutator are
+  consumed to power it up:
   - 1 matching tile: boosted version.
   - 2 matching tiles: stronger version.
   - 3 matching tiles: super version.
@@ -108,8 +109,12 @@ chimeras built from these. The debug panel can swap any part for testing.
   buff ends. Holding versus spending is the core decision.
 - Pocket space: every monster has a default size, and parts change it.
   Some parts start the fight with tiles already pocketed.
-- When a Pocket would exceed the space, overflow is discarded,
-  keeping line tiles first **(proposed)**.
+- Default pocket size is 6 (`tune.json`).
+- Overflow **(proposed)**: tiles already held are never pushed out.
+  New tiles fill free space in this priority order: tiles matching
+  something already held, then the line tiles, then the off-line tiles.
+  Whatever does not fit is discarded. A full pocket is the signal to
+  Execute.
 
 ### Pocket counterplay
 

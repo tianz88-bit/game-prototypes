@@ -19,18 +19,20 @@ Brief drafted. No code yet.
   tiles give small effects. Pocket stores all 6 tiles for passive buffs;
   matching pocketed tiles power up later executes (1, 2, 3 tiles up to a
   super version) and are consumed.
-- No decision timer and no pause.
+- No decision timer and no pause. Deciding slows the next cooldown.
+- Pocketed mutator tiles match and power up the same as move tiles.
+- Default pocket size 6.
 - Hosting: GitHub Pages static site via the existing `deploy.yml`.
 
 ## Open questions
 - Items marked (proposed) in `BRIEF.md` are gaps in the original notes
-  and need owner confirmation: RPS stance rules, whether pocketed
-  mutator tiles also power up, pocket overflow rule, starter content,
+  and need owner confirmation: RPS stance rules, pocket overflow rule,
+  starter content,
   damage type subset, UI drawn in canvas.
-- Hesitation cost: the brief reads "wasting the next speed CD" as the
-  next cooldown only starting once the player chooses. The alternative
-  (cooldown runs anyway and an unanswered spin is lost) was not chosen.
-  BRIEF.md may need updating once confirmed.
+- Hesitation cost was decided mid-session: the next cooldown keeps
+  running at a reduced rate while the player decides, and an undecided
+  spin is lost if it finishes. BRIEF.md now covers it, but the slow-down
+  rate (or full stop) still needs tuning.
 - Combat controls changed a lot during discussion (category choice,
   direction choice, wait, pocket). BRIEF.md now reflects the latest
   decision but the original notes did not cover it.
