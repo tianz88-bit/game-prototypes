@@ -71,8 +71,9 @@ stats and the tiles it adds.
 ### Format
 
 - 1v1 first. 3v3 (1 forward, 2 reserve) comes later in scope order.
-- Both monsters' reels, pockets and shields are always on screen, so the
-  fight can be read at a glance by a player or a spectator.
+- The player's reels, both pockets and both shields are always on
+  screen. The enemy's reels are not shown (owner decision: the player
+  cannot act on them); its pocket gets that space instead.
 
 ### Speed and spinning
 
@@ -193,8 +194,9 @@ answers one question.
 ### Hits, drops and part breaks
 
 - Every hit lands on the part named by the line target tile.
-- Damage goes to shield points first, then HP. The hit part also takes
-  the damage towards its break threshold.
+- Damage goes to shield points first, then HP. Shields protect parts
+  too: only the damage that gets past the shield counts towards the hit
+  part's break threshold.
 - **Pocket drop**: if any damage reaches HP, 1 pocketed move tile that
   came from the hit part falls out. If the shield absorbs the whole hit,
   nothing drops ("shield up = pocket safe").
