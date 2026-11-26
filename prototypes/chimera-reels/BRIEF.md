@@ -65,7 +65,7 @@ chimeras built from these. The debug panel can swap any part for testing.
 - Each monster has a speed cooldown set by its speed stat (legs and
   wings). When the cooldown finishes, its reels spin automatically.
 - After a spin the player has two buttons: **Execute** or **Pocket**.
-  There is no other combat input.
+  The only other combat input is tapping pocketed tiles to Burn them.
 - There is no decision timer and the fight does not pause. The
   cooldown for the next spin keeps running while the player decides,
   but at a reduced rate (`tune.json`; a rate of 0 stops it). If it still
@@ -115,6 +115,21 @@ chimeras built from these. The debug panel can swap any part for testing.
   something already held, then the line tiles, then the off-line tiles.
   Whatever does not fit is discarded. A full pocket is the signal to
   Execute.
+
+### Burn
+
+- Between a spin landing and the Execute or Pocket choice, the player
+  may tap a group of identical pocketed tiles to burn them.
+- Burned move tiles fire their move on its own, weaker than a matched
+  power-up: 1 tile weak, 2 tiles normal, 3 tiles strong. Burning never
+  gives the super version, which stays exclusive to matching on the
+  line.
+- Burned mutator tiles give their small off-line effect once per tile.
+- Burning does not use up the turn. The player still chooses Execute or
+  Pocket afterwards. Time spent burning counts as deciding, so the next
+  cooldown runs at the reduced rate meanwhile.
+- Burned tiles leave the pocket, so their passive buff ends.
+- The pocket needs large, grouped tap targets on a portrait phone.
 
 ### Pocket counterplay
 
@@ -210,7 +225,7 @@ lost for good (ends the run).
 1. Three.js scene in portrait, two placeholder monsters, touch and mouse
    input through intents, version stamp, debug panel.
 2. Speed cooldowns, auto spin, the 2x3 reels, Execute and Pocket,
-   pocket buffs and power-ups, RPS stances, HP, win and loss.
+   pocket buffs and power-ups, Burn, RPS stances, HP, win and loss.
 3. Parts give stats and tiles. Starter parts and 3 starter chimeras.
 4. Attack directions, hitzones, part breaks, flight.
 5. Armour types, the 4 damage types, weakspot and fragility.
