@@ -7,10 +7,13 @@ how to follow the rules around it.
 
 ## Core engine stack
 
-Every prototype is built on Phaser 3 + TypeScript + Vite. This is
-fixed and not optional, with one owner-approved exception: chimera-reels
-is a 3D prototype built on Three.js instead of Phaser. Shared packages
-that depend on Phaser (dig-kit, for example) are not usable there. See CLAUDE.md's Stack section for the
+Every prototype is built on TypeScript + Vite with one of two
+engines: Phaser 3 for 2D, or Three.js for 3D (approved 25 November
+2026). This is fixed and not optional.
+
+Quick experiments live in `studies/<name>/` with lighter rules and
+can be promoted to a full prototype later; see CLAUDE.md's Studies
+section. See CLAUDE.md's Stack section for the
 full locked list (atlas packing, debug UI, verification, hosting,
 art storage).
 
