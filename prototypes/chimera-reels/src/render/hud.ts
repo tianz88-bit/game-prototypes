@@ -61,7 +61,8 @@ const FONT = 'system-ui, -apple-system, Segoe UI, sans-serif';
 
 // Layout, logical pixels (390 x 844 portrait).
 const L = {
-  enemy: { hpY: 30, cdY: 46, reelX: [16, 64, 112], reelY: 58, tileW: 44, tileH: 28, gap: 2, pocketX: 168, pocketY: 76, slot: 21, slotGap: 2 },
+  // The enemy's reels are not shown (the player cannot act on them); its pocket gets the space.
+  enemy: { hpY: 30, cdY: 46, reelX: [16, 64, 112], reelY: 58, tileW: 44, tileH: 28, gap: 2, pocketX: 16, pocketY: 74, slot: 36, slotGap: 4.25 },
   player: { panelY: 474, hpY: 494, cdY: 512, reelX: [16, 139, 262], reelY: 550, tileW: 112, tileH: 44, gap: 4, pocketX: 16, pocketY: 716, slot: 36, slotGap: 4.25 },
   execute: { x: 16, y: 762, w: 174, h: 74 },
   pocket: { x: 200, y: 762, w: 174, h: 74 },
@@ -172,8 +173,8 @@ export class Hud {
   /** Pocket stack slot i when the pocket has n type slots; slots share one row. */
   private slotRect(side: Side, i: number, n = 6): Rect {
     const P = side === 'player' ? L.player : L.enemy;
-    const total = side === 'player' ? 358 : 207;
-    const maxW = side === 'player' ? 58 : 32;
+    const total = 358;
+    const maxW = 58;
     const w = Math.min(maxW, (total - (n - 1) * P.slotGap) / n);
     return { x: P.pocketX + i * (w + P.slotGap), y: P.pocketY, w, h: P.slot };
   }
@@ -295,6 +296,7 @@ export class Hud {
           if (this.landAge[e.side][r] < 9) continue;
           this.landAge[e.side][r] = 0;
           if (e.side === 'player') sfx.reelStop(r);
+          if (e.side !== 'player') continue;
           const lr = this.reelRect(e.side, r, 1);
           this.sparkBurst(lr.x + lr.w / 2, lr.y + lr.h, e.side === 'player' ? 6 : 3, ['#ffe08a', '#ffffff'], 90, 2);
         }
@@ -322,11 +324,11 @@ export class Hud {
         const fl = c.fighters[e.side];
         e.consumed.forEach(({ id, from: slot }, k) => {
           const from = center(this.slotRect(e.side, slot, fl.pocketSize));
-          const to = center(this.reelRect(e.side, reelOf(id), 1));
+          const to = e.side === 'player' ? center(this.reelRect(e.side, reelOf(id), 1)) : this.headPos('enemy');
           this.flies.push({ id, x0: from.x, y0: from.y, x1: to.x, y1: to.y, age: -k * 0.05, dur: f.tileFlySec, drop: false, w: tw, h: tw, arc: -50 });
         });
         if (!e.burn && e.consumed.length) {
-          const lr = this.reelRect(e.side, 0, 1);
+          const lr = e.side === 'player' ? this.reelRect(e.side, 0, 1) : { ...this.headPos('enemy'), w: 0, h: 0 };
           this.sparkBurst(lr.x + lr.w / 2, lr.y + lr.h / 2, 10 + e.tier * 8, ['#ffe08a', tileColor(e.move), '#ffffff'], 180 + e.tier * 40, 3);
         }
         break;
@@ -368,14 +370,14 @@ export class Hud {
       case 'pocket': {
         const fl = c.fighters[e.side];
         e.stored.forEach((s, k) => {
-          const from = center(this.reelRect(e.side, Math.floor(s.from / 3), s.from % 3));
+          const from = e.side === 'player' ? center(this.reelRect(e.side, Math.floor(s.from / 3), s.from % 3)) : this.headPos('enemy');
           const slot = this.slotRect(e.side, s.to, fl.pocketSize);
           const to = center(slot);
           this.hidden.set(s.tile, f.tileFlySec + k * 0.04);
           this.slotX.set(`${e.side}:${s.id}`, slot.x);
           this.flies.push({ id: s.id, x0: from.x, y0: from.y, x1: to.x, y1: to.y, age: -k * 0.04, dur: f.tileFlySec, drop: false, w: tw, h: tw, arc: -40 });
         });
-        for (const slot of e.discarded) {
+        for (const slot of e.side === 'player' ? e.discarded : []) {
           const r = this.reelRect(e.side, Math.floor(slot / 3), slot % 3);
           const t = reelWindow(fl, Math.floor(slot / 3) as ReelIndex)[slot % 3];
           this.flies.push({ id: t.id, x0: r.x + r.w / 2, y0: r.y + r.h / 2, x1: r.x + r.w / 2 + (Math.random() - 0.5) * 60, y1: r.y + 160, age: 0, dur: 0.5, drop: true, w: tw, h: tw, arc: -30 });
@@ -687,7 +689,7 @@ export class Hud {
       }
       const glow = match ? `rgba(255,224,138,${0.6 + 0.4 * Math.sin(this.time * 10)})` : full ? 'rgba(255,226,74,0.9)' : undefined;
       this.tile({ x, y: slot.y + wob, w: slot.w, h: slot.h }, g.id, { scale: match ? 1.06 : 1, glow, badge });
-      const big = side === 'player';
+      const big = true;
       this.rr({ x: x + 2, y: slot.y + 2, w: big ? 20 : 12, h: big ? 13 : 9 }, 4, 'rgba(10,8,18,0.8)');
       this.text(`x${shown}`, x + (big ? 12 : 8), slot.y + (big ? 9 : 7), big ? 10 : 7, shown >= cap ? '#ffe24a' : '#fff', 'center', '900');
       // Tiles from the part being aimed at: knocked out or dropped if the hit lands.
@@ -706,8 +708,7 @@ export class Hud {
     const e = c.fighters.enemy;
     const p = c.fighters.player;
     this.bars(e, L.enemy.hpY, L.enemy.cdY);
-    this.drawReels(e, 'enemy', p);
-    this.text(`Pocket ${pocketGroups(e).length}/${e.pocketSize}`, L.enemy.pocketX, L.enemy.pocketY - 10, 10, '#cfc7d9');
+    this.text(`Foe pocket ${pocketGroups(e).length}/${e.pocketSize} types`, L.enemy.pocketX, L.enemy.pocketY - 10, 10, '#cfc7d9');
     const aim = !frozen && p.landed ? previewExecute(c, 'player') : null;
     const aimPart = aim ? aim.hit.part : -1;
     this.drawPocket(c, e, 'enemy', aimPart);
@@ -717,19 +718,19 @@ export class Hud {
       const part = e.parts[aimPart];
       const isBody = part.slot === 'body';
       const risk = tilesFromPart(e, aimPart);
-      const breaks = !isBody && aim.hit.damage >= part.hp;
+      const breaks = !isBody && aim.hit.toHp >= part.hp;
       const knock = aim.hit.toHp > 0 && risk.some((t) => isMove(t.id));
-      this.text(`AIM: ${PARTS[part.id].name}${isBody ? '' : `  ${Math.max(0, part.hp)}/${part.maxHp}`}`, 168, 118, 11, '#78e6ff', 'left', '800');
+      this.text(`AIM: ${PARTS[part.id].name}${isBody ? '' : `  ${Math.max(0, part.hp)}/${part.maxHp}`}`, 16, 128, 11, '#78e6ff', 'left', '800');
       const outcome = breaks ? `BREAKS${risk.length ? `, drops ${risk.length}` : ''}` : knock ? 'knocks out 1 tile' : aim.hit.toHp === 0 ? 'shield takes it' : risk.length ? '' : 'no tiles at risk';
-      if (outcome) this.text(outcome, 168, 134, 10, breaks ? '#ffb36b' : '#cfe9ff', 'left', '800');
-      this.text(`Weak: ${w >= 0 ? PARTS[e.parts[w].id].name : '-'}`, 168, 150, 10, '#ff9a8a', 'left', '700');
+      if (outcome) this.text(outcome, 16, 144, 10, breaks ? '#ffb36b' : '#cfe9ff', 'left', '800');
+      this.text(`Weak: ${w >= 0 ? PARTS[e.parts[w].id].name : '-'}`, 16, 160, 10, '#ff9a8a', 'left', '700');
     } else {
-      this.text(`Weak: ${w >= 0 ? PARTS[e.parts[w].id].name : '-'}`, 168, 118, 11, '#ff9a8a', 'left', '700');
-      this.text(`Armour: ${e.armour}`, 168, 134, 10, '#cfc7d9');
+      this.text(`Weak: ${w >= 0 ? PARTS[e.parts[w].id].name : '-'}`, 16, 128, 11, '#ff9a8a', 'left', '700');
+      this.text(`Armour: ${e.armour}`, 16, 144, 10, '#cfc7d9');
       const broken = e.parts.filter((pt) => pt.broken).length;
-      if (broken) this.text(`${broken} broken`, 168, 150, 10, '#ff9a3a', 'left', '700');
+      if (broken) this.text(`${broken} broken`, 16, 160, 10, '#ff9a3a', 'left', '700');
     }
-    if (e.landed) this.text('deciding...', 374, 150, 10, '#e8c15a', 'right');
+    if (e.landed) this.text('deciding...', 374, 160, 10, '#e8c15a', 'right');
 
     this.bars(p, L.player.hpY, L.player.cdY);
     if (this.missedFlash > 0) this.text('Too slow, spin lost!', 16, 530, 11, '#ff8a7a', 'left', '700');

@@ -64,6 +64,12 @@ on a design decision.
 - Sim after these changes (F1, smart bot): Tuskrel 83%, Skyreave 47%,
   Bulwark 94%, Random 85%; supers about 0.07 per fight (up from 0.02).
 
+- Shields now protect parts: only damage past the shield counts towards
+  a part break (owner decision). The aim readout uses the same rule.
+- Enemy reels removed from the HUD; the foe pocket is full size in the
+  top panel. Enemy pocket and consumed tiles fly from and to the enemy
+  model instead of its reels.
+
 ## Key technical decisions
 - `computeHit` is a pure function used both for previews and for
   resolution, so the shown damage always matches what lands.
@@ -85,8 +91,10 @@ on a design decision.
 
 - Pocket ordering was ambiguous in the request ("by time"); the owner
   confirmed "by type". BRIEF.md now covers it.
-- Part damage ignores shields (shields only protect HP and the pocket),
-  so a shielded part can still break. Not stated in BRIEF.md; confirm.
+- Removing the enemy reels departs from the original notes ("show reels
+  for both mons") and from spectator readability; owner chose it.
+  A compact "incoming" line (enemy's landed move > target and damage)
+  was offered as a lighter replacement, not built.
 
 ## Known issues
 - Not tested on a real phone; verified in headless Chromium at 390x844

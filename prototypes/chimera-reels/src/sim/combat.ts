@@ -460,7 +460,8 @@ function landHit(c: Combat, target: Fighter, h: HitCalc, zone: ZoneId, log: LogE
   }
   const p = target.parts[h.part];
   if (p.slot !== 'body' && !p.broken) {
-    p.hp -= h.damage;
+    // Shields protect parts too: only damage that got past the shield counts.
+    p.hp -= h.toHp;
     if (p.hp <= 0) {
       log.broke = PARTS[p.id].name;
       breakPart(c, target, h.part);
