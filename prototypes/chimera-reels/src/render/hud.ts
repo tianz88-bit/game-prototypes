@@ -46,7 +46,7 @@ import {
 } from '../sim/content';
 import { entryBet, partNames, starterOptions, type Run } from '../sim/run';
 import type { Intent } from '../input/intents';
-import { HEIGHT, WIDTH, type ViewSize } from './view';
+import { BOTTOM_START, HEIGHT, TOP_END, WIDTH, type ViewSize } from './view';
 import { VERSION_STAMP } from '../version.generated';
 import { sfx } from '../audio/sfx';
 import { drawIcon } from './icons';
@@ -134,12 +134,53 @@ export class Hud {
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.minFilter = THREE.LinearFilter;
     this.texture.generateMipmaps = false;
-    const quad = new THREE.Mesh(
-      new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ map: this.texture, transparent: true, depthTest: false, depthWrite: false }),
-    );
-    quad.position.set(0.5, 0.5, 0);
-    this.scene.add(quad);
+    // Full-width panel backgrounds and a dimmer behind the HUD bands.
+    const backMat = new THREE.MeshBasicMaterial({ color: 0x0e0b16, transparent: true, opacity: 0.88, depthTest: false, depthWrite: false });
+    for (let i = 0; i < 2; i++) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), backMat);
+      this.backs.push(m);
+      this.scene.add(m);
+    }
+    this.dim = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0x0a0810, transparent: true, opacity: 0.96, depthTest: false, depthWrite: false }));
+    this.dim.position.set(0.5, 0.5, 0);
+    this.scene.add(this.dim);
+    // The HUD texture is shown as three bands (top, middle, bottom), placed per screen shape.
+    const mat = new THREE.MeshBasicMaterial({ map: this.texture, transparent: true, depthTest: false, depthWrite: false });
+    for (let i = 0; i < 3; i++) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+      this.bands.push(m);
+      this.scene.add(m);
+    }
+    // Version stamp: its own small texture, pinned to the screen's top-left corner.
+    this.stampTex = new THREE.CanvasTexture(this.stampCanvas);
+    this.stampTex.colorSpace = THREE.SRGBColorSpace;
+    this.stampTex.minFilter = THREE.LinearFilter;
+    this.stampTex.generateMipmaps = false;
+    this.stamp = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: this.stampTex, transparent: true, depthTest: false, depthWrite: false }));
+    this.scene.add(this.stamp);
+  }
+
+  private bands: THREE.Mesh[] = [];
+  private backs: THREE.Mesh[] = [];
+  private dim: THREE.Mesh;
+  private stamp: THREE.Mesh;
+  private stampCanvas = document.createElement('canvas');
+  private stampTex: THREE.CanvasTexture;
+
+  /** Place a quad in normalised screen space from CSS px (y down). */
+  private place(m: THREE.Mesh, v: ViewSize, x: number, y: number, w: number, h: number) {
+    m.scale.set(w / v.cssW, h / v.cssH, 1);
+    m.position.set((x + w / 2) / v.cssW, 1 - (y + h / 2) / v.cssH, 0);
+  }
+
+  /** Set a band quad's texture window to design rows [y0, y1). */
+  private bandUv(m: THREE.Mesh, y0: number, y1: number) {
+    const uv = m.geometry.getAttribute('uv') as THREE.BufferAttribute;
+    const v0 = 1 - y1 / HEIGHT;
+    const v1 = 1 - y0 / HEIGHT;
+    // PlaneGeometry uv order: (0,1) (1,1) (0,0) (1,0).
+    uv.setXY(0, 0, v1); uv.setXY(1, 1, v1); uv.setXY(2, 0, v0); uv.setXY(3, 1, v0);
+    uv.needsUpdate = true;
   }
 
   setHeadLocator(fn: (side: Side) => { x: number; y: number }) {
@@ -152,6 +193,32 @@ export class Hud {
     this.canvas.height = Math.round(HEIGHT * this.pxPerLogical);
     this.texture.dispose();
     this.texture.needsUpdate = true;
+    const colW = WIDTH * v.scale;
+    const midH = (BOTTOM_START - TOP_END) * v.scale;
+    this.place(this.bands[0], v, v.offX, 0, colW, v.topH);
+    this.bandUv(this.bands[0], 0, TOP_END);
+    this.place(this.bands[1], v, v.offX, v.midTop, colW, midH);
+    this.bandUv(this.bands[1], TOP_END, BOTTOM_START);
+    this.place(this.bands[2], v, v.offX, v.cssH - v.bottomH, colW, v.bottomH);
+    this.bandUv(this.bands[2], BOTTOM_START, HEIGHT);
+    this.place(this.backs[0], v, 0, 0, v.cssW, v.topH + 10 * v.scale);
+    this.place(this.backs[1], v, 0, v.cssH - v.bottomH, v.cssW, v.bottomH);
+    this.place(this.dim, v, 0, 0, v.cssW, v.cssH);
+    // Version stamp, drawn once at this size.
+    const pr = v.pixelRatio;
+    const sw = 90 * Math.max(1, v.scale);
+    const sh = 14 * Math.max(1, v.scale);
+    this.stampCanvas.width = Math.round(sw * pr);
+    this.stampCanvas.height = Math.round(sh * pr);
+    const sg = this.stampCanvas.getContext('2d')!;
+    sg.setTransform(pr * Math.max(1, v.scale), 0, 0, pr * Math.max(1, v.scale), 0, 0);
+    sg.font = '9px monospace';
+    sg.textBaseline = 'middle';
+    sg.fillStyle = 'rgba(255,255,255,0.28)';
+    sg.fillText(VERSION_STAMP, 4, 8);
+    this.stampTex.dispose();
+    this.stampTex.needsUpdate = true;
+    this.place(this.stamp, v, 0, 0, sw, sh);
   }
 
   resetFight() {
@@ -492,14 +559,15 @@ export class Hud {
     const sy = this.shake > 0 ? (Math.random() - 0.5) * 8 * this.shake : 0;
     g.setTransform(this.pxPerLogical, 0, 0, this.pxPerLogical, sx * this.pxPerLogical, sy * this.pxPerLogical);
     g.textBaseline = 'middle';
+    const panels = !this.title;
+    for (const b of this.backs) b.visible = panels;
+    this.dim.visible = this.logOpen;
     if (this.title) {
       this.drawTitle();
       this.finishFrame();
       return;
     }
-    g.fillStyle = 'rgba(14,11,22,0.88)';
-    g.fillRect(-10, -10, WIDTH + 20, 196);
-    g.fillRect(-10, L.player.panelY, WIDTH + 20, HEIGHT - L.player.panelY + 10);
+    // Panel backgrounds are full-width quads behind the HUD (see resize).
 
     if (this.logOpen && run.combat) this.drawLog(run.combat);
     else if (this.viewerOpen) this.drawViewer(run);
@@ -529,11 +597,6 @@ export class Hud {
       g.fillStyle = `rgba(255,246,210,${(this.superFlash / 0.35) * 0.55})`;
       g.fillRect(-10, -10, WIDTH + 20, HEIGHT + 20);
     }
-    g.setTransform(this.pxPerLogical, 0, 0, this.pxPerLogical, 0, 0);
-    g.font = '9px monospace';
-    g.textAlign = 'left';
-    g.fillStyle = 'rgba(255,255,255,0.28)';
-    g.fillText(VERSION_STAMP, 4, 8);
     this.texture.needsUpdate = true;
   }
 
@@ -542,11 +605,6 @@ export class Hud {
     const t = this.title!;
     const pulse = 0.6 + 0.4 * Math.sin(this.time * 4);
     const g = this.g;
-    const grad = g.createLinearGradient(0, 620, 0, HEIGHT);
-    grad.addColorStop(0, 'rgba(14,11,22,0)');
-    grad.addColorStop(1, 'rgba(14,11,22,0.85)');
-    g.fillStyle = grad;
-    g.fillRect(-10, 620, WIDTH + 20, HEIGHT - 610);
     g.globalAlpha = pulse;
     this.outlined(t.hasSave ? 'TAP TO CONTINUE' : 'TAP TO START', 195, 700, 26, '#ffe08a', 1 + 0.04 * Math.sin(this.time * 4));
     g.globalAlpha = 1;
@@ -566,11 +624,6 @@ export class Hud {
 
   private finishFrame() {
     const g = this.g;
-    g.setTransform(this.pxPerLogical, 0, 0, this.pxPerLogical, 0, 0);
-    g.font = '9px monospace';
-    g.textAlign = 'left';
-    g.fillStyle = 'rgba(255,255,255,0.28)';
-    g.fillText(VERSION_STAMP, 4, 8);
     this.texture.needsUpdate = true;
   }
 
@@ -1107,7 +1160,8 @@ export class Hud {
       this.text(you ? 'YOU' : 'FOE', 18, y + 25, 9, you ? '#7be3a4' : '#ff9a8a', 'left', '900');
       if (e.tile !== 'blank') this.tile({ x: 52, y: y + 4, w: 28, h: 28 }, e.tile, {});
       this.text(this.logAction(e), 88, y + 11, 11, e.tier >= 3 ? '#ffe24a' : '#fff', 'left', '800');
-      this.text(this.logOutcome(e), 88, y + 26, 9.5, e.broke ? '#ffb36b' : '#cfc7d9', 'left', '600');
+      const outcome = this.logOutcome(e);
+      this.text(outcome, 88, y + 26, outcome.length > 50 ? 8 : 9.5, e.broke ? '#ffb36b' : '#cfc7d9', 'left', '600');
     });
     if (!c.log.length) this.text('No actions this fight.', 195, 200, 12, '#a89fbc', 'center');
     const b = this.logButtons();

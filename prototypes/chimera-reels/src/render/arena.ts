@@ -7,7 +7,7 @@ import type { MonsterSpec, Slot } from '../sim/content';
 import { MonsterView } from './monsterView';
 import { AttackFx } from './attackFx';
 import { makeGround, Vfx } from './toon';
-import { HEIGHT, WIDTH } from './view';
+import { HEIGHT, WIDTH, type ViewSize } from './view';
 
 /** Vertical shift (logical px) that lifts the 3D scene into the band between the two HUD panels. */
 const VIEW_SHIFT_Y = 78;
@@ -46,6 +46,7 @@ export class Arena {
     this.scene.background = new THREE.Color(0x1b1629);
     this.camera = new THREE.PerspectiveCamera(30, WIDTH / HEIGHT, 0.1, 100);
     this.camera.setViewOffset(WIDTH, HEIGHT, 0, VIEW_SHIFT_Y, WIDTH, HEIGHT);
+    this.screen = { w: WIDTH, h: HEIGHT };
     this.camera.position.copy(this.camBase);
     this.camera.lookAt(0, 0.6, 0);
     this.scene.add(makeGround([new THREE.Vector2(HOME.player.x, HOME.player.z), new THREE.Vector2(HOME.enemy.x, HOME.enemy.z)]));
@@ -209,7 +210,30 @@ export class Arena {
     }
   }
 
-  /** Logical-space screen position just above a monster's head (for popups). */
+  private screen: { w: number; h: number };
+
+  /**
+   * Frame the arena for this screen: the monsters sit centred in the free band
+   * between the HUD panels, the band shows about ARENA_SPAN world units of
+   * height, and the view is always at least ARENA_MIN_WIDTH wide so both
+   * monsters fit on narrow phones.
+   */
+  setLayout(v: ViewSize) {
+    const ARENA_SPAN = 2.7;
+    const ARENA_MIN_WIDTH = 3.6;
+    const aspect = v.cssW / v.cssH;
+    const bandH = Math.max(1, v.bandBottom - v.bandTop);
+    const dist = this.camBase.distanceTo(new THREE.Vector3(0, 0.6, 0));
+    const visH = Math.max((ARENA_SPAN * v.cssH) / bandH, ARENA_MIN_WIDTH / aspect);
+    this.camera.aspect = aspect;
+    this.camera.fov = (2 * Math.atan(visH / (2 * dist)) * 180) / Math.PI;
+    const bandCenter = (v.bandTop + v.bandBottom) / 2;
+    this.camera.setViewOffset(v.cssW, v.cssH, 0, v.cssH / 2 - bandCenter, v.cssW, v.cssH);
+    this.camera.updateProjectionMatrix();
+    this.screen = { w: v.cssW, h: v.cssH };
+  }
+
+  /** CSS-px screen position just above a monster's head (for popups). */
   headScreen(side: Side): { x: number; y: number } {
     const v = this.views[side];
     const p = new THREE.Vector3();
@@ -218,6 +242,6 @@ export class Arena {
       p.y += 1.9 * MONSTER_SCALE;
     }
     p.project(this.camera);
-    return { x: (p.x * 0.5 + 0.5) * WIDTH, y: (-p.y * 0.5 + 0.5) * HEIGHT };
+    return { x: (p.x * 0.5 + 0.5) * this.screen.w, y: (-p.y * 0.5 + 0.5) * this.screen.h };
   }
 }
