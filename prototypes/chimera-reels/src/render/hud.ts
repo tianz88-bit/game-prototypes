@@ -50,6 +50,7 @@ import { HEIGHT, WIDTH, type ViewSize } from './view';
 import { VERSION_STAMP } from '../version.generated';
 import { sfx } from '../audio/sfx';
 import { drawIcon } from './icons';
+import { fullscreenSupported, isFullscreen } from '../fullscreen';
 
 interface Rect { x: number; y: number; w: number; h: number }
 interface Popup { text: string; x: number; y: number; age: number; color: string; size: number; life: number }
@@ -213,6 +214,7 @@ export class Hud {
   }
 
   private static readonly NEW_RUN: Rect = { x: 115, y: 770, w: 160, h: 40 };
+  private static readonly FULLSCREEN: Rect = { x: 276, y: 14, w: 100, h: 28 };
 
   /** New run from the title replaces a saved run, so it needs a second tap. */
   armNewRun(): boolean {
@@ -226,7 +228,10 @@ export class Hud {
   }
 
   hitTest(x: number, y: number, run: Run): Intent | null {
-    if (this.title) return this.title.hasSave && inside(Hud.NEW_RUN, x, y) ? { type: 'choose', index: 0 } : { type: 'primary' };
+    if (this.title) {
+      if (fullscreenSupported() && inside(Hud.FULLSCREEN, x, y)) return { type: 'fullscreen' };
+      return this.title.hasSave && inside(Hud.NEW_RUN, x, y) ? { type: 'choose', index: 0 } : { type: 'primary' };
+    }
     if (this.logOpen) {
       const b = this.logButtons();
       if (inside(b.prev, x, y)) return { type: 'choose', index: 0 };
@@ -552,6 +557,11 @@ export class Hud {
       this.text(this.newRunArmed > 0 ? 'Tap again: lose save' : 'New run', r.x + r.w / 2, r.y + r.h / 2 + 1, 13, '#fff', 'center', '800');
     }
     if (t.best) this.text(`Best streak ${t.best}`, 195, 830, 11, '#a89fbc', 'center', '700');
+    if (fullscreenSupported()) {
+      const r = Hud.FULLSCREEN;
+      this.button(r, 'fullscreen', 'rgba(255,255,255,0.12)', false);
+      this.text(isFullscreen() ? 'Exit fullscreen' : 'Fullscreen', r.x + r.w / 2, r.y + r.h / 2 + 1, 11, '#fff', 'center', '800');
+    }
   }
 
   private finishFrame() {

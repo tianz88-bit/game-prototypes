@@ -3,6 +3,7 @@ import { Arena } from './render/arena';
 import { Hud } from './render/hud';
 import { TitleScene } from './render/titleScene';
 import { clearRun, hasSavedRun, loadRun, saveRun, savedBest } from './save';
+import { autoFullscreen, toggleFullscreen } from './fullscreen';
 import { fitView, WIDTH, HEIGHT } from './render/view';
 import { bindKeyboard, bindPointer, drainIntents, type Intent } from './input/intents';
 import { burn, execute, pocket, pocketGroups, tick } from './sim/combat';
@@ -74,7 +75,10 @@ window.addEventListener('resize', resize);
 resize();
 
 bindKeyboard(unlockAudio);
-bindPointer(canvas, (x, y) => ({ x: (x / view.cssW) * WIDTH, y: (y / view.cssH) * HEIGHT }), (x, y) => hud.hitTest(x, y, run), unlockAudio);
+bindPointer(canvas, (x, y) => ({ x: (x / view.cssW) * WIDTH, y: (y / view.cssH) * HEIGHT }), (x, y) => hud.hitTest(x, y, run), (e) => {
+  unlockAudio();
+  autoFullscreen(e);
+});
 // Debug "Restart fight": refund the bet and start the same floor again.
 mountDebugPanel(() => {
   if (run.screen !== 'fight') return;
@@ -93,6 +97,10 @@ function startFight() {
 const viewerScreens = ['select', 'prefight', 'loot', 'levelup'];
 
 function applyIntent(intent: Intent) {
+  if (intent.type === 'fullscreen') {
+    toggleFullscreen();
+    return;
+  }
   if (title) {
     if (intent.type === 'choose' && intent.index === 0) {
       if (hud.armNewRun()) startFromTitle(true);

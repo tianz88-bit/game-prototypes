@@ -300,6 +300,12 @@ yield the player retries the same floor if gold covers the bet.
 - Tap to start a new run, or to continue a saved run (the title shows
   the monster, floor and gold). "New run" replaces a save and needs a
   second tap.
+- Fullscreen on phones: the first tap on a touch device asks for
+  fullscreen (browsers require a user gesture); the title screen has a
+  Fullscreen toggle where the browser supports it. iPhone Safari has no
+  fullscreen API for pages, so the page carries home-screen meta tags and
+  a manifest: "Add to Home Screen" launches it full screen. If fullscreen
+  is refused, play continues in the browser window.
 - The run is saved in localStorage (`chimera-reels:save:v1`, one JSON
   blob) whenever the screen changes, at safe points only: prefight,
   loot and level-up. Quitting mid-fight resumes at that floor's prefight

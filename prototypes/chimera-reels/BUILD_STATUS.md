@@ -100,6 +100,11 @@ on a design decision.
   fire stream). Effect anchors are pulled towards the camera and glow
   effects draw on top so the monster meshes do not hide them.
 
+- Fullscreen on mobile: auto request on the first touch, a title-screen
+  toggle, portrait lock attempt, plus home-screen meta tags and a web
+  manifest (display fullscreen) for iPhone. Verified on an emulated
+  Pixel 7 in Chromium; not tested on a real iPhone or Android device.
+
 ## Key technical decisions
 - `computeHit` is a pure function used both for previews and for
   resolution, so the shown damage always matches what lands.
