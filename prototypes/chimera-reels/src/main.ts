@@ -88,7 +88,7 @@ function applyIntent(intent: Intent) {
     return;
   }
   if (hud.viewerOpen) {
-    if (intent.type === 'choose' && intent.index < SLOTS.length) {
+    if (intent.type === 'choose' && intent.index <= SLOTS.length) {
       hud.viewerSlot = intent.index;
       sfx.ui();
     }
@@ -159,7 +159,7 @@ function applyIntent(intent: Intent) {
 function syncArena() {
   if (!viewerScreens.includes(run.screen)) hud.viewerOpen = false;
   if (!hud.logAvailable(run)) hud.logOpen = false;
-  arena.viewer = hud.viewerOpen ? { slot: SLOTS[hud.viewerSlot] } : null;
+  arena.viewer = hud.viewerOpen ? { slot: SLOTS[hud.viewerSlot] ?? null } : null;
   if (run.screen === 'select') arena.setMonsters(starterOptions(run)[hud.selectIndex], null);
   else if (run.screen === 'gameover') arena.setMonsters(null, run.enemy);
   else arena.setMonsters(run.monster, run.enemy);

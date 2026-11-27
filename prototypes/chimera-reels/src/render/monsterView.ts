@@ -1,7 +1,7 @@
 // A chimera assembled from its parts, one group per slot, so a hit, a
 // weakspot highlight or a part break can be shown on the exact part.
 import * as THREE from 'three';
-import { PARTS, SLOTS, type MonsterSpec, type Slot } from '../sim/content';
+import { PARTS, SLOTS, SOULS, type MonsterSpec, type Slot } from '../sim/content';
 import { cbox, cone, cyl, part, sphere, Spring, toon, type PartMesh, type ToonMat } from './toon';
 
 const IVORY = '#f4ead2';
@@ -30,6 +30,7 @@ export class MonsterView {
   private weakSlot: Slot | null = null;
   private highlightGold = false;
   private aimSlot: Slot | null = null;
+  private cores: THREE.Mesh[] = [];
   private shieldBubble: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>;
   private time = Math.random() * 10;
   private springAcc = 0;
@@ -186,6 +187,16 @@ export class MonsterView {
     this.shieldBubble.position.y = legH + 0.4;
     this.shieldBubble.scale.set(1.25, 1, 1);
     this.body.add(this.shieldBubble);
+
+    // Soul core: a glowing gem on both flanks (placeholder), none for Wild.
+    if (spec.soul !== 'wild') {
+      for (const z of [-1, 1]) {
+        const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.13, 0), new THREE.MeshBasicMaterial({ color: SOULS[spec.soul].color }));
+        core.position.set(-0.1, 0.05, z * (bodySize[2] / 2 + 0.04));
+        this.slots.body.add(core);
+        this.cores.push(core);
+      }
+    }
   }
 
   /** The part this turn's hit will land on (cyan outline, shown over the weakspot red). */
@@ -255,6 +266,10 @@ export class MonsterView {
 
   update(dt: number, flyingNow: boolean, hover: number) {
     this.time += dt;
+    for (const c of this.cores) {
+      c.rotation.y = this.time * 1.5;
+      c.scale.setScalar(1 + 0.15 * Math.sin(this.time * 4));
+    }
     // Springs run at a fixed small substep; a large step makes stiff springs blow up.
     this.springAcc = Math.min(this.springAcc + dt, 0.1);
     while (this.springAcc >= SPRING_STEP) {

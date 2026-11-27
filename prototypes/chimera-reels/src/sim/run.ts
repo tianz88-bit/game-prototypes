@@ -42,7 +42,7 @@ export interface Run {
 
 export function newRun(rng: Rng): Run {
   return {
-    randomStarter: randomMonster(rng, 1, 'Random roll'),
+    randomStarter: randomStarter(rng),
     screen: 'select', rng, monster: null, gold: tune.run.startGold, floor: 1, level: 1,
     streak: 0, bestStreak: 0, enemy: null, combat: null, last: null, offers: [], drop: null, gameOverReason: '',
   };
@@ -80,12 +80,17 @@ export function randomMonster(rng: Rng, floor: number, name?: string): MonsterSp
   for (const slot of SLOTS) build[slot] = pickByRarity(rng, PARTS_BY_SLOT[slot], (id) => PARTS[id].rarity, floor);
   return {
     name: name ?? `${NAME_A[pickIndex(rng, NAME_A.length)]}${NAME_B[pickIndex(rng, NAME_B.length)]}`,
-    build, extra: [], palette: PALETTES[pickIndex(rng, PALETTES.length)],
+    soul: 'wild', build, extra: [], palette: PALETTES[pickIndex(rng, PALETTES.length)],
   };
 }
 
+/** The random-roll starter: random common parts with the Adaptive soul. */
+function randomStarter(rng: Rng): MonsterSpec {
+  return { ...randomMonster(rng, 1, 'Random roll'), soul: 'adaptive' };
+}
+
 export function rerollRandomStarter(run: Run) {
-  run.randomStarter = randomMonster(run.rng, 1, 'Random roll');
+  run.randomStarter = randomStarter(run.rng);
 }
 
 /** The 4 starter options: 3 premade plus the random roll. */

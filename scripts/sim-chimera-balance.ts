@@ -79,7 +79,7 @@ export async function main(args: string[]) {
   const floors = [1, 2, 3, 4, 6, 8];
   const starters: MonsterSpec[] = [...STARTERS];
   // A few random-roll starters, averaged as one row.
-  const randoms = Array.from({ length: 10 }, (_, i) => randomMonster(makeRng(900 + i), 1, `Random${i}`));
+  const randoms = Array.from({ length: 10 }, (_, i) => ({ ...randomMonster(makeRng(900 + i), 1, `Random${i}`), soul: 'adaptive' as const }));
   for (const policy of (only ? ['smart'] : ['smart', 'execute']) as Policy[]) {
     console.log(`\n== policy: ${policy}, ${n} fights per cell ==`);
     console.log(['starter'.padEnd(10), ...floors.map((f) => `F${f}`.padStart(15))].join(''));

@@ -52,6 +52,22 @@ placeholder part (owner-approved placeholders, to be redesigned).
 Three premade starters plus a 4th "Random" option that rolls random
 common parts (tap it again to re-roll).
 
+Soul (owner design): every species has a fixed 7th part, its Soul. It
+cannot be swapped, dropped, broken or targeted, and it survives part
+swaps. It adds species stats and one innate ability, and lets starters be
+balanced without changing the shared parts enemies also roll.
+
+| Soul | Species | Innate ability |
+|---|---|---|
+| Tailwind | Skyreave | Executing without spending pocket tiles cuts the next cooldown |
+| Hoarder | Tuskrel | Pocket refunds more cooldown; supers on a weak spot hit harder |
+| Stoneheart | Bulwark | Starts each fight shielded and can hold a bigger shield |
+| Adaptive | Random roll | Small attack, defence and speed boost, no ability |
+| Wild | Enemies | Nothing |
+
+Numbers live in `tune.json` under `souls`. Shown in the parts viewer
+(7th row), on starter cards and as a glowing gem on the model.
+
 Rarity (Common, Rare, Epic) applies to parts and move tiles:
 
 - Rare parts have better stats and more or stronger tiles; Epic parts
