@@ -1,0 +1,10 @@
+{
+  "name": "Wow! Reel Chimeras! (Prep)",
+  "short_name": "Reel Chimeras",
+  "start_url": "/game-prototypes/prototypes/chimera-reels-prep/",
+  "scope": "/game-prototypes/prototypes/chimera-reels-prep/",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#0b0912",
+  "theme_color": "#0b0912"
+}
