@@ -90,6 +90,16 @@ on a design decision.
   strategy sim; F1 Rush / Charge / Utility: Tuskrel 67/72/75,
   Skyreave 72/54/57, Bulwark 57/70/65, Random 69/63/66.
 
+- Renamed to "Wow! Reel Chimeras!" (page title, hub, debug panel,
+  select screen); folder stays `chimera-reels`.
+- 3D title screen with voxel lettering, turntable starters and slot
+  drums; tap to start or continue.
+- Run saving and continue (localStorage `chimera-reels:save:v1`), at
+  prefight, loot and level-up.
+- 3D attack effects per move (fangs, slashes, shockwaves, spikes, horn,
+  fire stream). Effect anchors are pulled towards the camera and glow
+  effects draw on top so the monster meshes do not hide them.
+
 ## Key technical decisions
 - `computeHit` is a pure function used both for previews and for
   resolution, so the shown damage always matches what lands.
@@ -139,6 +149,11 @@ on a design decision.
 - No counter triangle yet; strategies are even rather than cyclic.
 - Part stat changes also change enemies (they roll the same parts), so
   starter-only fixes need starter-only parts.
+
+- Quitting mid-fight and continuing refunds the entry bet (resumes at
+  prefight). Acceptable for a prototype; can be closed later.
+- three.js npm no longer ships typeface fonts, so the title uses a voxel
+  pixel font built in code.
 
 ## Next proposed step
 Owner plays the 3-reel build and tunes (`?debug=1`). Confirm the blank

@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { Arena } from './render/arena';
 import { Hud } from './render/hud';
+import { TitleScene } from './render/titleScene';
+import { clearRun, hasSavedRun, loadRun, saveRun, savedBest } from './save';
 import { fitView, WIDTH, HEIGHT } from './render/view';
 import { bindKeyboard, bindPointer, drainIntents, type Intent } from './input/intents';
 import { burn, execute, pocket, pocketGroups, tick } from './sim/combat';
@@ -30,6 +32,31 @@ hud.setHeadLocator((side) => arena.headScreen(side));
 const params = new URLSearchParams(location.search);
 const seed = Number(params.get('seed')) || Math.floor(Math.random() * 1e9);
 let run: Run = newRun(makeRng(seed));
+/** The 3D title screen; null once a run has started. */
+let title: TitleScene | null = new TitleScene();
+let lastScreen = run.screen;
+
+function refreshTitle() {
+  const save = hasSavedRun() ? loadRun(makeRng(seed)) : null;
+  hud.title = {
+    hasSave: !!save, best: savedBest(), floor: save?.floor ?? 1, gold: save?.gold ?? 0, name: save?.monster?.name ?? '',
+  };
+}
+refreshTitle();
+
+/** Leave the title: continue the saved run, or start fresh. */
+function startFromTitle(fresh: boolean) {
+  if (fresh) {
+    clearRun();
+    run = newRun(makeRng(seed));
+    run.bestStreak = savedBest();
+  } else run = loadRun(makeRng(seed));
+  lastScreen = run.screen;
+  title?.dispose();
+  title = null;
+  hud.title = null;
+  sfx.match(3);
+}
 /** Seconds the KO / yield is shown before the result screen. */
 let endDelay = 0;
 /** Hit-stop: sim and 3D freeze briefly on big impacts. */
@@ -66,6 +93,12 @@ function startFight() {
 const viewerScreens = ['select', 'prefight', 'loot', 'levelup'];
 
 function applyIntent(intent: Intent) {
+  if (title) {
+    if (intent.type === 'choose' && intent.index === 0) {
+      if (hud.armNewRun()) startFromTitle(true);
+    } else if (intent.type === 'primary') startFromTitle(!hud.title?.hasSave);
+    return;
+  }
   const c = run.combat;
   if (intent.type === 'viewer' && viewerScreens.includes(run.screen)) {
     hud.viewerOpen = !hud.viewerOpen;
@@ -151,6 +184,7 @@ function applyIntent(intent: Intent) {
         hud.pressed('wide');
         sfx.ui();
         run = restartRun(run);
+        clearRun();
       }
       break;
   }
@@ -170,6 +204,21 @@ function frame(now: number) {
   const rawDt = Math.min(0.1, (now - last) / 1000);
   last = now;
   for (const intent of drainIntents()) applyIntent(intent);
+  if (title) {
+    title.update(rawDt);
+    hud.update(rawDt, run);
+    hud.draw(run);
+    renderer.clear();
+    renderer.render(title.scene, title.camera);
+    renderer.render(hud.scene, hud.camera);
+    requestAnimationFrame(frame);
+    return;
+  }
+  // Save on every change of screen (safe points only; see save.ts).
+  if (run.screen !== lastScreen) {
+    lastScreen = run.screen;
+    saveRun(run);
+  }
   syncArena();
 
   const c = run.combat;
@@ -208,3 +257,4 @@ requestAnimationFrame(frame);
 
 // Exposed for the Playwright check only.
 (window as unknown as { __chimera: () => Run }).__chimera = () => run;
+

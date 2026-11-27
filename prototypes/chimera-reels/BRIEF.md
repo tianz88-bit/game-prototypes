@@ -1,4 +1,6 @@
-# Chimera Reels (working name)
+# Wow! Reel Chimeras!
+
+Folder and code name: `chimera-reels`.
 
 A 3D monster battler. Players build chimeras from swappable body parts.
 Combat is resolved by each monster's own slot reels: the parts a monster
@@ -290,6 +292,20 @@ yield the player retries the same floor if gold covers the bet.
 - Defeated enemies drop a part that can replace one of yours (later in
   scope order).
 
+## Title screen and saving
+
+- 3D title screen: "WOW! REEL CHIMERAS!" in chunky toon voxel letters
+  (a built-in 5x7 pixel font, no font file), the three starters on a
+  turntable stage, and three spinning slot drums.
+- Tap to start a new run, or to continue a saved run (the title shows
+  the monster, floor and gold). "New run" replaces a save and needs a
+  second tap.
+- The run is saved in localStorage (`chimera-reels:save:v1`, one JSON
+  blob) whenever the screen changes, at safe points only: prefight,
+  loot and level-up. Quitting mid-fight resumes at that floor's prefight
+  with the gold from before the entry bet. Game over clears the run and
+  keeps the best streak.
+
 ## Presentation
 
 - Three.js scene, portrait. One monster in front of each side, reels in
@@ -308,6 +324,11 @@ yield the player retries the same floor if gold covers the bet.
   land, tiles flying between reels and pocket, sparks, hit-stop, screen
   shake and flash on supers, coin shower on payouts. Sounds are
   synthesised placeholders.
+- Attack effects in 3D on the receiver (attacker just lunges): Bite is
+  two rows of fang cones snapping shut, Claw and Rend are glowing
+  slash streaks, Slam a shockwave ring, Quake a ground ring with rock
+  spikes, Gore a horn thrust, Breath and Inferno a stream of fire from
+  the attacker's head. Supers play them bigger, burns smaller.
 - UI is drawn inside the WebGL canvas, not as DOM overlay.
 
 ## Stack

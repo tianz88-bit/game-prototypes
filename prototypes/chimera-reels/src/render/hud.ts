@@ -122,6 +122,9 @@ export class Hud {
   /** Parts viewer state: open flag and the selected slot index. */
   viewerOpen = false;
   viewerSlot = 1;
+  /** Title screen state, set by main. */
+  title: { hasSave: boolean; best: number; floor: number; gold: number; name: string } | null = null;
+  private newRunArmed = 0;
   /** Post-battle combat log state. */
   logOpen = false;
   logPage = 0;
@@ -209,7 +212,21 @@ export class Hud {
     return (run.screen === 'result' || run.screen === 'gameover') && !!run.combat;
   }
 
+  private static readonly NEW_RUN: Rect = { x: 115, y: 770, w: 160, h: 40 };
+
+  /** New run from the title replaces a saved run, so it needs a second tap. */
+  armNewRun(): boolean {
+    if (!this.title?.hasSave || this.newRunArmed > 0) {
+      this.newRunArmed = 0;
+      return true;
+    }
+    this.newRunArmed = 2;
+    sfx.ui();
+    return false;
+  }
+
   hitTest(x: number, y: number, run: Run): Intent | null {
+    if (this.title) return this.title.hasSave && inside(Hud.NEW_RUN, x, y) ? { type: 'choose', index: 0 } : { type: 'primary' };
     if (this.logOpen) {
       const b = this.logButtons();
       if (inside(b.prev, x, y)) return { type: 'choose', index: 0 };
@@ -442,6 +459,7 @@ export class Hud {
     this.superStamp = Math.max(0, this.superStamp - dt);
     this.shake = Math.max(0, this.shake - dt);
     this.yieldArmed = Math.max(0, this.yieldArmed - dt);
+    this.newRunArmed = Math.max(0, this.newRunArmed - dt);
     const c = run.combat;
     if (run.screen === 'fight' && c) {
       const f = c.fighters.player;
@@ -469,6 +487,11 @@ export class Hud {
     const sy = this.shake > 0 ? (Math.random() - 0.5) * 8 * this.shake : 0;
     g.setTransform(this.pxPerLogical, 0, 0, this.pxPerLogical, sx * this.pxPerLogical, sy * this.pxPerLogical);
     g.textBaseline = 'middle';
+    if (this.title) {
+      this.drawTitle();
+      this.finishFrame();
+      return;
+    }
     g.fillStyle = 'rgba(14,11,22,0.88)';
     g.fillRect(-10, -10, WIDTH + 20, 196);
     g.fillRect(-10, L.player.panelY, WIDTH + 20, HEIGHT - L.player.panelY + 10);
@@ -501,6 +524,38 @@ export class Hud {
       g.fillStyle = `rgba(255,246,210,${(this.superFlash / 0.35) * 0.55})`;
       g.fillRect(-10, -10, WIDTH + 20, HEIGHT + 20);
     }
+    g.setTransform(this.pxPerLogical, 0, 0, this.pxPerLogical, 0, 0);
+    g.font = '9px monospace';
+    g.textAlign = 'left';
+    g.fillStyle = 'rgba(255,255,255,0.28)';
+    g.fillText(VERSION_STAMP, 4, 8);
+    this.texture.needsUpdate = true;
+  }
+
+  /** Title overlay: the 3D title scene carries the art, this adds the prompts. */
+  private drawTitle() {
+    const t = this.title!;
+    const pulse = 0.6 + 0.4 * Math.sin(this.time * 4);
+    const g = this.g;
+    const grad = g.createLinearGradient(0, 620, 0, HEIGHT);
+    grad.addColorStop(0, 'rgba(14,11,22,0)');
+    grad.addColorStop(1, 'rgba(14,11,22,0.85)');
+    g.fillStyle = grad;
+    g.fillRect(-10, 620, WIDTH + 20, HEIGHT - 610);
+    g.globalAlpha = pulse;
+    this.outlined(t.hasSave ? 'TAP TO CONTINUE' : 'TAP TO START', 195, 700, 26, '#ffe08a', 1 + 0.04 * Math.sin(this.time * 4));
+    g.globalAlpha = 1;
+    if (t.hasSave) {
+      this.text(`${t.name}  ·  Floor ${t.floor}  ·  ${t.gold} gold`, 195, 734, 12, '#cfc7d9', 'center', '700');
+      const r = Hud.NEW_RUN;
+      this.button(r, 'newrun', this.newRunArmed > 0 ? '#e2574c' : 'rgba(255,255,255,0.12)', false);
+      this.text(this.newRunArmed > 0 ? 'Tap again: lose save' : 'New run', r.x + r.w / 2, r.y + r.h / 2 + 1, 13, '#fff', 'center', '800');
+    }
+    if (t.best) this.text(`Best streak ${t.best}`, 195, 830, 11, '#a89fbc', 'center', '700');
+  }
+
+  private finishFrame() {
+    const g = this.g;
     g.setTransform(this.pxPerLogical, 0, 0, this.pxPerLogical, 0, 0);
     g.font = '9px monospace';
     g.textAlign = 'left';
@@ -864,7 +919,7 @@ export class Hud {
   }
 
   private drawSelect(run: Run) {
-    this.outlined('CHIMERA REELS', 195, 48, 30, '#ffe08a');
+    this.outlined('WOW! REEL CHIMERAS!', 195, 48, 26, '#ffe08a');
     this.text('Pick a starter chimera', 195, 86, 14, '#cfc7d9', 'center', '700');
     if (run.bestStreak) this.text(`Best streak: ${run.bestStreak}`, 195, 108, 12, '#ffe08a', 'center', '700');
     this.text('WHAT hits WHERE, HOW. Execute fires the middle row.', 195, 140, 11, '#a89fbc', 'center');
