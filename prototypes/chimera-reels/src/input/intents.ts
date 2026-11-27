@@ -6,6 +6,7 @@
 //   choose    = pick option `index` (starter, level-up tile)
 //   yield     = give up the current fight (asks for a second tap)
 //   viewer    = open or close the parts viewer
+//   fullscreen = toggle fullscreen (title screen)
 //   log       = open or close the post-battle combat log
 //   pause     = reserved, not used yet
 export type Intent =
@@ -15,6 +16,7 @@ export type Intent =
   | { type: 'choose'; index: number }
   | { type: 'yield' }
   | { type: 'viewer' }
+  | { type: 'fullscreen' }
   | { type: 'log' }
   | { type: 'pause' };
 
@@ -55,10 +57,10 @@ export function bindPointer(
   el: HTMLElement,
   toLogical: (x: number, y: number) => { x: number; y: number },
   hitTest: (x: number, y: number) => Intent | null,
-  onAny: () => void,
+  onAny: (e: PointerEvent) => void,
 ) {
   el.addEventListener('pointerdown', (e) => {
-    onAny();
+    onAny(e);
     const r = el.getBoundingClientRect();
     const p = toLogical(e.clientX - r.left, e.clientY - r.top);
     const intent = hitTest(p.x, p.y);
