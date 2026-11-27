@@ -27,6 +27,13 @@ export interface ViewSize {
   /** CSS px height of the top and bottom HUD bands. */
   topH: number;
   bottomH: number;
+  /**
+   * Scale and left edge of the bottom (player) band. On short screens it is
+   * larger than `scale`, so the buttons, reels and pocket stay big; the
+   * arena gap gives up the space.
+   */
+  bottomScale: number;
+  bottomOffX: number;
   /** CSS px top of the middle HUD band (centred in the gap). */
   midTop: number;
   /** The free band between the panels, where the arena is framed (CSS px). */
@@ -43,13 +50,20 @@ export function fitView(): ViewSize {
   const cssH = window.innerHeight;
   const scale = Math.min(cssW / WIDTH, cssH / HEIGHT);
   const topH = TOP_END * scale;
-  const bottomH = (HEIGHT - BOTTOM_START) * scale;
+  // Player panel: as big as the width allows, keeping at least MIN_GAP of
+  // the screen height for the arena and at most MAX_BOOST times the base scale.
+  const MIN_GAP = 0.24;
+  const MAX_BOOST = 1.3;
+  const byHeight = (cssH * (1 - MIN_GAP) - topH) / (HEIGHT - BOTTOM_START);
+  const bottomScale = Math.max(scale, Math.min(cssW / WIDTH, byHeight, scale * MAX_BOOST));
+  const bottomH = (HEIGHT - BOTTOM_START) * bottomScale;
   const midH = (BOTTOM_START - TOP_END) * scale;
   const gap = cssH - topH - bottomH;
   return {
     cssW, cssH, scale, pixelRatio: pixelRatio(),
     offX: (cssW - WIDTH * scale) / 2,
-    topH, bottomH,
+    topH, bottomH, bottomScale,
+    bottomOffX: (cssW - WIDTH * bottomScale) / 2,
     midTop: topH + (gap - midH) / 2,
     bandTop: topH,
     bandBottom: cssH - bottomH,
@@ -60,7 +74,7 @@ export function fitView(): ViewSize {
 export function screenToDesign(v: ViewSize, x: number, y: number): { x: number; y: number } {
   const dx = (x - v.offX) / v.scale;
   if (y < v.topH) return { x: dx, y: y / v.scale };
-  if (y >= v.cssH - v.bottomH) return { x: dx, y: BOTTOM_START + (y - (v.cssH - v.bottomH)) / v.scale };
+  if (y >= v.cssH - v.bottomH) return { x: (x - v.bottomOffX) / v.bottomScale, y: BOTTOM_START + (y - (v.cssH - v.bottomH)) / v.bottomScale };
   return { x: dx, y: TOP_END + (y - v.midTop) / v.scale };
 }
 
