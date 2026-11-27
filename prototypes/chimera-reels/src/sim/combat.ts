@@ -17,6 +17,7 @@ import {
   type MonsterSpec,
   type MoveId,
   type PartId,
+  type SoulId,
   type ReelIndex,
   type Slot,
   type TileId,
@@ -53,6 +54,7 @@ export interface Fighter {
   side: Side;
   name: string;
   spec: MonsterSpec;
+  soul: SoulId;
   hp: number;
   maxHp: number;
   shield: number;
@@ -129,6 +131,8 @@ export interface Combat {
 export const other = (s: Side): Side => (s === 'player' ? 'enemy' : 'player');
 
 type PartStats = { hp: number; speed: number; atk: number; def: number; weak: number; pocket?: number; shield?: number };
+type SoulStats = { hp: number; atk: number; def: number; speed: number; shield: number; pocket: number } & Record<string, number>;
+export const soulStats = (id: SoulId) => tune.souls[id] as SoulStats;
 const statsOf = (id: PartId) => tune.parts.stats[id] as PartStats;
 
 // ---------------------------------------------------------------- building
@@ -163,6 +167,14 @@ export function makeFighter(side: Side, spec: MonsterSpec, scale: FighterScale =
     for (const t of PARTS[id].startPocket ?? []) pocket.push({ id: t, part: index });
   });
   pocket.sort(pocketOrder);
+  // The Soul: species stats on top of the parts.
+  const soul = soulStats(spec.soul);
+  hp += soul.hp;
+  stats.speed += soul.speed;
+  stats.atk += soul.atk;
+  stats.def += soul.def;
+  shieldMult += soul.shield;
+  pocketSize += soul.pocket;
   hp = Math.round(hp * scale.hp);
   stats.atk *= scale.atk;
   const breakMult = tune.armour[armour].breakMult;
@@ -172,7 +184,9 @@ export function makeFighter(side: Side, spec: MonsterSpec, scale: FighterScale =
     return { id, slot, zone: SLOT_ZONE[slot], hp: maxHp, maxHp, broken: false, weak: statsOf(id).weak };
   });
   return {
-    side, name: spec.name, spec, hp, maxHp: hp, shield: 0, shieldMult: Math.max(0.2, shieldMult),
+    side, name: spec.name, spec, soul: spec.soul, hp, maxHp: hp,
+    // Stoneheart: starts each fight shielded.
+    shield: Math.round(hp * (soul.startShieldPct ?? 0)), shieldMult: Math.max(0.2, shieldMult),
     stats, armour, parts, strips: [[], [], []], reelPos: [0, 0, 0],
     cooldown: tune.timing.baseCooldownSec * (side === 'player' ? 0.35 : 0.55),
     quickBank: 0, spinLeft: 0, spinTotal: 0, tease: false, landed: false, pocket, pocketSize, aiWait: 0,
@@ -294,7 +308,7 @@ export function fragility(f: Fighter): number {
 }
 
 export function shieldCap(f: Fighter): number {
-  return Math.round(f.maxHp * tune.shield.capPct);
+  return Math.round(f.maxHp * (tune.shield.capPct + (soulStats(f.soul).capBonus ?? 0)));
 }
 
 export function partForZone(f: Fighter, zone: ZoneId): number {
@@ -306,7 +320,7 @@ export interface HitCalc { damage: number; toShield: number; toHp: number; part:
 
 /** Exact damage of a move at a zone. Pure: used for both previews and resolution. */
 /** `pierce` (0..1) is the share of the defender's shield a hit ignores (supers). */
-export function computeHit(attacker: Fighter, defender: Fighter, move: MoveId, zone: ZoneId, mult: number, pierce = 0): HitCalc {
+export function computeHit(attacker: Fighter, defender: Fighter, move: MoveId, zone: ZoneId, mult: number, pierce = 0, isSuper = false): HitCalc {
   const resist = tune.armour[defender.armour][MOVES[move].dmg];
   const part = partForZone(defender, zone);
   const weak = part === weakspot(defender);
@@ -314,6 +328,8 @@ export function computeHit(attacker: Fighter, defender: Fighter, move: MoveId, z
   const reduce = Math.min(tune.combat.holdReduceCap, held * tune.combat.holdReducePerTile);
   let dmg = (tune.moves[move] as { power: number }).power * mult * attacker.stats.atk * resist;
   if (weak) dmg *= tune.parts.weakspotMult;
+  // Hoarder: supers on a weak spot hit harder.
+  if (weak && isSuper) dmg *= 1 + (soulStats(attacker.soul).superWeakBonus ?? 0);
   dmg *= (1 + fragility(defender)) * (1 - reduce) / Math.max(0.3, defender.stats.def);
   const damage = Math.max(1, Math.round(dmg));
   const toShield = Math.min(Math.round(defender.shield * (1 - pierce)), damage);
@@ -336,7 +352,7 @@ export function previewExecute(c: Combat, side: Side): Preview | null {
   const m = executeMatches(f);
   if (!isMove(m.move) || !isTarget(m.target)) return null;
   const zone = zoneOf(m.target);
-  return { move: m.move, zone, tier: m.tier, hit: computeHit(f, c.fighters[other(side)], m.move, zone, lineMult(m), superPierce(m.tier)) };
+  return { move: m.move, zone, tier: m.tier, hit: computeHit(f, c.fighters[other(side)], m.move, zone, lineMult(m), superPierce(m.tier), m.tier >= 3) };
 }
 
 /** Damage of burning `n` target tiles at a zone: flat, soaked by shields like any hit. */
@@ -442,9 +458,9 @@ function newEntry(c: Combat, side: Side, kind: LogEntry['kind'], tile: TileId): 
 /** Share of shield a super ignores (`combat.superShieldPierce`, 0 = none). */
 const superPierce = (tier: number) => (tier >= 3 ? tune.combat.superShieldPierce : 0);
 
-function applyHit(c: Combat, attacker: Fighter, move: MoveId, zone: ZoneId, mult: number, log: LogEntry, pierce = 0) {
+function applyHit(c: Combat, attacker: Fighter, move: MoveId, zone: ZoneId, mult: number, log: LogEntry, pierce = 0, isSuper = false) {
   const target = c.fighters[other(attacker.side)];
-  landHit(c, target, computeHit(attacker, target, move, zone, mult, pierce), zone, log);
+  landHit(c, target, computeHit(attacker, target, move, zone, mult, pierce, isSuper), zone, log);
 }
 
 /** Damage after shields, then knock-out and part break. Shared by attacks and target burns. */
@@ -482,8 +498,12 @@ function landHit(c: Combat, target: Fighter, h: HitCalc, zone: ZoneId, log: LogE
  */
 function applyQuick(f: Fighter, stack: number) {
   const cuts = tune.mutators.quick.cooldownCut;
-  const cut = cuts[Math.min(cuts.length, Math.max(1, stack)) - 1];
-  f.cooldown -= tune.timing.baseCooldownSec * cut;
+  cutCooldown(f, cuts[Math.min(cuts.length, Math.max(1, stack)) - 1]);
+}
+
+/** Cut the next cooldown by a share of the base; anything past zero carries over. */
+function cutCooldown(f: Fighter, share: number) {
+  f.cooldown -= tune.timing.baseCooldownSec * share;
   if (f.cooldown < 0) {
     f.quickBank += -f.cooldown;
     f.cooldown = 0;
@@ -521,6 +541,9 @@ export function execute(c: Combat, side: Side): boolean {
   const mutStack = 1 + m.mutMatches * tune.combat.mutatorMatchBonus;
   if (m.mut === 'shield') log.shieldGain = gainShield(c, f, tune.shield.perTile * f.shieldMult * mutStack);
   if (m.mut === 'quick') applyQuick(f, 1 + m.mutMatches);
+  // Tailwind: firing without spending pocket tiles keeps the tempo up.
+  const tail = soulStats(f.soul).cooldownCut ?? 0;
+  if (tail && consumed.length === 0) cutCooldown(f, tail);
   if (isMove(m.move)) {
     if (!isTarget(m.target)) {
       log.miss = 'no target';
@@ -528,7 +551,7 @@ export function execute(c: Combat, side: Side): boolean {
     } else {
       const zone = zoneOf(m.target);
       c.events.push({ type: 'action', side, move: m.move, tier: m.tier, isSuper: m.tier >= 3, burn: false, zone, consumed });
-      applyHit(c, f, m.move, zone, lineMult(m), log, superPierce(m.tier));
+      applyHit(c, f, m.move, zone, lineMult(m), log, superPierce(m.tier), m.tier >= 3);
     }
   } else {
     log.miss = 'whiff';
@@ -553,7 +576,9 @@ export function pocket(c: Combat, side: Side): boolean {
   const stored = added.map((a) => ({ id: a.tile.id, from: a.from, to: stackIndex(f, a.tile.id), tile: a.tile }));
   c.events.push({ type: 'pocket', side, stored, discarded });
   // Optional tempo refund for pocketing (`pocket.cooldownRefund`, 0 = none).
-  f.cooldown = Math.max(0, f.cooldown - tune.timing.baseCooldownSec * tune.pocket.cooldownRefund);
+  // Hoarder doubles the refund.
+  const refund = tune.pocket.cooldownRefund * (soulStats(f.soul).refundMult ?? 1);
+  f.cooldown = Math.max(0, f.cooldown - tune.timing.baseCooldownSec * refund);
   f.landed = false;
   return true;
 }

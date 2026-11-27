@@ -33,6 +33,7 @@ import {
   reelOf,
   SLOT_ZONE,
   SLOTS,
+  SOULS,
   STARTERS,
   tileLabel,
   tileRarity,
@@ -190,7 +191,7 @@ export class Hud {
   }
 
   private viewerRow(i: number): Rect {
-    return { x: 16, y: 518 + i * 34, w: 150, h: 30 };
+    return { x: 16, y: 516 + i * 31, w: 150, h: 28 };
   }
 
   // ------------------------------------------------------------ input
@@ -218,7 +219,7 @@ export class Hud {
     if (this.logAvailable(run) && inside(L.parts, x, y)) return { type: 'log' };
     if (this.viewerAvailable(run) && inside(L.parts, x, y)) return { type: 'viewer' };
     if (this.viewerOpen) {
-      for (let i = 0; i < SLOTS.length; i++) if (inside(this.viewerRow(i), x, y)) return { type: 'choose', index: i };
+      for (let i = 0; i <= SLOTS.length; i++) if (inside(this.viewerRow(i), x, y)) return { type: 'choose', index: i };
       return inside(L.wide, x, y) ? { type: 'viewer' } : null;
     }
     switch (run.screen) {
@@ -878,6 +879,7 @@ export class Hud {
       this.rr({ x: r.x + 15, y: r.y + 8, w: 9, h: 9 }, 5, s.palette.part);
       this.text(random ? 'Random' : s.name, r.x + 28, r.y + 16, 11, '#fff', 'left', '800');
       partNames(s).forEach((n, k) => this.text(n.replace(' body', '').replace(' head', '').replace(' legs', ''), r.x + 6, r.y + 40 + k * 17, 9.5, this.rarityName(s.build[SLOTS[k]])));
+      this.text(`Soul: ${SOULS[s.soul].name}`, r.x + 6, r.y + 148, 8.5, SOULS[s.soul].color, 'left', '900');
       if (random) this.text(sel ? 'tap again to re-roll' : 'random parts', r.x + r.w / 2, r.y + r.h - 12, 9, '#ffe08a', 'center', '700');
     });
     const chosen = opts[this.selectIndex];
@@ -892,7 +894,7 @@ export class Hud {
     this.text('Enemy', 374, 26, 11, '#8a82a0', 'right');
     const m = run.monster!;
     this.text(m.name, 16, 494, 16, '#fff', 'left', '900');
-    this.text(`Level ${run.level}`, 16, 516, 12, '#ffe08a', 'left', '800');
+    this.text(`Level ${run.level}   Soul: ${SOULS[m.soul].name}`, 16, 516, 12, '#ffe08a', 'left', '800');
     const stats: [string, string][] = [
       ['Gold', `${run.gold}`], ['Entry bet', `${entryBet(run)}`], ['Win pays', `${Math.round(entryBet(run) * tune.run.payoutMult)}`], ['Streak', `${run.streak}`],
     ];
@@ -1063,8 +1065,9 @@ export class Hud {
     if (!spec) return;
     this.outlined(spec.name, 195, 48, 26, '#ffe08a');
     this.text('Parts viewer: tap a part to inspect it', 195, 86, 12, '#cfc7d9', 'center', '700');
-    let hp = 0;
-    let spd = 0;
+    const soul = tune.souls[spec.soul] as Record<string, number>;
+    let hp = soul.hp;
+    let spd = soul.speed;
     for (const s of SLOTS) {
       const st = tune.parts.stats[spec.build[s]] as Record<string, number>;
       hp += st.hp ?? 0;
@@ -1077,8 +1080,35 @@ export class Hud {
       const sel = i === this.viewerSlot;
       this.rr(r, 8, sel ? 'rgba(255,224,138,0.18)' : 'rgba(255,255,255,0.05)', sel ? '#ffe08a' : this.rarityName(id), sel ? 2 : 1);
       this.text(slot.toUpperCase(), r.x + 8, r.y + 10, 8, '#8a82a0', 'left', '800');
-      this.text(PARTS[id].name, r.x + 8, r.y + 21, 11, this.rarityName(id), 'left', '800');
+      this.text(PARTS[id].name, r.x + 8, r.y + 20, 11, this.rarityName(id), 'left', '800');
     });
+    // The Soul: a fixed 7th row.
+    const sr = this.viewerRow(SLOTS.length);
+    const sd = SOULS[spec.soul];
+    const soulSel = this.viewerSlot === SLOTS.length;
+    this.rr(sr, 8, soulSel ? 'rgba(255,224,138,0.18)' : 'rgba(255,255,255,0.05)', soulSel ? '#ffe08a' : sd.color, soulSel ? 2 : 1.5);
+    this.text('SOUL', sr.x + 8, sr.y + 9, 8, '#8a82a0', 'left', '800');
+    this.text(sd.name, sr.x + 8, sr.y + 20, 11, sd.color, 'left', '900');
+    if (soulSel) {
+      const x = 180;
+      this.text(`${sd.name} soul`, x, 528, 15, sd.color, 'left', '900');
+      this.text('FIXED: cannot be hit, broken or swapped', x, 548, 9.5, '#8a82a0', 'left', '800');
+      const words = sd.ability.split(' ');
+      let line = '';
+      let row = 0;
+      for (const w of words) {
+        if ((line + ' ' + w).length > 30) {
+          this.text(line, x, 570 + row * 14, 10, '#fff', 'left', '700');
+          line = w;
+          row++;
+        } else line = line ? `${line} ${w}` : w;
+      }
+      if (line) this.text(line, x, 570 + row * 14, 10, '#fff', 'left', '700');
+      const bits = (['hp', 'atk', 'def', 'speed', 'shield', 'pocket'] as const).filter((k) => soul[k]).map((k) => `${k.toUpperCase()} +${soul[k]}`);
+      bits.forEach((b, i) => this.text(b, x, 630 + i * 13, 9.5, '#cfc7d9', 'left'));
+      this.bigButton('CLOSE', '', 'rgba(255,224,138,0.85)');
+      return;
+    }
     const id = spec.build[SLOTS[this.viewerSlot]];
     const def = PARTS[id];
     const x = 180;

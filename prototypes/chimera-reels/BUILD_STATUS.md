@@ -83,6 +83,13 @@ on a design decision.
   67/69/75, Skyreave 38/43/43, Bulwark 43/60/48, Random 58/49/56. Mirror
   matches between strategies all 52-56%.
 
+- Soul part (owner design): fixed 7th part per species with stats and an
+  innate ability; enemies get Wild (no bonus), the random starter gets
+  Adaptive. Skyreave's damage buff moved from the shared Stalker, Crest
+  and Wings parts into its Tailwind soul. Soul values tuned with the
+  strategy sim; F1 Rush / Charge / Utility: Tuskrel 67/72/75,
+  Skyreave 72/54/57, Bulwark 57/70/65, Random 69/63/66.
+
 ## Key technical decisions
 - `computeHit` is a pure function used both for previews and for
   resolution, so the shown damage always matches what lands.
@@ -126,8 +133,8 @@ on a design decision.
 - Skyreave damage raised (owner request): Stalker atk 1.15, Crest atk
   +0.15, Wings atk +0.1. Sim F1 Rush / Charge / Utility: Skyreave
   66/54/61, Tuskrel 61/63/63, Bulwark 33/48/36, Random 55/49/56.
-- Bulwark is now well under target: enemies with Stalker, Crest or Wings
-  hit harder too. Needs starter-only parts or a Bulwark-specific buff.
+- Starter balance now goes through Souls, so enemies are unaffected.
+  Skyreave's second strategy (Utility, 57%) is a little under target.
 - Bulwark now slightly under target after the nerf.
 - No counter triangle yet; strategies are even rather than cyclic.
 - Part stat changes also change enemies (they roll the same parts), so

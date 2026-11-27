@@ -155,7 +155,7 @@ const pct = (t: Tally) => `${Math.round((100 * t.wins) / t.fights)}%`;
 export async function main(args: string[]) {
   const n = Number(args[0]) || 300;
   if (process.env.TUNE_PATCH) patchTune(tune as unknown as Record<string, unknown>, JSON.parse(process.env.TUNE_PATCH));
-  const randoms = Array.from({ length: 12 }, (_, i) => randomMonster(makeRng(700 + i), 1, `R${i}`));
+  const randoms = Array.from({ length: 12 }, (_, i) => ({ ...randomMonster(makeRng(700 + i), 1, `R${i}`), soul: 'adaptive' as const }));
   const rows: [string, MonsterSpec[]][] = [...STARTERS.map((s) => [s.name, [s]] as [string, MonsterSpec[]]), ['Random', randoms]];
 
   console.log(`\n1) Starter x strategy vs floor-1 enemies (built-in AI), ${n} fights per cell`);

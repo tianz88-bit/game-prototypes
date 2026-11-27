@@ -66,6 +66,9 @@ async function waitFor(page, pred, what, tries = 150) {
   await page.mouse.click(90, 535 + 34 * 2); // inspect limbs
   await page.waitForTimeout(900);
   await shot(page, 'chimera-viewer.png');
+  await page.mouse.click(90, 716); // inspect the Soul row
+  await page.waitForTimeout(300);
+  await shot(page, 'chimera-viewer-soul.png');
   await page.mouse.click(337, 493); // close viewer
   await page.waitForTimeout(200);
   await shot(page, 'chimera-select.png');

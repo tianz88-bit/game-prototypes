@@ -126,8 +126,28 @@ for (const s of SLOTS) PARTS_BY_SLOT[s] = (Object.keys(PARTS) as PartId[]).filte
 
 export type Build = Record<Slot, PartId>;
 
+// ------------------------------------------------------------------ souls
+
+/**
+ * The Soul is a species' fixed 7th part: never swapped, dropped, broken or
+ * targeted. It adds stats (tune.json `souls`) and one innate ability.
+ */
+export type SoulId = 'tailwind' | 'hoarder' | 'stoneheart' | 'adaptive' | 'wild';
+
+export interface SoulDef { name: string; ability: string; color: string }
+
+export const SOULS: Record<SoulId, SoulDef> = {
+  tailwind: { name: 'Tailwind', ability: 'Executing without spending pocket tiles cuts the next cooldown.', color: '#9fe3ff' },
+  hoarder: { name: 'Hoarder', ability: 'Pocket refunds double cooldown; supers on a weak spot hit harder.', color: '#ffd66b' },
+  stoneheart: { name: 'Stoneheart', ability: 'Starts each fight shielded, and can hold a bigger shield.', color: '#c9b8ff' },
+  adaptive: { name: 'Adaptive', ability: 'No ability: a small boost to attack, defence and speed.', color: '#9cf2c8' },
+  wild: { name: 'Wild', ability: 'No soul bonus.', color: '#8a82a0' },
+};
+
 export interface MonsterSpec {
   name: string;
+  /** Species soul; enemies are Wild. */
+  soul: SoulId;
   build: Build;
   /** Tiles added by level-up choices, on top of what the parts give. */
   extra: TileId[];
@@ -137,16 +157,19 @@ export interface MonsterSpec {
 export const STARTERS: MonsterSpec[] = [
   {
     name: 'Tuskrel',
+    soul: 'hoarder',
     build: { body: 'brute', head: 'tusk', limbs: 'claws', legs: 'striders', skin: 'hide', aux: 'spines' },
     extra: [], palette: { body: '#3fae8c', part: '#ffd66b' },
   },
   {
     name: 'Skyreave',
+    soul: 'tailwind',
     build: { body: 'stalker', head: 'crest', limbs: 'wings', legs: 'striders', skin: 'fur', aux: 'pouch' },
     extra: [], palette: { body: '#6a72e8', part: '#ff8fb8' },
   },
   {
     name: 'Bulwark',
+    soul: 'stoneheart',
     build: { body: 'brute', head: 'maw', limbs: 'fists', legs: 'stumps', skin: 'shell', aux: 'tailclub' },
     extra: [], palette: { body: '#d07a3a', part: '#7fe0ff' },
   },
