@@ -122,6 +122,8 @@ export interface Combat {
   /** Seconds of fight time so far. */
   time: number;
   log: LogEntry[];
+  /** When false the built-in enemy AI is off (headless sims drive both sides). */
+  enemyAi: boolean;
 }
 
 export const other = (s: Side): Side => (s === 'player' ? 'enemy' : 'player');
@@ -216,7 +218,7 @@ function buildStrips(c: Combat, f: Fighter) {
 }
 
 export function createCombat(player: Fighter, enemy: Fighter, rng: Rng): Combat {
-  const c: Combat = { fighters: { player, enemy }, winner: null, events: [], rng, time: 0, log: [] };
+  const c: Combat = { fighters: { player, enemy }, winner: null, events: [], rng, time: 0, log: [], enemyAi: true };
   buildStrips(c, player);
   buildStrips(c, enemy);
   return c;
@@ -653,7 +655,7 @@ export function tick(c: Combat, dt: number) {
 
 function enemyThink(c: Combat, dt: number) {
   const f = c.fighters.enemy;
-  if (!f.landed || c.winner) return;
+  if (!c.enemyAi || !f.landed || c.winner) return;
   f.aiWait += dt;
   if (f.aiWait < tune.timing.aiThinkSec) return;
   const m = executeMatches(f);
