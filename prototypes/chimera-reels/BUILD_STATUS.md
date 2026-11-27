@@ -105,6 +105,14 @@ on a design decision.
   manifest (display fullscreen) for iPhone. Verified on an emulated
   Pixel 7 in Chromium; not tested on a real iPhone or Android device.
 
+- Responsive layout for phone aspects and foldable inner screens: full
+  window canvas, HUD composited as three bands (top/middle/bottom) with
+  full-width panel backgrounds, version stamp pinned to the screen's top
+  left, arena and title cameras re-framed per screen shape. Checked at
+  390x844, 412x915 (20:9), 360x840 (21:9), 360x640 (16:9), 375x667
+  (iPhone SE), 412x1004, 884x1104 and 1104x884 (foldable inner) in
+  headless Chromium; taps verified at four of those sizes.
+
 ## Key technical decisions
 - `computeHit` is a pure function used both for previews and for
   resolution, so the shown damage always matches what lands.

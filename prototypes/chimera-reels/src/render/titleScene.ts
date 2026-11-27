@@ -6,7 +6,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { STARTERS } from '../sim/content';
 import { MonsterView } from './monsterView';
 import { cbox, makeGround, part, toon, Vfx } from './toon';
-import { HEIGHT, WIDTH } from './view';
+import { HEIGHT, WIDTH, type ViewSize } from './view';
 
 const FONT: Record<string, string[]> = {
   W: ['10001', '10001', '10001', '10101', '10101', '11011', '10001'],
@@ -105,6 +105,16 @@ export class TitleScene {
         part(cbox(1.2, 0.62, 0.2, 0.06), toon(colors[(i + d * 3) % colors.length], { gloss: 50, spec: 0.7 }), drum, [Math.cos(a) * 1.05, 0, Math.sin(a) * 1.05], [0, -a + Math.PI / 2, 0], 1);
       });
     }
+  }
+
+  /** Fit any screen shape: keep the title's height, widen the view on narrow phones. */
+  setLayout(v: ViewSize) {
+    const aspect = v.cssW / v.cssH;
+    const baseVisH = 2 * 15 * Math.tan((34 * Math.PI) / 360);
+    const visH = Math.max(baseVisH, 4.9 / aspect);
+    this.camera.aspect = aspect;
+    this.camera.fov = (2 * Math.atan(visH / 30) * 180) / Math.PI;
+    this.camera.updateProjectionMatrix();
   }
 
   dispose() {

@@ -4,7 +4,7 @@ import { Hud } from './render/hud';
 import { TitleScene } from './render/titleScene';
 import { clearRun, hasSavedRun, loadRun, saveRun, savedBest } from './save';
 import { autoFullscreen, toggleFullscreen } from './fullscreen';
-import { fitView, WIDTH, HEIGHT } from './render/view';
+import { arenaToDesign, fitView, screenToDesign } from './render/view';
 import { bindKeyboard, bindPointer, drainIntents, type Intent } from './input/intents';
 import { burn, execute, pocket, pocketGroups, tick } from './sim/combat';
 import { SLOTS, STARTERS } from './sim/content';
@@ -28,7 +28,10 @@ canvas.style.touchAction = 'none';
 
 const arena = new Arena();
 const hud = new Hud();
-hud.setHeadLocator((side) => arena.headScreen(side));
+hud.setHeadLocator((side) => {
+  const p = arena.headScreen(side);
+  return arenaToDesign(view, p.x, p.y);
+});
 
 const params = new URLSearchParams(location.search);
 const seed = Number(params.get('seed')) || Math.floor(Math.random() * 1e9);
@@ -68,14 +71,15 @@ function resize() {
   view = fitView();
   renderer.setPixelRatio(view.pixelRatio);
   renderer.setSize(view.cssW, view.cssH);
-  canvas.style.marginTop = `${Math.floor((window.innerHeight - view.cssH) / 2)}px`;
   hud.resize(view);
+  arena.setLayout(view);
+  title?.setLayout(view);
 }
 window.addEventListener('resize', resize);
 resize();
 
 bindKeyboard(unlockAudio);
-bindPointer(canvas, (x, y) => ({ x: (x / view.cssW) * WIDTH, y: (y / view.cssH) * HEIGHT }), (x, y) => hud.hitTest(x, y, run), (e) => {
+bindPointer(canvas, (x, y) => screenToDesign(view, x, y), (x, y) => hud.hitTest(x, y, run), (e) => {
   unlockAudio();
   autoFullscreen(e);
 });

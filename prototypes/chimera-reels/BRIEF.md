@@ -336,6 +336,15 @@ yield the player retries the same floor if gold covers the bet.
   spikes, Gore a horn thrust, Breath and Inferno a stream of fire from
   the attacker's head. Supers play them bigger, burns smaller.
 - UI is drawn inside the WebGL canvas, not as DOM overlay.
+- Responsive layout (owner request): the canvas fills the whole screen
+  on any phone shape. The HUD is designed at 390 x 844 in three bands
+  (enemy panel, middle, player panel); the panels pin to the top and
+  bottom, the middle band centres in the gap, and panel backgrounds and
+  the 3D arena span the full width. Tall phones (20:9, 21:9) give the
+  extra height to the arena; short or wide screens (16:9, iPhone SE,
+  foldable inner screens, landscape) centre the HUD column and widen the
+  arena. The arena camera re-frames to the gap between the panels and
+  always keeps both monsters in view.
 
 ## Stack
 
