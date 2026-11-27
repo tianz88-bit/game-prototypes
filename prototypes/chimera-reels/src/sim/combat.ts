@@ -122,6 +122,8 @@ export interface Combat {
   /** Seconds of fight time so far. */
   time: number;
   log: LogEntry[];
+  /** When false the built-in enemy AI is off (headless sims drive both sides). */
+  enemyAi: boolean;
 }
 
 export const other = (s: Side): Side => (s === 'player' ? 'enemy' : 'player');
@@ -216,7 +218,7 @@ function buildStrips(c: Combat, f: Fighter) {
 }
 
 export function createCombat(player: Fighter, enemy: Fighter, rng: Rng): Combat {
-  const c: Combat = { fighters: { player, enemy }, winner: null, events: [], rng, time: 0, log: [] };
+  const c: Combat = { fighters: { player, enemy }, winner: null, events: [], rng, time: 0, log: [], enemyAi: true };
   buildStrips(c, player);
   buildStrips(c, enemy);
   return c;
@@ -303,7 +305,8 @@ export function partForZone(f: Fighter, zone: ZoneId): number {
 export interface HitCalc { damage: number; toShield: number; toHp: number; part: number; weak: boolean; resist: number }
 
 /** Exact damage of a move at a zone. Pure: used for both previews and resolution. */
-export function computeHit(attacker: Fighter, defender: Fighter, move: MoveId, zone: ZoneId, mult: number): HitCalc {
+/** `pierce` (0..1) is the share of the defender's shield a hit ignores (supers). */
+export function computeHit(attacker: Fighter, defender: Fighter, move: MoveId, zone: ZoneId, mult: number, pierce = 0): HitCalc {
   const resist = tune.armour[defender.armour][MOVES[move].dmg];
   const part = partForZone(defender, zone);
   const weak = part === weakspot(defender);
@@ -313,7 +316,7 @@ export function computeHit(attacker: Fighter, defender: Fighter, move: MoveId, z
   if (weak) dmg *= tune.parts.weakspotMult;
   dmg *= (1 + fragility(defender)) * (1 - reduce) / Math.max(0.3, defender.stats.def);
   const damage = Math.max(1, Math.round(dmg));
-  const toShield = Math.min(defender.shield, damage);
+  const toShield = Math.min(Math.round(defender.shield * (1 - pierce)), damage);
   return { damage, toShield, toHp: damage - toShield, part, weak, resist };
 }
 
@@ -333,7 +336,7 @@ export function previewExecute(c: Combat, side: Side): Preview | null {
   const m = executeMatches(f);
   if (!isMove(m.move) || !isTarget(m.target)) return null;
   const zone = zoneOf(m.target);
-  return { move: m.move, zone, tier: m.tier, hit: computeHit(f, c.fighters[other(side)], m.move, zone, lineMult(m)) };
+  return { move: m.move, zone, tier: m.tier, hit: computeHit(f, c.fighters[other(side)], m.move, zone, lineMult(m), superPierce(m.tier)) };
 }
 
 /** Damage of burning `n` target tiles at a zone: flat, soaked by shields like any hit. */
@@ -436,9 +439,12 @@ function newEntry(c: Combat, side: Side, kind: LogEntry['kind'], tile: TileId): 
   return e;
 }
 
-function applyHit(c: Combat, attacker: Fighter, move: MoveId, zone: ZoneId, mult: number, log: LogEntry) {
+/** Share of shield a super ignores (`combat.superShieldPierce`, 0 = none). */
+const superPierce = (tier: number) => (tier >= 3 ? tune.combat.superShieldPierce : 0);
+
+function applyHit(c: Combat, attacker: Fighter, move: MoveId, zone: ZoneId, mult: number, log: LogEntry, pierce = 0) {
   const target = c.fighters[other(attacker.side)];
-  landHit(c, target, computeHit(attacker, target, move, zone, mult), zone, log);
+  landHit(c, target, computeHit(attacker, target, move, zone, mult, pierce), zone, log);
 }
 
 /** Damage after shields, then knock-out and part break. Shared by attacks and target burns. */
@@ -522,7 +528,7 @@ export function execute(c: Combat, side: Side): boolean {
     } else {
       const zone = zoneOf(m.target);
       c.events.push({ type: 'action', side, move: m.move, tier: m.tier, isSuper: m.tier >= 3, burn: false, zone, consumed });
-      applyHit(c, f, m.move, zone, lineMult(m), log);
+      applyHit(c, f, m.move, zone, lineMult(m), log, superPierce(m.tier));
     }
   } else {
     log.miss = 'whiff';
@@ -546,6 +552,8 @@ export function pocket(c: Combat, side: Side): boolean {
   const discarded = plan.discard.map((t) => t.slot);
   const stored = added.map((a) => ({ id: a.tile.id, from: a.from, to: stackIndex(f, a.tile.id), tile: a.tile }));
   c.events.push({ type: 'pocket', side, stored, discarded });
+  // Optional tempo refund for pocketing (`pocket.cooldownRefund`, 0 = none).
+  f.cooldown = Math.max(0, f.cooldown - tune.timing.baseCooldownSec * tune.pocket.cooldownRefund);
   f.landed = false;
   return true;
 }
@@ -653,7 +661,7 @@ export function tick(c: Combat, dt: number) {
 
 function enemyThink(c: Combat, dt: number) {
   const f = c.fighters.enemy;
-  if (!f.landed || c.winner) return;
+  if (!c.enemyAi || !f.landed || c.winner) return;
   f.aiWait += dt;
   if (f.aiWait < tune.timing.aiThinkSec) return;
   const m = executeMatches(f);

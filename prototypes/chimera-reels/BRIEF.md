@@ -75,6 +75,26 @@ stats and the tiles it adds.
   screen. The enemy's reels are not shown (owner decision: the player
   cannot act on them); its pocket gets that space instead.
 
+### Strategies
+
+Every monster should support 2 to 3 viable strategies (owner direction):
+
+| Strategy | Play | Enablers |
+|---|---|---|
+| Rush | Execute every spin, stack Quick, chip and knock out enemy tiles | Speed, Quick tiles, varied moves |
+| Charge | Pocket to build triples and supers, stack target tiles on the weakspot | Duplicate-heavy reels, pocket slots, shields |
+| Utility (includes Fortress) | Keep a shield up, burn target tiles to strip enemy charge, outlast | Shield tiles, pocket slots |
+
+- Intended counters: Rush beats Charge, Charge beats Utility, Utility
+  beats Rush. Not achieved yet: the current balance makes all three
+  roughly even; counters are expected to come from part design.
+- Starter intent: Skyreave Rush + Utility, Tuskrel Charge + Rush,
+  Bulwark Utility + Charge.
+- Pocket refunds a little of the next cooldown (`pocket.cooldownRefund`)
+  so saving tiles does not cost a whole turn of tempo, and deciding slows
+  the next cooldown less (`decideCooldownRate`).
+- Verified with strategy bots in `scripts/sim-chimera-strategies.ts`.
+
 ### Speed and spinning
 
 - Each monster has a speed cooldown set by its speed stat (legs and

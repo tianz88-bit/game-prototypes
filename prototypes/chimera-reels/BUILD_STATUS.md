@@ -70,6 +70,19 @@ on a design decision.
   top panel. Enemy pocket and consumed tiles fly from and to the enemy
   model instead of its reels.
 
+- Strategy design (owner direction): Rush, Charge, Utility (Fortress
+  folded in). Strategy bots with per-style think time in
+  `scripts/sim-chimera-strategies.ts` (`node scripts/sim-chimera-strategies.mjs 300`,
+  `TUNE_PATCH` for experiments).
+- Balance pass 2 (owner-approved): decideCooldownRate 0.4 -> 0.7, pocket
+  refunds 15% of cooldown, Skyreave stat package (Stalker speed 1.3 and
+  HP 95, Fur resist slash 1.0 / fire 1.2, Pouch weak 1, Wings weak 2),
+  Bulwark package (Shell shield +0.15, def +0.1, HP 0; Stump legs HP 0,
+  def +0.05), shield per tile 7. Off-by-default `superShieldPierce`.
+- Strategy sim after pass 2 (F1 win% Rush / Charge / Utility): Tuskrel
+  67/69/75, Skyreave 38/43/43, Bulwark 43/60/48, Random 58/49/56. Mirror
+  matches between strategies all 52-56%.
+
 ## Key technical decisions
 - `computeHit` is a pure function used both for previews and for
   resolution, so the shown damage always matches what lands.
@@ -109,6 +122,13 @@ on a design decision.
 
 - Supers may now be too strong: one test fight logged a SUPER Breath on a
   weak spot for 109 damage against a 140 HP enemy.
+
+- Skyreave stays near 40% whatever its stats: all its mutators are Quick
+  (no Power+ or Shield). Likely a part design issue for the owner.
+- Bulwark now slightly under target after the nerf.
+- No counter triangle yet; strategies are even rather than cyclic.
+- Part stat changes also change enemies (they roll the same parts), so
+  starter-only fixes need starter-only parts.
 
 ## Next proposed step
 Owner plays the 3-reel build and tunes (`?debug=1`). Confirm the blank
