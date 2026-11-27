@@ -20,6 +20,7 @@ jobs:
     outputs:
       operation-c-counter: ${{ steps.operation-c-version.outputs.counter }}
       chimera-reels-counter: ${{ steps.chimera-reels-version.outputs.counter }}
+      chimera-reels-prep-counter: ${{ steps.chimera-reels-prep-version.outputs.counter }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,6 +46,13 @@ jobs:
         run: |
           node scripts/bump-version.js chimera-reels
           counter=$(node -p "require('./prototypes/chimera-reels/version.json').counter")
+          echo "counter=$counter" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp Chimera Reels Prep deployment
+        id: chimera-reels-prep-version
+        run: |
+          node scripts/bump-version.js chimera-reels-prep
+          counter=$(node -p "require('./prototypes/chimera-reels-prep/version.json').counter")
           echo "counter=$counter" >> "$GITHUB_OUTPUT"
 
       # One block per prototype that has art in R2. Add a block here when a
@@ -230,12 +238,14 @@ jobs:
         env:
           OPERATION_C_DEPLOY_COUNTER: ${{ needs.build.outputs.operation-c-counter }}
           CHIMERA_REELS_DEPLOY_COUNTER: ${{ needs.build.outputs.chimera-reels-counter }}
+          CHIMERA_REELS_PREP_DEPLOY_COUNTER: ${{ needs.build.outputs.chimera-reels-prep-counter }}
         run: |
           node --input-type=module <<'JS'
           import fs from 'node:fs';
           const targets = {
             'operation-c': process.env.OPERATION_C_DEPLOY_COUNTER,
             'chimera-reels': process.env.CHIMERA_REELS_DEPLOY_COUNTER,
+            'chimera-reels-prep': process.env.CHIMERA_REELS_PREP_DEPLOY_COUNTER,
           };
           for (const [name, raw] of Object.entries(targets)) {
             const file = `prototypes/${name}/version.json`;
@@ -246,7 +256,7 @@ jobs:
             fs.writeFileSync(file, JSON.stringify(value, null, 2) + '\n');
           }
           JS
-          files='prototypes/operation-c/version.json prototypes/chimera-reels/version.json'
+          files='prototypes/operation-c/version.json prototypes/chimera-reels/version.json prototypes/chimera-reels-prep/version.json'
           if git diff --quiet -- $files; then exit 0; fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
