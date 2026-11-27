@@ -123,8 +123,11 @@ on a design decision.
 - Supers may now be too strong: one test fight logged a SUPER Breath on a
   weak spot for 109 damage against a 140 HP enemy.
 
-- Skyreave stays near 40% whatever its stats: all its mutators are Quick
-  (no Power+ or Shield). Likely a part design issue for the owner.
+- Skyreave damage raised (owner request): Stalker atk 1.15, Crest atk
+  +0.15, Wings atk +0.1. Sim F1 Rush / Charge / Utility: Skyreave
+  66/54/61, Tuskrel 61/63/63, Bulwark 33/48/36, Random 55/49/56.
+- Bulwark is now well under target: enemies with Stalker, Crest or Wings
+  hit harder too. Needs starter-only parts or a Bulwark-specific buff.
 - Bulwark now slightly under target after the nerf.
 - No counter triangle yet; strategies are even rather than cyclic.
 - Part stat changes also change enemies (they roll the same parts), so
