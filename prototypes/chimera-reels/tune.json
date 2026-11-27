@@ -21,7 +21,8 @@
     "mutatorMatchCap": 2,
     "holdReducePerTile": 0.1,
     "holdReduceCap": 0.3,
-    "targetBurnDamage": [0, 1, 2, 3]
+    "targetBurnDamage": [0, 1, 2, 3],
+    "superShieldPierce": 0
   },
   "shield": {
     "perTile": 8,
@@ -71,7 +72,8 @@
   },
   "pocket": {
     "defaultSize": 6,
-    "stackCap": 3
+    "stackCap": 3,
+    "cooldownRefund": 0
   },
   "moves": {
     "claw": { "power": 10 },
