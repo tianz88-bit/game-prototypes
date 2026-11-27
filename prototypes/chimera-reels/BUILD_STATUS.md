@@ -113,6 +113,10 @@ on a design decision.
   (iPhone SE), 412x1004, 884x1104 and 1104x884 (foldable inner) in
   headless Chromium; taps verified at four of those sizes.
 
+- Bigger player panel on short screens (owner request): Execute is about
+  161x68 px on 360x640 (was 132x56) and 167x71 px on 375x667; tall
+  phones unchanged. Taps verified at six sizes.
+
 ## Key technical decisions
 - `computeHit` is a pure function used both for previews and for
   resolution, so the shown damage always matches what lands.

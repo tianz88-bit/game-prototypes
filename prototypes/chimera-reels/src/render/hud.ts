@@ -188,7 +188,8 @@ export class Hud {
   }
 
   resize(v: ViewSize) {
-    this.pxPerLogical = v.scale * v.pixelRatio;
+    // Render at the larger of the band scales so the enlarged bottom band stays sharp.
+    this.pxPerLogical = Math.max(v.scale, v.bottomScale) * v.pixelRatio;
     this.canvas.width = Math.round(WIDTH * this.pxPerLogical);
     this.canvas.height = Math.round(HEIGHT * this.pxPerLogical);
     this.texture.dispose();
@@ -199,7 +200,7 @@ export class Hud {
     this.bandUv(this.bands[0], 0, TOP_END);
     this.place(this.bands[1], v, v.offX, v.midTop, colW, midH);
     this.bandUv(this.bands[1], TOP_END, BOTTOM_START);
-    this.place(this.bands[2], v, v.offX, v.cssH - v.bottomH, colW, v.bottomH);
+    this.place(this.bands[2], v, v.bottomOffX, v.cssH - v.bottomH, WIDTH * v.bottomScale, v.bottomH);
     this.bandUv(this.bands[2], BOTTOM_START, HEIGHT);
     this.place(this.backs[0], v, 0, 0, v.cssW, v.topH + 10 * v.scale);
     this.place(this.backs[1], v, 0, v.cssH - v.bottomH, v.cssW, v.bottomH);

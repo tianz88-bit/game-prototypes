@@ -345,6 +345,9 @@ yield the player retries the same floor if gold covers the bet.
   foldable inner screens, landscape) centre the HUD column and widen the
   arena. The arena camera re-frames to the gap between the panels and
   always keeps both monsters in view.
+- On short screens the player panel (buttons, reels, pocket) gets its own
+  larger scale, up to the screen width and at most 1.3 times the rest of
+  the HUD, while keeping at least 24% of the screen height for the arena.
 
 ## Stack
 
