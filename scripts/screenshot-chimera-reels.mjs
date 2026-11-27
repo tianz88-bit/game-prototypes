@@ -53,7 +53,10 @@ async function waitFor(page, pred, what, tries = 150) {
   const page = await ctx.newPage();
   watch(page, 'phone');
   await page.goto(`${base}?seed=${process.env.SEED ?? 7}`);
-  await page.waitForTimeout(700);
+  await page.waitForTimeout(1200);
+  await shot(page, 'chimera-title.png');
+  await page.mouse.click(195, 640); // tap to start
+  await page.waitForTimeout(400);
   await page.mouse.click(330, 620); // random-roll card
   await page.waitForTimeout(200);
   await page.mouse.click(330, 620); // tap again: re-roll

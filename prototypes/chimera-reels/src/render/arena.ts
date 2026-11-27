@@ -5,6 +5,7 @@ import { tune } from '../tune';
 import { isFlying, previewExecute, shieldCap, weakspot, type Combat, type CombatEvent, type Side } from '../sim/combat';
 import type { MonsterSpec, Slot } from '../sim/content';
 import { MonsterView } from './monsterView';
+import { AttackFx } from './attackFx';
 import { makeGround, Vfx } from './toon';
 import { HEIGHT, WIDTH } from './view';
 
@@ -35,6 +36,7 @@ export class Arena {
   private specs: Partial<Record<Side, MonsterSpec>> = {};
   private anim: Record<Side, Anim> = { player: freshAnim(), enemy: freshAnim() };
   private vfx: Vfx;
+  private fx: AttackFx;
   private shake = 0;
   private shakeAmp = 0;
   private time = 0;
@@ -48,6 +50,7 @@ export class Arena {
     this.camera.lookAt(0, 0.6, 0);
     this.scene.add(makeGround([new THREE.Vector2(HOME.player.x, HOME.player.z), new THREE.Vector2(HOME.enemy.x, HOME.enemy.z)]));
     this.vfx = new Vfx(this.scene);
+    this.fx = new AttackFx(this.scene, this.vfx);
   }
 
   /** Show these monsters (rebuilds a side only if its spec changed). */
@@ -89,6 +92,19 @@ export class Arena {
       a.lungeScale = e.isSuper ? 1.6 : e.burn ? 0.6 : 1;
       if (e.isSuper) a.spin = f.lungeSec * 2;
       this.views[e.side]?.kick(-f.springKick * 0.6);
+      // The move's own 3D effect on the receiver (fire comes from the attacker's head).
+      const attacker = this.views[e.side];
+      const targetSide = e.side === 'player' ? 'enemy' : 'player';
+      const target = this.views[targetSide];
+      if (attacker && target) {
+        const tp = c.fighters[targetSide].parts.find((p) => p.zone === e.zone && !p.broken);
+        const head = c.fighters[e.side].parts.find((p) => p.slot === 'head' && !p.broken);
+        const from = attacker.slotWorld(head ? 'head' : 'body');
+        // Pull the anchor out of the body towards the camera so the effect is not hidden inside the mesh.
+        const to = target.slotWorld(tp ? tp.slot : 'body');
+        to.addScaledVector(this.camera.position.clone().sub(to).normalize(), 0.9);
+        this.fx.play(e.move, from, to, (e.isSuper ? 1.6 : e.burn ? 0.7 : 1) * 1.3);
+      }
     } else if (e.type === 'hit') {
       const a = this.anim[e.side];
       const v = this.views[e.side];
@@ -183,6 +199,7 @@ export class Arena {
       }
     }
     this.vfx.update(dt);
+    this.fx.update(dt);
     this.camera.position.copy(this.camBase);
     if (this.shake > 0) {
       this.shake = Math.max(0, this.shake - dt);

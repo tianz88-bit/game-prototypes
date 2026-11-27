@@ -28,7 +28,7 @@ function addGroup(parent: Container, obj: Bag, defs: Bag) {
 
 export function mountDebugPanel(onRestart: () => void) {
   if (new URLSearchParams(location.search).get('debug') !== '1') return;
-  const pane = new Pane({ title: 'Chimera Reels tune' });
+  const pane = new Pane({ title: 'Wow! Reel Chimeras! tune' });
   pane.addButton({ title: 'Restart fight' }).on('click', onRestart);
   pane.addButton({ title: 'Copy JSON' }).on('click', () => {
     void navigator.clipboard.writeText(JSON.stringify(tune, null, 2));
