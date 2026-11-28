@@ -25,6 +25,11 @@ next to `chimera-reels` for comparison.
   bigger weak-spot supers.
 - `scripts/screenshot-chimera-reels-prep.mjs`: plays a full fight with
   real taps (queue, hold, re-spin, Fight) then auto rounds, result and log.
+- Battle log fix (owner bug report, stacked entries): on screens other
+  than 390x844 the log was split across the three HUD bands and the bands
+  overlapped. The log now shows the whole HUD as one uniformly fitted
+  image, and taps map through the same fit. Quick log lines now read
+  "+N action slot" for burns.
 
 ## Key technical decisions
 - Separate prototype rather than a mode, so the original stays playable
@@ -40,8 +45,14 @@ next to `chimera-reels` for comparison.
   confirmed by the owner: rounds per fight, rows only, full enemy plan,
   gold-priced re-spins.
 - Arena aim highlight (cyan outline) is not shown in prep yet.
+- Owner feedback after first play, under discussion (not built): Hold
+  feels pointless, stash needs utility and counterplay rather than more
+  damage, fast monsters get more slots than the 3 rows can fill, and
+  whether PvP stays possible. BRIEF.md will need updating once decided.
 
 ## Known issues
+- Action slots can exceed 3 (speed + Tailwind + Quick burns, max 4)
+  while the grid has only 3 rows, so extra slots are unusable.
 - Balance is untested first-pass: test fights end in about 3 rounds and
   9 seconds of clash; the strategy bots and balance sim have not been
   ported to this variant.

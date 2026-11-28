@@ -151,6 +151,11 @@ export class Hud {
       this.bands.push(m);
       this.scene.add(m);
     }
+    // Full-screen overlays (the battle log) span all bands, so they are shown
+    // as one uniformly scaled quad instead of three separately placed bands.
+    this.whole = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
+    this.whole.visible = false;
+    this.scene.add(this.whole);
     // Version stamp: its own small texture, pinned to the screen's top-left corner.
     this.stampTex = new THREE.CanvasTexture(this.stampCanvas);
     this.stampTex.colorSpace = THREE.SRGBColorSpace;
@@ -161,6 +166,7 @@ export class Hud {
   }
 
   private bands: THREE.Mesh[] = [];
+  private whole: THREE.Mesh;
   private backs: THREE.Mesh[] = [];
   private dim: THREE.Mesh;
   private stamp: THREE.Mesh;
@@ -205,6 +211,9 @@ export class Hud {
     this.place(this.backs[0], v, 0, 0, v.cssW, v.topH + 10 * v.scale);
     this.place(this.backs[1], v, 0, v.cssH - v.bottomH, v.cssW, v.bottomH);
     this.place(this.dim, v, 0, 0, v.cssW, v.cssH);
+    // One quad for the whole design, fitted to the screen (used by the log).
+    const fit = Math.min(v.cssW / WIDTH, v.cssH / HEIGHT);
+    this.place(this.whole, v, (v.cssW - WIDTH * fit) / 2, (v.cssH - HEIGHT * fit) / 2, WIDTH * fit, HEIGHT * fit);
     // Version stamp, drawn once at this size.
     const pr = v.pixelRatio;
     const sw = 90 * Math.max(1, v.scale);
@@ -563,6 +572,8 @@ export class Hud {
     const panels = !this.title;
     for (const b of this.backs) b.visible = panels;
     this.dim.visible = this.logOpen;
+    this.whole.visible = this.logOpen;
+    for (const b of this.bands) b.visible = !this.logOpen;
     if (this.title) {
       this.drawTitle();
       this.finishFrame();
