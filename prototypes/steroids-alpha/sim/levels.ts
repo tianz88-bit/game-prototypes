@@ -5,7 +5,7 @@
 // the cards).
 import type { Tune } from './tune';
 import type { ShipState } from './ship';
-import { maxShield, hullCapacity } from './ship';
+import { maxShield, hullCapacity, levelsFromXp } from './ship';
 import { BATTLECRUISER, MISSILE_CRUISER, isCapital, upgradeTotal } from './chassis';
 import { SHOP_ITEMS, SHOP_TIERS, shopTier } from './shop';
 
@@ -20,13 +20,7 @@ export function levelStep(n: number, tune: Tune): number {
 
 /** Levels reached with xp experience. */
 export function levelsEarned(xp: number, tune: Tune): number {
-  let n = 0, need = 0;
-  while (n < 100) {
-    need += levelStep(n + 1, tune);
-    if (xp + 1e-6 < need) break;
-    n++;
-  }
-  return n;
+  return levelsFromXp(xp, tune);
 }
 
 /** Total experience needed to reach level n. */
@@ -78,7 +72,9 @@ export function drawCards(s: ShipState, owned: readonly number[], tune: Tune, rn
   const cards: number[] = [];
   for (const build of owned) if (cards.length < CARDS_PER_LEVEL && evolutionReady(s, build, tune)) cards.push(EVOLVE_CARD + build);
   const want = wantedTracks(s, owned, tune);
-  const pool = SHOP_ITEMS.map((name, i) => ({ i, w: shopTier(s, name) < SHOP_TIERS ? (want.has(i) ? tune.shop.levelEvolutionWeight : 1) : 0 })).filter((c) => c.w > 0);
+  // Shield is passive per level now (owner, 21 November 2026), so it is never a card while that is on.
+  const passiveShield = tune.shop.shieldPerLevel > 0;
+  const pool = SHOP_ITEMS.map((name, i) => ({ i, w: shopTier(s, name) < SHOP_TIERS && !(passiveShield && name === 'shield') ? (want.has(i) ? tune.shop.levelEvolutionWeight : 1) : 0 })).filter((c) => c.w > 0);
   while (cards.length < CARDS_PER_LEVEL && pool.length) {
     let roll = rng() * pool.reduce((n, c) => n + c.w, 0), k = 0;
     while (k < pool.length - 1 && roll >= pool[k].w) roll -= pool[k++].w;
@@ -119,9 +115,9 @@ export function cardText(card: number, s: ShipState, tune: Tune): { title: strin
   const sub: Record<string, string> = {
     turret: '+1 auto drone',
     shield: `+${tune.shop.shieldPerTier} shield`,
-    damage: `+${Math.round(tune.shop.damagePerTier * 100)}% gun damage`,
-    missile: '+1 missile',
-    mine: '+1 mine',
+    damage: `+${Math.round(tune.shop.damagePerTier * 1000) / 10}% dmg`,
+    missile: '+1 · faster',
+    mine: '+1 · faster',
   };
   const title: Record<string, string> = { turret: 'DRONE', shield: 'SHIELD', damage: 'GUNS', missile: 'MISSILES', mine: 'MINES' };
   return { title: `${title[name] ?? '?'} ${next}/${SHOP_TIERS}`, sub: sub[name] ?? '', evolve: false };

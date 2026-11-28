@@ -190,6 +190,21 @@ export class World {
   private bumpUntil = new Map<string, number>();
   /** Tick of the last damage each ship took, for shield regeneration. */
   private lastHit = new Map<number, number>();
+  /**
+   * Warzone allies (owner, 21 November 2026): two ships on the same side of a Warzone never hurt each
+   * other. Bullets and missiles pass through allies, mines ignore them, and rams and bumps do no damage.
+   */
+  allies(a: number, b: number): boolean {
+    if (!this.siege || !a || !b || a === b) return false;
+    const ca = this.clanOf.get(a) ?? 0;
+    return ca > 0 && ca === (this.clanOf.get(b) ?? 0);
+  }
+
+  /** Whether ship id took a hit in the last seconds (for the disconnect rules). */
+  hitWithin(id: number, seconds: number): boolean {
+    const at = this.lastHit.get(id);
+    return at !== undefined && this.tick - at <= seconds * this.tune.net.tickHz;
+  }
   /** Shield break grace (owner, 14 November 2026): hull safe until this tick after the shield breaks. */
   private graceUntil = new Map<number, number>();
   /** The shield can save its ship (absorb the breaking hit, then grace) once per recharge cycle. */
@@ -381,7 +396,7 @@ export class World {
   /** What a ship's aim assist may pick: other living ships, and asteroids where they are now. */
   assistTargets(id: number): AssistTarget[] {
     const out: AssistTarget[] = [];
-    for (const [oid, o] of this.ships) if (oid !== id && o.hp > 0 && !(o.arrival ?? 0)) out.push({ x: o.x, y: o.y, ship: true, ...shipVelocity(o) });
+    for (const [oid, o] of this.ships) if (oid !== id && o.hp > 0 && !(o.arrival ?? 0) && !this.allies(id, oid)) out.push({ x: o.x, y: o.y, ship: true, ...shipVelocity(o) });
     for (const a of this.asteroids.values()) {
       const p = asteroidPos(a, this.tick, this.tune);
       out.push({ x: p.x, y: p.y, ship: false, vx: a.vx, vy: a.vy });
@@ -539,7 +554,7 @@ export class World {
       }
       if (!spent) {
         for (const [id, s] of this.ships) {
-          if (id === b.owner || s.hp <= 0 || (s.arrival ?? 0) > 0) continue;
+          if (id === b.owner || s.hp <= 0 || (s.arrival ?? 0) > 0 || this.allies(b.owner, id)) continue;
           if (base && b.owner === BASE_OWNER && (this.clanOf.get(id) ?? 0) === base.clan) continue;
           if (!hits(b.x, b.y, s.x, s.y, shipRadius(s.hullMax, t, s.chassis) + t.weapon.bulletRadius)) continue;
           this.damageShip(id, s, b.damage, b.owner, b.x, b.y);
@@ -680,7 +695,7 @@ export class World {
       }
       if(d<=radius){
         if(k.kind==='heal')s.hp=Math.min(hullCapacity(s,t),s.hp+t.ship.maxHp*t.asteroid.healthHealFraction);
-        else if(k.kind==='mineral'){const before=s.hullMax;s.hullMax=Math.min(walletCap(s,t),s.hullMax+k.value);s.xp=(s.xp??0)+(s.hullMax-before);}
+        else if(k.kind==='mineral'){s.hullMax=Math.min(walletCap(s,t),s.hullMax+k.value);s.xp=(s.xp??0)+k.value;} // all of it levels you, even past a full hold
         else{
           const held=k.kind==='fuel'?'fuel':'salvage',taken=Math.min(k.value,Math.max(0,t.salvage.cargoMax-s[held]));
           s[held]+=taken;k.value=Math.round((k.value-taken)*10)/10;
@@ -749,7 +764,7 @@ export class World {
           if (!best || prio > best.prio || (prio === best.prio && d < best.d)) best = { dx, dy, d, prio,key };
         };
         for (const o of this.ordnance.values()) if (o.owner !== id) consider(o.x, o.y, 0, o.kind === 'missile' ? 3 : 1,'o'+o.id);
-        for (const [oid, o] of this.ships) if (oid !== id && o.hp > 0) consider(o.x, o.y, 0, 2,'s'+oid);
+        for (const [oid, o] of this.ships) if (oid !== id && o.hp > 0 && !this.allies(id, oid)) consider(o.x, o.y, 0, 2,'s'+oid);
         for (const a of this.asteroids.values()) {
           const p = pos.get(a.id);
           if (p) consider(p.x, p.y, t.asteroid.radius[a.size], 0,'a'+a.id);
@@ -873,7 +888,9 @@ export class World {
   /** A missile from ship id: locks the ship nearest the nose (ships only), launches from the nose. */
   private launchMissile(id: number, s: ShipState): void {
     const m = this.tune.missile;
-    const tier = Math.max(1, s.missileTier),heavy=s.chassis===MISSILE_CRUISER,c=this.tune.missileCruiser,h=s.heading+(heavy?Math.PI:0);
+    // Missile Cruiser (owner, 21 November 2026): each missile leaves 45 degrees to the side, alternating
+    // left and right, for missileCruiser.reverseSeconds, then homes on its target.
+    const tier = Math.max(1, s.missileTier),heavy=s.chassis===MISSILE_CRUISER,c=this.tune.missileCruiser,h=s.heading+(heavy?(s.missileShots%2?1:-1)*Math.PI/4:0);
     const r = shipRadius(s.hullMax, this.tune, s.chassis) + m.radius;
     const o: Ordnance = {
       id: this.newOrdnanceId(),
@@ -888,8 +905,8 @@ export class World {
       hp: m.hp,
       life: Math.round((heavy?c.lifeSeconds:m.lifeSeconds) * this.tune.net.tickHz),
       armAt: this.tick+(heavy?Math.ceil(c.reverseSeconds*this.tune.net.tickHz):0),
-      target: missileLock(id, s, this.ships, this.tune)||(heavy?this.structureLock(id,s):0),
-      damage: (m.damage + m.damagePerTier * (tier - 1))*(heavy?c.damageFactor:1),
+      target: missileLock(id, s, [...this.ships].filter(([oid]) => !this.allies(id, oid)), this.tune)||(heavy?this.structureLock(id,s):0),
+      damage: (m.damage + m.damagePerTier * (tier - 1))*(heavy?c.missileDamageFactor:1),
       blast: 0,
       turn: heavy?c.turnRateMissile:m.turnRate + m.turnPerTier * (tier - 1),
     };
@@ -902,7 +919,9 @@ export class World {
     const mn = t.mine;
     const tier = Math.max(1, s.mineTier);
     const mine = [...this.ordnance.values()].filter((o) => o.owner === id && o.kind === 'mine');
-    if (mine.length >= mn.maxActive) this.ordnance.delete(mine[0].id);
+    // Live mines are capped at the mine tier (owner, 21 November 2026): one more removes the oldest.
+    const cap = Math.min(mn.maxActive, Math.max(1, s.mineTier));
+    while (mine.length >= cap) this.ordnance.delete(mine.shift()!.id);
     const r = shipRadius(s.hullMax, t, s.chassis) + mn.radius + 6;
     const o: Ordnance = {
       id: this.newOrdnanceId(),
@@ -967,7 +986,7 @@ export class World {
         const hostile=this.layout&&(this.clanOf.get(o.owner)??0)!==this.layout.clan;
         let hit = !!(o.heavy&&hostile&&this.atWar&&this.hitStructure({owner:o.owner,damage:o.damage,x:o.x,y:o.y,vx:0,vy:0,life:1}));
         for (const [sid, s] of this.ships) {
-          if (hit||sid === o.owner || s.hp <= 0 || (s.arrival ?? 0) > 0) continue;
+          if (hit||sid === o.owner || s.hp <= 0 || (s.arrival ?? 0) > 0 || this.allies(o.owner, sid)) continue;
           // Swept: a fast missile cannot skip through a ship between ticks.
           const ex = wrapDelta(o.x, px, W);
           const ey = wrapDelta(o.y, py, H);
@@ -1000,7 +1019,7 @@ export class World {
       if (this.tick < o.armAt) continue;
       let near: { s: ShipState; dx: number; dy: number; d: number } | null = null;
       for (const [sid, s] of this.ships) {
-        if (sid === o.owner || s.hp <= 0 || (s.arrival ?? 0) > 0) continue;
+        if (sid === o.owner || s.hp <= 0 || (s.arrival ?? 0) > 0 || this.allies(o.owner, sid)) continue;
         const r = rel(o, s.x, s.y);
         if (r.d <= t.mine.seekRange && (!near || r.d < near.d)) near = { s, ...r };
       }
@@ -1009,7 +1028,7 @@ export class World {
         this.ordnance.delete(o.id);
         this.events.blasts.push({ x: o.x, y: o.y, r: o.blast, kind: 'mine', shot: false });
         for (const [sid, s] of this.ships) {
-          if (sid === o.owner || s.hp <= 0 || (s.arrival ?? 0) > 0) continue;
+          if (sid === o.owner || s.hp <= 0 || (s.arrival ?? 0) > 0 || this.allies(o.owner, sid)) continue;
           const d = rel(o, s.x, s.y).d - shipRadius(s.hullMax, t, s.chassis);
           if (d > o.blast) continue;
           this.damageShip(sid, s, o.damage * (1 - 0.5 * Math.max(0, d) / o.blast), o.owner, o.x, o.y);
@@ -1118,7 +1137,7 @@ export class World {
    * hull only when the shield is already down and recharging (the rammer).
    */
   private damageShip(id: number, s: ShipState, damage: number, attacker: number, atX: number, atY: number, mode: 'normal' | 'hull' | 'shield' = 'normal'): void {
-    if (s.hp <= 0 || (s.arrival ?? 0) > 0) return;
+    if (s.hp <= 0 || (s.arrival ?? 0) > 0 || this.allies(attacker, id)) return;
     // Docked on its clan's pad: safe (owner, Clan planets v0).
     if (this.docked(id)) return;
     const t = this.tune;

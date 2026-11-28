@@ -1487,8 +1487,9 @@ assert.equal(S.cleanName(null), '');
     assert(S.buy(s, 'missile', 1, tune) && s.missileCharges === 2, 'tier 2 adds a charge');
     S.stepShip(s, { ...idle, missile: true }, dt, tune);
     assert.equal([s.missileCharges, s.missileShots].join(), '1,1', 'one press, one missile');
-    near(s.missileCd, mt.refillSeconds - dt, dt, 'refill timer starts');
-    for (let i = 0; i < Math.ceil(mt.refillSeconds * tune.net.tickHz) + 1; i++) S.stepShip(s, idle, dt, tune);
+    // Each missile tier speeds the reload (owner, 21 November 2026): tier 2 reloads in refillSeconds / 2.
+    near(s.missileCd, mt.refillSeconds / 2 - dt, dt, 'refill timer starts');
+    for (let i = 0; i < Math.ceil(mt.refillSeconds / 2 * tune.net.tickHz) + 1; i++) S.stepShip(s, idle, dt, tune);
     assert.equal(s.missileCharges, 2, 'refilled after refillSeconds');
     for (let i = 0; i < 20 * tune.net.tickHz; i++) S.stepShip(s, idle, dt, tune);
     assert.equal(s.missileCharges, 2, 'charges are held, capped at the tier');

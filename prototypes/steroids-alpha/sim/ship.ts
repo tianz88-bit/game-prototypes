@@ -129,8 +129,30 @@ export function dashSpeed(hp: number, tune: Tune, chassis = SCRAPPY): number {
 }
 
 /** How much heat the guns hold: gun upgrades add shop.gunHeatPerTier each (more shots before locking). */
-export function missileRefillSeconds(s: Pick<ShipState, 'chassis'>, tune: Tune): number {
-  return tune.missile.refillSeconds * (s.chassis === MISSILE_CRUISER ? tune.missileCruiser.missileRefillFactor : 1);
+/**
+ * Seconds to refill one missile (owner, 21 November 2026): each missile tier speeds the reload
+ * (missile.refillSeconds / tier), so every tier adds about the same damage per second. The Missile
+ * Cruiser has its own rack: missile.refillSeconds x missileCruiser.missileRefillFactor per missile.
+ */
+export function missileRefillSeconds(s: Pick<ShipState, 'chassis'|'missileTier'>, tune: Tune): number {
+  if (s.chassis === MISSILE_CRUISER) return tune.missile.refillSeconds * tune.missileCruiser.missileRefillFactor;
+  return tune.missile.refillSeconds / Math.max(1, s.missileTier ?? 1);
+}
+
+/** Seconds to refill one mine: mine.refillSeconds / mine tier, like missiles. */
+export function mineRefillSeconds(s: Pick<ShipState, 'mineTier'>, tune: Tune): number {
+  return tune.mine.refillSeconds / Math.max(1, s.mineTier);
+}
+
+/** Run levels reached with xp experience (the curve lives in tune.shop; see sim/levels.ts). */
+export function levelsFromXp(xp: number, tune: Tune): number {
+  let n = 0, need = 0;
+  while (n < 100) {
+    need += tune.shop.levelXpBase + tune.shop.levelXpGrowth * n;
+    if ((xp ?? 0) + 1e-6 < need) break;
+    n++;
+  }
+  return n;
 }
 
 export function missileCapacity(s:ShipState,tune:Tune):number{return s.chassis===MISSILE_CRUISER?tune.missileCruiser.capacity:s.missileTier;}
@@ -192,7 +214,9 @@ export function hullCapacity(_s:Pick<ShipState,'chassis'>,tune:Tune):number{retu
 export function maxShield(s: ShipState, tune: Tune): number {
   const chassis = s.chassis ?? SCRAPPY;
   const fighterBonus = isCapital(chassis) ? 0 : tune.ship.fighterShieldBonus;
-  return (tune.ship.maxShield + fighterBonus + s.shieldTier * tune.shop.shieldPerTier) * chassisStats(chassis, tune).shield;
+  // Shield grows passively with each run level (owner, 21 November 2026), up to shop.shieldPassiveLevels.
+  const passive = tune.shop.levelUp ? Math.min(levelsFromXp(s.xp ?? 0, tune), tune.shop.shieldPassiveLevels) * tune.shop.shieldPerLevel : 0;
+  return (tune.ship.maxShield + fighterBonus + s.shieldTier * tune.shop.shieldPerTier + passive) * chassisStats(chassis, tune).shield;
 }
 
 /** Capacity-scaled recovery with an absolute ceiling, after the existing quiet delay. */
@@ -353,7 +377,7 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune,
   };
   const missileRefill = missileRefillSeconds(s, tune);
   [s.missileCharges, s.missileCd] = refill(s.missileCharges, s.missileCd, missileCapacity(s,tune), missileRefill);
-  [s.mineCharges, s.mineCd] = refill(s.mineCharges, s.mineCd, s.mineTier, tune.mine.refillSeconds);
+  [s.mineCharges, s.mineCd] = refill(s.mineCharges, s.mineCd, s.mineTier, mineRefillSeconds(s, tune));
   if (input.missile && s.missileCharges > 0 && s.missileFireCd === 0) {
     if (s.chassis === MISSILE_CRUISER) {
       s.missileFireCd = Math.max(1, Math.ceil(tune.missileCruiser.repeatSeconds * tune.net.tickHz));
@@ -364,7 +388,7 @@ export function stepShip(s: ShipState, input: ShipInput, dt: number, tune: Tune,
   }
   if (input.mine && s.mineCharges > 0) {
     s.mineCharges--;
-    if (s.mineCd <= 0) s.mineCd = tune.mine.refillSeconds;
+    if (s.mineCd <= 0) s.mineCd = mineRefillSeconds(s, tune);
     s.mineShots = (s.mineShots + 1) & 0xffff;
   }
   if (input.fire && s.fireCd === 0 && !s.overheated) {

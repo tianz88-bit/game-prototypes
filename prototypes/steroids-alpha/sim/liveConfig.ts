@@ -56,17 +56,23 @@ export function upgradeConfig(input: unknown): unknown {
   }
   // Run economy epoch 5 (owner, 19 November 2026): minerals are the only run currency, banked on
   // warp-out. Older records take the whole approved economy once; later owner edits survive.
-  if (value.tune && [undefined, 2, 3, 4].includes(oldBalance)) {
+  if (value.tune && [undefined, 2, 3, 4, 5].includes(oldBalance)) {
     const d = defaultConfig().tune, v = value.tune;
     const take = (group: string, keys: string[]) => { if (v[group]) for (const k of keys) v[group][k] = structuredClone((d as any)[group][k]); };
-    take('shop', ['turretCosts','turretFloors','shieldCosts','shieldFloors','damageCosts','damageFloors','missileCosts','missileFloors','mineCosts','mineFloors','holdBase','holdPerUpgrade','levelUp','levelXpBase','levelXpGrowth','levelEvolutionWeight','balanceVersion']);
+    take('shop', ['turretCosts','turretFloors','shieldCosts','shieldFloors','damageCosts','damageFloors','missileCosts','missileFloors','mineCosts','mineFloors','holdBase','holdPerUpgrade','levelUp','levelXpBase','levelXpGrowth','levelEvolutionWeight','damagePerTier','shieldPerLevel','shieldPassiveLevels','balanceVersion']);
     take('asteroid', ['miningMineralFactor']);
     take('ship', ['powerCap','hullSpillFraction','deathSpillFraction']);
     take('salvage', ['killPowerShare','botDropFactor','bankRate','homeBankRate','haulBonusStartSeconds','haulBonusPerMinute','haulBonusMax']);
     take('warp', ['lockdownSeconds']);
     take('bots', ['loadedPreference','warpPower']);
     take('battlecruiser', ['cost','powerFloor']);
-    take('missileCruiser', ['cost','powerFloor']);
+    take('missileCruiser', ['cost','powerFloor','damageFactor','missileDamageFactor','shieldFactor','rangeFactor','missileRefillFactor','reverseSeconds']);
+    take('battlecruiser', ['shieldFactor','damageFactor']);
+    take('ciws', ['damage']);
+    // Perk balance epoch 6 (owner, 21 November 2026): every weapon tier adds about the same damage per second.
+    take('turret', ['damage']);
+    take('missile', ['refillSeconds']);
+    take('mine', ['refillSeconds']);
     if (v.hotZone) v.hotZone.mineralMultiplier = v.hotZone.salvageMultiplier ?? d.hotZone.mineralMultiplier;
   }
   if ([2, 3].includes(value.tune?.shop?.balanceVersion)) {
@@ -143,7 +149,7 @@ export function validateConfig(input: unknown): ConfigData {
   for (const group of ['grip','ship','weapon','turret','shop','missile','mine','bots','warp','salvage','hotZone','sparrow','interceptor','battlecruiser','missileCruiser','ciws','heavyTower','asteroid','base','siege'] as const) for (const [key, n] of Object.entries(value.tune[group])) for (const v of Array.isArray(n) ? n : [n]) {
     if (v < 0 || v > 10000) fail(`${group}.${key}: value must be 0–10000`);
   }
-  {const m=value.tune.missileCruiser,c=value.tune.ciws,h=value.tune.heavyTower;if(m.capacity!==8||m.missileRefillFactor<1||m.missileRefillFactor>5||[m.minMissiles,m.minMines].some(v=>!Number.isInteger(v)||v<0||v>4)||m.damageFactor<1||m.damageFactor>3||m.rangeFactor<1||m.rangeFactor>3||m.radiusFactor<1||m.radiusFactor>3||m.repeatSeconds<.1||m.repeatSeconds>2||m.reverseSeconds<.1||m.reverseSeconds>2||m.turnRateMissile<=0||m.turnRateMissile>10||m.lifeSeconds<1||m.lifeSeconds>20||m.cost<0||m.powerFloor<m.cost||m.launchSpeed<=0)fail('Missile Cruiser settings out of range');for(const b of [c,h])if(!Number.isInteger(b.shots)||b.shots<1||b.shots>12||b.intervalSeconds<.03||b.intervalSeconds>1||b.pauseSeconds<.1||b.pauseSeconds>5||b.range<1||b.range>3000||b.speed<1||b.speed>3000||b.damage<=0||b.damage>500||b.turnRate<=0||b.turnRate>30)fail('Burst cannon settings out of range');if(h.telegraphSeconds<.1||h.telegraphSeconds>2)fail('Tower warning out of range');}
+  {const m=value.tune.missileCruiser,c=value.tune.ciws,h=value.tune.heavyTower;if(m.capacity!==8||m.missileRefillFactor<0.1||m.missileRefillFactor>5||[m.minMissiles,m.minMines].some(v=>!Number.isInteger(v)||v<0||v>4)||m.damageFactor<1||m.damageFactor>3||m.rangeFactor<1||m.rangeFactor>3||m.radiusFactor<1||m.radiusFactor>3||m.repeatSeconds<.1||m.repeatSeconds>2||m.reverseSeconds<.1||m.reverseSeconds>2||m.turnRateMissile<=0||m.turnRateMissile>10||m.lifeSeconds<1||m.lifeSeconds>20||m.cost<0||m.powerFloor<m.cost||m.launchSpeed<=0)fail('Missile Cruiser settings out of range');for(const b of [c,h])if(!Number.isInteger(b.shots)||b.shots<1||b.shots>12||b.intervalSeconds<.03||b.intervalSeconds>1||b.pauseSeconds<.1||b.pauseSeconds>5||b.range<1||b.range>3000||b.speed<1||b.speed>3000||b.damage<=0||b.damage>500||b.turnRate<=0||b.turnRate>30)fail('Burst cannon settings out of range');if(h.telegraphSeconds<.1||h.telegraphSeconds>2)fail('Tower warning out of range');}
   if(value.tune.asteroid.pickupVersion!==1||value.tune.asteroid.pickupMagnetReach>160||value.tune.asteroid.pickupMagnetSpeed>800)fail('Pickup policy/range/speed requires bounded settings');
   if(value.tune.bots.behaviourVersion!==1)fail('Bot policy requires a code deployment');
   if (value.tune.shop.balanceVersion !== base.tune.shop.balanceVersion) fail('Progression epoch requires a code deployment');

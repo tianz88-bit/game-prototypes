@@ -767,6 +767,11 @@ export class FlightScene extends Phaser.Scene {
     sh.x+=CALIBRATION.shadow.x-SHADOW_ANCHOR.x;sh.y+=CALIBRATION.shadow.y-SHADOW_ANCHOR.y;
     const shadow = this.toScreen(s.x + sh.x, s.y + sh.y);
     this.placeTag(id, at, mine, chassisStats(s.chassis, TUNE).radius / TUNE.ship.radius);
+    // Warzone allies wear a green outline ring, so friend and foe read at a glance.
+    if (at.visible && this.warSide(id) === 'ally') {
+      const ring = clientTune.render.shipRingRadius * clientTune.render.shipScale * (chassisStats(s.chassis, TUNE).radius / TUNE.ship.radius) * at.scale + 6;
+      this.turretGfx.lineStyle(2.5, 0x6dff9e, 0.85).strokeCircle(at.x, at.y, ring);
+    }
     this.tags.get(id)?.setAlpha(opacity);
     if(orbital)this.tags.get(id)?.setVisible(false);
     if (!mine && !(s.arrival??0)) this.drawTargetBar(id, s, at, chassisStats(s.chassis, TUNE).radius / TUNE.ship.radius);
@@ -1338,6 +1343,14 @@ export class FlightScene extends Phaser.Scene {
   }
 
   /** The pilot's name, just under the ship's ring. */
+  /** In the Warzone: whether ship id is on our side or the other (null elsewhere, or for ourselves). */
+  private warSide(id: number): 'ally' | 'enemy' | null {
+    if (!isWarPlanet(this.planet) || id === this.net.myId) return null;
+    const theirs = this.net.roster.get(id)?.clan ?? 0;
+    if (!theirs || !this.net.clan) return null;
+    return theirs === this.net.clan ? 'ally' : 'enemy';
+  }
+
   private placeTag(id: number, at: { x: number; y: number; scale: number; visible: boolean }, mine: boolean, size = 1): void {
     const entry=this.net.roster.get(id);
     const name=entry?.name;
@@ -1353,10 +1366,12 @@ export class FlightScene extends Phaser.Scene {
     }
     const look=entry?.look??{};
     const badge=unlockById(look.badge)?.glyph;
-    const label=bot?`◇ ${name}`:badge?`${badge} ${name}`:name;
+    const label=(this.warSide(id)==='ally'?'ALLY · ':'')+(bot?`◇ ${name}`:badge?`${badge} ${name}`:name);
     if (tag.text !== label) tag.setText(label);
     const tagColour=unlockById(look.tag)?.colour;
-    const colour=tagColour!==undefined?css(tagColour):mine?'#9fefff':bot?'#a9bdcf':'#ffc9a8';
+    // Warzone sides (owner, 21 November 2026): allies' names are green, enemies' red, over any colour.
+    const side=this.warSide(id);
+    const colour=side==='ally'?'#7dffb0':side==='enemy'?'#ff8a80':tagColour!==undefined?css(tagColour):mine?'#9fefff':bot?'#a9bdcf':'#ffc9a8';
     if(tag.style.color!==colour)tag.setColor(colour);
     const below = (Math.max(clientTune.render.shipRingRadius * clientTune.render.shipScale * size, shipTagClearance(size)) + 10) * at.scale;
     tag.setStroke('#081426', 3).setPosition(at.x, at.y + below).setVisible(at.visible && !mine);

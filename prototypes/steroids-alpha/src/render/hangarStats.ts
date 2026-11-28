@@ -7,7 +7,7 @@ export function shipStats(chassis:number,t:Tune){
  const s=newShip(0,0,0,0);s.chassis=chassis;s.hullMax=t.ship.maxHp;
  const c=chassisStats(chassis,t),m=shipMotion(chassis,t),heat=shotHeat(s,t),cool=t.weapon.coolPerSecond*c.fireIntervalSteps/t.net.tickHz;
  const shots=heat>=1?1:heat<=cool?Infinity:1+Math.ceil((1-heat-1e-10)/(heat-cool));
- if(chassis===4)return [{label:'SPEED',value:m.maxSpeed,display:String(m.maxSpeed)},{label:'TURN',value:m.turnRate,display:`${Math.round(m.turnRate*180/Math.PI)}°/s`},{label:'SHIELD',value:maxShield(s,t),display:String(maxShield(s,t))},{label:'MSL DMG',value:(t.missile.damage+t.missile.damagePerTier*3)*t.missileCruiser.damageFactor,display:String((t.missile.damage+t.missile.damagePerTier*3)*t.missileCruiser.damageFactor)},{label:'MISSILES',value:t.missileCruiser.capacity,display:String(t.missileCruiser.capacity)}];
+ if(chassis===4)return [{label:'SPEED',value:m.maxSpeed,display:String(m.maxSpeed)},{label:'TURN',value:m.turnRate,display:`${Math.round(m.turnRate*180/Math.PI)}°/s`},{label:'SHIELD',value:maxShield(s,t),display:String(maxShield(s,t))},{label:'MSL DMG',value:(t.missile.damage+t.missile.damagePerTier*3)*t.missileCruiser.missileDamageFactor,display:String(Math.round((t.missile.damage+t.missile.damagePerTier*3)*t.missileCruiser.missileDamageFactor*10)/10)},{label:'MISSILES',value:t.missileCruiser.capacity,display:String(t.missileCruiser.capacity)}];
  return [
   {label:'SPEED',value:m.maxSpeed,display:String(Math.round(m.maxSpeed))},
   {label:'TURN',value:m.turnRate,display:`${Math.round(m.turnRate*180/Math.PI)}°/s`},

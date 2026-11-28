@@ -1,5 +1,19 @@
 # HANDOFF (newest first, max 15; format in COLLAB.md)
 
+## 2026-11-28 claude perk balance, levels, cruisers, disconnects, Warzone allies (protocol 36)
+DID: Owner 21 Nov.
+- Levels: steeper curve (10 + 8 per level). All collected minerals count as XP, even past a full hold. Hold is 50 + 65 per level.
+- Shield is passive: +4 per level for the first 16 levels. The shield card is gone.
+- Weapon tiers each add about +3 DPS: guns +6.5% damage per tier, drone 1.2 damage per shot, missiles reload in refillSeconds 12 / tier, mines in 14 / tier. Live mines are capped at the mine tier, oldest removed.
+- Missile Cruiser: 45 degree alternating side launch for 0.2 s, missileDamageFactor 1.7, rangeFactor 1.7, reload 4.5 s per missile.
+- Evolutions tuned to about +50% power on evolving: Battlecruiser and Missile Cruiser shieldFactor 1.8, Battlecruiser damage 0.8, Missile Cruiser gun 1.25, CIWS 2.5.
+- Disconnects: 60 s window. A clean drop is safe at once (arrival protection); a drop with a hit in the 5 s before it stays exposed for 10 s. If the window expires after the warp lock, 50% of the cargo banks.
+- Warzone: no friendly fire (World.allies). Ally names are green with "ALLY ·", enemy names red, and allies wear a green ring.
+FILES: sim/ship.ts (levelsFromXp, passive shield, refill helpers), sim/levels.ts, sim/world.ts (allies, mine cap, side launch, xp), sim/pickups.ts, sim/liveConfig.ts (epoch 6), server/src/room.ts (disconnect rules, bot clan in roster), src/scenes/flight.ts (ally ring/names), src/render/hangarStats.ts, tune.json, scripts/measure-steroids-power-curve.mjs, tests.
+SEAM: Protocol 36 (no layout change; forces refresh). shop.balanceVersion 6 migrates live records. missileCruiser.missileDamageFactor is new and separate from the gun damageFactor.
+CROSS: All gates pass; a phone browser check of cards and HUD passed with no errors. The Warzone ally ring and names are untested in a browser (needs a live war); friendly fire and disconnects are covered by tests.
+FOR codex: the ally ring is a plain green circle. Restyle freely, but keep green = ally and red = enemy.
+
 ## 2026-11-20 codex graphite menu preview
 DID: Main menu, Hangar and planet chart share graphite surfaces and steel edges. Ship and Warp lead the landing screen. Hangar holds gold for evolutions and enlarges fighter previews in short cards.
 FILES: Menu, Hangar, StellarMap, shared UI and ship preview rendering.
@@ -96,11 +110,4 @@ FILES: sim/pickups/world/liveConfig/protocol33, room/client, combat render/HUD/F
 SEAM: fuel PickupKind, mined metadata and optional pickups.move payload; snapshot-coalesced authority, wrapped interpolation. Paired client/Worker release required; no D1 migration.
 CROSS: minimal sim/net/server/tune/tests for explicit separate-drop choice. Type/build/sim/config/bank/rig pass;3 DPR2 headless layouts,400 pooled sprites, stable textures. No capture/live writes.
 FOR claude: deferred; read CLAUDE_BACKLOG pickup section. Preserve ownership/capacity/spill locks and prices. Prior bundled-cargo pace results are historical.
-
-## 2026-11-19 codex bot survival LIVE191126r0108
-DID: PR577076417e1 live108/32; itch44443795181/Worker44443795129/Pages44443795169 succeeded. Bot aim/passes/spawns and500-credit evos; mineral prices unchanged.
-FILES: bots/world/tune/liveConfig/protocol32, lab draft/version hiding, instrumented pace harness, bank/sim/config/new survival gates; lab BOT_SURVIVAL_REVIEW/proof.
-SEAM:32 same layout paired release complete; bot epoch1 migrates observations once, catalogue quote is deployment-owned500. No new wire fields, damage/HP/movement/ram/shop/art changes.
-CROSS: released after owner review. Equal600s×10 seeds/policy: deaths27.5→4 mining,10.5→1 evasive,18→2.5 frozen combat. First500-credit cruiser8:23–8:34. Type/build/sim/config/bank/rig and2 headless UI cases pass; no capture.
-FOR claude: deferred.2 public price/equip cases, real home55 snapshots/ack100, alpha80/155 with4 bots and public lab values pass. Proof lab/bot-survival-proof.json; no capture/live spending.
 

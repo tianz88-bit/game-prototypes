@@ -17,7 +17,10 @@
     "maxQueuedInputs": 6,
     "maxGuessedSteps": 30,
     "forgiveGuessAfterTicks": 15,
-    "reconnectGraceSeconds": 20
+    "reconnectGraceSeconds": 60,
+    "disconnectSafeSeconds": 10,
+    "disconnectHitWindowSeconds": 5,
+    "disconnectBankShare": 0.5
   },
   "ship": {
     "minSpeed": 140,
@@ -43,7 +46,7 @@
     "contactGraceSeconds": 0.5,
     "knockbackSpeed": 320,
     "knockbackDecayPerSecond": 5,
-    "powerCap": 900,
+    "powerCap": 1400,
     "speedPenaltyAtCap": 0.3,
     "radiusBonusAtCap": 0.5,
     "hullSpillFraction": 0.5,
@@ -78,7 +81,7 @@
     "turnRate": 4,
     "aimTolerance": 0.12,
     "fireIntervalSteps": 12,
-    "damage": 0.8,
+    "damage": 1.2,
     "bulletSpeed": 750
   },
   "shop": {
@@ -119,7 +122,7 @@
       50,
       80
     ],
-    "damagePerTier": 0.03,
+    "damagePerTier": 0.065,
     "gunHeatPerTier": 0.025,
     "missileFloors": [
       10,
@@ -146,12 +149,14 @@
       80
     ],
     "holdBase": 50,
-    "holdPerUpgrade": 40,
+    "holdPerUpgrade": 65,
     "levelUp": 1,
-    "levelXpBase": 6,
-    "levelXpGrowth": 3.5,
+    "levelXpBase": 10,
+    "levelXpGrowth": 8,
     "levelEvolutionWeight": 3,
-    "balanceVersion": 5
+    "shieldPerLevel": 4,
+    "shieldPassiveLevels": 16,
+    "balanceVersion": 6
   },
   "missile": {
     "damage": 35,
@@ -165,7 +170,7 @@
     "lockConeDeg": 30,
     "lockRange": 900,
     "lifeSeconds": 3.5,
-    "refillSeconds": 6,
+    "refillSeconds": 12,
     "radius": 12
   },
   "mine": {
@@ -179,7 +184,7 @@
     "armSeconds": 0.7,
     "lifeSeconds": 20,
     "hp": 36,
-    "refillSeconds": 8,
+    "refillSeconds": 14,
     "maxActive": 4,
     "radius": 14
   },
@@ -291,8 +296,8 @@
     "acceleration": 264,
     "braking": 600,
     "turnRate": 1.76,
-    "shieldFactor": 2.5,
-    "damageFactor": 1.6,
+    "shieldFactor": 1.8,
+    "damageFactor": 0.8,
     "fireIntervalSteps": 5,
     "baseTurrets": 2,
     "minUpgrades": 6,
@@ -383,8 +388,9 @@
     "acceleration": 230,
     "braking": 600,
     "turnRate": 1.4,
-    "shieldFactor": 2.5,
-    "damageFactor": 1.5,
+    "shieldFactor": 1.8,
+    "damageFactor": 1.25,
+    "missileDamageFactor": 1.7,
     "fireIntervalSteps": 5,
     "baseTurrets": 0,
     "minUpgrades": 6,
@@ -395,12 +401,12 @@
     "minMissiles": 4,
     "minMines": 2,
     "capacity": 8,
-    "rangeFactor": 1.5,
+    "rangeFactor": 1.7,
     "radiusFactor": 1.5,
     "launchSpeed": 220,
-    "reverseSeconds": 0.18,
+    "reverseSeconds": 0.2,
     "turnRateMissile": 4.2,
-    "missileRefillFactor": 2,
+    "missileRefillFactor": 0.375,
     "lifeSeconds": 7,
     "repeatSeconds": 0.3
   },
@@ -410,7 +416,7 @@
     "pauseSeconds": 1.15,
     "range": 520,
     "speed": 1050,
-    "damage": 4,
+    "damage": 2.5,
     "turnRate": 18
   },
   "heavyTower": {
