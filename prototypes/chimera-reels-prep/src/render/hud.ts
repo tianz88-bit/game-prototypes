@@ -8,6 +8,8 @@ import { tune } from '../tune';
 import {
   actionSlots,
   isFlying,
+  nudgeCost,
+  projectedOrder,
   pocketGroups,
   previewBurn,
   previewRow,
@@ -67,7 +69,7 @@ const FONT = 'system-ui, -apple-system, Segoe UI, sans-serif';
 // Layout, logical pixels (390 x 844 portrait).
 const L = {
   // The enemy's reels are not shown (the player cannot act on them); its pocket gets the space.
-  enemy: { hpY: 30, cdY: 46, reelX: [16, 64, 112], reelY: 58, tileW: 44, tileH: 28, gap: 2, pocketX: 16, pocketY: 122, slot: 28, slotGap: 4.25 },
+  enemy: { hpY: 30, cdY: 46, reelX: [16, 64, 112], reelY: 58, tileW: 44, tileH: 28, gap: 2, pocketX: 16, pocketY: 136, slot: 28, slotGap: 4.25 },
   player: { panelY: 474, hpY: 494, cdY: 512, reelX: [16, 139, 262], reelY: 550, tileW: 112, tileH: 44, gap: 4, pocketX: 16, pocketY: 716, slot: 36, slotGap: 4.25 },
   execute: { x: 16, y: 762, w: 174, h: 74 },
   pocket: { x: 200, y: 762, w: 174, h: 74 },
@@ -114,6 +116,8 @@ export class Hud {
   private slotX = new Map<string, number>();
   private frameDt = 1 / 60;
   private landAge: Record<Side, number[]> = { player: [9, 9, 9], enemy: [9, 9, 9] };
+  /** Player reel slide after a nudge, logical px, easing back to 0. */
+  private nudgeOff = [0, 0, 0];
   private lastTickRow = [0, 0, 0];
   private missedFlash = 0;
   private superFlash = 0;
@@ -348,7 +352,10 @@ export class Hud {
         if (inside(L.pocket, x, y)) return { type: 'primary' };
         if (inside(L.yield, x, y)) return { type: 'yield' };
         const f = c.fighters.player;
-        for (const reel of REELS) if (inside(this.holdRect(reel), x, y)) return { type: 'hold', reel };
+        for (const reel of REELS) {
+          const hr = this.nudgeRect(reel);
+          if (inside(hr, x, y)) return { type: 'nudge', reel, dir: x < hr.x + hr.w / 2 ? -1 : 1 };
+        }
         for (let row = 0; row < 3; row++) if (inside(this.rowRect(row), x, y)) return { type: 'row', row };
         const groups = pocketGroups(f);
         for (let i = 0; i < groups.length; i++) {
@@ -392,9 +399,19 @@ export class Hud {
     const tw = small ? 20 : 34;
     switch (e.type) {
       case 'spin': {
-        // Held reels do not spin, so they keep their landed pose.
-        const hold = c.fighters[e.side].hold;
-        this.landAge[e.side] = this.landAge[e.side].map((a, r) => (hold[r] ? a : 9));
+        this.landAge[e.side] = [9, 9, 9];
+        this.nudgeOff = [0, 0, 0];
+        break;
+      }
+      case 'nudge':
+        // Tiles slide one row from where they were.
+        if (e.side === 'player') this.nudgeOff[e.reel] = -e.dir * (L.player.tileH + L.player.gap);
+        break;
+      case 'sabotage': {
+        const part = c.fighters[e.side].parts[e.part];
+        const name = PARTS[part.id].name.toUpperCase();
+        this.pop(e.side, e.shielded >= e.amount ? `${name} SHIELDED` : `-${e.amount - e.shielded} ${name}`, e.shielded >= e.amount ? '#bfefff' : '#9ff0ff', 18, 6);
+        sfx.hit(false);
         break;
       }
       case 'fizzle':
@@ -552,6 +569,7 @@ export class Hud {
     for (const side of ['player', 'enemy'] as const) {
 
       for (const r of REELS) this.landAge[side][r] += dt;
+      if (side === 'player') this.nudgeOff = this.nudgeOff.map((o) => o * Math.exp(-dt * 22));
     }
     for (const k of Object.keys(this.press)) this.press[k] = Math.max(0, this.press[k] - dt);
     this.missedFlash = Math.max(0, this.missedFlash - dt);
@@ -749,10 +767,10 @@ export class Hud {
     return { x: P.reelX[0] - 6, y: P.reelY + row * h - 3, w: P.reelX[2] + P.tileW - P.reelX[0] + 12, h: P.tileH + 6 };
   }
 
-  /** The header above a reel, the tap target for holding it. */
-  private holdRect(reel: number): Rect {
+  /** The header above a reel: left half nudges the tiles up, right half down. */
+  private nudgeRect(reel: number): Rect {
     const P = L.player;
-    return { x: P.reelX[reel], y: P.reelY - 19, w: P.tileW, h: 15 };
+    return { x: P.reelX[reel], y: P.reelY - 21, w: P.tileW, h: 17 };
   }
 
   /** The player's 3x3 grid: scroll while spinning, held reels locked, queued rows framed. */
@@ -787,32 +805,45 @@ export class Hud {
         const age = this.landAge.player[reel];
         const t = Math.min(1, age / tune.feel.reelLandSec);
         const bounce = age < tune.feel.reelLandSec ? Math.sin(t * Math.PI) * (1 - t) * tune.feel.reelOvershoot * h : 0;
-        reelWindow(f, reel).forEach((st, row) => {
+        const off = bounce + this.nudgeOff[reel];
+        // Rows -1 and 3 only show while a nudge slides the reel.
+        const rows = Math.abs(this.nudgeOff[reel]) > 0.5 ? [-1, 0, 1, 2, 3] : [0, 1, 2];
+        for (const row of rows) {
+          const st = strip[(((f.reelPos[reel] + row - 1) % n) + n) % n];
           const glow = reel === 1 && st.id === weakTile && !st.broken ? `rgba(255,120,90,${0.6 + 0.4 * Math.sin(this.time * 8)})` : undefined;
           const dim = !rowsLive.includes(row) || (!prep && f.plan.find((a) => a.row === row)?.done === true);
-          this.tile({ x, y: P.reelY + row * h + bounce, w: P.tileW, h: P.tileH }, st.id, { dim, label: true, broken: st.broken, glow, alpha: dim && !prep ? 0.45 : 1 });
-        });
+          this.tile({ x, y: P.reelY + row * h + off, w: P.tileW, h: P.tileH }, st.id, { dim, label: true, broken: st.broken, glow, alpha: dim && !prep ? 0.45 : 1 });
+        }
       }
       g.restore();
-      // Hold toggle above each reel.
-      const hr = this.holdRect(reel);
-      const held = f.hold[reel];
-      this.rr(hr, 5, held ? '#e8c15a' : 'rgba(255,255,255,0.08)', held ? '#fff3b0' : 'rgba(255,255,255,0.18)', 1);
-      this.text(`${['WHAT', 'WHERE', 'HOW'][reel]} ${held ? 'HELD' : '· hold'}`, hr.x + hr.w / 2, hr.y + hr.h / 2 + 1, 9, held ? '#1a1424' : 'rgba(255,224,138,0.8)', 'center', '800');
-      if (held) this.rr({ x: x - 4, y: P.reelY - 4, w: P.tileW + 8, h: h * 3 + 6 }, 8, 'rgba(0,0,0,0)', '#e8c15a', 2);
+      // Nudge arrows above each reel: left half moves tiles up, right half down.
+      const hr = this.nudgeRect(reel);
+      const can = prep && f.spinLeft <= 0 && this.gold >= nudgeCost(f);
+      const arrow = can ? '#ffe08a' : 'rgba(255,255,255,0.3)';
+      this.rr(hr, 5, 'rgba(255,255,255,0.08)', 'rgba(255,255,255,0.18)', 1);
+      if (prep) {
+        this.rr({ x: hr.x + 1, y: hr.y + 1, w: 26, h: hr.h - 2 }, 4, can ? 'rgba(232,193,90,0.25)' : 'rgba(0,0,0,0)');
+        this.rr({ x: hr.x + hr.w - 27, y: hr.y + 1, w: 26, h: hr.h - 2 }, 4, can ? 'rgba(232,193,90,0.25)' : 'rgba(0,0,0,0)');
+        this.text('▲', hr.x + 14, hr.y + hr.h / 2 + 1, 10, arrow, 'center', '900');
+        this.text('▼', hr.x + hr.w - 14, hr.y + hr.h / 2 + 1, 10, arrow, 'center', '900');
+      }
+      this.text(['WHAT', 'WHERE', 'HOW'][reel], hr.x + hr.w / 2, hr.y + hr.h / 2 + 1, 9, 'rgba(255,224,138,0.8)', 'center', '800');
     }
     if (f.spinLeft > 0) return;
-    // Rows: valid ones can be queued; queued ones are framed and numbered with their damage.
+    // Rows: valid ones can be queued; queued ones are framed and numbered with
+    // their place in the clash (both sides counted), and show their damage.
+    const seq = projectedOrder(c);
     for (let row = 0; row < 3; row++) {
       const r = this.rowRect(row);
       const order = prep ? f.queued.indexOf(row) : f.plan.findIndex((a) => a.row === row);
+      const place = seq.findIndex((o) => o.side === 'player' && o.row === row);
       const valid = rowValid(f, row);
       if (order >= 0) {
         const done = !prep && f.plan[order]?.done;
         const pulse = 0.7 + 0.3 * Math.sin(this.time * 6);
         this.rr(r, 9, 'rgba(0,0,0,0)', done ? 'rgba(255,255,255,0.25)' : `rgba(255,224,138,${pulse})`, 3);
         this.rr({ x: r.x - 9, y: r.y + r.h / 2 - 9, w: 18, h: 18 }, 9, done ? '#6b6278' : '#e8c15a');
-        this.text(done ? '✓' : String(order + 1), r.x, r.y + r.h / 2 + 1, 11, '#1a1424', 'center', '900');
+        this.text(done ? '✓' : String(place + 1), r.x, r.y + r.h / 2 + 1, 11, '#1a1424', 'center', '900');
       }
       if (prep && valid) {
         const pv = previewRow(c, 'player', row);
@@ -844,9 +875,12 @@ export class Hud {
       if (shown <= 0) return;
       const full = shown >= cap && isMove(g.id);
       let badge: string | undefined;
-      if (side === 'player' && c.phase === 'prep' && isTarget(g.id)) {
+      if (side === 'player' && c.phase === 'prep') {
         const b = previewBurn(c, 'player', g.id);
-        if (b) badge = String(b.damage);
+        if (b?.sabotage) badge = b.sabotage.breaks ? 'BRK' : `-${b.sabotage.toPart}`;
+        else if (b?.chip) badge = String(b.chip.damage);
+        else if (g.id === 'power') badge = `+${Math.round(tune.combat.powerBurnBonus[Math.min(3, g.count)] * 100)}%`;
+        else if (g.id === 'quick') badge = '1st';
       }
       this.tile({ x, y: slot.y, w: slot.w, h: slot.h }, g.id, { glow: full ? 'rgba(255,226,74,0.9)' : undefined, badge });
       this.rr({ x: x + 2, y: slot.y + 2, w: 18, h: 11 }, 4, 'rgba(10,8,18,0.8)');
@@ -861,24 +895,46 @@ export class Hud {
     const p = c.fighters.player;
     const prep = c.phase === 'prep';
     const rows = prep ? e.queued.map((row) => ({ row, done: false })) : e.plan.map((a) => ({ row: a.row, done: a.done }));
+    const seq = projectedOrder(c);
     this.text(prep ? 'ENEMY PLAN' : `ROUND ${c.round} CLASH`, 16, 58, 10, '#ff9a8a', 'left', '900');
     if (e.spinLeft > 0 && prep) {
       this.text('spinning...', 110, 58, 10, '#a89fbc', 'left', '700');
       return;
     }
-    const w = (358 - 3 * 6) / 4;
+    const w = (358 - 2 * 6) / 3;
     rows.forEach(({ row, done }, i) => {
-      const r = { x: 16 + i * (w + 6), y: 66, w, h: 44 };
-      const tiles = prep ? rowTiles(e, row) : e.plan[i];
-      this.rr(r, 8, done ? 'rgba(255,255,255,0.04)' : 'rgba(255,154,138,0.12)', done ? 'rgba(255,255,255,0.12)' : 'rgba(255,154,138,0.6)', 1);
-      if (isMove(tiles.move)) this.tile({ x: r.x + 4, y: r.y + 6, w: 30, h: 30 }, tiles.move, { alpha: done ? 0.4 : 1 });
-      const zone = isTarget(tiles.target) ? ZONE_LABEL[zoneOf(tiles.target)] : '-';
-      this.text(`> ${zone}`, r.x + 37, r.y + 13, 9.5, done ? '#6b6278' : '#fff', 'left', '800');
-      if (prep) {
+      const r = { x: 16 + i * (w + 6), y: 64, w, h: 56 };
+      // Raw reel tiles, so an action whose part has broken still shows (and fizzles).
+      const win = (reel: 0 | 1 | 2) => reelWindow(e, reel)[row];
+      const tiles = prep ? { move: win(0).id, target: win(1).id, mut: win(2).id, part: win(0).part } : e.plan[i];
+      const src = tiles.part !== undefined ? e.parts[tiles.part] : undefined;
+      const fizzles = !!src?.broken;
+      // Can the player's stash break the part behind this action right now?
+      const zone = src?.zone;
+      const sab = prep && zone && !fizzles ? previewBurn(c, 'player', `t_${zone}` as TileId)?.sabotage : null;
+      const breakable = !!sab?.breaks && pocketGroups(p).some((g) => g.id === `t_${zone}`);
+      const dim = done || fizzles;
+      const edge = breakable ? `rgba(120,230,255,${0.6 + 0.4 * Math.sin(this.time * 8)})` : dim ? 'rgba(255,255,255,0.12)' : 'rgba(255,154,138,0.6)';
+      this.rr(r, 8, dim ? 'rgba(255,255,255,0.04)' : 'rgba(255,154,138,0.12)', edge, breakable ? 2 : 1);
+      if (isMove(tiles.move)) this.tile({ x: r.x + 4, y: r.y + 5, w: 30, h: 30 }, tiles.move, { alpha: dim ? 0.4 : 1 });
+      const zoneLabel = isTarget(tiles.target) ? ZONE_LABEL[zoneOf(tiles.target)] : '-';
+      this.text(`> ${zoneLabel}`, r.x + 38, r.y + 12, 10, dim ? '#6b6278' : '#fff', 'left', '800');
+      const place = seq.findIndex((o) => o.side === 'enemy' && o.row === row);
+      if (fizzles) this.text('FIZZLES', r.x + 38, r.y + 29, 11, '#9ff0ff', 'left', '900');
+      else if (prep) {
         const pv = previewRow(c, 'enemy', row);
-        if (pv) this.text(`${pv.hit.damage} dmg`, r.x + 38, r.y + 31, 11, pv.hit.weak ? '#ffb36b' : '#ffe8d0', 'left', '900');
-      } else this.text(done ? 'done' : `#${i + 1}`, r.x + 38, r.y + 31, 10, '#a89fbc', 'left', '700');
-      if (tiles.mut !== 'blank' && !done) this.tile({ x: r.x + r.w - 19, y: r.y + r.h - 19, w: 15, h: 15 }, tiles.mut, {});
+        if (pv) this.text(`${pv.hit.damage} dmg`, r.x + 38, r.y + 29, 11, pv.hit.weak ? '#ffb36b' : '#ffe8d0', 'left', '900');
+      } else this.text(done ? 'done' : 'next', r.x + 38, r.y + 29, 10, '#a89fbc', 'left', '700');
+      // Clash order badge (both sides counted).
+      if (!done && place >= 0) {
+        this.rr({ x: r.x + r.w - 20, y: r.y + 3, w: 17, h: 15 }, 7, '#ff9a8a');
+        this.text(String(place + 1), r.x + r.w - 11.5, r.y + 11, 10, '#1a1424', 'center', '900');
+      }
+      if (tiles.mut !== 'blank' && !dim) this.tile({ x: r.x + r.w - 19, y: r.y + 21, w: 15, h: 15 }, tiles.mut, {});
+      // Where the move comes from: break that part and the action fizzles.
+      const from = src ? `${src.zone ? ZONE_LABEL[src.zone] : 'Body'} ${Math.max(0, Math.ceil(src.hp))}/${src.maxHp}` : 'innate';
+      const tag = breakable ? `${from} · BREAK IT` : src?.slot === 'body' ? `${from} (core)` : `from ${from}`;
+      this.text(tag, r.x + 5, r.y + 47, 8.5, breakable ? '#9ff0ff' : '#a89fbc', 'left', '800');
     });
     if (!rows.length) this.text('no actions this round', 16, 84, 11, '#a89fbc', 'left', '700');
     void p;
@@ -893,11 +949,12 @@ export class Hud {
     this.drawPocket(c, e, 'enemy');
     const w = weakspot(e);
     const broken = e.parts.filter((pt) => pt.broken).length;
-    this.text(`Weak: ${w >= 0 ? PARTS[e.parts[w].id].name : '-'}   Armour: ${e.armour}${broken ? `   ${broken} broken` : ''}`, 16, 166, 10, '#ff9a8a', 'left', '700');
+    this.text(`Weak: ${w >= 0 ? PARTS[e.parts[w].id].name : '-'}   Armour: ${e.armour}${broken ? `   ${broken} broken` : ''}`, 16, 177, 10, '#ff9a8a', 'left', '700');
 
     this.bars(p, L.player.hpY);
     const prep = c.phase === 'prep';
-    const status = prep ? `Round ${c.round} · Actions ${p.queued.length}/${actionSlots(p)}` : `Round ${c.round} · Clash!`;
+    const lead = p.initiative > e.initiative ? ' · Initiative' : '';
+    const status = prep ? `Round ${c.round} · Actions ${p.queued.length}/${actionSlots(p)}${lead}` : `Round ${c.round} · Clash!`;
     this.text(status, 16, 519, 11, '#ffe08a', 'left', '800');
     this.drawGrid(c, p, e);
     this.text(`Stash ${pocketGroups(p).length}/${p.pocketSize} · stacks of ${tune.pocket.stackCap}`, 16, L.player.pocketY - 9, 10, '#cfc7d9', 'left', '700');
@@ -961,8 +1018,8 @@ export class Hud {
     this.button(sp, 'spin', canSpin ? '#4b7fd4' : '#2e3348', canSpin);
     this.text('RE-SPIN', sp.x + sp.w / 2, sp.y + 22, 16, canSpin ? '#fff' : 'rgba(255,255,255,0.4)', 'center', '900');
     this.text(`${cost} gold  (have ${this.gold})`, sp.x + sp.w / 2, sp.y + 44, 11, canSpin ? '#ffe08a' : 'rgba(255,255,255,0.4)', 'center', '800');
-    const held = f.hold.filter(Boolean).length;
-    if (held) this.text(`${held} reel${held > 1 ? 's' : ''} held`, sp.x + sp.w / 2, sp.y + 60, 10, 'rgba(255,255,255,0.75)', 'center', '700');
+    const nudgeText = f.freeNudges > 0 ? `${f.freeNudges} free nudge${f.freeNudges > 1 ? 's' : ''} ▲▼` : `nudge ▲▼ ${tune.prep.nudgeCost} gold`;
+    this.text(nudgeText, sp.x + sp.w / 2, sp.y + 60, 10, f.freeNudges > 0 ? '#9ff0ff' : 'rgba(255,255,255,0.75)', 'center', '700');
     const ready = !busy && f.queued.length > 0;
     this.button(fi, 'fight', ready ? '#d4554b' : '#3a2f3f', ready);
     this.text('FIGHT!', fi.x + fi.w / 2, fi.y + 22, 18, ready ? '#fff' : 'rgba(255,255,255,0.4)', 'center', '900');
@@ -1160,7 +1217,8 @@ export class Hud {
   private logOutcome(e: LogEntry): string {
     const bits: string[] = [];
     if (e.miss) bits.push(e.miss === 'fizzled' ? 'FIZZLED, its part was broken' : e.miss === 'whiff' ? 'whiff, no attack' : 'missed, no target');
-    if (e.damage) {
+    if (e.partOnly) bits.push(`sabotage ${e.damage - e.shielded} part dmg${e.shielded ? ` (${e.shielded} to shield)` : ''}`);
+    else if (e.damage) {
       bits.push(`${e.damage} dmg${e.shielded ? ` (${e.shielded} to shield)` : ''}`);
       if (e.weak) bits.push('weak spot');
       if (e.resist > 1.05) bits.push('effective');
@@ -1170,7 +1228,9 @@ export class Hud {
     if (e.knockedOut) bits.push('knocked out a tile');
     if (e.shieldGain) bits.push(`+${e.shieldGain} shield`);
     const quicks = e.kind === 'burn' ? (e.tile === 'quick' ? e.count : 0) : e.mut === 'quick' ? e.mutStack : 0;
-    if (quicks) bits.push(e.kind === 'burn' ? `+${quicks} action slot${quicks > 1 ? 's' : ''}` : ['next action sooner', 'next action much sooner', 'next action instant'][Math.min(3, quicks) - 1]);
+    if (quicks) bits.push(e.kind === 'burn' ? 'initiative: acts sooner this round' : ['next action sooner', 'next action much sooner', 'next action instant'][Math.min(3, quicks) - 1]);
+    if (e.kind === 'burn' && e.tile === 'power') bits.push(`+${Math.round(tune.combat.powerBurnBonus[Math.min(3, e.count)] * 100)}% on the first action`);
+    if (e.boost) bits.push(`boosted +${Math.round(e.boost * 100)}%`);
     return bits.join(', ') || 'no effect';
   }
 

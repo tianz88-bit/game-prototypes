@@ -2,7 +2,7 @@
 //   node scripts/screenshot-chimera-reels-prep.mjs <baseUrl> <outDir>
 // baseUrl e.g. http://localhost:5200/game-prototypes/prototypes/chimera-reels-prep/
 // On a 390x844 phone viewport: title, starter select, prefight, then a prep
-// phase with real taps (queue rows, hold a reel, re-spin), Fight, a clash,
+// phase with real taps (queue rows, nudge a reel, re-spin), Fight, a clash,
 // then auto-plays rounds (keyboard intents) to the result and battle log.
 // Fails on any console error.
 import fs from 'node:fs';
@@ -34,7 +34,7 @@ const st = () => page.evaluate(() => {
   return {
     screen: r.screen, gold: r.gold, phase: c?.phase, round: c?.round, winner: c?.winner ?? null,
     spinning: (p?.spinLeft ?? 0) > 0 || (c?.fighters.enemy.spinLeft ?? 0) > 0, queued: p?.queued.length ?? 0,
-    hold: p?.hold, stash: p?.pocket.length ?? 0, hp: p?.hp, enemyHp: c?.fighters.enemy.hp,
+    pos: p?.reelPos.join(','), stash: p?.pocket.length ?? 0, hp: p?.hp, enemyHp: c?.fighters.enemy.hp,
   };
 });
 const until = async (pred, what, tries = 200) => {
@@ -59,15 +59,22 @@ await page.waitForTimeout(300);
 await shot('prep-round1.png');
 await page.mouse.click(195, 572); // queue row 0
 await page.mouse.click(195, 620); // queue row 1
-await page.mouse.click(72, 538); // hold the move reel
 await page.waitForTimeout(200);
 await shot('prep-queued.png');
+const preNudge = await st();
+await page.mouse.click(30, 537); // nudge the move reel (tiles up)
+await page.waitForTimeout(60);
+await shot('prep-nudging.png');
+await page.waitForTimeout(300);
+const postNudge = await st();
+console.log('nudge: gold', preNudge.gold, '->', postNudge.gold, 'reels', preNudge.pos, '->', postNudge.pos);
+await shot('prep-nudged.png');
 const before = await st();
 await page.mouse.click(103, 799); // re-spin (costs gold)
 await page.waitForTimeout(250);
 await shot('prep-respin.png');
 const after = await until((s) => !s.spinning, 're-spin');
-console.log('re-spin: gold', before.gold, '->', after.gold, 'hold', JSON.stringify(after.hold));
+console.log('re-spin: gold', before.gold, '->', after.gold);
 await page.mouse.click(195, 572);
 await page.mouse.click(195, 620);
 await page.mouse.click(195, 668);

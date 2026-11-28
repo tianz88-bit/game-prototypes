@@ -137,7 +137,7 @@ export type SoulId = 'tailwind' | 'hoarder' | 'stoneheart' | 'adaptive' | 'wild'
 export interface SoulDef { name: string; ability: string; color: string }
 
 export const SOULS: Record<SoulId, SoulDef> = {
-  tailwind: { name: 'Tailwind', ability: 'One extra action slot every round.', color: '#9fe3ff' },
+  tailwind: { name: 'Tailwind', ability: 'Extra speed every round: acts sooner and gets a free nudge.', color: '#9fe3ff' },
   hoarder: { name: 'Hoarder', ability: 'One extra stash slot; supers on a weak spot hit harder.', color: '#ffd66b' },
   stoneheart: { name: 'Stoneheart', ability: 'Starts each fight shielded, and can hold a bigger shield.', color: '#c9b8ff' },
   adaptive: { name: 'Adaptive', ability: 'No ability: a small boost to attack, defence and speed.', color: '#9cf2c8' },

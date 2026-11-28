@@ -6,7 +6,7 @@ import { clearRun, hasSavedRun, loadRun, saveRun, savedBest } from './save';
 import { autoFullscreen, toggleFullscreen } from './fullscreen';
 import { arenaToDesign, fitView, screenToDesign, wholeToDesign } from './render/view';
 import { bindKeyboard, bindPointer, drainIntents, type Intent } from './input/intents';
-import { burn, fight, pocketGroups, respin, spinCost, tick, toggleHold, toggleRow } from './sim/combat';
+import { burn, fight, nudge, nudgeCost, pocketGroups, respin, spinCost, tick, toggleRow } from './sim/combat';
 import { SLOTS, STARTERS } from './sim/content';
 import { makeRng } from './sim/rng';
 import {
@@ -175,9 +175,14 @@ function applyIntent(intent: Intent) {
       } else if (intent.type === 'row') {
         toggleRow(c, 'player', intent.row);
         sfx.ui();
-      } else if (intent.type === 'hold') {
-        toggleHold(c, 'player', intent.reel);
-        sfx.ui();
+      } else if (intent.type === 'nudge') {
+        // Nudges cost a little gold unless a free one is left this round.
+        const cost = nudgeCost(c.fighters.player);
+        if (run.gold >= cost && nudge(c, 'player', intent.reel, intent.dir)) {
+          run.gold -= cost;
+          sfx.reelStop(intent.reel);
+          if (cost) sfx.coin();
+        }
       } else if (intent.type === 'burn') {
         const group = pocketGroups(c.fighters.player)[intent.group];
         if (group) burn(c, 'player', group.id);
