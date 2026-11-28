@@ -22,7 +22,7 @@ function world(){const w=new S.World(t,()=>.5);w.asteroids.clear();return w;}fun
  for(let n=0;n<30;n++){S.stepShip(s,idle,dt,t);S.stepShip(replay,idle,dt,t);}
  assert.deepEqual(s,replay);
 }
-{const w=world(),s=ship(w,1),enemy=ship(w,2,2000,1500,0);w.stepShip(1,{...idle,missile:true});const m=[...w.ordnance.values()][0];assert(m.heavy);assert.equal(m.damage,t.missile.damage*t.missileCruiser.damageFactor);assert(Math.cos(m.heading-s.heading)<-.99);const start=m.heading;for(let i=0;i<Math.ceil(t.missileCruiser.reverseSeconds*t.net.tickHz)-1;i++)w.step();assert.equal(m.heading,start);w.step();assert.notEqual(m.heading,start);assert(S.decodeServer(S.encodeOrdnance([{id:1,kind:2,owner:1,x:m.x,y:m.y,heading:m.heading,hp:1,armed:true,target:2}])).items[0].kind===2);}
+{const w=world(),s=ship(w,1),enemy=ship(w,2,2000,1500,0);w.stepShip(1,{...idle,missile:true});const m=[...w.ordnance.values()][0];assert(m.heavy);assert.equal(m.damage,t.missile.damage*t.missileCruiser.missileDamageFactor);assert(Math.abs(Math.cos(m.heading-s.heading)-Math.SQRT1_2)<1e-6,'leaves 45 degrees to the side');const start=m.heading;for(let i=0;i<Math.ceil(t.missileCruiser.reverseSeconds*t.net.tickHz)-1;i++)w.step();assert.equal(m.heading,start);w.step();assert.notEqual(m.heading,start);assert(S.decodeServer(S.encodeOrdnance([{id:1,kind:2,owner:1,x:m.x,y:m.y,heading:m.heading,hp:1,armed:true,target:2}])).items[0].kind===2);}
 for(const chassis of[2,4]){const w=world(),s=ship(w,1,1500,1500,chassis),target=ship(w,2,1750,1500,0);s.turrets=chassis===4?2:0;target.shield=10000;let ticks=[];for(let n=0;n<55;n++){w.step();if(w.drain().shots.some(s=>s.owner===1&&s.side===10))ticks.push(n);}assert(ticks.length>=7);assert(ticks.slice(1,7).every((v,i)=>v-ticks[i]===2),'fixed-step seven-shot burst');assert(ticks.length===7||ticks[7]-ticks[6]>=35,'pause before reacquire');}
 {const w=world();w.setPlanet('warzone');w.startWar();const at=w.layout.turrets[0],s=ship(w,1,at.x+400,at.y,3);w.clanOf.set(1,w.attackerClan);s.shield=10000;let ticks=[];for(let n=0;n<150;n++){w.step();if(w.drain().shots.some(s=>s.side===40))ticks.push(n);}assert(ticks.length>=2,'tower fires');assert.equal(ticks[1]-ticks[0],6,'heavy doublet');assert(ticks[2]-ticks[1]>=45,'reload and warning');}
 {const w=world();w.setPlanet('warzone');w.startWar();w.siege.shield=0;w.siege.shieldBroken=true;const base=w.layout.treasury,s=ship(w,1,base.x-1050,base.y);w.clanOf.set(1,w.attackerClan);w.stepShip(1,{...idle,missile:true});assert([...w.ordnance.values()][0].target<0,'server locks siege structures');let hit=false;for(let n=0;n<240;n++){w.step();if(w.drain().structureHits.length){hit=true;break;}}assert(hit,'rear-launched heavy missile arcs into a structure');}
@@ -34,16 +34,16 @@ for(const chassis of[2,4]){const w=world(),s=ship(w,1,1500,1500,chassis),target=
  w.stepShip(1,{...idle,missile:true});
  const missile=[...w.ordnance.values()][0];
  assert.equal(missile.target,0);
- assert.equal(s.missileCd,12);
+ assert.equal(s.missileCd,t.missile.refillSeconds*t.missileCruiser.missileRefillFactor,'the cruiser rack reloads fast');
  for(let n=0;n<32;n++)w.step();
  assert(Math.cos(missile.heading)>.95,'unlocked heavy missile returns forward');
- assert(missile.x>launchX-100,'heavy missile has already recovered its rear excursion');
- for(let n=0;n<361;n++)S.stepShip(s,idle,dt,t);
+ assert(missile.x>launchX,'a side launch never travels backwards');
+ for(let n=0;n<Math.ceil(8*t.missile.refillSeconds*t.missileCruiser.missileRefillFactor*t.net.tickHz)+1;n++)S.stepShip(s,idle,dt,t);
  assert.equal(s.missileCharges,8);
  const fighter=ship(world(),1,1500,1500,3);
  fighter.missileTier=fighter.missileCharges=1;
  S.stepShip(fighter,{...idle,missile:true},dt,t);
- assert.equal(fighter.missileCd,6);
+ assert.equal(fighter.missileCd,t.missile.refillSeconds,'tier 1 reloads in missile.refillSeconds');
 }
 {
  const legacy=S.defaultConfig();
@@ -51,7 +51,7 @@ for(const chassis of[2,4]){const w=world(),s=ship(w,1,1500,1500,chassis),target=
  legacy.tune.missileCruiser.reverseSeconds=.45;
  legacy.tune.missileCruiser.turnRateMissile=1.9;
  const updated=S.validateConfig(legacy);
- assert.equal(updated.tune.missileCruiser.reverseSeconds,.18);
+ assert.equal(updated.tune.missileCruiser.reverseSeconds,t.missileCruiser.reverseSeconds,'the side-launch epoch applies');
  assert.equal(updated.tune.missileCruiser.turnRateMissile,4.2);
  updated.tune.missileCruiser.reverseSeconds=.22;
  assert.equal(S.validateConfig(updated).tune.missileCruiser.reverseSeconds,.22);
@@ -78,4 +78,4 @@ for (const cause of ['late', 'overflow']) {
  assert.equal(pilot.ship.mineShots,1,cause+' mine must not repeat');
  room.stop();
 }
-console.log('PASS capital evolution authority, independent gun/missile cooldown and replay, backward delayed missiles, chassis/heavy wire identity, seven-shot CIWS, heavy tower doublet and bounded config upgrade.');
+console.log('PASS capital evolution authority, independent gun/missile cooldown and replay, 45-degree side-launched missiles, chassis/heavy wire identity, seven-shot CIWS, heavy tower doublet and bounded config upgrade.');

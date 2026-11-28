@@ -87,6 +87,10 @@ interface Player {
    * on idle input, until this tick; the pilot can resume it before then. -1 while connected.
    */
   awayUntil: number;
+  /** Room tick the connection dropped (-1 while connected). */
+  droppedAt?: number;
+  /** Hit in the moments before dropping: the ship stays exposed for net.disconnectSafeSeconds. */
+  hotDrop?: boolean;
   /** Warzone: destroyed at war and waiting to respawn in place until this tick (-1: flying). */
   down: number;
 }
@@ -529,6 +533,8 @@ export class Room {
     const old = player.ws;
     player.ws = ws;
     player.awayUntil = -1;
+    player.droppedAt = -1;
+    player.ship.arrival = 0; // back at the controls: the disconnect safety ends at once
     player.queue = [];
     player.deficit = 0;
     player.deficitTicks = 0;
@@ -564,6 +570,8 @@ export class Room {
     const grace = Math.round(this.tune.net.reconnectGraceSeconds * this.tune.net.tickHz);
     if (grace <= 0) return this.leave(player.id);
     player.awayUntil = this.tick + grace;
+    player.droppedAt = this.tick;
+    player.hotDrop = this.world.hitWithin(player.id, this.tune.net.disconnectHitWindowSeconds);
     // Nobody at the controls: the ship flies on with nothing pressed (it eases to minimum speed).
     player.queue = [];
     player.last = { ...IDLE_INPUT, seq: player.last.seq };
@@ -748,7 +756,23 @@ export class Room {
       if(b.item!==EVOLVE_ITEM||evolutionBuild(p.look)===b.tier)this.world.buy(b.id,b.item,b.tier);}
     for (const p of this.players.values()) this.world.evolutionsOwned.set(p.id, p.evolutions ?? []);
     // Pilots away longer than the grace period lose their ship.
-    for (const p of [...this.players.values()]) if (p.awayUntil >= 0 && this.tick >= p.awayUntil) this.leave(p.id);
+    // Disconnects (owner, 21 November 2026): a dropped ship is safe at once (it uses the arrival
+    // protection), but one hit in the disconnectHitWindowSeconds before dropping stays exposed for
+    // disconnectSafeSeconds, so unplugging never saves a fight. If the window runs out after the warp
+    // lock, disconnectBankShare of the cargo banks instead of all being lost.
+    const net = this.tune.net, hz = net.tickHz;
+    for (const p of [...this.players.values()]) {
+      if (p.awayUntil < 0 || p.droppedAt === undefined || p.droppedAt < 0) continue;
+      if (this.tick >= p.awayUntil) {
+        const home = !!this.world.layout && !this.world.siege;
+        const share = p.ship.lockdown <= 0 && !this.world.siege ? Math.floor(bankedMinerals(p.ship, this.tune, home, 0) * net.disconnectBankShare) : 0;
+        if (share > 0) void this.bankRun(p, share);
+        this.leave(p.id);
+        continue;
+      }
+      const away = (this.tick - p.droppedAt) / hz;
+      if (away >= (p.hotDrop ? net.disconnectSafeSeconds : 0)) p.ship.arrival = Math.max(p.ship.arrival ?? 0, 0.5);
+    }
     this.stepSiege();
     for (const p of this.players.values()) if (p.down < 0) this.stepPlayer(p);
     this.stepBots();
@@ -893,7 +917,7 @@ export class Room {
   private broadcastRoster(): void {
     const players = [...this.players.values(), ...this.bots.values()];
     this.rosterKey = players.map((p) => `${p.id}:${Math.floor(mineralBalance(p.ship,this.tune))}:${p.kills}:${upgradeCount(p.ship)}`).join(',');
-    this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.floor(mineralBalance(p.ship,this.tune)), level: upgradeCount(p.ship), bot: this.bots.has(p.id), look: (p as Partial<Player>).look ?? {}, clan: (p as Partial<Player>).clan ?? 0 })) }));
+    this.broadcast(JSON.stringify({ type: 'roster', players: players.map((p) => ({ id: p.id, name: p.name, kills: p.kills, power: Math.floor(mineralBalance(p.ship,this.tune)), level: upgradeCount(p.ship), bot: this.bots.has(p.id), look: (p as Partial<Player>).look ?? {}, clan: (p as Partial<Player>).clan ?? this.world.clanOf.get(p.id) ?? 0 })) }));
   }
 
   /**

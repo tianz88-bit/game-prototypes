@@ -7,35 +7,39 @@ const input={seq:0,turn:0,aim:NaN,thrust:0,dash:false,fire:true,missile:false,mi
 function fighter(chassis=3,tier=0){const s=S.newShip(1000,1000,0,260);Object.assign(s,{chassis,hp:t.ship.maxHp,hullMax:t.ship.maxHp,shieldTier:tier,damageTier:tier,turrets:tier});s.shield=S.maxShield(s,t);return s;}
 function measure(chassis,tier){const s=fighter(chassis,tier);let shots=0;for(let i=0;i<60*t.net.tickHz;i++){const n=s.shots;S.stepShip(s,input,dt,t);shots+=s.shots!==n?1:0;}const primary=shots*t.weapon.damage*S.damageScale(s,t)/60,automatic=tier*t.turret.damage*t.net.tickHz/t.turret.fireIntervalSteps;return{chassis,tier,hull:S.hullCapacity(s,t),shield:S.maxShield(s,t),primaryDps60:primary,automaticDps:automatic,ehp:S.hullCapacity(s,t)+S.maxShield(s,t),dps:primary+automatic};}
 const fresh=measure(3,0),max=[0,1,3].map(c=>measure(c,4)),indices=max.map(a=>a.ehp/fresh.ehp*a.dps/fresh.dps),ceiling=Math.max(...indices);
-assert(ceiling>=1.7&&ceiling<=1.8,'owner target about +75% on primary+automatic sustained DPS × durability');
+// Owner, 21 November 2026: a full weapon build roughly doubles DPS (guns and drones measured here;
+// missiles/mines and the passive level shield come on top, see scripts/measure-steroids-power-curve.mjs).
+assert(ceiling>=1.6&&ceiling<=2.4,`guns + drones at tier 4 about double primary+automatic DPS x durability: ${ceiling}`);
 assert.deepEqual([0,1,3].map(c=>fighter(c).shield),[75,52.5,75]);
 for (const tier of [0,4]) {
  assert.equal(measure(1,tier).primaryDps60,measure(0,tier).primaryDps60,'Bat and Falcon share primary DPS');
 }
 assert.equal(S.shipMotion(1,t).turnRate,S.shipMotion(0,t).turnRate*1.7);
-assert.equal(S.maxShield({chassis:2,shieldTier:0},t),125);
-assert.equal(S.maxShield({chassis:4,shieldTier:0},t),125);
+assert.equal(S.maxShield({chassis:2,shieldTier:0,xp:0},t),t.ship.maxShield*t.battlecruiser.shieldFactor,'capital shield at level 0');
+assert.equal(S.maxShield({chassis:4,shieldTier:0,xp:0},t),t.ship.maxShield*t.missileCruiser.shieldFactor);
+assert.equal(S.maxShield({chassis:3,shieldTier:0,xp:S.xpForLevel(20,t)},t),t.ship.maxShield+t.ship.fighterShieldBonus+t.shop.shieldPerLevel*t.shop.shieldPassiveLevels,'passive shield stops after shieldPassiveLevels');
 // --- Run levels (owner, 19 November 2026): collected minerals are XP, never spent; each level offers
 // three cards; owned evolutions are guaranteed cards once ready; minerals carried out bank. ---
 assert.equal(t.shop.levelUp,1,'run levels are the live progression');
 assert.equal(S.levelStep(1,t),t.shop.levelXpBase);
 assert.equal(S.xpForLevel(20,t),20*t.shop.levelXpBase+t.shop.levelXpGrowth*190,'level curve: base + growth per level');
 assert.equal(S.levelsEarned(S.xpForLevel(5,t),t),5);assert.equal(S.levelsEarned(S.xpForLevel(5,t)-.01,t),4);
-for(let n=0;n<20;n++)assert(S.walletCap({picks:n},t)-t.ship.maxHp>S.xpForLevel(n+1,t),`hold at level ${n} stays ahead of the next level`);
+// Past a full hold, minerals still give XP (owner, 21 November 2026), so the hold never blocks levelling.
+assert.equal(t.shop.shieldPerLevel>0,true,'shield grows passively per level');
 {
  const w=new S.World(t,()=>.5);w.asteroids.clear();const s=w.addShip(1);Object.assign(s,{x:1000,y:1000,arrival:0,shield:0});w.drain();
  assert.equal(w.buy(1,2,0),false,'the mineral shop is closed while run levels are on');
  w.pickups.set(1,{id:1,kind:'mineral',x:s.x,y:s.y,value:30,from:0,lockedUntil:0,expires:9999});w.step();
  assert.equal(S.mineralBalance(s,t),30,'collected minerals are carried');assert.equal(s.xp,30,'and count as XP');
- assert.equal(S.pendingPicks(s,t),3,'30 XP earns three levels');
+ assert.equal(S.pendingPicks(s,t),S.levelsEarned(30,t),'30 XP earns its levels');assert.equal(S.levelsEarned(30,t),2,'two levels at the new curve (10 + 18)');
  w.step();const offer=w.cards.get(1);assert.equal(offer.length,3,'three cards');assert.equal(new Set(offer).size,3,'no repeats');
- assert(offer.every(c=>c>=0&&c<5),'no evolution card without an owned evolution');
+ assert(offer.every(c=>c>=0&&c<5),'no evolution card without an owned evolution');assert(!offer.includes(1),'shield is passive, never a card');
  const before={damage:s.damageTier,turrets:s.turrets,shield:s.shieldTier,missile:s.missileTier,mine:s.mineTier};
  assert(w.pick(1,offer[0]),'pick a card');assert.equal(s.picks,1);assert.equal(S.mineralBalance(s,t),30,'picking spends nothing');
  assert.equal(S.upgradeTotal(s),1,'one upgrade applied');assert(!w.pick(1,offer[1]),'the old offer is gone');
  w.step();assert.equal(w.cards.get(1).length,3,'the next waiting level draws new cards');
  s.hullMax=S.walletCap(s,t)-1;w.pickups.set(2,{id:2,kind:'mineral',x:s.x,y:s.y,value:20,from:0,lockedUntil:0,expires:9999});const xp=s.xp;w.step();
- assert.equal(s.hullMax,S.walletCap(s,t),'the hold caps what is carried');near(s.xp-xp,1,1e-6,'XP counts only what fitted');
+ assert.equal(s.hullMax,S.walletCap(s,t),'the hold caps what is carried');near(s.xp-xp,20,1e-6,'all collected minerals count as XP, even past a full hold');
 }
 {
  const w=new S.World(t,()=>.5);w.asteroids.clear();const s=w.addShip(1);Object.assign(s,{x:1000,y:1000,arrival:0,shield:0,turrets:2,damageTier:4,xp:S.xpForLevel(7,t),picks:6});w.drain();
@@ -62,5 +66,22 @@ assert.deepEqual([100,180,200,470,480].map(x=>Math.round(S.haulBonusNext(x,t))),
 for(const version of[undefined,2,3,4]){const old=S.defaultConfig();if(version===undefined)delete old.tune.shop.balanceVersion;else old.tune.shop.balanceVersion=version;Object.assign(old.tune.shop,{levelUp:0,damageCosts:[1,2,3,4]});old.tune.asteroid.miningMineralFactor=.18;old.tune.warp.lockdownSeconds=180;old.tune.salvage.killPowerShare=.5;
  const m=S.validateConfig(old);assert.deepEqual(m.tune.shop,t.shop,`epoch ${version} adopts the run economy`);assert.equal(m.tune.asteroid.miningMineralFactor,t.asteroid.miningMineralFactor);assert.equal(m.tune.warp.lockdownSeconds,t.warp.lockdownSeconds);assert.equal(m.tune.salvage.killPowerShare,0);}
 {const later=S.defaultConfig();later.tune.interceptor.damageFactor=1.1;later.tune.shop.levelXpGrowth=4;const kept=S.validateConfig(later);assert.equal(kept.tune.interceptor.damageFactor,1.1);assert.equal(kept.tune.shop.levelXpGrowth,4,'edits at the current epoch survive');}
+// Warzone (owner, 21 November 2026): no friendly fire between ships on the same side.
+{
+ const w=new S.World(t,()=>.5);w.asteroids.clear();w.setPlanet('warzone');
+ const a=w.addShip(1),b=w.addShip(2),c=w.addShip(3);for(const s of [a,b,c])Object.assign(s,{arrival:0,shield:0,hp:50});
+ w.clanOf.set(1,1);w.clanOf.set(2,1);w.clanOf.set(3,2);w.drain();
+ assert(w.allies(1,2)&&!w.allies(1,3),'same side are allies');
+ w.damageShip(2,b,20,1,b.x,b.y);assert.equal(b.hp,50,'an ally takes no damage');
+ w.damageShip(3,c,20,1,c.x,c.y);assert.equal(c.hp,30,'an enemy does');
+ const home=new S.World(t,()=>.5);home.clanOf.set(1,1);home.clanOf.set(2,1);assert(!home.allies(1,2),'outside the Warzone nobody is spared');
+}
+// Live mines are capped at the mine tier; one more removes the oldest.
+{
+ const w=new S.World(t,()=>.5);w.asteroids.clear();const s=w.addShip(1);Object.assign(s,{arrival:0,mineTier:2});
+ for(let i=0;i<3;i++)w.dropMine(1,s);
+ assert.equal([...w.ordnance.values()].filter(o=>o.kind==='mine'&&o.owner===1).length,2,'two live mines at mine tier 2');
+ assert.equal(S.mineRefillSeconds({mineTier:2},t),t.mine.refillSeconds/2,'each tier speeds the mine reload');
+}
 function near(a,b,e,m){assert(Math.abs(a-b)<=e,`${m}: ${a} vs ${b}`);}
 console.log('PASS progression balance',JSON.stringify({fresh,max,indices,ceiling,levels:{xpFor20:S.xpForLevel(20,t),hold20:S.walletCap({picks:20},t)-t.ship.maxHp},scope:'primary+automatic throughput × hull+shield; excludes aiming, regen, missiles/mines and cruiser roles'}));

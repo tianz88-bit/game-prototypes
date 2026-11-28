@@ -33,7 +33,7 @@ import type { ShipInput, ShipState } from './ship';
 import type { Asteroid } from './asteroids';
 import type { ShotEvent } from './world';
 
-export const PROTOCOL_VERSION = 35;
+export const PROTOCOL_VERSION = 36;
 
 export const MSG = {
   INPUT: 1,

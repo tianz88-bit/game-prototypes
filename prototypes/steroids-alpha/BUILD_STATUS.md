@@ -1,5 +1,9 @@
 ## Current milestone
 
+Perk balance, level curve, passive shield, cruiser retune, softer disconnects and Warzone allies: released in this session's PR (protocol 36). See HANDOFF 2026-11-28.
+
+Previously:
+
 Local preview of graphite main menu, Hangar, and Warp map for owner review. Live itch remains 201126r0113 from PR605, with Worker protocol 35.
 
 ## What was implemented
