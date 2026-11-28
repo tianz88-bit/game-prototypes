@@ -82,3 +82,9 @@ export function screenToDesign(v: ViewSize, x: number, y: number): { x: number; 
 export function arenaToDesign(v: ViewSize, x: number, y: number): { x: number; y: number } {
   return { x: (x - v.offX) / v.scale, y: TOP_END + (y - v.midTop) / v.scale };
 }
+
+/** CSS px -> design coordinates when the HUD is shown as one fitted image (battle log). */
+export function wholeToDesign(v: ViewSize, x: number, y: number): { x: number; y: number } {
+  const fit = Math.min(v.cssW / WIDTH, v.cssH / HEIGHT);
+  return { x: (x - (v.cssW - WIDTH * fit) / 2) / fit, y: (y - (v.cssH - HEIGHT * fit) / 2) / fit };
+}

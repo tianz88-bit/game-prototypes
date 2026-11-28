@@ -117,6 +117,11 @@ on a design decision.
   161x68 px on 360x640 (was 132x56) and 167x71 px on 375x667; tall
   phones unchanged. Taps verified at six sizes.
 
+- Battle log fix: on screens other than 390x844 the log was split across
+  the three HUD bands, which overlapped ("stacked entries"). The log now
+  shows the whole HUD as one fitted image and taps map through the same
+  fit. Checked at 360x640 and 390x844.
+
 ## Key technical decisions
 - `computeHit` is a pure function used both for previews and for
   resolution, so the shown damage always matches what lands.

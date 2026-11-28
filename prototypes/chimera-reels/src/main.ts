@@ -4,7 +4,7 @@ import { Hud } from './render/hud';
 import { TitleScene } from './render/titleScene';
 import { clearRun, hasSavedRun, loadRun, saveRun, savedBest } from './save';
 import { autoFullscreen, toggleFullscreen } from './fullscreen';
-import { arenaToDesign, fitView, screenToDesign } from './render/view';
+import { arenaToDesign, fitView, screenToDesign, wholeToDesign } from './render/view';
 import { bindKeyboard, bindPointer, drainIntents, type Intent } from './input/intents';
 import { burn, execute, pocket, pocketGroups, tick } from './sim/combat';
 import { SLOTS, STARTERS } from './sim/content';
@@ -79,7 +79,7 @@ window.addEventListener('resize', resize);
 resize();
 
 bindKeyboard(unlockAudio);
-bindPointer(canvas, (x, y) => screenToDesign(view, x, y), (x, y) => hud.hitTest(x, y, run), (e) => {
+bindPointer(canvas, (x, y) => (hud.logOpen ? wholeToDesign(view, x, y) : screenToDesign(view, x, y)), (x, y) => hud.hitTest(x, y, run), (e) => {
   unlockAudio();
   autoFullscreen(e);
 });
