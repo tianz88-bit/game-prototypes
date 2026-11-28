@@ -77,14 +77,16 @@ export interface Fighter {
   /** Number of tile types the pocket can hold; each type stacks up to the stack cap. */
   pocketSize: number;
   aiWait: number;
-  /** Prep state for the current round. */
-  hold: [boolean, boolean, boolean];
-  /** Queued rows, in the order chosen. */
+  /** Prep state for the current round. Queued rows, in the order chosen. */
   queued: number[];
   /** Paid re-spins used this round (prices rise with each). */
   paidSpins: number;
-  /** Extra action slots this round (Quick burns). */
-  bonusSlots: number;
+  /** Nudges this round that cost no gold (speed past the slot cap). */
+  freeNudges: number;
+  /** Head start this round, in action gaps (speed past the slot cap, Quick burns). */
+  initiative: number;
+  /** Power+ burn bonus for this round's first action (0 = none). */
+  boost: number;
   /** Actions locked in for the clash. */
   plan: PlannedAction[];
   /** Seconds the side's clash timeline has been pulled forward by Quick. */
@@ -107,6 +109,7 @@ export interface PlannedAction {
 
 export type CombatEvent =
   | { type: 'spin'; side: Side; tease: boolean }
+  | { type: 'nudge'; side: Side; reel: ReelIndex; dir: 1 | -1 }
   | { type: 'reelLand'; side: Side; reel: ReelIndex }
   | { type: 'land'; side: Side }
   | { type: 'lost'; side: Side }
@@ -118,6 +121,7 @@ export type CombatEvent =
   | { type: 'break'; side: Side; part: number; cancelled: boolean }
   | { type: 'pocket'; side: Side; stored: { id: TileId; from: number; to: number; tile: PocketTile }[]; discarded: number[] }
   | { type: 'burn'; side: Side; id: TileId; count: number; from: number[] }
+  | { type: 'sabotage'; side: Side; part: number; amount: number; shielded: number }
   | { type: 'fizzle'; side: Side; move: MoveId; part: string }
   | { type: 'clash'; round: number }
   | { type: 'prep'; round: number }
@@ -142,6 +146,10 @@ export interface LogEntry {
   broke: string | null;
   knockedOut: boolean;
   shieldGain: number;
+  /** Sabotage burn: the damage went to a part only, not to HP. */
+  partOnly: boolean;
+  /** Power+ burn bonus applied to this action (0 = none). */
+  boost: number;
   miss: string | null;
 }
 
@@ -224,7 +232,7 @@ export function makeFighter(side: Side, spec: MonsterSpec, scale: FighterScale =
     shield: Math.round(hp * (soul.startShieldPct ?? 0)), shieldMult: Math.max(0.2, shieldMult),
     stats, armour, parts, strips: [[], [], []], reelPos: [0, 0, 0],
     cooldown: tune.timing.baseCooldownSec * (side === 'player' ? 0.35 : 0.55),
-    hold: [false, false, false], queued: [], paidSpins: 0, bonusSlots: 0, plan: [], quickShift: 0,
+    queued: [], paidSpins: 0, freeNudges: 0, initiative: 0, boost: 0, plan: [], quickShift: 0,
     quickBank: 0, spinLeft: 0, spinTotal: 0, tease: false, landed: false, pocket, pocketSize, aiWait: 0,
   };
 }
@@ -395,11 +403,37 @@ export function previewExecute(c: Combat, side: Side): Preview | null {
   return { move: m.move, zone, tier: m.tier, hit: computeHit(f, c.fighters[other(side)], m.move, zone, lineMult(m), superPierce(m.tier), m.tier >= 3) };
 }
 
-/** Damage of burning `n` target tiles at a zone: flat, soaked by shields like any hit. */
+/** Damage of burning `n` Body target tiles: flat, soaked by shields like any hit. */
 function targetBurnHit(foe: Fighter, zone: ZoneId, n: number): HitCalc {
   const damage = tune.combat.targetBurnDamage[n];
   const toShield = Math.min(foe.shield, damage);
   return { damage, toShield, toHp: damage - toShield, part: partForZone(foe, zone), weak: false, resist: 1 };
+}
+
+export interface Sabotage {
+  /** Index of the enemy part hit. */
+  part: number;
+  /** Damage before shields (a share of the part's max HP). */
+  amount: number;
+  toShield: number;
+  /** Damage the part takes after the shield. */
+  toPart: number;
+  breaks: boolean;
+}
+
+/**
+ * Sabotage: burning `n` target tiles of a breakable part deals a share of that
+ * part's max HP (`combat.sabotagePct`) to the part only, never to the monster's
+ * HP. Shields soak it first. Null for Body (it cannot break; Body burns chip HP).
+ */
+export function sabotageHit(foe: Fighter, zone: ZoneId, n: number): Sabotage | null {
+  const part = partForZone(foe, zone);
+  const p = foe.parts[part];
+  if (!p || p.slot === 'body' || p.broken) return null;
+  const amount = Math.max(1, Math.round(p.maxHp * tune.combat.sabotagePct[Math.min(3, n)]));
+  const toShield = Math.min(foe.shield, amount);
+  const toPart = amount - toShield;
+  return { part, amount, toShield, toPart, breaks: toPart >= p.hp };
 }
 
 /** Index of the stack (tile type) holding `id` in the sorted pocket, or -1. */
@@ -439,17 +473,14 @@ export function tilesFromPart(f: Fighter, part: number): PocketTile[] {
   return f.pocket.filter((t) => t.part === part);
 }
 
-/** What burning a pocketed group would deal: moves at the line target, targets at their own part. */
-export function previewBurn(c: Combat, side: Side, id: TileId): HitCalc | null {
+/** What burning a stashed target stack would do: sabotage a part, or (Body) chip HP. */
+export function previewBurn(c: Combat, side: Side, id: TileId): { sabotage: Sabotage | null; chip: HitCalc | null } | null {
+  if (!isTarget(id)) return null;
   const f = c.fighters[side];
-  if (isTarget(id)) {
-    const n = Math.min(3, countIn(f.pocket, id));
-    return targetBurnHit(c.fighters[other(side)], zoneOf(id), n);
-  }
-  const target = lineTiles(f).target;
-  if (!isMove(id) || !isTarget(target)) return null;
+  const foe = c.fighters[other(side)];
   const n = Math.min(3, countIn(f.pocket, id));
-  return computeHit(f, c.fighters[other(side)], id, zoneOf(target), tune.combat.burnMult[n]);
+  const sab = sabotageHit(foe, zoneOf(id), n);
+  return sab ? { sabotage: sab, chip: null } : { sabotage: null, chip: targetBurnHit(foe, zoneOf(id), n) };
 }
 
 // ---------------------------------------------------------------- acting
@@ -489,7 +520,7 @@ function breakPart(c: Combat, f: Fighter, index: number) {
 function newEntry(c: Combat, side: Side, kind: LogEntry['kind'], tile: TileId): LogEntry {
   const e: LogEntry = {
     t: c.time, side, kind, tile, count: 1, tier: 0, zone: null, mut: 'blank', mutStack: 0,
-    damage: 0, shielded: 0, weak: false, resist: 1, broke: null, knockedOut: false, shieldGain: 0, miss: null,
+    damage: 0, shielded: 0, weak: false, resist: 1, broke: null, knockedOut: false, shieldGain: 0, miss: null, partOnly: false, boost: 0,
   };
   c.log.push(e);
   return e;
@@ -577,12 +608,27 @@ export function rowValid(f: Fighter, row: number): boolean {
   return isMove(r.move) && isTarget(r.target);
 }
 
-/** Action slots this round: base, +1 for fast monsters, Soul and Quick burns. */
-export function actionSlots(f: Fighter): number {
+/** Slots before the cap: base, +1 for fast monsters, +Soul. */
+function rawSlots(f: Fighter): number {
   const cl = tune.clash;
   const soul = soulStats(f.soul).actionSlots ?? 0;
   const fast = f.stats.speed >= cl.fastSpeed ? 1 : 0;
-  return Math.min(cl.maxSlots, cl.baseSlots + fast + soul + f.bonusSlots);
+  return cl.baseSlots + fast + soul;
+}
+
+/** Action slots this round, capped at the 3 rows of the grid. */
+export function actionSlots(f: Fighter): number {
+  return Math.min(tune.clash.maxSlots, rawSlots(f));
+}
+
+/** Slots past the cap; each becomes initiative and a free nudge every round. */
+export function overflowSlots(f: Fighter): number {
+  return Math.max(0, rawSlots(f) - tune.clash.maxSlots);
+}
+
+/** Gold price of the next nudge (0 while free nudges remain). */
+export function nudgeCost(f: Fighter): number {
+  return f.freeNudges > 0 ? 0 : tune.prep.nudgeCost;
 }
 
 /** Gold price of the next re-spin this round. */
@@ -590,15 +636,9 @@ export function spinCost(f: Fighter): number {
   return tune.prep.spinBaseCost + f.paidSpins * tune.prep.spinStepCost;
 }
 
-/** Spin the reels that are not held (animation timing reuses spinLeft). */
+/** Spin all three reels (animation timing reuses spinLeft). */
 function spinReels(c: Combat, f: Fighter) {
-  const keep = f.hold.map((h, r) => (h ? { strip: f.strips[r], pos: f.reelPos[r] } : null));
   buildStrips(c, f);
-  keep.forEach((k, r) => {
-    if (!k) return;
-    f.strips[r as ReelIndex] = k.strip;
-    f.reelPos[r as ReelIndex] = k.pos;
-  });
   f.queued = [];
   f.tease = false;
   f.spinTotal = tune.timing.spinSec + 2 * tune.timing.reelStaggerSec;
@@ -606,9 +646,8 @@ function spinReels(c: Combat, f: Fighter) {
   c.events.push({ type: 'spin', side: f.side, tease: false });
 }
 
-/** Seconds after spin start at which a reel lands; held reels never spin. */
-export function reelLandTime(f: Fighter, reel: ReelIndex): number {
-  if (f.hold[reel]) return 0;
+/** Seconds after spin start at which a reel lands. */
+export function reelLandTime(_f: Fighter, reel: ReelIndex): number {
   return tune.timing.spinSec + reel * tune.timing.reelStaggerSec;
 }
 
@@ -621,10 +660,20 @@ export function respin(c: Combat, side: Side): boolean {
   return true;
 }
 
-export function toggleHold(c: Combat, side: Side, reel: ReelIndex) {
+/**
+ * Nudge one reel by one row. `dir` 1 moves the tiles down (the tile above
+ * slides into view), -1 moves them up. The caller pays `nudgeCost` first;
+ * a free nudge is used up here. Queued rows stay queued while still valid.
+ */
+export function nudge(c: Combat, side: Side, reel: ReelIndex, dir: 1 | -1): boolean {
   const f = c.fighters[side];
-  if (c.phase !== 'prep' || f.spinLeft > 0) return;
-  f.hold[reel] = !f.hold[reel];
+  if (c.phase !== 'prep' || f.spinLeft > 0 || c.winner) return false;
+  if (f.freeNudges > 0) f.freeNudges--;
+  const n = f.strips[reel].length;
+  f.reelPos[reel] = (((f.reelPos[reel] - dir) % n) + n) % n;
+  f.queued = f.queued.filter((row) => rowValid(f, row));
+  c.events.push({ type: 'nudge', side, reel, dir });
+  return true;
 }
 
 export function toggleRow(c: Combat, side: Side, row: number) {
@@ -644,9 +693,10 @@ function gainShieldNow(c: Combat, f: Fighter, amount: number): number {
 }
 
 /**
- * Burn a stash stack during prep: target tiles chip the named enemy part,
- * Shield tiles shield now, Quick tiles add an action slot, others are
- * discarded to free space.
+ * Burn a stash stack during prep. Target tiles sabotage the named enemy part
+ * (a share of its max HP, part only; Body tiles chip HP instead), Shield
+ * tiles shield now, Quick tiles give initiative, Power+ boosts this round's
+ * first action, move tiles are discarded to free space.
  */
 export function burn(c: Combat, side: Side, id: TileId): boolean {
   const f = c.fighters[side];
@@ -661,9 +711,23 @@ export function burn(c: Combat, side: Side, id: TileId): boolean {
     const foe = c.fighters[other(side)];
     const zone = zoneOf(id);
     log.zone = zone;
-    landHit(c, foe, targetBurnHit(foe, zone, n), zone, log);
+    const sab = sabotageHit(foe, zone, n);
+    if (sab) {
+      foe.shield -= sab.toShield;
+      const p = foe.parts[sab.part];
+      p.hp -= sab.toPart;
+      Object.assign(log, { damage: sab.amount, shielded: sab.toShield, partOnly: true });
+      c.events.push({ type: 'sabotage', side: foe.side, part: sab.part, amount: sab.amount, shielded: sab.toShield });
+      if (p.hp <= 0) {
+        log.broke = PARTS[p.id].name;
+        breakPart(c, foe, sab.part);
+      }
+      // The break darkens this side's matching target tiles; drop rows it spoiled.
+      f.queued = f.queued.filter((row) => rowValid(f, row));
+    } else landHit(c, foe, targetBurnHit(foe, zone, n), zone, log);
   } else if (id === 'shield') log.shieldGain = gainShieldNow(c, f, tune.shield.perTile * f.shieldMult * n);
-  else if (id === 'quick') f.bonusSlots += n;
+  else if (id === 'quick') f.initiative += quickCut(n);
+  else if (id === 'power') f.boost = tune.combat.powerBurnBonus[Math.min(3, n)];
   checkEnd(c);
   return true;
 }
@@ -691,6 +755,49 @@ function stash(c: Combat, f: Fighter, tiles: { id: TileId; part?: number; slot: 
   if (stored.length || discarded.length) c.events.push({ type: 'pocket', side: f.side, stored, discarded });
 }
 
+/** Quick head start for `n` stacked tiles, in action gaps (0.5, 1, 2). */
+function quickCut(n: number): number {
+  const cuts = tune.mutators.quick.cooldownCut;
+  return cuts[Math.min(cuts.length, Math.max(1, n)) - 1];
+}
+
+/** One action gap for this fighter, in seconds. */
+const actionGap = (f: Fighter) => tune.clash.actionGap / Math.max(0.3, f.stats.speed);
+
+/** A row's tiles as they are on the reels, dark tiles included (plans keep their source part). */
+function rawRow(f: Fighter, row: number) {
+  const m = reelWindow(f, 0)[row];
+  return { move: m.id, part: m.part, target: reelWindow(f, 1)[row].id, mut: reelWindow(f, 2)[row].id };
+}
+
+/**
+ * Projected clash order for both sides' current queues: base timeline,
+ * initiative, and Quick mutators pulling later actions forward. Used for the
+ * order badges in prep; the clash itself fires by the same rules.
+ */
+export function projectedOrder(c: Combat): { side: Side; row: number; index: number; t: number }[] {
+  const out: { side: Side; row: number; index: number; t: number }[] = [];
+  for (const side of ['player', 'enemy'] as const) {
+    const f = c.fighters[side];
+    const gap = actionGap(f);
+    const lead = leadFor(c, f);
+    let shift = f.initiative * gap;
+    f.queued.forEach((row, i) => {
+      out.push({ side, row, index: i, t: Math.max(0, gap * (i + 0.5) + lead - shift) });
+      const mut = rawRow(f, row).mut;
+      if (mut === 'quick') shift += gap * quickCut(1 + Math.min(tune.combat.mutatorMatchCap, countIn(f.pocket, 'quick')));
+    });
+  }
+  return out.sort((a, b) => a.t - b.t);
+}
+
+/** Ties go to the side with more initiative, then the faster side. */
+function leadFor(c: Combat, f: Fighter): number {
+  const foe = c.fighters[other(f.side)];
+  if (f.initiative !== foe.initiative) return f.initiative > foe.initiative ? 0 : 0.01;
+  return f.stats.speed >= foe.stats.speed ? 0 : 0.01;
+}
+
 /** Tiles of the rows that were not queued (what Fight would stash). */
 export function unqueuedTiles(f: Fighter) {
   const out: { id: TileId; part?: number; slot: number }[] = [];
@@ -706,15 +813,15 @@ export function unqueuedTiles(f: Fighter) {
 
 /** Freeze the queued rows into a timed plan. */
 function lockPlan(c: Combat, f: Fighter) {
-  const gap = tune.clash.actionGap / Math.max(0.3, f.stats.speed);
-  // Ties go to the faster side; a small offset keeps the order stable.
-  const lead = f.stats.speed >= c.fighters[other(f.side)].stats.speed ? 0 : 0.01;
-  f.plan = f.queued.map((row, i) => {
-    const r = rowTiles(f, row);
-    return { side: f.side, row, move: r.move as MoveId, target: r.target, mut: r.mut, part: r.part, at: gap * (i + 0.5) + lead, done: false };
-  });
+  const gap = actionGap(f);
+  const lead = leadFor(c, f);
+  // Raw tiles: an action whose part already broke keeps its move and fizzles.
+  f.plan = f.queued
+    .map((row, i) => ({ row, i, r: rawRow(f, row) }))
+    .filter(({ r }) => isMove(r.move) && isTarget(r.target))
+    .map(({ row, i, r }) => ({ side: f.side, row, move: r.move as MoveId, target: r.target, mut: r.mut, part: r.part, at: gap * (i + 0.5) + lead, done: false }));
   stash(c, f, unqueuedTiles(f));
-  f.quickShift = 0;
+  f.quickShift = f.initiative * gap;
 }
 
 /** Player presses Fight: both plans lock and the clash starts. */
@@ -736,9 +843,11 @@ function startRound(c: Combat) {
   c.phase = 'prep';
   for (const side of ['player', 'enemy'] as const) {
     const f = c.fighters[side];
-    f.hold = [false, false, false];
     f.paidSpins = 0;
-    f.bonusSlots = 0;
+    const over = overflowSlots(f);
+    f.freeNudges = over * tune.clash.overflowNudges;
+    f.initiative = over * tune.clash.overflowInitiative;
+    f.boost = 0;
     f.plan = [];
     spinReels(c, f); // the free spin
   }
@@ -764,7 +873,9 @@ export function previewRow(c: Combat, side: Side, row: number): Preview | null {
   if (!isMove(r.move) || !isTarget(r.target)) return null;
   const m = actionMatches(f, r);
   const zone = zoneOf(r.target);
-  return { move: r.move, zone, tier: m.tier, hit: computeHit(f, c.fighters[other(side)], r.move, zone, lineMult(m), superPierce(m.tier), m.tier >= 3) };
+  // A Power+ burn boosts the first queued action (or this row if none is queued yet).
+  const boost = f.boost && (f.queued[0] ?? row) === row ? 1 + f.boost : 1;
+  return { move: r.move, zone, tier: m.tier, hit: computeHit(f, c.fighters[other(side)], r.move, zone, lineMult(m) * boost, superPierce(m.tier), m.tier >= 3) };
 }
 
 /** Fire one planned action. */
@@ -787,14 +898,13 @@ function fireAction(c: Combat, a: PlannedAction) {
   Object.assign(log, { tier: m.tier, mut: m.mut, mutStack: m.mut === 'blank' ? 0 : 1 + m.mutMatches });
   const mutStack = 1 + m.mutMatches * tune.combat.mutatorMatchBonus;
   if (m.mut === 'shield') log.shieldGain = gainShieldNow(c, f, tune.shield.perTile * f.shieldMult * mutStack);
-  if (m.mut === 'quick') {
-    const cuts = tune.mutators.quick.cooldownCut;
-    const gap = tune.clash.actionGap / Math.max(0.3, f.stats.speed);
-    f.quickShift += gap * cuts[Math.min(cuts.length, 1 + m.mutMatches) - 1];
-  }
+  if (m.mut === 'quick') f.quickShift += actionGap(f) * quickCut(1 + m.mutMatches);
+  const boost = f.boost;
+  f.boost = 0;
+  log.boost = boost;
   const zone = zoneOf(a.target as `t_${ZoneId}`);
   c.events.push({ type: 'action', side: a.side, move: a.move, tier: m.tier, isSuper: m.tier >= 3, burn: false, zone, consumed });
-  applyHit(c, f, a.move, zone, lineMult(m), log, superPierce(m.tier), m.tier >= 3);
+  applyHit(c, f, a.move, zone, lineMult(m) * (1 + boost), log, superPierce(m.tier), m.tier >= 3);
 }
 
 /** Advance the clash (or the prep spin animation). */

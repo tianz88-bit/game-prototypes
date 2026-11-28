@@ -9,7 +9,8 @@
   },
   "prep": {
     "spinBaseCost": 10,
-    "spinStepCost": 10
+    "spinStepCost": 10,
+    "nudgeCost": 5
   },
   "clash": {
     "actionGap": 1.6,
@@ -17,7 +18,9 @@
     "endPause": 1.0,
     "baseSlots": 2,
     "fastSpeed": 1.25,
-    "maxSlots": 4
+    "maxSlots": 3,
+    "overflowInitiative": 0.5,
+    "overflowNudges": 1
   },
   "reels": {
     "minLength": 8,
@@ -34,6 +37,8 @@
     "holdReducePerTile": 0.1,
     "holdReduceCap": 0.3,
     "targetBurnDamage": [0, 1, 2, 3],
+    "sabotagePct": [0, 0.2, 0.4, 0.65],
+    "powerBurnBonus": [0, 0.25, 0.5, 0.8],
     "superShieldPierce": 0
   },
   "shield": {

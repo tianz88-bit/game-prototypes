@@ -21,7 +21,8 @@ game over when gold cannot cover the bet or the monster is lost.
 
 A fight is a series of **rounds**. Each round:
 
-1. **Prep** (no timer): spin, hold, choose actions, see the enemy plan.
+1. **Prep** (no timer): spin, nudge, choose actions, burn stash tiles,
+   see the enemy plan.
 2. **Clash** (automatic, about 6 to 10 seconds): both monsters perform
    their queued actions in speed order with full 3D effects. No input
    except Yield.
@@ -36,23 +37,42 @@ The fight ends when a monster's HP reaches 0. Yield is available in prep.
 - **Spins.** Each round starts with one free spin. Re-spinning costs
   gold from the run, rising with each extra spin in the round and
   resetting next round (`tune.json`).
-- **Hold.** Before a re-spin the player may hold any reel (column); held
-  reels keep their tiles.
+- **Nudge** (replaces Hold, owner decision after the first playtest).
+  Arrows above each reel shift that reel one row up or down for a small
+  gold price (`prep.nudgeCost`). The player can see the tiles one row
+  away, so a nudge is a planned fix, not a gamble. Queued rows stay
+  queued while still valid.
 - **Choose actions.** The player picks which rows go into the queue, up
-  to the monster's action slots this round (2, or 3 for fast monsters;
-  `tune.json`). Rows without a move or a target cannot be queued.
+  to the monster's action slots this round: 2, +1 for fast monsters,
+  +Soul, capped at 3 (one per row). Each slot past the cap becomes
+  initiative (half an action gap) and one free nudge per round. Rows
+  without a move or a target cannot be queued.
 - **Stash.** On Fight, the tiles of rows that were not queued go into
   the stash: type slots with stacks of 3, as in the pocket of
   `chimera-reels`. A queued action consumes stashed duplicates of its
   move, target and mutator for power-ups (1, 2, 3 move duplicates; 3 is
   the super).
-- **Burn** (tap a stash stack, prep only): target tiles chip the named
-  enemy part (1, 2, 3 damage), Shield tiles add shield now, Quick tiles
-  add one action slot this round, other tiles are discarded to free
-  space.
+- **Stash roles** (owner decision): each tile type has one job.
+
+  | Stash tile | Role |
+  |---|---|
+  | Move | Charge: stacks power up that move when queued; 3 = super |
+  | Target | Sabotage: burn to damage that enemy part by 20% / 40% / 65% of its max HP (1, 2, 3 tiles). Part HP only, never the monster's HP; shields soak it first. Breaking the part makes every enemy action from it fizzle. Body tiles cannot break anything and chip 1 / 2 / 3 HP instead |
+  | Quick | Initiative: burn to act sooner this round (half, one, two action gaps) |
+  | Shield | Burn to shield now |
+  | Power+ | Burn to boost this round's first action (+25% / 50% / 80%) |
+
+  Burning happens in prep only (tap a stack). Moves are not burned for
+  effect; burning them only frees space.
+- **Clash order** is shown in prep: every queued action, yours and the
+  enemy's, carries its place in the clash (1, 2, 3...).
 - **Enemy plan.** The enemy spins and queues its actions at the start of
-  prep, and the plan is shown with each action's target and damage on
-  the player. The player commits knowing it.
+  prep, and the plan is shown with each action's target, damage on the
+  player, clash order and the part its move comes from (with that part's
+  HP). When the player's stash can break that part, the action is
+  highlighted ("BREAK IT"); once the part breaks it shows FIZZLES. The
+  player commits knowing all of it. (Shown against the AI only; a PvP
+  mode would hide it, see Out of scope.)
 
 ## Clash
 
@@ -72,7 +92,7 @@ The fight ends when a monster's HP reaches 0. Yield is available in prep.
 
 | Soul | Species | Ability |
 |---|---|---|
-| Tailwind | Skyreave | One extra action slot every round |
+| Tailwind | Skyreave | Extra speed every round: past the 3-slot cap it becomes initiative and a free nudge |
 | Hoarder | Tuskrel | One extra stash type slot; supers on a weak spot hit harder |
 | Stoneheart | Bulwark | Starts each fight shielded, bigger shield cap |
 | Adaptive | Random roll | Small attack, defence and speed boost |
@@ -82,15 +102,15 @@ The fight ends when a monster's HP reaches 0. Yield is available in prep.
 
 - **Rush:** fill every round with actions, Quick for tempo.
 - **Charge:** queue few actions, stash duplicates, land a super later.
-- **Utility:** read the enemy plan, burn targets to break the part behind
-  its big attack so it fizzles, keep a shield up.
+- **Utility:** read the enemy plan, sabotage the part behind its big
+  attack so it fizzles, use Quick to act first, keep a shield up.
 
 ## Screen
 
 - **Prep:** enemy panel on top with the enemy plan (up to 3 action chips)
   and its stash; 3D arena in the middle; player panel with the 3x3 grid
-  (rows selectable, reels holdable), stash, and two buttons: Spin (shows
-  the price) and Fight.
+  (rows selectable, nudge arrows above each reel), stash, and two
+  buttons: Spin (shows the price and the nudge price) and Fight.
 - **Clash:** the grid is replaced by the player's queued actions; both
   plans light up as each action fires. Nothing else moves on the HUD.
 
@@ -105,7 +125,7 @@ Playwright. Hosting: GitHub Pages via `.github/workflows/deploy.yml`.
 
 ## Out of scope
 
-PvP, 3v3, breeding, economy beyond the run, status effects, more damage
+PvP (possible later as simultaneous hidden plans, not built), 3v3, breeding, economy beyond the run, status effects, more damage
 types, counter-triangle parts, final art, music. Balance is first-pass.
 
 ## Success test
